@@ -11,6 +11,7 @@
 @import "./protocol-features.css";
 @import "./what-is-hydra.css";
 @import "./topologies.css";
+@import "./fast-and-frequent-activity.css";
 
 @tailwind base;
 @tailwind components;

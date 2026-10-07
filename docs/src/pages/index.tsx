@@ -9,6 +9,7 @@ import WhyHydraHead from "../components/homepage/WhyHydraHead";
 import ProtocolFeatures from "../components/homepage/ProtocolFeatures";
 import WhatIsHydra from "../components/homepage/WhatIsHydra";
 import Topologies from "../components/homepage/Topologies";
+import FastAndFrequentActivity from "../components/homepage/FastAndFrequentActivity";
 
 export default function Home() {
   const isLaptopUp = useMediaQuery(forLaptop);
@@ -21,6 +22,7 @@ export default function Home() {
           <WhatIsHydra />
           <ProtocolFeatures />
           <Topologies />
+          <FastAndFrequentActivity />
         </Layout>
       </div>
     </PageContext.Provider>

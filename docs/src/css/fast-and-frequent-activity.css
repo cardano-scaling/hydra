@@ -1,0 +1,93 @@
+.fast-and-frequent-activity {
+  --project-line: rgba(255, 255, 255, 0.25);
+  background-color: var(--pure-white);
+}
+
+.fast-and-frequent-activity__inner {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  padding-bottom: 80px;
+}
+
+.fast-and-frequent-activity__projects {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  list-style: none;
+  border-radius: 16px;
+  background: radial-gradient(
+      140% 120% at -24% -15%,
+      rgba(215, 38, 61, 1) 0%,
+      rgba(200, 37, 110, 0.75) 25%,
+      rgba(185, 35, 158, 0.5) 50%,
+      rgba(169, 34, 207, 0.25) 75%,
+      rgba(154, 32, 255, 0) 100%
+    ),
+    var(--hydra-black);
+}
+
+.fast-and-frequent-activity__project {
+  --line-right: 0 0 transparent;
+  --line-bottom: 0 0 transparent;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin: 0;
+  padding: 24px;
+  color: var(--pure-white);
+  box-shadow: var(--line-right), var(--line-bottom);
+}
+
+.fast-and-frequent-activity__project-text {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+@media (max-width: 767px) {
+  .fast-and-frequent-activity__project:not(:last-child) {
+    --line-bottom: inset 0 -1px var(--project-line);
+  }
+}
+
+@media (min-width: 768px) {
+  .fast-and-frequent-activity__inner {
+    gap: 40px;
+    padding-bottom: 100px;
+  }
+
+  .fast-and-frequent-activity__projects {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .fast-and-frequent-activity__project {
+    padding: 32px;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .fast-and-frequent-activity__project:nth-child(2n + 1) {
+    --line-right: inset -1px 0 var(--project-line);
+  }
+
+  .fast-and-frequent-activity__project:not(:nth-last-child(-n + 2)) {
+    --line-bottom: inset 0 -1px var(--project-line);
+  }
+}
+
+@media (min-width: 1024px) {
+  .fast-and-frequent-activity__projects {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .fast-and-frequent-activity__project:not(:nth-child(3n)) {
+    --line-right: inset -1px 0 var(--project-line);
+  }
+
+  .fast-and-frequent-activity__project:not(:nth-last-child(-n + 3)) {
+    --line-bottom: inset 0 -1px var(--project-line);
+  }
+}
