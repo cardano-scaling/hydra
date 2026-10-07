@@ -1,0 +1,162 @@
+.topologies {
+  background-color: var(--pure-white);
+}
+
+.topologies__inner {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 32px;
+  padding-bottom: 80px;
+}
+
+.topologies__cards {
+  display: flex;
+  flex-direction: column;
+  align-self: stretch;
+  gap: 8px;
+}
+
+.topologies__card {
+  display: flex;
+  flex-direction: column;
+  gap: 56px;
+  padding: 40px 24px 56px;
+  border-radius: 16px;
+  background-color: var(--hydra-black);
+}
+
+.topologies__text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.topologies__button-label {
+  display: none;
+}
+
+.topologies__diagram {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Graphics keep their designed size; narrow boxes crop their transparent edges.
+   Paddings are 1px short of the designs to make room for the border. */
+.topologies__nodes {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  align-self: stretch;
+  gap: 8px;
+  padding: 15px 15px 23px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 16px;
+  background-color: var(--hydra-surface);
+}
+
+.topologies__signers {
+  display: flex;
+  align-items: center;
+  align-self: flex-end;
+  gap: 8px;
+  margin: 0;
+  color: var(--pure-white);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.topologies__check {
+  width: 24px;
+  height: 24px;
+}
+
+.topologies__graphic {
+  width: auto;
+  max-width: none;
+  height: 303px;
+}
+
+.topologies__arrows {
+  width: 36px;
+  height: 46px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.topologies__settlement {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.topologies__settlement .section-label {
+  max-width: 300px;
+  color: var(--pure-white);
+  text-align: center;
+}
+
+@media (min-width: 768px) {
+  .topologies__inner {
+    gap: 40px;
+    padding-bottom: 100px;
+  }
+
+  .topologies__card {
+    gap: 40px;
+    padding: 32px 32px 48px;
+  }
+
+  .topologies__description {
+    max-width: 400px;
+  }
+
+  .topologies__button-label {
+    display: inline;
+  }
+
+  .topologies__button-label--short {
+    display: none;
+  }
+
+  .topologies__nodes {
+    padding: 31px 23px;
+  }
+
+  .topologies__signers {
+    position: absolute;
+    top: 23px;
+    right: 23px;
+    font-size: 16px;
+    line-height: 24px;
+  }
+
+  .topologies__check {
+    width: 20px;
+    height: 20px;
+  }
+
+  .topologies__settlement .section-label {
+    max-width: none;
+  }
+}
+
+@media (min-width: 1024px) {
+  .topologies__cards {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: auto auto;
+    gap: 0 16px;
+  }
+
+  .topologies__card {
+    display: grid;
+    grid-row: span 2;
+    grid-template-rows: subgrid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

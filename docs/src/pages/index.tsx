@@ -8,6 +8,7 @@ import { PageContext, PageType } from "../context/PageContext";
 import WhyHydraHead from "../components/homepage/WhyHydraHead";
 import ProtocolFeatures from "../components/homepage/ProtocolFeatures";
 import WhatIsHydra from "../components/homepage/WhatIsHydra";
+import Topologies from "../components/homepage/Topologies";
 
 export default function Home() {
   const isLaptopUp = useMediaQuery(forLaptop);
@@ -19,6 +20,7 @@ export default function Home() {
           <WhyHydraHead />
           <WhatIsHydra />
           <ProtocolFeatures />
+          <Topologies />
         </Layout>
       </div>
     </PageContext.Provider>

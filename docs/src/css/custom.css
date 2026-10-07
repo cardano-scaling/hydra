@@ -10,6 +10,7 @@
 @import "./why-hydra.css";
 @import "./protocol-features.css";
 @import "./what-is-hydra.css";
+@import "./topologies.css";
 
 @tailwind base;
 @tailwind components;
@@ -177,6 +178,52 @@ h4 {
   color: rgba(255, 255, 255, 0.5);
   font-size: 16px;
   line-height: 24px;
+}
+
+/* Sections on a white background */
+.section-heading--light .section-title {
+  color: var(--pure-black);
+}
+
+.section-heading--light .section-description {
+  color: rgba(0, 0, 0, 0.5);
+}
+
+.card-title {
+  margin: 0;
+  color: var(--pure-white);
+  font-family: "Lexend";
+  font-size: 22px;
+  font-weight: 500;
+  line-height: 28px;
+  letter-spacing: -0.22px;
+}
+
+@media (min-width: 768px) {
+  .card-title {
+    font-size: 28px;
+    line-height: 36px;
+    letter-spacing: -0.28px;
+  }
+}
+
+.large-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--pure-white);
+  font-size: 20px;
+  line-height: 32px;
+  letter-spacing: -0.2px;
+}
+
+.large-link:hover {
+  color: var(--hydra-red);
+  text-decoration: none;
+}
+
+.large-link--light {
+  color: var(--pure-black);
 }
 
 .badge-title {
