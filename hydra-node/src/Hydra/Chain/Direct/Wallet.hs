@@ -13,12 +13,13 @@ import Cardano.Ledger.Alonzo.Plutus.Context (ContextError, EraPlutusContext)
 import Cardano.Ledger.Alonzo.Scripts (
   AlonzoEraScript (..),
   AsIx (..),
+  plutusScriptLanguage,
  )
 import Cardano.Ledger.Alonzo.Tx (hashScriptIntegrity, mkScriptIntegrity)
 import Cardano.Ledger.Alonzo.TxWits (
   Redeemers (..),
  )
-import Cardano.Ledger.Alonzo.UTxO (AlonzoScriptsNeeded)
+import Cardano.Ledger.Alonzo.UTxO (AlonzoEraUTxO, AlonzoScriptsNeeded)
 import Cardano.Ledger.Api (
   AlonzoEraTx,
   ConwayEra,
@@ -38,7 +39,7 @@ import Cardano.Ledger.Api (
   witsTxL,
   pattern SpendingPurpose,
  )
-import Cardano.Ledger.Api.UTxO (EraUTxO, ScriptsNeeded, getScriptsHashesNeeded, getScriptsNeeded, getScriptsProvided)
+import Cardano.Ledger.Api.UTxO (ScriptsNeeded, getScriptsHashesNeeded, getScriptsNeeded, getScriptsProvided)
 import Cardano.Ledger.Babbage.TxBody qualified as Babbage
 import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Coin (Coin (..))
@@ -47,6 +48,7 @@ import Cardano.Ledger.Core qualified as Core
 import Cardano.Ledger.Core qualified as Ledger
 import Cardano.Ledger.Shelley.API (unUTxO)
 import Cardano.Ledger.Shelley.API qualified as Ledger
+import Cardano.Ledger.State (ScriptsProvided (..))
 import Cardano.Ledger.Val (invert)
 import Cardano.Slotting.EpochInfo (EpochInfo)
 import Cardano.Slotting.Time (SystemStart (..))
@@ -254,7 +256,7 @@ coverFee_ ::
   , Ledger.EraCertState era
   , AlonzoEraTx era
   , ScriptsNeeded era ~ AlonzoScriptsNeeded era
-  , EraUTxO era
+  , AlonzoEraUTxO era
   ) =>
   PParams era ->
   SystemStart ->
@@ -303,13 +305,13 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx = do
   -- transaction, so it must see the adjusted redeemers (with estimated
   -- ExUnits), not the estimation placeholders.
   let txWithAdjustedRedeemers = txForEstimation & witsTxL . rdmrsTxWitsL .~ adjustedRedeemers
+      ScriptsProvided scriptsProvided = getScriptsProvided ledgerUTxO txWithAdjustedRedeemers
+      scriptsNeeded = getScriptsHashesNeeded $ getScriptsNeeded ledgerUTxO (txWithAdjustedRedeemers ^. bodyTxL)
+      scriptsUsed = Map.elems $ Map.restrictKeys scriptsProvided scriptsNeeded
+      languagesUsed = Set.fromList $ plutusScriptLanguage <$> mapMaybe toPlutusScript scriptsUsed
       scriptIntegrityHash =
         hashScriptIntegrity
-          <$> mkScriptIntegrity
-            pparams
-            txWithAdjustedRedeemers
-            (getScriptsProvided ledgerUTxO txWithAdjustedRedeemers)
-            (getScriptsHashesNeeded $ getScriptsNeeded ledgerUTxO (txWithAdjustedRedeemers ^. bodyTxL))
+          <$> mkScriptIntegrity pparams txWithAdjustedRedeemers languagesUsed
   let
     unbalancedBody =
       body
@@ -429,7 +431,7 @@ findLargestUTxO utxo =
 -- cost a little.
 estimateScriptsCost ::
   forall era.
-  (AlonzoEraTx era, EraPlutusContext era, ScriptsNeeded era ~ AlonzoScriptsNeeded era, EraUTxO era) =>
+  (AlonzoEraTx era, EraPlutusContext era, ScriptsNeeded era ~ AlonzoScriptsNeeded era, AlonzoEraUTxO era) =>
   -- | Protocol parameters
   Core.PParams era ->
   -- | Start of the blockchain, for converting slots to UTC times

@@ -49,6 +49,7 @@ withAuthentication ::
   ( SignableRepresentation inbound
   , ToJSON inbound
   , SignableRepresentation outbound
+  , Monad m
   ) =>
   Tracer m AuthLog ->
   -- The party signing key

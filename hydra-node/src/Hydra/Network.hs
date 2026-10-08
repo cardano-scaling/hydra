@@ -16,8 +16,7 @@ module Hydra.Network (
 
 import Hydra.Prelude hiding (show)
 
-import Cardano.Ledger.Orphans ()
-import Data.Aeson (FromJSONKeyFunction (FromJSONKeyTextParser), ToJSONKey (..))
+import Data.Aeson (FromJSONKeyFunction (FromJSONKeyTextParser), ToJSONKey (..), withText)
 import Data.Aeson.Types (FromJSONKey (..), toJSONKeyText)
 import Data.IP (IP)
 import Data.Secret (Secret)
@@ -90,8 +89,13 @@ data NetworkConfiguration = NetworkConfiguration
 
 -- ** IP (Orphans)
 
-deriving anyclass instance ToJSON IP
-deriving anyclass instance FromJSON IP
+-- | Encoded as the textual address, e.g. @"127.0.0.1"@ or @"::1"@.
+instance ToJSON IP where
+  toJSON = toJSON . show
+
+instance FromJSON IP where
+  parseJSON = withText "IP" $ \txt ->
+    maybe (fail $ "failed to read as IP address " <> show txt) pure $ readMaybe (unpack txt)
 
 -- ** PortNumber (Orphans)
 

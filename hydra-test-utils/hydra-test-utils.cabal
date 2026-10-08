@@ -50,7 +50,7 @@ library
     , relude
     , tasty
     , tasty-ant-xml
-    , tasty-hspec
+    , tasty-hspec               >=1.2
     , tasty-html
     , tasty-rerun
     , temporary

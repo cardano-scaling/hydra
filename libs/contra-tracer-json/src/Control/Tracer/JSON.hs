@@ -48,7 +48,7 @@ import Control.Monad.Class.MonadThrow (MonadCatch, catch, finally, onException)
 import Control.Monad.Class.MonadTime.SI (MonadTime, getCurrentTime)
 import Control.Monad.Class.MonadTimer.SI (timeout)
 import Control.Monad.IO.Class (MonadIO, liftIO)
-import Control.Tracer (Tracer (..), natTracer, nullTracer, traceWith)
+import Control.Tracer (Tracer (..), emit, natTracer, nullTracer, traceWith)
 import Data.Aeson (FromJSON, ToJSON (..), pairs, (.=))
 import Data.Aeson qualified as Aeson
 import Data.ByteString.Lazy qualified as LBS
@@ -126,7 +126,8 @@ withTracerOutputTo bufferingMode hdl namespace action = do
  where
   tracer queue =
     Tracer $
-      mkEnvelope namespace >=> liftIO . atomically . writeTBQueue queue
+      emit $
+        mkEnvelope namespace >=> liftIO . atomically . writeTBQueue queue
 
   writeLogs queue closed = do
     entries <- atomically $ do
@@ -262,7 +263,7 @@ traceInTVar ::
   TVar m [Envelope msg] ->
   Text ->
   Tracer m msg
-traceInTVar tvar namespace = Tracer $ \msg -> do
+traceInTVar tvar namespace = Tracer . emit $ \msg -> do
   envelope <- mkEnvelope namespace msg
   atomically $ modifyTVar tvar (envelope :)
 

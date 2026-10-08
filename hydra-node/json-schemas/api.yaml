@@ -3782,24 +3782,9 @@ components:
           example: 5000
 
     IP:
-      type: object
-      oneOf:
-        - title: IPv4
-          type: object
-          properties:
-            tag:
-              type: string
-              enum: ["IPv4"]
-            ipv4:
-              type: string
-        - title: IPv6
-          type: string
-          properties:
-            tag:
-              type: string
-              enum: ["IPv6"]
-            ipv6:
-              type: string
+      type: string
+      description: An IPv4 or IPv6 address in its textual form.
+      example: "127.0.0.1"
 
     ProtocolVersion:
       description: Hydra network protocol version

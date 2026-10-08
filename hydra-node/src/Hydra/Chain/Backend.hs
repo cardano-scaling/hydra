@@ -143,11 +143,18 @@ buildTransactionWithPParams' pparams systemStart eraHistory stakePools changeAdd
                       fromMaybe dummyMintingScript mintingScript
                 )
           )
+  -- NOTE: Since cardano-api 11.4, balancing rejects collateral inputs on
+  -- transactions that run no Plutus script, and the minting script is the only
+  -- script this builder can attach.
+  collateralInputs
+    | mintValue == TxMintValueNone = TxInsCollateralNone
+    | otherwise = TxInsCollateral collateral
+
   -- NOTE: 'makeTransactionBodyAutoBalance' overwrites this.
   bodyContent =
     TxBodyContent
       { txIns = withWitness <$> toList (UTxO.inputSet utxoToSpend)
-      , txInsCollateral = TxInsCollateral collateral
+      , txInsCollateral = collateralInputs
       , txInsReference = TxInsReferenceNone
       , txOuts = outs
       , txTotalCollateral = TxTotalCollateralNone
@@ -192,7 +199,6 @@ buildTransactionWithBody pparams systemStart eraHistory stakePools changeAddress
       (toLedgerEpochInfo eraHistory)
       (LedgerProtocolParameters pparams)
       stakePools
-      mempty
       mempty
       utxoToSpend
       body
