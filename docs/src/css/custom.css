@@ -12,6 +12,8 @@
 @import "./what-is-hydra.css";
 @import "./topologies.css";
 @import "./fast-and-frequent-activity.css";
+@import "./terminal.css";
+@import "./developers.css";
 
 @tailwind base;
 @tailwind components;
@@ -74,6 +76,13 @@
   font-display: swap;
 }
 
+@font-face {
+  font-family: "DM Mono";
+  font-weight: 400;
+  src: url("/fonts/DMMono-Regular.ttf");
+  font-display: swap;
+}
+
 /* You can override the default Infima variables here. */
 :root {
   /* The original violet accent we use */
@@ -114,6 +123,21 @@
   --hydra-black: #090909;
   --hydra-surface: #1b1b1e;
   --hydra-surface-raised: #333338;
+
+  --hydra-glow: rgba(215, 38, 61, 1) 0%, rgba(209, 37, 80, 0.9) 10%,
+    rgba(203, 37, 100, 0.8) 20%, rgba(197, 36, 119, 0.7) 30%,
+    rgba(191, 36, 139, 0.6) 40%, rgba(185, 35, 158, 0.5) 50%,
+    rgba(178, 34, 177, 0.4) 60%, rgba(172, 34, 197, 0.3) 70%,
+    rgba(166, 33, 216, 0.2) 80%, rgba(160, 33, 236, 0.1) 90%,
+    rgba(154, 32, 255, 0) 100%;
+
+  --footer-glow-top: 1583px;
+}
+
+@media (min-width: 768px) {
+  :root {
+    --footer-glow-top: 1032px;
+  }
 }
 
 /* For readability concerns, you should choose a lighter palette in dark mode. */
@@ -179,6 +203,31 @@ h4 {
   color: rgba(255, 255, 255, 0.5);
   font-size: 16px;
   line-height: 24px;
+}
+
+.bg-glow {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.bg-glow::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  top: calc(var(--glow-top) - 500px);
+  left: calc(87.47% - 500px);
+  width: 1000px;
+  height: 1000px;
+  background: radial-gradient(circle closest-side, var(--hydra-glow));
+  transform: matrix(-0.329, -4.1188, 0.7502, -3.2824, 0, 0);
+  pointer-events: none;
+}
+
+@media (min-width: 768px) {
+  .bg-glow::before {
+    transform: matrix(-1.3219, -2.626, 3.015, -2.0928, 0, 0);
+  }
 }
 
 /* Sections on a white background */

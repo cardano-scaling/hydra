@@ -3,6 +3,7 @@
   --ifm-footer-color: rgba(255, 255, 255, 0.5);
   --ifm-footer-link-color: var(--pure-white);
   --ifm-footer-link-hover-color: var(--hydra-red);
+  --glow-top: var(--footer-glow-top);
   z-index: 20;
   padding: 80px 0 48px;
   border-top: 1px solid rgba(255, 255, 255, 0.25);

@@ -1,10 +1,10 @@
-import React, { FC } from "react";
+import React, { FC, ReactNode } from "react";
 import clsx from "clsx";
 
 type Props = {
   label: string;
-  title: string;
-  description?: string;
+  title: ReactNode;
+  description?: ReactNode;
   mode?: "light" | "dark";
 };
 

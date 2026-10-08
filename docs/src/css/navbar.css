@@ -275,9 +275,13 @@ html.plugin-pages .navbar__brand:hover {
   font-size: 14px;
   font-weight: 500;
   line-height: 20px;
+  transition: background-color 0.15s ease-out, color 0.15s ease-out;
 }
 
-.navbar-homepage .navbar__link:hover {
+.navbar-homepage .navbar__link:hover,
+.navbar-homepage .navbar__link:focus-visible,
+.navbar-homepage .navbar__link:active {
+  background-color: var(--hydra-red);
   color: var(--pure-white);
 }
 
