@@ -1,4 +1,7 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
+-- NOTE: Uses the TxBody/TxBodyContent API that cardano-api deprecated in favour of
+-- Cardano.Api.Experimental; the migration is tracked separately.
+{-# OPTIONS_GHC -Wno-deprecations #-}
 
 module Hydra.Ledger.CardanoSpec where
 
@@ -35,11 +38,9 @@ import Ouroboros.Consensus.HardFork.History (
   SafeZone (..),
   Summary (Summary),
   initBound,
-  mkInterpreter,
   pattern NoPerasEnabled,
  )
 import Ouroboros.Consensus.HardFork.History qualified as Consensus
-import Ouroboros.Consensus.Shelley.Crypto (StandardCrypto)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Cardano.Ledger.Babbage.Arbitrary ()
 import Test.Gen.Cardano.Api.Typed (genChainPoint)
@@ -140,7 +141,7 @@ spec =
               \   \"value\":{\"lovelace\":14}}}"
         shouldParseJSONAs @UTxO bs
 
-      xprop "round-trips TxOut with non-canonical inline datum via cardano-api FromJSON (pending cardano-api fix)" $
+      prop "round-trips TxOut with non-canonical inline datum via cardano-api FromJSON" $
         forAll genNonCanonicalHashableScriptData $ \hsd ->
           let (vk, _) = genKeyPair `generateWith` 42
               addr = mkVkAddress testNetworkId vk
@@ -155,7 +156,7 @@ spec =
                 Left err -> counterexample err False
                 Right _ -> property True
 
-      prop "parseTxOutFromJSON preserves hash for non-canonical inline datum" $
+      prop "JSON decoding preserves hash for non-canonical inline datum" $
         forAll genNonCanonicalHashableScriptData $ \hsd ->
           let (vk, _) = genKeyPair `generateWith` 42
               addr = mkVkAddress testNetworkId vk
@@ -166,7 +167,7 @@ spec =
                   (TxOutDatumInline hsd)
                   ReferenceScriptNone ::
                   TxOut CtxUTxO
-           in case parseEither parseTxOutFromJSON (Aeson.toJSON txOut) of
+           in case parseEither (parseJSON @(TxOut CtxUTxO)) (Aeson.toJSON txOut) of
                 Left err -> counterexample err False
                 Right (TxOut _ _ (TxOutDatumInline hsd') _) ->
                   hashScriptDataBytes hsd === hashScriptDataBytes hsd'

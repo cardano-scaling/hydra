@@ -27,7 +27,6 @@ import Test.QuickCheck.Instances ()
 
 instance Arbitrary IP where
   arbitrary = IPv4 . toIPv4w <$> arbitrary
-  shrink = genericShrink
 
 instance Arbitrary RunOptions where
   arbitrary = do

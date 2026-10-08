@@ -1,5 +1,8 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE RecordWildCards #-}
+-- NOTE: Uses the TxBody/TxBodyContent API that cardano-api deprecated in favour of
+-- Cardano.Api.Experimental; the migration is tracked separately.
+{-# OPTIONS_GHC -Wno-deprecations #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 -- | Provides building blocks for Mutation testing of Contracts.
@@ -313,7 +316,7 @@ applyMutation mutation (tx@(Tx body wits), utxo) = case mutation of
       let k = case ix of
             ConwaySpending i -> unAsIx i
             ConwayCertifying i -> unAsIx i
-            ConwayRewarding i -> unAsIx i
+            ConwayWithdrawing i -> unAsIx i
             ConwayMinting i -> unAsIx i
             ConwayVoting i -> unAsIx i
             ConwayProposing i -> unAsIx i

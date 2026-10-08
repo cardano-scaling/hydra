@@ -68,7 +68,7 @@ import Hydra.Cardano.Api.Prelude (fromNetworkMagic)
 import Hydra.Tx (ScriptRegistry, newScriptRegistry, txId)
 import Money qualified
 import Ouroboros.Consensus.Block (GenesisWindow (..))
-import Ouroboros.Consensus.HardFork.History (Bound (..), EraEnd (..), EraParams (..), EraSummary (..), SafeZone (..), Summary (..), mkInterpreter, pattern NoPerasEnabled)
+import Ouroboros.Consensus.HardFork.History (Bound (..), EraEnd (..), EraParams (..), EraSummary (..), SafeZone (..), Summary (..), pattern NoPerasEnabled)
 
 data BlockfrostException
   = TimeoutOnUTxO TxId
@@ -261,19 +261,12 @@ queryProtocolParameters = do
  where
   convertCostModels :: Blockfrost.CostModelsRaw -> Cardano.Ledger.Plutus.CostModels.CostModels
   convertCostModels costModels =
-    let costModelsMap = Blockfrost.unCostModelsRaw costModels
-     in foldMap
-          ( (mempty <>)
-              . ( \(scriptType, v) ->
-                    case scriptTypeToPlutusVersion scriptType of
-                      Nothing -> mempty
-                      Just plutusScript ->
-                        case mkCostModel plutusScript (fromIntegral <$> v) of
-                          Left _ -> mempty
-                          Right costModel -> mkCostModels $ Map.singleton plutusScript costModel
-                )
-          )
-          (Map.toList costModelsMap)
+    mkCostModels . Map.fromList $
+      [ (plutusScript, costModel)
+      | (scriptType, v) <- Map.toList (Blockfrost.unCostModelsRaw costModels)
+      , Just plutusScript <- [scriptTypeToPlutusVersion scriptType]
+      , Right costModel <- [mkCostModel plutusScript (fromIntegral <$> v)]
+      ]
 
 -- ** Helpers
 
@@ -577,19 +570,19 @@ queryTip = do
     } <-
     Blockfrost.getLatestBlock
   let slotAndBlockNumber = do
-        blockSlot <- _blockSlot
+        slot <- _blockSlot
         blockNumber <- _blockHeight
-        pure (blockSlot, blockNumber)
+        pure (slot, blockNumber)
   case slotAndBlockNumber of
     Nothing -> pure $ chainTipToChainPoint ChainTipAtGenesis
-    Just (blockSlot, blockNo) -> do
-      let Blockfrost.BlockHash blockHash = _blockHash
+    Just (slot, height) -> do
+      let Blockfrost.BlockHash hash = _blockHash
       pure $
         chainTipToChainPoint $
           ChainTip
-            (SlotNo $ fromIntegral $ Blockfrost.unSlot blockSlot)
-            (fromString $ T.unpack blockHash)
-            (BlockNo $ fromIntegral blockNo)
+            (SlotNo $ fromIntegral $ Blockfrost.unSlot slot)
+            (fromString $ T.unpack hash)
+            (BlockNo $ fromIntegral height)
 
 queryStakePools ::
   BlockfrostClientT IO (Set PoolId)

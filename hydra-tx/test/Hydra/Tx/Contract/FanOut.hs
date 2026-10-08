@@ -1,4 +1,7 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+-- NOTE: Uses the TxBody/TxBodyContent API that cardano-api deprecated in favour of
+-- Cardano.Api.Experimental; the migration is tracked separately.
+{-# OPTIONS_GHC -Wno-deprecations #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Hydra.Tx.Contract.FanOut where

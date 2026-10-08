@@ -17,7 +17,7 @@ import Control.Monad.IOSim (
   traceM,
   traceResult,
  )
-import Control.Tracer (Tracer (Tracer))
+import Control.Tracer (Tracer (Tracer), emit)
 import Control.Tracer.JSON (Envelope (..), traceInTVar)
 import Data.Aeson (encode)
 import Data.Aeson qualified as Aeson
@@ -82,7 +82,7 @@ v `shouldSatisfy` p =
 -- which requires 'Typeable' constraint. To retrieve the trace use 'selectTraceEventsDynamic'
 -- applied to the correct type.
 traceInIOSim :: Typeable a => Tracer (IOSim s) a
-traceInIOSim = Tracer traceM
+traceInIOSim = Tracer . emit $ traceM
 
 -- | Useful when one needs to /also/ trace logs to `stderr`.
 -- Thanks to the monoidal nature of `Tracer` it's straightforward to add this to
@@ -95,7 +95,7 @@ traceInIOSim = Tracer traceM
 -- ...
 -- @@
 traceDebug :: (Applicative m, ToJSON a) => Tracer m a
-traceDebug = Tracer (\a -> trace (decodeUtf8 $ encode a) $ pure ())
+traceDebug = Tracer $ emit (\a -> trace (decodeUtf8 $ encode a) $ pure ())
 
 -- | This creates an hspec test case about a property which ensures the given generator
 -- does not produce equals values within a reasonable number of generated values.

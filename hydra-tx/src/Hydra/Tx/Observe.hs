@@ -17,7 +17,7 @@ module Hydra.Tx.Observe (
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (toList)
 
-import Cardano.Ledger.Api (IsValid (..), isValidTxL)
+import Cardano.Ledger.Api (IsPhase2Valid (..), isPhase2ValidTxL)
 import Control.Lens ((^.))
 import Data.Aeson (Value (Object, String), defaultOptions, genericToJSON, withObject, (.:))
 import Data.Aeson qualified as Aeson (Value)
@@ -117,4 +117,4 @@ observeHeadTxWithReason networkId utxo tx
       <|> Fanout <$> observeFanoutTx utxo tx
       <|> FinalPartialFanout <$> observeFinalPartialFanoutTx utxo tx
 
-  txIsValid = toLedgerTx tx ^. isValidTxL == IsValid True
+  txIsValid = toLedgerTx tx ^. isPhase2ValidTxL == Phase2Valid
