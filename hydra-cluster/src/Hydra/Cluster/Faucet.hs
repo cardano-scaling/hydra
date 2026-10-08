@@ -28,7 +28,7 @@ import Hydra.Chain.ScriptRegistry (
   publishHydraScripts,
  )
 import Hydra.Cluster.Fixture (Actor (Faucet))
-import Hydra.Cluster.Util (keysFor)
+import Hydra.Cluster.Util (assertNoFixtureRecipients, keysFor)
 import Hydra.Ledger.Cardano ()
 import Hydra.Options (ChainBackendOptions (..))
 import Hydra.Options qualified as Options
@@ -112,6 +112,12 @@ seedManyFromFaucetWithMinting _ [] _ _ = pure []
 seedManyFromFaucetWithMinting opts recipients tracer mintingScript = do
   (faucetVk, faucetSk) <- keysFor Faucet
   networkId <- runBackend opts queryNetworkId
+  -- NOTE: Seeding is the path by which a key acquires funds in a scenario, so
+  -- it is where the public fixtures are kept away from mainnet. The faucet's
+  -- other two spending paths, 'createOutputAtAddress' and
+  -- 'seedFromFaucetBlockfrost', pay an address and a single key respectively
+  -- and are only reached from devnet scenarios and the Blockfrost chain spec.
+  assertNoFixtureRecipients networkId (fst <$> recipients)
   seedTx <- retryOnExceptions tracer opts $ submitSeedTx faucetVk faucetSk networkId
   -- NOTE: The direct backend's 'awaitTransaction' yields all of the tx's
   -- outputs while the Blockfrost one yields only those paying to the given key,

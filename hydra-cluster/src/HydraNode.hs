@@ -31,7 +31,7 @@ import Hydra.API.HTTPServer (DraftCommitTxRequest (..), DraftCommitTxResponse (.
 import Hydra.API.ServerOutput (ApiEncoding (..), ApiMessage)
 import Hydra.API.WireFormat (decodeWire)
 import Hydra.Chain.Blockfrost.Client qualified as Blockfrost
-import Hydra.Cluster.Util (Timing (..), readConfigFile)
+import Hydra.Cluster.Util (Timing (..), assertNoFixtureHydraKey, chainConfigNetworkId, readConfigFile)
 import Hydra.Network (Host (Host), NodeId (NodeId), WhichEtcd (SystemEtcd))
 import Hydra.Network qualified as Network
 import Hydra.Network.Etcd (peerPortToClientPort)
@@ -589,6 +589,11 @@ prepareHydraNode chainConfig workDir hydraNodeId hydraSKey hydraVKeys nodePorts 
   let stateDir = workDir </> "state-" <> show hydraNodeId
   createDirectoryIfMissing True stateDir
   cardanoLedgerProtocolParametersFile <- preparePParams chainConfig stateDir paramsDecorator
+  -- A head is only as private as its Hydra key: anyone holding it can close
+  -- the head with a forged snapshot. Refuse the public fixture keys here, where
+  -- every node start passes, rather than trusting each scenario to pick well.
+  forM_ (chainConfigNetworkId chainConfig) $ \networkId ->
+    assertNoFixtureHydraKey networkId hydraSKey
   let hydraSigningKey = stateDir </> "me.sk"
   void $ withSecret hydraSKey $ writeFileTextEnvelope (File hydraSigningKey) Nothing
   hydraVerificationKeys <- forM (zip [1 ..] hydraVKeys) $ \(i :: Int, vKey) -> do

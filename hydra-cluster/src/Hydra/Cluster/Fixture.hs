@@ -51,7 +51,13 @@ data Actor
   | Carol
   | CarolFunds
   | Faucet
-  deriving stock (Eq, Show)
+  deriving stock (Bounded, Enum, Eq, Show)
+
+-- | Every known actor. The keys behind these are committed to this repository
+-- and shipped as package data-files, so they are public; checks that must not
+-- let a public key hold real funds range over this list.
+allActors :: [Actor]
+allActors = [minBound .. maxBound]
 
 actorName :: Actor -> String
 actorName = \case

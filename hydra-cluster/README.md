@@ -60,11 +60,28 @@ otherwise be spent waiting those out. The contestation period stops at the point
 where the validity window of close, contest and increment transactions would
 start shrinking, so nothing is more likely to expire than before.
 
-:warning: do not provide actual funds to this faucet address as the
-signing key is publicly available. Shall you want to run the smoke
-test with actual funds, you shall override these file to use a secret
-signing key safely stored. See how the C.I overrides these files in
-.github/workflows/smoke-test.yaml
+:warning: every key that holds real funds must be private. The keys under
+`config/credentials` are not: they are committed to this repository and shipped
+as package data-files, so anyone can derive their addresses and spend from them.
+
+That means two things:
+
+- Do not provide actual funds to the `config/credentials/faucet.sk` address. To
+  run the smoke test with actual funds, override that file with a secret signing
+  key that is safely stored. See how the C.I overrides these files in
+  .github/workflows/smoke-test.yaml
+- Nothing else in the scenario is funded from a committed key either. The head's
+  participant, its Hydra key and the wallet it commits from are generated per
+  run from system entropy by `Hydra.Cluster.Util.generateParticipant`, and all
+  three are written to `<state-directory>/participant-keys/` before they are
+  funded. A run returns what they hold to the faucet on its way out and moves
+  the keys to `<state-directory>/participant-keys-swept/`; a run that is killed
+  first leaves them in place, and the next run sweeps them.
+
+On mainnet neither is left to convention. `assertNoFixtureRecipients` refuses to
+pay faucet funds to a committed key, and `assertNoFixtureHydraKey` refuses to
+start a node under a published Hydra key -- a head whose signing key is public
+can be closed by anyone with a forged snapshot.
 
 To run the smoke test against the official cardano testnet using a
 local `state-testnet` directory (to re-use the synchronized chain db):
