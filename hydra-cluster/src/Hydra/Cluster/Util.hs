@@ -41,7 +41,7 @@ import Hydra.Tx.Crypto qualified as Crypto
 import Hydra.Tx.DepositPeriod (DepositPeriod)
 import Hydra.Tx.DepositPeriod qualified as DP
 import Paths_hydra_cluster qualified as Pkg
-import System.Directory (createDirectoryIfMissing, doesDirectoryExist, doesFileExist, listDirectory, renameDirectory)
+import System.Directory (createDirectoryIfMissing, doesDirectoryExist, doesFileExist, listDirectory, removeFile, renameDirectory)
 import System.FilePath (takeFileName, (<.>), (</>))
 import System.Posix (ownerReadMode, ownerWriteMode, setFileMode, unionFileModes)
 import Test.Hydra.Prelude (failure)
@@ -193,6 +193,28 @@ participantHydraKeyFile keyDir = keyDir </> "hydra.sk"
 participantWalletKeyFile :: FilePath -> FilePath
 participantWalletKeyFile keyDir = keyDir </> "wallet.sk"
 
+-- | Marker a run leaves while it has a head open on chain.
+--
+-- Whether a head was left behind cannot be read off the participant's address:
+-- the node returns the change of its own init transaction there, so the address
+-- holds funds and a sweep of it succeeds either way. Recording it as the head
+-- opens survives both a failing run and a killed one.
+participantHeadOpenFile :: FilePath -> FilePath
+participantHeadOpenFile keyDir = keyDir </> "head-open"
+
+-- | Record that this run's head is open, so its keys are kept if the run does
+-- not get as far as finalizing it.
+markHeadOpen :: FilePath -> IO ()
+markHeadOpen keyDir = writeFileBS (participantHeadOpenFile keyDir) ""
+
+-- | Record that this run's head is finalized and its keys are finished with.
+clearHeadOpen :: FilePath -> IO ()
+clearHeadOpen keyDir = removeFile (participantHeadOpenFile keyDir)
+
+-- | Whether a run left a head open, and so needs its keys kept.
+headMayBeOpen :: FilePath -> IO Bool
+headMayBeOpen = doesFileExist . participantHeadOpenFile
+
 -- | Every key of a run that can hold funds, and so has to be swept.
 participantPaymentKeyFiles :: [FilePath -> FilePath]
 participantPaymentKeyFiles = [participantCardanoKeyFile, participantWalletKeyFile]
@@ -273,13 +295,12 @@ leftoverParticipantKeys workDir = do
       then Just <$> (decodeSigningKey =<< BS.readFile path)
       else pure Nothing
 
--- | Move a run's keys aside once its funds are back, reporting why if it could
--- not be done.
+-- | Move a run's keys aside once its funds are back and its head is finished
+-- with, reporting why if it could not be done.
 --
--- They are kept rather than deleted. An address with nothing at it is also what
--- a run killed while its head was open looks like -- the value is in the head
--- contract, and only these keys can close or abort it -- so deleting on an
--- empty sweep would be the one irreversible step in the flow.
+-- They are moved rather than deleted, so that a directory archived on a wrong
+-- call is still recoverable by hand. Whether the head is finished with is the
+-- caller's to establish -- see 'headMayBeOpen'.
 archiveParticipantKeys :: FilePath -> FilePath -> IO (Either Text ())
 archiveParticipantKeys workDir keyDir =
   first (show @Text @SomeException) <$> try go

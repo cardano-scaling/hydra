@@ -48,6 +48,7 @@ import System.Environment (getEnvironment)
 import System.FilePath ((<.>), (</>))
 import System.IO.Unsafe (unsafePerformIO)
 import System.Info (os)
+import System.Posix (ownerReadMode, ownerWriteMode, setFileMode, unionFileModes)
 import System.Process.Typed (
   ExitCode (..),
   createPipe,
@@ -596,6 +597,9 @@ prepareHydraNode chainConfig workDir hydraNodeId hydraSKey hydraVKeys nodePorts 
     assertNoFixtureHydraKey networkId hydraSKey
   let hydraSigningKey = stateDir </> "me.sk"
   void $ withSecret hydraSKey $ writeFileTextEnvelope (File hydraSigningKey) Nothing
+  -- This copy lives for as long as the head does, in a state directory that on
+  -- a shared runner every account can read. It is the key that closes the head.
+  setFileMode hydraSigningKey (ownerReadMode `unionFileModes` ownerWriteMode)
   hydraVerificationKeys <- forM (zip [1 ..] hydraVKeys) $ \(i :: Int, vKey) -> do
     let filepath = stateDir </> ("other-" <> show i <> ".vk")
     filepath <$ writeFileTextEnvelope (File filepath) Nothing vKey

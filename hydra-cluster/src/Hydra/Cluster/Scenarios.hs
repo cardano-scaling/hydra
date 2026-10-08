@@ -108,7 +108,7 @@ import Hydra.Chain.ChainState (ChainSlot (..))
 import Hydra.Cluster.Faucet (createOutputAtAddress, seedFromFaucet, seedFromFaucetWithMinting, seedFromFaucet_, seedManyFromFaucet)
 import Hydra.Cluster.Faucet qualified as Faucet
 import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk, carol, carolSk, carolVk)
-import Hydra.Cluster.Util (BlockTime, Participant (..), Timing (..), archiveParticipantKeys, chainConfigFor, chainConfigFor', chainConfigForParticipant, depositTimeout, generateParticipant, keysFor, leftoverParticipantKeys, mkTestTiming, mkTestTiming', modifyConfig, nodeStartupBudget, participantCardanoKeyFile, participantKeysDir, participantParty, setNetworkId, truncatedDepositPeriod)
+import Hydra.Cluster.Util (BlockTime, Participant (..), Timing (..), archiveParticipantKeys, chainConfigFor, chainConfigFor', chainConfigForParticipant, clearHeadOpen, depositTimeout, generateParticipant, headMayBeOpen, keysFor, leftoverParticipantKeys, markHeadOpen, mkTestTiming, mkTestTiming', modifyConfig, nodeStartupBudget, participantCardanoKeyFile, participantKeysDir, participantParty, setNetworkId, truncatedDepositPeriod)
 import Hydra.Contract.Dummy (dummyMintingScript, dummyRewardingScript, dummyValidatorScript)
 import Hydra.Ledger.Cardano (mkSimpleTx, mkTransferTx, unsafeBuildTransaction)
 import Hydra.Network qualified as Network
@@ -580,6 +580,9 @@ singlePartyHeadFullLifeCycle tracer workDir mkTiming opts hydraScriptsTxId = do
       -- Open head
       send n1 $ input "Init" []
       headId <- waitMatch (30 * blockTime) n1 $ headIsOpenWith (Set.fromList [participantParty participant])
+      -- From here until fanout the head holds funds that only these keys can
+      -- recover, so a run that ends early must leave them in place.
+      markHeadOpen keyDir
       -- Deposit UTxO
       res <-
         runReq defaultHttpConfig $
@@ -631,6 +634,7 @@ singlePartyHeadFullLifeCycle tracer workDir mkTiming opts hydraScriptsTxId = do
       send n1 $ input "Fanout" []
 
       waitForAllMatch (50 * blockTime) [n1] $ headIsFinalizedWith headId mempty
+      clearHeadOpen keyDir
     traceRemainingFunds cardanoVk
  where
   hydraTracer = contramap FromHydraNode tracer
@@ -676,7 +680,10 @@ returnLeftoverParticipantFunds tracer opts workDir =
         Right sks -> sweepAndArchive tracer opts workDir keyDir sks
 
 -- | Return what the given keys hold to the faucet and, if every one of them
--- came back, archive the run's key directory.
+-- came back and the run's head is finished with, archive its key directory.
+--
+-- A run that ended with its head still open keeps its keys and says so on every
+-- later run, because the head's funds are reachable with nothing else.
 --
 -- Failures are traced rather than raised. The leftover sweep runs before
 -- anything else in the scenario, so one key the faucet cannot build a
@@ -694,10 +701,19 @@ sweepAndArchive ::
 sweepAndArchive tracer opts workDir keyDir sks = do
   results <- forM sks sweep
   case lefts results of
+    errs@(_ : _) -> traceWith tracer SweepFailed{keyPath = keyDir, reason = show errs}
     [] ->
-      archiveParticipantKeys workDir keyDir
-        >>= either (\reason -> traceWith tracer SweepFailed{keyPath = keyDir, reason}) pure
-    errs -> traceWith tracer SweepFailed{keyPath = keyDir, reason = show errs}
+      headMayBeOpen keyDir >>= \case
+        True ->
+          traceWith
+            tracer
+            ParticipantKeysKept
+              { keyPath = keyDir
+              , reason = "run ended with its head still open; close or abort it with these keys"
+              }
+        False ->
+          archiveParticipantKeys workDir keyDir
+            >>= either (\reason -> traceWith tracer SweepFailed{keyPath = keyDir, reason}) pure
  where
   sweep :: Secret (SigningKey PaymentKey) -> IO (Either SomeException Coin)
   sweep sk = try $ Faucet.returnFundsToFaucet' (contramap FromFaucet tracer) opts sk

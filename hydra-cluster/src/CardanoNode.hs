@@ -91,6 +91,7 @@ data EndToEndLog
   | UsingHydraScriptsAt {hydraScriptsTxId :: [TxId]}
   | CreatedKey {keyPath :: FilePath}
   | SweepFailed {keyPath :: FilePath, reason :: Text}
+  | ParticipantKeysKept {keyPath :: FilePath, reason :: Text}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
 

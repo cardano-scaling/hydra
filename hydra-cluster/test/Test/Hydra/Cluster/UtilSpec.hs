@@ -15,9 +15,12 @@ import Hydra.Cluster.Util (
   archiveParticipantKeys,
   assertNoFixtureHydraKey,
   assertNoFixtureRecipients,
+  clearHeadOpen,
   generateParticipant,
+  headMayBeOpen,
   keysFor,
   leftoverParticipantKeys,
+  markHeadOpen,
   mkSmokeTiming,
   participantCardanoKeyFile,
   participantHydraKeyFile,
@@ -148,6 +151,20 @@ participantKeySpec = describe "generateParticipant" $ do
       -- A stray file is not ours to sweep or to move aside.
       writeFileBS (participantKeysDir dir </> ".DS_Store") "junk"
       (map fst <$> leftoverParticipantKeys dir) `shouldReturn` [keyDir kept]
+
+  it "remembers a run that ended with its head still open" $
+    withTempDir "participant" $ \dir -> do
+      -- The participant's address holds the change of its own init transaction,
+      -- so a sweep of it succeeds whether or not a head was left behind. This
+      -- marker is what tells the two apart.
+      Participant{keyDir} <- generateParticipant dir
+      headMayBeOpen keyDir `shouldReturn` False
+      markHeadOpen keyDir
+      headMayBeOpen keyDir `shouldReturn` True
+      -- The marker is not mistaken for a key to sweep.
+      (map (fmap length . snd) <$> leftoverParticipantKeys dir) `shouldReturn` [Right 2]
+      clearHeadOpen keyDir
+      headMayBeOpen keyDir `shouldReturn` False
 
   it "keeps the persisted keys readable only by their owner" $
     withTempDir "participant" $ \dir -> do

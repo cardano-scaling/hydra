@@ -78,6 +78,12 @@ That means two things:
   the keys to `<state-directory>/participant-keys-swept/`; a run that is killed
   first leaves them in place, and the next run sweeps them.
 
+  Keys are archived only once the head they opened is finalized. A run that
+  ends while its head is still open leaves a `head-open` marker beside them, and
+  every later run then returns their funds but keeps the keys and logs that a
+  head needs closing or aborting -- the head's own funds are reachable with
+  nothing else.
+
 On mainnet neither is left to convention. `assertNoFixtureRecipients` refuses to
 pay faucet funds to a committed key, and `assertNoFixtureHydraKey` refuses to
 start a node under a published Hydra key -- a head whose signing key is public

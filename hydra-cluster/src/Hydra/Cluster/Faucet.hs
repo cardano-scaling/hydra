@@ -260,13 +260,17 @@ returnFundsToFaucet' tracer opts senderSk = do
   networkId <- runBackend opts queryNetworkId
   let faucetAddress = mkVkAddress networkId faucetVk
   let senderVk = getVerificationKey senderSk
-  utxo <- runBackend opts $ queryUTxOFor QueryTip senderVk
-  returnAmount <-
+  returnAmount <- retryOnExceptions tracer opts $ do
+    -- NOTE: Query inside the retry. An earlier attempt that was interrupted
+    -- after submitting can already be spending these inputs, and a retry built
+    -- from the same stale UTxO is rejected identically every time -- which,
+    -- with no bound on the retries, is a hang rather than a failure. Asking
+    -- again each round lets the run end once that transaction lands.
+    utxo <- runBackend opts $ queryUTxOFor QueryTip senderVk
     if UTxO.null utxo
       then pure 0
-      else retryOnExceptions tracer opts $ do
-        let utxoValue = balance @Tx utxo
-        let allLovelace = selectLovelace utxoValue
+      else do
+        let allLovelace = selectLovelace (balance @Tx utxo)
         tx <- sign senderSk <$> buildTxBody utxo faucetAddress
         runBackend opts $ submitTransaction tx
         void $ runBackend opts $ awaitTransaction tx faucetVk
