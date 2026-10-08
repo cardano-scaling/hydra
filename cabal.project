@@ -13,49 +13,45 @@ repository cardano-haskell-packages
 -- See CONTRIBUTING.md for information about when and how to update these.
 index-state:
   , hackage.haskell.org 2026-09-06T00:00:00Z
-  , cardano-haskell-packages 2026-05-13T16:23:27Z
+  , cardano-haskell-packages 2026-09-23T18:57:23Z
 
 packages:
   **/*.cabal
   libs/*/*.cabal
 
--- servant-multipart-client caps random < 1.3 but ouroboros-network 1.1
+-- servant-multipart-client caps random < 1.3 but ouroboros-network
 -- requires random ^>=1.3; relax the bound since they're compatible.
---
--- cardano-api 11.1.0.0 declares ^>=1.61 but cardano-node 11.0.1 uses
--- plutus 1.63.0.0; relax upper bounds to align with the on-chain evaluator.
 --
 -- grapesy-etcd 0.3.0 only uses grapesy API that is unchanged in 1.2 but
 -- declares grapesy <1.1; relax until a new grapesy-etcd release.
---
--- XXX: Review what is needed here
 allow-newer:
   grapesy-etcd:grapesy,
   servant-multipart-client:random,
+  -- haskell-accumulator 1.2.0.0 declares cardano-crypto-class ^>=2.3 but
+  -- cardano-node 11.1.3 builds with 2.5.1.0; relax until a new release.
+  haskell-accumulator:cardano-crypto-class
+
+-- cardano-api 11.7.0.0 was revised on CHaP to require plutus ^>=1.70, but
+-- was released against ^>=1.65; relax so it builds with the plutus 1.68 pin
+-- below.
+allow-older:
   cardano-api:plutus-core,
   cardano-api:plutus-ledger-api,
-  cardano-api:plutus-tx,
-  cardano-ledger-api:plutus-ledger-api,
-  cardano-ledger-alonzo:plutus-ledger-api,
-  cardano-ledger-alonzo:plutus-core,
-  cardano-ledger-babbage:plutus-ledger-api,
-  cardano-ledger-conway:plutus-ledger-api,
-  cardano-ledger-mary:plutus-ledger-api,
-  cardano-ledger-shelley:plutus-ledger-api
+  cardano-api:plutus-tx
 
--- nothunks 0.3.2 ships NoThunks instances for vector types that clash with
--- vector-map 1.2.0.0's own instances (duplicate instance declarations), and
--- validation 1.2 drops the validate/toEither API that
--- ouroboros-consensus-cardano 3.0.1.0 uses; hold both back until CHaP carries
--- fixed packages.
+-- Pin plutus explicitly. cardano-node 11.1.3 evaluates with plutus 1.70, but
+-- plutus-tx >= 1.69 derives 'unsafeFromBuiltinData' with casing on builtin
+-- Data, which the ledger only enables from protocol version 12 (Dijkstra).
+-- Scripts compiled with it fail phase-2 validation on current mainnet, so
+-- hold plutus at 1.68 until we target protocol version 12.
 constraints:
-  plutus-core == 1.63.0.0,
-  plutus-tx == 1.63.0.0,
-  plutus-tx-plugin == 1.63.0.0,
-  plutus-ledger-api == 1.63.0.0,
-  plutus-metatheory == 1.63.0.0,
-  nothunks < 0.3.2,
-  validation < 1.2,
+  -- Match the cardano-crypto-class series used by cardano-node 11.1.3.
+  cardano-crypto-class ^>=2.5,
+  plutus-core == 1.68.0.0,
+  plutus-tx == 1.68.0.0,
+  plutus-tx-plugin == 1.68.0.0,
+  plutus-ledger-api == 1.68.0.0,
+  plutus-metatheory == 1.68.0.0,
   -- proto-lens 0.7.1.7 (and its runtime/protobuf-types companions) breaks
   -- type inference at the grapesy-etcd RPC call sites with ambiguous
   -- 'Message' constraints; hold the family at the last working versions.

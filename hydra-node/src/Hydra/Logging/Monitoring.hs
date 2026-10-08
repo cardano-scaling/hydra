@@ -19,7 +19,7 @@ module Hydra.Logging.Monitoring (
 import Hydra.Prelude
 
 import Control.Concurrent.Class.MonadSTM (modifyTVar', readTVarIO, writeTVar)
-import Control.Tracer (Tracer (Tracer))
+import Control.Tracer (Tracer (Tracer), emit, traceWith)
 import Data.Map.Strict as Map
 import Data.Time.Clock.POSIX (utcTimeToPOSIXSeconds)
 import GHC.Stats (RTSStats (..), getRTSStats, getRTSStatsEnabled)
@@ -81,15 +81,15 @@ withMonitoring ::
   (Tracer m (HydraLog tx) -> m ()) ->
   m ()
 withMonitoring Nothing tracer action = action tracer
-withMonitoring (Just monitoringPort) (Tracer tracer) action = do
+withMonitoring (Just monitoringPort) tracer action = do
   (traceMetric, registry) <- prepareRegistry
   refreshRts <- liftIO $ registerRtsMetrics registry
   withAsyncLabelled
     ("monitoring-serveMetrics", serveMetrics (fromIntegral monitoringPort) ["metrics"] (refreshRts >> sample registry))
     $ \_ ->
-      let wrappedTracer = Tracer $ \msg -> do
+      let wrappedTracer = Tracer . emit $ \msg -> do
             traceMetric msg
-            tracer msg
+            traceWith tracer msg
        in action wrappedTracer
 
 -- | Register GHC RTS work counters when the runtime collects them (process

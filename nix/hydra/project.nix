@@ -91,17 +91,31 @@
           {
             packages.hydra-node.components.library.pkgconfig = [ [ pkgs.static-sqlite ] ];
           }
-          # GHC 9.6.7 has a haddock bug (tyConStupidTheta) that panics on data
-          # types declared with the deprecated DatatypeContexts extension.
-          # Skip haddocks for the affected upstream packages so `withHoogle`
-          # can still index everything else. hydra-cardano-api re-exports
-          # Cardano.Api broadly (module X / module Cardano.Api), which surfaces
-          # the same DatatypeContexts types and panics haddock on our wrapper
-          # package too.
+          # GHC 9.6.7's haddock panics with tyConStupidTheta on `type data`
+          # declarations and DatatypeContexts types (GHC issue 25739, fixed in
+          # 9.12.3). Skip haddocks for the affected upstream packages so
+          # `withHoogle` can still index everything else. The list follows
+          # cardano-node's nix/haskell.nix. hydra-cardano-api re-exports
+          # Cardano.Api broadly, so it hits the same panic.
           {
+            packages.basement.doHaddock = false;
+            packages.cardano-api.doHaddock = false;
             packages.cardano-diffusion.doHaddock = false;
+            packages.cardano-ledger-allegra.doHaddock = false;
+            packages.cardano-ledger-alonzo.doHaddock = false;
+            packages.cardano-ledger-api.doHaddock = false;
+            packages.cardano-ledger-babbage.doHaddock = false;
+            packages.cardano-ledger-conway.doHaddock = false;
+            packages.cardano-ledger-core.doHaddock = false;
             packages.cardano-ledger-shelley.doHaddock = false;
+            packages.cardano-protocol-tpraos.doHaddock = false;
+            packages.fs-api.doHaddock = false;
+            packages.ouroboros-consensus.doHaddock = false;
             packages.ouroboros-network.doHaddock = false;
+            packages.plutus-core.doHaddock = false;
+            packages.plutus-ledger-api.doHaddock = false;
+            packages.unix-compat.doHaddock = false;
+            packages.unix-time.doHaddock = false;
             packages.hydra-cardano-api.doHaddock = false;
           }
           # Make every test-suite write a JUnit report next to itself, so the

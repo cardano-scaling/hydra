@@ -25,7 +25,7 @@ library
     , aeson-pretty
     , base
     , base16-bytestring
-    , cardano-binary        >=1.7.0   && <1.8
+    , cardano-binary        >=1.7.0   && <1.10
     , cborg-generic-tagged
     , gitrev
     , io-classes            >=1.8.0.1

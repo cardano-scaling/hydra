@@ -1,3 +1,6 @@
+-- NOTE: Uses the TxBody/TxBodyContent API that cardano-api deprecated in favour of
+-- Cardano.Api.Experimental; the migration is tracked separately.
+{-# OPTIONS_GHC -Wno-deprecations #-}
 {-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 
 {-# HLINT ignore "Use <$>" #-}
@@ -39,7 +42,6 @@ import Control.Lens.Getter
 import Data.ByteString qualified as BS
 import Data.Map.Strict qualified as Map
 import Hydra.Cardano.Api (
-  Era,
   ExecutionUnits (..),
   IsCardanoEra (cardanoEra),
   LedgerEpochInfo (..),
@@ -49,7 +51,6 @@ import Hydra.Cardano.Api (
   ScriptExecutionError,
   ScriptWitnessIndex,
   SerialiseAsCBOR (serialiseToCBOR),
-  TransactionValidityError,
   Tx,
   UTxO,
   evaluateTransactionExecutionUnits,
@@ -133,11 +134,9 @@ checkBudget maxUnits report
     , executionSteps = usedCpu
     } = usedExecutionUnits report
 
--- | Errors returned by 'evaluateTx' extending the upstream
--- 'TransactionValidityError' with additional cases.
+-- | Errors returned by 'evaluateTx'.
 data EvaluationError
   = TransactionBudgetOverspent {used :: ExecutionUnits, available :: ExecutionUnits}
-  | TransactionInvalid (TransactionValidityError Era)
   | PParamsConversion ProtocolParametersConversionError
   deriving stock (Show)
 

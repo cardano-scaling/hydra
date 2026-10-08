@@ -1,4 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
+-- NOTE: For the deprecated rawSerialise*DSIGN functions, see Hydra.Tx.Crypto.
+{-# OPTIONS_GHC -Wno-deprecations #-}
 
 -- | Function-level agreement between the Agda-extracted reference checker and the REAL on-chain
 -- validators, with NO transaction bodies and NO mutation generators.

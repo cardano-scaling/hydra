@@ -1,6 +1,9 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# OPTIONS_GHC -Wno-ambiguous-fields #-}
+-- NOTE: Uses the TxBody/TxBodyContent API that cardano-api deprecated in favour of
+-- Cardano.Api.Experimental; the migration is tracked separately.
+{-# OPTIONS_GHC -Wno-deprecations #-}
 
 module Hydra.Cluster.Scenarios (
   module Hydra.Cluster.Scenarios,
@@ -19,7 +22,7 @@ import Cardano.Ledger.Api.PParams (AlonzoEraPParams, PParams, getLanguageView)
 import Cardano.Ledger.Api.Tx (AsIx (..), EraTx, Redeemers (..), bodyTxL, datsTxWitsL, rdmrsTxWitsL, witsTxL)
 import Cardano.Ledger.Api.Tx qualified as Ledger
 import Cardano.Ledger.Api.Tx.Body (AlonzoEraTxBody, scriptIntegrityHashTxBodyL)
-import Cardano.Ledger.Api.Tx.Wits (AlonzoEraTxWits, ConwayPlutusPurpose (ConwayRewarding))
+import Cardano.Ledger.Api.Tx.Wits (AlonzoEraTxWits, ConwayPlutusPurpose (ConwayWithdrawing))
 import Cardano.Ledger.BaseTypes (Network (Testnet), StrictMaybe (..))
 import Cardano.Ledger.Core (TxLevel (..))
 import Cardano.Ledger.Credential (Credential (ScriptHashObj))
@@ -1053,7 +1056,7 @@ singlePartyUsesWithdrawZeroTrick tracer workDir opts hydraScriptsTxId =
                       & bodyTxL . collateralInputsTxBodyL .~ Set.map toLedgerTxIn (UTxO.inputSet utxoToDeposit)
                       & bodyTxL . totalCollateralTxBodyL .~ SJust (UTxO.totalLovelace utxoToDeposit)
                       & bodyTxL . withdrawalsTxBodyL .~ Withdrawals (Map.singleton rewardAccount 0)
-                      & witsTxL . rdmrsTxWitsL .~ Redeemers (Map.singleton (ConwayRewarding $ AsIx 0) (redeemer, exUnits))
+                      & witsTxL . rdmrsTxWitsL .~ Redeemers (Map.singleton (ConwayWithdrawing $ AsIx 0) (redeemer, exUnits))
                       & witsTxL . scriptTxWitsL .~ Map.singleton scriptHash script
 
           let signedL2tx = signTx walletSk tx'

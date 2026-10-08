@@ -74,7 +74,7 @@ cardanoLedger globals ledgerEnv =
   -- as described above.
   applyTx slot utxo tx =
     withLedgerState slot utxo tx $ \env' memPoolState ->
-      case Ledger.applyTx globals env' memPoolState (toLedgerTx tx) of
+      case Ledger.applyTxWithFullValidation globals env' memPoolState (toLedgerTx tx) of
         Left err ->
           Left (tx, toValidationError err)
         Right (Ledger.LedgerState{Ledger.lsUTxOState = us}, _validatedTx) ->
