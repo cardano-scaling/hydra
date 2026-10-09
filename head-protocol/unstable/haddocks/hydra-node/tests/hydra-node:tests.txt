@@ -856,6 +856,11 @@ withAccumulators :: IsTx tx => Snapshot tx -> Snapshot tx
 --   confirmed snapshot by tx-id (<a>ReqSnCommitNotSettled</a> otherwise) -
 --   the look-alike-deposit case, where content matches and only identity
 --   differs.</li>
+--   <li><tt>reqSnDecommitSettledRef</tt> vs <tt>onOpenNetworkReqSn</tt>'s
+--   <tt>requireApplicableDecommitTx</tt>: settling a same-version pending
+--   decommit requires the request to carry a decommit with the same
+--   outputs; one dropping it, carrying another, or claiming a deposit in
+--   its place is <a>ReqSnDecommitNotSettled</a>.</li>
 --   <li><tt>reqSnDepositDisjointRef</tt> vs <tt>onOpenNetworkReqSn</tt>'s
 --   <tt>absorbable</tt> guard: a requested deposit naming an active output
 --   or an output any requested transaction creates is

@@ -1328,13 +1328,12 @@ DepositObservation :: HeadId -> TxId -> UTxO -> SlotNo -> UTCTime -> DepositObse
 [$sel:created:DepositObservation] :: DepositObservation -> SlotNo
 [$sel:deadline:DepositObservation] :: DepositObservation -> UTCTime
 
--- | Observe a deposit transaction by decoding the target head id, deposit
---   deadline and deposited utxo in the datum.
---   
---   This includes checking whether - the transaction's first output is the
---   deposit output - all of deposited value is contained in the deposit tx
---   output, - the deposit script output actually contains the deposited
---   value, - an upper validity bound has been set (used as creation slot).
+-- | Observe a deposit transaction by its shape: the deposit output and its
+--   datum alone. Nothing here tells a deposit from a head transaction that
+--   happens to produce such an output first (a fanout can), so when
+--   classifying arbitrary chain transactions use <a>observeHeadTx</a>,
+--   which tries the head observers first and skips this one for any
+--   transaction spending a head output.
 observeDepositTx :: NetworkId -> Tx -> Maybe DepositObservation
 
 -- | Decode head id, deposited UTxO and deadline from a deposit output's
@@ -1389,8 +1388,14 @@ OpenThreadOutput :: (TxIn, TxOut CtxUTxO) -> ContestationPeriod -> DepositPeriod
 --   before (<a>CloseUsed</a>). The latter stores the snapshot's applied
 --   accumulator, which only matches the head value if the version bump was
 --   this snapshot's own increment or decrement. For a snapshot without a
---   pending action the version moved on through a later snapshot's
---   settlement, and the closed head could never be fanned out.
+--   pending action the version moved on through another snapshot's
+--   settlement, so the closed head could never be fanned out: a later
+--   snapshot this node has not adopted, or an earlier commit this snapshot
+--   dropped once its increment could no longer land, which landed after
+--   all. A settling decommit is never dropped (the snapshot request
+--   handler requires every request at its version to carry it), so a
+--   confirmed snapshot never lags the head by a decommit it already
+--   accounts for.
 isClosableAt :: SnapshotVersion -> Snapshot tx -> Bool
 
 -- | Create a transaction closing a head with either the initial snapshot
@@ -1522,13 +1527,12 @@ DepositObservation :: HeadId -> TxId -> UTxO -> SlotNo -> UTCTime -> DepositObse
 [$sel:created:DepositObservation] :: DepositObservation -> SlotNo
 [$sel:deadline:DepositObservation] :: DepositObservation -> UTCTime
 
--- | Observe a deposit transaction by decoding the target head id, deposit
---   deadline and deposited utxo in the datum.
---   
---   This includes checking whether - the transaction's first output is the
---   deposit output - all of deposited value is contained in the deposit tx
---   output, - the deposit script output actually contains the deposited
---   value, - an upper validity bound has been set (used as creation slot).
+-- | Observe a deposit transaction by its shape: the deposit output and its
+--   datum alone. Nothing here tells a deposit from a head transaction that
+--   happens to produce such an output first (a fanout can), so when
+--   classifying arbitrary chain transactions use <a>observeHeadTx</a>,
+--   which tries the head observers first and skips this one for any
+--   transaction spending a head output.
 observeDepositTx :: NetworkId -> Tx -> Maybe DepositObservation
 data IncrementObservation
 IncrementObservation :: HeadId -> SnapshotVersion -> TxId -> UTxO -> SnapshotNumber -> MultiSignature (Snapshot Tx) -> IncrementObservation
