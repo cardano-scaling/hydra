@@ -103,11 +103,8 @@ createAndSaveSigningKey path = do
   writeFileLBS path $ textEnvelopeToJSON (Just "Key used to commit funds into a Head") sk
   pure (mkSecret sk)
 
--- | 'try' that lets asynchronous exceptions through.
---
--- The sweeps trace their failures instead of raising them. Catching everything
--- would turn an interrupt into a traced failure and carry on to fund a key and
--- open a head.
+-- | 'try' that lets asynchronous exceptions through, so that an interrupt
+-- during a sweep is not traced as a failure and carried on from.
 trySync :: IO a -> IO (Either SomeException a)
 trySync action =
   try action >>= \case
@@ -125,14 +122,11 @@ data FixtureKeyOnMainnet
 
 instance Exception FixtureKeyOnMainnet
 
--- | Refuse to pay faucet funds to a key committed to this repository.
+-- | Refuse to pay faucet funds to a key committed to this repository, which
+-- would put real ada behind a key anyone with a checkout has. Scenarios needing
+-- a funded key on a public network use 'generateParticipant'.
 --
--- On mainnet the faucet holds real funds, and CI replaces @faucet.sk@ with a
--- secret key so that it can. Paying a fixture from it would put real ada behind
--- a key anyone with a checkout already has. Scenarios needing a funded key on a
--- public network generate one with 'generateParticipant'.
---
--- 'Faucet' is exempt: it is precisely the fixture CI overrides.
+-- 'Faucet' is exempt: it is precisely the fixture CI overrides with a secret.
 assertNoFixtureRecipients :: NetworkId -> [VerificationKey PaymentKey] -> IO ()
 assertNoFixtureRecipients networkId recipients
   | networkId /= Mainnet = pure ()
@@ -145,15 +139,10 @@ assertNoFixtureRecipients networkId recipients
 -- | Refuse to run a head under a Hydra key that is public, on any network not
 -- known to be a test one.
 --
--- 'Hydra.Cluster.Fixture.aliceSk' and its siblings are @generateSigningKey
--- "alice"@, derived from a public string, so they are compiled into every
--- build. A head whose only signing key is public can be closed by anyone with a
--- forged snapshot, which costs it whatever it holds rather than merely being a
--- nuisance.
---
--- A network the config does not determine is treated as mainnet rather than
--- waved through: the cost of being wrong in that direction is a refused test
--- run, and in the other it is a head on a real network that anyone can close.
+-- 'Hydra.Cluster.Fixture.aliceSk' and its siblings are derived from a public
+-- string, so they are compiled into every build, and a head whose only signing
+-- key is public can be closed by anyone with a forged snapshot. A network the
+-- config does not determine is refused rather than waved through.
 assertNoFixtureHydraKey :: ConfiguredNetwork -> Secret (SigningKey HydraKey) -> IO ()
 assertNoFixtureHydraKey network sk
   | permitted = pure ()
@@ -183,11 +172,8 @@ configuredNetwork = \case
     Blockfrost BlockfrostOptions{projectPath} -> blockfrostNetwork projectPath
   _ -> pure NoChain
 
--- | The network a Blockfrost project reaches, taken from the network its
--- project id is prefixed with.
---
--- A file that cannot be read, or an id prefixed with something unfamiliar,
--- leaves the network undetermined rather than assumed to be a test one.
+-- | The network a Blockfrost project reaches, from the prefix of its project
+-- id. An unreadable file or an unfamiliar prefix leaves it undetermined.
 blockfrostNetwork :: FilePath -> IO ConfiguredNetwork
 blockfrostNetwork projectPath =
   trySync (decodeUtf8 <$> BS.readFile projectPath) >>= \case
@@ -202,18 +188,13 @@ blockfrostNetwork projectPath =
 
 -- * Ephemeral run credentials
 
--- | Credentials a run generates for itself: the head participant's Cardano
--- payment key and Hydra key, and the wallet key it commits funds from.
+-- | Credentials a run generates for itself, none of them derivable from this
+-- repository: the head participant's Cardano and Hydra keys, and the wallet key
+-- it commits funds from.
 --
--- None of this is derivable from this repository, which is the point. The
--- @config/credentials@ fixtures and 'Hydra.Cluster.Fixture.aliceSk' are known
--- to anyone with a checkout, so funding them on a public network hands over
--- both the fuel and the head's only signing key.
---
--- Every key is written to 'keyDir' before it is funded, so a run that dies
--- before returning its funds leaves them recoverable: 'leftoverParticipantKeys'
--- finds them, and the Hydra key is there to close or abort a head that was
--- still open.
+-- Each is written to 'keyDir' before it is funded, so a run that dies before
+-- returning its funds leaves them recoverable -- the Hydra key included, which
+-- is what closes or aborts a head left open.
 data Participant = Participant
   { cardanoVk :: VerificationKey PaymentKey
   , cardanoSk :: Secret (SigningKey PaymentKey)
@@ -230,9 +211,8 @@ participantParty Participant{hydraSk} = deriveParty hydraSk
 
 -- | Directory holding the keys of runs against this working directory.
 --
--- Deliberately not named @state-@ anything: the smoke-test runner's working
--- directory is a persistent state directory whose @state-*@ entries are wiped
--- before every run, and these keys have to outlive that.
+-- Deliberately not named @state-@ anything: the runner wipes @state-*@ before
+-- every run, and these keys have to outlive that.
 participantKeysDir :: FilePath -> FilePath
 participantKeysDir workDir = workDir </> "participant-keys"
 
@@ -245,33 +225,25 @@ sweptParticipantKeysDir workDir = workDir </> "participant-keys-swept"
 participantCardanoKeyFile :: FilePath -> FilePath
 participantCardanoKeyFile keyDir = keyDir </> "cardano.sk"
 
--- | Path of a participant's Hydra signing key.
 participantHydraKeyFile :: FilePath -> FilePath
 participantHydraKeyFile keyDir = keyDir </> "hydra.sk"
 
--- | Path of the wallet key a participant commits funds from.
 participantWalletKeyFile :: FilePath -> FilePath
 participantWalletKeyFile keyDir = keyDir </> "wallet.sk"
 
 -- | Marker a run leaves while it has a head open on chain.
 --
--- Whether a head was left behind cannot be read off the participant's address:
--- the node returns the change of its own init transaction there, so the address
--- holds funds and a sweep of it succeeds either way. Recording it as the head
--- opens survives both a failing run and a killed one.
+-- The address cannot tell: the node returns its own init change there, so a
+-- sweep of it succeeds whether or not a head was left behind.
 participantHeadOpenFile :: FilePath -> FilePath
 participantHeadOpenFile keyDir = keyDir </> "head-open"
 
--- | Record that this run's head is open, so its keys are kept if the run does
--- not get as far as finalizing it.
 markHeadOpen :: FilePath -> IO ()
 markHeadOpen keyDir = writeFileBS (participantHeadOpenFile keyDir) ""
 
--- | Record that this run's head is finalized and its keys are finished with.
 clearHeadOpen :: FilePath -> IO ()
 clearHeadOpen keyDir = removeFile (participantHeadOpenFile keyDir)
 
--- | Whether a run left a head open, and so needs its keys kept.
 headMayBeOpen :: FilePath -> IO Bool
 headMayBeOpen = doesFileExist . participantHeadOpenFile
 
@@ -279,13 +251,12 @@ headMayBeOpen = doesFileExist . participantHeadOpenFile
 participantPaymentKeyFiles :: [FilePath -> FilePath]
 participantPaymentKeyFiles = [participantCardanoKeyFile, participantWalletKeyFile]
 
--- | Generate a fresh 'Participant', writing its keys under
--- 'participantKeysDir' in a directory named after the Cardano key's hash so
--- that successive runs cannot clobber each other.
+-- | Generate a fresh 'Participant' under 'participantKeysDir', in a directory
+-- named after the Cardano key's hash so runs cannot clobber each other.
 --
--- NOTE: Every key here comes from system entropy. 'genSigningKey' and the
+-- NOTE: Every key comes from system entropy. 'genSigningKey' and the
 -- 'Arbitrary' instances are seedable test generators, which is the wrong tool
--- for keys that hold real funds and a head's signing authority.
+-- for keys holding real funds and a head's signing authority.
 generateParticipant :: FilePath -> IO Participant
 generateParticipant workDir = do
   rawCardanoSk <- generateSigningKey AsPaymentKey
@@ -314,14 +285,13 @@ generateParticipant workDir = do
 -- written is unrecoverable.
 --
 -- These sit in the state directory of a shared runner, where the default mode
--- would leave mainnet keys readable by every account on the host. The file is
--- created with its mode already narrowed, because narrowing it afterwards
--- leaves a window in which the key on disk is world-readable.
+-- would leave mainnet keys readable by every account on the host. The mode is
+-- narrowed while the file is still empty, since doing it afterwards leaves a
+-- window in which the key on disk is world-readable.
 writeSigningKey :: HasTextEnvelope (SigningKey k) => FilePath -> SigningKey k -> IO ()
 writeSigningKey path sk = do
   createOwnerOnlyFile path
-  -- 'creat' leaves the mode of a file that was already there alone, so narrow
-  -- it while it is still empty rather than once the key is in it.
+  -- 'creat' leaves an existing file's mode alone.
   setFileMode path ownerOnlyMode
   writeFileTextEnvelope (File path) Nothing sk >>= either (fail . show) pure
 
@@ -338,15 +308,10 @@ ownerOnlyMode = ownerReadMode `unionFileModes` ownerWriteMode
 -- | The key directories of runs that did not sweep, each with the payment keys
 -- to return funds from, or the reason they could not be read.
 --
--- A run archives its keys once its funds are back, so anything still here
--- belongs to a run that was killed first. Such a run can also have been killed
--- midway through writing its keys, which leaves a file that is missing or
--- truncated. A missing one is skipped -- the keys that were written are still
--- recoverable -- and one that will not decode is reported against its own
--- directory only, so that it cannot hide the keys of every other run.
---
--- Entries that are not directories are ignored: the keys of a run always live
--- in one, and whatever else the state directory collects is not ours to move.
+-- A run killed midway through writing its keys leaves a file missing or
+-- truncated. A missing one is skipped, and one that will not decode is reported
+-- against its own directory alone so it cannot hide every other run's keys.
+-- Entries that are not directories are ignored.
 leftoverParticipantKeys :: FilePath -> IO [(FilePath, Either Text [Secret (SigningKey PaymentKey)])]
 leftoverParticipantKeys workDir = do
   let dir = participantKeysDir workDir
@@ -370,12 +335,9 @@ leftoverParticipantKeys workDir = do
       then Just <$> (decodeSigningKey =<< BS.readFile path)
       else pure Nothing
 
--- | Move a run's keys aside once its funds are back and its head is finished
--- with, reporting why if it could not be done.
---
--- They are moved rather than deleted, so that a directory archived on a wrong
--- call is still recoverable by hand. Whether the head is finished with is the
--- caller's to establish -- see 'headMayBeOpen'.
+-- | Move a run's keys aside once its funds are back, reporting why if it could
+-- not be done. Moved rather than deleted, so a directory archived on a wrong
+-- call is still recoverable by hand.
 archiveParticipantKeys :: FilePath -> FilePath -> IO (Either Text ())
 archiveParticipantKeys workDir keyDir =
   first (show @Text @SomeException) <$> trySync go
@@ -385,10 +347,8 @@ archiveParticipantKeys workDir keyDir =
         dest = swept </> takeFileName keyDir
     createDirectoryIfMissing True swept
     alreadyThere <- doesDirectoryExist dest
-    -- A name here is a key hash, so a clash means this directory was archived
-    -- and then recreated. Leave both where they are rather than write over keys
-    -- that are already kept, and say so: nothing else will move this one, and
-    -- every later run will sweep it again.
+    -- A name is a key hash, so a clash means this was archived and recreated.
+    -- Keep both rather than write over keys already archived.
     if alreadyThere
       then fail $ "refusing to overwrite already archived keys at " <> dest
       else renameDirectory keyDir dest

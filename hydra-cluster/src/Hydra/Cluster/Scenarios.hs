@@ -528,8 +528,7 @@ singlePartyHeadFullLifeCycle ::
   [TxId] ->
   IO ()
 singlePartyHeadFullLifeCycle tracer workDir mkTiming opts hydraScriptsTxId = do
-  -- Recycle what a run killed before it could sweep left behind, before asking
-  -- the faucet for more.
+  -- Recycle what an earlier run could not return, before asking for more.
   returnLeftoverParticipantFunds tracer opts workDir
 
   participant@Participant{cardanoVk, cardanoSk, hydraSk, walletVk, walletSk, keyDir} <-
@@ -577,10 +576,9 @@ singlePartyHeadFullLifeCycle tracer workDir mkTiming opts hydraScriptsTxId = do
             ]
 
     withSoloHydraNode hydraTracer blockTime participantChainConfig workDir 1 hydraSk [] $ \n1 -> do
-      -- Open head. The funds are committed once the init transaction is on
-      -- chain, which is before this run gets to hear about it, so record that
-      -- the keys are needed first. A head that never opens leaves the marker
-      -- behind and the keys with it, which is the harmless way to be wrong.
+      -- Mark before Init: the funds are committed once that transaction is on
+      -- chain, which is before this run hears about it. A head that never opens
+      -- leaves the marker behind, which is the harmless way to be wrong.
       markHeadOpen keyDir
       send n1 $ input "Init" []
       headId <- waitMatch (30 * blockTime) n1 $ headIsOpenWith (Set.fromList [participantParty participant])
@@ -664,12 +662,8 @@ returnParticipantFunds ::
 returnParticipantFunds tracer opts workDir Participant{cardanoSk, walletSk, keyDir} =
   sweepParticipantKeys tracer opts workDir keyDir [cardanoSk, walletSk]
 
--- | Return funds left at the keys of runs that were killed before they could
--- sweep, and archive those keys.
---
--- Nobody else can spend them -- the keys are generated per run and never
--- published -- but they are still the project's funds, and a 'finally' does not
--- run when the process is killed.
+-- | Return funds left at the keys of runs killed before they could sweep, and
+-- archive those keys.
 returnLeftoverParticipantFunds ::
   Tracer IO EndToEndLog ->
   ChainBackendOptions ->
@@ -690,21 +684,16 @@ returnLeftoverParticipantFunds tracer opts workDir =
 -- | Return what the given keys hold to the faucet, and archive them once the
 -- run they belong to is finished with them.
 --
--- A run that left a head open is not swept at all. Its fuel is what pays for
--- the abort or close that recovers the head, so returning it would strand the
--- head's own funds, and a key re-funded by hand would only be swept again by
--- the next run. Such a directory is kept and reported on every later run.
+-- A run that left a head open is not swept at all: its fuel is what pays for
+-- the abort or close that recovers the head.
 --
--- Keys are archived only once their run is over. One that was interrupted can
--- still have a funding transaction in flight, and value landing after the keys
--- were archived would sit where no later run looks for it.
+-- Keys are archived only once their run is over, since an interrupted one can
+-- still have a funding transaction in flight, and value landing after they were
+-- archived would sit where no later run looks.
 --
--- Failures are traced rather than raised. The leftover sweep runs before
--- anything else in the scenario, so one key the faucet cannot build a
--- transaction for -- dust below the fee, say -- would otherwise block every
--- later run against this network; and on the way out of a failing run a raised
--- failure would mask whatever the run was actually failing on. Interrupts are
--- not failures and are left to propagate.
+-- Failures are traced rather than raised, so that one unsweepable key cannot
+-- block every later run, and so that a failing run reports what it failed on.
+-- Interrupts are left to propagate.
 sweepParticipantKeys ::
   Tracer IO EndToEndLog ->
   ChainBackendOptions ->
