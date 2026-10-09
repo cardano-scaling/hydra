@@ -41,6 +41,7 @@ data FaucetException
   = FaucetHasNotEnoughFunds {faucetUTxO :: UTxO}
   | FaucetFailedToBuildTx {reason :: TxBodyErrorAutoBalance Era}
   | FaucetBlockfrostError {blockFrostError :: Text}
+  | FaucetSweepTimedOut
   deriving stock (Show)
 
 instance Exception FaucetException
@@ -270,7 +271,18 @@ returnFundsToFaucetBounded ::
   ChainBackendOptions ->
   Secret (SigningKey PaymentKey) ->
   IO Coin
-returnFundsToFaucetBounded = returnFundsToFaucetWithin (Just sweepAttempts)
+returnFundsToFaucetBounded tracer opts senderSk =
+  timeout sweepTimeout (returnFundsToFaucetWithin (Just sweepAttempts) tracer opts senderSk)
+    >>= maybe (throwIO FaucetSweepTimedOut) pure
+
+-- | How long a bounded sweep may take in total.
+--
+-- Capping the resubmissions is not enough on its own: awaiting a transaction
+-- has no bound, and one that is accepted and then dropped or rolled back is
+-- never seen. On a cleanup path that waits past anything that could rethrow the
+-- error the run was failing on.
+sweepTimeout :: DiffTime
+sweepTimeout = 10 * 60
 
 returnFundsToFaucetWithin ::
   Maybe Int ->
@@ -378,8 +390,9 @@ retryOnExceptionsWithin attemptsLeft tracer opts action =
 
 -- | How many times a bounded sweep re-submits before giving up, so that a
 -- rejection which repeats surfaces as a failure the caller can trace.
+-- 'sweepTimeout' is the real bound; this only stops a tight loop.
 sweepAttempts :: Int
-sweepAttempts = 30
+sweepAttempts = 60
 
 -- | Publish current Hydra scripts as scripts outputs for later referencing them.
 --

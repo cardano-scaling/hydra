@@ -45,7 +45,7 @@ import Hydra.Tx.Crypto qualified as Crypto
 import Hydra.Tx.DepositPeriod (DepositPeriod)
 import Hydra.Tx.DepositPeriod qualified as DP
 import Paths_hydra_cluster qualified as Pkg
-import System.Directory (createDirectoryIfMissing, doesDirectoryExist, doesFileExist, listDirectory, removeFile, renameDirectory, renameFile)
+import System.Directory (createDirectoryIfMissing, doesDirectoryExist, doesFileExist, getModificationTime, listDirectory, removeFile, renameDirectory, renameFile)
 import System.FilePath (takeFileName, (<.>), (</>))
 import System.Posix (
   FileMode,
@@ -232,8 +232,7 @@ participantKeysDir workDir = workDir </> "participant-keys"
 sweptParticipantKeysDir :: FilePath -> FilePath
 sweptParticipantKeysDir workDir = workDir </> "participant-keys-swept"
 
--- | Path of a participant's Cardano signing key, which a hydra-node is pointed
--- at with @--cardano-signing-key@.
+-- | Path a hydra-node is pointed at with @--cardano-signing-key@.
 participantCardanoKeyFile :: FilePath -> FilePath
 participantCardanoKeyFile keyDir = keyDir </> "cardano.sk"
 
@@ -350,6 +349,20 @@ leftoverParticipantKeys workDir = do
     if present
       then Just <$> (decodeSigningKey path =<< BS.readFile path)
       else pure Nothing
+
+-- | Whether a key directory has been around long enough that a funding
+-- transaction from its run cannot still be in flight.
+--
+-- A run cancelled while its funding transaction sat in the mempool leaves an
+-- address that is empty now and funded minutes later, so a sweep returning
+-- nothing is not on its own evidence that nothing is coming.
+participantKeysSettled :: FilePath -> IO Bool
+participantKeysSettled keyDir = do
+  modified <- getModificationTime keyDir
+  now <- getCurrentTime
+  pure $ diffUTCTime now modified > inFlightGrace
+ where
+  inFlightGrace = 24 * 60 * 60
 
 -- | Move a run's keys aside once its funds are back, reporting why if it could
 -- not be done. Moved rather than deleted, so a directory archived on a wrong

@@ -108,7 +108,7 @@ import Hydra.Chain.ChainState (ChainSlot (..))
 import Hydra.Cluster.Faucet (createOutputAtAddress, seedFromFaucet, seedFromFaucetWithMinting, seedFromFaucet_, seedManyFromFaucet)
 import Hydra.Cluster.Faucet qualified as Faucet
 import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk, carol, carolSk, carolVk)
-import Hydra.Cluster.Util (BlockTime, Participant (..), Timing (..), archiveParticipantKeys, chainConfigFor, chainConfigFor', chainConfigForParticipant, clearHeadOpen, depositTimeout, generateParticipant, headMayBeOpen, keysFor, leftoverParticipantKeys, markHeadOpen, mkTestTiming, mkTestTiming', modifyConfig, nodeStartupBudget, participantCardanoKeyFile, participantKeysDir, participantParty, setNetworkId, truncatedDepositPeriod, trySync)
+import Hydra.Cluster.Util (BlockTime, Participant (..), Timing (..), archiveParticipantKeys, chainConfigFor, chainConfigFor', chainConfigForParticipant, clearHeadOpen, depositTimeout, generateParticipant, headMayBeOpen, keysFor, leftoverParticipantKeys, markHeadOpen, mkTestTiming, mkTestTiming', modifyConfig, nodeStartupBudget, participantCardanoKeyFile, participantKeysDir, participantKeysSettled, participantParty, setNetworkId, truncatedDepositPeriod, trySync)
 import Hydra.Contract.Dummy (dummyMintingScript, dummyRewardingScript, dummyValidatorScript)
 import Hydra.Ledger.Cardano (mkSimpleTx, mkTransferTx, unsafeBuildTransaction)
 import Hydra.Network qualified as Network
@@ -711,14 +711,28 @@ sweepParticipantKeys tracer opts workDir keyDir sks outcome =
         \Delete the head-open file once it is dealt with to release these keys."
     False -> do
       results <- forM sks sweep
-      case (lefts results, outcome) of
-        (errs@(_ : _), _) -> traceWith tracer SweepFailed{keyPath = keyDir, reason = show errs}
-        ([], RunInterrupted) -> keep "run was interrupted; the next run sweeps these"
-        ([], RunFinished) ->
-          archiveParticipantKeys workDir keyDir
-            >>= either (\reason -> traceWith tracer SweepFailed{keyPath = keyDir, reason}) pure
+      case lefts results of
+        -- Raising here is not an option: a run that succeeded still leaves dust
+        -- at its wallet key that cannot cover its own fee, so a failed sweep is
+        -- the ordinary case rather than a reason to fail the run.
+        errs@(_ : _) -> traceWith tracer SweepFailed{keyPath = keyDir, reason = show errs}
+        [] -> case outcome of
+          RunInterrupted -> keep "run was interrupted; the next run sweeps these"
+          RunFinished
+            | sum (rights results) > 0 -> archive
+            | otherwise ->
+                -- Nothing came back, which a funding transaction still in flight
+                -- also looks like. Archiving now would leave it landing on keys
+                -- no later run reads.
+                participantKeysSettled keyDir >>= \case
+                  True -> archive
+                  False -> keep "nothing returned yet; a funding transaction may still be in flight"
  where
   keep reason = traceWith tracer ParticipantKeysKept{keyPath = keyDir, reason}
+
+  archive =
+    archiveParticipantKeys workDir keyDir
+      >>= either (\reason -> traceWith tracer SweepFailed{keyPath = keyDir, reason}) pure
 
   sweep :: Secret (SigningKey PaymentKey) -> IO (Either SomeException Coin)
   sweep sk = trySync $ Faucet.returnFundsToFaucetBounded (contramap FromFaucet tracer) opts sk
