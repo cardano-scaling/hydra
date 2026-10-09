@@ -19,6 +19,7 @@ import Control.Concurrent.Class.MonadSTM (
   writeTQueue,
  )
 import Control.Concurrent.MVar (MVar, newMVar, withMVar)
+import Control.Exception (SomeAsyncException)
 import Control.Lens (to, (^..), (^?))
 import Control.Monad.Class.MonadAsync (concurrently, mapConcurrently)
 import Control.Tracer.JSON (
@@ -47,7 +48,7 @@ import Hydra.Cardano.Api (NetworkId, PaymentKey, SigningKey, SocketPath, Tx, TxI
 import Hydra.Chain.Backend (ChainBackend (..))
 import Hydra.Cluster.Faucet (FaucetLog (..), publishHydraScriptsAs, returnFundsToFaucet', seedFromFaucet)
 import Hydra.Cluster.Fixture (Actor (..))
-import Hydra.Cluster.Util (Timing (..), depositTimeout, truncatedDepositPeriod, trySync)
+import Hydra.Cluster.Util (Timing (..), depositTimeout, truncatedDepositPeriod)
 import Hydra.Generator (ClientDataset (..), Dataset (..))
 import Hydra.Ledger.Cardano (mkSimpleTx)
 import Hydra.Network (Host)
@@ -595,7 +596,7 @@ processTransactions clients clientDatasets incrementalCtx waitForTxValidEnabled 
             cellRef <- newIORef (Nothing, Nothing)
             outcome <-
               System.Timeout.timeout cycleTimeoutMicros $
-                trySync
+                tryNonAsync
                   (runOneIncrementalOp ctxTracer ctxBackend ctxDecommitLock client paymentKey sideUTxO numberOfTxs submissionQ cellRef)
             captured <- readIORef cellRef
             let note :: Text = case outcome of
@@ -694,6 +695,19 @@ processTransactions clients clientDatasets incrementalCtx waitForTxValidEnabled 
                 -- not rejected with DecommitAlreadyInFlight.
                 threadDelay 2
                 pure (Just commitTime, Just decommitTime)
+
+-- | Like 'try' but rethrows async exceptions instead of swallowing them. Using
+-- a plain 'try @SomeException' around the incremental-ops body breaks the outer
+-- 'failAfter' timeout because 'timeout' delivers its signal via an async
+-- exception that 'try' would otherwise catch and discard.
+tryNonAsync :: IO a -> IO (Either SomeException a)
+tryNonAsync action = do
+  result <- try action
+  case result of
+    Left ex
+      | Just (_ :: SomeAsyncException) <- fromException ex -> throwIO ex
+      | otherwise -> pure (Left ex)
+    Right v -> pure (Right v)
 
 progressReport :: Int -> Int -> Int -> TBQueue IO Tx -> IO ()
 progressReport nodeId clientId queueSize queue = do
@@ -1036,9 +1050,9 @@ readPeakNodeRssMb workDir = do
     kbs -> Just (List.maximum kbs / 1024)
  where
   -- Synchronous exceptions only: swallowing an async cancellation here would
-  -- defer the scenario's 'failAfter' timeout (see 'trySync').
+  -- defer the scenario's 'failAfter' timeout (see 'tryNonAsync').
   ignoringErrors :: forall a. a -> IO a -> IO a
-  ignoringErrors def act = fromRight def <$> trySync act
+  ignoringErrors def act = fromRight def <$> tryNonAsync act
 
   isScenarioNode cmdline = case BS.split 0 cmdline of
     (exe : args) ->
@@ -1060,7 +1074,7 @@ readPeakNodeRssMb workDir = do
 -- with '+RTS -T' do not serve them).
 scrapeRtsStats :: [HydraClient] -> IO [Maybe NodeRtsStats]
 scrapeRtsStats = mapM $ \client ->
-  fromRight Nothing <$> trySync (parseRtsStats . decodeUtf8 <$> getMetrics client)
+  fromRight Nothing <$> tryNonAsync (parseRtsStats . decodeUtf8 <$> getMetrics client)
 
 parseRtsStats :: Text -> Maybe NodeRtsStats
 parseRtsStats body = do

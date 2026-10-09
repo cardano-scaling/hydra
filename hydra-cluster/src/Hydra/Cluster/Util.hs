@@ -14,6 +14,7 @@ import Data.Text qualified as T
 import Hydra.Cardano.Api (
   AsType (AsPaymentKey),
   File (..),
+  FileError,
   HasTextEnvelope,
   Key (VerificationKey, verificationKeyHash),
   NetworkId (Mainnet, Testnet),
@@ -26,9 +27,10 @@ import Hydra.Cardano.Api (
   generateSigningKey,
   serialiseToRawBytesHexText,
   textEnvelopeToJSON,
-  writeFileTextEnvelope,
+  writeLazyByteStringFileWithOwnerPermissions,
  )
 import Hydra.Cluster.Fixture (Actor (Faucet), actorName, allActors, fundsOf)
+import Hydra.Cluster.Fixture qualified as Fixture
 import Hydra.Node.UnsyncedPeriod (defaultUnsyncedPeriodFor)
 import Hydra.Options (
   BlockfrostOptions (..),
@@ -45,21 +47,10 @@ import Hydra.Tx.Crypto qualified as Crypto
 import Hydra.Tx.DepositPeriod (DepositPeriod)
 import Hydra.Tx.DepositPeriod qualified as DP
 import Paths_hydra_cluster qualified as Pkg
-import System.Directory (createDirectoryIfMissing, doesDirectoryExist, doesFileExist, getModificationTime, listDirectory, removeFile, renameDirectory, renameFile)
+import System.Directory (createDirectoryIfMissing, doesDirectoryExist, doesFileExist, listDirectory, removeFile, renameDirectory, renameFile)
 import System.FilePath (takeFileName, (<.>), (</>))
-import System.Posix (
-  FileMode,
-  OpenFileFlags (..),
-  OpenMode (WriteOnly),
-  closeFd,
-  defaultFileFlags,
-  openFd,
-  ownerReadMode,
-  ownerWriteMode,
-  setFileMode,
-  unionFileModes,
- )
 import Test.Hydra.Prelude (failure)
+import Test.Hydra.Tx.Fixture qualified as TxFixture
 import Test.Hydra.Tx.Gen (genSigningKey)
 import Test.QuickCheck (generate)
 
@@ -120,7 +111,7 @@ trySync action =
 -- authority over real funds.
 data FixtureKeyOnMainnet
   = CardanoFixtureKeyOnMainnet {fixtureActor :: String}
-  | HydraFixtureKeyOnMainnet
+  | PublicHydraKeyRefused {onNetwork :: String}
   deriving stock (Show)
 
 instance Exception FixtureKeyOnMainnet
@@ -149,7 +140,7 @@ assertNoFixtureRecipients networkId recipients
 assertNoFixtureHydraKey :: ConfiguredNetwork -> Secret (SigningKey HydraKey) -> IO ()
 assertNoFixtureHydraKey network sk
   | permitted = pure ()
-  | getVerificationKey sk `elem` publicHydraKeys = throwIO HydraFixtureKeyOnMainnet
+  | getVerificationKey sk `elem` publicHydraKeys = throwIO PublicHydraKeyRefused{onNetwork = show network}
   | otherwise = pure ()
  where
   permitted = case network of
@@ -157,14 +148,12 @@ assertNoFixtureHydraKey network sk
     KnownNetwork networkId -> networkId /= Mainnet
     UndeterminedNetwork -> False
 
--- | Hydra keys anyone can reproduce, because this repository publishes the seed
--- they are derived from.
---
--- Covers both sets of fixtures: 'Hydra.Cluster.Fixture' seeds carol with
--- @carol@ and 'Test.Hydra.Tx.Fixture' with @zcarol@.
+-- | Hydra keys this repository publishes, taken from the fixtures themselves so
+-- that changing one does not quietly drop it from the check.
 publicHydraKeys :: [VerificationKey HydraKey]
 publicHydraKeys =
-  getVerificationKey . Crypto.generateSigningKey <$> ["alice", "bob", "carol", "zcarol"]
+  (getVerificationKey <$> [Fixture.aliceSk, Fixture.bobSk, Fixture.carolSk])
+    <> (getVerificationKey <$> [TxFixture.aliceSk, TxFixture.bobSk, TxFixture.carolSk])
 
 -- | What a chain config says about the network it connects to, without
 -- querying the chain.
@@ -295,30 +284,16 @@ generateParticipant workDir = do
 -- failing loudly if it cannot be persisted: a key that was funded but never
 -- written is unrecoverable.
 --
--- These sit in the state directory of a shared runner, where the default mode
--- would leave mainnet keys readable by every account on the host. The mode is
--- narrowed while the file is still empty, since doing it afterwards leaves a
--- window in which the key on disk is world-readable.
+-- Staged and renamed into place, which is atomic: a kill partway through
+-- otherwise leaves a truncated key that no run can read or sweep. These sit in
+-- the state directory of a shared runner, where the default mode would leave
+-- mainnet keys readable by every account on the host.
 writeSigningKey :: HasTextEnvelope (SigningKey k) => FilePath -> SigningKey k -> IO ()
 writeSigningKey path sk = do
-  -- Written aside and renamed into place, which is atomic: a kill partway
-  -- through otherwise leaves a truncated key that no run can read or sweep.
   let staging = path <.> "tmp"
-  createOwnerOnlyFile staging
-  -- 'creat' leaves an existing file's mode alone.
-  setFileMode staging ownerOnlyMode
-  writeFileTextEnvelope (File staging) Nothing sk >>= either (fail . show) pure
+  written <- writeLazyByteStringFileWithOwnerPermissions (File staging) (textEnvelopeToJSON Nothing sk)
+  either (fail . show) pure (written :: Either (FileError ()) ())
   renameFile staging path
-
--- | Create, or truncate, a file only its owner can read.
-createOwnerOnlyFile :: FilePath -> IO ()
-createOwnerOnlyFile path =
-  bracket open closeFd (const $ pure ())
- where
-  open = openFd path WriteOnly defaultFileFlags{creat = Just ownerOnlyMode, trunc = True}
-
-ownerOnlyMode :: FileMode
-ownerOnlyMode = ownerReadMode `unionFileModes` ownerWriteMode
 
 -- | The key directories of runs that did not sweep, each with the payment keys
 -- to return funds from, or the reason they could not be read.
@@ -349,20 +324,6 @@ leftoverParticipantKeys workDir = do
     if present
       then Just <$> (decodeSigningKey path =<< BS.readFile path)
       else pure Nothing
-
--- | Whether a key directory has been around long enough that a funding
--- transaction from its run cannot still be in flight.
---
--- A run cancelled while its funding transaction sat in the mempool leaves an
--- address that is empty now and funded minutes later, so a sweep returning
--- nothing is not on its own evidence that nothing is coming.
-participantKeysSettled :: FilePath -> IO Bool
-participantKeysSettled keyDir = do
-  modified <- getModificationTime keyDir
-  now <- getCurrentTime
-  pure $ diffUTCTime now modified > inFlightGrace
- where
-  inFlightGrace = 24 * 60 * 60
 
 -- | Move a run's keys aside once its funds are back, reporting why if it could
 -- not be done. Moved rather than deleted, so a directory archived on a wrong

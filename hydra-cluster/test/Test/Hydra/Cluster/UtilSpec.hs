@@ -44,7 +44,7 @@ import Hydra.Tx.Crypto (getVerificationKey)
 import Hydra.Tx.DepositPeriod qualified as DP
 import System.Directory (doesFileExist, listDirectory)
 import System.FilePath ((</>))
-import System.Posix (accessModes, fileMode, getFileStatus, intersectFileModes, ownerReadMode, ownerWriteMode, unionFileModes)
+import System.Posix (fileMode, getFileStatus, groupModes, intersectFileModes, nullFileMode, otherModes, unionFileModes)
 
 spec :: Spec
 spec = do
@@ -92,7 +92,7 @@ fixtureKeySpec = do
     it "refuses a head signed by the published alice key on mainnet" $
       assertNoFixtureHydraKey (KnownNetwork CAPI.Mainnet) aliceSk
         `shouldThrow` \case
-          HydraFixtureKeyOnMainnet -> True
+          PublicHydraKeyRefused{} -> True
           _ -> False
 
     it "refuses it on a network the config does not determine" $
@@ -100,7 +100,7 @@ fixtureKeySpec = do
       -- network is not a reason to allow a key anyone holds.
       assertNoFixtureHydraKey UndeterminedNetwork aliceSk
         `shouldThrow` \case
-          HydraFixtureKeyOnMainnet -> True
+          PublicHydraKeyRefused{} -> True
           _ -> False
 
     it "allows a generated participant's key on mainnet" $
@@ -226,8 +226,8 @@ participantKeySpec = describe "generateParticipant" $ do
       Participant{keyDir} <- generateParticipant dir
       forM_ [participantCardanoKeyFile, participantWalletKeyFile, participantHydraKeyFile] $ \keyFile -> do
         status <- getFileStatus (keyFile keyDir)
-        intersectFileModes (fileMode status) accessModes
-          `shouldBe` (ownerReadMode `unionFileModes` ownerWriteMode)
+        intersectFileModes (fileMode status) (groupModes `unionFileModes` otherModes)
+          `shouldBe` nullFileMode
 
 -- | The periods 'mkSmokeTiming' produces are cut close enough to the bounds
 -- 'Hydra.Chain.Direct.Handlers' puts on transactions that the failures are not

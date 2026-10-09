@@ -108,7 +108,7 @@ import Hydra.Chain.ChainState (ChainSlot (..))
 import Hydra.Cluster.Faucet (createOutputAtAddress, seedFromFaucet, seedFromFaucetWithMinting, seedFromFaucet_, seedManyFromFaucet)
 import Hydra.Cluster.Faucet qualified as Faucet
 import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk, carol, carolSk, carolVk)
-import Hydra.Cluster.Util (BlockTime, Participant (..), Timing (..), archiveParticipantKeys, chainConfigFor, chainConfigFor', chainConfigForParticipant, clearHeadOpen, depositTimeout, generateParticipant, headMayBeOpen, keysFor, leftoverParticipantKeys, markHeadOpen, mkTestTiming, mkTestTiming', modifyConfig, nodeStartupBudget, participantCardanoKeyFile, participantKeysDir, participantKeysSettled, participantParty, setNetworkId, truncatedDepositPeriod, trySync)
+import Hydra.Cluster.Util (BlockTime, Participant (..), Timing (..), archiveParticipantKeys, chainConfigFor, chainConfigFor', chainConfigForParticipant, clearHeadOpen, depositTimeout, generateParticipant, headMayBeOpen, keysFor, leftoverParticipantKeys, markHeadOpen, mkTestTiming, mkTestTiming', modifyConfig, nodeStartupBudget, participantCardanoKeyFile, participantKeysDir, participantParty, setNetworkId, truncatedDepositPeriod, trySync)
 import Hydra.Contract.Dummy (dummyMintingScript, dummyRewardingScript, dummyValidatorScript)
 import Hydra.Ledger.Cardano (mkSimpleTx, mkTransferTx, unsafeBuildTransaction)
 import Hydra.Network qualified as Network
@@ -577,8 +577,10 @@ singlePartyHeadFullLifeCycle tracer workDir mkTiming opts hydraScriptsTxId = do
 
     withSoloHydraNode hydraTracer blockTime participantChainConfig workDir 1 hydraSk [] $ \n1 -> do
       -- Mark before Init: the funds are committed once that transaction is on
-      -- chain, which is before this run hears about it. A head that never opens
-      -- leaves the marker behind, which is the harmless way to be wrong.
+      -- chain, which is before this run hears about it. An Init that never
+      -- lands leaves the marker behind and holds that run's fuel until someone
+      -- deletes it. That is the recoverable way to be wrong; the other is a
+      -- head left open with its keys already archived.
       markHeadOpen keyDir
       send n1 $ input "Init" []
       headId <- waitMatch (30 * blockTime) n1 $ headIsOpenWith (Set.fromList [participantParty participant])
@@ -712,21 +714,17 @@ sweepParticipantKeys tracer opts workDir keyDir sks outcome =
     False -> do
       results <- forM sks sweep
       case lefts results of
-        -- Raising here is not an option: a run that succeeded still leaves dust
-        -- at its wallet key that cannot cover its own fee, so a failed sweep is
-        -- the ordinary case rather than a reason to fail the run.
+        -- A sweep that failed leaves the directory alone: it may still hold
+        -- funds, and the next run retries it. Dust too small to cover its own
+        -- fee is not a failure, and 'returnFundsToFaucetBounded' reports it as
+        -- nothing returned rather than an error.
         errs@(_ : _) -> traceWith tracer SweepFailed{keyPath = keyDir, reason = show errs}
         [] -> case outcome of
+          -- An interrupted run can still have a funding transaction in flight,
+          -- and value landing after its keys were archived would sit where no
+          -- later run reads. A finished run's funding landed long ago.
           RunInterrupted -> keep "run was interrupted; the next run sweeps these"
-          RunFinished
-            | sum (rights results) > 0 -> archive
-            | otherwise ->
-                -- Nothing came back, which a funding transaction still in flight
-                -- also looks like. Archiving now would leave it landing on keys
-                -- no later run reads.
-                participantKeysSettled keyDir >>= \case
-                  True -> archive
-                  False -> keep "nothing returned yet; a funding transaction may still be in flight"
+          RunFinished -> archive
  where
   keep reason = traceWith tracer ParticipantKeysKept{keyPath = keyDir, reason}
 

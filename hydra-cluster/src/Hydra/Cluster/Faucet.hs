@@ -256,46 +256,12 @@ returnFundsToFaucet' ::
   ChainBackendOptions ->
   Secret (SigningKey PaymentKey) ->
   IO Coin
-returnFundsToFaucet' = returnFundsToFaucetWithin Nothing
-
--- | Like 'returnFundsToFaucet'', but giving up after a bounded number of
--- submission attempts.
---
--- For callers that mean to handle a failure rather than wait one out: a
--- submission the chain rejects for a reason that does not change -- a sweep
--- transaction too large for the UTxO it spends, say -- is otherwise rebuilt and
--- rejected identically forever, which is a hang no caller can catch. Callers
--- that would rather wait out a busy node keep the unbounded 'returnFundsToFaucet''.
-returnFundsToFaucetBounded ::
-  Tracer IO FaucetLog ->
-  ChainBackendOptions ->
-  Secret (SigningKey PaymentKey) ->
-  IO Coin
-returnFundsToFaucetBounded tracer opts senderSk =
-  timeout sweepTimeout (returnFundsToFaucetWithin (Just sweepAttempts) tracer opts senderSk)
-    >>= maybe (throwIO FaucetSweepTimedOut) pure
-
--- | How long a bounded sweep may take in total.
---
--- Capping the resubmissions is not enough on its own: awaiting a transaction
--- has no bound, and one that is accepted and then dropped or rolled back is
--- never seen. On a cleanup path that waits past anything that could rethrow the
--- error the run was failing on.
-sweepTimeout :: DiffTime
-sweepTimeout = 10 * 60
-
-returnFundsToFaucetWithin ::
-  Maybe Int ->
-  Tracer IO FaucetLog ->
-  ChainBackendOptions ->
-  Secret (SigningKey PaymentKey) ->
-  IO Coin
-returnFundsToFaucetWithin attempts tracer opts senderSk = do
+returnFundsToFaucet' tracer opts senderSk = do
   (faucetVk, _) <- keysFor Faucet
   networkId <- runBackend opts queryNetworkId
   let faucetAddress = mkVkAddress networkId faucetVk
   let senderVk = getVerificationKey senderSk
-  returnAmount <- retryOnExceptionsWithin attempts tracer opts $ do
+  returnAmount <- retryOnExceptions tracer opts $ do
     -- NOTE: Query inside the retry. An earlier attempt that was interrupted
     -- after submitting can already be spending these inputs, and a retry built
     -- from the same stale UTxO is rejected identically every time -- which,
@@ -319,6 +285,33 @@ returnFundsToFaucetWithin attempts tracer opts senderSk = do
     runBackend opts (buildTransaction faucetAddress utxo [] []) >>= \case
       Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
       Right tx -> pure $ getTxBody tx
+
+-- | 'returnFundsToFaucet'' for a cleanup path: bounded in time, and reporting
+-- nothing returned where there is nothing returnable.
+--
+-- Resubmission and awaiting a transaction are both unbounded on their own, and
+-- a transaction accepted and then dropped is never seen, so a sweep can wait
+-- past anything that would rethrow the error the run was failing on.
+--
+-- A balance too small to cover its own fee is the ordinary end state of a
+-- successful run's wallet key. Treating that as a failure would mean its keys
+-- were never archived.
+returnFundsToFaucetBounded ::
+  Tracer IO FaucetLog ->
+  ChainBackendOptions ->
+  Secret (SigningKey PaymentKey) ->
+  IO Coin
+returnFundsToFaucetBounded tracer opts senderSk =
+  timeout sweepTimeout (returnFundsToFaucet' tracer opts senderSk `catch` noDust)
+    >>= maybe (throwIO FaucetSweepTimedOut) pure
+ where
+  noDust :: FaucetException -> IO Coin
+  noDust = \case
+    FaucetFailedToBuildTx{reason = TxBodyErrorAdaBalanceTooSmall{}} -> pure 0
+    e -> throwIO e
+
+sweepTimeout :: DiffTime
+sweepTimeout = 10 * 60
 
 -- Use the Faucet utxo to create the output at specified address
 createOutputAtAddress ::
@@ -347,52 +340,27 @@ createOutputAtAddress networkId opts atAddress datum val = do
 
 -- | Try to submit tx and retry when some caught exception/s take place.
 retryOnExceptions :: (MonadCatch m, MonadDelay m) => Tracer m FaucetLog -> ChainBackendOptions -> m a -> m a
-retryOnExceptions = retryOnExceptionsWithin Nothing
-
--- | Like 'retryOnExceptions', but giving up after the given number of attempts.
---
--- Worth bounding wherever the caller means to handle a failure rather than wait
--- one out: a submission the chain rejects for a reason that does not change --
--- a sweep transaction too large for the UTxO it spends, say -- is otherwise
--- rebuilt and rejected identically forever, which is a hang no caller can catch.
-retryOnExceptionsWithin ::
-  (MonadCatch m, MonadDelay m) =>
-  Maybe Int ->
-  Tracer m FaucetLog ->
-  ChainBackendOptions ->
-  m a ->
-  m a
-retryOnExceptionsWithin attemptsLeft tracer opts action =
+retryOnExceptions tracer opts action =
   action
     `catches` [ Handler $ \(ex :: SubmitTransactionException) -> do
                   traceWith tracer $
                     SubmitTxError $
                       show ex
-                  again $ throwIO ex
+                  delayBF opts
+                  retryOnExceptions tracer opts action
               , Handler $ \(ex :: IOException) -> do
                   unless (isResourceExhausted ex) $
                     throwIO ex
                   traceWith tracer $
                     TraceResourceExhaustedHandled $
                       "Expected exception raised from seedFromFaucet: " <> show ex
-                  again $ throwIO ex
+                  delayBF opts
+                  retryOnExceptions tracer opts action
               ]
  where
-  again giveUp = case attemptsLeft of
-    Just n | n <= 1 -> giveUp
-    _ -> do
-      delayBF opts
-      retryOnExceptionsWithin (subtract 1 <$> attemptsLeft) tracer opts action
-
   isResourceExhausted ex = case ioe_type ex of
     ResourceExhausted -> True
     _other -> False
-
--- | How many times a bounded sweep re-submits before giving up, so that a
--- rejection which repeats surfaces as a failure the caller can trace.
--- 'sweepTimeout' is the real bound; this only stops a tight loop.
-sweepAttempts :: Int
-sweepAttempts = 60
 
 -- | Publish current Hydra scripts as scripts outputs for later referencing them.
 --
