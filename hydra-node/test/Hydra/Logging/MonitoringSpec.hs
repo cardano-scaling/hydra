@@ -152,6 +152,7 @@ rtsMetrics =
   , "hydra_rts_mutator_cpu_seconds"
   , "hydra_rts_gc_cpu_seconds"
   , "hydra_rts_max_live_bytes"
+  , "hydra_rts_cumulative_live_bytes"
   , "hydra_rts_major_gcs"
   ]
 

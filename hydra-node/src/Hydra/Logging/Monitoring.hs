@@ -106,6 +106,10 @@ registerRtsMetrics registry = do
       mutatorCpu <- rtsGauge "hydra_rts_mutator_cpu_seconds"
       gcCpu <- rtsGauge "hydra_rts_gc_cpu_seconds"
       maxLive <- rtsGauge "hydra_rts_max_live_bytes"
+      -- Sum of live bytes measured at every major GC; divided by the major GC
+      -- count over the same window this gives the mean live heap of that
+      -- window, which a since-start maximum cannot provide.
+      cumulativeLive <- rtsGauge "hydra_rts_cumulative_live_bytes"
       majorGcs <- rtsGauge "hydra_rts_major_gcs"
       pure $ do
         stats <- getRTSStats
@@ -113,6 +117,7 @@ registerRtsMetrics registry = do
         Gauge.set (fromIntegral (mutator_cpu_ns stats) / 1.0e9) mutatorCpu
         Gauge.set (fromIntegral (gc_cpu_ns stats) / 1.0e9) gcCpu
         Gauge.set (fromIntegral (max_live_bytes stats)) maxLive
+        Gauge.set (fromIntegral (cumulative_live_bytes stats)) cumulativeLive
         Gauge.set (fromIntegral (major_gcs stats)) majorGcs
  where
   rtsGauge name = registerGauge (Name name) mempty registry

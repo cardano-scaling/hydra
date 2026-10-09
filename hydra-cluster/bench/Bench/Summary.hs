@@ -26,8 +26,8 @@ data NodeRtsStats = NodeRtsStats
   { allocatedBytes :: Double
   , mutatorCpuSeconds :: Double
   , gcCpuSeconds :: Double
-  , maxLiveBytes :: Double
-  -- ^ Peak live heap since process start, not a windowed delta.
+  , cumulativeLiveBytes :: Double
+  -- ^ Sum of the live heap measured at each major GC inside the window.
   , majorGcs :: Double
   }
   deriving stock (Generic, Eq, Show)
@@ -145,19 +145,22 @@ snapshotsPerSecond Summary{numberOfSnapshots, runWallClockSeconds}
 
 -- | Aggregated RTS work counters across nodes, normalized by confirmed txs
 -- and snapshots: (alloc MB per tx, alloc MB per snapshot, mutator CPU s per
--- 1k txs, max live MB of the largest node). Mirrored by rts_metrics in
--- scripts/bench-e2e-diff.py; keep the two in sync.
-rtsAggregates :: Summary -> Maybe (Double, Double, Double, Double)
+-- 1k txs, mean live MB under load of the largest node). The live figure
+-- averages the major GCs that ran inside the window, so a startup transient
+-- cannot set it; it is Nothing when no node had a major GC in the window.
+-- Mirrored by rts_metrics in scripts/bench-e2e-diff.py; keep the two in sync.
+rtsAggregates :: Summary -> Maybe (Double, Double, Double, Maybe Double)
 rtsAggregates Summary{nodeRtsStats, numberOfTxs, numberOfSnapshots} = do
   guard (not (null nodeRtsStats) && numberOfTxs > 0 && numberOfSnapshots > 0)
   let mb = 1024 * 1024
       totalAllocMb = sum (map allocatedBytes nodeRtsStats) / mb
       totalMutCpu = sum (map mutatorCpuSeconds nodeRtsStats)
+      meanLive = [cumulativeLiveBytes s / majorGcs s | s <- nodeRtsStats, majorGcs s > 0]
   pure
     ( totalAllocMb / fromIntegral numberOfTxs
     , totalAllocMb / fromIntegral numberOfSnapshots
     , totalMutCpu / (fromIntegral numberOfTxs / 1000)
-    , List.maximum (map maxLiveBytes nodeRtsStats) / mb
+    , if null meanLive then Nothing else Just (List.maximum meanLive / mb)
     )
 
 textReport :: (Summary, SystemStats) -> [Text]
@@ -190,8 +193,8 @@ textReport (summary@Summary{totalTxs, numberOfTxs, averageConfirmationTime, quan
               [ pack $ printf "Alloc MB per confirmed tx: %.3f" allocTx
               , pack $ printf "Alloc MB per snapshot: %.1f" allocSnap
               , pack $ printf "Mutator CPU s per 1k txs: %.3f" cpu1k
-              , pack $ printf "Max live MB (max node): %.1f" live
               ]
+                ++ maybe [] (\mb -> [pack $ printf "Mean live MB under load (max node): %.1f" mb]) live
           )
           (rtsAggregates summary)
         ++ ["Invalid txs: " <> show numberOfInvalidTxs]
@@ -296,8 +299,8 @@ formattedSummary (summary@Summary{clusterSize, numberOfTxs, averageConfirmationT
               [ pack $ printf "| _Alloc MB per confirmed tx_ | %.3f |" allocTx
               , pack $ printf "| _Alloc MB per snapshot_ | %.1f |" allocSnap
               , pack $ printf "| _Mutator CPU s per 1k txs_ | %.3f |" cpu1k
-              , pack $ printf "| _Max live MB (max node)_ | %.1f |" live
               ]
+                ++ maybe [] (\mb -> [pack $ printf "| _Mean live MB under load (max node)_ | %.1f |" mb]) live
           )
           (rtsAggregates summary)
         ++ [ "| _Number of Invalid txs_ | " <> show numberOfInvalidTxs <> " |"
