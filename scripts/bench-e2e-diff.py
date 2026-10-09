@@ -16,8 +16,9 @@
 #
 # Aggregation: per metric, the median of the pairs' percent deltas. A row is
 # colored only when |median| exceeds the metric's noise threshold AND at
-# least 3/4 of pairs agree in direction. This is a calibrated heuristic, not
-# a significance test.
+# least 3/4 of pairs agree in direction AND the metric was measured on at
+# least 3/4 of the scenario's valid pairs (a lone pair agrees with itself).
+# This is a calibrated heuristic, not a significance test.
 #
 # Reports carry an end-to-end-benchmarks.json twin with raw series; when BOTH
 # sides of a pair have it, derived estimators (percentiles, sustained-TPS
@@ -62,7 +63,7 @@ METRICS = [
     ("Alloc MB per confirmed tx", "Alloc MB per confirmed tx", -1, 1.0, False, "pct"),
     ("Alloc MB per snapshot", "Alloc MB per snapshot", 0, 1.0, False, "pct"),
     ("Mutator CPU s per 1k txs", "Mutator CPU s per 1k txs", -1, 1.0, False, "pct"),
-    ("Max live MB (max node)", "Max live MB (max node)", -1, 1.0, False, "pct"),
+    ("Mean live MB under load (max node)", "Mean live MB under load (max node)", -1, 1.0, False, "pct"),
     ("Peak node RSS (MB)", "Peak node RSS (MB)", -1, 1.0, False, "pct"),
     ("Number of Invalid txs", "Invalid txs", -1, 1.0, False, "count"),
     ("Refused submissions", "Refused submissions", -1, 1.0, False, "count"),
@@ -89,7 +90,16 @@ THRESHOLDS = {
 WARN_METRICS = {"End-to-end TPS", "Sustained TPS", "Sustained TPS (slope)"}
 WARN_PCT = 15.0
 
+# Fraction of pairs that must agree in direction, and that must have measured
+# the metric at all, before a row is colored.
 REQUIRED_AGREEMENT = 0.75
+
+# Snapshot points the sustained-TPS slope needs inside its window. The Haskell
+# estimator it replaced refused to report below 10 snapshots; big-batch
+# scenarios (hundreds of txs per snapshot, 4-6 snapshots per run) fit a line
+# through batch boundaries, and a 4-point fit moved 18% on a run whose
+# end-to-end TPS moved 1%.
+MIN_WINDOW_POINTS = 8
 
 ROW_RE = re.compile(r"^\|\s*_(?P<key>.+?)_\s*\|\s*(?P<val>.*?)\s*\|")
 NUM_RE = re.compile(r"-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?")
@@ -114,8 +124,8 @@ def percentile(sorted_vals, p):
 def sustained_tps_slope(snapshot_series):
     """Least-squares slope of cumulative confirmed txs over time, restricted
     to snapshot points whose cumulative count lies in the middle 80%. Unlike
-    endpoint-based trimming it does not move in whole-snapshot steps and works
-    from 4 in-window points."""
+    endpoint-based trimming it does not move in whole-snapshot steps. None
+    below MIN_WINDOW_POINTS, where batch granularity dominates the fit."""
     pts, cum = [], 0
     for t, n in sorted((float(t), int(n)) for t, n in snapshot_series):
         cum += n
@@ -123,7 +133,7 @@ def sustained_tps_slope(snapshot_series):
     if cum <= 0:
         return None
     window = [(t, c) for t, c in pts if 0.10 * cum <= c <= 0.90 * cum]
-    if len(window) < 4:
+    if len(window) < MIN_WINDOW_POINTS:
         return None
     try:
         return linear_regression(*zip(*window)).slope
@@ -137,12 +147,18 @@ def rts_metrics(node_stats, n_txs, n_snapshots):
         return {}
     mb = 1024.0 * 1024.0
     total_alloc_mb = sum(s["allocatedBytes"] for s in node_stats) / mb
-    return {
+    metrics = {
         "Alloc MB per confirmed tx": total_alloc_mb / n_txs,
         "Alloc MB per snapshot": total_alloc_mb / n_snapshots,
         "Mutator CPU s per 1k txs": sum(s["mutatorCpuSeconds"] for s in node_stats) / (n_txs / 1000.0),
-        "Max live MB (max node)": max(s["maxLiveBytes"] for s in node_stats) / mb,
     }
+    # Live heap averaged over the major GCs that ran inside the load window
+    # (the RTS sums live bytes at every major GC), so a startup transient
+    # cannot set it; nodes without a major GC in the window are skipped.
+    mean_live = [s["cumulativeLiveBytes"] / s["majorGcs"] for s in node_stats if s.get("majorGcs", 0) > 0]
+    if mean_live:
+        metrics["Mean live MB under load (max node)"] = max(mean_live) / mb
+    return metrics
 
 
 def summary_to_record(s):
@@ -298,14 +314,18 @@ def sign(x):
     return (x > 0) - (x < 0)
 
 
-def decide_cell(deltas, direction, threshold, kind):
+def decide_cell(deltas, direction, threshold, kind, covered=True):
     """(cell text, warn_worthy_regression). deltas are percent for kind
-    'pct', absolute for 'count'."""
+    'pct', absolute for 'count'. covered=False means too few of the
+    scenario's pairs measured the metric: the delta is shown as plain
+    context, neither colored nor declared within noise."""
     n = len(deltas)
     med = median(deltas)
     agreeing = sum(1 for d in deltas if sign(d) == sign(med))
     unit = "%" if kind == "pct" else ""
     body = f"{med:+.1f}{unit}"
+    if not covered:
+        return body, False
     if kind == "count":
         significant = med != 0
     else:
@@ -361,7 +381,8 @@ def scenario_rows(title, pairs, regressions, drift_keys):
         if not deltas:
             continue
         decimals = 3 if scale != 1.0 else 2
-        cell, warn = decide_cell(deltas, direction, THRESHOLDS.get(key, THRESHOLDS["default"]), kind)
+        covered = len(deltas) >= math.ceil(REQUIRED_AGREEMENT * len(valid))
+        cell, warn = decide_cell(deltas, direction, THRESHOLDS.get(key, THRESHOLDS["default"]), kind, covered)
         if len(deltas) < len(valid):
             cell += f" ({len(deltas)}/{len(valid)} pairs)"
         if warn and key in WARN_METRICS:

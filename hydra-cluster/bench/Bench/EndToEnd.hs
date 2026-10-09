@@ -1081,9 +1081,9 @@ parseRtsStats body = do
   allocatedBytes <- val "hydra_rts_allocated_bytes"
   mutatorCpuSeconds <- val "hydra_rts_mutator_cpu_seconds"
   gcCpuSeconds <- val "hydra_rts_gc_cpu_seconds"
-  maxLiveBytes <- val "hydra_rts_max_live_bytes"
+  cumulativeLiveBytes <- val "hydra_rts_cumulative_live_bytes"
   majorGcs <- val "hydra_rts_major_gcs"
-  pure NodeRtsStats{allocatedBytes, mutatorCpuSeconds, gcCpuSeconds, maxLiveBytes, majorGcs}
+  pure NodeRtsStats{allocatedBytes, mutatorCpuSeconds, gcCpuSeconds, cumulativeLiveBytes, majorGcs}
  where
   val name =
     listToMaybe
@@ -1109,7 +1109,7 @@ nodeRtsDeltas begins ends = fromMaybe [] $ do
       { allocatedBytes = allocatedBytes a - allocatedBytes b
       , mutatorCpuSeconds = mutatorCpuSeconds a - mutatorCpuSeconds b
       , gcCpuSeconds = gcCpuSeconds a - gcCpuSeconds b
-      , maxLiveBytes = maxLiveBytes a
+      , cumulativeLiveBytes = cumulativeLiveBytes a - cumulativeLiveBytes b
       , majorGcs = majorGcs a - majorGcs b
       }
 

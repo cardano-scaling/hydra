@@ -78,8 +78,8 @@ def render_dir(root):
 
 
 class DecideCell(unittest.TestCase):
-    def cell(self, deltas, direction=+1, threshold=10.0, kind="pct"):
-        return diff.decide_cell(deltas, direction, threshold, kind)
+    def cell(self, deltas, direction=+1, threshold=10.0, kind="pct", covered=True):
+        return diff.decide_cell(deltas, direction, threshold, kind, covered)
 
     def test_within_noise(self):
         text, warn = self.cell([2.0, -1.0, 3.0, 1.0])
@@ -126,6 +126,11 @@ class DecideCell(unittest.TestCase):
         text, _ = self.cell([0.0, 0.0, 0.0, 0.0], direction=-1, kind="count")
         self.assertTrue(text.startswith("≈"))
 
+    def test_uncovered_metric_is_plain_context(self):
+        text, warn = self.cell([-25.0], covered=False)
+        self.assertEqual(text, "-25.0%")
+        self.assertFalse(warn)
+
     def test_all_zero_deltas_are_noise(self):
         text, _ = self.cell([0.0, 0.0, 0.0, 0.0])
         self.assertTrue(text.startswith("≈"))
@@ -142,8 +147,11 @@ class Estimators(unittest.TestCase):
         series = [(10.0, 100)] + [(10.0 + 0.1 * i, 100) for i in range(1, 10)]
         self.assertAlmostEqual(diff.sustained_tps_slope(series), 1000.0, delta=1.0)
 
-    def test_slope_needs_four_window_points(self):
-        self.assertIsNone(diff.sustained_tps_slope([(1.0, 100), (2.0, 100), (3.0, 100)]))
+    def test_slope_needs_min_window_points(self):
+        # 8 equal batches put 7 points inside the middle-80% window, one short
+        # of MIN_WINDOW_POINTS; 9 batches put 8 inside.
+        self.assertIsNone(diff.sustained_tps_slope([(float(i), 100) for i in range(1, 9)]))
+        self.assertIsNotNone(diff.sustained_tps_slope([(float(i), 100) for i in range(1, 10)]))
         self.assertIsNone(diff.sustained_tps_slope([]))
 
     def test_percentile_interpolates(self):
@@ -190,15 +198,20 @@ class JsonPath(unittest.TestCase):
     def test_rts_metrics_mirror_haskell_formula(self):
         mb = 1024.0 * 1024.0
         stats = [
-            {"allocatedBytes": 1000 * mb, "mutatorCpuSeconds": 10.0, "maxLiveBytes": 300 * mb},
-            {"allocatedBytes": 500 * mb, "mutatorCpuSeconds": 6.0, "maxLiveBytes": 200 * mb},
+            {"allocatedBytes": 1000 * mb, "mutatorCpuSeconds": 10.0, "cumulativeLiveBytes": 900 * mb, "majorGcs": 3},
+            {"allocatedBytes": 500 * mb, "mutatorCpuSeconds": 6.0, "cumulativeLiveBytes": 800 * mb, "majorGcs": 2},
         ]
         m = diff.rts_metrics(stats, n_txs=1000, n_snapshots=10)
         self.assertAlmostEqual(m["Alloc MB per confirmed tx"], 1.5)
         self.assertAlmostEqual(m["Alloc MB per snapshot"], 150.0)
         self.assertAlmostEqual(m["Mutator CPU s per 1k txs"], 16.0)
-        self.assertAlmostEqual(m["Max live MB (max node)"], 300.0)
+        self.assertAlmostEqual(m["Mean live MB under load (max node)"], 400.0)
         self.assertEqual(diff.rts_metrics([], 1000, 10), {})
+
+    def test_mean_live_skips_nodes_without_major_gc(self):
+        mb = 1024.0 * 1024.0
+        stats = [{"allocatedBytes": mb, "mutatorCpuSeconds": 1.0, "cumulativeLiveBytes": 0.0, "majorGcs": 0}]
+        self.assertNotIn("Mean live MB under load (max node)", diff.rts_metrics(stats, 10, 1))
 
     def test_calibrate_smoke(self):
         import contextlib
@@ -308,6 +321,47 @@ class PairingAndRendering(unittest.TestCase):
         self.assertEqual(pairs, [])
         self.assertEqual(regressions, [])
         self.assertTrue(any("No valid same-machine pairs" in line for line in out))
+
+    def test_metric_on_one_of_four_pairs_is_not_colored(self):
+        # A metric that only one pair could compute (e.g. the slope on a
+        # big-batch scenario) shows its delta and coverage but no color.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for i, machine in enumerate(("m1", "m2", "m3", "m4")):
+                keep = i == 0
+                old = report_md() if keep else report_md().replace("| _Sustained TPS_ | 921.37 tx/s |", "")
+                new = (
+                    report_md().replace("| _Sustained TPS_ | 921.37 tx/s |", "| _Sustained TPS_ | 700.0 tx/s |")
+                    if keep
+                    else old
+                )
+                write_rep(root, machine, 1, "master", old)
+                write_rep(root, machine, 2, "branch", new)
+            out, regressions = render_dir(root)
+            row = next(line for line in out if line.startswith("| Sustained TPS (tx/s)"))
+            self.assertIn("(1/4 pairs)", row)
+            self.assertNotIn("🔴", row)
+            self.assertNotIn("≈", row)
+            self.assertEqual(regressions, [])
+
+    def test_metric_on_three_of_four_pairs_is_colored(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for i, machine in enumerate(("m1", "m2", "m3", "m4")):
+                keep = i < 3
+                old = report_md() if keep else report_md().replace("| _Sustained TPS_ | 921.37 tx/s |", "")
+                new = (
+                    report_md().replace("| _Sustained TPS_ | 921.37 tx/s |", "| _Sustained TPS_ | 700.0 tx/s |")
+                    if keep
+                    else old
+                )
+                write_rep(root, machine, 1, "master", old)
+                write_rep(root, machine, 2, "branch", new)
+            out, regressions = render_dir(root)
+            row = next(line for line in out if line.startswith("| Sustained TPS (tx/s)"))
+            self.assertIn("(3/4 pairs)", row)
+            self.assertIn("🔴", row)
+            self.assertTrue(any("Sustained TPS" in r for r in regressions))
 
     def test_one_sided_metric_warns(self):
         # A metric present on one side only (renamed Summary row, or
