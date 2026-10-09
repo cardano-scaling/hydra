@@ -255,12 +255,35 @@ returnFundsToFaucet' ::
   ChainBackendOptions ->
   Secret (SigningKey PaymentKey) ->
   IO Coin
-returnFundsToFaucet' tracer opts senderSk = do
+returnFundsToFaucet' = returnFundsToFaucetWithin Nothing
+
+-- | Like 'returnFundsToFaucet'', but giving up after a bounded number of
+-- submission attempts.
+--
+-- For callers that mean to handle a failure rather than wait one out: a
+-- submission the chain rejects for a reason that does not change -- a sweep
+-- transaction too large for the UTxO it spends, say -- is otherwise rebuilt and
+-- rejected identically forever, which is a hang no caller can catch. Callers
+-- that would rather wait out a busy node keep the unbounded 'returnFundsToFaucet''.
+returnFundsToFaucetBounded ::
+  Tracer IO FaucetLog ->
+  ChainBackendOptions ->
+  Secret (SigningKey PaymentKey) ->
+  IO Coin
+returnFundsToFaucetBounded = returnFundsToFaucetWithin (Just sweepAttempts)
+
+returnFundsToFaucetWithin ::
+  Maybe Int ->
+  Tracer IO FaucetLog ->
+  ChainBackendOptions ->
+  Secret (SigningKey PaymentKey) ->
+  IO Coin
+returnFundsToFaucetWithin attempts tracer opts senderSk = do
   (faucetVk, _) <- keysFor Faucet
   networkId <- runBackend opts queryNetworkId
   let faucetAddress = mkVkAddress networkId faucetVk
   let senderVk = getVerificationKey senderSk
-  returnAmount <- retryOnExceptionsWithin (Just sweepAttempts) tracer opts $ do
+  returnAmount <- retryOnExceptionsWithin attempts tracer opts $ do
     -- NOTE: Query inside the retry. An earlier attempt that was interrupted
     -- after submitting can already be spending these inputs, and a retry built
     -- from the same stale UTxO is rejected identically every time -- which,
@@ -353,10 +376,10 @@ retryOnExceptionsWithin attemptsLeft tracer opts action =
     ResourceExhausted -> True
     _other -> False
 
--- | How many times a sweep re-submits before giving up, so that a rejection
--- that repeats surfaces as a failure the caller can trace.
+-- | How many times a bounded sweep re-submits before giving up, so that a
+-- rejection which repeats surfaces as a failure the caller can trace.
 sweepAttempts :: Int
-sweepAttempts = 10
+sweepAttempts = 30
 
 -- | Publish current Hydra scripts as scripts outputs for later referencing them.
 --

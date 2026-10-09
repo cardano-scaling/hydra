@@ -705,7 +705,10 @@ sweepParticipantKeys ::
   IO ()
 sweepParticipantKeys tracer opts workDir keyDir sks outcome =
   headMayBeOpen keyDir >>= \case
-    True -> keep "a head is still open; its fuel stays here to close or abort it"
+    True ->
+      keep
+        "a head is still open; its fuel stays here to close or abort it. \
+        \Delete the head-open file once it is dealt with to release these keys."
     False -> do
       results <- forM sks sweep
       case (lefts results, outcome) of
@@ -718,7 +721,7 @@ sweepParticipantKeys tracer opts workDir keyDir sks outcome =
   keep reason = traceWith tracer ParticipantKeysKept{keyPath = keyDir, reason}
 
   sweep :: Secret (SigningKey PaymentKey) -> IO (Either SomeException Coin)
-  sweep sk = trySync $ Faucet.returnFundsToFaucet' (contramap FromFaucet tracer) opts sk
+  sweep sk = trySync $ Faucet.returnFundsToFaucetBounded (contramap FromFaucet tracer) opts sk
 
 -- | Open a Hydra Head with only a single participant but some arbitrary UTxO
 -- committed.

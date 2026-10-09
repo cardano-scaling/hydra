@@ -28,7 +28,7 @@ import Hydra.Cardano.Api (
   textEnvelopeToJSON,
   writeFileTextEnvelope,
  )
-import Hydra.Cluster.Fixture (Actor (Faucet), actorName, aliceVk, allActors, bobVk, carolVk, fundsOf)
+import Hydra.Cluster.Fixture (Actor (Faucet), actorName, allActors, fundsOf)
 import Hydra.Node.UnsyncedPeriod (defaultUnsyncedPeriodFor)
 import Hydra.Options (
   BlockfrostOptions (..),
@@ -45,7 +45,7 @@ import Hydra.Tx.Crypto qualified as Crypto
 import Hydra.Tx.DepositPeriod (DepositPeriod)
 import Hydra.Tx.DepositPeriod qualified as DP
 import Paths_hydra_cluster qualified as Pkg
-import System.Directory (createDirectoryIfMissing, doesDirectoryExist, doesFileExist, listDirectory, removeFile, renameDirectory)
+import System.Directory (createDirectoryIfMissing, doesDirectoryExist, doesFileExist, listDirectory, removeFile, renameDirectory, renameFile)
 import System.FilePath (takeFileName, (<.>), (</>))
 import System.Posix (
   FileMode,
@@ -83,15 +83,18 @@ readConfigFile source = do
 -- 'assertNoFixtureRecipients' for the check that keeps it that way.
 keysFor :: Actor -> IO (VerificationKey PaymentKey, Secret (SigningKey PaymentKey))
 keysFor actor = do
-  sk <- decodeSigningKey =<< readConfigFile ("credentials" </> actorName actor <.> "sk")
+  let path = "credentials" </> actorName actor <.> "sk"
+  sk <- decodeSigningKey path =<< readConfigFile path
   pure (getVerificationKey sk, sk)
 
 -- | Decode a 'TextEnvelope'-encoded payment signing key, 'Secret'-wrapped.
-decodeSigningKey :: ByteString -> IO (Secret (SigningKey PaymentKey))
-decodeSigningKey bs =
+--
+-- NOTE: The failure names the file but never quotes it. A partly written key
+-- still holds key material, and this error reaches the logs.
+decodeSigningKey :: FilePath -> ByteString -> IO (Secret (SigningKey PaymentKey))
+decodeSigningKey path bs =
   case first TextEnvelopeAesonDecodeError (Aeson.eitherDecodeStrict bs) >>= deserialiseFromTextEnvelope of
-    Left err ->
-      fail $ "cannot decode text envelope from '" <> show bs <> "', error: " <> show err
+    Left err -> fail $ "cannot decode text envelope at " <> path <> ": " <> show err
     Right sk -> pure (mkSecret sk)
 
 -- | Create and save new signing key at the provided path, returning the
@@ -146,13 +149,22 @@ assertNoFixtureRecipients networkId recipients
 assertNoFixtureHydraKey :: ConfiguredNetwork -> Secret (SigningKey HydraKey) -> IO ()
 assertNoFixtureHydraKey network sk
   | permitted = pure ()
-  | getVerificationKey sk `elem` [aliceVk, bobVk, carolVk] = throwIO HydraFixtureKeyOnMainnet
+  | getVerificationKey sk `elem` publicHydraKeys = throwIO HydraFixtureKeyOnMainnet
   | otherwise = pure ()
  where
   permitted = case network of
     NoChain -> True
     KnownNetwork networkId -> networkId /= Mainnet
     UndeterminedNetwork -> False
+
+-- | Hydra keys anyone can reproduce, because this repository publishes the seed
+-- they are derived from.
+--
+-- Covers both sets of fixtures: 'Hydra.Cluster.Fixture' seeds carol with
+-- @carol@ and 'Test.Hydra.Tx.Fixture' with @zcarol@.
+publicHydraKeys :: [VerificationKey HydraKey]
+publicHydraKeys =
+  getVerificationKey . Crypto.generateSigningKey <$> ["alice", "bob", "carol", "zcarol"]
 
 -- | What a chain config says about the network it connects to, without
 -- querying the chain.
@@ -290,10 +302,14 @@ generateParticipant workDir = do
 -- window in which the key on disk is world-readable.
 writeSigningKey :: HasTextEnvelope (SigningKey k) => FilePath -> SigningKey k -> IO ()
 writeSigningKey path sk = do
-  createOwnerOnlyFile path
+  -- Written aside and renamed into place, which is atomic: a kill partway
+  -- through otherwise leaves a truncated key that no run can read or sweep.
+  let staging = path <.> "tmp"
+  createOwnerOnlyFile staging
   -- 'creat' leaves an existing file's mode alone.
-  setFileMode path ownerOnlyMode
-  writeFileTextEnvelope (File path) Nothing sk >>= either (fail . show) pure
+  setFileMode staging ownerOnlyMode
+  writeFileTextEnvelope (File staging) Nothing sk >>= either (fail . show) pure
+  renameFile staging path
 
 -- | Create, or truncate, a file only its owner can read.
 createOwnerOnlyFile :: FilePath -> IO ()
@@ -332,7 +348,7 @@ leftoverParticipantKeys workDir = do
     let path = keyFile keyDir
     present <- doesFileExist path
     if present
-      then Just <$> (decodeSigningKey =<< BS.readFile path)
+      then Just <$> (decodeSigningKey path =<< BS.readFile path)
       else pure Nothing
 
 -- | Move a run's keys aside once its funds are back, reporting why if it could

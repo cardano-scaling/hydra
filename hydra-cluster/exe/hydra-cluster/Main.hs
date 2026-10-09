@@ -88,7 +88,7 @@ run options =
     (Just sd, _) -> action sd
     (Nothing, Just network) ->
       die $
-        "--state-directory is required for --"
+        "--state-directory is required when running against "
           <> show network
           <> ": its participant-keys/ holds the keys to this run's funds, and a "
           <> "temporary directory is removed with them still in it."
