@@ -2621,6 +2621,71 @@ spec =
           Error RequireFailed{requirementFailure} | requirementFailure == ReqSnDecommitNotSettled -> True
           _ -> False
 
+      it "rejects a same-version snapshot request not carrying the settling decommit" $ do
+        -- The confirmed snapshot (version 0) settles a decommit whose decrement
+        -- has not landed. A request at that version must carry the same
+        -- decommit: without it, the decommitted outputs would be in no
+        -- confirmed snapshot once the decrement lands, and a deposit in its
+        -- place would race the decrement for the version bump.
+        now <- getCurrentTime
+        let decommitTx = SimpleTx 1 (utxoRef 1) (utxoRef 3)
+            activeUTxO = utxoRefs [2]
+            utxoToDecommit = Just $ utxoRefs [3]
+            snapshot =
+              Snapshot
+                { headId = testHeadId
+                , version = 0
+                , number = 1
+                , confirmed = []
+                , utxo = activeUTxO
+                , utxoToCommit = Nothing
+                , utxoToDecommit = utxoToDecommit
+                , depositTxId = Nothing
+                , accumulator = fst $ Accumulator.buildFromSnapshotUTxOs activeUTxO Nothing utxoToDecommit
+                , appliedAccumulator = snd $ Accumulator.buildFromSnapshotUTxOs activeUTxO Nothing utxoToDecommit
+                }
+            depositTxId = 7
+            deposit = Deposit{headId = testHeadId, deposited = utxoRef 9, created = now, deadline = addUTCTime 3600 now, status = Active}
+            s0 =
+              ( inOpenState'
+                  threeParties
+                  coordinatedHeadState
+                    { confirmedSnapshot = ConfirmedSnapshot snapshot (Crypto.aggregate [])
+                    , seenSnapshot = LastSeenSnapshot 1
+                    , localUTxO = activeUTxO
+                    , decommitTx = Just decommitTx
+                    }
+              )
+                { deposits = trackedFromPending (Map.singleton depositTxId deposit)
+                }
+            rejected :: Outcome SimpleTx
+            rejected = Error (RequireFailed ReqSnDecommitNotSettled)
+
+        omitting <- runHeadLogic bobEnv ledger s0 $ step $ receiveMessageFrom bob $ ReqSn 0 2 [] Nothing Nothing
+        omitting `shouldBe` rejected
+
+        replacing <- runHeadLogic bobEnv ledger s0 $ step $ receiveMessageFrom bob $ ReqSn 0 2 [] Nothing (Just depositTxId)
+        replacing `shouldBe` rejected
+
+        carrying <- runHeadLogic bobEnv ledger s0 $ step $ receiveMessageFrom bob $ ReqSn 0 2 [] (Just decommitTx) Nothing
+        carrying `hasEffectSatisfying` \case
+          NetworkEffect AckSn{snapshotNumber} -> snapshotNumber == 2
+          _ -> False
+        carrying `hasStateChangedSatisfying` \case
+          SnapshotRequested{requestedSnapshot = Snapshot{utxoToDecommit = requested}} -> requested == utxoToDecommit
+          _ -> False
+
+        -- Once the decrement lands, the snapshot carrying the decommit is one
+        -- version behind by its own action, so it stays closable (and
+        -- contestable) at the bumped version.
+        closing <- runHeadLogic bobEnv ledger s0 $ do
+          _ <- step $ observeTx OnDecrementTx{headId = testHeadId, newVersion = 1, distributedUTxO = utxoRefs [3], snapshotNumber = 1, signatures = Crypto.aggregate []}
+          step $ ClientInput Close
+        closing `hasEffectSatisfying` \case
+          OnChainEffect{postChainTx = CloseTx{openVersion, closingSnapshot}} ->
+            openVersion == 1 && getSnapshot closingSnapshot == snapshot && isClosableAt openVersion snapshot
+          _ -> False
+
       describe "Deposit after rollback" $ do
         let singleParty = [alice]
             plusTime = flip addUTCTime
@@ -4709,6 +4774,47 @@ spec =
             getState
 
           getConfirmedSnapshot sideLoadedState `shouldBe` Just snapshot2
+
+        it "keeps the decommit the side-loaded snapshot still settles and prunes any other" $ do
+          let pendingDecommitOf :: NodeState SimpleTx -> Maybe SimpleTx
+              pendingDecommitOf = \case
+                NodeInSync{headState = Open OpenState{coordinatedHeadState = CoordinatedHeadState{decommitTx}}} -> decommitTx
+                _ -> Nothing
+              withDecommit :: Snapshot SimpleTx -> Crypto.MultiSignature (Snapshot SimpleTx) -> Maybe SimpleTx -> NodeState SimpleTx
+              withDecommit snapshot multisig decommitTx =
+                inOpenState'
+                  threeParties
+                  coordinatedHeadState
+                    { localUTxO = utxoRef 3
+                    , confirmedSnapshot = ConfirmedSnapshot snapshot multisig
+                    , seenSnapshot = LastSeenSnapshot 1
+                    , decommitTx
+                    }
+              sideLoadOf :: Snapshot SimpleTx -> Crypto.MultiSignature (Snapshot SimpleTx) -> Input SimpleTx
+              sideLoadOf snapshot multisig = ClientInput (SideLoadSnapshot $ ConfirmedSnapshot snapshot multisig)
+
+          -- The confirmed snapshot settles a decommit: its tx survives the
+          -- side-load, and the next request (bob leads snapshot 2) carries it.
+          let settling = SimpleTx 9 (utxoRef 2) (utxoRef 9)
+              settlingSnapshot = (testSnapshot 1 0 [] (utxoRef 3)){utxoToDecommit = Just (utxoRef 9)} :: Snapshot SimpleTx
+              settlingSigs = aggregate [sign aliceSk settlingSnapshot, sign bobSk settlingSnapshot, sign carolSk settlingSnapshot]
+          kept <- runHeadLogic bobEnv ledger (withDecommit settlingSnapshot settlingSigs (Just settling)) $ do
+            step $ sideLoadOf settlingSnapshot settlingSigs
+            getState
+          pendingDecommitOf kept `shouldBe` Just settling
+          let tx = SimpleTx 5 (utxoRef 3) (utxoRef 5)
+          requested <- runHeadLogic bobEnv ledger kept $ step (receiveMessage $ ReqTx tx)
+          requested `hasEffect` NetworkEffect (ReqSn 0 2 [txId tx] (Just settling) Nothing)
+
+          -- A decommit the confirmed snapshot does not settle is pending local
+          -- state, pruned like the transactions.
+          let other = SimpleTx 8 (utxoRef 3) (utxoRef 8)
+              plainSnapshot = testSnapshot 1 0 [] (utxoRef 3)
+              plainSigs = aggregate [sign aliceSk plainSnapshot, sign bobSk plainSnapshot, sign carolSk plainSnapshot]
+          pruned <- runHeadLogic bobEnv ledger (withDecommit plainSnapshot plainSigs (Just other)) $ do
+            step $ sideLoadOf plainSnapshot plainSigs
+            getState
+          pendingDecommitOf pruned `shouldBe` Nothing
 
         -- This is the head logic's backstop; the primary defence is at the API
         -- boundary, see 'validateClientInput' and the HTTPServer/WSServer specs.

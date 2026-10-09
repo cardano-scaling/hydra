@@ -20,6 +20,7 @@ module Hydra.Agda.OffChainReference (
   reqSnNotBothRef,
   reqSnDecommitOutputsRef,
   reqSnDepositSettledRef,
+  reqSnDecommitSettledRef,
   reqSnDepositDisjointRef,
 
   -- * reqDec / ackSn / contest guards
@@ -92,6 +93,14 @@ reqSnDecommitOutputsRef = M.hsReqSnDecommitOutputsRef
 -- deposit, by identity rather than content alone (two deposits can record the same UTxO).
 reqSnDepositSettledRef :: Bool -> Integer -> Integer -> Bool
 reqSnDepositSettledRef = M.hsReqSnDepositSettledRef
+
+-- | Extracted reqSn same-version decommit-settlement guard (the node's
+-- @requireApplicableDecommitTx@ / @ReqSnDecommitNotSettled@): given whether the request carries a
+-- decommit and whether its outputs match the confirmed snapshot's pending decommit, decides whether
+-- the request carries the decommit being settled. A settling decommit is never dropped, so a request
+-- without one is rejected like one with another decommit.
+reqSnDecommitSettledRef :: Bool -> Bool -> Bool
+reqSnDecommitSettledRef = M.hsReqSnDecommitSettledRef
 
 -- | Extracted reqSn deposit-disjointness guard (the node's @absorbable@ /
 -- @ReqSnDepositOutputsHeld@): given the Integer-encoded TxIns of the active UTxO set, all outputs

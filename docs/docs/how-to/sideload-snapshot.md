@@ -194,7 +194,7 @@ websocat ws://localhost:4003?history=yes
 
 This output confirms that the node is ready to continue operating from that position.
 
-> Note that the snapshot leader has been reset, and the ongoing snapshot signing round has been discarded. This means any pending transactions were pruned and must be re-submitted.
+> Note that the snapshot leader has been reset, and the ongoing snapshot signing round has been discarded. This means any pending transactions were pruned and must be re-submitted. A decommit the side-loaded snapshot is still settling is kept, as every snapshot request at that version must carry it; a decommit requested but not yet in a confirmed snapshot is pruned like the transactions.
 
 Now, before we re-submit the same transaction, we need to fix Carol's node by restarting it with the correct ledger protocol parameters:
 

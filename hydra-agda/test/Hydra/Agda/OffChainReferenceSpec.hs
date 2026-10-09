@@ -19,6 +19,7 @@ import Hydra.Agda.OffChainReference (
   notAlreadySignedRef,
   reqDecEligibleRef,
   reqSnDecommitOutputsRef,
+  reqSnDecommitSettledRef,
   reqSnDepositDisjointRef,
   reqSnDepositSettledRef,
   reqSnNotBothRef,
@@ -92,6 +93,14 @@ spec = do
       reqSnDepositSettledRef True 7 8 `shouldBe` False
     it "rejects when the content does not match either" $
       reqSnDepositSettledRef False 7 7 `shouldBe` False
+
+  describe "reqSnDecommitSettledRef" $ do
+    it "settles the decommit the confirmed snapshot carries" $
+      reqSnDecommitSettledRef True True `shouldBe` True
+    it "rejects a decommit with other outputs" $
+      reqSnDecommitSettledRef True False `shouldBe` False
+    it "rejects a request dropping the settling decommit" $
+      reqSnDecommitSettledRef False False `shouldBe` False
 
   describe "reqSnDepositDisjointRef" $ do
     it "accepts a deposit whose outputs are all new to the head" $

@@ -193,6 +193,8 @@ sequenceDiagram
 
 As with increments, the decrement redeemer carries the settled snapshot's multisignature, and a node still collecting `AckSn` for that snapshot adopts it as confirmed upon observing the decrement.
 
+A snapshot request at the version of a confirmed snapshot that is still settling a decommit must carry that decommit again. Followers reject a request that drops it, or claims a deposit in its place, since the decommitted outputs would otherwise be in no confirmed snapshot once the decrement lands, and the head could no longer be closed and fanned out from a snapshot the honest nodes hold. A pending commit is dropped only once its increment can no longer land; a pending decommit never is, as the decrement is posted again with every snapshot carrying it.
+
 ## Closing with a snapshot still collecting signatures
 
 Close and contest redeemers carry the multisignature of the snapshot they use too. A node still collecting `AckSn` for the snapshot a head gets closed or contested with verifies that multisignature over the snapshot it signed itself and adopts it as confirmed. The closed head then commits to a snapshot the node knows, so it can fan out the head rather than depending on the peer that completed the multisignature. The node keeps the snapshot it was collecting signatures for while the head is closed, for a contest that arrives later.

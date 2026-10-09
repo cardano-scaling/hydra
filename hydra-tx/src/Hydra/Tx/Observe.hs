@@ -23,6 +23,7 @@ import Data.Aeson (Value (Object, String), defaultOptions, genericToJSON, withOb
 import Data.Aeson qualified as Aeson (Value)
 import Data.Aeson.KeyMap qualified as KeyMap
 import Data.Aeson.Lens (key, _Object, _String)
+import Hydra.Contract.Head qualified as Head
 import Hydra.Tx.Close (CloseObservation (..), observeCloseTx)
 import Hydra.Tx.Contest (ContestObservation (..), observeContestTx)
 import Hydra.Tx.Decrement (DecrementObservation (..), observeDecrementTx)
@@ -106,9 +107,16 @@ observeHeadTxWithReason networkId utxo tx
   -- all "not an XX" reasons here in case we fall through and want that
   -- diagnostic information in the call site of this function. Collecting errors
   -- could be done with 'validation' or a similar package.
+  --
+  -- Every observer but the deposit one identifies its transaction by the
+  -- redeemer spending a head or deposit output. The deposit observer matches on
+  -- shape alone (a deposit output at index 0 with a consistent datum, in a
+  -- transaction with an upper validity bound), which a head transaction can
+  -- reproduce: a fanout distributes L2 outputs from index 0, and anyone can
+  -- create a deposit-shaped output on L2. So it is tried last, and never for a
+  -- transaction spending a head output, which no deposit does.
   observeAnythingElse =
-    Deposit <$> observeDepositTx networkId tx
-      <|> Increment <$> observeIncrementTx networkId utxo tx
+    Increment <$> observeIncrementTx networkId utxo tx
       <|> Recover <$> observeRecoverTx networkId utxo tx
       <|> Decrement <$> observeDecrementTx utxo tx
       <|> Close <$> observeCloseTx utxo tx
@@ -116,5 +124,8 @@ observeHeadTxWithReason networkId utxo tx
       <|> PartialFanout <$> observePartialFanoutTx utxo tx
       <|> Fanout <$> observeFanoutTx utxo tx
       <|> FinalPartialFanout <$> observeFinalPartialFanoutTx utxo tx
+      <|> Deposit <$> (guard (not spendsHeadOutput) *> observeDepositTx networkId tx)
+
+  spendsHeadOutput = isJust $ findTxOutByScript (resolveInputsUTxO utxo tx) Head.validatorScript
 
   txIsValid = toLedgerTx tx ^. isValidTxL == IsValid True

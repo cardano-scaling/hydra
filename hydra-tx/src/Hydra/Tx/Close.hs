@@ -57,8 +57,13 @@ data OpenThreadOutput = OpenThreadOutput
 -- ('Head.CloseUsed'). The latter stores the snapshot's applied accumulator,
 -- which only matches the head value if the version bump was this snapshot's
 -- own increment or decrement. For a snapshot without a pending action the
--- version moved on through a later snapshot's settlement, and the closed head
--- could never be fanned out.
+-- version moved on through another snapshot's settlement, so the closed head
+-- could never be fanned out: a later snapshot this node has not adopted, or an
+-- earlier commit this snapshot dropped once its increment could no longer
+-- land, which landed after all. A settling decommit is never dropped (the
+-- snapshot request handler requires every request at its version to carry
+-- it), so a confirmed snapshot never lags the head by a decommit it already
+-- accounts for.
 isClosableAt :: SnapshotVersion -> Snapshot tx -> Bool
 isClosableAt openVersion snapshot@Snapshot{version} =
   version == openVersion
