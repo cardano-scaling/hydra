@@ -78,11 +78,13 @@ That means two things:
   the keys to `<state-directory>/participant-keys-swept/`; a run that is killed
   first leaves them in place, and the next run sweeps them.
 
-  Keys are archived only once the head they opened is finalized. A run that
-  ends while its head is still open leaves a `head-open` marker beside them, and
-  every later run then returns their funds but keeps the keys and logs that a
-  head needs closing or aborting -- the head's own funds are reachable with
-  nothing else.
+  Keys are archived only once the head they opened is finalized and the run
+  that opened it is over. A run that ends while its head is still open leaves a
+  `head-open` marker beside them; every later run then leaves that directory
+  entirely alone -- keys and fuel both, since the fuel is what pays for the
+  abort or close -- and logs that a head needs dealing with. Once it has been
+  closed or aborted by hand, delete the `head-open` file and the next run
+  returns the remaining funds and archives the keys.
 
 On mainnet neither is left to convention. `assertNoFixtureRecipients` refuses to
 pay faucet funds to a committed key, and `assertNoFixtureHydraKey` refuses to

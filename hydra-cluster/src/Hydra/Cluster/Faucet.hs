@@ -260,7 +260,7 @@ returnFundsToFaucet' tracer opts senderSk = do
   networkId <- runBackend opts queryNetworkId
   let faucetAddress = mkVkAddress networkId faucetVk
   let senderVk = getVerificationKey senderSk
-  returnAmount <- retryOnExceptions tracer opts $ do
+  returnAmount <- retryOnExceptionsWithin (Just sweepAttempts) tracer opts $ do
     -- NOTE: Query inside the retry. An earlier attempt that was interrupted
     -- after submitting can already be spending these inputs, and a retry built
     -- from the same stale UTxO is rejected identically every time -- which,
@@ -312,27 +312,51 @@ createOutputAtAddress networkId opts atAddress datum val = do
 
 -- | Try to submit tx and retry when some caught exception/s take place.
 retryOnExceptions :: (MonadCatch m, MonadDelay m) => Tracer m FaucetLog -> ChainBackendOptions -> m a -> m a
-retryOnExceptions tracer opts action =
+retryOnExceptions = retryOnExceptionsWithin Nothing
+
+-- | Like 'retryOnExceptions', but giving up after the given number of attempts.
+--
+-- Worth bounding wherever the caller means to handle a failure rather than wait
+-- one out: a submission the chain rejects for a reason that does not change --
+-- a sweep transaction too large for the UTxO it spends, say -- is otherwise
+-- rebuilt and rejected identically forever, which is a hang no caller can catch.
+retryOnExceptionsWithin ::
+  (MonadCatch m, MonadDelay m) =>
+  Maybe Int ->
+  Tracer m FaucetLog ->
+  ChainBackendOptions ->
+  m a ->
+  m a
+retryOnExceptionsWithin attemptsLeft tracer opts action =
   action
     `catches` [ Handler $ \(ex :: SubmitTransactionException) -> do
                   traceWith tracer $
                     SubmitTxError $
                       show ex
-                  delayBF opts
-                  retryOnExceptions tracer opts action
+                  again $ throwIO ex
               , Handler $ \(ex :: IOException) -> do
                   unless (isResourceExhausted ex) $
                     throwIO ex
                   traceWith tracer $
                     TraceResourceExhaustedHandled $
                       "Expected exception raised from seedFromFaucet: " <> show ex
-                  delayBF opts
-                  retryOnExceptions tracer opts action
+                  again $ throwIO ex
               ]
  where
+  again giveUp = case attemptsLeft of
+    Just n | n <= 1 -> giveUp
+    _ -> do
+      delayBF opts
+      retryOnExceptionsWithin (subtract 1 <$> attemptsLeft) tracer opts action
+
   isResourceExhausted ex = case ioe_type ex of
     ResourceExhausted -> True
     _other -> False
+
+-- | How many times a sweep re-submits before giving up, so that a rejection
+-- that repeats surfaces as a failure the caller can trace.
+sweepAttempts :: Int
+sweepAttempts = 10
 
 -- | Publish current Hydra scripts as scripts outputs for later referencing them.
 --

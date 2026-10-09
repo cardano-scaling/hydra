@@ -108,7 +108,7 @@ import Hydra.Chain.ChainState (ChainSlot (..))
 import Hydra.Cluster.Faucet (createOutputAtAddress, seedFromFaucet, seedFromFaucetWithMinting, seedFromFaucet_, seedManyFromFaucet)
 import Hydra.Cluster.Faucet qualified as Faucet
 import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk, carol, carolSk, carolVk)
-import Hydra.Cluster.Util (BlockTime, Participant (..), Timing (..), archiveParticipantKeys, chainConfigFor, chainConfigFor', chainConfigForParticipant, clearHeadOpen, depositTimeout, generateParticipant, headMayBeOpen, keysFor, leftoverParticipantKeys, markHeadOpen, mkTestTiming, mkTestTiming', modifyConfig, nodeStartupBudget, participantCardanoKeyFile, participantKeysDir, participantParty, setNetworkId, truncatedDepositPeriod)
+import Hydra.Cluster.Util (BlockTime, Participant (..), Timing (..), archiveParticipantKeys, chainConfigFor, chainConfigFor', chainConfigForParticipant, clearHeadOpen, depositTimeout, generateParticipant, headMayBeOpen, keysFor, leftoverParticipantKeys, markHeadOpen, mkTestTiming, mkTestTiming', modifyConfig, nodeStartupBudget, participantCardanoKeyFile, participantKeysDir, participantParty, setNetworkId, truncatedDepositPeriod, trySync)
 import Hydra.Contract.Dummy (dummyMintingScript, dummyRewardingScript, dummyValidatorScript)
 import Hydra.Ledger.Cardano (mkSimpleTx, mkTransferTx, unsafeBuildTransaction)
 import Hydra.Network qualified as Network
@@ -536,7 +536,7 @@ singlePartyHeadFullLifeCycle tracer workDir mkTiming opts hydraScriptsTxId = do
     generateParticipant workDir
   traceWith tracer CreatedKey{keyPath = participantCardanoKeyFile keyDir}
 
-  (`finally` returnParticipantFunds tracer opts workDir participant) $ do
+  flip onException (returnParticipantFunds tracer opts workDir participant RunInterrupted) $ do
     blockTime <- runBackend opts getBlockTime
     networkId <- runBackend opts queryNetworkId
     let timing = mkTiming blockTime
@@ -637,16 +637,21 @@ singlePartyHeadFullLifeCycle tracer workDir mkTiming opts hydraScriptsTxId = do
       waitForAllMatch (50 * blockTime) [n1] $ headIsFinalizedWith headId mempty
       clearHeadOpen keyDir
     traceRemainingFunds cardanoVk
+    returnParticipantFunds tracer opts workDir participant RunFinished
  where
   hydraTracer = contramap FromHydraNode tracer
 
-  -- Names the log entries that used to name an 'Actor'. The participant is
-  -- generated per run, so it has no fixture name.
+  -- Names this run's key in the log entries that elsewhere carry an 'Actor'
+  -- name. The participant is generated per run, so it has no fixture name.
   participantLabel = "participant"
 
   traceRemainingFunds vk = do
     utxo <- runBackend opts $ queryUTxOFor QueryTip vk
     traceWith tracer RemainingFunds{actor = participantLabel, utxo}
+
+-- | Whether the run a set of keys belongs to is over, and so finished with them.
+data RunOutcome = RunFinished | RunInterrupted
+  deriving stock (Eq, Show)
 
 -- | Return a run's remaining funds to the faucet and archive its keys.
 returnParticipantFunds ::
@@ -654,9 +659,10 @@ returnParticipantFunds ::
   ChainBackendOptions ->
   FilePath ->
   Participant ->
+  RunOutcome ->
   IO ()
 returnParticipantFunds tracer opts workDir Participant{cardanoSk, walletSk, keyDir} =
-  sweepAndArchive tracer opts workDir keyDir [cardanoSk, walletSk]
+  sweepParticipantKeys tracer opts workDir keyDir [cardanoSk, walletSk]
 
 -- | Return funds left at the keys of runs that were killed before they could
 -- sweep, and archive those keys.
@@ -670,7 +676,7 @@ returnLeftoverParticipantFunds ::
   FilePath ->
   IO ()
 returnLeftoverParticipantFunds tracer opts workDir =
-  try (leftoverParticipantKeys workDir) >>= \case
+  trySync (leftoverParticipantKeys workDir) >>= \case
     Left (err :: SomeException) ->
       traceWith tracer SweepFailed{keyPath = participantKeysDir workDir, reason = show err}
     Right leftovers ->
@@ -678,46 +684,52 @@ returnLeftoverParticipantFunds tracer opts workDir =
         -- Keep the directory: its keys may still hold funds, and this run
         -- cannot tell.
         Left reason -> traceWith tracer SweepFailed{keyPath = keyDir, reason}
-        Right sks -> sweepAndArchive tracer opts workDir keyDir sks
+        -- Whatever run left these behind is long over, so they can be archived.
+        Right sks -> sweepParticipantKeys tracer opts workDir keyDir sks RunFinished
 
--- | Return what the given keys hold to the faucet and, if every one of them
--- came back and the run's head is finished with, archive its key directory.
+-- | Return what the given keys hold to the faucet, and archive them once the
+-- run they belong to is finished with them.
 --
--- A run that ended with its head still open keeps its keys and says so on every
--- later run, because the head's funds are reachable with nothing else.
+-- A run that left a head open is not swept at all. Its fuel is what pays for
+-- the abort or close that recovers the head, so returning it would strand the
+-- head's own funds, and a key re-funded by hand would only be swept again by
+-- the next run. Such a directory is kept and reported on every later run.
+--
+-- Keys are archived only once their run is over. One that was interrupted can
+-- still have a funding transaction in flight, and value landing after the keys
+-- were archived would sit where no later run looks for it.
 --
 -- Failures are traced rather than raised. The leftover sweep runs before
 -- anything else in the scenario, so one key the faucet cannot build a
 -- transaction for -- dust below the fee, say -- would otherwise block every
--- later run against this network; and in the scenario's own 'finally' a raised
--- failure would mask whatever the run was actually failing on.
-sweepAndArchive ::
+-- later run against this network; and on the way out of a failing run a raised
+-- failure would mask whatever the run was actually failing on. Interrupts are
+-- not failures and are left to propagate.
+sweepParticipantKeys ::
   Tracer IO EndToEndLog ->
   ChainBackendOptions ->
   FilePath ->
   -- | Key directory of the run being swept.
   FilePath ->
   [Secret (SigningKey PaymentKey)] ->
+  RunOutcome ->
   IO ()
-sweepAndArchive tracer opts workDir keyDir sks = do
-  results <- forM sks sweep
-  case lefts results of
-    errs@(_ : _) -> traceWith tracer SweepFailed{keyPath = keyDir, reason = show errs}
-    [] ->
-      headMayBeOpen keyDir >>= \case
-        True ->
-          traceWith
-            tracer
-            ParticipantKeysKept
-              { keyPath = keyDir
-              , reason = "run ended with its head still open; close or abort it with these keys"
-              }
-        False ->
+sweepParticipantKeys tracer opts workDir keyDir sks outcome =
+  headMayBeOpen keyDir >>= \case
+    True -> keep "a head is still open; its fuel stays here to close or abort it"
+    False -> do
+      results <- forM sks sweep
+      case (lefts results, outcome) of
+        (errs@(_ : _), _) -> traceWith tracer SweepFailed{keyPath = keyDir, reason = show errs}
+        ([], RunInterrupted) -> keep "run was interrupted; the next run sweeps these"
+        ([], RunFinished) ->
           archiveParticipantKeys workDir keyDir
             >>= either (\reason -> traceWith tracer SweepFailed{keyPath = keyDir, reason}) pure
  where
+  keep reason = traceWith tracer ParticipantKeysKept{keyPath = keyDir, reason}
+
   sweep :: Secret (SigningKey PaymentKey) -> IO (Either SomeException Coin)
-  sweep sk = try $ Faucet.returnFundsToFaucet' (contramap FromFaucet tracer) opts sk
+  sweep sk = trySync $ Faucet.returnFundsToFaucet' (contramap FromFaucet tracer) opts sk
 
 -- | Open a Hydra Head with only a single participant but some arbitrary UTxO
 -- committed.

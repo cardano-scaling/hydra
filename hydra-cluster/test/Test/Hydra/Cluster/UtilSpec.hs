@@ -17,6 +17,7 @@ import Hydra.Cluster.Util (
   assertNoFixtureHydraKey,
   assertNoFixtureRecipients,
   clearHeadOpen,
+  configuredNetwork,
   generateParticipant,
   headMayBeOpen,
   keysFor,
@@ -29,6 +30,15 @@ import Hydra.Cluster.Util (
   participantWalletKeyFile,
   sweptParticipantKeysDir,
  )
+
+-- NOTE: Only the one field, as 'CardanoChainConfig' shares names with 'Timing'.
+import Hydra.Options (
+  BlockfrostOptions (..),
+  CardanoChainConfig (chainBackendOptions),
+  ChainConfig (..),
+  defaultCardanoChainConfig,
+ )
+import Hydra.Options qualified as Options
 import Hydra.Tx.ContestationPeriod qualified as CP
 import Hydra.Tx.Crypto (getVerificationKey)
 import Hydra.Tx.DepositPeriod qualified as DP
@@ -103,6 +113,38 @@ fixtureKeySpec = do
 
     it "leaves the fixture key alone offline, where there is no chain" $
       assertNoFixtureHydraKey NoChain aliceSk
+
+  describe "configuredNetwork" $ do
+    -- The Blockfrost backend names only a project file, so the network it
+    -- reaches has to come from the project id's prefix.
+    it "reads the network a blockfrost project reaches" $
+      withTempDir "blockfrost" $ \dir -> do
+        forM_
+          [ ("mainnetAbC123", KnownNetwork CAPI.Mainnet)
+          , ("preprodAbC123", KnownNetwork (CAPI.Testnet $ CAPI.NetworkMagic 1))
+          , ("previewAbC123\n", KnownNetwork (CAPI.Testnet $ CAPI.NetworkMagic 2))
+          ]
+          $ \(projectId, expected) -> do
+            let projectPath = dir </> "project.txt"
+            writeFileBS projectPath projectId
+            configuredNetwork (blockfrostConfig projectPath) `shouldReturn` expected
+
+    it "leaves the network undetermined when the project id is unfamiliar" $
+      withTempDir "blockfrost" $ \dir -> do
+        let projectPath = dir </> "project.txt"
+        writeFileBS projectPath "something-else"
+        configuredNetwork (blockfrostConfig projectPath) `shouldReturn` UndeterminedNetwork
+
+    it "leaves it undetermined when the project file is not there" $
+      withTempDir "blockfrost" $ \dir ->
+        configuredNetwork (blockfrostConfig (dir </> "missing.txt"))
+          `shouldReturn` UndeterminedNetwork
+ where
+  blockfrostConfig projectPath =
+    Cardano
+      defaultCardanoChainConfig
+        { chainBackendOptions = Options.Blockfrost BlockfrostOptions{projectPath}
+        }
 
 -- | A run against a public network moves real funds through keys it generates
 -- for itself, so they have to be unguessable and they have to outlive the run.

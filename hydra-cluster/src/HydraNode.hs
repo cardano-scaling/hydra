@@ -592,7 +592,7 @@ prepareHydraNode chainConfig workDir hydraNodeId hydraSKey hydraVKeys nodePorts 
   -- A head is only as private as its Hydra key: anyone holding it can close
   -- the head with a forged snapshot. Refuse the public fixture keys here, where
   -- every node start passes, rather than trusting each scenario to pick well.
-  assertNoFixtureHydraKey (configuredNetwork chainConfig) hydraSKey
+  configuredNetwork chainConfig >>= \network -> assertNoFixtureHydraKey network hydraSKey
   -- This copy lives for as long as the head does, in a state directory that on
   -- a shared runner every account can read. It is the key that closes the head,
   -- so it is written owner-only like the participant's own copy.

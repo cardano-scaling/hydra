@@ -5,16 +5,19 @@ module Hydra.Cluster.Util where
 
 import Hydra.Prelude
 
+import Control.Exception (SomeAsyncException (..))
 import Crypto.Random (getRandomBytes)
 import Data.Aeson qualified as Aeson
 import Data.ByteString qualified as BS
 import Data.Secret (Secret, mkSecret, withSecret)
+import Data.Text qualified as T
 import Hydra.Cardano.Api (
   AsType (AsPaymentKey),
   File (..),
   HasTextEnvelope,
   Key (VerificationKey, verificationKeyHash),
-  NetworkId (Mainnet),
+  NetworkId (Mainnet, Testnet),
+  NetworkMagic (NetworkMagic),
   PaymentKey,
   SigningKey,
   TextEnvelopeError (TextEnvelopeAesonDecodeError),
@@ -28,6 +31,7 @@ import Hydra.Cardano.Api (
 import Hydra.Cluster.Fixture (Actor (Faucet), actorName, aliceVk, allActors, bobVk, carolVk, fundsOf)
 import Hydra.Node.UnsyncedPeriod (defaultUnsyncedPeriodFor)
 import Hydra.Options (
+  BlockfrostOptions (..),
   CardanoChainConfig (..),
   ChainBackendOptions (..),
   ChainConfig (..),
@@ -99,6 +103,17 @@ createAndSaveSigningKey path = do
   writeFileLBS path $ textEnvelopeToJSON (Just "Key used to commit funds into a Head") sk
   pure (mkSecret sk)
 
+-- | 'try' that lets asynchronous exceptions through.
+--
+-- The sweeps trace their failures instead of raising them. Catching everything
+-- would turn an interrupt into a traced failure and carry on to fund a key and
+-- open a head.
+trySync :: IO a -> IO (Either SomeException a)
+trySync action =
+  try action >>= \case
+    Left e | Just (SomeAsyncException _) <- fromException e -> throwIO e
+    result -> pure result
+
 -- * Public fixture keys
 
 -- | Raised when a key anyone can derive from a checkout would be given
@@ -138,7 +153,7 @@ assertNoFixtureRecipients networkId recipients
 --
 -- A network the config does not determine is treated as mainnet rather than
 -- waved through: the cost of being wrong in that direction is a refused test
--- run, and in the other it is the advisory this guard exists for.
+-- run, and in the other it is a head on a real network that anyone can close.
 assertNoFixtureHydraKey :: ConfiguredNetwork -> Secret (SigningKey HydraKey) -> IO ()
 assertNoFixtureHydraKey network sk
   | permitted = pure ()
@@ -161,12 +176,29 @@ data ConfiguredNetwork
     UndeterminedNetwork
   deriving stock (Eq, Show)
 
-configuredNetwork :: ChainConfig -> ConfiguredNetwork
+configuredNetwork :: ChainConfig -> IO ConfiguredNetwork
 configuredNetwork = \case
   Cardano CardanoChainConfig{chainBackendOptions} -> case chainBackendOptions of
-    Direct DirectOptions{networkId} -> KnownNetwork networkId
-    Blockfrost{} -> UndeterminedNetwork
-  _ -> NoChain
+    Direct DirectOptions{networkId} -> pure (KnownNetwork networkId)
+    Blockfrost BlockfrostOptions{projectPath} -> blockfrostNetwork projectPath
+  _ -> pure NoChain
+
+-- | The network a Blockfrost project reaches, taken from the network its
+-- project id is prefixed with.
+--
+-- A file that cannot be read, or an id prefixed with something unfamiliar,
+-- leaves the network undetermined rather than assumed to be a test one.
+blockfrostNetwork :: FilePath -> IO ConfiguredNetwork
+blockfrostNetwork projectPath =
+  trySync (decodeUtf8 <$> BS.readFile projectPath) >>= \case
+    Left _ -> pure UndeterminedNetwork
+    Right contents -> pure $ networkOf (T.strip contents)
+ where
+  networkOf projectId
+    | "mainnet" `T.isPrefixOf` projectId = KnownNetwork Mainnet
+    | "preprod" `T.isPrefixOf` projectId = KnownNetwork (Testnet (NetworkMagic 1))
+    | "preview" `T.isPrefixOf` projectId = KnownNetwork (Testnet (NetworkMagic 2))
+    | otherwise = UndeterminedNetwork
 
 -- * Ephemeral run credentials
 
@@ -288,9 +320,10 @@ generateParticipant workDir = do
 writeSigningKey :: HasTextEnvelope (SigningKey k) => FilePath -> SigningKey k -> IO ()
 writeSigningKey path sk = do
   createOwnerOnlyFile path
-  writeFileTextEnvelope (File path) Nothing sk >>= either (fail . show) pure
-  -- A file that was already there keeps its own mode through 'creat'.
+  -- 'creat' leaves the mode of a file that was already there alone, so narrow
+  -- it while it is still empty rather than once the key is in it.
   setFileMode path ownerOnlyMode
+  writeFileTextEnvelope (File path) Nothing sk >>= either (fail . show) pure
 
 -- | Create, or truncate, a file only its owner can read.
 createOwnerOnlyFile :: FilePath -> IO ()
@@ -327,7 +360,7 @@ leftoverParticipantKeys workDir = do
  where
   readPaymentKeys :: FilePath -> IO (Either Text [Secret (SigningKey PaymentKey)])
   readPaymentKeys keyDir =
-    first (show @Text @SomeException) <$> try (fmap catMaybes . forM participantPaymentKeyFiles $ readKey keyDir)
+    first (show @Text @SomeException) <$> trySync (fmap catMaybes . forM participantPaymentKeyFiles $ readKey keyDir)
 
   readKey :: FilePath -> (FilePath -> FilePath) -> IO (Maybe (Secret (SigningKey PaymentKey)))
   readKey keyDir keyFile = do
@@ -345,7 +378,7 @@ leftoverParticipantKeys workDir = do
 -- caller's to establish -- see 'headMayBeOpen'.
 archiveParticipantKeys :: FilePath -> FilePath -> IO (Either Text ())
 archiveParticipantKeys workDir keyDir =
-  first (show @Text @SomeException) <$> try go
+  first (show @Text @SomeException) <$> trySync go
  where
   go = do
     let swept = sweptParticipantKeysDir workDir
