@@ -20,6 +20,7 @@ module Hydra.Agda.OffChainReference (
   reqSnNotBothRef,
   reqSnDecommitOutputsRef,
   reqSnDepositSettledRef,
+  reqSnDepositDisjointRef,
 
   -- * reqDec / ackSn / contest guards
   HsPendingCommit (..),
@@ -91,6 +92,13 @@ reqSnDecommitOutputsRef = M.hsReqSnDecommitOutputsRef
 -- deposit, by identity rather than content alone (two deposits can record the same UTxO).
 reqSnDepositSettledRef :: Bool -> Integer -> Integer -> Bool
 reqSnDepositSettledRef = M.hsReqSnDepositSettledRef
+
+-- | Extracted reqSn deposit-disjointness guard (the node's @absorbable@ /
+-- @ReqSnDepositOutputsHeld@): given the Integer-encoded TxIns of the active UTxO set, all outputs
+-- created by the requested transactions, and the deposit, decides whether the deposit may be
+-- included. Both intersections must be empty, even for outputs the request subsequently spends.
+reqSnDepositDisjointRef :: [Integer] -> [Integer] -> [Integer] -> Bool
+reqSnDepositDisjointRef = M.hsReqSnDepositDisjointRef
 
 -- | Extracted ackSn-collect guard (§6 @require (j,·) ∉ Σ̂@): given the signer indices already in Σ̂ and a
 -- sender @j@, decides whether @j@ is a fresh signer.

@@ -41,7 +41,7 @@ import Cardano.Crypto.Hash.Class (HashAlgorithm (digest))
 import Data.Map.Strict qualified as Map
 import Hydra.Cardano.Api qualified as HApi
 import Hydra.Contract.KZGTrustedSetup qualified as KZG
-import Hydra.Tx.IsTx (IsTx (..), combinedUTxO)
+import Hydra.Tx.IsTx (IsTx (..), combinedUTxO, restrictedTo)
 import PlutusTx.Builtins (
   BuiltinBLS12_381_G1_Element,
   bls12_381_G1_uncompress,
@@ -167,7 +167,8 @@ buildFromSnapshotUTxOs utxo mUtxoToCommit mUtxoToDecommit =
 -- consumed input. Falls back to a full rebuild if a removed element is
 -- missing or has lower multiplicity than the removals require, which would
 -- indicate the given accumulator was not built from the given previous UTxO
--- set.
+-- set, or if a 'TxIn' present on both sides carries a different output, which
+-- the TxIn-keyed differences cannot see.
 applyUTxODelta ::
   forall tx.
   IsTx tx =>
@@ -179,12 +180,18 @@ applyUTxODelta ::
   UTxOType tx ->
   HydraAccumulator
 applyUTxODelta prevAcc prevUTxO nextUTxO
-  | removalsCovered =
+  | noOutputChangedUnderSameTxIn && removalsCovered =
       mkHydraAccumulator $
         foldl' (flip Accumulator.removeElement) (foldl' Accumulator.addElement prev addedEls) removedEls
   | otherwise = buildFromUTxO @tx nextUTxO
  where
   prev = unHydraAccumulator prevAcc
+
+  -- Every 'TxIn' present on both sides still carries the same output. The
+  -- TxIn-keyed differences below cannot detect a change of output, so the
+  -- delta would leave the accumulator describing the old output.
+  noOutputChangedUnderSameTxIn =
+    restrictedTo @tx prevUTxO nextUTxO == restrictedTo @tx nextUTxO prevUTxO
 
   -- Multiset containment: every element must be present with at least the
   -- multiplicity about to be removed. Membership alone would let a

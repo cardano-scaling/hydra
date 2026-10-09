@@ -6,6 +6,7 @@ import Hydra.Cardano.Api hiding (utxoFromTx)
 import Hydra.Prelude hiding (toList)
 import Test.Hydra.Prelude
 
+import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Binary (decodeFull', serialize')
 import Cardano.Ledger.Api (ensureMinCoinTxOut)
 import Cardano.Ledger.Credential (Credential (..))
@@ -194,6 +195,7 @@ spec =
       prop "works with valid transaction deserialised from JSON" appliesValidTransactionFromJSON
       prop "is equivalent to folding applyTxTo for valid transactions" applyTransactionsEquivalence
       prop "rejects a transaction stripped of its key witness" rejectsUnwitnessedTransaction
+      prop "rejects a transaction producing an output under a name already in the set" rejectsReusedOutputName
 
     describe "Generators" $ do
       propCollisionResistant "arbitrary @TxIn" (arbitrary @TxIn)
@@ -244,6 +246,27 @@ applyTransactionsEquivalence =
         viaLedger = applyTransactions ledger slot utxo txs
         viaApplyTxTo = foldl' (flip applyTxTo) utxo txs
      in viaLedger === Right viaApplyTxTo
+
+-- | On layer 1 an output's name derives from the transaction producing it, so
+-- it can never be in the set already. In a head it can: a deposit names its
+-- outputs in its datum, and a depositor can pick the name an upcoming
+-- transaction will produce. cardano-ledger accepts such a transaction, and the
+-- 'TxIn'-keyed bookkeeping would then keep one of the two outputs and drop the
+-- other. The ledger must reject it instead.
+rejectsReusedOutputName :: Property
+rejectsReusedOutputName =
+  forAllBlind (genFixedSizeSequenceOfSimplePaymentTransactions 1) $ \(utxo, txs) ->
+    forAllBlind genTxOut $ \occupant ->
+      conjoin
+        [ -- An entry already sitting under the name of the first output of 'tx'.
+        let occupied = utxo <> UTxO.singleton (TxIn (getTxId (getTxBody tx)) (TxIx 0)) occupant
+         in case applyTransactions (cardanoLedger defaultGlobals defaultLedgerEnv) (ChainSlot 0) occupied [tx] of
+              Left (rejected, _) -> rejected === tx
+              Right _ ->
+                property False
+                  & counterexample "accepted a transaction re-using an output name"
+        | tx <- txs
+        ]
 
 -- | A transaction submitted to a head without its signature is rejected by the
 -- ledger, and the reason names the missing witness. The node passes that reason

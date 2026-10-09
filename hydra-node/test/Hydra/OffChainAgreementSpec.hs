@@ -27,6 +27,11 @@
 --     name the deposit bound into the confirmed snapshot by tx-id ('ReqSnCommitNotSettled'
 --     otherwise) - the look-alike-deposit case, where content matches and only identity differs.
 --
+--   * @reqSnDepositDisjointRef@ vs @onOpenNetworkReqSn@'s @absorbable@ guard: a requested deposit
+--     naming an active output or an output any requested transaction creates is
+--     'ReqSnDepositOutputsHeld', including outputs spent in that request; one naming neither is
+--     signed. Cardano's TxId/index identity is pinned separately in "Hydra.HeadLogicSpec".
+--
 --   * @depositStatusRef@ vs the deposit-status transition the node applies on a chain 'Tick'
 --     ('onOpenChainTick' via @determineNextDepositStatus@): starting from a fresh Inactive deposit,
 --     one tick at time t yields 'DepositExpired' / 'DepositActivated' / no status event, mapping to
@@ -74,6 +79,7 @@ import Hydra.Agda.OffChainReference (
   notAlreadySignedRef,
   reqDecEligibleRef,
   reqSnDecommitOutputsRef,
+  reqSnDepositDisjointRef,
   reqSnDepositSettledRef,
   reqSnNotBothRef,
   signEligibleRef,
@@ -101,7 +107,7 @@ import Hydra.Options (defaultContestationPeriod, defaultDepositActivation, defau
 import Hydra.Prelude qualified as Prelude
 import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Crypto (HydraKey, Signature, SigningKey, aggregate, sign)
-import Hydra.Tx.IsTx (TxIdType, UTxOType)
+import Hydra.Tx.IsTx (TxIdType, UTxOType, txId)
 import Hydra.Tx.Party (Party)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
 import Test.Hydra.Ledger.Simple (utxoRef)
@@ -318,6 +324,63 @@ reqSnSettleOutcome :: Integer -> Outcome SimpleTx
 reqSnSettleOutcome depositTxId =
   update aliceEnv simpleLedger time0 settleState $
     receiveMessageFrom bob (ReqSn 0 2 [] Nothing (Just depositTxId))
+
+-- Deposit disjointness: the confirmed snapshot (number 1, version 0, nothing pending) holds outputs
+-- 1 and 2; deposit 7 is registered Active with the single output @d@. A request for snapshot 2
+-- (bob leads) naming deposit 7 is signed iff @d@ is neither active nor created by a requested tx.
+collisionState :: [SimpleTx] -> Integer -> NodeState SimpleTx
+collisionState txs d =
+  (inOpenState' threeParties chs){deposits = trackedFromPending (Map.fromList [(7, deposit)])}
+ where
+  -- Spelled out: a record update on the shared-field Deposit type is ambiguous
+  -- under DuplicateRecordFields.
+  deposit =
+    Deposit
+      { headId = testHeadId
+      , deposited = utxoRef d
+      , created = posixTime 0
+      , deadline = posixTime 100
+      , status = Active
+      }
+  chs =
+    CoordinatedHeadState
+      { localUTxO = headUTxO
+      , allTxs = Map.fromList [(txId tx, tx) | tx <- txs]
+      , localTxs = mempty
+      , confirmedSnapshot = ConfirmedSnapshot headSnapshot (aggregate [])
+      , seenSnapshot = LastSeenSnapshot 1
+      , currentDepositTxId = Nothing
+      , decommitTx = Nothing
+      , version = 0
+      , finalizedCommit = Nothing
+      , finalizedDecommit = Nothing
+      }
+  headUTxO = utxoRef 1 <> utxoRef 2
+  headSnapshot :: Snapshot SimpleTx
+  headSnapshot =
+    Snapshot
+      { headId = testHeadId
+      , version = 0
+      , number = 1
+      , confirmed = []
+      , utxo = headUTxO
+      , utxoToCommit = Nothing
+      , utxoToDecommit = Nothing
+      , depositTxId = Nothing
+      , accumulator = Accumulator.buildFromUTxO @SimpleTx headUTxO
+      , appliedAccumulator = Accumulator.buildFromUTxO @SimpleTx headUTxO
+      }
+
+-- The second transaction consumes the output of the first. Output 1 (active then spent) and
+-- output 3 (created then spent) must both remain reserved for the collision check.
+collisionTx1, collisionTx2 :: SimpleTx
+collisionTx1 = SimpleTx 10 (utxoRef 1) (utxoRef 3)
+collisionTx2 = SimpleTx 11 (utxoRef 3) (utxoRef 4)
+
+reqSnCollisionOutcome :: [SimpleTx] -> Integer -> Outcome SimpleTx
+reqSnCollisionOutcome txs d =
+  update aliceEnv simpleLedger time0 (collisionState txs d) $
+    receiveMessageFrom bob (ReqSn 0 2 (txId <$> txs) Nothing (Just 7))
 
 -- ── deposit status on tick ───────────────────────────────────────────────────────────────────────────
 
@@ -555,6 +618,19 @@ spec = parallel $ do
     prop "reqSnDepositSettledRef === real same-version settlement across the registered deposits" $
       forAll (elements [7, 8]) $ \d ->
         reqSnDepositSettledRef True 7 d === reqSnAccepts (reqSnSettleOutcome d)
+    it "a deposit re-using an output already in the head is the node's ReqSnDepositOutputsHeld" $ do
+      reqSnDepositDisjointRef [1, 2] [] [1] `shouldBe` False
+      reqSnCollisionOutcome [] 1 `shouldBe` Error (RequireFailed ReqSnDepositOutputsHeld{depositTxId = 7})
+    it "rejects a deposit naming an active output spent by the request" $ do
+      reqSnDepositDisjointRef [1, 2] [3] [1] `shouldBe` False
+      reqSnCollisionOutcome [collisionTx1] 1 `shouldBe` Error (RequireFailed ReqSnDepositOutputsHeld{depositTxId = 7})
+    it "rejects a deposit naming an output created and spent within the request" $ do
+      reqSnDepositDisjointRef [1, 2] [3, 4] [3] `shouldBe` False
+      reqSnCollisionOutcome [collisionTx1, collisionTx2] 3 `shouldBe` Error (RequireFailed ReqSnDepositOutputsHeld{depositTxId = 7})
+    prop "reqSnDepositDisjointRef === real ReqSn accept/reject across deposited and requested outputs" $
+      forAll (elements [([], []), ([collisionTx1], [3]), ([collisionTx1, collisionTx2], [3, 4])]) $ \(txs, created) ->
+        forAll (elements [1, 2, 3, 4, 5]) $ \d ->
+          reqSnDepositDisjointRef [1, 2] created [d] === reqSnAccepts (reqSnCollisionOutcome txs d)
 
   describe "deposit status on tick: extracted depositStatusRef vs the real deposit transition" $ do
     -- The same boundary points the extracted checker pins, now against the real node.

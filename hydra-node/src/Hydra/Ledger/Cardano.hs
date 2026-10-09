@@ -20,7 +20,7 @@ import Cardano.Ledger.Alonzo.Rules (
   FailureDescription (..),
   TagMismatchDescription (FailedUnexpectedly),
  )
-import Cardano.Ledger.Api (bodyTxL, unWithdrawals, withdrawalsTxBodyL)
+import Cardano.Ledger.Api (bodyTxL, outputsTxBodyL, unWithdrawals, withdrawalsTxBodyL)
 import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Coin (CompactForm (CompactCoin))
 import Cardano.Ledger.Conway (ApplyTxError (ConwayApplyTxError))
@@ -74,11 +74,43 @@ cardanoLedger globals ledgerEnv =
   -- as described above.
   applyTx slot utxo tx =
     withLedgerState slot utxo tx $ \env' memPoolState ->
-      case Ledger.applyTx globals env' memPoolState (toLedgerTx tx) of
+      case Ledger.applyTx globals env' memPoolState ledgerTx of
         Left err ->
           Left (tx, toValidationError err)
-        Right (Ledger.LedgerState{Ledger.lsUTxOState = us}, _validatedTx) ->
-          Right . forceNewEntries utxo . UTxO.fromShelleyUTxO shelleyBasedEra $ Ledger.utxosUtxo us
+        Right (Ledger.LedgerState{Ledger.lsUTxOState = us}, _validatedTx)
+          -- A transaction must not produce an output under a name ('TxIn')
+          -- that is already in the set. On layer 1 that cannot happen, as a
+          -- name derives from the transaction producing it. In a head it can:
+          -- the names of deposited outputs are chosen by the depositor
+          -- (nothing on-chain ties them to real outputs), so a deposit can
+          -- claim a name a transaction then produces. cardano-ledger accepts
+          -- such a transaction, and the 'TxIn'-keyed bookkeeping of the node
+          -- ('forceNewEntries', 'applyTxTo') would then keep one of the two
+          -- outputs and silently drop the other.
+          --
+          -- Checked after cardano-ledger, so a transaction failing there keeps
+          -- the ledger's reason: one applied already has all of its outputs
+          -- in the set, and should be reported as spending missing inputs.
+          | not (null reusedNames) ->
+              Left
+                ( tx
+                , ValidationError $
+                    "transaction produces outputs under names already in the UTxO set: "
+                      <> show reusedNames
+                )
+          | otherwise ->
+              Right . forceNewEntries utxo . UTxO.fromShelleyUTxO shelleyBasedEra $ Ledger.utxosUtxo us
+   where
+    ledgerTx = toLedgerTx tx
+
+    -- One lookup per produced output avoids traversing the head's UTxO set
+    -- on every transaction application.
+    reusedNames =
+      [ txIn
+      | ix <- [0 .. length (ledgerTx ^. bodyTxL . outputsTxBodyL) - 1]
+      , let txIn = TxIn (Hydra.Tx.txId tx) (TxIx (fromIntegral ix))
+      , isJust (UTxO.resolveTxIn txIn utxo)
+      ]
 
   -- Build the ledger env and mempool state for a single transaction and hand
   -- them to the given continuation.

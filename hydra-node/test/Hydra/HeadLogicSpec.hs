@@ -25,9 +25,9 @@ import Data.Map.Strict (notMember)
 import Data.Map.Strict qualified as Map
 import Data.Sequence qualified as Seq
 import Data.Set qualified as Set
-import Hydra.API.ClientInput (ClientInput (Close, Fanout, PartialFanout, Recover, SideLoadSnapshot))
+import Hydra.API.ClientInput (ClientInput (Close, Decommit, Fanout, PartialFanout, Recover, SideLoadSnapshot))
 import Hydra.API.ServerOutput (ClientMessage (..), DecommitInvalidReason (..))
-import Hydra.Cardano.Api (ChainPoint (..), SlotNo (..), forceUTxO, fromLedgerTx, getTxBody, getTxWitnesses, makeSignedTransaction, mkVkAddress, toLedgerTx, txOutValue, unSlotNo, pattern TxValidityUpperBound)
+import Hydra.Cardano.Api (ChainPoint (..), SlotNo (..), Tx, TxIn (..), TxIx (..), forceUTxO, fromLedgerTx, getTxBody, getTxWitnesses, makeSignedTransaction, mkVkAddress, toLedgerTx, txOutValue, unSlotNo, pattern TxValidityUpperBound)
 import Hydra.Cardano.Api.Gen (genTxIn)
 import Hydra.Chain (
   ChainEvent (..),
@@ -77,8 +77,8 @@ import Test.Hydra.Node.Environment ()
 import Test.Hydra.Node.Fixture qualified as Fixture
 import Test.Hydra.Node.State ()
 import Test.Hydra.Tx.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, deriveOnChainId, fanoutChunkSize, fanoutOutputThreshold, testHeadId, testHeadSeed)
-import Test.Hydra.Tx.Gen (genKeyPair, genOutputFor)
-import Test.QuickCheck (Property, choose, counterexample, elements, forAll, forAllShrink, oneof, shuffle, sublistOf, suchThat, (===))
+import Test.Hydra.Tx.Gen (genKeyPair, genOutputFor, genTxOutAdaOnly)
+import Test.QuickCheck (Property, choose, counterexample, elements, forAll, forAllShrink, oneof, shuffle, sublistOf, suchThat, (.&&.), (===), (==>))
 import Test.QuickCheck.Gen (generate)
 import Test.QuickCheck.Hedgehog (hedgehog)
 import Test.QuickCheck.Monadic (assert, monadicIO, monitor, pick, run)
@@ -1497,6 +1497,28 @@ spec =
 
           prop "names none of a UTxO iff disjoint from it" $
             \(a :: [Integer]) (b :: [Integer]) -> namesNoneOf (utxoRefs a) (utxoRefs b) === Set.disjoint (utxoRefs a) (utxoRefs b)
+
+          prop "output-name collisions need both the TxId and the index to match" $
+            forAll genTxIn $ \txIn@(TxIn txid (TxIx ix)) ->
+              forAll genTxIn $ \(TxIn otherTxId _) ->
+                forAll (genTxOutAdaOnly =<< arbitrary) $ \out ->
+                  let inHead = UTxO.singleton txIn out
+                      sameIdOtherIx = TxIn txid (TxIx (ix + 1))
+                      otherIdSameIx = TxIn otherTxId (TxIx ix)
+                   in otherTxId /= txid ==>
+                        not (namesNoneOf @Tx (UTxO.singleton txIn out) inHead)
+                          .&&. namesNoneOf @Tx (UTxO.singleton sameIdOtherIx out) inHead
+                          .&&. namesNoneOf @Tx (UTxO.singleton otherIdSameIx out) inHead
+
+          prop "output-name collisions ignore differences in output contents" $
+            forAll genTxIn $ \txIn ->
+              forAll genTxIn $ \otherTxIn ->
+                txIn /= otherTxIn ==>
+                  forAll (genTxOutAdaOnly =<< arbitrary) $ \honestOut ->
+                    forAll (genTxOutAdaOnly =<< arbitrary) $ \attackerOut ->
+                      let inHead = UTxO.singleton txIn honestOut
+                       in not (namesNoneOf @Tx (UTxO.singleton txIn attackerOut) inHead)
+                            .&&. namesNoneOf @Tx (UTxO.singleton otherTxIn attackerOut) inHead
 
           it "refuses a transaction re-creating an output the ledger holds" $ do
             let u = utxoRefs [1, 2]
@@ -4905,6 +4927,89 @@ spec =
 
     describe "Coordinated Head Protocol using real Tx" $ do
       let ledger = cardanoLedger Fixture.defaultGlobals Fixture.defaultLedgerEnv
+
+          openWith :: UTxOType Tx -> [Tx] -> NodeState Tx
+          openWith utxo txs =
+            inSync $
+              Open
+                OpenState
+                  { parameters = HeadParameters defaultContestationPeriod defaultDepositPeriod [alice]
+                  , coordinatedHeadState =
+                      CoordinatedHeadState
+                        { localUTxO = utxo
+                        , allTxs = Map.fromList [(txId tx, tx) | tx <- txs]
+                        , localTxs = mempty
+                        , confirmedSnapshot = ConfirmedSnapshot (testSnapshot 0 0 [] utxo) mempty
+                        , seenSnapshot = NoSeenSnapshot
+                        , currentDepositTxId = Nothing
+                        , decommitTx = Nothing
+                        , version = 0
+                        , finalizedCommit = Nothing
+                        , finalizedDecommit = Nothing
+                        }
+                  , chainState = ChainStateAt{spendableUTxO = mempty, recordedAt = Nothing}
+                  , headId = testHeadId
+                  , headSeed = testHeadSeed
+                  }
+
+          paymentWithCollision :: IO (Tx, UTxOType Tx, UTxOType Tx)
+          paymentWithCollision = do
+            (vk, sk) <- generate genKeyPair
+            txOut <- generate (genOutputFor vk)
+            txIn <- generate genTxIn
+            tx <- case mkSimpleTx (txIn, txOut) (mkVkAddress Fixture.testNetworkId vk, txOutValue txOut) (mkSecret sk) of
+              Left err -> failure $ "cannot create payment tx: " <> show err
+              Right tx' -> pure tx'
+            depositOut <- generate (genOutputFor vk)
+            let seed = forceUTxO $ UTxO.singleton txIn txOut
+                -- A deposit can name the output of a transaction built in advance.
+                deposited = forceUTxO $ UTxO.singleton (TxIn (txId tx) (TxIx 0)) depositOut
+            -- Rejection must be due to the occupied name, not an invalid payment.
+            applyTransactions ledger (ChainSlot 0) seed [tx] `shouldSatisfy` isRight
+            pure (tx, seed, deposited)
+
+      it "rejects a ReqSn whose requested tx produces an output the deposit names" $ do
+        (tx, seed, deposited) <- paymentWithCollision
+        TxIn depositTxId _ <- generate genTxIn
+        -- A follower can know a tx even when its local ReqTx validation deferred it.
+        let st = openWith seed [tx]
+        now <- nowFromSlot st.chainPointTime.currentSlot
+        let deposit = Deposit{headId = testHeadId, deposited, created = now, deadline = addUTCTime 3600 now, status = Active}
+            withDeposit = st{deposits = trackedFromPending (Map.singleton depositTxId deposit)}
+        update aliceEnv ledger now st (receiveMessage $ ReqSn 0 1 [txId tx] Nothing Nothing)
+          `hasEffectSatisfying` \case
+            NetworkEffect AckSn{snapshotNumber = 1} -> True
+            _ -> False
+        update aliceEnv ledger now withDeposit (receiveMessage $ ReqSn 0 1 [txId tx] Nothing (Just depositTxId))
+          `shouldBe` Error (RequireFailed ReqSnDepositOutputsHeld{depositTxId})
+
+      it "rejects a tx producing an output under a name a settled deposit already holds" $ do
+        (tx, seed, deposited) <- paymentWithCollision
+        let st = openWith (seed <> deposited) []
+        now <- nowFromSlot st.chainPointTime.currentSlot
+        update aliceEnv ledger now st (receiveMessage $ ReqTx tx)
+          `assertWait` WaitOnNotApplicableTx (ValidationError "transaction creates an output the head already holds")
+
+      it "rejects output-name collisions on every decommit entry point" $ do
+        (tx, seed, deposited) <- paymentWithCollision
+        -- Removing the decommit's outputs must not erase a settled deposit.
+        let st = openWith (seed <> deposited) []
+        now <- nowFromSlot st.chainPointTime.currentSlot
+        forM_
+          [ ClientInput (Decommit tx)
+          , NetworkInput 0 $ ReceivedMessage{sender = alice, msg = ReqDec tx}
+          ]
+          $ \input -> do
+            let outcome = update aliceEnv ledger now st input
+            outcome `hasStateChangedSatisfying` \case
+              DecommitInvalid{decommitTx = rejected, decommitInvalidReason = DecommitTxInvalid{}} -> rejected == tx
+              _ -> False
+            outcome `hasNoEffectSatisfying` \case
+              NetworkEffect{} -> True
+              _ -> False
+        case update aliceEnv ledger now st (receiveMessage $ ReqSn 0 1 [] (Just tx) Nothing) of
+          Error (RequireFailed (SnapshotDoesNotApply 1 rejected _)) -> rejected `shouldBe` txId tx
+          other -> failure $ "expected the colliding decommit snapshot to be rejected, got: " <> show other
 
       it "stores a fully evaluated snapshot UTxO when processing ReqSn" $ do
         -- Two outputs; the tx spends only the first. The second is carried over

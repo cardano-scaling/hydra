@@ -27,6 +27,7 @@ import Codec.Serialise (serialise)
 import Criterion.Main (bench, bgroup, defaultMain, nf, whnf)
 import Hydra.Cardano.Api
 import Hydra.Tx.Accumulator (
+  applyUTxODelta,
   buildFromUTxO,
   computeG1CommitmentBytes,
   createMembershipProof,
@@ -64,6 +65,14 @@ main = do
     let !_ = unHydraAccumulator acc `deepseq` (length crs + UTxO.size subset)
     pure (n, utxo, acc, crs, subset)
 
+  -- Replace one output under a fresh name, retaining the rest of the head.
+  -- Force both sets before timing so the delta includes the cost of checking
+  -- retained outputs, but not fixture construction or a commitment.
+  deltaFixtures <- forM fixtures $ \(n, utxo, acc, _, _) -> do
+    replacement <- generate $ genUTxOAdaOnlyOfSize 1
+    let !next = forceUTxO $ UTxO.difference utxo (UTxO.fromList (take 1 (UTxO.toList utxo))) <> replacement
+    pure (n, utxo, acc, next)
+
   -- Fixed-size fixtures for element conversion and low-level proof benches
   utxo10 <- generate $ genUTxOAdaOnlyOfSize 10
   utxo100 <- generate $ genUTxOAdaOnlyOfSize 100
@@ -91,6 +100,11 @@ main = do
         -- the Map, but not the G1 commitment (see group 5 and 8 for that).
         [ bench (show n <> " UTxOs") $ nf (unHydraAccumulator . buildFromUTxO @Tx) utxo
         | (n, utxo, _, _, _) <- fixtures
+        ]
+    , bgroup
+        "Delta update (one output replaced)"
+        [ bench (show n <> " UTxOs") $ nf (unHydraAccumulator . applyUTxODelta @Tx acc utxo) next
+        | (n, utxo, acc, next) <- deltaFixtures
         ]
     , bgroup
         "2. UTxO to Elements Conversion"

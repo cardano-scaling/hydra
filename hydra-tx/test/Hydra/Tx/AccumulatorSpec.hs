@@ -85,6 +85,19 @@ spec = parallel $ do
                 delta = applyUTxODelta @Tx (buildFromUTxO @Tx prevU) prevU nextU
              in unHydraAccumulator delta === unHydraAccumulator (buildFromUTxO @Tx nextU)
 
+    prop "applyUTxODelta falls back to a fresh build when a TxIn changes its output" $
+      forAll arbitrary $ \txIn ->
+        forAll (genTxOutAdaOnly =<< arbitrary) $ \txOut ->
+          forAll (genTxOutAdaOnly =<< arbitrary) $ \txOut' ->
+            txOut /= txOut' ==>
+              -- Same TxIn on both sides, different output behind it: the
+              -- TxIn-keyed differences are empty, so without the fallback the
+              -- accumulator would keep the old output and never gain the new.
+              let prevU = UTxO.fromList [(txIn, txOut)]
+                  nextU = UTxO.fromList [(txIn, txOut')]
+                  delta = applyUTxODelta @Tx (buildFromUTxO @Tx prevU) prevU nextU
+               in unHydraAccumulator delta === unHydraAccumulator (buildFromUTxO @Tx nextU)
+
     prop "applyUTxODelta falls back to a fresh build on multiplicity mismatch" $
       forAll arbitrary $ \(txIn1, txIn2, txIn3) ->
         (txIn1 /= txIn2 && txIn2 /= txIn3 && txIn1 /= txIn3) ==>

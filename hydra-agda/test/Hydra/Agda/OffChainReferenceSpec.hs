@@ -19,6 +19,7 @@ import Hydra.Agda.OffChainReference (
   notAlreadySignedRef,
   reqDecEligibleRef,
   reqSnDecommitOutputsRef,
+  reqSnDepositDisjointRef,
   reqSnDepositSettledRef,
   reqSnNotBothRef,
   signEligibleRef,
@@ -91,6 +92,16 @@ spec = do
       reqSnDepositSettledRef True 7 8 `shouldBe` False
     it "rejects when the content does not match either" $
       reqSnDepositSettledRef False 7 7 `shouldBe` False
+
+  describe "reqSnDepositDisjointRef" $ do
+    it "accepts a deposit whose outputs are all new to the head" $
+      reqSnDepositDisjointRef [1, 2] [3] [4] `shouldBe` True
+    it "accepts any deposit into an empty head without requested transactions" $
+      reqSnDepositDisjointRef [] [] [1, 2] `shouldBe` True
+    it "rejects a deposit re-using one output already in the head" $
+      reqSnDepositDisjointRef [1, 2] [] [2, 3] `shouldBe` False
+    it "rejects a deposit naming an output created by a requested transaction" $
+      reqSnDepositDisjointRef [] [3] [3, 4] `shouldBe` False
 
   describe "notAlreadySignedRef" $ do
     it "accepts a party that has not signed this round" $

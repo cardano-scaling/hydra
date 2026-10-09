@@ -50,6 +50,18 @@ Measures the time to build an accumulator from different UTxO sizes (10 to 10,00
 
 **Key Metric**: Should be < 100ms for 1000 UTxOs to be viable for snapshot signing.
 
+### Delta update (one output replaced)
+
+Measures `applyUTxODelta` with one output removed and one added under a fresh
+reference. The other outputs remain unchanged, so this includes the cost of
+checking their contents. The UTxO sets and previous accumulator map are evaluated
+before timing; computing the new G1 commitment is excluded.
+
+```bash
+BENCH_MAX_UTXO=4000 cabal bench hydra-tx:bench:accumulator-bench \
+  --benchmark-options='--time-limit 0.2 --resamples 100 --match prefix "Delta update" +RTS -N1 -RTS'
+```
+
 ### 2. UTxO to Elements Conversion
 Measures the overhead of extracting and serializing TxOuts for accumulator elements.
 

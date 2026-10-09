@@ -52,6 +52,10 @@
 #     signerCodes, ptCodes, participantSigned→ref  signer / PT-name encodings + overlap faithfulness
 #     mintEntryCount, noMint→ref                   mint-entry count encoding + noMint faithfulness
 set -euo pipefail
+# Compare names byte-wise. Under a UTF-8 locale `sort -u` treats names that differ
+# only in a modifier letter (εᵘ vs εᵛ) as equal and drops one of them, and which
+# one survives depends on input order, so the two sides then disagree.
+export LC_ALL=C
 cd "$(dirname "$0")"
 
 BR=src/Hydra/Protocol/ReferenceBridge.agda

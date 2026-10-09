@@ -130,6 +130,12 @@ combinedUTxO :: Monoid a => a -> Maybe a -> Maybe a -> a
 combinedUTxO utxo utxoToCommit utxoToDecommit =
   utxo <> fold utxoToCommit <> fold utxoToDecommit
 
+-- | The entries of the first set whose key also appears in the second set.
+-- Subtracting what the second set lacks leaves exactly the shared keys; the
+-- outputs are taken from the first set.
+restrictedTo :: forall tx. IsTx tx => UTxOType tx -> UTxOType tx -> UTxOType tx
+restrictedTo a b = a `withoutUTxO` (a `withoutUTxO` b)
+
 -- * Cardano Tx
 
 instance IsShelleyBasedEra era => ToJSON (Api.Tx era) where

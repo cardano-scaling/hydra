@@ -11,7 +11,7 @@
 -- latter over the four-case `PendingCommitᶜ` rather than a Bool, so WHICH commits block a decommit
 -- is decided here and not by whoever projects the node state), the
 -- reqSn incremental-action guards (`reqSnNotBothRef`/`reqSnDecommitOutputsRef`/
--- `reqSnDepositSettledRef`), the ackSn no-double-sign and all-signed guards
+-- `reqSnDepositSettledRef`/`reqSnDepositDisjointRef`), the ackSn no-double-sign and all-signed guards
 -- (`notAlreadySignedRef`/`allSignedRef`), the close/contest eligibility gate
 -- (`contestEligibleRef`), and round-robin leader selection (`leaderRef`).
 module Hydra.Protocol.OffChainReference where
@@ -140,6 +140,18 @@ reqSnDecommitOutputsRef n = 0 < n
 reqSnDepositSettledRef : Bool → Nat → Nat → Bool   -- (contentOk, confirmed dep tx-id, requested)
 reqSnDepositSettledRef contentOk confDep reqDep = contentOk && (confDep == reqDep)
 
+-- reqSn deposit disjointness (the §6 `require U_α ∩ U_active = ∅ ∧ U_α ∩ outputs(Treq) = ∅`,
+-- node `absorbable` / `ReqSnDepositOutputsHeld`). Deposit output names are chosen by the depositor,
+-- so they must be disjoint from both the active ledger and ALL outputs the request creates,
+-- including ones a later requested transaction spends. Checking only the final UTxO set would
+-- miss consumed names on either side. The three sets are lists of deterministic Nat encodings
+-- of their TxIns.
+disjointᵇ : List Nat → List Nat → Bool
+disjointᵇ []       _  = true
+disjointᵇ (x ∷ xs) ys = not (elemᵇ x ys) && disjointᵇ xs ys
+reqSnDepositDisjointRef : List Nat → List Nat → List Nat → Bool   -- (active, created, deposit TxIns)
+reqSnDepositDisjointRef active created deposit = disjointᵇ deposit active && disjointᵇ deposit created
+
 -- ackSn-collect (the §6 `require (j,·) ∉ Σ̂`): sender j has not already signed this round.
 notAlreadySignedRef : List Nat → Nat → Bool   -- (Σ̂ signer indices, j)
 notAlreadySignedRef signers j = not (elemᵇ j signers)
@@ -181,6 +193,7 @@ leaderRef m sn i = modSuc (sn + m) m == i
 {-# COMPILE GHC reqSnNotBothRef         as hsReqSnNotBothRef         #-}
 {-# COMPILE GHC reqSnDecommitOutputsRef as hsReqSnDecommitOutputsRef #-}
 {-# COMPILE GHC reqSnDepositSettledRef  as hsReqSnDepositSettledRef  #-}
+{-# COMPILE GHC reqSnDepositDisjointRef as hsReqSnDepositDisjointRef #-}
 {-# COMPILE GHC notAlreadySignedRef     as hsNotAlreadySignedRef     #-}
 {-# COMPILE GHC allSignedRef            as hsAllSignedRef            #-}
 {-# COMPILE GHC contestEligibleRef      as hsContestEligibleRef      #-}

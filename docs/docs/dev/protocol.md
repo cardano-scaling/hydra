@@ -83,6 +83,8 @@ Note that any node that posts increment transaction will also pay the fees even 
 
 Upon observing increment transaction we remove the corresponding deposit from the local pending deposits and the process can start again.
 
+The output references in a deposit datum are supplied by the depositor. A snapshot can claim the deposit only if its references are disjoint from both the active UTxO set and every output created by the requested transactions, including outputs spent later in that request. Leaders select deposits using the same rule that followers validate. The Cardano ledger also rejects transactions, including decommits, that create an output reference already present in the UTxO set.
+
 The increment transaction carries the full multisignature of the snapshot it settles in its redeemer. If a node is still collecting `AckSn` for that very snapshot when it observes the increment, it verifies that multisignature and adopts the snapshot as confirmed. This way a peer that withholds its `AckSn` after completing the multisignature locally cannot leave the other nodes stuck behind an in-flight snapshot they can never confirm.
 
 :::note
