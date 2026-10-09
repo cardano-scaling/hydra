@@ -31,7 +31,7 @@ import Hydra.API.HTTPServer (DraftCommitTxRequest (..), DraftCommitTxResponse (.
 import Hydra.API.ServerOutput (ApiEncoding (..), ApiMessage)
 import Hydra.API.WireFormat (decodeWire)
 import Hydra.Chain.Blockfrost.Client qualified as Blockfrost
-import Hydra.Cluster.Util (Timing (..), assertNoFixtureHydraKey, chainConfigNetworkId, readConfigFile)
+import Hydra.Cluster.Util (Timing (..), assertNoFixtureHydraKey, configuredNetwork, readConfigFile, writeSigningKey)
 import Hydra.Network (Host (Host), NodeId (NodeId), WhichEtcd (SystemEtcd))
 import Hydra.Network qualified as Network
 import Hydra.Network.Etcd (peerPortToClientPort)
@@ -48,7 +48,6 @@ import System.Environment (getEnvironment)
 import System.FilePath ((<.>), (</>))
 import System.IO.Unsafe (unsafePerformIO)
 import System.Info (os)
-import System.Posix (ownerReadMode, ownerWriteMode, setFileMode, unionFileModes)
 import System.Process.Typed (
   ExitCode (..),
   createPipe,
@@ -593,13 +592,12 @@ prepareHydraNode chainConfig workDir hydraNodeId hydraSKey hydraVKeys nodePorts 
   -- A head is only as private as its Hydra key: anyone holding it can close
   -- the head with a forged snapshot. Refuse the public fixture keys here, where
   -- every node start passes, rather than trusting each scenario to pick well.
-  forM_ (chainConfigNetworkId chainConfig) $ \networkId ->
-    assertNoFixtureHydraKey networkId hydraSKey
-  let hydraSigningKey = stateDir </> "me.sk"
-  void $ withSecret hydraSKey $ writeFileTextEnvelope (File hydraSigningKey) Nothing
+  assertNoFixtureHydraKey (configuredNetwork chainConfig) hydraSKey
   -- This copy lives for as long as the head does, in a state directory that on
-  -- a shared runner every account can read. It is the key that closes the head.
-  setFileMode hydraSigningKey (ownerReadMode `unionFileModes` ownerWriteMode)
+  -- a shared runner every account can read. It is the key that closes the head,
+  -- so it is written owner-only like the participant's own copy.
+  let hydraSigningKey = stateDir </> "me.sk"
+  withSecret hydraSKey $ writeSigningKey hydraSigningKey
   hydraVerificationKeys <- forM (zip [1 ..] hydraVKeys) $ \(i :: Int, vKey) -> do
     let filepath = stateDir </> ("other-" <> show i <> ".vk")
     filepath <$ writeFileTextEnvelope (File filepath) Nothing vKey

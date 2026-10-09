@@ -577,12 +577,13 @@ singlePartyHeadFullLifeCycle tracer workDir mkTiming opts hydraScriptsTxId = do
             ]
 
     withSoloHydraNode hydraTracer blockTime participantChainConfig workDir 1 hydraSk [] $ \n1 -> do
-      -- Open head
+      -- Open head. The funds are committed once the init transaction is on
+      -- chain, which is before this run gets to hear about it, so record that
+      -- the keys are needed first. A head that never opens leaves the marker
+      -- behind and the keys with it, which is the harmless way to be wrong.
+      markHeadOpen keyDir
       send n1 $ input "Init" []
       headId <- waitMatch (30 * blockTime) n1 $ headIsOpenWith (Set.fromList [participantParty participant])
-      -- From here until fanout the head holds funds that only these keys can
-      -- recover, so a run that ends early must leave them in place.
-      markHeadOpen keyDir
       -- Deposit UTxO
       res <-
         runReq defaultHttpConfig $

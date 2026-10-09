@@ -43,7 +43,18 @@ import Hydra.Tx.DepositPeriod qualified as DP
 import Paths_hydra_cluster qualified as Pkg
 import System.Directory (createDirectoryIfMissing, doesDirectoryExist, doesFileExist, listDirectory, removeFile, renameDirectory)
 import System.FilePath (takeFileName, (<.>), (</>))
-import System.Posix (ownerReadMode, ownerWriteMode, setFileMode, unionFileModes)
+import System.Posix (
+  FileMode,
+  OpenFileFlags (..),
+  OpenMode (WriteOnly),
+  closeFd,
+  defaultFileFlags,
+  openFd,
+  ownerReadMode,
+  ownerWriteMode,
+  setFileMode,
+  unionFileModes,
+ )
 import Test.Hydra.Prelude (failure)
 import Test.Hydra.Tx.Gen (genSigningKey)
 import Test.QuickCheck (generate)
@@ -116,29 +127,46 @@ assertNoFixtureRecipients networkId recipients
         when (vk `elem` recipients) $
           throwIO CardanoFixtureKeyOnMainnet{fixtureActor = actorName actor}
 
--- | Refuse to run a head on mainnet under a Hydra key that is public.
+-- | Refuse to run a head under a Hydra key that is public, on any network not
+-- known to be a test one.
 --
 -- 'Hydra.Cluster.Fixture.aliceSk' and its siblings are @generateSigningKey
--- "alice"@, the SHA-256 of a public string, so they are compiled into every
+-- "alice"@, derived from a public string, so they are compiled into every
 -- build. A head whose only signing key is public can be closed by anyone with a
 -- forged snapshot, which costs it whatever it holds rather than merely being a
 -- nuisance.
-assertNoFixtureHydraKey :: NetworkId -> Secret (SigningKey HydraKey) -> IO ()
-assertNoFixtureHydraKey networkId sk
-  | networkId /= Mainnet = pure ()
+--
+-- A network the config does not determine is treated as mainnet rather than
+-- waved through: the cost of being wrong in that direction is a refused test
+-- run, and in the other it is the advisory this guard exists for.
+assertNoFixtureHydraKey :: ConfiguredNetwork -> Secret (SigningKey HydraKey) -> IO ()
+assertNoFixtureHydraKey network sk
+  | permitted = pure ()
   | getVerificationKey sk `elem` [aliceVk, bobVk, carolVk] = throwIO HydraFixtureKeyOnMainnet
   | otherwise = pure ()
+ where
+  permitted = case network of
+    NoChain -> True
+    KnownNetwork networkId -> networkId /= Mainnet
+    UndeterminedNetwork -> False
 
--- | The network a chain config connects to, where that is known without
+-- | What a chain config says about the network it connects to, without
 -- querying the chain.
---
--- The Blockfrost backend carries only a project file, so its network is not
--- available here; funding on that backend still passes through
--- 'assertNoFixtureRecipients', which runs with a queried network id.
-chainConfigNetworkId :: ChainConfig -> Maybe NetworkId
-chainConfigNetworkId = \case
-  Cardano CardanoChainConfig{chainBackendOptions = Direct DirectOptions{networkId}} -> Just networkId
-  _ -> Nothing
+data ConfiguredNetwork
+  = -- | Offline mode: there is no chain, and so nothing at stake.
+    NoChain
+  | KnownNetwork NetworkId
+  | -- | The Blockfrost backend carries only a project file, so which network it
+    -- reaches is not stated here.
+    UndeterminedNetwork
+  deriving stock (Eq, Show)
+
+configuredNetwork :: ChainConfig -> ConfiguredNetwork
+configuredNetwork = \case
+  Cardano CardanoChainConfig{chainBackendOptions} -> case chainBackendOptions of
+    Direct DirectOptions{networkId} -> KnownNetwork networkId
+    Blockfrost{} -> UndeterminedNetwork
+  _ -> NoChain
 
 -- * Ephemeral run credentials
 
@@ -249,16 +277,30 @@ generateParticipant workDir = do
       , keyDir
       }
 
--- | Write a signing key in 'TextEnvelope' format, failing loudly if it cannot
--- be persisted: a key that was funded but never written is unrecoverable.
+-- | Write a signing key in 'TextEnvelope' format, readable only by its owner,
+-- failing loudly if it cannot be persisted: a key that was funded but never
+-- written is unrecoverable.
 --
--- Narrowed to the owner afterwards. These outlive the run by design and sit in
--- the state directory of a shared runner, where the default mode would leave
--- mainnet keys readable by every account on the host.
+-- These sit in the state directory of a shared runner, where the default mode
+-- would leave mainnet keys readable by every account on the host. The file is
+-- created with its mode already narrowed, because narrowing it afterwards
+-- leaves a window in which the key on disk is world-readable.
 writeSigningKey :: HasTextEnvelope (SigningKey k) => FilePath -> SigningKey k -> IO ()
 writeSigningKey path sk = do
+  createOwnerOnlyFile path
   writeFileTextEnvelope (File path) Nothing sk >>= either (fail . show) pure
-  setFileMode path (ownerReadMode `unionFileModes` ownerWriteMode)
+  -- A file that was already there keeps its own mode through 'creat'.
+  setFileMode path ownerOnlyMode
+
+-- | Create, or truncate, a file only its owner can read.
+createOwnerOnlyFile :: FilePath -> IO ()
+createOwnerOnlyFile path =
+  bracket open closeFd (const $ pure ())
+ where
+  open = openFd path WriteOnly defaultFileFlags{creat = Just ownerOnlyMode, trunc = True}
+
+ownerOnlyMode :: FileMode
+ownerOnlyMode = ownerReadMode `unionFileModes` ownerWriteMode
 
 -- | The key directories of runs that did not sweep, each with the payment keys
 -- to return funds from, or the reason they could not be read.

@@ -9,6 +9,7 @@ import Hydra.Chain.Direct.Handlers (maxGraceTime)
 import Hydra.Cluster.Fixture (Actor (..), aliceSk)
 import Hydra.Cluster.Util (
   BlockTime,
+  ConfiguredNetwork (..),
   FixtureKeyOnMainnet (..),
   Participant (..),
   Timing (..),
@@ -79,7 +80,15 @@ fixtureKeySpec = do
 
   describe "assertNoFixtureHydraKey" $ do
     it "refuses a head signed by the published alice key on mainnet" $
-      assertNoFixtureHydraKey CAPI.Mainnet aliceSk
+      assertNoFixtureHydraKey (KnownNetwork CAPI.Mainnet) aliceSk
+        `shouldThrow` \case
+          HydraFixtureKeyOnMainnet -> True
+          _ -> False
+
+    it "refuses it on a network the config does not determine" $
+      -- The Blockfrost backend names only a project file, and an unknown
+      -- network is not a reason to allow a key anyone holds.
+      assertNoFixtureHydraKey UndeterminedNetwork aliceSk
         `shouldThrow` \case
           HydraFixtureKeyOnMainnet -> True
           _ -> False
@@ -87,10 +96,13 @@ fixtureKeySpec = do
     it "allows a generated participant's key on mainnet" $
       withTempDir "participant" $ \dir -> do
         participant <- generateParticipant dir
-        assertNoFixtureHydraKey CAPI.Mainnet (hydraSk participant)
+        assertNoFixtureHydraKey (KnownNetwork CAPI.Mainnet) (hydraSk participant)
 
     it "leaves the fixture key alone on a test network" $
-      assertNoFixtureHydraKey (CAPI.Testnet $ CAPI.NetworkMagic 42) aliceSk
+      assertNoFixtureHydraKey (KnownNetwork . CAPI.Testnet $ CAPI.NetworkMagic 42) aliceSk
+
+    it "leaves the fixture key alone offline, where there is no chain" $
+      assertNoFixtureHydraKey NoChain aliceSk
 
 -- | A run against a public network moves real funds through keys it generates
 -- for itself, so they have to be unguessable and they have to outlive the run.
