@@ -19,7 +19,10 @@
      decommit is <code>ReqSnBothCommitAndDecommit</code>; a decommit producing no outputs is
      <code>ReqSnDecommitNoOutputs</code>; and settling a same-version pending commit requires the request to
      name the deposit bound into the confirmed snapshot by tx-id (<code>ReqSnCommitNotSettled</code>
-     otherwise) - the look-alike-deposit case, where content matches and only identity differs.</li><li><code>depositStatusRef</code> vs the deposit-status transition the node applies on a chain <code>Tick</code>
+     otherwise) - the look-alike-deposit case, where content matches and only identity differs.</li><li><code>reqSnDepositDisjointRef</code> vs <code>onOpenNetworkReqSn</code>'s <code>absorbable</code> guard: a requested deposit
+     naming an active output or an output any requested transaction creates is
+     <code>ReqSnDepositOutputsHeld</code>, including outputs spent in that request; one naming neither is
+     signed. Cardano's TxId/index identity is pinned separately in <a href="Hydra-HeadLogicSpec.html">Hydra.HeadLogicSpec</a>.</li><li><code>depositStatusRef</code> vs the deposit-status transition the node applies on a chain <code>Tick</code>
      (<code>onOpenChainTick</code> via <code>determineNextDepositStatus</code>): starting from a fresh Inactive deposit,
      one tick at time t yields <code>DepositExpired</code> <em> <code>DepositActivated</code> </em> no status event, mapping to
      ExpiredS <em> ActiveS </em> InactiveS.</li><li><code>notAlreadySignedRef</code> vs <code>onOpenNetworkAckSn</code>'s <code>requireNotSignedYet</code>: over a directly

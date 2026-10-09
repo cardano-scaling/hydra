@@ -539,6 +539,11 @@ utxoToElement :: IsTx tx => TxOutType tx -> ByteString
 --   fanout fails on chain with <tt>FanoutUTxOHashMismatch</tt> — so they
 --   take the union from here rather than each spelling it out.
 combinedUTxO :: Monoid a => a -> Maybe a -> Maybe a -> a
+
+-- | The entries of the first set whose key also appears in the second set.
+--   Subtracting what the second set lacks leaves exactly the shared keys;
+--   the outputs are taken from the first set.
+restrictedTo :: forall tx. IsTx tx => UTxOType tx -> UTxOType tx -> UTxOType tx
 instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Cardano.Api.Tx
 instance Hydra.Tx.IsTx.IsTx Hydra.Cardano.Api.Tx
 instance Cardano.Api.Era.Internal.Eon.ShelleyBasedEra.IsShelleyBasedEra era => Data.Aeson.Types.ToJSON.ToJSON (Cardano.Api.Tx.Internal.Sign.Tx era)
@@ -691,7 +696,9 @@ buildFromSnapshotUTxOs :: forall tx. IsTx tx => UTxOType tx -> Maybe (UTxOType t
 --   occurrence per consumed input. Falls back to a full rebuild if a
 --   removed element is missing or has lower multiplicity than the removals
 --   require, which would indicate the given accumulator was not built from
---   the given previous UTxO set.
+--   the given previous UTxO set, or if a <tt>TxIn</tt> present on both
+--   sides carries a different output, which the TxIn-keyed differences
+--   cannot see.
 applyUTxODelta :: forall tx. IsTx tx => HydraAccumulator -> UTxOType tx -> UTxOType tx -> HydraAccumulator
 
 -- | Remove one occurrence of each given output from an accumulator.
