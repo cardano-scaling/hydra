@@ -163,69 +163,75 @@ hsReqSnDepositSettledRef = coe d_reqSnDepositSettledRef_92
 d_reqSnDepositSettledRef_92 :: Bool -> Integer -> Integer -> Bool
 d_reqSnDepositSettledRef_92 v0 v1 v2
   = coe d__'38''38'__34 (coe v0) (coe eqInt (coe v1) (coe v2))
+-- Hydra.Protocol.OffChainReference.reqSnDecommitSettledRef
+hsReqSnDecommitSettledRef :: Bool -> Bool -> Bool
+hsReqSnDecommitSettledRef = coe d_reqSnDecommitSettledRef_100
+d_reqSnDecommitSettledRef_100 :: Bool -> Bool -> Bool
+d_reqSnDecommitSettledRef_100 v0 v1
+  = coe d__'38''38'__34 (coe v0) (coe v1)
 -- Hydra.Protocol.OffChainReference.disjointᵇ
-d_disjoint'7495'_100 :: [Integer] -> [Integer] -> Bool
-d_disjoint'7495'_100 v0 v1
+d_disjoint'7495'_106 :: [Integer] -> [Integer] -> Bool
+d_disjoint'7495'_106 v0 v1
   = case coe v0 of
       [] -> coe MAlonzo.Code.Agda.Builtin.Bool.C_true_10
       (:) v2 v3
         -> coe
              d__'38''38'__34
              (coe d_not_54 (coe d_elem'7495'_56 (coe v2) (coe v1)))
-             (coe d_disjoint'7495'_100 (coe v3) (coe v1))
+             (coe d_disjoint'7495'_106 (coe v3) (coe v1))
       _ -> MAlonzo.RTE.mazUnreachableError
 -- Hydra.Protocol.OffChainReference.reqSnDepositDisjointRef
 hsReqSnDepositDisjointRef ::
   MAlonzo.Code.Agda.Builtin.List.T_List_10 () Integer ->
   MAlonzo.Code.Agda.Builtin.List.T_List_10 () Integer ->
   MAlonzo.Code.Agda.Builtin.List.T_List_10 () Integer -> Bool
-hsReqSnDepositDisjointRef = coe d_reqSnDepositDisjointRef_108
-d_reqSnDepositDisjointRef_108 ::
+hsReqSnDepositDisjointRef = coe d_reqSnDepositDisjointRef_114
+d_reqSnDepositDisjointRef_114 ::
   [Integer] -> [Integer] -> [Integer] -> Bool
-d_reqSnDepositDisjointRef_108 v0 v1 v2
+d_reqSnDepositDisjointRef_114 v0 v1 v2
   = coe
-      d__'38''38'__34 (coe d_disjoint'7495'_100 (coe v2) (coe v0))
-      (coe d_disjoint'7495'_100 (coe v2) (coe v1))
+      d__'38''38'__34 (coe d_disjoint'7495'_106 (coe v2) (coe v0))
+      (coe d_disjoint'7495'_106 (coe v2) (coe v1))
 -- Hydra.Protocol.OffChainReference.notAlreadySignedRef
 hsNotAlreadySignedRef ::
   MAlonzo.Code.Agda.Builtin.List.T_List_10 () Integer ->
   Integer -> Bool
-hsNotAlreadySignedRef = coe d_notAlreadySignedRef_116
-d_notAlreadySignedRef_116 :: [Integer] -> Integer -> Bool
-d_notAlreadySignedRef_116 v0 v1
+hsNotAlreadySignedRef = coe d_notAlreadySignedRef_122
+d_notAlreadySignedRef_122 :: [Integer] -> Integer -> Bool
+d_notAlreadySignedRef_122 v0 v1
   = coe d_not_54 (coe d_elem'7495'_56 (coe v1) (coe v0))
 -- Hydra.Protocol.OffChainReference.allBelowᵇ
-d_allBelow'7495'_122 :: Integer -> [Integer] -> Bool
-d_allBelow'7495'_122 v0 v1
+d_allBelow'7495'_128 :: Integer -> [Integer] -> Bool
+d_allBelow'7495'_128 v0 v1
   = case coe v0 of
       0 -> coe MAlonzo.Code.Agda.Builtin.Bool.C_true_10
       _ -> let v2 = subInt (coe v0) (coe (1 :: Integer)) in
            coe
              (coe
                 d__'38''38'__34 (coe d_elem'7495'_56 (coe v2) (coe v1))
-                (coe d_allBelow'7495'_122 (coe v2) (coe v1)))
+                (coe d_allBelow'7495'_128 (coe v2) (coe v1)))
 -- Hydra.Protocol.OffChainReference.allSignedRef
 hsAllSignedRef ::
   Integer ->
   MAlonzo.Code.Agda.Builtin.List.T_List_10 () Integer -> Bool
-hsAllSignedRef = coe d_allSignedRef_128
-d_allSignedRef_128 :: Integer -> [Integer] -> Bool
-d_allSignedRef_128 v0 v1
-  = coe d_allBelow'7495'_122 (coe v0) (coe v1)
+hsAllSignedRef = coe d_allSignedRef_134
+d_allSignedRef_134 :: Integer -> [Integer] -> Bool
+d_allSignedRef_134 v0 v1
+  = coe d_allBelow'7495'_128 (coe v0) (coe v1)
 -- Hydra.Protocol.OffChainReference.contestEligibleRef
 hsContestEligibleRef :: Integer -> Integer -> Bool
-hsContestEligibleRef = coe d_contestEligibleRef_134
-d_contestEligibleRef_134 :: Integer -> Integer -> Bool
-d_contestEligibleRef_134 v0 v1 = coe ltInt (coe v1) (coe v0)
+hsContestEligibleRef = coe d_contestEligibleRef_140
+d_contestEligibleRef_140 :: Integer -> Integer -> Bool
+d_contestEligibleRef_140 v0 v1 = coe ltInt (coe v1) (coe v0)
 -- Hydra.Protocol.OffChainReference.modSuc
-d_modSuc_140 :: Integer -> Integer -> Integer
-d_modSuc_140 v0 v1
+d_modSuc_146 :: Integer -> Integer -> Integer
+d_modSuc_146 v0 v1
   = coe remInt (coe v0) (coe addInt (coe (1 :: Integer)) (coe v1))
 -- Hydra.Protocol.OffChainReference.leaderRef
 hsLeaderRef :: Integer -> Integer -> Integer -> Bool
-hsLeaderRef = coe d_leaderRef_146
-d_leaderRef_146 :: Integer -> Integer -> Integer -> Bool
-d_leaderRef_146 v0 v1 v2
+hsLeaderRef = coe d_leaderRef_152
+d_leaderRef_152 :: Integer -> Integer -> Integer -> Bool
+d_leaderRef_152 v0 v1 v2
   = coe
-      eqInt (coe d_modSuc_140 (coe addInt (coe v0) (coe v1)) (coe v0))
+      eqInt (coe d_modSuc_146 (coe addInt (coe v0) (coe v1)) (coe v0))
       (coe v2)

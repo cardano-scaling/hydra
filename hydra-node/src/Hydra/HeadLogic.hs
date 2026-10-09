@@ -510,7 +510,19 @@ onOpenNetworkReqSn env ledger pendingDeposits ChainPointTime{currentSlot, curren
 
   requireApplicableDecommitTx cont =
     case mDecommitTx of
-      Nothing -> cont (confirmedUTxO, Nothing)
+      -- A request without a decommit drops the one the confirmed snapshot is
+      -- settling. Unlike a settling commit (see 'waitForDeposit'), a decommit
+      -- is never dropped: its decrement is re-posted with every snapshot
+      -- carrying it, and a leader stops carrying it only once it observed
+      -- the decrement, at the bumped version. Signing such a request would
+      -- leave the decommitted outputs in no confirmed snapshot once the
+      -- decrement lands (a deposit claimed in their place would also race it
+      -- for the version bump), so the head could not be closed and fanned
+      -- out from any snapshot the honest nodes hold.
+      Nothing
+        | sv == confVersion && isJust confUTxOToDecommit ->
+            Error $ RequireFailed ReqSnDecommitNotSettled
+        | otherwise -> cont (confirmedUTxO, Nothing)
       -- Spec: require tx𝜔 = ⊥ ∨ tx𝛼 = ⊥
       --
       -- A snapshot settling both a commit and a decommit cannot be closed:
@@ -3277,13 +3289,21 @@ applyEvent st = \case
                       , allTxs = mempty
                       , seenSnapshot = NoSeenSnapshot
                       }
-                  ConfirmedSnapshot{snapshot} ->
+                  ConfirmedSnapshot{snapshot = snapshot@Snapshot{utxoToDecommit}} ->
                     coordinatedHeadState
                       { localUTxO = settledUTxO currentVersion snapshot
                       , localTxs = mempty
                       , allTxs = mempty
                       , seenSnapshot = LastSeenSnapshot snapshotNumber
-                      , decommitTx = Nothing
+                      , -- A decommit the snapshot still settles is kept: every
+                        -- request at this version must carry it (see
+                        -- 'onOpenNetworkReqSn'), and a side-load cannot change
+                        -- the pending decommit, so the recorded tx is the one
+                        -- producing it. Any other is pruned like the pending txs.
+                        decommitTx = do
+                          tx <- coordinatedHeadState.decommitTx
+                          guard (currentVersion == snapshot.version && Just (utxoFromTx tx) == utxoToDecommit)
+                          pure tx
                       , currentDepositTxId = Nothing
                       }
             }

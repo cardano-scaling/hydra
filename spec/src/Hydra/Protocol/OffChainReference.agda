@@ -11,7 +11,8 @@
 -- latter over the four-case `PendingCommitᶜ` rather than a Bool, so WHICH commits block a decommit
 -- is decided here and not by whoever projects the node state), the
 -- reqSn incremental-action guards (`reqSnNotBothRef`/`reqSnDecommitOutputsRef`/
--- `reqSnDepositSettledRef`/`reqSnDepositDisjointRef`), the ackSn no-double-sign and all-signed guards
+-- `reqSnDepositSettledRef`/`reqSnDecommitSettledRef`/`reqSnDepositDisjointRef`), the ackSn
+-- no-double-sign and all-signed guards
 -- (`notAlreadySignedRef`/`allSignedRef`), the close/contest eligibility gate
 -- (`contestEligibleRef`), and round-robin leader selection (`leaderRef`).
 module Hydra.Protocol.OffChainReference where
@@ -140,6 +141,17 @@ reqSnDecommitOutputsRef n = 0 < n
 reqSnDepositSettledRef : Bool → Nat → Nat → Bool   -- (contentOk, confirmed dep tx-id, requested)
 reqSnDepositSettledRef contentOk confDep reqDep = contentOk && (confDep == reqDep)
 
+-- reqSn same-version decommit settlement (node `requireApplicableDecommitTx`, the
+-- `ReqSnDecommitNotSettled` require): when the request is at the same version as the confirmed
+-- snapshot and that snapshot carries a pending decommit, the request must carry a decommit with the
+-- same outputs. A settling decommit is never dropped - its decrement is posted again with every
+-- snapshot carrying it, and a leader stops carrying it only at the bumped version - so a request
+-- without one is rejected like one with another decommit (or with a deposit in its place, which
+-- carries no decommit either). `contentOk` is the caller-resolved
+-- `confUTxOToDecommit == Just (utxoFromTx decommitTx)`, false when no decommit is requested.
+reqSnDecommitSettledRef : Bool → Bool → Bool   -- (hasDecommit, contentOk)
+reqSnDecommitSettledRef hasDec contentOk = hasDec && contentOk
+
 -- reqSn deposit disjointness (the §6 `require U_α ∩ U_active = ∅ ∧ U_α ∩ outputs(Treq) = ∅`,
 -- node `absorbable` / `ReqSnDepositOutputsHeld`). Deposit output names are chosen by the depositor,
 -- so they must be disjoint from both the active ledger and ALL outputs the request creates,
@@ -193,6 +205,7 @@ leaderRef m sn i = modSuc (sn + m) m == i
 {-# COMPILE GHC reqSnNotBothRef         as hsReqSnNotBothRef         #-}
 {-# COMPILE GHC reqSnDecommitOutputsRef as hsReqSnDecommitOutputsRef #-}
 {-# COMPILE GHC reqSnDepositSettledRef  as hsReqSnDepositSettledRef  #-}
+{-# COMPILE GHC reqSnDecommitSettledRef as hsReqSnDecommitSettledRef #-}
 {-# COMPILE GHC reqSnDepositDisjointRef as hsReqSnDepositDisjointRef #-}
 {-# COMPILE GHC notAlreadySignedRef     as hsNotAlreadySignedRef     #-}
 {-# COMPILE GHC allSignedRef            as hsAllSignedRef            #-}

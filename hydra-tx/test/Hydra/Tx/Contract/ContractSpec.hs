@@ -24,6 +24,8 @@ import Hydra.Cardano.Api (
   UTxO,
   filterValue,
   fromCtxUTxOTxOut,
+  getTxBody,
+  getTxBodyContent,
   minUTxOValue,
   mkTxOutDatumInline,
   modifyTxOutDatum,
@@ -38,7 +40,9 @@ import Hydra.Cardano.Api (
   toShelleyNetwork,
   txOutValue,
   txOuts',
+  txValidityLowerBound,
  )
+import Hydra.Cardano.Api qualified as Api
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Deposit (DepositRedeemer (..))
@@ -69,7 +73,7 @@ import Hydra.Tx.Contract.Contest.ContestDec (genContestDecMutation, genContestUs
 import Hydra.Tx.Contract.Contest.ContestInc (genContestIncMutation, healthyContestIncTx)
 import Hydra.Tx.Contract.Contest.Healthy (healthyContestTx)
 import Hydra.Tx.Contract.Decrement (genDecrementMutation, healthyDecrementTx)
-import Hydra.Tx.Contract.Deposit (genDepositMutation, genHealthyDepositTx)
+import Hydra.Tx.Contract.Deposit (genDepositMutation, genHealthyDepositTx, healthyDeadline)
 import Hydra.Tx.Contract.FanOut (fanoutTxWithOverlappingSets, genFanoutMutation, healthyFanoutTx, healthyFanoutTxWithWalletChange)
 import Hydra.Tx.Contract.FinalPartialFanout (genFinalPartialFanoutMutation, healthyFinalPartialFanoutTx)
 import Hydra.Tx.Contract.Increment (genIncrementMutation, healthyDeposited, healthyIncrementTx)
@@ -77,11 +81,12 @@ import Hydra.Tx.Contract.Init (genInitMutation, healthyHeadParameters, healthyIn
 import Hydra.Tx.Contract.PartialFanout (genPartialFanoutMutation, healthyIntermediatePartialFanoutTx, healthyPartialFanoutTx, healthyPartialFanoutTxWithDuplicates, healthyPartialFanoutTxWithUnburnedToken, liveFanoutWithPresettledTx, presettledCloseTx, presettledFanoutAttackFromProgressTx, presettledFanoutAttackTx)
 import Hydra.Tx.Contract.Recover (genRecoverMutation, healthyRecoverTx)
 import Hydra.Tx.Crypto (aggregate, sign, toPlutusSignatures)
+import Hydra.Tx.Deposit (mkDepositOutput)
 import Hydra.Tx.DepositPeriod qualified as DP
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.Observe qualified as Observation
 import PlutusLedgerApi.V3 (PubKeyHash (..), fromBuiltin, toBuiltin)
-import Test.Hydra.Tx.Fixture (defaultPParams, testNetworkId, testPolicyId)
+import Test.Hydra.Tx.Fixture (defaultPParams, testHeadId, testNetworkId, testPolicyId)
 import Test.Hydra.Tx.Gen (
   genUTxOSized,
   genUTxOWithSimplifiedAddresses,
@@ -243,6 +248,42 @@ spec = parallel $ do
                         | otherwise -> Just $ name <> ": expected a " <> name <> " observation, got: " <> show observation
           unless (null failures) $ expectationFailure $ intercalate "\n" failures
         inputs -> expectationFailure $ "Expected exactly one deposit input, got: " <> show inputs
+
+    -- Deposit is the one observer that matches on shape alone: a deposit-script
+    -- output at index 0 whose datum and value agree, in a transaction with an
+    -- upper validity bound. A fanout distributes L2 outputs from index 0, and
+    -- anyone can create such an output on L2, so a fanout posted with an upper
+    -- bound was observed as a deposit and the fanout itself missed, leaving
+    -- every node closed. No transaction spending a head output is a deposit.
+    it "a head transaction whose first output is deposit-shaped is not observed as a deposit" $ do
+      let depositShaped = fromCtxUTxOTxOut $ mkDepositOutput testNetworkId testHeadId healthyDeposited healthyDeadline
+          depositShapedFirst (healthy, utxo) =
+            (healthy, utxo)
+              & applyMutation
+                ( Changes
+                    [ ChangeOutput 0 depositShaped
+                    , ChangeValidityInterval (txValidityLowerBound $ getTxBodyContent $ getTxBody healthy, Api.TxValidityUpperBound 10_000_000)
+                    ]
+                )
+          isDeposit = \case Observation.Deposit{} -> True; _ -> False
+          cases =
+            [ ("increment", healthyIncrementTx, Nothing)
+            , ("decrement", healthyDecrementTx, Nothing)
+            , ("close", healthyCloseCurrentTx, Nothing)
+            , ("contest", healthyContestTx, Nothing)
+            , ("partial fanout", healthyPartialFanoutTx, Nothing)
+            , ("fanout", healthyFanoutTx, Just $ \case Observation.Fanout{} -> True; _ -> False)
+            , ("final partial fanout", healthyFinalPartialFanoutTx, Just $ \case Observation.FinalPartialFanout{} -> True; _ -> False)
+            ]
+          failures = flip mapMaybe cases $ \(name, healthyTx, mIsExpected) ->
+            let (tx, utxo) = depositShapedFirst healthyTx
+                observation = Observation.observeHeadTx testNetworkId utxo tx
+             in if isDeposit observation
+                  then Just $ name <> ": observed as a deposit"
+                  else case mIsExpected of
+                    Just isExpected | not (isExpected observation) -> Just $ name <> ": expected a " <> name <> " observation, got: " <> take 120 (show observation)
+                    _ -> Nothing
+      unless (null failures) $ expectationFailure $ intercalate "\n" failures
 
   describe "CloseInitial" $ do
     prop "is healthy" $

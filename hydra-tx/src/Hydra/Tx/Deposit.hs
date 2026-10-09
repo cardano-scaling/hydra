@@ -127,6 +127,12 @@ data DepositObservation = DepositObservation
 -- - all of deposited value is contained in the deposit tx output,
 -- - the deposit script output actually contains the deposited value,
 -- - an upper validity bound has been set (used as creation slot).
+-- | Observe a deposit transaction by its shape: the deposit output and its
+-- datum alone. Nothing here tells a deposit from a head transaction that
+-- happens to produce such an output first (a fanout can), so when classifying
+-- arbitrary chain transactions use 'Hydra.Tx.Observe.observeHeadTx', which
+-- tries the head observers first and skips this one for any transaction
+-- spending a head output.
 observeDepositTx ::
   NetworkId ->
   Tx ->

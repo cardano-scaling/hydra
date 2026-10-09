@@ -193,6 +193,16 @@ $sans("Expired")$ is too early — that status is set $Tdeposit$ ahead of the
 deadline — so a settling commit whose deposit counts as $sans("Expired")$ is
 still carried on.
 
+A settling decommit — $macron(mc(S)).U_omega != bot$ at the current version —
+is never dropped: every request at that version must carry a decommit with the
+same outputs, as the leader does until it observes the $mtxDecrement$, which
+bumps the version. Nothing bounds how long that transaction may take to land —
+it is posted again with every snapshot confirmed carrying the decommit — and a
+request without it would leave the decommitted outputs in no confirmed snapshot
+once it lands, while a deposit claimed in their place would race it for the
+version bump; either way the head could no longer be closed and fanned out from
+a snapshot its honest parties hold.
+
 Transactions may not re-create an output reference the ledger holds either:
 unique on L1, output references are not on L2, where a deposit names arbitrary
 ones and enters the ledger with its increment. A member can compute the id of a
@@ -450,7 +460,9 @@ Furthermore, the protocol validates the snapshot request by:
   commit only joins it once its increment has settled on-chain, so the
   requested transactions cannot spend it
 + If we are on the same version as the last snapshot, any requested
-  decommit or deposit must match the last snapshot.
+  decommit or deposit must match the last snapshot, and a decommit the last
+  snapshot is still settling must be requested again: unlike a settling
+  commit, it is never dropped (see below).
 + Verify all requested transactions $underline(tx)_(sans("req"))$ are
   applicable to the active UTxO set
 Only then, $party_i$ increments their seen-snapshot counter $hats$, resets the
@@ -1082,17 +1094,14 @@ preventing inconsistency between the on-chain and off-chain state.
                 #nst[
                   $U_(sans("active")) <- U_(sans("active")) union macron(mc(S)).U_alpha$
                 ]
-                #kw("if") $tx_omega != bot$
+                #kw("if") $v = macron(mc(S)).v and macron(mc(S)).U_omega != bot$
                 #nst[
-                  #kw("if") $v = macron(mc(S)).v and macron(mc(S)).U_omega != bot$
-                  #nst[
-                    #kw("require") $macron(mc(S)).U_omega = sans("outputs")(tx_omega)$
-                  ]
-                  #kw("else")
-                  #nst[
-                    #kw("require") $U_(sans("active")) applytx tx_omega != bot$ \
-                    $U_(sans("active")) <- U_(sans("active")) applytx tx_omega without sans("outputs")(tx_omega)$
-                  ]
+                  #kw("require") $tx_omega != bot and macron(mc(S)).U_omega = sans("outputs")(tx_omega)$ #text(size: 0.8em)[(a settling decommit is carried by every request at this version)]
+                ]
+                #kw("else if") $tx_omega != bot$
+                #nst[
+                  #kw("require") $U_(sans("active")) applytx tx_omega != bot$ \
+                  $U_(sans("active")) <- U_(sans("active")) applytx tx_omega without sans("outputs")(tx_omega)$
                 ]
                 #kw("if") $tx_alpha = bot and v = macron(mc(S)).v and macron(mc(S)).U_alpha != bot$
                 #nst[

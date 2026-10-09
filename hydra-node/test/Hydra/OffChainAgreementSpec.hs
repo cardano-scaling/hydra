@@ -27,6 +27,11 @@
 --     name the deposit bound into the confirmed snapshot by tx-id ('ReqSnCommitNotSettled'
 --     otherwise) - the look-alike-deposit case, where content matches and only identity differs.
 --
+--   * @reqSnDecommitSettledRef@ vs @onOpenNetworkReqSn@'s @requireApplicableDecommitTx@: settling
+--     a same-version pending decommit requires the request to carry a decommit with the same
+--     outputs; one dropping it, carrying another, or claiming a deposit in its place is
+--     'ReqSnDecommitNotSettled'.
+--
 --   * @reqSnDepositDisjointRef@ vs @onOpenNetworkReqSn@'s @absorbable@ guard: a requested deposit
 --     naming an active output or an output any requested transaction creates is
 --     'ReqSnDepositOutputsHeld', including outputs spent in that request; one naming neither is
@@ -79,6 +84,7 @@ import Hydra.Agda.OffChainReference (
   notAlreadySignedRef,
   reqDecEligibleRef,
   reqSnDecommitOutputsRef,
+  reqSnDecommitSettledRef,
   reqSnDepositDisjointRef,
   reqSnDepositSettledRef,
   reqSnNotBothRef,
@@ -324,6 +330,54 @@ reqSnSettleOutcome :: Integer -> Outcome SimpleTx
 reqSnSettleOutcome depositTxId =
   update aliceEnv simpleLedger time0 settleState $
     receiveMessageFrom bob (ReqSn 0 2 [] Nothing (Just depositTxId))
+
+-- Same-version decommit settlement: the confirmed snapshot (number 1, version 0) carries the
+-- pending decommit of output 3, which 'settlingDecommit' spends output 1 for; output 2 stays
+-- active. Deposit 7 is registered Active, so a request may try to claim it instead. A request for
+-- snapshot 2 at the same version must carry 'settlingDecommit' again.
+settlingDecommit :: SimpleTx
+settlingDecommit = SimpleTx 4 (utxoRef 1) (utxoRef 3)
+
+otherDecommit :: SimpleTx
+otherDecommit = SimpleTx 5 (utxoRef 2) (utxoRef 4)
+
+decommitSettleState :: NodeState SimpleTx
+decommitSettleState =
+  (inOpenState' threeParties chs){deposits = trackedFromPending (Map.fromList [(7, activeDeposit9)])}
+ where
+  chs =
+    CoordinatedHeadState
+      { localUTxO = utxoRef 2
+      , allTxs = mempty
+      , localTxs = mempty
+      , confirmedSnapshot = ConfirmedSnapshot decommitSettleSnapshot (aggregate [])
+      , seenSnapshot = LastSeenSnapshot 1
+      , currentDepositTxId = Nothing
+      , decommitTx = Just settlingDecommit
+      , version = 0
+      , finalizedCommit = Nothing
+      , finalizedDecommit = Nothing
+      }
+  decommitSettleSnapshot :: Snapshot SimpleTx
+  decommitSettleSnapshot =
+    Snapshot
+      { headId = testHeadId
+      , version = 0
+      , number = 1
+      , confirmed = []
+      , utxo = utxoRef 2
+      , utxoToCommit = Nothing
+      , utxoToDecommit = Just (utxoRef 3)
+      , depositTxId = Nothing
+      , accumulator = fst $ Accumulator.buildFromSnapshotUTxOs @SimpleTx (utxoRef 2) Nothing (Just (utxoRef 3))
+      , appliedAccumulator = snd $ Accumulator.buildFromSnapshotUTxOs @SimpleTx (utxoRef 2) Nothing (Just (utxoRef 3))
+      }
+
+-- Snapshot 2's leader among the three parties is bob.
+reqSnDecommitSettleOutcome :: Maybe SimpleTx -> Maybe Integer -> Outcome SimpleTx
+reqSnDecommitSettleOutcome mDecommit mDeposit =
+  update aliceEnv simpleLedger time0 decommitSettleState $
+    receiveMessageFrom bob (ReqSn 0 2 [] mDecommit mDeposit)
 
 -- Deposit disjointness: the confirmed snapshot (number 1, version 0, nothing pending) holds outputs
 -- 1 and 2; deposit 7 is registered Active with the single output @d@. A request for snapshot 2
@@ -618,6 +672,21 @@ spec = parallel $ do
     prop "reqSnDepositSettledRef === real same-version settlement across the registered deposits" $
       forAll (elements [7, 8]) $ \d ->
         reqSnDepositSettledRef True 7 d === reqSnAccepts (reqSnSettleOutcome d)
+    it "anchor: carrying the same-version settling decommit again is signed by the real node" $ do
+      reqSnDecommitSettledRef True True `shouldBe` True
+      reqSnAccepts (reqSnDecommitSettleOutcome (Just settlingDecommit) Nothing) `shouldBe` True
+    it "dropping the settling decommit is the node's ReqSnDecommitNotSettled" $ do
+      reqSnDecommitSettledRef False False `shouldBe` False
+      reqSnDecommitSettleOutcome Nothing Nothing `shouldBe` Error (RequireFailed ReqSnDecommitNotSettled)
+    it "claiming a deposit in place of the settling decommit is the node's ReqSnDecommitNotSettled" $
+      reqSnDecommitSettleOutcome Nothing (Just 7) `shouldBe` Error (RequireFailed ReqSnDecommitNotSettled)
+    it "another decommit in its place is the node's ReqSnDecommitNotSettled" $ do
+      reqSnDecommitSettledRef True False `shouldBe` False
+      reqSnDecommitSettleOutcome (Just otherDecommit) Nothing `shouldBe` Error (RequireFailed ReqSnDecommitNotSettled)
+    prop "reqSnDecommitSettledRef === real same-version decommit settlement across requested decommits" $
+      forAll (elements [Nothing, Just settlingDecommit, Just otherDecommit]) $ \mDecommit ->
+        reqSnDecommitSettledRef (isJust mDecommit) (mDecommit == Just settlingDecommit)
+          === reqSnAccepts (reqSnDecommitSettleOutcome mDecommit Nothing)
     it "a deposit re-using an output already in the head is the node's ReqSnDepositOutputsHeld" $ do
       reqSnDepositDisjointRef [1, 2] [] [1] `shouldBe` False
       reqSnCollisionOutcome [] 1 `shouldBe` Error (RequireFailed ReqSnDepositOutputsHeld{depositTxId = 7})
