@@ -154,8 +154,14 @@ def rts_metrics(node_stats, n_txs, n_snapshots):
     }
     # Live heap averaged over the major GCs that ran inside the load window
     # (the RTS sums live bytes at every major GC), so a startup transient
-    # cannot set it; nodes without a major GC in the window are skipped.
-    mean_live = [s["cumulativeLiveBytes"] / s["majorGcs"] for s in node_stats if s.get("majorGcs", 0) > 0]
+    # cannot set it; nodes without a major GC in the window are skipped. A
+    # side whose bench predates the counter (it reported a since-start peak
+    # as maxLiveBytes) gets no row, which the one-sided drift warning reports.
+    mean_live = [
+        s["cumulativeLiveBytes"] / s["majorGcs"]
+        for s in node_stats
+        if s.get("cumulativeLiveBytes") is not None and s.get("majorGcs", 0) > 0
+    ]
     if mean_live:
         metrics["Mean live MB under load (max node)"] = max(mean_live) / mb
     return metrics

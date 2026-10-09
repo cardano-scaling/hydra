@@ -208,6 +208,15 @@ class JsonPath(unittest.TestCase):
         self.assertAlmostEqual(m["Mean live MB under load (max node)"], 400.0)
         self.assertEqual(diff.rts_metrics([], 1000, 10), {})
 
+    def test_rts_metrics_tolerate_pre_counter_schema(self):
+        # The master side of a comparison may still be written by a bench
+        # that reported the since-start peak; it must parse, minus the row.
+        mb = 1024.0 * 1024.0
+        stats = [{"allocatedBytes": 1000 * mb, "mutatorCpuSeconds": 10.0, "maxLiveBytes": 300 * mb, "majorGcs": 3}]
+        m = diff.rts_metrics(stats, n_txs=1000, n_snapshots=10)
+        self.assertAlmostEqual(m["Alloc MB per confirmed tx"], 1.0)
+        self.assertNotIn("Mean live MB under load (max node)", m)
+
     def test_mean_live_skips_nodes_without_major_gc(self):
         mb = 1024.0 * 1024.0
         stats = [{"allocatedBytes": mb, "mutatorCpuSeconds": 1.0, "cumulativeLiveBytes": 0.0, "majorGcs": 0}]
