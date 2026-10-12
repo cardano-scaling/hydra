@@ -8,6 +8,7 @@ import { PageContext, PageType } from "../context/PageContext";
 import WhyHydraHead from "../components/homepage/WhyHydraHead";
 import ProtocolFeatures from "../components/homepage/ProtocolFeatures";
 import WhatIsHydra from "../components/homepage/WhatIsHydra";
+import UseCases from "../components/homepage/UseCases";
 import Topologies from "../components/homepage/Topologies";
 import FastAndFrequentActivity from "../components/homepage/FastAndFrequentActivity";
 import Developers from "../components/homepage/Developers";
@@ -22,6 +23,7 @@ export default function Home() {
           <WhyHydraHead />
           <WhatIsHydra />
           <ProtocolFeatures />
+          <UseCases />
           <Topologies />
           <FastAndFrequentActivity />
           <Developers />

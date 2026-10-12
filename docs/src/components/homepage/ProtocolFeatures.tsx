@@ -6,12 +6,12 @@ import {
   useSpring,
   useReducedMotion,
 } from "framer-motion";
-import { RightArrow } from "../icons/Arrow";
 import SectionHeading from "./components/SectionHeading";
 import { ProtocolFeaturesContent } from "../../../docs/homepage/protocol-features";
 import useBaseUrl from "@docusaurus/useBaseUrl";
 import useMediaQuery from "../../hooks/useMediaQuery";
 import { forLaptop } from "../../../helpers/media-queries";
+import LargeLink from "./components/LargeLink";
 
 const ITEM_WIDTH_MOBILE = 280;
 const ITEM_WIDTH_LAPTOP = 356;
@@ -118,12 +118,7 @@ const ScrollingFeatures = ({ isLaptop }: { isLaptop: boolean }) => {
 
 const Intro = () => {
   const { label, title, text } = ProtocolFeaturesContent;
-  return (
-    <div className="flex flex-col gap-2">
-      <SectionHeading label={label} title={title} />
-      <p className="text-white/50">{text}</p>
-    </div>
-  );
+  return <SectionHeading label={label} title={title} description={text} />;
 };
 
 const Cta = () => {
@@ -131,12 +126,9 @@ const Cta = () => {
   const ctaUrl = useBaseUrl(cta.url);
   return (
     <div>
-      <a
-        href={ctaUrl}
-        className="protocol-features__cta inline-flex gap-2 items-center"
-      >
-        {cta.label} <RightArrow className="size-4" />
-      </a>
+      <LargeLink to={ctaUrl} mode="dark">
+        {cta.label}
+      </LargeLink>
     </div>
   );
 };

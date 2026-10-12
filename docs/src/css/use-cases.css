@@ -1,0 +1,43 @@
+.use-case-card {
+  background-color: #ede5ef;
+  border-radius: 24px;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  text-align: center;
+
+  transition-property: color, background-color;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
+}
+
+@media (min-width: 768px) {
+  .use-case-card {
+    padding: 2rem;
+  }
+}
+
+.use-case-card:hover {
+  background-color: var(--hydra-surface);
+  color: var(--pure-white);
+}
+
+.use-case-card__title {
+  font-family: "Lexend";
+  font-weight: 500;
+  font-size: 1.375rem; /* 22px */
+  line-height: 1.27;
+  letter-spacing: -1%;
+  width: 100%;
+  word-wrap: normal;
+}
+
+@media (min-width: 768px) {
+  .use-case-card__title {
+    font-size: 1.75rem; /* 28px */
+    line-height: 1.29;
+    max-width: 212px;
+  }
+}
