@@ -304,6 +304,8 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx = do
   -- ignored. NOTE: mkScriptIntegrity reads redeemers and datums off the given
   -- transaction, so it must see the adjusted redeemers (with estimated
   -- ExUnits), not the estimation placeholders.
+  -- Since cardano-ledger-alonzo 1.16, mkScriptIntegrity takes the languages
+  -- explicitly; the caller performs the script filtering it used to do.
   let txWithAdjustedRedeemers = txForEstimation & witsTxL . rdmrsTxWitsL .~ adjustedRedeemers
       ScriptsProvided scriptsProvided = getScriptsProvided ledgerUTxO txWithAdjustedRedeemers
       scriptsNeeded = getScriptsHashesNeeded $ getScriptsNeeded ledgerUTxO (txWithAdjustedRedeemers ^. bodyTxL)

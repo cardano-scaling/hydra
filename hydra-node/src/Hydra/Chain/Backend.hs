@@ -6,7 +6,6 @@ import Cardano.Api.UTxO qualified as UTxO
 import Data.Map.Strict qualified as Map
 import Hydra.Cardano.Api
 import Hydra.Chain.CardanoClient qualified as CardanoClient
-import Hydra.Contract.Dummy (dummyMintingScript)
 import Hydra.Tx (ScriptRegistry)
 
 blockfrostProjectPath :: FilePath
@@ -35,14 +34,12 @@ buildTransaction ::
   AddressInEra ->
   -- | Unspent transaction outputs to spend.
   UTxO ->
-  -- | Collateral inputs.
-  [TxIn] ->
   -- | Outputs to create.
   [TxOut CtxTx] ->
   m (Either (TxBodyErrorAutoBalance Era) Tx)
-buildTransaction changeAddress body utxoToSpend outs = do
+buildTransaction changeAddress utxoToSpend outs = do
   pparams <- queryProtocolParameters CardanoClient.QueryTip
-  buildTransactionWithPParams pparams changeAddress body utxoToSpend outs Nothing
+  buildTransactionWithPParams pparams changeAddress utxoToSpend outs Nothing
 
 buildTransactionWithMintingScript ::
   ChainBackend m =>
@@ -51,15 +48,14 @@ buildTransactionWithMintingScript ::
   AddressInEra ->
   -- | Unspent transaction outputs to spend.
   UTxO ->
-  -- | Collateral inputs.
-  [TxIn] ->
   -- | Outputs to create.
   [TxOut CtxTx] ->
-  Maybe PlutusScript ->
+  -- | Optional minting script and its collateral inputs.
+  Maybe (PlutusScript, [TxIn]) ->
   m (Either (TxBodyErrorAutoBalance Era) Tx)
-buildTransactionWithMintingScript changeAddress body utxoToSpend outs mintingScript = do
+buildTransactionWithMintingScript changeAddress utxoToSpend outs minting = do
   pparams <- queryProtocolParameters CardanoClient.QueryTip
-  buildTransactionWithPParams pparams changeAddress body utxoToSpend outs mintingScript
+  buildTransactionWithPParams pparams changeAddress utxoToSpend outs minting
 
 -- | Construct a simple payment consuming some inputs and producing some
 -- outputs (no certificates or withdrawals involved).
@@ -75,21 +71,19 @@ buildTransactionWithPParams ::
   AddressInEra ->
   -- | Unspent transaction outputs to spend.
   UTxO ->
-  -- | Collateral inputs.
-  [TxIn] ->
   -- | Outputs to create.
   [TxOut CtxTx] ->
-  Maybe PlutusScript ->
+  -- | Optional minting script and its collateral inputs.
+  Maybe (PlutusScript, [TxIn]) ->
   m (Either (TxBodyErrorAutoBalance Era) Tx)
-buildTransactionWithPParams pparams changeAddress utxoToSpend collateral outs mintingScript = do
+buildTransactionWithPParams pparams changeAddress utxoToSpend outs minting = do
   systemStart <- querySystemStart CardanoClient.QueryTip
   eraHistory <- queryEraHistory CardanoClient.QueryTip
   stakePools <- queryStakePools CardanoClient.QueryTip
-  pure $ buildTransactionWithPParams' pparams systemStart eraHistory stakePools changeAddress utxoToSpend collateral outs mintingScript
+  pure $ buildTransactionWithPParams' pparams systemStart eraHistory stakePools changeAddress utxoToSpend outs minting
 
--- | NOTE: If there are any non ADA assets present in the output 'Value' and
--- minting scrips is specified this function will mint them using provided
--- script as the script witness.
+-- | Mint the non-ADA assets in the outputs when a minting script is supplied.
+-- The script and its collateral are used only when those assets are non-empty.
 buildTransactionWithPParams' ::
   -- | Protocol parameters
   PParams LedgerEra ->
@@ -100,21 +94,20 @@ buildTransactionWithPParams' ::
   AddressInEra ->
   -- | Unspent transaction outputs to spend.
   UTxO ->
-  -- | Collateral inputs.
-  [TxIn] ->
   -- | Outputs to create.
   [TxOut CtxTx] ->
-  Maybe PlutusScript ->
+  -- | Optional minting script and its collateral inputs.
+  Maybe (PlutusScript, [TxIn]) ->
   Either (TxBodyErrorAutoBalance Era) Tx
-buildTransactionWithPParams' pparams systemStart eraHistory stakePools changeAddress utxoToSpend collateral outs mintingScript = do
+buildTransactionWithPParams' pparams systemStart eraHistory stakePools changeAddress utxoToSpend outs minting = do
   buildTransactionWithBody pparams systemStart eraHistory stakePools changeAddress bodyContent utxoToSpend
  where
   mintValue =
-    case mintingScript of
+    case minting of
       Nothing -> TxMintValueNone
-      Just _ ->
+      Just (mintingScript, _) ->
         let mintingWitness =
-              mkScriptWitness dummyMintingScript NoScriptDatumForMint (toScriptData ())
+              mkScriptWitness mintingScript NoScriptDatumForMint (toScriptData ())
             toMint = valueToPolicyAssets (foldMap txOutValue outs)
          in if null toMint
               then TxMintValueNone
@@ -131,24 +124,22 @@ buildTransactionWithPParams' pparams systemStart eraHistory stakePools changeAdd
                     )
                       <$> Map.toList toMint
   auxScripts =
-    if mintValue == TxMintValueNone
-      then TxAuxScriptsNone
-      else
-        TxAuxScripts
-          ( maybeToList $
-              toScriptInEra
-                ShelleyBasedEraConway
-                ( toScriptInAnyLang $
-                    PlutusScript $
-                      fromMaybe dummyMintingScript mintingScript
-                )
-          )
+    case minting of
+      Just (mintingScript, _)
+        | mintValue /= TxMintValueNone ->
+            TxAuxScripts
+              ( maybeToList $
+                  toScriptInEra
+                    ShelleyBasedEraConway
+                    (toScriptInAnyLang $ PlutusScript mintingScript)
+              )
+      _ -> TxAuxScriptsNone
   -- NOTE: Since cardano-api 11.4, balancing rejects collateral inputs on
   -- transactions that run no Plutus script, and the minting script is the only
   -- script this builder can attach.
   collateralInputs
     | mintValue == TxMintValueNone = TxInsCollateralNone
-    | otherwise = TxInsCollateral collateral
+    | otherwise = maybe TxInsCollateralNone (TxInsCollateral . snd) minting
 
   -- NOTE: 'makeTransactionBodyAutoBalance' overwrites this.
   bodyContent =

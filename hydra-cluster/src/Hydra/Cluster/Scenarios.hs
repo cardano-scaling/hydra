@@ -781,7 +781,7 @@ singlePartyUsesScriptOnL2 tracer workDir opts hydraScriptsTxId =
         systemStart <- runBackend opts $ querySystemStart QueryTip
         eraHistory <- runBackend opts $ queryEraHistory QueryTip
         stakePools <- runBackend opts $ queryStakePools QueryTip
-        case buildTransactionWithPParams' pparams systemStart eraHistory stakePools (mkVkAddress networkId walletVk) utxoToDeposit [] [scriptOutput] Nothing of
+        case buildTransactionWithPParams' pparams systemStart eraHistory stakePools (mkVkAddress networkId walletVk) utxoToDeposit [scriptOutput] Nothing of
           Left e -> error $ show e
           Right tx -> do
             let signedL2tx = signTx walletSk tx
@@ -915,7 +915,7 @@ singlePartyMintsTokensOnL2 tracer workDir opts hydraScriptsTxId =
                 ReferenceScriptNone
 
         signedMintTx <-
-          case buildTransactionWithPParams' pparams systemStart eraHistory stakePools walletAddress utxoToDeposit (toList $ UTxO.inputSet utxoToDeposit) [tokenOutput] (Just dummyMintingScript) of
+          case buildTransactionWithPParams' pparams systemStart eraHistory stakePools walletAddress utxoToDeposit [tokenOutput] (Just (dummyMintingScript, toList $ UTxO.inputSet utxoToDeposit)) of
             Left e -> failure $ show e
             Right tx -> pure $ signTx walletSk tx
         send n1 $ input "NewTx" ["transaction" .= signedMintTx]
@@ -1041,7 +1041,7 @@ singlePartyUsesWithdrawZeroTrick tracer workDir opts hydraScriptsTxId =
           -- Prepare a tx that re-spends everything owned by walletVk
           pparams <- getProtocolParameters n1
           let change = mkVkAddress networkId walletVk
-          Right tx <- runBackend opts (buildTransactionWithPParams pparams change utxoToDeposit [] [] Nothing)
+          Right tx <- runBackend opts (buildTransactionWithPParams pparams change utxoToDeposit [] Nothing)
 
           -- Modify the tx to run a script via the withdraw 0 trick
           let redeemer = toLedgerData $ toScriptData ()
@@ -1238,7 +1238,7 @@ canSubmitTransactionThroughAPI tracer workDir opts hydraScriptsTxId =
               TxOutDatumNone
               ReferenceScriptNone
       -- prepare fully balanced tx body
-      runBackend opts (buildTransaction bobsAddress bobUTxO (fst <$> UTxO.toList bobUTxO) [carolsOutput]) >>= \case
+      runBackend opts (buildTransaction bobsAddress bobUTxO [carolsOutput]) >>= \case
         Left e -> failure $ show e
         Right tx -> do
           let unsignedTx = makeSignedTransaction [] $ getTxBody tx
