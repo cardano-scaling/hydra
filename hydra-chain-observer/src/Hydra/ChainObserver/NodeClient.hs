@@ -1,6 +1,7 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 -- NOTE: Uses the TxBody/TxBodyContent API that cardano-api deprecated in favour of
--- Cardano.Api.Experimental; the migration is tracked separately.
+-- Cardano.Api.Experimental; the migration is tracked separately in
+-- https://github.com/cardano-scaling/hydra/issues/2896
 {-# OPTIONS_GHC -Wno-deprecations #-}
 
 module Hydra.ChainObserver.NodeClient where
