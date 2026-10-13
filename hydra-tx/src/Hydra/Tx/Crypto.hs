@@ -1,6 +1,9 @@
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE UndecidableInstances #-}
+-- NOTE: cardano-crypto-class deprecated the raw(De)Serialise*DSIGN functions in
+-- favour of the polymorphic raw(En|De)codeFixedSized; switch once we migrate.
+{-# OPTIONS_GHC -Wno-deprecations #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 -- | Hydra multi-signature credentials and cryptographic primitives used to sign

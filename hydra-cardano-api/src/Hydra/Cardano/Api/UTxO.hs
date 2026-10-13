@@ -1,8 +1,12 @@
+-- NOTE: Uses the TxBody/TxBodyContent API that cardano-api deprecated in favour of
+-- Cardano.Api.Experimental; the migration is tracked separately.
+{-# OPTIONS_GHC -Wno-deprecations #-}
+
 module Hydra.Cardano.Api.UTxO where
 
 import Hydra.Cardano.Api.Prelude
 import Hydra.Cardano.Api.TxIn (forceTxIn, txIns')
-import Hydra.Cardano.Api.TxOut (forceTxOut, parseTxOutFromJSON)
+import Hydra.Cardano.Api.TxOut (forceTxOut)
 
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Api (outputsTxBodyL)
@@ -11,27 +15,15 @@ import Cardano.Ledger.Shelley.UTxO qualified as Ledger
 import Cardano.Ledger.TxIn qualified as Ledger
 import Control.Lens ((^.))
 import Data.Aeson qualified as Aeson
-import Data.Aeson.Key qualified as Key
-import Data.Aeson.KeyMap qualified as KeyMap
 import Data.Aeson.Types (Parser)
 import Data.Foldable (toList)
 import Data.Map.Strict qualified as Map
 import Data.Maybe (mapMaybe)
 
--- | Parse a 'UTxO' from JSON using 'parseTxOutFromJSON' to correctly handle
--- non-canonical inline datums. See 'parseTxOutFromJSON' for details. The
--- result is forced via 'forceUTxO' as parsing is an ingress point for 'UTxO'
--- values into the head logic.
+-- | Parse a 'UTxO' from JSON. The result is forced via 'forceUTxO' as parsing
+-- is an ingress point for 'UTxO' values into the head logic.
 parseUTxOFromJSON :: Aeson.Value -> Parser (UTxO Era)
-parseUTxOFromJSON = Aeson.withObject "UTxO" $ \hm -> do
-  pairs <- mapM parsePair (KeyMap.toList hm)
-  pure $ forceUTxO $ UTxO.fromList pairs
- where
-  parsePair :: (KeyMap.Key, Aeson.Value) -> Parser (TxIn, TxOut CtxUTxO Era)
-  parsePair (k, txOutVal) = do
-    txIn <- parseJSON (Aeson.String $ Key.toText k)
-    txOut <- parseTxOutFromJSON txOutVal
-    pure (txIn, txOut)
+parseUTxOFromJSON = fmap forceUTxO . parseJSON
 
 -- | Construct a UTxO from a transaction. This constructs artificial `TxIn`
 -- (a.k.a output reference) from the transaction itself, zipping them to the

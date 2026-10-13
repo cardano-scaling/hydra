@@ -20,6 +20,7 @@ import Control.Concurrent.Class.MonadSTM (
   writeTQueue,
  )
 import Control.Tracer.JSON (Envelope (message), showLogsOnFailure, traceInTVar)
+import Data.Aeson (Result (..), fromJSON, object, (.=))
 import Data.Bits (testBit)
 import Data.ByteString qualified as BS
 import Data.Text qualified as T
@@ -27,6 +28,7 @@ import Hydra.Ledger.Simple (SimpleTx (..))
 import Hydra.Network (
   Connectivity (..),
   Host (..),
+  IP,
   Network (..),
   NetworkCallback (..),
   ProtocolVersion (..),
@@ -155,6 +157,19 @@ spec = do
             displayException e `shouldContain` ("Delete " <> file)
 
   describe "Serialisation" $ do
+    describe "IP JSON"
+      $ forM_
+        [ ("127.0.0.1", object ["tag" .= ("IPv4" :: Text), "ipv4" .= ("127.0.0.1" :: Text)])
+        , ("::1", object ["tag" .= ("IPv6" :: Text), "ipv6" .= ("::1" :: Text)])
+        ]
+      $ \(address, json) ->
+        it ("preserves the tagged encoding for " <> address) $
+          case fromJSON @IP json of
+            Error err -> failure err
+            Success ip -> do
+              show ip `shouldBe` address
+              toJSON ip `shouldBe` json
+
     prop "can roundtrip CBOR encoding/decoding of Hydra Message" $ prop_canRoundtripCBOREncoding @(Message SimpleTx)
 
     roundtripAndGoldenADTSpecsWithSettings defaultSettings{sampleSize = 1} $ Proxy @(Message SimpleTx)

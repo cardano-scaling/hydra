@@ -1,4 +1,7 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+-- NOTE: Uses the TxBody/TxBodyContent API that cardano-api deprecated in favour of
+-- Cardano.Api.Experimental; the migration is tracked separately.
+{-# OPTIONS_GHC -Wno-deprecations #-}
 
 module Hydra.Cluster.Faucet where
 
@@ -134,7 +137,8 @@ seedManyFromFaucetWithMinting opts recipients tracer mintingScript = do
     let changeAddress = mkVkAddress networkId faucetVk
     let outputs = uncurry (theOutput networkId) <$> recipients
 
-    runBackend opts (buildTransactionWithMintingScript changeAddress faucetUTxO (toList $ UTxO.inputSet faucetUTxO) outputs mintingScript) >>= \case
+    let minting = (,toList $ UTxO.inputSet faucetUTxO) <$> mintingScript
+    runBackend opts (buildTransactionWithMintingScript changeAddress faucetUTxO outputs minting) >>= \case
       Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
       Right tx -> do
         let signedTx = sign faucetSk (getTxBody tx)
@@ -186,7 +190,7 @@ seedFromFaucetBlockfrost receivingVerificationKey lovelace = do
   eraHistory <- Blockfrost.queryEraHistory
   faucetUTxO <- Blockfrost.queryUTxO networkId [changeAddress]
   foundUTxO <- findUTxO faucetUTxO lovelace
-  case buildTransactionWithPParams' pparams systemStart eraHistory stakePools (mkVkAddress networkId faucetVk) foundUTxO [] [theOutput] Nothing of
+  case buildTransactionWithPParams' pparams systemStart eraHistory stakePools (mkVkAddress networkId faucetVk) foundUTxO [theOutput] Nothing of
     Left e -> liftIO $ throwIO $ FaucetFailedToBuildTx{reason = e}
     Right tx -> do
       let signedTx = signTx faucetSk tx
@@ -271,7 +275,7 @@ returnFundsToFaucet' tracer opts senderSk = do
   buildTxBody utxo faucetAddress =
     -- Here we specify no outputs in the transaction so that a change output with the
     -- entire value is created and paid to the faucet address.
-    runBackend opts (buildTransaction faucetAddress utxo [] []) >>= \case
+    runBackend opts (buildTransaction faucetAddress utxo []) >>= \case
       Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
       Right tx -> pure $ getTxBody tx
 
@@ -286,9 +290,8 @@ createOutputAtAddress ::
 createOutputAtAddress networkId opts atAddress datum val = do
   (faucetVk, faucetSk) <- keysFor Faucet
   utxo <- findFaucetUTxO networkId opts (selectLovelace val)
-  let collateralTxIns = mempty
   let output = TxOut atAddress val datum ReferenceScriptNone
-  runBackend opts (buildTransaction (mkVkAddress networkId faucetVk) utxo collateralTxIns [output]) >>= \case
+  runBackend opts (buildTransaction (mkVkAddress networkId faucetVk) utxo [output]) >>= \case
     Left e ->
       throwIO (ErrorAsException e)
     Right x -> do

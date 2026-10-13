@@ -3786,6 +3786,7 @@ components:
       oneOf:
         - title: IPv4
           type: object
+          required: [tag, ipv4]
           properties:
             tag:
               type: string
@@ -3793,7 +3794,8 @@ components:
             ipv4:
               type: string
         - title: IPv6
-          type: string
+          type: object
+          required: [tag, ipv6]
           properties:
             tag:
               type: string

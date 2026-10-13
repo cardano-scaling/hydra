@@ -16,10 +16,9 @@ module Hydra.Network (
 
 import Hydra.Prelude hiding (show)
 
-import Cardano.Ledger.Orphans ()
-import Data.Aeson (FromJSONKeyFunction (FromJSONKeyTextParser), ToJSONKey (..))
+import Data.Aeson (FromJSONKeyFunction (FromJSONKeyTextParser), ToJSONKey (..), withText)
 import Data.Aeson.Types (FromJSONKey (..), toJSONKeyText)
-import Data.IP (IP)
+import Data.IP (IP, IPv4, IPv6)
 import Data.Secret (Secret)
 import Data.Text (pack, unpack)
 import Data.Text qualified as T
@@ -90,8 +89,24 @@ data NetworkConfiguration = NetworkConfiguration
 
 -- ** IP (Orphans)
 
+-- | Preserve the tagged IP encoding with textual IPv4 and IPv6 fields.
 deriving anyclass instance ToJSON IP
+
 deriving anyclass instance FromJSON IP
+
+instance ToJSON IPv4 where
+  toJSON = toJSON . show
+
+instance FromJSON IPv4 where
+  parseJSON = withText "IPv4" $ \txt ->
+    maybe (fail $ "failed to read as IPv4 " <> show txt) pure $ readMaybe (unpack txt)
+
+instance ToJSON IPv6 where
+  toJSON = toJSON . show
+
+instance FromJSON IPv6 where
+  parseJSON = withText "IPv6" $ \txt ->
+    maybe (fail $ "failed to read as IPv6 " <> show txt) pure $ readMaybe (unpack txt)
 
 -- ** PortNumber (Orphans)
 

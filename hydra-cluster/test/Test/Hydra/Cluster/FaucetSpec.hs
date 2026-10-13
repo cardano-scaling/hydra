@@ -10,11 +10,13 @@ import CardanoNode (EndToEndLog (..), runBackend, withCardanoNodeDevnet)
 import Control.Concurrent.Async (replicateConcurrently)
 import Control.Tracer.JSON (Tracer, showLogsOnFailure)
 import Hydra.Cardano.Api (Coin (..), lovelaceToValue, selectLovelace)
+import Hydra.Cardano.Api qualified as Api
 import Hydra.Chain.Backend (ChainBackend (..))
 import Hydra.Chain.CardanoClient (QueryPoint (..))
-import Hydra.Cluster.Faucet (FaucetLog, publishHydraScriptsAs, returnFundsToFaucet, seedFromFaucet)
+import Hydra.Cluster.Faucet (FaucetException (..), FaucetLog, publishHydraScriptsAs, returnFundsToFaucet, seedFromFaucet, seedFromFaucetWithMinting)
 import Hydra.Cluster.Fixture (Actor (..))
 import Hydra.Cluster.Util (keysFor)
+import Hydra.Contract.Dummy (dummyMintingScript, dummyValidatorScript)
 import Hydra.Options (ChainBackendOptions (..))
 import Test.Hydra.Tx.Gen (genVerificationKey)
 import Test.QuickCheck (choose, elements, forAll, generate, withMaxSuccess)
@@ -52,6 +54,23 @@ spec =
         void $ seedFromFaucet opts vk (lovelaceToValue 5_000_000) tracer
         swept <- runBackend opts $ queryUTxOFor QueryTip faucetVk
         UTxO.size swept `shouldSatisfy` (< UTxO.size littered)
+
+    describe "seedFromFaucetWithMinting" $ do
+      it "omits collateral when no native assets are minted" $ \(tracer, opts) -> do
+        vk <- generate genVerificationKey
+        let value = lovelaceToValue 2_000_000
+        utxo <- seedFromFaucetWithMinting opts vk value tracer (Just dummyMintingScript)
+        UTxO.totalValue utxo `shouldBe` value
+
+      it "evaluates the supplied script as the minting witness" $ \(tracer, opts) -> do
+        vk <- generate genVerificationKey
+        -- This script only accepts spending, so minting must fail evaluation
+        -- rather than fail to find the supplied policy in the witnesses.
+        let asset = Api.AssetId (Api.scriptPolicyId $ Api.PlutusScript dummyValidatorScript) (Api.UnsafeAssetName "test")
+        let value = lovelaceToValue 2_000_000 <> fromList [(asset, Api.Quantity 1)]
+        seedFromFaucetWithMinting opts vk value tracer (Just dummyValidatorScript) `shouldThrow` \case
+          FaucetFailedToBuildTx{reason = Api.TxBodyScriptExecutionError [(_, Api.ScriptErrorEvaluationFailed _)]} -> True
+          _ -> False
 
     describe "returnFundsToFaucet" $ do
       it "does nothing if nothing to return" $ \(tracer, opts) -> do

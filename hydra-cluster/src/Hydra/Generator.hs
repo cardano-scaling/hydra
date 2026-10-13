@@ -485,7 +485,7 @@ generateDemoUTxODataset network nodeSocket faucetSk nClients nTxs = do
               TxOutDatumNone
               ReferenceScriptNone
 
-    runDirectBackend Options.DirectOptions{Options.networkId = network, Options.nodeSocket} (buildTransaction faucetAddress faucetUTxO [] recipientOutputs) >>= \case
+    runDirectBackend Options.DirectOptions{Options.networkId = network, Options.nodeSocket} (buildTransaction faucetAddress faucetUTxO recipientOutputs) >>= \case
       Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
       Right tx -> pure $ signTx faucetSk tx
   generate $ do

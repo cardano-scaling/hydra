@@ -1,3 +1,7 @@
+-- NOTE: Uses the TxBody/TxBodyContent API that cardano-api deprecated in favour of
+-- Cardano.Api.Experimental; the migration is tracked separately.
+{-# OPTIONS_GHC -Wno-deprecations #-}
+
 module Hydra.Cardano.Api.TxBody where
 
 import Hydra.Cardano.Api.Prelude
