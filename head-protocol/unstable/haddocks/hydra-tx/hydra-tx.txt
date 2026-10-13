@@ -71,13 +71,11 @@ evaluateTxWith' :: SystemStart -> EpochInfo (Either Text) -> PParams LedgerEra -
 --   exceed given maximum <a>ExecutionUnits</a>.
 checkBudget :: ExecutionUnits -> EvaluationReport -> Either EvaluationError EvaluationReport
 
--- | Errors returned by <tt>evaluateTx</tt> extending the upstream
---   <a>TransactionValidityError</a> with additional cases.
+-- | Errors returned by <tt>evaluateTx</tt>.
 data EvaluationError
 TransactionBudgetOverspent :: ExecutionUnits -> ExecutionUnits -> EvaluationError
 [$sel:used:TransactionBudgetOverspent] :: EvaluationError -> ExecutionUnits
 [$sel:available:TransactionBudgetOverspent] :: EvaluationError -> ExecutionUnits
-TransactionInvalid :: TransactionValidityError Era -> EvaluationError
 PParamsConversion :: ProtocolParametersConversionError -> EvaluationError
 
 -- | Evaluation result for each of the included scripts. Either they failed

@@ -18,11 +18,11 @@
 --   writes it as one JSON object per line.
 module Control.Tracer.JSON
 newtype () => Tracer (m :: Type -> Type) a
-Tracer :: (a -> m ()) -> Tracer (m :: Type -> Type) a
-[runTracer] :: Tracer (m :: Type -> Type) a -> a -> m ()
+Tracer :: TracerA m a () -> Tracer (m :: Type -> Type) a
+[runTracer] :: Tracer (m :: Type -> Type) a -> TracerA m a ()
 natTracer :: (forall x. () => m x -> n x) -> Tracer m s -> Tracer n s
-nullTracer :: forall (m :: Type -> Type) a. Applicative m => Tracer m a
-traceWith :: Tracer m a -> a -> m ()
+nullTracer :: forall (m :: Type -> Type) a. Monad m => Tracer m a
+traceWith :: Monad m => Tracer m a -> a -> m ()
 contramap :: Contravariant f => (a' -> a) -> f a -> f a'
 data Verbosity
 Quiet :: Verbosity

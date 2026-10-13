@@ -843,20 +843,20 @@ queryUTxOFor :: ChainBackend m => QueryPoint -> VerificationKey PaymentKey -> m 
 submitTransaction :: ChainBackend m => Tx -> m ()
 awaitTransaction :: ChainBackend m => Tx -> VerificationKey PaymentKey -> m UTxO
 getBlockTime :: ChainBackend m => m NominalDiffTime
-buildTransaction :: ChainBackend m => MonadIO m => AddressInEra -> UTxO -> [TxIn] -> [TxOut CtxTx] -> m (Either (TxBodyErrorAutoBalance Era) Tx)
-buildTransactionWithMintingScript :: ChainBackend m => MonadIO m => AddressInEra -> UTxO -> [TxIn] -> [TxOut CtxTx] -> Maybe PlutusScript -> m (Either (TxBodyErrorAutoBalance Era) Tx)
+buildTransaction :: ChainBackend m => MonadIO m => AddressInEra -> UTxO -> [TxOut CtxTx] -> m (Either (TxBodyErrorAutoBalance Era) Tx)
+buildTransactionWithMintingScript :: ChainBackend m => MonadIO m => AddressInEra -> UTxO -> [TxOut CtxTx] -> Maybe (PlutusScript, [TxIn]) -> m (Either (TxBodyErrorAutoBalance Era) Tx)
 
 -- | Construct a simple payment consuming some inputs and producing some
 --   outputs (no certificates or withdrawals involved).
 --   
 --   On success, the returned transaction is fully balanced. On error,
 --   return <a>TxBodyErrorAutoBalance</a>.
-buildTransactionWithPParams :: ChainBackend m => MonadIO m => PParams LedgerEra -> AddressInEra -> UTxO -> [TxIn] -> [TxOut CtxTx] -> Maybe PlutusScript -> m (Either (TxBodyErrorAutoBalance Era) Tx)
+buildTransactionWithPParams :: ChainBackend m => MonadIO m => PParams LedgerEra -> AddressInEra -> UTxO -> [TxOut CtxTx] -> Maybe (PlutusScript, [TxIn]) -> m (Either (TxBodyErrorAutoBalance Era) Tx)
 
--- | NOTE: If there are any non ADA assets present in the output
---   <a>Value</a> and minting scrips is specified this function will mint
---   them using provided script as the script witness.
-buildTransactionWithPParams' :: PParams LedgerEra -> SystemStart -> EraHistory -> Set PoolId -> AddressInEra -> UTxO -> [TxIn] -> [TxOut CtxTx] -> Maybe PlutusScript -> Either (TxBodyErrorAutoBalance Era) Tx
+-- | Mint the non-ADA assets in the outputs when a minting script is
+--   supplied. The script and its collateral are used only when those
+--   assets are non-empty.
+buildTransactionWithPParams' :: PParams LedgerEra -> SystemStart -> EraHistory -> Set PoolId -> AddressInEra -> UTxO -> [TxOut CtxTx] -> Maybe (PlutusScript, [TxIn]) -> Either (TxBodyErrorAutoBalance Era) Tx
 buildTransactionWithBody :: PParams LedgerEra -> SystemStart -> EraHistory -> Set PoolId -> AddressInEra -> TxBodyContent BuildTx -> UTxO -> Either (TxBodyErrorAutoBalance Era) Tx
 
 
@@ -1621,7 +1621,7 @@ mkTransferTx :: MonadFail m => NetworkId -> UTxO -> Secret (SigningKey PaymentKe
 -- | Build a zero-fee payment transaction.
 mkSimpleTx :: (TxIn, TxOut CtxUTxO) -> (AddressInEra, Value) -> Secret (SigningKey PaymentKey) -> Either TxBodyError Tx
 data () => ShelleyGenesis
-ShelleyGenesis :: !UTCTime -> !Word32 -> !Network -> !PositiveUnitInterval -> !NonZero Word64 -> !EpochSize -> !Word64 -> !Word64 -> !NominalDiffTimeMicro -> !Word64 -> !Word64 -> !PParams ShelleyEra -> !Map (KeyHash 'GenesisRole) GenDelegPair -> ListMap Addr Coin -> ShelleyGenesisStaking -> ShelleyGenesis
+ShelleyGenesis :: !UTCTime -> !Word32 -> !Network -> !PositiveUnitInterval -> !NonZero Word64 -> !EpochSize -> !Word64 -> !Word64 -> !NominalDiffTimeMicro -> !Word64 -> !Word64 -> !PParams ShelleyEra -> !Map (KeyHash 'GenesisRole) GenDelegPair -> ListMap Addr Coin -> ShelleyGenesisStaking -> !StrictMaybe ShelleyExtraConfig -> ShelleyGenesis
 [sgSystemStart] :: ShelleyGenesis -> !UTCTime
 [sgNetworkMagic] :: ShelleyGenesis -> !Word32
 [sgNetworkId] :: ShelleyGenesis -> !Network
@@ -1637,6 +1637,7 @@ ShelleyGenesis :: !UTCTime -> !Word32 -> !Network -> !PositiveUnitInterval -> !N
 [sgGenDelegs] :: ShelleyGenesis -> !Map (KeyHash 'GenesisRole) GenDelegPair
 [sgInitialFunds] :: ShelleyGenesis -> ListMap Addr Coin
 [sgStaking] :: ShelleyGenesis -> ShelleyGenesisStaking
+[sgExtraConfig] :: ShelleyGenesis -> !StrictMaybe ShelleyExtraConfig
 data () => Globals
 data () => LedgerEnv era
 type Tx = Tx Era
@@ -1733,14 +1734,14 @@ ChangeError :: Coin -> Coin -> ChangeError
 --   change back.
 --   
 --   XXX: All call sites of this function use cardano-api types
-coverFee_ :: forall era. (EraPlutusContext era, EraCertState era, AlonzoEraTx era, ScriptsNeeded era ~ AlonzoScriptsNeeded era, EraUTxO era) => PParams era -> SystemStart -> EpochInfo (Either Text) -> Map TxIn (TxOut era) -> Map TxIn (TxOut era) -> Tx TopTx era -> Either ErrCoverFee (Tx TopTx era)
+coverFee_ :: forall era. (EraPlutusContext era, EraCertState era, AlonzoEraTx era, ScriptsNeeded era ~ AlonzoScriptsNeeded era, AlonzoEraUTxO era) => PParams era -> SystemStart -> EpochInfo (Either Text) -> Map TxIn (TxOut era) -> Map TxIn (TxOut era) -> Tx TopTx era -> Either ErrCoverFee (Tx TopTx era)
 findLargestUTxO :: EraTxOut era => Map TxIn (TxOut era) -> Maybe (TxIn, TxOut era)
 
 -- | Estimate cost of script executions on the transaction. This is only an
 --   estimates because the transaction isn't sealed at this point and
 --   adding new elements to it like change outputs or script integrity hash
 --   may increase that cost a little.
-estimateScriptsCost :: forall era. (AlonzoEraTx era, EraPlutusContext era, ScriptsNeeded era ~ AlonzoScriptsNeeded era, EraUTxO era) => PParams era -> SystemStart -> EpochInfo (Either Text) -> Map TxIn (TxOut era) -> Tx TopTx era -> Either ErrCoverFee (Map (PlutusPurpose AsIx era) ExUnits)
+estimateScriptsCost :: forall era. (AlonzoEraTx era, EraPlutusContext era, ScriptsNeeded era ~ AlonzoScriptsNeeded era, AlonzoEraUTxO era) => PParams era -> SystemStart -> EpochInfo (Either Text) -> Map TxIn (TxOut era) -> Tx TopTx era -> Either ErrCoverFee (Map (PlutusPurpose AsIx era) ExUnits)
 data TinyWalletLog
 BeginInitialize :: TinyWalletLog
 EndInitialize :: UTxO -> ChainPoint -> TinyWalletLog
@@ -2010,6 +2011,10 @@ instance Cardano.Binary.ToCBOR.ToCBOR Hydra.Network.NodeId
 instance Cardano.Binary.FromCBOR.FromCBOR Hydra.Network.NodeId
 instance Cardano.Binary.ToCBOR.ToCBOR Hydra.Network.WhichEtcd
 instance Cardano.Binary.FromCBOR.FromCBOR Hydra.Network.WhichEtcd
+instance Data.Aeson.Types.ToJSON.ToJSON Data.IP.Addr.IPv4
+instance Data.Aeson.Types.FromJSON.FromJSON Data.IP.Addr.IPv4
+instance Data.Aeson.Types.ToJSON.ToJSON Data.IP.Addr.IPv6
+instance Data.Aeson.Types.FromJSON.FromJSON Data.IP.Addr.IPv6
 instance Data.Aeson.Types.ToJSON.ToJSON Network.Socket.Types.PortNumber
 instance Data.Aeson.Types.FromJSON.FromJSON Network.Socket.Types.PortNumber
 
@@ -2084,7 +2089,7 @@ Authenticated :: msg -> Party -> Authenticated msg
 --   peers and verify signed messages upon receiving. Only verified
 --   messages are pushed downstream to the internal network for the node to
 --   consume and process. Non-verified messages get discarded.
-withAuthentication :: (SignableRepresentation inbound, ToJSON inbound, SignableRepresentation outbound) => Tracer m AuthLog -> Secret (SigningKey HydraKey) -> [Party] -> NetworkComponent m (Signed inbound) (Signed outbound) a -> NetworkComponent m (Authenticated inbound) outbound a
+withAuthentication :: (SignableRepresentation inbound, ToJSON inbound, SignableRepresentation outbound, Monad m) => Tracer m AuthLog -> Secret (SigningKey HydraKey) -> [Party] -> NetworkComponent m (Signed inbound) (Signed outbound) a -> NetworkComponent m (Authenticated inbound) outbound a
 
 -- | Smart constructor for <a>MessageDropped</a>
 mkAuthLog :: (ToJSON msg, Show signature) => msg -> signature -> Party -> AuthLog
