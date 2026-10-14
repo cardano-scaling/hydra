@@ -17,14 +17,22 @@ import Hydra.HeadLogic.State (
   SettlementStatus (..),
   Settlements,
   adjustSettlementStatus,
+  deleteUnretained,
   emptySettlements,
   filterSettlements,
+  firstErasedSettlement,
+  insertUnretained,
   mapSettlementStatuses,
+  mapUnretainedStatuses,
+  pruneRetainedSettlements,
+  pruneUnretained,
   settlementDeposit,
   settlementDeposits,
   settlementEntries,
   tryInsertSettlement,
   trySettlementsFromMap,
+  unretainedAfter,
+  unretainedFromMap,
  )
 import Hydra.Ledger.Cardano (Tx)
 import Hydra.Tx.IsTx (TxIdType)
@@ -38,6 +46,14 @@ data SettlementAction
   | Land SnapshotVersion ChainSlot
   | RollBack ChainSlot
   | Prune ChainSlot
+  deriving stock (Show)
+
+data NoteAction
+  = Observe SnapshotVersion SettlementStatus
+  | Forget SnapshotVersion
+  | Confirm SnapshotVersion
+  | RollBackNotes ChainSlot
+  | PruneNotes ChainSlot
   deriving stock (Show)
 
 spec :: Spec
@@ -211,6 +227,18 @@ spec = describe "settlement caches" $ do
                   [ settlementEntries stored === entries
                   , settlementDeposits stored === Set.singleton depositId
                   ]
+  prop "keep note expiry correct through observation, confirmation, rollback and pruning" $
+    forAll (resize 30 $ listOf genNoteAction) $ \actions ->
+      conjoin [notes === unretainedFromMap entries | (notes, entries) <- scanl applyNote (mempty, mempty) actions]
+
+  prop "preserve note encodings and rebuild the expiry cache on decode" $ \entries ->
+    let notes = unretainedFromMap entries
+     in conjoin
+          [ serialize' notes === serialize' entries
+          , decodeFull' (serialize' entries) === Right notes
+          , toJSON notes === toJSON entries
+          , fromJSON (toJSON entries) === Success notes
+          ]
  where
   reachable cutoff = \case
     Landed slot -> slot > cutoff
@@ -233,6 +261,32 @@ spec = describe "settlement caches" $ do
       , Prune . ChainSlot <$> elements [0 .. 20]
       ]
 
+  genStatus = oneof [pure Erased, Landed . ChainSlot <$> elements [0 .. 20]]
+
+  genNoteAction =
+    oneof
+      [ Observe <$> elements [0 .. 5] <*> genStatus
+      , Forget <$> elements [0 .. 5]
+      , Confirm <$> elements [0 .. 5]
+      , RollBackNotes . ChainSlot <$> elements [0 .. 20]
+      , PruneNotes . ChainSlot <$> elements [0 .. 20]
+      ]
+
+  applyNote (notes, entries) = \case
+    Observe version status -> (insertUnretained version status notes, Map.insert version status entries)
+    Forget version -> (deleteUnretained version notes, Map.delete version entries)
+    Confirm version -> (unretainedAfter version notes, Map.filterWithKey (\key _ -> key > version) entries)
+    RollBackNotes slot ->
+      let erase = \case
+            Landed observed | observed > slot -> Erased
+            status -> status
+       in (mapUnretainedStatuses erase notes, Map.map erase entries)
+    PruneNotes cutoff ->
+      let keep = \case
+            Landed observed -> observed > cutoff
+            Erased -> True
+       in (pruneUnretained cutoff notes, Map.filter keep entries)
+
   checkActions :: Settlements Tx -> Map.Map SnapshotVersion (Settlement Tx) -> [SettlementAction] -> Property
   checkActions settlements entries actions =
     counterexample (show entries) $
@@ -240,6 +294,7 @@ spec = describe "settlement caches" $ do
         [ settlementEntries settlements === entries
         , trySettlementsFromMap entries === Right settlements
         , settlementDeposits settlements === Set.fromList (mapMaybe settlementDeposit $ Map.elems entries)
+        , firstErasedSettlement settlements === find ((== Erased) . (.status)) (Map.elems entries)
         , case actions of
             [] -> property True
             action : rest -> counterexample (show action) $ case action of
@@ -268,7 +323,7 @@ spec = describe "settlement caches" $ do
                       rest
               Prune cutoff ->
                 checkActions
-                  (filterSettlements (reachable cutoff) settlements)
+                  (pruneRetainedSettlements cutoff settlements)
                   (Map.filter (reachable cutoff . (.status)) entries)
                   rest
         ]
