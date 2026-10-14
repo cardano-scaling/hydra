@@ -210,6 +210,8 @@ spec = do
   -- The concurrent walks keep deposits and forks overlapping, but observe
   -- pending settlements before payments or new decommit requests to avoid
   -- the known snapshot version race; see 'Model.settlementsObserved'.
+  -- Landed fanout steps are rewound after a rollback so the driver can
+  -- distribute their outputs again. The scenarios below cover both modes.
   context "settlement and fanout rollback stress" $ do
     prop "check model with concurrent settlements" $
       forAllDL concurrentWalk propHydraModel
@@ -232,11 +234,11 @@ spec = do
       propScripted finalizedIncrementAndDecrementErased
     prop "new settlements requested during a replay settle in order" $
       propScripted newSettlementsDuringReplay
-    xprop "a fork erases a step of an automatic fanout" $
+    prop "a fork erases a step of an automatic fanout" $
       propScripted autoFanoutStepErased
-    xprop "a fork erases two steps of an automatic fanout" $
+    prop "a fork erases two steps of an automatic fanout" $
       propScripted autoFanoutTwoStepsErased
-    xprop "a fork erases a step of a manual fanout" $
+    prop "a fork erases a step of a manual fanout" $
       propScripted manualFanoutStepErased
 
 propFanoutLimit :: Int -> Property
