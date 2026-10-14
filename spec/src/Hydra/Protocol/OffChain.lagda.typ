@@ -519,6 +519,11 @@ between map keys and snapshot versions. A conflicting live update applies
 neither its events nor its effects; replay stops at the conflicting event.
 This is implementation bookkeeping outside `LocalState`.
 
+Partial fanout recovery also lives outside `LocalState`. Each observed step
+records its slot, distributed outputs, and previous mode. A rollback removes
+later steps, returns their outputs to the remaining fanout, and restores the
+driver's selection. A passive observer continues waiting for the driver.
+
 The network-message handlers above are transcribed as the relation
 `_handles_↝_`: one constructor per handler arm, each carrying
 its `require`/`wait` guards from @fig:off-chain-prot as premises (the reqTx applicability guard, the
@@ -589,6 +594,8 @@ data _handles_↝_ : LocalState → Message → LocalState → Set where
   -- The implementation's opaque Settlements type maintains retained deposit claims outside
   -- LocalState. Checked insertion gives each deposit one retained version;
   -- erasing a settlement keeps its claims. A conflict leaves the state unchanged.
+  -- Closed-head fanout progress is outside this relation; its retained steps
+  -- let the implementation restore the remaining outputs and mode after a rollback.
   ackSn-confirm : ∀ {st s σ snap}
     → (∀ {k} → k < HeadParameters.n (LocalState.params st) → k ∈ˡ map proj₁ (LocalState.seenSigs st))  -- ∀k:(k,·)∈Σ̂
     → Snapshot.txs snap ≡ LocalState.pending st          -- S̄'.T = T̂

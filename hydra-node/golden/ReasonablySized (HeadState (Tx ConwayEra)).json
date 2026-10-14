@@ -1091,6 +1091,7 @@
                         }
                     }
                 },
+                "stepsLanded": [],
                 "version": 4
             },
             "tag": "FanoutProgress"

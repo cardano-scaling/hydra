@@ -12,7 +12,7 @@ import Hydra.Prelude
 import Cardano.Binary (Decoder)
 import Data.Aeson (object, withObject, (.:), (.=))
 import Data.Map.Strict qualified as Map
-import Hydra.Chain.ChainState (IsChainState (..))
+import Hydra.Chain.ChainState (ChainSlot, IsChainState (..))
 import Hydra.HeadLogic.Settlements
 import Hydra.Tx (
   HeadId,
@@ -455,6 +455,31 @@ instance IsTx tx => ToCBOR (FanoutMode tx) where
 instance IsTx tx => FromCBOR (FanoutMode tx) where
   fromCBOR = genericFromCBOR
 
+-- | A partial fanout step observed on the chain this node follows: what it
+-- distributed, the slot it landed at, and the 'FanoutMode' it replaced. Kept
+-- so that a rollback can rewind the fanout's progress to the steps still on
+-- chain ('Hydra.HeadLogic.rewindFanoutProgress'): the erased steps' outputs go
+-- back into the head, and the driver's mode goes back to what it was before
+-- them. An erased selection is then this node's to distribute again, while an
+-- observer whose step was erased keeps waiting as before.
+data FanoutStepLanded tx = FanoutStepLanded
+  { landedAt :: ChainSlot
+  , stepOutputs :: UTxOType tx
+  , modeBefore :: FanoutMode tx
+  }
+  deriving stock (Generic)
+
+deriving stock instance IsTx tx => Eq (FanoutStepLanded tx)
+deriving stock instance IsTx tx => Show (FanoutStepLanded tx)
+deriving anyclass instance IsTx tx => ToJSON (FanoutStepLanded tx)
+deriving anyclass instance IsTx tx => FromJSON (FanoutStepLanded tx)
+
+instance IsTx tx => ToCBOR (FanoutStepLanded tx) where
+  toCBOR = genericToCBOR
+
+instance IsTx tx => FromCBOR (FanoutStepLanded tx) where
+  fromCBOR = genericFromCBOR
+
 -- | A closed head whose UTxO is being distributed across multiple fanout
 -- transactions (on-chain @FanoutProgress@). Holds the partial-fanout bookkeeping
 -- that used to live in 'ClosedState'.
@@ -473,6 +498,9 @@ data PartialFanoutState tx = PartialFanoutState
   --   'HeadFannedOut' once the head is finalized.
   , mode :: FanoutMode tx
   -- ^ Drives the chunk source for the next step (see 'FanoutMode').
+  , stepsLanded :: [FanoutStepLanded tx]
+  -- ^ The steps observed so far, oldest first: the chain-derived record the
+  --   two sets above and 'mode' are rewound from on a rollback.
   }
   deriving stock (Generic)
 
@@ -481,8 +509,52 @@ deriving stock instance (IsTx tx, Show (ChainStateType tx)) => Show (PartialFano
 deriving anyclass instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (PartialFanoutState tx)
 deriving anyclass instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (PartialFanoutState tx)
 
+-- | CBOR tag of the current 'PartialFanoutState' layout.
+partialFanoutStateCBORTag :: Text
+partialFanoutStateCBORTag = "PartialFanoutState2"
+
+-- | CBOR tag of the layout written before 'stepsLanded' existed: the
+-- constructor-name tag 'genericToCBOR' wrote, followed by the other fields in
+-- declaration order.
+partialFanoutStateCBORTagV1 :: Text
+partialFanoutStateCBORTagV1 = "PartialFanoutState"
+
 instance IsChainState tx => ToCBOR (PartialFanoutState tx) where
-  toCBOR = genericToCBOR
+  toCBOR PartialFanoutState{parameters, confirmedSnapshot, contestationDeadline, chainState, headId, headSeed, version, remainingOutputs, distributedOutputs, mode, stepsLanded} =
+    toCBOR partialFanoutStateCBORTag
+      <> toCBOR parameters
+      <> toCBOR confirmedSnapshot
+      <> toCBOR contestationDeadline
+      <> toCBOR chainState
+      <> toCBOR headId
+      <> toCBOR headSeed
+      <> toCBOR version
+      <> toCBOR remainingOutputs
+      <> toCBOR distributedOutputs
+      <> toCBOR mode
+      <> toCBOR stepsLanded
 
 instance IsChainState tx => FromCBOR (PartialFanoutState tx) where
-  fromCBOR = genericFromCBOR
+  fromCBOR =
+    fromCBOR >>= \case
+      (tag :: Text)
+        | tag == partialFanoutStateCBORTag -> decode True
+        | tag == partialFanoutStateCBORTagV1 -> decode False
+        | otherwise -> fail $ show tag <> " is not a proper CBOR-encoded PartialFanoutState"
+   where
+    decode :: Bool -> Decoder s (PartialFanoutState tx)
+    decode hasSteps = do
+      parameters <- fromCBOR
+      confirmedSnapshot <- fromCBOR
+      contestationDeadline <- fromCBOR
+      chainState <- fromCBOR
+      headId <- fromCBOR
+      headSeed <- fromCBOR
+      version <- fromCBOR
+      remainingOutputs <- fromCBOR
+      distributedOutputs <- fromCBOR
+      mode <- fromCBOR
+      -- A state written before steps were tracked cannot rewind them on a
+      -- rollback, exactly as before the upgrade; steps landing from now on can.
+      stepsLanded <- if hasSteps then fromCBOR else pure []
+      pure PartialFanoutState{parameters, confirmedSnapshot, contestationDeadline, chainState, headId, headSeed, version, remainingOutputs, distributedOutputs, mode, stepsLanded}
