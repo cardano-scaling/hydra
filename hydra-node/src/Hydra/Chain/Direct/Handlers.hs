@@ -1,5 +1,8 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE UndecidableInstances #-}
+-- NOTE: Uses the TxBody/TxBodyContent API that cardano-api deprecated in favour of
+-- Cardano.Api.Experimental; the migration is tracked separately.
+{-# OPTIONS_GHC -Wno-deprecations #-}
 
 -- | Provide infrastructure-independent "handlers" for posting transactions and following the chain.
 --
@@ -707,7 +710,6 @@ fitsTx tracer withinSizeLimits evalCosts evalUTxO tx = do
     then
       evalCosts tx evalUTxO >>= \case
         Left TransactionBudgetOverspent{} -> pure False
-        Left (TransactionInvalid err) -> False <$ traceWith tracer PartialFanoutFailed{reason = show err}
         Left (PParamsConversion err) -> False <$ traceWith tracer PartialFanoutFailed{reason = show err}
         Right report ->
           let failures = Map.filter isLeft report

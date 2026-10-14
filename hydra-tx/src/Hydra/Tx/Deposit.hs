@@ -1,3 +1,7 @@
+-- NOTE: Uses the TxBody/TxBodyContent API that cardano-api deprecated in favour of
+-- Cardano.Api.Experimental; the migration is tracked separately.
+{-# OPTIONS_GHC -Wno-deprecations #-}
+
 module Hydra.Tx.Deposit where
 
 import Hydra.Cardano.Api
@@ -54,7 +58,7 @@ depositTx networkId pparams headId commitBlueprintTx upperSlot deadline changeAd
                       toLedgerTxOut $
                         mkDepositOutput networkId headId (constructDepositUTxO (getTxId $ getTxBody blueprintTx) outs) deadline
 
-                    balance = evaluateTransactionBalance shelleyBasedEra pparams mempty mempty mempty
+                    balance = evaluateTransactionBalance shelleyBasedEra pparams mempty mempty
 
                     partialTx =
                       fromLedgerTx $

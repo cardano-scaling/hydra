@@ -1,3 +1,7 @@
+-- NOTE: Uses the TxBody/TxBodyContent API that cardano-api deprecated in favour of
+-- Cardano.Api.Experimental; the migration is tracked separately.
+{-# OPTIONS_GHC -Wno-deprecations #-}
+
 -- | A Haskell API for Cardano, tailored to the Hydra project.
 --
 -- This package provides a wrapper around the @cardano-ledger@, @cardano-api@ and
@@ -218,6 +222,13 @@ pattern PlutusScriptSerialised{plutusScriptSerialised} <-
   where
     PlutusScriptSerialised =
       Cardano.Api.PlutusScriptSerialised
+
+-- ** PoolId
+
+-- | Stake pool identifier, as used by the stake pool queries and the
+-- transaction balancing functions of @cardano-api@. The upstream alias is
+-- no longer exported from "Cardano.Api".
+type PoolId = Hash StakePoolKey
 
 -- ** Script
 

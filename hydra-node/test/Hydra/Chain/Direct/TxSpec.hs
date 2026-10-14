@@ -1,3 +1,6 @@
+-- NOTE: Uses the TxBody/TxBodyContent API that cardano-api deprecated in favour of
+-- Cardano.Api.Experimental; the migration is tracked separately.
+{-# OPTIONS_GHC -Wno-deprecations #-}
 {-# OPTIONS_GHC -Wno-missing-local-signatures #-}
 
 -- | Remainder of tests covering observation and tx creation by the "direct"
@@ -12,8 +15,8 @@ import Test.Hydra.Prelude
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Alonzo.TxAuxData (AlonzoTxAuxData (..))
 import Cardano.Ledger.Api (
-  ConwayPlutusPurpose (ConwayRewarding, ConwaySpending),
-  IsValid (..),
+  ConwayPlutusPurpose (ConwaySpending, ConwayWithdrawing),
+  IsPhase2Valid (..),
   Metadatum,
   TxAuxData,
   ValidityInterval (..),
@@ -22,7 +25,7 @@ import Cardano.Ledger.Api (
   bodyTxL,
   hashTxAuxData,
   inputsTxBodyL,
-  isValidTxL,
+  isPhase2ValidTxL,
   outputsTxBodyL,
   ppProtocolVersionL,
   rdmrsTxWitsL,
@@ -269,7 +272,7 @@ spec =
         forAllBlind genChainStateWithTx $ \(_ctx, st, additionalUTxO, validTx, transition) ->
           checkCoverage . genericCoverTable [transition] $
             let utxo = getKnownUTxO st <> additionalUTxO
-                tx = fromLedgerTx $ toLedgerTx validTx & isValidTxL .~ IsValid False
+                tx = fromLedgerTx $ toLedgerTx validTx & isPhase2ValidTxL .~ Phase2Invalid
              in observeHeadTx testNetworkId utxo tx === NoHeadTx
 
       prop "All valid transitions for all possible states can be observed." $
@@ -363,7 +366,10 @@ propHasValidAuxData tx =
  where
   isValid :: TxAuxData Ledger.ConwayEra -> Property
   isValid auxData =
-    validateTxAuxData (pparams ^. ppProtocolVersionL) auxData
+    -- NOTE: 'TxAuxData' is a type family, so the era needs to be given
+    -- explicitly. The first argument is a cache of already annotated plutus
+    -- scripts, which we do not need here.
+    validateTxAuxData @Ledger.ConwayEra mempty (pparams ^. ppProtocolVersionL) auxData
       & counterexample "Auxiliary data validation failed"
 
   hashConsistent auxData =
@@ -523,7 +529,7 @@ prop_interestingBlueprintTx = forAll genBlueprintTxWithUTxO $ \(utxo, tx) ->
       & Map.keysSet
       & any
         ( \case
-            ConwayRewarding _ -> True
+            ConwayWithdrawing _ -> True
             _ -> False
         )
 

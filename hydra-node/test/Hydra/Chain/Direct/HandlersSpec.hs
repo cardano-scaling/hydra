@@ -1,4 +1,7 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+-- NOTE: Uses the TxBody/TxBodyContent API that cardano-api deprecated in favour of
+-- Cardano.Api.Experimental; the migration is tracked separately.
+{-# OPTIONS_GHC -Wno-deprecations #-}
 
 module Hydra.Chain.Direct.HandlersSpec where
 
@@ -39,7 +42,7 @@ import Test.Gen.Cardano.Api.Typed (genBlockHeader)
 import Test.QuickCheck.Hedgehog (hedgehog)
 
 import Cardano.Api.UTxO qualified as UTxO
-import Cardano.Ledger.Api (IsValid (..), isValidTxL, ppMaxTxSizeL)
+import Cardano.Ledger.Api (IsPhase2Valid (..), isPhase2ValidTxL, ppMaxTxSizeL)
 import Cardano.Ledger.Shelley.API qualified as Ledger
 import Control.Lens ((.~))
 import Data.ByteString qualified as BS
@@ -274,7 +277,7 @@ spec = do
       -- the expense of collateral) to trick the hydra-node into thinking the
       -- state transition happened.
       (ctx, st, utxo', validTx, transition) <- pick genChainStateWithTx
-      let tx = fromLedgerTx $ toLedgerTx validTx & isValidTxL .~ IsValid False
+      let tx = fromLedgerTx $ toLedgerTx validTx & isPhase2ValidTxL .~ Phase2Invalid
       let utxo = getKnownUTxO st <> utxo'
 
       TestBlock header txs <- pickBlind $ genBlockAt 1 [tx]

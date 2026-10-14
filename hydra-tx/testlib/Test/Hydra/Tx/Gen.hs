@@ -1,4 +1,6 @@
 {-# LANGUAGE UndecidableInstances #-}
+-- NOTE: For the deprecated rawDeserialiseSignKeyDSIGN, see Hydra.Tx.Crypto.
+{-# OPTIONS_GHC -Wno-deprecations #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Test.Hydra.Tx.Gen where
