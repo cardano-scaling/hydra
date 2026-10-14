@@ -68,9 +68,12 @@ From PowerShell:
 .\hydra-node.exe gen-hydra-key --output-file hydra
 ```
 
-The Binaries workflow builds on Linux and tests on Windows Server 2022. It
-compares the script catalogue with the native exporter and checks two offline
-nodes' API, peer connectivity, shutdown, and restart from paths containing spaces.
+The Binaries workflow produces the Windows artifact alongside the Linux and
+macOS artifacts. Its nightly run at 04:00 UTC builds Windows and runs a smoke
+test on Windows Server 2022 using that run's ZIP. Pushes, tags, and manual runs
+only build the artifacts. The smoke test compares the script catalogue with the
+native exporter and checks two offline nodes' API, peer connectivity, shutdown,
+and restart from paths containing spaces.
 
 Local Wine testing reaches the API and peer-connectivity checks, but graceful
 shutdown stalls. Validation on the Windows runner is still required before this

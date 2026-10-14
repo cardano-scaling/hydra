@@ -8,6 +8,9 @@ on:
     - release
     tags:
     - "*.*.*"
+  schedule:
+    # Build and smoke-test Windows nightly at 04:00 UTC.
+    - cron: "0 4 * * *"
   # Allows to trigger runs on any branch
   workflow_dispatch:
 
@@ -24,20 +27,30 @@ jobs:
         authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
     - name: Build Windows ZIP and native script reference
       run: |
-        nix build .#release-windows --out-link windows-release
+        nix build -L .#release-windows --out-link windows-release
+        unzip windows-release/hydra-x86_64-windows.zip -d out
+        echo "VERSION=$(git describe --always HEAD)" >> "$GITHUB_ENV"
+    - name: Upload executables
+      uses: actions/upload-artifact@v4
+      with:
+        name: hydra-x86_64-windows-${{ env.VERSION }}
+        path: out/*
+        if-no-files-found: error
     - uses: actions/upload-artifact@v4
+      if: github.event_name == 'schedule'
       with:
         name: hydra-windows-candidate
         path: windows-release/*
+        if-no-files-found: error
 
   test-windows:
     name: Test Windows binaries
+    if: github.event_name == 'schedule'
     needs: build-windows
     runs-on: windows-2022
+    timeout-minutes: 10
     steps:
     - uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
     - uses: actions/download-artifact@v4
       with:
         name: hydra-windows-candidate
@@ -51,13 +64,6 @@ jobs:
         Expand-Archive candidate/hydra-x86_64-windows.zip 'release with spaces'
         python scripts/smoke-test-binary.py 'release with spaces/hydra-node.exe' candidate/linux-script-catalogue.json
         if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-        $version = git describe --always HEAD
-        "VERSION=$version" >> $env:GITHUB_ENV
-    - name: Upload tested executables
-      uses: actions/upload-artifact@v4
-      with:
-        name: hydra-x86_64-windows-${{ env.VERSION }}
-        path: release with spaces/*
     - name: Upload runtime logs
       if: always()
       uses: actions/upload-artifact@v4
@@ -67,6 +73,7 @@ jobs:
 
   build-linux:
     name: "Build for ${{ matrix.os.name }}"
+    if: github.event_name != 'schedule'
     runs-on: ${{ matrix.os.name }}
     strategy:
       matrix:
@@ -117,6 +124,7 @@ jobs:
 
   build-macos:
     name: "Build for aarch64-darwin"
+    if: github.event_name != 'schedule'
     runs-on: macos-latest
     steps:
     - name: 📥 Checkout repository
