@@ -36,6 +36,7 @@ import Hydra.LoggingSpec qualified
 import Hydra.Model.MockChainSpec qualified
 import Hydra.ModelSpec qualified
 import Hydra.Network.AuthenticateSpec qualified
+import Hydra.Network.EtcdBinarySpec qualified
 import Hydra.NetworkSpec qualified
 import Hydra.NetworkVersionsSpec qualified
 import Hydra.Node.InputQueueSpec qualified
@@ -90,6 +91,7 @@ main =
     , testSpec "Model.MockChain" Hydra.Model.MockChainSpec.spec
     , testSpec "Model" Hydra.ModelSpec.spec
     , testSpec "Network.Authenticate" Hydra.Network.AuthenticateSpec.spec
+    , testSpec "Network.EtcdBinary" Hydra.Network.EtcdBinarySpec.spec
     , testSpec "Network" Hydra.NetworkSpec.spec
     , -- Runs last: these tests spawn etcd clusters and are the slowest here.
       --

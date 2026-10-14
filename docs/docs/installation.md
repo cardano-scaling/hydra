@@ -46,3 +46,35 @@ To proceed, you’ll need to allow it manually in the **Privacy & Security** sec
 ### Build from source
 
 While using Docker is the recommended way to _use_ Hydra, you can also build the `hydra-node` from source. We recommend using [Nix](https://nixos.org/download.html) for this and you can find instructions in our [contributing guidelines](https://github.com/cardano-scaling/hydra/blob/master/CONTRIBUTING.md).
+
+### Windows cross-build
+
+The experimental Windows target builds `hydra-node.exe` on x86_64 Linux with Nix:
+
+```shell
+nix build .#release-windows
+```
+
+The result is `result/hydra-x86_64-windows.zip`. Extract the entire archive into
+one directory and keep the bundled DLLs alongside `hydra-node.exe`. The node
+embeds its Windows `etcd.exe` and installs it in the persistence directory on
+startup. No Haskell compiler or separate etcd installation is needed on Windows.
+
+From PowerShell:
+
+```powershell
+.\hydra-node.exe --version
+.\hydra-node.exe --help
+.\hydra-node.exe gen-hydra-key --output-file hydra
+```
+
+The Binaries workflow builds on Linux and tests on Windows Server 2022. It
+compares the script catalogue with the native exporter and checks two offline
+nodes' API, peer connectivity, shutdown, and restart from paths containing spaces.
+
+Local Wine testing reaches the API and peer-connectivity checks, but graceful
+shutdown stalls. Validation on the Windows runner is still required before this
+target can be considered supported.
+
+The archive includes only `hydra-node`. Live Cardano connectivity and TLS are
+untested; a Cardano connection requires a separate Cardano node or Blockfrost.

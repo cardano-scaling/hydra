@@ -12,6 +12,59 @@ on:
   workflow_dispatch:
 
 jobs:
+  build-windows:
+    name: Cross-build Windows binaries on Linux
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    - uses: ./.github/actions/nix-cachix-setup
+      with:
+        authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
+    - name: Build Windows ZIP and native script reference
+      run: |
+        nix build .#release-windows --out-link windows-release
+    - uses: actions/upload-artifact@v4
+      with:
+        name: hydra-windows-candidate
+        path: windows-release/*
+
+  test-windows:
+    name: Test Windows binaries
+    needs: build-windows
+    runs-on: windows-2022
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    - uses: actions/download-artifact@v4
+      with:
+        name: hydra-windows-candidate
+        path: candidate
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+    - name: Extract and exercise the release
+      shell: pwsh
+      run: |
+        Expand-Archive candidate/hydra-x86_64-windows.zip 'release with spaces'
+        python scripts/smoke-test-binary.py 'release with spaces/hydra-node.exe' candidate/linux-script-catalogue.json
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        $version = git describe --always HEAD
+        "VERSION=$version" >> $env:GITHUB_ENV
+    - name: Upload tested executables
+      uses: actions/upload-artifact@v4
+      with:
+        name: hydra-x86_64-windows-${{ env.VERSION }}
+        path: release with spaces/*
+    - name: Upload runtime logs
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: windows-smoke-logs
+        path: binary smoke test/*.log
+
   build-linux:
     name: "Build for ${{ matrix.os.name }}"
     runs-on: ${{ matrix.os.name }}
