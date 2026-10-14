@@ -57,7 +57,7 @@ import Hydra.Chain.ChainState (ChainSlot)
 import Hydra.Chain.Direct.State (ChainStateAt)
 import Hydra.HeadLogic.Error (RequirementFailure, SideLoadRequirementFailure)
 import Hydra.HeadLogic.Outcome (StateChanged)
-import Hydra.HeadLogic.State (ClosedState (..), CoordinatedHeadState (..), FanoutMode, HeadState, SeenSnapshot, closedStateCBORTag, closedStateCBORTagV1, coordinatedHeadStateCBORTag, coordinatedHeadStateCBORTagV1, emptySettlements)
+import Hydra.HeadLogic.State (ClosedState (..), CoordinatedHeadState (..), FanoutMode, HeadState, PartialFanoutState (..), SeenSnapshot, closedStateCBORTag, closedStateCBORTagV1, coordinatedHeadStateCBORTag, coordinatedHeadStateCBORTagV1, emptySettlements, partialFanoutStateCBORTag, partialFanoutStateCBORTagV1)
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.Ledger (ValidationError)
 import Hydra.Ledger.Cardano (Tx)
@@ -246,6 +246,32 @@ spec = parallel $ do
                 <> toCBOR decommitTx
                 <> toCBOR version
       decodeFull' legacy `shouldBe` Right chs{settlements = emptySettlements}
+
+  -- 'PartialFanoutState' gained 'stepsLanded' between two released layouts.
+  -- The legacy layout is what 'genericToCBOR' wrote: the constructor name as
+  -- tag, then the fields in declaration order.
+  describe "PartialFanoutState layouts" $ do
+    let pfs = generateWith (resize 3 arbitrary) 42 :: PartialFanoutState Tx
+        PartialFanoutState{parameters, confirmedSnapshot, contestationDeadline, chainState, headId, headSeed, version, remainingOutputs, distributedOutputs, mode} = pfs
+
+    it "writes the current layout under a tag of its own" $
+      serialize' pfs `shouldSatisfy` BS.isPrefixOf (serialize' partialFanoutStateCBORTag)
+
+    it "decodes the layout written before steps were tracked" $ do
+      let legacy =
+            toStrictByteString $
+              toCBOR partialFanoutStateCBORTagV1
+                <> toCBOR parameters
+                <> toCBOR confirmedSnapshot
+                <> toCBOR contestationDeadline
+                <> toCBOR chainState
+                <> toCBOR headId
+                <> toCBOR headSeed
+                <> toCBOR version
+                <> toCBOR remainingOutputs
+                <> toCBOR distributedOutputs
+                <> toCBOR mode
+      decodeFull' legacy `shouldBe` Right pfs{stepsLanded = []}
 
   -- 'ClosedState' gained 'unconfirmedSnapshot' between two released layouts,
   -- same situation as 'Snapshot' above. The legacy layout is the one the
