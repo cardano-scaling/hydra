@@ -158,6 +158,9 @@ postulate
   accVerify        : AccCommitment → ℙ Output → AccWitness → Bool
   accVerifyExclude : AccCommitment → ℙ Output → AccCommitment → Bool
   G₁               : AccCommitment
+  -- The witness encoding of accUTxO ∅ˢ = G₁; witnesses and commitments have
+  -- distinct abstract types, although both are G1 points in the implementation.
+  emptyWitness     : AccWitness
 
 -- We do NOT model the KZG construction; we only assume the scheme functions correctly, via
 -- these specifying laws (used to connect the on-chain accumulator to the off-chain UTxO sets):
@@ -166,10 +169,16 @@ postulate
   accUTxO-∅       : accUTxO ∅ˢ ≡ G₁
   -- soundness: a verified membership witness attests a genuine subset (no proving non-members)
   accVerify-sound : ∀ {U S π} → accVerify (accUTxO U) S π ≡ true → S ⊆ U
-  -- completeness: any genuine subset has a membership witness that verifies
-  -- a set is always provably a member of its own commitment (the S ≔ U case of completeness; stated
-  -- directly to avoid the set-theory `⊆`-reflexivity plumbing). Used by the coverage obligations.
-  accVerify-self : ∀ U → ∃[ π ] (accVerify (accUTxO U) U π ≡ true)
+  -- Removing the whole member set leaves the empty-set commitment as witness.
+  accVerify-full : ∀ U → accVerify (accUTxO U) U emptyWitness ≡ true
+  -- A verified empty remainder means every committed output is distributed.
+  -- Equality is extensional: the finite-set model's list order is irrelevant.
+  accVerify-complete : ∀ {U S π}
+    → accVerify (accUTxO U) S π ≡ true → π ≡ emptyWitness → S ≡ᵉ U
+
+-- Existence follows from the stronger law fixing the full-set witness's identity.
+accVerify-self : ∀ U → ∃[ π ] (accVerify (accUTxO U) U π ≡ true)
+accVerify-self U = emptyWitness , accVerify-full U
 
 -- Set-level cardinality of a UTxO set: the number of outputs a fanout distributes. Postulated (with
 -- only the non-emptiness law the coverage proofs need) rather than via the set theory's `card`, which
@@ -1423,13 +1432,11 @@ The validator checks:
   where $adaO$ is the ADA overhead carried from the closed datum, and $val_(sans("burned"))$ is the value of all burned head tokens.
 
 The fan-out checks - the burn count, membership of the distributed outputs in the
-accumulator, the deadline, value conservation and the canonical-CRS binding - form
-the `FanoutValid` bundle. The completeness check is an implementation
-strengthening the bundle does not model (the abstract accumulator laws only
-provide the existence of a witness, not its identity), so the bundle is weaker
-than the validator in the safe direction: every bundle-valid fan-out that
-distributes the whole owed set is accepted by both, and the differential test
-fixtures do exactly that.
+accumulator, completeness, the deadline, value conservation and the canonical-CRS
+binding - form the `FanoutValid` bundle. `completeOK` fixes the witness to
+`emptyWitness`, the witness encoding of $accUTxO(emptyset) = G_1$.
+Together with membership verification, the `accVerify-complete` law then
+identifies the distributed set with the whole committed set.
 
 ```
 burnAllTokensOK : Context → HeadDatum → Set
@@ -1458,6 +1465,7 @@ record FanoutValid (ctx : Context) (d : HeadDatum) (m : ℕ) (π : AccWitness) (
     step            : d ⟶⟨ Fanout m π crs ⟩ Final
     burnAllTokens   : burnAllTokensOK ctx d                    -- burns the n+1 tokens (§5.8)
     membersOK       : fanoutMembersOK (ηOf d) (distributedOuts ctx m) π  -- the m distributed outputs ∈ η
+    completeOK      : π ≡ emptyWitness                        -- no owed output remains (H72)
     afterDeadline   : tfinalOf d < ValidityInterval.lo (Context.validity ctx)
     valueOK         : fanoutValueOK ctx (headAda d) m
     crsBound        : crsBindOK ctx crs                        -- the CRS ref input is canonical (§5.8)
@@ -1567,9 +1575,8 @@ The validator checks:
 + Value is conserved:
   $ val_(sans("head"))^(sans("in")) = plus.o.big_(i=1)^(m) val(o_i) plus.o val_(sans("burned")) plus.o adaO $
 
-The final step's conditions form the `FinalPartialFanoutValid` bundle (the
-completeness check is, as for $mtxFanout$, an implementation strengthening the
-bundle does not model).
+The final step's conditions form the `FinalPartialFanoutValid` bundle,
+including the empty-witness completeness check as for $mtxFanout$.
 
 ```
 -- The last batch of a multi-step fan-out: like `FanoutValid` but from a `FanoutProgress` source.
@@ -1579,6 +1586,7 @@ record FinalPartialFanoutValid (ctx : Context) (d : HeadDatum) (m : ℕ) (π : A
     step            : d ⟶⟨ FinalPartialFanout m π crs ⟩ Final
     burnAllTokens   : burnAllTokensOK ctx d
     membersOK       : fanoutMembersOK (ηOf d) (distributedOuts ctx m) π
+    completeOK      : π ≡ emptyWitness                        -- no owed output remains (H73)
     outputsPositive : 0 < m
     afterDeadline   : tfinalOf d < ValidityInterval.lo (Context.validity ctx)
     valueOK         : fanoutValueOK ctx (headAda d) m
