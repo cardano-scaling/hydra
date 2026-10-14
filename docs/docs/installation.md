@@ -75,9 +75,10 @@ only build the artifacts. The smoke test compares the script catalogue with the
 native exporter and checks two offline nodes' API, peer connectivity, shutdown,
 and restart from paths containing spaces.
 
-Local Wine testing reaches the API and peer-connectivity checks, but graceful
-shutdown stalls. Validation on the Windows runner is still required before this
-target can be considered supported.
+Shutdown interrupts the embedded etcd process before joining its reader threads,
+allowing blocked Windows reads to finish. If etcd does not exit within five
+seconds, the node terminates it. The smoke test requires the node to exit and
+release its ports before restarting it with the same persisted state.
 
 The archive includes only `hydra-node`. Live Cardano connectivity and TLS are
 untested; a Cardano connection requires a separate Cardano node or Blockfrost.
