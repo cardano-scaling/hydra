@@ -101,6 +101,7 @@ import Hydra.HeadLogic (
   SeenSnapshot (..),
   StateChanged (..),
   WaitReason (..),
+  emptySettlements,
   mkSeenSnapshot,
   update,
  )
@@ -164,7 +165,7 @@ reqSnState vHat sHat =
       , currentDepositTxId = Nothing
       , decommitTx = Nothing
       , version = fromInteger vHat
-      , settlements = mempty
+      , settlements = emptySettlements
       }
 
 -- Run the REAL handler on a (v, s) request from the given sender.
@@ -216,7 +217,7 @@ reqDecState commit decommitInFlight =
           _ -> Just reqDecDepositTxId
       , decommitTx = if decommitInFlight then Just inFlightDecommit else Nothing
       , version = 0
-      , settlements = mempty
+      , settlements = emptySettlements
       }
   registry = case commit of
     NoCommitP -> mempty
@@ -303,7 +304,7 @@ settleState =
       , currentDepositTxId = Just 7
       , decommitTx = Nothing
       , version = 0
-      , settlements = mempty
+      , settlements = emptySettlements
       }
   -- testSnapshot with the pending commit of deposit 7 bound in; spelled out because a record
   -- update on the shared-field Snapshot type is ambiguous under DuplicateRecordFields.
@@ -352,7 +353,7 @@ decommitSettleState =
       , currentDepositTxId = Nothing
       , decommitTx = Just settlingDecommit
       , version = 0
-      , settlements = mempty
+      , settlements = emptySettlements
       }
   decommitSettleSnapshot :: Snapshot SimpleTx
   decommitSettleSnapshot =
@@ -402,7 +403,7 @@ collisionState txs d =
       , currentDepositTxId = Nothing
       , decommitTx = Nothing
       , version = 0
-      , settlements = mempty
+      , settlements = emptySettlements
       }
   headUTxO = utxoRef 1 <> utxoRef 2
   headSnapshot :: Snapshot SimpleTx
@@ -514,7 +515,7 @@ ackState collected =
       , currentDepositTxId = Nothing
       , decommitTx = Nothing
       , version = 0
-      , settlements = mempty
+      , settlements = emptySettlements
       }
 
 -- Run the REAL handler on sender's (real-signature) AckSn over the given collected subset.

@@ -27,6 +27,7 @@ import Hydra.HeadLogic (
   Outcome (Continue, effects),
   SeenSnapshot (LastSeenSnapshot),
   aggregateState,
+  emptySettlements,
   isLeader,
   update,
  )
@@ -92,7 +93,7 @@ benchCell n m = do
                         , currentDepositTxId = Nothing
                         , decommitTx = Nothing
                         , version = 0
-                        , settlements = mempty
+                        , settlements = emptySettlements
                         }
                   , chainState = initialChainState
                   , headId = testHeadId
@@ -119,7 +120,7 @@ benchCell n m = do
           -- NodeState forces the strict-field cascade like state hydration
           -- does. Compare against full-update to isolate the aggregate share.
           bench "update-and-aggregate" $
-            whnf (aggregateState st . update testEnvironment ledger now st) reqSn
+            whnf (either (error . show) id . aggregateState st . update testEnvironment ledger now st) reqSn
         , bench "ledger-apply-only" $ whnf (applyOrCrash utxo) txs
         ]
           -- These do not depend on the number of transactions, so only emit

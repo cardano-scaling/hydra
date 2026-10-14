@@ -510,7 +510,14 @@ corresponding $hpRS$ is distributed. \
 The implementation caches the deposit IDs claimed by retained settlements to
 exclude them from new snapshot proposals and recovery. This cache equals the
 set derived from all retained snapshots, including erased settlements, and is
-rebuilt on decode. It is implementation bookkeeping outside `LocalState`.
+rebuilt on decode. The opaque `Settlements` type keeps the entries and cache
+private, with operations that update them together. Each deposit can be
+claimed by only one retained version. Inserting the same version preserves
+its original snapshot and status; inserting another version with an already
+claimed deposit fails. Decoding checks these claims and the correspondence
+between map keys and snapshot versions. A conflicting live update applies
+neither its events nor its effects; replay stops at the conflicting event.
+This is implementation bookkeeping outside `LocalState`.
 
 The network-message handlers above are transcribed as the relation
 `_handles_↝_`: one constructor per handler arm, each carrying
@@ -579,8 +586,9 @@ data _handles_↝_ : LocalState → Message → LocalState → Set where
   -- honest party signed it). The figure's operational `require msVfy(…, msComb Σ̂)` over the COMBINED
   -- multisignature is the implementation of that n-of-n condition (via ms-unforgeability); it is
   -- formalised precisely at the §7 `confirm` step (`AggVerified`/`msVfy`), so it is not duplicated here.
-  -- The implementation caches retained deposit claims outside LocalState; this does not change
-  -- which snapshots can confirm or release claims when a settlement is erased.
+  -- The implementation's opaque Settlements type maintains retained deposit claims outside
+  -- LocalState. Checked insertion gives each deposit one retained version;
+  -- erasing a settlement keeps its claims. A conflict leaves the state unchanged.
   ackSn-confirm : ∀ {st s σ snap}
     → (∀ {k} → k < HeadParameters.n (LocalState.params st) → k ∈ˡ map proj₁ (LocalState.seenSigs st))  -- ∀k:(k,·)∈Σ̂
     → Snapshot.txs snap ≡ LocalState.pending st          -- S̄'.T = T̂

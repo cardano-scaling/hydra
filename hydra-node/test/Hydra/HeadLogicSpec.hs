@@ -41,8 +41,9 @@ import Hydra.Chain (
 import Hydra.Chain.ChainState (ChainSlot (..), IsChainState)
 import Hydra.Chain.Direct.State (ChainStateAt (..))
 import Hydra.Chain.Direct.TimeHandle (TimeHandle, mkTimeHandle, slotToUTCTime)
-import Hydra.HeadLogic (ClosedState (..), CoordinatedHeadState (..), Effect (..), FanoutMode (..), HeadState (..), Input (..), LogicError (..), OpenState (..), Outcome (..), PartialFanoutState (..), RequirementFailure (..), SettlingCommit (..), SideLoadRequirementFailure (..), SnapshotRequest (..), StateChanged (..), TTL, WaitReason (..), absorbable, aggregateState, applyTransactionsWithoutCollision, cause, chainedSnapshotRequest, existingDeposit, maxTxsPerSnapshot, namesNoneOf, newState, nextSnapshotRequest, noop, retainSettlement, settlingCommitAt, update)
-import Hydra.HeadLogic.State (IdleState (..), SeenSnapshot (..), Settlement (..), SettlementStatus (..), getHeadParameters, mkSeenSnapshot, settlementEntries, settlementsFromMap)
+import Hydra.HeadLogic (ClosedState (..), CoordinatedHeadState (..), Effect (..), FanoutMode (..), HeadState (..), Input (..), LogicError (..), OpenState (..), Outcome (..), PartialFanoutState (..), RequirementFailure (..), SettlingCommit (..), SideLoadRequirementFailure (..), SnapshotRequest (..), StateChanged (..), TTL, WaitReason (..), absorbable, applyTransactionsWithoutCollision, cause, chainedSnapshotRequest, existingDeposit, maxTxsPerSnapshot, namesNoneOf, newState, nextSnapshotRequest, noop, retainSettlement, settlingCommitAt, update)
+import Hydra.HeadLogic qualified as HeadLogic
+import Hydra.HeadLogic.State (IdleState (..), SeenSnapshot (..), Settlement (..), SettlementConflict (..), SettlementStatus (..), emptySettlements, getHeadParameters, mkSeenSnapshot, settlementEntries, tryInsertSettlement)
 import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano (cardanoLedger, mkSimpleTx)
 import Hydra.Ledger.Cardano.TimeSpec (genUTCTime)
@@ -50,7 +51,7 @@ import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), SimpleTxOut (.
 import Hydra.Network (Connectivity)
 import Hydra.Network.Message (Message (..), NetworkEvent (..))
 import Hydra.Node (mkNetworkInput)
-import Hydra.Node.Environment (Environment (..))
+import Hydra.Node.Environment (Environment (..), mkHeadParameters)
 import Hydra.Node.State (ChainPointTime (..), Deposit (..), DepositStatus (Active, Expired, Inactive), NodeState (..), SyncedStatus (..), depositRetentionHorizon, initNodeState, initialChainTime, trackedFromPending)
 import Hydra.Node.UnsyncedPeriod (UnsyncedPeriod (..), unsyncedPeriodToNominalDiffTime)
 import Hydra.Options (defaultContestationPeriod, defaultDepositActivation, defaultDepositPeriod, defaultUnsyncedPeriod)
@@ -116,6 +117,31 @@ spec =
             , configuredPeers = ""
             }
 
+    describe "settlement conflict propagation" $ do
+      forM_ [1, 2] $ \currentVersion -> do
+        it ("rejects CommitFinalized with a shared claim at version " <> show currentVersion) $ do
+          currentState <- settlementConflictState currentVersion
+          HeadLogic.aggregateNodeState currentState CommitFinalized{chainState = 9, headId = testHeadId, newVersion = 2, depositTxId = 42}
+            `shouldBe` Left (DepositAlreadyClaimed (Set.singleton 42))
+
+        it ("rejects DecommitFinalized with a shared claim at version " <> show currentVersion) $ do
+          currentState <- settlementConflictState currentVersion
+          HeadLogic.aggregateNodeState currentState DecommitFinalized{chainState = 9, headId = testHeadId, newVersion = 2, distributedUTxO = mempty}
+            `shouldBe` Left (DepositAlreadyClaimed (Set.singleton 42))
+
+      it "rejects a late snapshot confirmation with a shared claim" $ do
+        currentState <- settlementConflictState 2
+        let snapshot = settlementConflictSnapshot
+        HeadLogic.aggregateNodeState currentState SnapshotConfirmed{headId = testHeadId, snapshot = Just snapshot, signatures = mempty}
+          `shouldBe` Left (DepositAlreadyClaimed (Set.singleton 42))
+
+      it "rejects a whole batch when a later event conflicts" $ do
+        currentState <- settlementConflictState 1
+        let conflict = CommitFinalized{chainState = 9, headId = testHeadId, newVersion = 2, depositTxId = 42}
+            changes = [TransactionReceived (SimpleTx 7 mempty mempty), conflict]
+        forM_ [Continue changes [], Wait{reason = WaitOnSeenSnapshot, stateChanges = changes}] $ \outcome ->
+          HeadLogic.aggregateState currentState outcome `shouldBe` Left (DepositAlreadyClaimed (Set.singleton 42))
+
     describe "Coordinated Head Protocol" $ do
       let ledger = simpleLedger
 
@@ -129,7 +155,7 @@ spec =
               , currentDepositTxId = Nothing
               , decommitTx = Nothing
               , version = 0
-              , settlements = mempty
+              , settlements = emptySettlements
               }
 
       it "reports if a requested tx is expired" $ do
@@ -1287,7 +1313,7 @@ spec =
                   , status = Active
                   }
               s0 = inOpenState threeParties
-          let s1 = aggregateState s0 $ Continue [DepositActivated{depositTxId = 99, chainTime = now, deposit = foreignDeposit}] []
+          let s1 = aggregateStateOrFail s0 $ Continue [DepositActivated{depositTxId = 99, chainTime = now, deposit = foreignDeposit}] []
           case s1 of
             NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} ->
               chs.currentDepositTxId `shouldBe` Nothing
@@ -1310,7 +1336,7 @@ spec =
                 (inOpenState' threeParties coordinatedHeadState{currentDepositTxId = Just ownDepositId})
                   { deposits = trackedFromPending (Map.singleton foreignDepositId foreignDeposit)
                   }
-          let s1 = aggregateState s0 $ Continue [DepositRecovered{chainState = 0, headId = otherHeadId, depositTxId = foreignDepositId, recovered = mempty}] []
+          let s1 = aggregateStateOrFail s0 $ Continue [DepositRecovered{chainState = 0, headId = otherHeadId, depositTxId = foreignDepositId, recovered = mempty}] []
           case s1 of
             s1'@NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} -> do
               chs.currentDepositTxId `shouldBe` Just ownDepositId
@@ -1329,7 +1355,7 @@ spec =
                   , status = Active
                   }
               s0 = (inSync (Idle IdleState{chainState = 0})){deposits = trackedFromPending (Map.singleton depositTxId' deposit)}
-          let s1 = aggregateState s0 $ Continue [DepositRecovered{chainState = 0, headId = testHeadId, depositTxId = depositTxId', recovered = utxoRef 1}] []
+          let s1 = aggregateStateOrFail s0 $ Continue [DepositRecovered{chainState = 0, headId = testHeadId, depositTxId = depositTxId', recovered = utxoRef 1}] []
           case s1 of
             s1'@NodeInSync{} -> s1'.pendingDeposits `shouldBe` mempty
             _ -> fail "expected NodeInSync"
@@ -1344,7 +1370,7 @@ spec =
                     { localUTxO = ownUTxO
                     , version = 3
                     }
-          let s1 = aggregateState s0 $ Continue [CommitFinalized{chainState = 0, headId = otherHeadId, newVersion = 99, depositTxId = 42}] []
+          let s1 = aggregateStateOrFail s0 $ Continue [CommitFinalized{chainState = 0, headId = otherHeadId, newVersion = 99, depositTxId = 42}] []
           case s1 of
             NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} -> do
               chs.version `shouldBe` 3
@@ -1361,7 +1387,7 @@ spec =
                   , chainState = 0
                   , contestationDeadline = arbitrary `generateWith` 42
                   }
-          let s1 = aggregateState s0 $ Continue [closedEvent] []
+          let s1 = aggregateStateOrFail s0 $ Continue [closedEvent] []
           case s1 of
             NodeInSync{headState = Open _} -> pure ()
             other -> fail $ "expected Open state, got: " <> show other
@@ -1375,7 +1401,7 @@ spec =
                   , finalizedOutputs = mempty
                   , chainState = 0
                   }
-          let s1 = aggregateState s0 $ Continue [fanoutEvent] []
+          let s1 = aggregateStateOrFail s0 $ Continue [fanoutEvent] []
           case s1 of
             NodeInSync{headState = Closed _} -> pure ()
             other -> fail $ "expected Closed state, got: " <> show other
@@ -1794,7 +1820,7 @@ spec =
           let decrementObservation = observeTx $ OnDecrementTx{headId = testHeadId, newVersion = 4, distributedUTxO = mempty, snapshotNumber = 1, signatures = mempty}
           now <- nowFromSlot s0.chainPointTime.currentSlot
           let decommitFinalizedOutcome = update aliceEnv ledger now s0 decrementObservation
-          let s1 = aggregateState s0 decommitFinalizedOutcome
+          let s1 = aggregateStateOrFail s0 decommitFinalizedOutcome
 
           -- Verify seenSnapshot was reset (not stuck as RequestedSnapshot)
           -- After DecommitFinalized, seenSnapshot resets to LastSeenSnapshot{lastSeen=confirmedSn}.
@@ -1875,7 +1901,7 @@ spec =
           let decrementObservation = observeTx $ OnDecrementTx{headId = testHeadId, newVersion = 4, distributedUTxO = mempty, snapshotNumber = 1, signatures = mempty}
           now <- nowFromSlot s0.chainPointTime.currentSlot
           let decommitFinalizedOutcome = update aliceEnv ledger now s0 decrementObservation
-          let s1 = aggregateState s0 decommitFinalizedOutcome
+          let s1 = aggregateStateOrFail s0 decommitFinalizedOutcome
 
           -- Verify seenSnapshot resets to confirmedSn (0), regardless of requested (1)
           case s1 of
@@ -1938,7 +1964,7 @@ spec =
           let decrementObservation = observeTx $ OnDecrementTx{headId = testHeadId, newVersion = 4, distributedUTxO = mempty, snapshotNumber = 1, signatures = mempty}
           now <- nowFromSlot s0.chainPointTime.currentSlot
           let decommitFinalizedOutcome = update bobEnv ledger now s0 decrementObservation
-          let s1 = aggregateState s0 decommitFinalizedOutcome
+          let s1 = aggregateStateOrFail s0 decommitFinalizedOutcome
 
           -- DecommitFinalized preserves SeenSnapshot so AckSns can still be collected.
           -- seenSnapshot stays as SeenSnapshot (not reset to LastSeenSnapshot).
@@ -1978,7 +2004,7 @@ spec =
             _ -> False
 
           -- seenSnapshot must be preserved so AckSns can still be collected
-          let s1 = aggregateState s0 outcome
+          let s1 = aggregateStateOrFail s0 outcome
           case s1 of
             NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} ->
               chs.seenSnapshot `shouldBe` mkSeenSnapshot snapshot1 mempty
@@ -2013,7 +2039,7 @@ spec =
             _ -> False
 
           -- seenSnapshot must be preserved so AckSns can still be collected
-          let s1 = aggregateState s0 outcome
+          let s1 = aggregateStateOrFail s0 outcome
           case s1 of
             NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} ->
               chs.seenSnapshot `shouldBe` mkSeenSnapshot snapshot1 mempty
@@ -2044,7 +2070,7 @@ spec =
                 observeTx $
                   OnIncrementTx{headId = testHeadId, newVersion = 4, depositTxId, snapshotNumber = 1, signatures = fullSigs}
           now <- nowFromSlot s0.chainPointTime.currentSlot
-          let s1 = aggregateState s0 (update bobEnv ledger now s0 increment)
+          let s1 = aggregateStateOrFail s0 (update bobEnv ledger now s0 increment)
           case s1 of
             NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} -> do
               chs.version `shouldBe` 4
@@ -2077,7 +2103,7 @@ spec =
                 observeTx $
                   OnIncrementTx{headId = testHeadId, newVersion = 4, depositTxId, snapshotNumber = 1, signatures = fullSigs}
           now <- nowFromSlot s0.chainPointTime.currentSlot
-          let s1 = aggregateState s0 (update bobEnv ledger now s0 increment)
+          let s1 = aggregateStateOrFail s0 (update bobEnv ledger now s0 increment)
           -- The close uses the adopted snapshot at the bumped version. Its
           -- increment is what bumped the version, so it is a 'CloseUsed' the
           -- head can be fanned out from.
@@ -2130,7 +2156,7 @@ spec =
                     observeTx . tweak $
                       OnIncrementTx{headId = testHeadId, newVersion = 4, depositTxId, snapshotNumber = 1, signatures = fullSigs}
               now <- nowFromSlot s0.chainPointTime.currentSlot
-              let s1 = aggregateState s0 (update bobEnv ledger now s0 increment)
+              let s1 = aggregateStateOrFail s0 (update bobEnv ledger now s0 increment)
               case s1 of
                 NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} -> do
                   chs.confirmedSnapshot `shouldBe` confirmedSn
@@ -2167,7 +2193,7 @@ spec =
                 observeTx $
                   OnIncrementTx{headId = testHeadId, newVersion = 4, depositTxId, snapshotNumber = 1, signatures = bogusSigs}
           now <- nowFromSlot s0.chainPointTime.currentSlot
-          let s1 = aggregateState s0 (update bobEnv ledger now s0 increment)
+          let s1 = aggregateStateOrFail s0 (update bobEnv ledger now s0 increment)
           case s1 of
             NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} -> do
               chs.version `shouldBe` 4
@@ -2199,7 +2225,7 @@ spec =
                 observeTx $
                   OnDecrementTx{headId = testHeadId, newVersion = 4, distributedUTxO = utxoRef 99, snapshotNumber = 1, signatures = fullSigs}
           now <- nowFromSlot s0.chainPointTime.currentSlot
-          let s1 = aggregateState s0 (update bobEnv ledger now s0 decrement)
+          let s1 = aggregateStateOrFail s0 (update bobEnv ledger now s0 decrement)
           case s1 of
             NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} -> do
               chs.version `shouldBe` 4
@@ -2232,7 +2258,7 @@ spec =
                 observeTx $
                   OnDecrementTx{headId = testHeadId, newVersion = 4, distributedUTxO = utxoRef 99, snapshotNumber = 1, signatures = fullSigs}
           now <- nowFromSlot s0.chainPointTime.currentSlot
-          let s1 = aggregateState s0 (update bobEnv ledger now s0 decrement)
+          let s1 = aggregateStateOrFail s0 (update bobEnv ledger now s0 decrement)
           update bobEnv ledger now s1 (ClientInput Close)
             `hasEffectSatisfying` \case
               OnChainEffect{postChainTx = CloseTx{openVersion, closingSnapshot}} ->
@@ -2279,7 +2305,7 @@ spec =
                     observeTx . tweak $
                       OnDecrementTx{headId = testHeadId, newVersion = 4, distributedUTxO = utxoRef 99, snapshotNumber = 1, signatures = fullSigs}
               now <- nowFromSlot s0.chainPointTime.currentSlot
-              let s1 = aggregateState s0 (update bobEnv ledger now s0 decrement)
+              let s1 = aggregateStateOrFail s0 (update bobEnv ledger now s0 decrement)
               case s1 of
                 NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} -> do
                   chs.confirmedSnapshot `shouldBe` confirmedSn
@@ -2315,7 +2341,7 @@ spec =
                 observeTx $
                   OnDecrementTx{headId = testHeadId, newVersion = 4, distributedUTxO = utxoRef 99, snapshotNumber = 1, signatures = bogusSigs}
           now <- nowFromSlot s0.chainPointTime.currentSlot
-          let s1 = aggregateState s0 (update bobEnv ledger now s0 decrement)
+          let s1 = aggregateStateOrFail s0 (update bobEnv ledger now s0 decrement)
           case s1 of
             NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} -> do
               chs.version `shouldBe` 4
@@ -2346,7 +2372,7 @@ spec =
           let incrementObservation = observeTx $ OnIncrementTx{headId = testHeadId, newVersion = 4, depositTxId, snapshotNumber = 1, signatures = mempty}
           now <- nowFromSlot s0.chainPointTime.currentSlot
           let commitFinalizedOutcome = update aliceEnv ledger now s0 incrementObservation
-          let s1 = aggregateState s0 commitFinalizedOutcome
+          let s1 = aggregateStateOrFail s0 commitFinalizedOutcome
 
           -- seenSnapshot resets to confirmedSn (0), not requested (1)
           case s1 of
@@ -3945,10 +3971,13 @@ spec =
                           }
                   , signatures = Crypto.aggregate []
                   }
-              erased = settlementsFromMap $ Map.singleton 0 Settlement{snapshot = landed, status = Erased}
-          retainSettlement (ChainSlot 9) 1 later erased `shouldBe` erased
+          erased <-
+            either (failure . show) pure $
+              tryInsertSettlement Settlement{snapshot = landed, status = Erased} emptySettlements
+          retainSettlement (ChainSlot 9) 1 later erased `shouldBe` Right erased
           -- A first retention is unaffected.
-          Map.keys (settlementEntries (retainSettlement (ChainSlot 9) 1 later mempty)) `shouldBe` [0]
+          retained <- either (failure . show) pure $ retainSettlement (ChainSlot 9) 1 later emptySettlements
+          Map.keys (settlementEntries retained) `shouldBe` [0]
 
         it "re-carries a locally expired deposit the confirmed snapshot still claims" $ do
           -- Our expiry margin is a whole 'depositPeriod' ahead of the on-chain
@@ -4495,7 +4524,7 @@ spec =
                   go (st, transitions) (i, d) =
                     let outcome = update demoEnv ledger now st (tickWith d i)
                         changes = case outcome of Continue{stateChanges} -> stateChanges; _ -> []
-                     in (aggregateState st outcome, transitions <> mapMaybe syncTransition changes)
+                     in (aggregateStateOrFail st outcome, transitions <> mapMaybe syncTransition changes)
                in snd (foldl' go (inSync hs, []) (zip [1 :: Int ..] drifts))
         -- Staying in sync => no transitions.
         runTicks (replicate 10 1.3) `shouldBe` []
@@ -4596,7 +4625,6 @@ spec =
                               , remainingOutputs = mempty
                               , distributedOutputs = priorDistributed
                               , mode = AutoDrain
-                              , stepsLanded = []
                               }
                       }
                   _ -> closedState
@@ -4647,7 +4675,7 @@ spec =
               _ -> False
           -- And it enters FanoutProgress in AutoDrain mode so subsequent chunk
           -- observations auto-continue on this (driving) node.
-          case headState (aggregateState closedState outcome) of
+          case headState (aggregateStateOrFail closedState outcome) of
             FanoutProgress PartialFanoutState{mode = AutoDrain} -> pure ()
             other -> run $ failure $ "Expected FanoutProgress AutoDrain, got: " <> show other
 
@@ -4696,88 +4724,6 @@ spec =
           HeadPartialFannedOut{remainingOutputs} ->
             remainingOutputs == Set.difference allItems attackedDistributed
           _ -> False
-
-      -- A fork can erase a landed fanout step. The bookkeeping kept counting it
-      -- as distributed, so automatic mode posted the step after it, built
-      -- against a datum the chain no longer had, and manual mode posted nothing
-      -- at all since it was waiting for the client. The progress is now rewound
-      -- to the steps still on the chain this node follows.
-      it "re-posts a fanout step a fork erased, from the progress still on chain" $ do
-        let allItems = Set.fromList [SimpleTxOut i | i <- [1 .. 6]]
-            chunkA = Set.fromList [SimpleTxOut 1, SimpleTxOut 2]
-            chunkB = Set.fromList [SimpleTxOut 3, SimpleTxOut 4]
-            s0 = inFanoutProgressDistributed threeParties allItems mempty AutoDrain
-        now <- nowFromSlot s0.chainPointTime.currentSlot
-        let rollbackTo slot = ChainInput Rollback{rolledBackChainState = SimpleChainState slot, chainTime = now}
-            observeStep slot chunk = observeTxAtSlot slot OnPartialFanoutTx{headId = testHeadId, distributedOutputs = chunk}
-        -- One step landed and the fork erased it, so nothing is distributed any
-        -- more. The whole set is posted again as a full fanout, against the
-        -- Closed datum, not as a final step against a FanoutProgress datum.
-        s1 <- runHeadLogic bobEnv ledger s0 $ step (observeStep 5 chunkA) >> getState
-        let erased = update bobEnv ledger now s1 (rollbackTo 4)
-        erased `hasEffectSatisfying` \case
-          OnChainEffect{postChainTx = FanoutTx{}} -> True
-          _ -> False
-        erased `hasNoEffectSatisfying` \case
-          OnChainEffect{postChainTx = FinalPartialFanoutTx{}} -> True
-          _ -> False
-        s2 <- runHeadLogic bobEnv ledger s1 $ step (rollbackTo 4) >> getState
-        case headState s2 of
-          FanoutProgress PartialFanoutState{distributedOutputs, remainingOutputs} -> do
-            distributedOutputs `shouldBe` mempty
-            remainingOutputs `shouldBe` allItems
-          other -> failure $ "Expected FanoutProgress, got: " <> show other
-        -- Two steps landed and the fork erased the second. The first stays
-        -- distributed, and the final step covers everything else.
-        s3 <- runHeadLogic bobEnv ledger s1 $ step (observeStep 6 chunkB) >> getState
-        update bobEnv ledger now s3 (rollbackTo 5) `hasEffectSatisfying` \case
-          OnChainEffect{postChainTx = FinalPartialFanoutTx{utxoToDistribute}} ->
-            utxoToDistribute == Set.difference allItems chunkA
-          _ -> False
-
-      it "re-posts an erased manual selection instead of waiting for the client" $ do
-        let allItems = Set.fromList [SimpleTxOut i | i <- [1 .. 6]]
-            selection = Set.fromList [SimpleTxOut 1, SimpleTxOut 2]
-            s0 = inFanoutProgressDistributed threeParties allItems mempty (DistributingSelection selection)
-        now <- nowFromSlot s0.chainPointTime.currentSlot
-        let rollbackTo slot = ChainInput Rollback{rolledBackChainState = SimpleChainState slot, chainTime = now}
-        s1 <- runHeadLogic bobEnv ledger s0 $ step (observeTxAtSlot 5 OnPartialFanoutTx{headId = testHeadId, distributedOutputs = selection}) >> getState
-        -- The selection is fully distributed: the driver waits for the next one.
-        case headState s1 of
-          FanoutProgress PartialFanoutState{mode} -> mode `shouldBe` AwaitingSelection
-          other -> failure $ "Expected FanoutProgress, got: " <> show other
-        -- The fork erases that step, so the selection is back in the head and
-        -- it is this node's job to distribute it. It is posted again.
-        update bobEnv ledger now s1 (rollbackTo 4) `hasEffectSatisfying` \case
-          OnChainEffect{postChainTx = PartialFanoutTx{utxoToDistribute, utxoForProof}} ->
-            utxoToDistribute == selection && utxoForProof == allItems
-          _ -> False
-        s2 <- runHeadLogic bobEnv ledger s1 $ step (rollbackTo 4) >> getState
-        case headState s2 of
-          FanoutProgress PartialFanoutState{mode, distributedOutputs} -> do
-            mode `shouldBe` DistributingSelection selection
-            distributedOutputs `shouldBe` mempty
-          other -> failure $ "Expected FanoutProgress, got: " <> show other
-
-      it "an observer keeps waiting after a fork erases a step it only observed" $ do
-        -- Only the driver advances a fanout. A passive observer's progress is
-        -- rewound like everyone's, but it must not start posting steps.
-        let allItems = Set.fromList [SimpleTxOut i | i <- [1 .. 6]]
-            chunkA = Set.fromList [SimpleTxOut 1, SimpleTxOut 2]
-            s0 = inFanoutProgressDistributed threeParties allItems mempty AwaitingSelection
-        now <- nowFromSlot s0.chainPointTime.currentSlot
-        let rollbackTo slot = ChainInput Rollback{rolledBackChainState = SimpleChainState slot, chainTime = now}
-        s1 <- runHeadLogic bobEnv ledger s0 $ step (observeTxAtSlot 5 OnPartialFanoutTx{headId = testHeadId, distributedOutputs = chunkA}) >> getState
-        update bobEnv ledger now s1 (rollbackTo 4) `hasNoEffectSatisfying` \case
-          OnChainEffect{} -> True
-          _ -> False
-        s2 <- runHeadLogic bobEnv ledger s1 $ step (rollbackTo 4) >> getState
-        case headState s2 of
-          FanoutProgress PartialFanoutState{mode, distributedOutputs, remainingOutputs} -> do
-            mode `shouldBe` AwaitingSelection
-            distributedOutputs `shouldBe` mempty
-            remainingOutputs `shouldBe` allItems
-          other -> failure $ "Expected FanoutProgress, got: " <> show other
 
       it "partial fanout with small remaining triggers FinalPartialFanoutTx" $ do
         let smallRemaining = Set.fromList [SimpleTxOut 1, SimpleTxOut 2]
@@ -4832,7 +4778,7 @@ spec =
           HeadPartialFanoutSelected{} -> True
           _ -> False
         -- Draining is now automatic, as it is for a plain 'Fanout'.
-        case headState (aggregateState st outcome) of
+        case headState (aggregateStateOrFail st outcome) of
           FanoutProgress PartialFanoutState{mode = AutoDrain} -> pure ()
           other -> failure $ "Expected FanoutProgress AutoDrain, got: " <> show other
 
@@ -4864,7 +4810,7 @@ spec =
         let remaining = Set.fromList [SimpleTxOut 1, SimpleTxOut 2]
             st = inFanoutProgressDistributed threeParties remaining mempty (DistributingSelection (Set.singleton (SimpleTxOut 1)))
             recorded =
-              aggregateState st $
+              aggregateStateOrFail st $
                 Continue [HeadPartialFanoutSelected{headId = testHeadId, remainingOutputs = remaining, selection = remaining}] []
         headState recorded `shouldSatisfy` \case
           FanoutProgress PartialFanoutState{mode = AutoDrain} -> True
@@ -4877,7 +4823,7 @@ spec =
             distributed = Set.fromList [SimpleTxOut 1]
             st = inFanoutProgressDistributed threeParties remaining distributed AwaitingSelection
             recorded =
-              aggregateState st $
+              aggregateStateOrFail st $
                 Continue [HeadPartialFanoutSelected{headId = testHeadId, remainingOutputs = remaining, selection = remaining}] []
         headState recorded `shouldSatisfy` \case
           FanoutProgress PartialFanoutState{mode = DistributingSelection sel} -> sel == remaining
@@ -4906,7 +4852,7 @@ spec =
         outcome `hasEffectSatisfying` \case
           OnChainEffect{postChainTx = PartialFanoutTx{utxoToDistribute}} -> utxoToDistribute == selection
           _ -> False
-        case headState (aggregateState st outcome) of
+        case headState (aggregateStateOrFail st outcome) of
           FanoutProgress PartialFanoutState{mode = DistributingSelection sel} -> sel `shouldBe` selection
           other -> failure $ "Expected FanoutProgress DistributingSelection, got: " <> show other
 
@@ -4934,7 +4880,7 @@ spec =
           OnChainEffect{postChainTx = PartialFanoutTx{utxoToDistribute}} -> utxoToDistribute == selection
           _ -> False
         -- And transitions the head into FanoutProgress with the full remaining set.
-        case headState (aggregateState st outcome) of
+        case headState (aggregateStateOrFail st outcome) of
           FanoutProgress PartialFanoutState{remainingOutputs} -> remainingOutputs `shouldBe` fullUTxO
           other -> failure $ "Expected FanoutProgress state, got: " <> show other
 
@@ -4991,7 +4937,7 @@ spec =
             st = inClosedState' threeParties (ConfirmedSnapshot snap (Crypto.aggregate []))
         now <- nowFromSlot st.chainPointTime.currentSlot
         let initiated = update bobEnv ledger now st (ClientInput Fanout)
-            st1 = aggregateState st initiated
+            st1 = aggregateStateOrFail st initiated
         -- Sanity: optimistically in FanoutProgress with nothing distributed yet.
         case headState st1 of
           FanoutProgress PartialFanoutState{distributedOutputs} -> distributedOutputs `shouldBe` mempty
@@ -5013,7 +4959,7 @@ spec =
         failed `hasEffectSatisfying` \case
           ClientEffect{clientMessage = PostTxOnChainFailed{}} -> True
           _ -> False
-        case headState (aggregateState st1 failed) of
+        case headState (aggregateStateOrFail st1 failed) of
           Closed ClosedState{readyToFanoutSent} -> readyToFanoutSent `shouldBe` True
           other -> failure $ "Expected Closed after revert, got: " <> show other
 
@@ -5024,7 +4970,7 @@ spec =
             st = inClosedState' threeParties (ConfirmedSnapshot snap (Crypto.aggregate []))
         now <- nowFromSlot st.chainPointTime.currentSlot
         let initiated = update bobEnv ledger now st (ClientInput (PartialFanout selection))
-            st1 = aggregateState st initiated
+            st1 = aggregateStateOrFail st initiated
         postedTx <- case [postChainTx | OnChainEffect{postChainTx} <- effectsOf initiated] of
           tx : _ -> pure tx
           [] -> failure "Expected a posted partial fanout tx from the initiating PartialFanout"
@@ -5038,7 +4984,7 @@ spec =
         failed `hasStateChangedSatisfying` \case
           HeadFanoutReverted{} -> True
           _ -> False
-        case headState (aggregateState st1 failed) of
+        case headState (aggregateStateOrFail st1 failed) of
           Closed{} -> pure ()
           other -> failure $ "Expected Closed after revert, got: " <> show other
 
@@ -5052,7 +4998,7 @@ spec =
             st = inClosedState' threeParties (ConfirmedSnapshot snap (Crypto.aggregate []))
         now <- nowFromSlot st.chainPointTime.currentSlot
         let initiated = update bobEnv ledger now st (ClientInput (PartialFanout selection))
-            st1 = aggregateState st initiated
+            st1 = aggregateStateOrFail st initiated
         postedTx <- case [postChainTx | OnChainEffect{postChainTx} <- effectsOf initiated] of
           tx : _ -> pure tx
           [] -> failure "Expected a posted partial fanout tx from the initiating PartialFanout"
@@ -5069,7 +5015,7 @@ spec =
         failed `hasEffectSatisfying` \case
           ClientEffect{clientMessage = PostTxOnChainFailed{}} -> True
           _ -> False
-        case headState (aggregateState st1 failed) of
+        case headState (aggregateStateOrFail st1 failed) of
           Closed{} -> pure ()
           other -> failure $ "Expected Closed after revert, got: " <> show other
 
@@ -5084,7 +5030,7 @@ spec =
             st = inFanoutProgressDistributed threeParties remaining mempty (DistributingSelection superseded)
         now <- nowFromSlot st.chainPointTime.currentSlot
         let rerouted = update bobEnv ledger now st (ClientInput (PartialFanout remaining))
-            st1 = aggregateState st rerouted
+            st1 = aggregateStateOrFail st rerouted
             failed =
               update bobEnv ledger now st1 . ChainInput $
                 PostTxError
@@ -5101,7 +5047,7 @@ spec =
         failed `hasNoStateChangedSatisfying` \case
           HeadFanoutReverted{} -> True
           _ -> False
-        case headState (aggregateState st1 failed) of
+        case headState (aggregateStateOrFail st1 failed) of
           FanoutProgress PartialFanoutState{mode = AutoDrain} -> pure ()
           other -> failure $ "Expected to stay in FanoutProgress AutoDrain, got: " <> show other
 
@@ -5130,7 +5076,7 @@ spec =
         failed `hasNoStateChangedSatisfying` \case
           HeadFanoutReverted{} -> True
           _ -> False
-        case headState (aggregateState st failed) of
+        case headState (aggregateStateOrFail st failed) of
           FanoutProgress{} -> pure ()
           other -> failure $ "Expected to stay in FanoutProgress, got: " <> show other
 
@@ -5156,7 +5102,7 @@ spec =
         failed `hasNoStateChangedSatisfying` \case
           HeadFanoutReverted{} -> True
           _ -> False
-        case headState (aggregateState st failed) of
+        case headState (aggregateStateOrFail st failed) of
           FanoutProgress{} -> pure ()
           other -> failure $ "Expected to stay in FanoutProgress, got: " <> show other
 
@@ -5170,10 +5116,10 @@ spec =
             st0 = inClosedState' threeParties (ConfirmedSnapshot snap (Crypto.aggregate []))
         now <- nowFromSlot st0.chainPointTime.currentSlot
         -- Become the driver and observe one partial fanout distributing {1,2}.
-        let st1 = aggregateState st0 (update bobEnv ledger now st0 (ClientInput Fanout))
+        let st1 = aggregateStateOrFail st0 (update bobEnv ledger now st0 (ClientInput Fanout))
             distributed = Set.fromList [SimpleTxOut 1, SimpleTxOut 2]
             observed = update bobEnv ledger now st1 (observeTxAtSlot 1 OnPartialFanoutTx{headId = testHeadId, distributedOutputs = distributed})
-            st2 = aggregateState st1 observed
+            st2 = aggregateStateOrFail st1 observed
         -- Sanity: mid-fanout with a narrowed remaining set.
         case headState st2 of
           FanoutProgress PartialFanoutState{remainingOutputs} ->
@@ -5266,7 +5212,7 @@ spec =
                 , chainState = SimpleChainState{slot = 0}
                 , mode = AutoDrain
                 }
-            stAfterStep1 = aggregateState initialSt (newState step1)
+            stAfterStep1 = aggregateStateOrFail initialSt (newState step1)
         case headState stAfterStep1 of
           FanoutProgress PartialFanoutState{remainingOutputs} ->
             remainingOutputs `shouldBe` remaining1
@@ -5310,7 +5256,7 @@ spec =
                     , chainState = SimpleChainState{slot = 0}
                     , mode = AutoDrain
                     }
-                result = aggregateState closedSt (newState stateChange)
+                result = aggregateStateOrFail closedSt (newState stateChange)
              in case headState result of
                   FanoutProgress PartialFanoutState{remainingOutputs, distributedOutputs} -> do
                     remainingOutputs `shouldBe` remaining
@@ -5333,7 +5279,7 @@ spec =
                     , chainState = SimpleChainState{slot = 0}
                     , mode = AutoDrain
                     }
-                afterStep1 = aggregateState closedSt (newState step1)
+                afterStep1 = aggregateStateOrFail closedSt (newState step1)
                 step2 =
                   HeadPartialFannedOut
                     { headId = testHeadId
@@ -5342,7 +5288,7 @@ spec =
                     , chainState = SimpleChainState{slot = 0}
                     , mode = AutoDrain
                     }
-                afterStep2 = aggregateState afterStep1 (newState step2)
+                afterStep2 = aggregateStateOrFail afterStep1 (newState step2)
              in case headState afterStep2 of
                   FanoutProgress PartialFanoutState{distributedOutputs} ->
                     distributedOutputs `shouldBe` firstDistributed <> secondDistributed
@@ -5681,7 +5627,7 @@ spec =
                         , currentDepositTxId = Nothing
                         , decommitTx = Nothing
                         , version = 0
-                        , settlements = mempty
+                        , settlements = emptySettlements
                         }
                   , chainState = ChainStateAt{spendableUTxO = mempty, recordedAt = Nothing}
                   , headId = testHeadId
@@ -5778,7 +5724,7 @@ spec =
                           , currentDepositTxId = Nothing
                           , decommitTx = Nothing
                           , version = 0
-                          , settlements = mempty
+                          , settlements = emptySettlements
                           }
                     , chainState = ChainStateAt{spendableUTxO = mempty, recordedAt = Nothing}
                     , headId = testHeadId
@@ -5851,7 +5797,7 @@ spec =
                           , currentDepositTxId = Nothing
                           , decommitTx = Nothing
                           , version = 0
-                          , settlements = mempty
+                          , settlements = emptySettlements
                           }
                     , chainState = ChainStateAt{spendableUTxO = mempty, recordedAt = Nothing}
                     , headId = testHeadId
@@ -5911,7 +5857,7 @@ spec =
                           , currentDepositTxId = Nothing
                           , decommitTx = Nothing
                           , version = 0
-                          , settlements = mempty
+                          , settlements = emptySettlements
                           }
                     , chainState = ChainStateAt{spendableUTxO = mempty, recordedAt = Nothing}
                     , headId = testHeadId
@@ -6007,7 +5953,7 @@ spec =
                               , currentDepositTxId = Nothing
                               , decommitTx = Nothing
                               , version = 0
-                              , settlements = mempty
+                              , settlements = emptySettlements
                               }
                         , chainState = ChainStateAt{spendableUTxO = mempty, recordedAt = Nothing}
                         , headId = testHeadId
@@ -6055,7 +6001,7 @@ spec =
                             , currentDepositTxId = Nothing
                             , decommitTx = Nothing
                             , version = 0
-                            , settlements = mempty
+                            , settlements = emptySettlements
                             }
                       , chainState = ChainStateAt{spendableUTxO = mempty, recordedAt = Nothing}
                       , headId = testHeadId
@@ -6228,7 +6174,7 @@ inOpenState parties =
       , currentDepositTxId = Nothing
       , decommitTx = Nothing
       , version = 0
-      , settlements = mempty
+      , settlements = emptySettlements
       }
  where
   u0 = mempty
@@ -6266,7 +6212,7 @@ reqDecStateWith parties mStatus =
       , currentDepositTxId = Just reqDecDepositTxId
       , decommitTx = Nothing
       , version = 0
-      , settlements = mempty
+      , settlements = emptySettlements
       }
   mkDeposit status =
     Deposit
@@ -6351,7 +6297,6 @@ inFanoutProgressDistributed parties remaining distributed mode =
         , remainingOutputs = remaining
         , distributedOutputs = distributed
         , mode
-        , stepsLanded = []
         }
  where
   parameters = HeadParameters defaultContestationPeriod defaultDepositPeriod parties
@@ -6398,7 +6343,7 @@ step input = do
   StepState{nodeState, env, ledger} <- get
   now <- getCurrentTime
   let outcome = update env ledger now nodeState input
-  let nodeState' = aggregateState nodeState outcome
+  let nodeState' = aggregateStateOrFail nodeState outcome
   put StepState{env, ledger, nodeState = nodeState'}
   pure outcome
 
@@ -6529,3 +6474,38 @@ withAccumulators snapshot@Snapshot{utxo, utxoToCommit, utxoToDecommit} =
   snapshot{accumulator, appliedAccumulator}
  where
   (accumulator, appliedAccumulator) = Accumulator.buildFromSnapshotUTxOs utxo utxoToCommit utxoToDecommit
+
+-- | Fail a successful-scenario test if aggregation rejects its events.
+aggregateStateOrFail :: (HasCallStack, IsChainState tx) => NodeState tx -> Outcome tx -> NodeState tx
+aggregateStateOrFail currentState outcome =
+  either (Prelude.error . ("Unexpected settlement conflict: " <>) . show) id $ HeadLogic.aggregateState currentState outcome
+
+-- | A valid retained store plus a later snapshot that tries to claim its deposit.
+settlementConflictState :: SnapshotVersion -> IO (NodeState SimpleTx)
+settlementConflictState currentVersion = do
+  let original :: Snapshot SimpleTx
+      original = settlementConflictSnapshot{version = 0}
+  settlements <-
+    either (failure . show) pure $
+      tryInsertSettlement (Settlement (ConfirmedSnapshot original mempty) Erased) emptySettlements
+  case inOpenState [alice, bob, carol] of
+    currentState@NodeInSync{headState = Open os@OpenState{coordinatedHeadState = chs}} ->
+      pure
+        currentState
+          { headState =
+              Open
+                os
+                  { parameters = mkHeadParameters Fixture.testEnvironment
+                  , coordinatedHeadState =
+                      chs
+                        { version = currentVersion
+                        , confirmedSnapshot = ConfirmedSnapshot settlementConflictSnapshot mempty
+                        , settlements
+                        }
+                  }
+          }
+    _ -> failure "expected an open head"
+
+settlementConflictSnapshot :: Snapshot SimpleTx
+settlementConflictSnapshot =
+  withAccumulators (testSnapshot 2 1 [] mempty){utxoToCommit = Just (utxoRef 42), depositTxId = Just 42}

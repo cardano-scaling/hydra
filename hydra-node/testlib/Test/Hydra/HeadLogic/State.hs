@@ -11,7 +11,6 @@ import Hydra.HeadLogic.State (
   ClosedState (..),
   CoordinatedHeadState (..),
   FanoutMode (..),
-  FanoutStepLanded (..),
   HeadState (..),
   IdleState (..),
   OpenState (..),
@@ -20,11 +19,13 @@ import Hydra.HeadLogic.State (
   Settlement (..),
   SettlementStatus (..),
   Settlements,
+  emptySettlements,
   mkSeenSnapshot,
-  settlementsFromMap,
+  tryInsertSettlement,
  )
+import Hydra.Tx.Snapshot qualified as Snapshot
 import Test.Hydra.Tx.Gen (ArbitraryIsTx)
-import Test.QuickCheck (oneof)
+import Test.QuickCheck (listOf, oneof, resize)
 
 instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (HeadState tx) where
   arbitrary = genericArbitrary
@@ -69,17 +70,33 @@ instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (ClosedS
 instance ArbitraryIsTx tx => Arbitrary (FanoutMode tx) where
   arbitrary = genericArbitrary
 
-instance ArbitraryIsTx tx => Arbitrary (FanoutStepLanded tx) where
-  arbitrary = genericArbitrary
-
 instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (PartialFanoutState tx) where
-  arbitrary = genericArbitrary
-
-instance ArbitraryIsTx tx => Arbitrary (Settlement tx) where
   arbitrary = genericArbitrary
 
 instance Arbitrary SettlementStatus where
   arbitrary = genericArbitrary
 
-instance ArbitraryIsTx tx => Arbitrary (Settlements tx) where
-  arbitrary = settlementsFromMap <$> arbitrary
+instance forall tx. ArbitraryIsTx tx => Arbitrary (Settlements tx) where
+  arbitrary = do
+    candidates <- reasonablySized $ listOf genEntry
+    pure $ foldl' keepAccepted emptySettlements candidates
+   where
+    genEntry :: Gen (Settlement tx)
+    genEntry = do
+      version <- arbitrary
+      snap <- resize 2 arbitrary
+      status <- arbitrary
+      pure
+        Settlement
+          { snapshot =
+              Snapshot.ConfirmedSnapshot
+                (snap{Snapshot.version = version})
+                mempty
+          , status
+          }
+
+    keepAccepted :: Settlements tx -> Settlement tx -> Settlements tx
+    keepAccepted current entry =
+      case tryInsertSettlement entry current of
+        Left _ -> current
+        Right updated -> updated

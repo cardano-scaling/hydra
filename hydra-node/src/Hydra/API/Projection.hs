@@ -11,13 +11,13 @@
 --    What we serve from the API server is 'Hydra.API.ServerOutput.TimedServerOutputs' and 'Projection' allows us to
 --    transform these outputs and add more (stateful) information (like the 'Hydra.API.ServerOutput.HeadStatus' model).
 --
---    'Projection's always need to use a function in form of `(model -> event -> model)` where
---    depending on event we are currently dealing with we might want to alter our existing model.
+--    Each event updates the current model in STM. A failed update leaves the
+--    model unchanged.
 module Hydra.API.Projection where
 
 import Hydra.Prelude
 
-import Control.Concurrent.Class.MonadSTM (modifyTVar')
+import Control.Concurrent.Class.MonadSTM (writeTVar)
 
 -- | 'Projection' type used to alter/project the API output to suit the client needs.
 data Projection stm event model = Projection
@@ -37,7 +37,17 @@ mkProjection ::
   -- | Projection function
   (model -> event -> model) ->
   m (Projection (STM m) event model)
-mkProjection lbl startingModel project = do
+mkProjection lbl startingModel project =
+  mkProjectionM lbl startingModel $ \model event -> pure $ project model event
+
+-- | Create a projection whose update can fail without changing its model.
+mkProjectionM ::
+  MonadLabelledSTM m =>
+  String ->
+  model ->
+  (model -> event -> STM m model) ->
+  m (Projection (STM m) event model)
+mkProjectionM lbl startingModel project = do
   tv <- newLabelledTVarIO ("api-server-projection-" <> lbl) startingModel
   pure
     Projection
@@ -45,6 +55,7 @@ mkProjection lbl startingModel project = do
       , update = update tv
       }
  where
-  update tv event =
-    modifyTVar' tv $ \m ->
-      project m event
+  update tv event = do
+    model <- readTVar tv
+    next <- project model event
+    writeTVar tv $! next

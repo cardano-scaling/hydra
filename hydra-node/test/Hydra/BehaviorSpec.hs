@@ -36,8 +36,8 @@ import Hydra.Chain (
  )
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot), ChainStateType, IsChainState, chainStatePoint, chainStateSlot)
 import Hydra.Chain.Direct.Handlers (LocalChainState, getLatest, newLocalChainState, pushNew, rollback)
-import Hydra.HeadLogic (CoordinatedHeadState (..), Effect (..), HeadState (..), Input (..), OpenState (..), aggregateChainStateHistory, aggregateNodeState)
-import Hydra.HeadLogic.StateEvent (StateEvent (..))
+import Hydra.HeadLogic (CoordinatedHeadState (..), Effect (..), HeadState (..), Input (..), OpenState (..), aggregateChainStateHistory)
+import Hydra.HeadLogic.StateEvent (StateEvent (..), replayStateEvent)
 import Hydra.HeadLogicSpec (testSnapshot)
 import Hydra.Ledger (Ledger)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), simpleLedger)
@@ -1902,7 +1902,7 @@ createHydraNodeWithEventStore EventStore{eventSource, eventSink} events tracer l
   -- server output history (e.g. HeadIsOpen) is available like after a real
   -- fail-recovery.
   putEventsToSinks [apiSink] events
-  let nodeState = foldl' (\s StateEvent{stateChanged} -> aggregateNodeState s stateChanged) (initNodeState chainState) events
+  nodeState <- foldlM replayStateEvent (initNodeState chainState) events
   let chainStateHistory = foldl' (\h StateEvent{stateChanged} -> aggregateChainStateHistory h stateChanged) (initHistory chainState) events
   let lastEventId = getEventId <$> viaNonEmpty last events
   nodeStateHandler <- createNodeStateHandler lastEventId nodeState

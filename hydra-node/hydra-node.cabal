@@ -77,6 +77,7 @@ library
     Hydra.HeadLogic.Error
     Hydra.HeadLogic.Input
     Hydra.HeadLogic.Outcome
+    Hydra.HeadLogic.Settlements
     Hydra.HeadLogic.State
     Hydra.HeadLogic.StateEvent
     Hydra.Ledger

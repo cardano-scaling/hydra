@@ -31,6 +31,7 @@ import Data.Text.IO (hPutStrLn)
 import Data.Version (showVersion)
 import Hydra.API.APIServerLog (APIServerLog)
 import Hydra.API.ClientInput (ClientInput (Init))
+import Hydra.API.Projection (Projection (..), mkProjectionM)
 import Hydra.API.Server (APIServerConfig (..), RunServerException (..), Server, mkTimedServerOutputFromStateEvent, projectCommitInfo, projectNetworkInfo, sendMessage, withAPIServer)
 import Hydra.API.ServerOutput (ApiEncoding (..), ApiMessage (..), ClientMessage (..), CommitInfo (..), InvalidInput (..), NetworkInfo (..), ServerOutput (..), ServerOutputConfig (..), TimedServerOutput (..), WithAddressedTx (..), WithUTxO (..), input)
 import Hydra.API.ServerOutputFilter (ServerOutputFilter (..))
@@ -44,8 +45,8 @@ import Hydra.Chain (
  )
 import Hydra.HeadLogic.Outcome qualified as Outcome
 import Hydra.HeadLogic.State (FanoutMode (..))
-import Hydra.HeadLogic.StateEvent (StateEvent (..))
-import Hydra.HeadLogicSpec (inIdleState, inOpenState, testSnapshot)
+import Hydra.HeadLogic.StateEvent (StateAggregationException (..), StateEvent (..), replayStateEvent)
+import Hydra.HeadLogicSpec (inIdleState, inOpenState, settlementConflictState, testSnapshot)
 import Hydra.Ledger.Simple (SimpleTx (..))
 import Hydra.Network (Host (..), PortNumber, StallReason (..))
 import Hydra.NetworkVersions qualified as NetworkVersions
@@ -73,6 +74,15 @@ import Test.QuickCheck.Monadic (monadicIO, monitor, pick, run)
 spec :: Spec
 spec =
   do
+    it "keeps the API projection unchanged on a settlement conflict" $ do
+      currentState <- settlementConflictState 1
+      now <- getCurrentTime
+      projection <- mkProjectionM "settlement-conflict" currentState replayStateEvent
+      let event = StateEvent 7 Outcome.CommitFinalized{chainState = 9, headId = testHeadId, newVersion = 2, depositTxId = 42} now
+      atomically (update projection event)
+        `shouldThrow` \StateAggregationException{conflictingEventId} -> conflictingEventId == 7
+      atomically (getLatest projection) `shouldReturn` currentState
+
     it "should fail on port in use" $ do
       showLogsOnFailure "ServerSpec" $ \tracer -> failAfter 5 $
         -- The first server serves a socket bound since allocation, so nothing
