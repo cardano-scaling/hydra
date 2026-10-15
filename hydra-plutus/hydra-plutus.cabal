@@ -56,7 +56,6 @@ library
     Hydra.Contract.CRS
     Hydra.Contract.Deposit
     Hydra.Contract.DepositError
-    Hydra.Contract.Dummy
     Hydra.Contract.Error
     Hydra.Contract.Head
     Hydra.Contract.HeadError
@@ -95,10 +94,12 @@ library
     , time
 
   if flag(precompiled-scripts)
+    cpp-options:   -DHYDRA_PRECOMPILED_SCRIPTS
     other-modules: Hydra.Contract.Precompiled
 
   else
-    build-depends: plutus-tx-plugin >=1.53
+    exposed-modules: Hydra.Contract.Dummy
+    build-depends:   plutus-tx-plugin >=1.53
 
 library testlib
   import:          project-config

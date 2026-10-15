@@ -1,7 +1,4 @@
-module Hydra.Tx.Utils (
-  module Hydra.Tx.Utils,
-  dummyValidatorScript,
-) where
+module Hydra.Tx.Utils where
 
 import Hydra.Cardano.Api
 import Hydra.Prelude hiding (toList)
@@ -13,7 +10,6 @@ import Control.Lens ((.~), (^.))
 import Data.Map.Strict qualified as Map
 import Data.Maybe.Strict (StrictMaybe (..))
 import GHC.IsList (IsList (..))
-import Hydra.Contract.Dummy (dummyValidatorScript)
 import Hydra.Contract.Util (hydraHeadV2)
 import Hydra.Tx.HeadId (HeadId, mkHeadId)
 import Hydra.Tx.OnChainId (OnChainId (..))

@@ -43,7 +43,7 @@ import System.IO (hPutStrLn)
 
 main :: IO ()
 main = do
-  initializePlatform
+  initialisePlatform
   args <- getArgs
   -- Strip --config FILE before optparse sees the args so that it is always
   -- accepted (even when used alongside subcommands) and appears correctly in
@@ -95,15 +95,15 @@ main = do
     putBSLn $ intercalate "," (serialiseToRawBytesHex <$> txIds)
 
 -- | Configure console encoding on Windows and SIGTERM handling on Unix.
-initializePlatform :: IO ()
+initialisePlatform :: IO ()
 #ifdef mingw32_HOST_OS
-initializePlatform = do
+initialisePlatform = do
   -- Windows code pages may not represent the Unicode help banner.
   -- Console interrupts are handled by the RTS.
   setLocaleEncoding utf8
   mapM_ (`hSetEncoding` utf8) [stdin, stdout, stderr]
 #else
-initializePlatform = do
+initialisePlatform = do
   -- Handle SIGTERM like SIGINT, following:
   -- https://github.com/IntersectMBO/cardano-node/commit/ce26b8e6e5b2ccda123f04c224036be44529b97e
   -- Similar implementation to the RTS's handling of SIGINT (see GHC's

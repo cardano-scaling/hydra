@@ -73,6 +73,16 @@ def port_is_closed(port: int):
         assert connection.connect_ex(("127.0.0.1", port)) != 0, f"Port {port} still open"
 
 
+def check_shutdown(process, log: Path):
+    code = process.wait(timeout=30)
+    lines = log.read_text(encoding="utf-8").splitlines()
+    # Main catches UserInterrupt with the other exceptions and calls die.
+    # Exit code 1 alone would also accept an unexpected shutdown exception.
+    assert code == 1 and lines and lines[-1] == "user interrupt", (
+        f"Unexpected shutdown: exit {code}, log {log}\n" + "\n".join(lines[-5:])
+    )
+
+
 def smoke_test(binary: Path, work: Path, parameters: Path, catalogue: Path):
     if os.name == "nt":
         # CTRL_BREAK_EVENT requires a shared console. CI may launch Python
@@ -131,8 +141,8 @@ def smoke_test(binary: Path, work: Path, parameters: Path, catalogue: Path):
             print(f"Startup, API and peers passed (run {run + 1}/2).", flush=True)
             for process in processes:
                 process.send_signal(signal.CTRL_BREAK_EVENT if os.name == "nt" else signal.SIGINT)
-            for process in processes:
-                process.wait(timeout=30)
+            for process, log in zip(processes, logs):
+                check_shutdown(process, Path(log.name))
             for port in (2479, 2480, 4101, 4102, 5101, 5102):
                 eventually(lambda p=port: port_is_closed(p), [], timeout=15)
         finally:

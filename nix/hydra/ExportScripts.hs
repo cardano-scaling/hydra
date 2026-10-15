@@ -7,11 +7,9 @@ module Main where
 import Control.Monad (forM_, unless)
 import Data.Aeson (encodeFile)
 import Data.ByteString qualified as BS
-import Data.ByteString.Short qualified as SBS
-import Hydra.Cardano.Api (PlutusScript, pattern PlutusScriptSerialised)
+import Hydra.Cardano.Api (pattern PlutusScriptSerialised)
 import Hydra.Contract (hydraScriptCatalogue)
 import Hydra.Contract.CRS qualified as CRS
-import Hydra.Contract.Dummy qualified as Dummy
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.HeadTokens qualified as HeadTokens
 import PlutusCore.Flat (flat)
@@ -32,11 +30,6 @@ main = do
   writeCode (directory </> "head.flat") Head.unappliedValidator
   writeCode (directory </> "mint.flat") HeadTokens.unappliedMintingPolicy
   writeCode (directory </> "crs.flat") CRS.crsValidatorScript
-  writeScript (directory </> "dummy-validator.cbor") Dummy.dummyValidatorScript
-  writeScript (directory </> "dummy-failing.cbor") Dummy.dummyValidatorScriptAlwaysFails
-  writeScript (directory </> "dummy-minting.cbor") Dummy.dummyMintingScript
-  writeScript (directory </> "dummy-rewarding.cbor") Dummy.dummyRewardingScript
-  writeScript (directory </> "dummy-secure.cbor") Dummy.exampleSecureValidatorScript
   checkMintingPolicies directory
   encodeFile (directory </> "linux-script-catalogue.json") hydraScriptCatalogue
 
@@ -54,9 +47,6 @@ writeCode path code = do
       "Script export changes bytes: " <> path
   BS.writeFile path bytes
   BS.writeFile (path <> ".pir") pir
-
-writeScript :: FilePath -> PlutusScript -> IO ()
-writeScript path (PlutusScriptSerialised bytes) = BS.writeFile path (SBS.fromShort bytes)
 
 checkMintingPolicies :: FilePath -> IO ()
 checkMintingPolicies directory = do

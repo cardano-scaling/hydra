@@ -9,6 +9,9 @@ As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
 ## UNRELEASED
+
+- Windows build of hydra-node [#2360](https://github.com/cardano-scaling/hydra/issues/2360)
+
 - Updated to cardano-node 11.1.3 and cardano-api 11.7.0.0, adapting transaction
   construction and UTxO parsing to the new APIs and regenerating smaller Plutus
   scripts.

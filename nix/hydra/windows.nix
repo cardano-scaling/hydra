@@ -80,17 +80,109 @@
             # the scripts natively from the same sources and dependency pins.
             packages.hydra-plutus.preConfigure = ''
               cp -r ${nativeScripts} cross-scripts
-              ${pkgs.buildPackages.python3}/bin/python ${../../scripts/prepare-windows-scripts.py} src
             '';
           })
         ];
       });
       windowsProject = project.projectCross.ucrt64;
+      runtime = pkgs.pkgsCross.ucrt64;
+      # Take notices from the exact pinned sources, not from Nix's sometimes
+      # broader package-level license metadata (notably GCC and mcfgthread).
+      runtimePackage = { package, attribute, license, licenseFiles, upstream }: {
+        inherit attribute license licenseFiles upstream;
+        pname = package.pname or (lib.getName package);
+        inherit (package) version;
+        output = toString (lib.getLib package);
+        source = toString package.src;
+        sourceUrls = package.src.urls or [ ];
+        sourceRevision = package.src.rev or null;
+        sourceHash = package.src.outputHash or (package.src.narHash or null);
+        sourceHashMode = package.src.outputHashMode or "recursive";
+      };
+      buildInput = repository: input: {
+        revision = input.rev;
+        sourceHash = input.narHash;
+        url = "https://github.com/${repository}/tree/${input.rev}";
+      };
+      runtimeManifest = pkgs.writeText "windows-runtime.json" (builtins.toJSON {
+        packages = map runtimePackage [
+          {
+            package = runtime.stdenv.cc.cc;
+            attribute = "stdenv.cc.cc.lib";
+            license = "GPL-3.0-or-later WITH GCC-exception-3.1";
+            licenseFiles = [ "COPYING" "COPYING3" "COPYING.LIB" "COPYING3.LIB" "COPYING.RUNTIME" ];
+            upstream = "https://gcc.gnu.org/";
+          }
+          {
+            package = runtime.gmp;
+            attribute = "gmp";
+            license = "LGPL-3.0-or-later OR GPL-2.0-or-later";
+            licenseFiles = [ "COPYING" "COPYINGv2" "COPYINGv3" "COPYING.LESSERv3" ];
+            upstream = "https://gmplib.org/";
+          }
+          {
+            package = runtime.windows.mcfgthreads;
+            attribute = "windows.mcfgthreads";
+            license = "LGPL-3.0-or-later WITH GCC-exception-3.1";
+            licenseFiles = [ "LICENSE.TXT" "licenses" ];
+            upstream = "https://github.com/lhmouse/mcfgthread";
+          }
+          {
+            package = runtime.libffi;
+            attribute = "libffi";
+            license = "MIT";
+            licenseFiles = [ "LICENSE" ];
+            upstream = "https://github.com/libffi/libffi";
+          }
+          {
+            package = runtime.libsodium-vrf;
+            attribute = "libsodium-vrf";
+            license = "ISC";
+            licenseFiles = [ "LICENSE" ];
+            upstream = "https://github.com/input-output-hk/libsodium";
+          }
+          {
+            package = runtime.secp256k1;
+            attribute = "secp256k1";
+            license = "MIT";
+            licenseFiles = [ "COPYING" ];
+            upstream = "https://github.com/bitcoin-core/secp256k1";
+          }
+          {
+            package = runtime.snappy;
+            attribute = "snappy";
+            license = "BSD-3-Clause";
+            licenseFiles = [ "COPYING" ];
+            upstream = "https://github.com/google/snappy";
+          }
+          {
+            package = runtime.zlib;
+            attribute = "zlib";
+            license = "Zlib";
+            licenseFiles = [ "LICENSE" ];
+            upstream = "https://github.com/madler/zlib";
+          }
+        ];
+        # MinGW code is also linked into the executables and DLLs themselves.
+        mingw = runtimePackage {
+          package = runtime.windows.mingw_w64;
+          attribute = "windows.mingw_w64";
+          license = "See the accompanying MinGW-w64 runtime notices";
+          licenseFiles = [ "COPYING" "COPYING.MinGW-w64-runtime" ];
+          upstream = "https://www.mingw-w64.org/";
+        };
+        buildInputs = {
+          nixpkgs = buildInput "NixOS/nixpkgs" inputs.nixpkgs;
+          haskellNix = buildInput "input-output-hk/haskell.nix" inputs.haskellNix;
+          iohk-nix = buildInput "input-output-hk/iohk-nix" inputs.iohk-nix;
+        };
+      });
       windowsNode = pkgs.runCommand "hydra-node-windows" { } ''
         ${pkgs.python3}/bin/python ${../../scripts/package-windows.py} \
           ${windowsProject.hsPkgs.hydra-node.components.exes.hydra-node}/bin \
           "$out/bin" ${lib.escapeShellArg (self.rev or "dirty")} \
-          ${pkgs.pkgsCross.ucrt64.stdenv.cc.bintools}/bin/x86_64-w64-mingw32-objdump
+          ${runtime.stdenv.cc.bintools}/bin/x86_64-w64-mingw32-objdump \
+          ${runtimeManifest} ${self}
       '';
     in
     {
@@ -103,7 +195,7 @@
           mkdir -p "$out"
           cp ${nativeScripts}/linux-script-catalogue.json "$out/"
           cd ${windowsNode}/bin
-          zip -9 "$out/hydra-x86_64-windows.zip" ./*
+          zip -9 -r "$out/hydra-x86_64-windows.zip" ./*
         '';
       };
     };

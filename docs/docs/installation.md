@@ -60,6 +60,25 @@ one directory and keep the bundled DLLs alongside `hydra-node.exe`. The node
 embeds its Windows `etcd.exe` and installs it in the persistence directory on
 startup. No Haskell compiler or separate etcd installation is needed on Windows.
 
+The ZIP includes the DLLs imported by the node and their transitive dependencies.
+`WINDOWS-RUNTIME-NOTICES.txt` identifies their licenses, with the original license
+and copyright texts in `licenses/`. `runtime-provenance.json` records each DLL's
+SHA-256, Nix package, version, source revision or URL, and source hash. It also
+records the Hydra revision and the commits, hashes and links for the Nix build
+inputs. Source archives, patches and build recipes are not bundled. Keep the
+notices and provenance with redistributions, and arrange any required
+GPL/LGPL corresponding-source access separately; hashes alone do not provide it.
+This inventory covers the DLLs and MinGW runtime; it does not enumerate all
+Haskell or embedded etcd dependencies.
+
+The cross-build compiles the Plutus contracts on Linux, then embeds those
+artifacts using the `precompiled-scripts` Cabal flag. Both builds use the same
+contract sources and dependency pins; the flag selects embedding directly in
+the Haskell modules without rewriting their source.
+Only the Head validator, Head minting policy and CRS validator use this path;
+dummy and example validators are excluded from the Windows build. The deposit
+validator is already embedded from its Aiken blueprint by both builds.
+
 From PowerShell:
 
 ```powershell
@@ -77,8 +96,10 @@ and restart from paths containing spaces.
 
 Shutdown interrupts the embedded etcd process before joining its reader threads,
 allowing blocked Windows reads to finish. If etcd does not exit within five
-seconds, the node terminates it. The smoke test requires the node to exit and
-release its ports before restarting it with the same persisted state.
+seconds, the node terminates it. The smoke test requires the node to report
+`user interrupt` with exit code 1 (the current top-level exception handler's
+normal interrupt outcome) and release its ports before restarting it with the
+same persisted state. Other shutdown exceptions fail the test.
 
 The archive includes only `hydra-node`. Live Cardano connectivity and TLS are
 untested; a Cardano connection requires a separate Cardano node or Blockfrost.
