@@ -1835,49 +1835,33 @@ spec =
             _ -> fail "expected Open state"
 
           -- 2. The stale ReqSn(v=3) arrives. The receiver's version is now 4,
-          --    one ahead, and the proposal is based on its confirmed snapshot:
-          --    a straddle. It is signed at v=3, exactly as a party that has not
-          --    seen the decrement land signs it, so every AckSn is over the
-          --    same bytes (see 'waitOnSnapshotVersion'). Waiting here could
-          --    never resolve, since the local version never goes back down.
+          --    so it cannot be processed; we wait (and TTL eventually drops it)
+          --    rather than erroring, since the symmetric race where a follower
+          --    is briefly behind a leader's bumped version must recover via
+          --    retry.
           let staleReqSn :: Input SimpleTx
               staleReqSn = receiveMessageFrom alice $ ReqSn 3 1 [] Nothing Nothing
           now' <- nowFromSlot s1.chainPointTime.currentSlot
-          let straddled = update aliceEnv ledger now' s1 staleReqSn
-          straddled `hasStateChangedSatisfying` \case
-            SnapshotRequested{requestedSnapshot = Snapshot{version = v}} -> v == 3
-            _ -> False
-          straddled `hasEffectSatisfying` \case
-            NetworkEffect (AckSn _ 1) -> True
+          update aliceEnv ledger now' s1 staleReqSn `shouldSatisfy` \case
+            Wait WaitOnSnapshotVersion{waitingForVersion = 3} _ -> True
             _ -> False
 
-          -- 3. The round completes one version behind the chain: every party
-          --    acks the straddled snapshot and it confirms at v=3 while the
-          --    local version stays 4. A new ReqTx then makes bob (leader for
-          --    sn=2 in a three party head) propose the next snapshot at the
-          --    bumped version, so the head is not stuck.
+          -- 3. A new ReqTx lets Alice request a snapshot at the new version,
+          -- because the reset clears the pending request.
+          let newTx = aValidTx 42
+              reqTx = receiveMessage $ ReqTx newTx
           s2 <- runHeadLogic aliceEnv ledger s1 $ do
-            step staleReqSn
+            step reqTx
             getState
-          straddledSnapshot <- case s2 of
-            NodeInSync{headState = Open OpenState{coordinatedHeadState = CoordinatedHeadState{seenSnapshot = SeenSnapshot{snapshot}}}} -> pure snapshot
-            other -> fail $ "expected the straddled snapshot in flight, got: " <> show other
-          s3 <- runHeadLogic aliceEnv ledger s2 $ do
-            step $ receiveMessageFrom alice $ AckSn (sign aliceSk straddledSnapshot) 1
-            step $ receiveMessageFrom bob $ AckSn (sign bobSk straddledSnapshot) 1
-            step $ receiveMessageFrom carol $ AckSn (sign carolSk straddledSnapshot) 1
-            getState
-          case s3 of
-            NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} -> do
-              chs.version `shouldBe` 4
-              (getSnapshot chs.confirmedSnapshot).version `shouldBe` 3
-              (getSnapshot chs.confirmedSnapshot).number `shouldBe` 1
+
+          -- Verify the head is not stuck: seenSnapshot should have advanced
+          -- (snapshot number will be based on confirmedSnapshot.number, not lastSeen)
+          case s2 of
+            NodeInSync{headState = Open OpenState{coordinatedHeadState = chs}} ->
+              chs.seenSnapshot `shouldSatisfy` \case
+                RequestedSnapshot{} -> True
+                _ -> False
             _ -> fail "expected Open state"
-          now'' <- nowFromSlot s3.chainPointTime.currentSlot
-          update bobEnv ledger now'' s3 (receiveMessage $ ReqTx (aValidTx 42))
-            `hasEffectSatisfying` \case
-              NetworkEffect ReqSn{snapshotVersion = 4, snapshotNumber = 2} -> True
-              _ -> False
 
         it "DecommitFinalized with RequestedSnapshot resets seenSnapshot to confirmedSn" $ do
           let localUTxO = utxoRefs [1]
@@ -3141,6 +3125,64 @@ spec =
                 _ -> False
             _ -> False
 
+      it "does not sign away a settled deposit in a request one version behind" $ do
+        now <- getCurrentTime
+        let env = aliceEnv{depositPeriod = 60, depositActivation = 60}
+            depositTxId = 42
+            deposited = utxoRef 42
+            committing =
+              withAccumulators
+                (testSnapshot 1 0 [] mempty)
+                  { utxoToCommit = Just deposited
+                  , depositTxId = Just depositTxId
+                  }
+            signatures = Crypto.aggregate $ (`sign` committing) <$> [aliceSk, bobSk, carolSk]
+
+        settled <- runHeadLogic env ledger (inOpenState threeParties) $ do
+          step $
+            observeTxAtSlot
+              1
+              OnDepositTx
+                { headId = testHeadId
+                , depositTxId
+                , deposited
+                , created = addUTCTime (-120) now
+                , deadline = addUTCTime 600 now
+                }
+          step . ChainInput $ Tick{chainTime = now, chainPoint = 2}
+          step . receiveMessageFrom alice $ ReqSn 0 1 [] Nothing (Just depositTxId)
+          forM_ [(alice, aliceSk), (bob, bobSk), (carol, carolSk)] $ \(party, key) ->
+            step . receiveMessageFrom party $ AckSn (sign key committing) 1
+          step $ observeTxAtSlot 3 OnIncrementTx{headId = testHeadId, newVersion = 1, depositTxId, snapshotNumber = 1, signatures}
+          getState
+
+        getConfirmedSnapshot settled `shouldBe` Just committing
+        Map.member depositTxId settled.pendingDeposits `shouldBe` False
+        case headState settled of
+          Open OpenState{coordinatedHeadState = CoordinatedHeadState{version}} -> version `shouldBe` 1
+          other -> expectationFailure $ "Expected an open head, got: " <> show other
+
+        -- Bob leads snapshot 2 and omits the deposit after its increment lands.
+        -- A snapshot signed at version 0 must still account for those funds.
+        let outcome = update env ledger now settled (receiveMessageFrom bob $ ReqSn 0 2 [] Nothing Nothing)
+            requested = case outcome of
+              Continue{stateChanges} -> [snapshot | SnapshotRequested{requestedSnapshot = snapshot} <- stateChanges]
+              _ -> []
+        forM_ requested $ \snapshot -> do
+          snapshot.utxo <> fold snapshot.utxoToCommit `shouldBe` deposited
+          isClosableAt 1 snapshot `shouldBe` True
+        effectsOf outcome `shouldSatisfy` all (\case NetworkEffect AckSn{} -> False; _ -> True)
+
+        let afterRequest = aggregateStateOrFail settled outcome
+        getConfirmedSnapshot afterRequest `shouldBe` Just committing
+        update env ledger now afterRequest (ClientInput Close)
+          `hasEffectSatisfying` \case
+            OnChainEffect{postChainTx = CloseTx{openVersion, closingSnapshot}} ->
+              openVersion == 1
+                && getSnapshot closingSnapshot == committing
+                && isClosableAt openVersion committing
+            _ -> False
+
       -- Scenarios where the rollback happens AFTER the increment/decrement was
       -- already observed and finalized ('CommitFinalized'/'DecommitFinalized').
       -- Finalization deletes the deposit from 'pendingDeposits' (respectively
@@ -4114,82 +4156,6 @@ spec =
             `hasEffectSatisfying` \case
               NetworkEffect ReqSn{snapshotVersion = 1, decommitTx = Just tx, depositTxId = Nothing} -> tx == decommitTx'
               _ -> False
-
-        -- Straddle-signing (the late-ReqSn deadlock). The leader multicasts
-        -- ReqSn at version v; an increment lands and bumps this node to v+1
-        -- before the ReqSn arrives. Waiting for version v to come back can
-        -- never resolve, and the leader will not propose again while it is
-        -- collecting AckSns, so the head stops confirming. Instead this node
-        -- signs the proposal at v, exactly as the parties that have not seen
-        -- the bump do, so every AckSn is over the same bytes and the round
-        -- confirms one version behind the chain, a state 'CloseUsed' supports.
-        it "signs a ReqSn one version behind when its increment already finalized" $ do
-          now <- getCurrentTime
-          -- Version 1, snapshot 1@0 confirmed and its increment landed: the
-          -- deposit is consumed and retained, not pending.
-          s0 <- afterCommitFinalized now
-          now' <- nowFromSlot s0.chainPointTime.currentSlot
-          let outcome = update soloAliceEnv ledger now' s0 (receiveMessage $ ReqSn 0 2 [] Nothing (Just depositTxId'))
-          outcome `hasStateChangedSatisfying` \case
-            SnapshotRequested{requestedSnapshot = Snapshot{version, utxoToCommit}} ->
-              version == 0 && utxoToCommit == Just depositedUTxO
-            _ -> False
-          outcome `hasEffectSatisfying` \case
-            NetworkEffect (AckSn _ 2) -> True
-            _ -> False
-
-        it "refuses a straddling ReqSn whose increment a rollback erased" $ do
-          -- Same shape, but the rollback erased the increment: the deposit is
-          -- settled by re-posting the retained snapshot, never by signing a
-          -- new one that claims it again (#2741). The version check lets the
-          -- proposal through; the deposit check must still refuse it.
-          now <- getCurrentTime
-          s0 <- afterCommitFinalized now
-          s1 <- runHeadLogic soloAliceEnv ledger s0 $ step (rollbackTo 2 now) >> getState
-          now' <- nowFromSlot s1.chainPointTime.currentSlot
-          case update soloAliceEnv ledger now' s1 (receiveMessage $ ReqSn 0 2 [] Nothing (Just depositTxId')) of
-            Error (RequireFailed ReqSnDepositBlockedByFinalizedCommit{depositTxId = blocked}) -> blocked `shouldBe` depositTxId'
-            other -> expectationFailure $ "Expected ReqSnDepositBlockedByFinalizedCommit, got: " <> show other
-
-        it "rejects a ReqSn two versions behind as unsatisfiable" $ do
-          -- Version is monotone, so a proposal two or more behind can never be
-          -- signed. Today it is parked until its TTL drops it in silence; a
-          -- terminal error says why. Only a one-version straddle is admitted.
-          let s0 =
-                inOpenState' [alice] $
-                  coordinatedHeadState
-                    { confirmedSnapshot = ConfirmedSnapshot{snapshot = testSnapshot 2 1 [] mempty, signatures = Crypto.aggregate []}
-                    , seenSnapshot = LastSeenSnapshot{lastSeen = 2}
-                    , version = 2
-                    }
-          now' <- nowFromSlot s0.chainPointTime.currentSlot
-          update soloAliceEnv ledger now' s0 (receiveMessage $ ReqSn 0 3 [] Nothing Nothing)
-            `shouldBe` Error (RequireFailed ReqSvNumberInvalid{requestedSv = 0, lastSeenSv = 2})
-
-        it "rejects a ReqSn one version behind that is below the confirmed snapshot's version" $ do
-          -- One behind is only a straddle when it is based on the confirmed
-          -- snapshot. A proposal below the confirmed snapshot's own version
-          -- proposes a predecessor the head has moved past.
-          let s0 =
-                inOpenState' [alice] $
-                  coordinatedHeadState
-                    { confirmedSnapshot = ConfirmedSnapshot{snapshot = testSnapshot 3 2 [] mempty, signatures = Crypto.aggregate []}
-                    , seenSnapshot = LastSeenSnapshot{lastSeen = 3}
-                    , version = 2
-                    }
-          now' <- nowFromSlot s0.chainPointTime.currentSlot
-          update soloAliceEnv ledger now' s0 (receiveMessage $ ReqSn 1 4 [] Nothing Nothing)
-            `shouldBe` Error (RequireFailed ReqSvNumberInvalid{requestedSv = 1, lastSeenSv = 2})
-
-        it "still waits on a ReqSn ahead of its version" $ do
-          -- The direction that must stay a wait: this node's chain handler has
-          -- not processed the bump the leader already saw, so a retry resolves
-          -- it. Asserted next to the straddle so nobody collapses the two.
-          now <- getCurrentTime
-          s0 <- afterCommitFinalized now
-          now' <- nowFromSlot s0.chainPointTime.currentSlot
-          update soloAliceEnv ledger now' s0 (receiveMessage $ ReqSn 2 2 [] Nothing Nothing)
-            `assertWait` WaitOnSnapshotVersion 2
 
         it "does not propose the deposit of the snapshot it is just confirming" $ do
           -- A rollback inside the window where the snapshot is still

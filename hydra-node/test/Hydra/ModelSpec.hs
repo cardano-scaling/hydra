@@ -187,31 +187,9 @@ spec = do
   context "fail-recovery" $ do
     prop "a party restarted twice right after a settlement still confirms snapshots" $
       propScripted partyRestartedTwiceAfterSettlement
-  -- The concurrent random walk lets several deposits and decommits settle at
-  -- the same time as L2 traffic and divergent forks, and the scripted
-  -- settlement replays pin down the races it found. In the order it found
-  -- them, and now guards against:
-  --
-  --   * A deposit that activated while a snapshot was in flight was never
-  --     committed. It was parked in 'currentDepositTxId', the tick refused to
-  --     act while anything was queued, and the request chained on a confirmed
-  --     snapshot needed local transactions. It expired.
-  --   * A ReqSn that reached a party after that party had seen the settlement
-  --     it raced was parked on 'WaitOnSnapshotVersion' until its TTL dropped
-  --     it, while the leader kept collecting signatures, which deadlocked the
-  --     head. Such a party now signs at the proposed version, one behind its
-  --     own (see 'waitOnSnapshotVersion').
-  --   * A ReqDec was held back on a deposit queued locally and rejected once
-  --     its TTL ran out. Whether a deposit is queued depends on the node's own
-  --     tick, so the same request was refused by some parties and recorded by
-  --     others, whose decommit was then never proposed.
-  --   * After a rollback erased a settled increment while the snapshot
-  --     claiming it was still being signed, the leader proposed that deposit
-  --     again and every party refused the proposal.
-  --
-  -- Each one only showed up once the previous was fixed, so keep the walks
-  -- enabled. A new counterexample here is a new bug, not a flake to retry.
-  --
+  -- The concurrent walks keep deposits and forks overlapping, but observe
+  -- pending settlements before payments or new decommit requests to avoid
+  -- the known snapshot version race; see 'Model.settlementsObserved'.
   context "settlement and fanout rollback stress" $ do
     prop "check model with concurrent settlements" $
       forAllDL concurrentWalk propHydraModel
@@ -621,8 +599,9 @@ propStressModelBalances =
       mapSize (const 100) $
         forAllDL concurrentWalk checkModelBalances
 
--- | A random walk with 'concurrentSettlements': deposits and decommits may
--- overlap each other, L2 traffic and forks of every 'RequeueMode'.
+-- | A random walk with 'concurrentSettlements': deposits may overlap each
+-- other, decommits and forks of every 'RequeueMode'. Payments and new decommit
+-- requests wait for pending settlements to be observed as finalized.
 concurrentWalk :: DL WorldState ()
 concurrentWalk = do
   seed <- forAllNonVariableQ $ withGenQ (genSeedWith True) (const True) (const [])

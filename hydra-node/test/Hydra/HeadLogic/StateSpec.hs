@@ -309,8 +309,7 @@ genSmallSnapshot = resize 2 arbitrary
 genSmallSettlement :: Gen (Settlement Tx)
 genSmallSettlement = do
   snap <- genSmallSnapshot
-  status <- arbitrary
-  pure $ settlementAt snap snap.version snap.depositTxId status
+  settlementAt snap snap.version snap.depositTxId <$> arbitrary
 
 genEntries :: Gen (Map.Map SnapshotVersion (Settlement Tx))
 genEntries =

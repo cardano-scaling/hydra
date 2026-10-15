@@ -596,20 +596,9 @@ spec = parallel $ do
       reqSnOutcome 0 0 0 2 alice `shouldBe` Error (RequireFailed $ ReqSnNumberInvalid 2 0)
     it "a non-leader sender is the node's ReqSnNotLeader" $
       reqSnOutcome 0 0 0 1 bob `shouldBe` Error (RequireFailed $ ReqSnNotLeader 1 bob)
-    it "a version AHEAD of ours WAITS (WaitOnSnapshotVersion), which is non-accept" $
+    it "a version mismatch WAITS (WaitOnSnapshotVersion), which is non-accept" $
       reqSnOutcome 0 0 1 1 alice `assertWait` WaitOnSnapshotVersion 1
-    -- The node signs a proposal ONE version behind its own when it is based on
-    -- the confirmed snapshot (a straddle, see 'waitOnSnapshotVersion' in
-    -- HeadLogic), and rejects anything further behind as unsatisfiable.
-    -- 'signEligibleRef' has no input for the confirmed snapshot's version, so
-    -- it still rejects the straddle: on this fixture the point
-    -- (v = 0, v̂ = 1, ŝ = 0) disagrees. Pending until the reference gains that
-    -- input and is re-extracted (hydra-agda). The behaviour is pinned in
-    -- HeadLogicSpec ("signs a ReqSn one version behind ...", "rejects a ReqSn
-    -- two versions behind ...", "still waits on a ReqSn ahead of its version").
-    it "anchor: one version behind, based on the confirmed snapshot, is signed (straddle)" $
-      reqSnAccepts (reqSnOutcome 1 0 0 1 alice) `shouldBe` True
-    xprop "signEligibleRef === real ReqSn accept/reject across (v, v̂, s, ŝ, sender)" $
+    prop "signEligibleRef === real ReqSn accept/reject across (v, v̂, s, ŝ, sender)" $
       forAll (choose (0, 1)) $ \vHat ->
         forAll (choose (0, 2)) $ \v ->
           forAll (choose (0, 2)) $ \sHat ->
