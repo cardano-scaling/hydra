@@ -419,7 +419,7 @@ broadcastMessages tracer config ourHost queue = do
     -- ports. Messages are only popped after a successful put, so a recycled or
     -- failed connection never loses one.
     void $ peekPersistentQueue queue
-    catchJust retryableEtcdError (sendPending lastModRevVar inFlightVar) $ \reason -> do
+    catchEtcdError (sendPending lastModRevVar inFlightVar) $ \reason -> do
       traceWith tracer $ BroadcastFailed{reason}
       threadDelay 1
  where
@@ -455,7 +455,7 @@ broadcastMessages tracer config ourHost queue = do
   -- Same retry shape as the broadcast loop, so we survive an etcd cluster that
   -- is still electing or that we briefly cannot reach.
   retryInitQuery =
-    catchJust retryableEtcdError (queryInitialModRev tracer config ourHost) $ \reason -> do
+    catchEtcdError (queryInitialModRev tracer config ourHost) $ \reason -> do
       traceWith tracer $ BroadcastFailed{reason}
       threadDelay 1
       retryInitQuery
@@ -606,7 +606,7 @@ waitMessages tracer conn directory NetworkCallback{deliver} =
   withGrpcContext "waitMessages" . forever $ do
     -- Restart a failed watch from the last known revision, same as one that
     -- ended cleanly. Without this any connection blip kills the node.
-    catchJust retryableEtcdError watch $ \reason ->
+    catchEtcdError watch $ \reason ->
       traceWith tracer WatchFailed{reason}
     -- Wait before re-trying
     threadDelay 1
@@ -732,7 +732,7 @@ pollConnectivity ::
 pollConnectivity tracer conn advertise NetworkCallback{onConnectivity} = do
   seenAliveVar <- newLabelledTVarIO "etcd-seen-alive" []
   withGrpcContext "pollConnectivity" . forever $
-    catchJust retryableEtcdError (poll seenAliveVar) (onConnectionLost seenAliveVar)
+    catchEtcdError (poll seenAliveVar) (onConnectionLost seenAliveVar)
  where
   poll seenAliveVar = do
     leaseId <- createLease
@@ -821,6 +821,15 @@ pollConnectivity tracer conn advertise NetworkCallback{onConnectivity} = do
 isTransientGrpcError :: GrpcError -> Bool
 isTransientGrpcError =
   (`elem` [GrpcUnavailable, GrpcDeadlineExceeded, GrpcCancelled, GrpcNotFound])
+
+-- | Handle transient RPC failures without losing cancellation to an exception
+-- raised by RPC cleanup.
+catchEtcdError :: IO a -> (Text -> IO a) -> IO a
+catchEtcdError action =
+  -- When etcd stops, RPC cleanup can replace AsyncCancelled with a connection
+  -- error. Keep the request in its own thread so cancelling the caller still
+  -- propagates the original exception instead of entering the retry handler.
+  catchJust retryableEtcdError $ withAsyncLabelled ("etcd-rpc", action) wait
 
 -- | Classify a failure talking to our local etcd, giving a reason to trace when
 -- retrying is the right response.
