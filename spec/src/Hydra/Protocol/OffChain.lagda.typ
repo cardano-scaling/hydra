@@ -191,7 +191,9 @@ than $Tdeposit$, the protocol's settlement margin against rollbacks (a deposit
 stops being claimed that long before its deadline for the same reason). Merely
 $sans("Expired")$ is too early — that status is set $Tdeposit$ ahead of the
 deadline — so a settling commit whose deposit counts as $sans("Expired")$ is
-still carried on.
+still carried on. If a deposit is re-observed after a rollback and is locally
+$sans("Inactive")$, a snapshot request carrying it still waits for activation,
+even when the confirmed snapshot already claims that deposit.
 
 A settling decommit — $macron(mc(S)).U_omega != bot$ at the current version —
 is never dropped: every request at that version must carry a decommit with the
@@ -1129,7 +1131,7 @@ preventing inconsistency between the on-chain and off-chain state.
                   #nst[
                     #kw("if") $v = macron(mc(S)).v and macron(mc(S)).U_alpha != bot$
                     #nst[
-                      #kw("require") $tx_alpha = macron(mc(S)).tx_alpha and macron(mc(S)).U_alpha = mc(D).U$ #text(size: 0.8em)[(carried on whatever its status)] \
+                      #kw("require") $tx_alpha = macron(mc(S)).tx_alpha and macron(mc(S)).U_alpha = mc(D).U$ #text(size: 0.8em)[(carried on even if locally expired)] \
                       $U_alpha <- macron(mc(S)).U_alpha$
                     ]
                     #kw("else")

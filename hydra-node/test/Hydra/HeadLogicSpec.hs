@@ -4058,36 +4058,38 @@ spec =
               NetworkEffect ReqSn{depositTxId} -> depositTxId == Just depositTxId'
               _ -> False
 
-        it "signs a ReqSn re-carrying a locally expired deposit the confirmed snapshot claims" $ do
-          -- The receiving side of the case above. Every party's copy of the
-          -- deposit expires at the same time, so refusing the carried claim
-          -- with 'RequestedDepositExpired' would leave a round nobody signs,
-          -- the leader included when it processes its own ReqSn.
-          now <- getCurrentTime
-          let expiredDeposit =
-                Deposit
-                  { headId = testHeadId
-                  , deposited = depositedUTxO
-                  , created = now
-                  , deadline = addUTCTime 600 now
-                  , status = Expired
-                  }
-              s0 =
-                ( inOpenState' [alice] $
-                    coordinatedHeadState
-                      { confirmedSnapshot = ConfirmedSnapshot{snapshot = incrementingSnapshot1, signatures = Crypto.aggregate []}
-                      , seenSnapshot = LastSeenSnapshot{lastSeen = 1}
-                      , version = 0
-                      , currentDepositTxId = Just depositTxId'
-                      }
-                )
-                  { deposits = trackedFromPending (Map.singleton depositTxId' expiredDeposit)
-                  }
-          now' <- nowFromSlot s0.chainPointTime.currentSlot
-          update soloAliceEnv ledger now' s0 (receiveMessage $ ReqSn 0 2 [] Nothing (Just depositTxId'))
-            `hasStateChangedSatisfying` \case
-              SnapshotRequested{requestedSnapshot = Snapshot{utxoToCommit}} -> utxoToCommit == Just depositedUTxO
-              _ -> False
+        forM_ [Inactive, Active, Expired] $ \status ->
+          it ("checks activation of a ReqSn re-carrying the confirmed snapshot's deposit with status " <> show status) $ do
+            -- A carried claim still waits for activation after re-observation.
+            -- Local expiry alone does not prevent its increment from landing.
+            now <- getCurrentTime
+            let deposit =
+                  Deposit
+                    { headId = testHeadId
+                    , deposited = depositedUTxO
+                    , created = now
+                    , deadline = addUTCTime 600 now
+                    , status
+                    }
+                s0 =
+                  ( inOpenState' [alice] $
+                      coordinatedHeadState
+                        { confirmedSnapshot = ConfirmedSnapshot{snapshot = incrementingSnapshot1, signatures = Crypto.aggregate []}
+                        , seenSnapshot = LastSeenSnapshot{lastSeen = 1}
+                        , version = 0
+                        , currentDepositTxId = Just depositTxId'
+                        }
+                  )
+                    { deposits = trackedFromPending (Map.singleton depositTxId' deposit)
+                    }
+            now' <- nowFromSlot s0.chainPointTime.currentSlot
+            let outcome = update soloAliceEnv ledger now' s0 (receiveMessage $ ReqSn 0 2 [] Nothing (Just depositTxId'))
+            case status of
+              Inactive -> outcome `assertWait` WaitOnDepositActivation{depositTxId = depositTxId'}
+              _ ->
+                outcome `hasStateChangedSatisfying` \case
+                  SnapshotRequested{requestedSnapshot = Snapshot{utxoToCommit}} -> utxoToCommit == Just depositedUTxO
+                  _ -> False
 
         it "records a decommit while the confirmed snapshot's commit is unsettled and proposes that commit first" $ do
           -- The decommit used to be proposed straight away, which dropped the

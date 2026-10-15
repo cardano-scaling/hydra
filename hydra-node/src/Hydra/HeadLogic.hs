@@ -501,18 +501,6 @@ onOpenNetworkReqSn env ledger pendingDeposits ChainPointTime{currentSlot, curren
             | ttl > 0 -> wait WaitOnDepositObserved{depositTxId}
             | otherwise -> Error $ RequireFailed RequestedDepositNotFoundLocally{depositTxId}
           Just Deposit{status, deposited}
-            -- The leader carries the confirmed snapshot's own pending commit
-            -- again (see 'selectNextDeposit'). Match by identity, not by
-            -- content: two deposits can record the same UTxO, and only the one
-            -- bound into the confirmed snapshot is being settled. The deposit's
-            -- local status does not matter here: the claim is signed and its
-            -- increment is in flight, so our own expiry margin cannot stop it
-            -- from landing (see 'settlingCommitAt'). Refusing would leave a round
-            -- nobody signs, since every party's copy expires at the same time.
-            | sv == confVersion
-            , confDepositTxId == Just depositTxId
-            , confUTxOToCommit == Just deposited ->
-                cont confUTxOToCommit
             | status == Inactive -> wait WaitOnDepositActivation{depositTxId}
             -- NOTE: this makes the commits sequential in a sense that you can't
             -- commit unless the previous commit is settled.
