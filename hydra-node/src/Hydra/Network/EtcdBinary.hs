@@ -9,7 +9,9 @@ import Hydra.Prelude
 
 #ifndef mingw32_HOST_OS
 import Data.Bits ((.|.))
-import System.Posix (ownerExecuteMode, ownerReadMode, ownerWriteMode, setFileMode)
+import Data.ByteString qualified as BS
+import System.IO (hClose)
+import System.Posix (OpenFileFlags (..), OpenMode (WriteOnly), closeFd, defaultFileFlags, fdToHandle, openFd, ownerExecuteMode, ownerReadMode, ownerWriteMode, setFileMode)
 #endif
 import Hydra.Network (WhichEtcd (..))
 import Hydra.Node.EmbedTH (embedExecutable)
@@ -37,11 +39,28 @@ installEtcd fp = do
   createDirectoryIfMissing True (takeDirectory fp)
   -- Replace the executable without truncating a previous installation. This
   -- also avoids rewriting an inode still mapped by a process during shutdown.
-  writeFileBS tmp $(embedExecutable "HYDRA_ETCD_PATH" "etcd")
+  writeBinaryFile tmp $(embedExecutable "HYDRA_ETCD_PATH" "etcd")
   makeExecutable tmp
   renameFile tmp fp
  where
   tmp = fp <> ".tmp"
+
+-- | Write without letting another process retain the writable file descriptor.
+writeBinaryFile :: FilePath -> ByteString -> IO ()
+#ifdef mingw32_HOST_OS
+writeBinaryFile = writeFileBS
+#else
+writeBinaryFile fp bytes =
+  -- Open with close-on-exec atomically. Otherwise an unrelated child can
+  -- inherit the write handle and prevent executing etcd (ETXTBSY) after close.
+  bracket
+    ( do
+        fd <- openFd fp WriteOnly defaultFileFlags{creat = Just 0o600, trunc = True, cloexec = True}
+        fdToHandle fd `onException` closeFd fd
+    )
+    hClose
+    (`BS.hPut` bytes)
+#endif
 
 makeExecutable :: FilePath -> IO ()
 #ifdef mingw32_HOST_OS
