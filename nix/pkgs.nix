@@ -3,6 +3,8 @@
     let
       pkgs = import inputs.nixpkgs {
         inherit system;
+        # The Windows Template Haskell runner needs 64-bit Wine on Linux.
+        config.wine.build = "wine64";
         overlays = [
           # This overlay contains libsodium and libblst libraries
           inputs.iohk-nix.overlays.crypto
@@ -26,6 +28,7 @@
           inputs.haskellNix.overlay
           # Custom static libs used for darwin build
           self.overlays.static-libs
+          self.overlays.windows-dependencies
           inputs.nix-npm-buildpackage.overlays.default
           # Specific versions of tools we require
           (_final: _prev: {

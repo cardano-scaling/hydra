@@ -171,7 +171,6 @@ library
     , time
     , transformers
     , typed-process
-    , unix
     , wai
     , wai-cors
     , wai-websockets
@@ -182,6 +181,9 @@ library
 
   default-extensions: StrictData
   ghc-options:        -haddock
+
+  if !os(windows)
+    build-depends: unix
 
 library testlib
   import:          project-config
@@ -284,9 +286,11 @@ executable hydra-node
     , hydra-cardano-api
     , hydra-node
     , hydra-prelude
-    , unix
 
   ghc-options:    -threaded -rtsopts -with-rtsopts=-N4
+
+  if !os(windows)
+    build-depends: unix
 
 benchmark tx-cost
   import:         project-config
@@ -407,6 +411,7 @@ test-suite tests
     Hydra.Model.Payment
     Hydra.ModelSpec
     Hydra.Network.AuthenticateSpec
+    Hydra.Network.EtcdBinarySpec
     Hydra.NetworkSpec
     Hydra.NetworkVersionsSpec
     Hydra.Node.InputQueueSpec
