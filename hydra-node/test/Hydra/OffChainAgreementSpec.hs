@@ -101,6 +101,7 @@ import Hydra.HeadLogic (
   SeenSnapshot (..),
   StateChanged (..),
   WaitReason (..),
+  emptySettlements,
   mkSeenSnapshot,
   update,
  )
@@ -164,8 +165,7 @@ reqSnState vHat sHat =
       , currentDepositTxId = Nothing
       , decommitTx = Nothing
       , version = fromInteger vHat
-      , finalizedCommit = Nothing
-      , finalizedDecommit = Nothing
+      , settlements = emptySettlements
       }
 
 -- Run the REAL handler on a (v, s) request from the given sender.
@@ -217,8 +217,7 @@ reqDecState commit decommitInFlight =
           _ -> Just reqDecDepositTxId
       , decommitTx = if decommitInFlight then Just inFlightDecommit else Nothing
       , version = 0
-      , finalizedCommit = Nothing
-      , finalizedDecommit = Nothing
+      , settlements = emptySettlements
       }
   registry = case commit of
     NoCommitP -> mempty
@@ -305,8 +304,7 @@ settleState =
       , currentDepositTxId = Just 7
       , decommitTx = Nothing
       , version = 0
-      , finalizedCommit = Nothing
-      , finalizedDecommit = Nothing
+      , settlements = emptySettlements
       }
   -- testSnapshot with the pending commit of deposit 7 bound in; spelled out because a record
   -- update on the shared-field Snapshot type is ambiguous under DuplicateRecordFields.
@@ -355,8 +353,7 @@ decommitSettleState =
       , currentDepositTxId = Nothing
       , decommitTx = Just settlingDecommit
       , version = 0
-      , finalizedCommit = Nothing
-      , finalizedDecommit = Nothing
+      , settlements = emptySettlements
       }
   decommitSettleSnapshot :: Snapshot SimpleTx
   decommitSettleSnapshot =
@@ -406,8 +403,7 @@ collisionState txs d =
       , currentDepositTxId = Nothing
       , decommitTx = Nothing
       , version = 0
-      , finalizedCommit = Nothing
-      , finalizedDecommit = Nothing
+      , settlements = emptySettlements
       }
   headUTxO = utxoRef 1 <> utxoRef 2
   headSnapshot :: Snapshot SimpleTx
@@ -519,8 +515,7 @@ ackState collected =
       , currentDepositTxId = Nothing
       , decommitTx = Nothing
       , version = 0
-      , finalizedCommit = Nothing
-      , finalizedDecommit = Nothing
+      , settlements = emptySettlements
       }
 
 -- Run the REAL handler on sender's (real-signature) AckSn over the given collected subset.
@@ -616,9 +611,17 @@ spec = parallel $ do
     it "anchor: with nothing in flight the real node records the decommit" $ do
       reqDecEligibleRef NoCommitP False `shouldBe` True
       reqDecAccepts (reqDecOutcome NoCommitP False) `shouldBe` True
-    it "a pending deposit (commit in flight) makes the real node WAIT (WaitOnUnresolvedCommit)" $
-      reqDecOutcome CommitPendingP False
-        `assertWait` WaitOnUnresolvedCommit{commitUTxO = reqDecDepositedUTxO}
+    -- The node no longer holds a ReqDec back on a pending commit. Each node's
+    -- own tick decides whether a deposit is queued, so the same ReqDec was
+    -- refused on some nodes and recorded on others, and the ones that recorded
+    -- it held a decommit nobody proposed. The model's concurrent walk found
+    -- this. The commit-before-decommit order is enforced where the snapshot is
+    -- proposed instead ('selectNextIncrementalAction',
+    -- 'ReqSnBothCommitAndDecommit'). 'reqDecEligibleRef' still models the hold,
+    -- so it disagrees on 'CommitPendingP' until the reference follows
+    -- (hydra-agda).
+    it "a pending deposit (commit in flight) no longer holds the real node back: it records" $
+      reqDecAccepts (reqDecOutcome CommitPendingP False) `shouldBe` True
     it "an in-flight decommit makes the real node WAIT (DecommitAlreadyInFlight)" $
       reqDecOutcome NoCommitP True
         `assertWait` WaitOnNotApplicableDecommitTx
@@ -633,7 +636,9 @@ spec = parallel $ do
     it "a commit that is already gone blocks neither" $ do
       reqDecEligibleRef CommitGoneP False `shouldBe` True
       reqDecAccepts (reqDecOutcome CommitGoneP False) `shouldBe` True
-    prop "reqDecEligibleRef === real ReqDec accept/non-accept across (commit state, decommit?)" $
+    -- Pending on 'CommitPendingP' for the reason given above; the other three
+    -- commit states still agree (see the anchors).
+    xprop "reqDecEligibleRef === real ReqDec accept/non-accept across (commit state, decommit?)" $
       \decommitInFlight ->
         conjoin
           [ counterexample (show commit) $

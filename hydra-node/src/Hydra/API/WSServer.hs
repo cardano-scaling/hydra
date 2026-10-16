@@ -130,7 +130,7 @@ mkWsCodec config con =
   sendPlainCbor = sendBinaryData con . serialize'
 
 wsApp ::
-  forall tx.
+  forall tx event.
   IsChainState tx =>
   Environment ->
   Party ->
@@ -139,7 +139,7 @@ wsApp ::
   ConduitT () (TimedServerOutput tx) (ResourceT IO) () ->
   (ClientInput tx -> IO ()) ->
   -- | Read model to enhance 'Greetings' messages with 'HeadStatus'.
-  Projection STM.STM (StateChanged tx) (NodeState tx) ->
+  Projection STM.STM event (NodeState tx) ->
   -- | Read model to enhance 'Greetings' messages with 'NetworkInfo'.
   Projection STM.STM (StateChanged tx) NetworkInfo ->
   -- | Why the node's outbound messages are backing up, if they are. Read
