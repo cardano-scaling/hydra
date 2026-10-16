@@ -2437,16 +2437,22 @@ retainSettlement slot newVersion confirmedSnapshot settlements =
 -- @newVersion@ at @slot@: retain the confirmed snapshot if it is the one that
 -- settled (see 'retainSettlement'), and (re-)stamp the retained entry as
 -- landed (see 'landSettlement').
+-- Matching the version alone is insufficient: a recovered commit can be
+-- followed by a different action at the same version, whose confirmation may
+-- arrive after its chain observation. Leave its entry vacant until then.
 recordSettlement ::
   IsTx tx =>
   ChainSlot ->
   SnapshotVersion ->
+  (Snapshot tx -> Bool) ->
   ConfirmedSnapshot tx ->
   Settlements tx ->
   Either (SettlementConflict tx) (Settlements tx)
-recordSettlement slot newVersion confirmedSnapshot settlements =
+recordSettlement slot newVersion matchesObserved confirmedSnapshot settlements =
   landSettlement slot newVersion
-    <$> retainSettlement slot newVersion confirmedSnapshot settlements
+    <$> if matchesObserved (getSnapshot confirmedSnapshot)
+      then retainSettlement slot newVersion confirmedSnapshot settlements
+      else Right settlements
 
 -- | Record that the retained settlement bumping the on-chain version to
 -- @newVersion@ (re-)landed at the given slot, so a rollback erasing it again
@@ -2990,7 +2996,7 @@ aggregateNodeState nodeState sc =
               -- 'currentDepositTxId' for the next snapshot must be left
               -- alone. See #2741.
               | isReobservation newVersion chs -> do
-                  settlements <- recordSettlement (chainStateSlot chainState) newVersion confirmedSnapshot chs.settlements
+                  settlements <- recordSettlement (chainStateSlot chainState) newVersion matchesIncrement confirmedSnapshot chs.settlements
                   pure $
                     nodeState
                       { headState =
@@ -3005,7 +3011,7 @@ aggregateNodeState nodeState sc =
                               }
                       }
               | otherwise -> do
-                  settlements <- recordSettlement (chainStateSlot chainState) newVersion confirmedSnapshot chs.settlements
+                  settlements <- recordSettlement (chainStateSlot chainState) newVersion matchesIncrement confirmedSnapshot chs.settlements
                   pure $
                     nodeState
                       { headState =
@@ -3026,6 +3032,8 @@ aggregateNodeState nodeState sc =
                       }
             _ ->
               pure $ nodeState{headState = st}
+         where
+          matchesIncrement snapshot = snapshot.depositTxId == Just depositTxId && isJust snapshot.utxoToCommit
         TickObserved{chainPoint, chainTime} ->
           pure $
             -- Retained settlements no rollback can reach anymore are dropped.
@@ -3231,17 +3239,21 @@ applyEvent st = \case
                   coordinatedHeadState
                     { seenSnapshot = mkSeenSnapshot snapshot mempty
                     , localTxs = newLocalTxs
-                    , -- NOTE: pure UTxO arithmetic. 'newLocalTxs' was pre-pruned
-                      -- by 'pruneTransactions' in 'onOpenNetworkReqSn' (so each tx
-                      -- is guaranteed to apply), making 'applyTxTo' safe to use
-                      -- without ledger validation.
-                      localUTxO = foldl' (flip applyTxTo) (settledUTxO version snapshot) newLocalTxs
+                    , localUTxO =
+                        case (decommitTx, snapshot.utxoToDecommit) of
+                          -- A commit can defer the recorded decommit to a later
+                          -- snapshot. Reserve its inputs after reapplying local
+                          -- transactions, which may produce those inputs.
+                          (Just tx, Nothing) -> applyTxTo tx rebuiltUTxO `withoutUTxO` utxoFromTx tx
+                          _ -> rebuiltUTxO
                     , allTxs = foldr (Map.delete . txId) allTxs snapshot.confirmed
                     , currentDepositTxId = newCurrentDepositTxId
                     }
               }
        where
-        CoordinatedHeadState{allTxs, version} = coordinatedHeadState
+        -- 'pruneTransactions' validates these transactions before the event.
+        rebuiltUTxO = foldl' (flip applyTxTo) (settledUTxO version snapshot) newLocalTxs
+        CoordinatedHeadState{allTxs, version, decommitTx} = coordinatedHeadState
       _otherState -> pure st
   PartySignedSnapshot{party, signature} ->
     case st of
@@ -3394,13 +3406,13 @@ applyEvent st = \case
     _otherState -> pure st
   DecommitApproved{} -> pure st
   DecommitInvalid{} -> pure st
-  DecommitFinalized{chainState, newVersion} ->
+  DecommitFinalized{chainState, newVersion, distributedUTxO} ->
     case st of
       Open os@OpenState{coordinatedHeadState = chs@CoordinatedHeadState{confirmedSnapshot, seenSnapshot}}
         -- Only convergence bookkeeping: in particular an unrelated newer
         -- decommit may already be in flight and must be left alone. See #2741.
         | isReobservation newVersion chs -> do
-            settlements <- recordSettlement (chainStateSlot chainState) newVersion confirmedSnapshot chs.settlements
+            settlements <- recordSettlement (chainStateSlot chainState) newVersion matchesDecrement confirmedSnapshot chs.settlements
             pure $
               Open
                 os
@@ -3409,7 +3421,7 @@ applyEvent st = \case
                       chs{settlements}
                   }
         | otherwise -> do
-            settlements <- recordSettlement (chainStateSlot chainState) newVersion confirmedSnapshot chs.settlements
+            settlements <- recordSettlement (chainStateSlot chainState) newVersion matchesDecrement confirmedSnapshot chs.settlements
             pure $
               Open
                 os
@@ -3427,6 +3439,9 @@ applyEvent st = \case
                         }
                   }
       _otherState -> pure st
+   where
+    -- The chain observer relabels outputs, so compare their content and counts.
+    matchesDecrement snapshot = maybe False (`sameOutputs` distributedUTxO) snapshot.utxoToDecommit
   HeadClosed{chainState, contestationDeadline} ->
     case st of
       Open

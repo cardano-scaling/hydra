@@ -380,14 +380,16 @@ request snapshot signatures $hpRS$ is sent. \
 \
 #dparagraph[$hpRD$.]#h(1em) Upon receiving request $(hpRD,tx_omega)$, the
 transaction is checked against the _local_ ledger state and if it is not
-applicable yet or another deposit or decommit is pending still, the protocol does
+applicable yet or another decommit is pending still, the protocol does
 #kw("wait") to retry later or eventually marks the decommit as invalid. After
 applying $tx$, its outputs are removed from _local_ ledger state $hatmL$
 so that they are not available any more and the decommit transaction is kept in
 the local state ($tx_omega$). If there is no current snapshot in flight
 ($hats = macron(mc(S)).s$) and the receiving party $party_(i)$ is the next
-snapshot leader, a message to request snapshot signatures $hpRS$ containing the
-decrement transaction $tx_omega$ is sent. \
+snapshot leader, a message to request snapshot signatures $hpRS$ is sent. A
+pending commit is carried first, with the recorded decommit deferred to a later
+version; a snapshot never carries both actions. The deferred decommit's inputs
+remain reserved in the local ledger. \
 \
 #dparagraph[$mono("depositTx")$.]#h(1em) Upon observing a deposit transaction,
 each party records the deposit index by deposit transaction id to their local
@@ -486,7 +488,12 @@ and no other recording the same UTxO. The signature is sent to all head members 
 message $(hpAS,hats,msSig_i)$. Finally, the local ledger state $hatmL$ and
 pending transaction set $hatmT$ get pruned by re-applying all locally pending
 transactions $hatmT$ to the just requested snapshot's UTxO set iteratively and
-ultimately yielding a "pruned" version of $hatmT$ and $hatmL$. \
+ultimately yielding a "pruned" version of $hatmT$ and $hatmL$. If a recorded
+decommit is deferred rather than included in this snapshot, its inputs are
+removed from the rebuilt local ledger again. This reservation follows the
+pending transactions, since they may create those inputs, and excludes the
+decommit outputs as well. It affects only the local ledger used to validate
+incoming transactions, not the signed snapshot's UTxO. \
 \
 #dparagraph[$hpAS$.]#h(1em) Upon receiving acknowledgment $(hpAS,s,msSig_j)$, all
 participants #kw("require") that it is from an expected snapshot (either the last seen
@@ -521,6 +528,59 @@ between map keys and snapshot versions. A conflicting live update applies
 neither its events nor its effects; replay stops at the conflicting event.
 This is implementation bookkeeping outside `LocalState`.
 
+The implementation's CBOR layout uses a distinct version tag for this map.
+Decoding the preceding layout migrates its retained commit and decommit
+snapshots without changing their signatures, preserving their observation
+slots as landed entries. That layout does not record explicit rollback status;
+startup reconstructs it by replaying persisted state events. The oldest layout
+has no retained snapshots. These storage migrations do not change the protocol
+transitions specified here.
+
+An observed settlement retains the current confirmed snapshot only if its
+version is one below the observed version and its action matches the
+observation: the same deposit reference for an increment, or the same
+distributed output contents and counts for a decrement, ignoring references
+which the chain observer relabels. Version equality alone is insufficient:
+a recovered deposit can be replaced by a decommit at the same version. If the
+settling snapshot has not confirmed locally yet, its later confirmation fills
+the entry. Re-observation still updates an existing entry's landed slot even
+when the current confirmed snapshot does not match.
+
+The following predicate specifies eligibility to retain a confirmed snapshot
+on observation. Output matching uses a bijection between the two maps' occupied
+references that preserves their outputs, including multiplicity. It does not
+model the retained store or its insertion policy.
+
+```
+record SameOutputs (U V : UTxO) : Set where
+  field
+    forward backward  : OutputRef → OutputRef
+    preservesForward  : ∀ {r : OutputRef} {o : Output} → (r , o) ∈ (U ˢ) → (forward r , o) ∈ (V ˢ)
+    preservesBackward : ∀ {r : OutputRef} {o : Output} → (r , o) ∈ (V ˢ) → (backward r , o) ∈ (U ˢ)
+    inverseForward    : ∀ {r : OutputRef} {o : Output} → (r , o) ∈ (U ˢ) → backward (forward r) ≡ r
+    inverseBackward   : ∀ {r : OutputRef} {o : Output} → (r , o) ∈ (V ˢ) → forward (backward r) ≡ r
+
+data ObservedSettlement : Set where
+  observedIncrement : Data → ObservedSettlement
+  observedDecrement : UTxO → ObservedSettlement
+
+data MatchesObservedSettlement : ObservedSettlement → Snapshot → Set where
+  matchingIncrement : ∀ {dep snap}
+    → Snapshot.depRef snap ≡ just dep
+    → MatchesObservedSettlement (observedIncrement dep) snap
+  matchingDecrement : ∀ {U snap}
+    → SameOutputs (Snapshot.utxoDec snap) U
+    → ¬ (U ≡ εᵘ)
+    → MatchesObservedSettlement (observedDecrement U) snap
+
+record RetainableObservedSnapshot (observed : ObservedSettlement) (newVersion : ℕ) (snap : Snapshot) : Set where
+  field
+    previousVersion : suc (Snapshot.version snap) ≡ newVersion
+    signature       : AggSig
+    confirmed       : Snapshot.sig snap ≡ just signature
+    matchingAction  : MatchesObservedSettlement observed snap
+```
+
 The network-message handlers above are transcribed as the relation
 `_handles_↝_`: one constructor per handler arm, each carrying
 its `require`/`wait` guards from @fig:off-chain-prot as premises (the reqTx applicability guard, the
@@ -552,22 +612,14 @@ data _handles_↝_ : LocalState → Message → LocalState → Set where
     → applyTxs (LocalState.localLedger st) (tx ∷ []) ≡ just L'
     → st handles (reqTx tx) ↝ record st { localLedger = L' ; pending = LocalState.pending st ++ (tx ∷ []) }
 
-  -- on (reqDec, tx): the §6 `wait U_α = ∅ ∧ tx_ω = ⊥ ∧ L̂ ∘ tx ≠ ⊥` guard (no commit/decommit in flight,
-  -- and tx applies), all three de-abstracted as premises; then `L̂ ← L̂ ∘ tx ∖ outputs(tx)` and tx_ω ← tx.
+  -- Serial subcase of (reqDec, tx): no recorded commit/decommit, and tx applies;
+  -- then `L̂ ← L̂ ∘ tx ∖ outputs(tx)` and tx_ω ← tx.
   --
-  -- NB this rule reads `U_α = ∅` as "no deposit tx-id is recorded at all", which is the clean case and
-  -- a SUFFICIENT condition, not a characterisation. The implementation additionally proceeds when a
-  -- tx-id IS recorded but names nothing the head can still settle, because tx_α is cleared on neither
-  -- expiry nor recovery: an Expired deposit stays in 𝒟 so it can still be recovered, and a recovered
-  -- one only leaves 𝒟. Treating either as a commit in flight would block every later decommit on
-  -- something no increment can ever settle. `Hydra.Protocol.OffChainReference.reqDecEligibleRef` models
-  -- that refinement (its `PendingCommitᶜ` separates the four cases) and the off-chain differential
-  -- binds it to the node.
-  --
-  -- Consequence worth stating plainly: `NoBothInFlight` below is therefore STRONGER than what the
-  -- implementation guarantees, since a recorded-but-unsettleable tx_α can coexist with a pending tx_ω.
-  -- Restating it over settleable commits means weakening a §7 safety invariant and adding a freshness
-  -- premise to `deposit-add`, which is deliberately left as its own change rather than folded in here.
+  -- This constructor covers the serial case with no recorded deposit. The implementation also
+  -- queues a decommit behind a commit, preserving its local input reservation across commit-only
+  -- snapshots. That queue and the reqSn local-ledger rebuild are not represented by this relation.
+  -- `NoBothInFlight` therefore describes this restricted model, not the implementation's local
+  -- queue. The implementation enforces action exclusivity on snapshot requests instead.
   reqDec-pending : ∀ {st tx L'}
     → LocalState.currentDepositTxId st ≡ nothing         -- U_α = ∅ (no commit in flight)
     → LocalState.pendingDecrement st ≡ nothing       -- tx_ω = ⊥ (no decommit in flight)
@@ -1083,7 +1135,7 @@ preventing inconsistency between the on-chain and off-chain state.
             ]
 
             #proc([#kw("on") $(hpRD, tx)$ #kw("from") $party_j$])[
-              #kw("wait") $U_alpha = emptyset and tx_omega = bot and hatmL applytx tx != bot$
+              #kw("wait") $tx_omega = bot and hatmL applytx tx != bot$
               #nst[
                 $hatmL <- hatmL applytx tx without sans("outputs")(tx)$ \
                 $tx_omega <- tx$ \
@@ -1162,6 +1214,7 @@ preventing inconsistency between the on-chain and off-chain state.
                   $hatmT <- hatmT union {tx}$ \
                   $hatmL <- hatmL applytx tx$
                 ]
+                #text(size: 0.8em)[If a locally recorded decommit is deferred by this request, remove its inputs and outputs from $hatmL$ after this loop.]
               ]
             ]
 

@@ -54,6 +54,10 @@ For deposits and incremental commits/decommits while the head is open, this work
 
 The opaque `Settlements` type in `Hydra.HeadLogic.Settlements` holds the retained settlement map and its cached deposit IDs. Callers read these through accessors and update them through operations that maintain the cache. Retaining or pruning entries updates the cache; rollback and re-landing preserve the claims. The cache is rebuilt from the entries on restart and does not change the persisted format.
 
+The coordinated head state writes this map under the CBOR tag `CoordinatedHeadState3`. It still reads `CoordinatedHeadState2`, migrating its optional finalized commit and decommit snapshots with their signatures and observation slots as `Landed` entries. The original `CoordinatedHeadState` layout has no retained settlements and decodes with an empty map. Migration cannot recover older settlements or rollback status that the previous layout does not record. On startup, replaying the persisted state events reconstructs settlement status, including rollbacks.
+
+Before retaining the current confirmed snapshot on a settlement observation, the node checks both its version and its action: the deposit ID for an increment, or the distributed output contents and counts for a decrement. Decrement matching ignores output references, which the chain observer relabels. An older snapshot at the same version may carry a recovered deposit instead. If the settling snapshot is still collecting signatures locally, its later confirmation fills the retained entry; the unrelated snapshot must not occupy that entry first. Re-observing a retained settlement still updates its landed slot even when the current confirmed snapshot has moved on.
+
 A deposit can belong to only one retained version. Checked insertion rejects a claim already held by another version and keeps an existing entry for the same version unchanged. Decoding also checks that each map key matches its snapshot version. If an event introduces a conflicting claim, live processing reports an error and leaves the whole update unapplied, including its events and effects. Replay stops with the conflicting event's ID instead of continuing with an incomplete state. API projections and log rotation use the same checked aggregation.
 
 If the settling transaction is re-observed on the new chain — whether it survived the fork, was re-included from the mempool, or was re-posted by any party — the corresponding state transition applies idempotently and the head continues as normal.
@@ -64,3 +68,7 @@ If the settling transaction is re-observed on the new chain — whether it survi
 :::
 
 Rollback handling has been partially deactivated in Hydra per [ADR-23](/adr/23). This section will be updated with a more comprehensive and refined rollback handling approach with issue [#185](https://github.com/cardano-scaling/hydra/issues/185).
+
+## Testing chain ordering
+
+The model's mock chain serializes each chain update together with delivery to all connected chain-sync handlers. Rollbacks cannot overtake an in-flight block, and replacement blocks cannot overtake a rollback. Reconnecting nodes replay and register under the same lock, so catch-up cannot overlap live delivery. Delays between blocks and after forks happen outside the lock; node processing and network messages remain concurrent.

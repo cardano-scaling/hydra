@@ -124,10 +124,17 @@ spec =
           HeadLogic.aggregateNodeState currentState CommitFinalized{chainState = 9, headId = testHeadId, newVersion = 2, depositTxId = 42}
             `shouldBe` Left (DepositAlreadyClaimed (Set.singleton 42))
 
-        it ("rejects DecommitFinalized with a shared claim at version " <> show currentVersion) $ do
-          currentState <- settlementConflictState currentVersion
-          HeadLogic.aggregateNodeState currentState DecommitFinalized{chainState = 9, headId = testHeadId, newVersion = 2, distributedUTxO = mempty}
-            `shouldBe` Left (DepositAlreadyClaimed (Set.singleton 42))
+        forM_
+          [ ("a decrement", DecommitFinalized{chainState = 9, headId = testHeadId, newVersion = 2, distributedUTxO = utxoRef 7})
+          , ("another deposit", CommitFinalized{chainState = 9, headId = testHeadId, newVersion = 2, depositTxId = 43})
+          ]
+          $ \(actionName, finalized) ->
+            it ("does not retain an unrelated confirmed commit at version " <> show currentVersion <> " for " <> actionName) $ do
+              currentState <- settlementConflictState currentVersion
+              case HeadLogic.aggregateNodeState currentState finalized of
+                Right NodeInSync{headState = Open OpenState{coordinatedHeadState = CoordinatedHeadState{settlements}}} ->
+                  Map.keys (settlementEntries settlements) `shouldBe` [0]
+                other -> expectationFailure $ "Expected finalization without retaining the unrelated commit, got: " <> show other
 
       it "rejects a late snapshot confirmation with a shared claim" $ do
         currentState <- settlementConflictState 2
@@ -3730,6 +3737,38 @@ spec =
                   number == 1 && utxoToDecommit == Just (utxoRef 3)
             _ -> False
 
+        it "retains a racing decommit after the previous snapshot's deposit is recovered" $ do
+          now <- getCurrentTime
+          let initialUTxO = utxoRef 1
+              committing = withAccumulators incrementingSnapshot1{utxo = initialUTxO}
+              withdrawing = SimpleTx 7 initialUTxO (utxoRef 7)
+              decrementing = withAccumulators (testSnapshot 2 0 [] mempty){utxoToDecommit = Just (utxoRef 7)}
+              s0 =
+                inOpenState' [alice] $
+                  coordinatedHeadState
+                    { localUTxO = initialUTxO
+                    , confirmedSnapshot = ConfirmedSnapshot (testSnapshot 0 0 [] initialUTxO) mempty
+                    }
+          s1 <- runHeadLogic soloAliceEnv ledger s0 $ do
+            step (observeTxAtSlot 1 (mkDepositObserved now))
+            step . ChainInput $ Tick{chainTime = addUTCTime 62 now, chainPoint = 2}
+            step . receiveMessage $ ReqSn 0 1 [] Nothing (Just depositTxId')
+            step . receiveMessage $ AckSn (sign aliceSk committing) 1
+            step $ observeTxAtSlot 3 OnRecoverTx{headId = testHeadId, recoveredTxId = depositTxId', recoveredUTxO = depositedUTxO}
+            step . receiveMessage $ ReqDec withdrawing
+            step . receiveMessage $ ReqSn 0 2 [] (Just withdrawing) Nothing
+            -- The chain supplies the completed multisignature before our AckSn arrives.
+            step $ observeTxAtSlot 4 OnDecrementTx{headId = testHeadId, newVersion = 1, distributedUTxO = utxoRef 7, snapshotNumber = 2, signatures = Crypto.aggregate [sign aliceSk decrementing]}
+            getState
+          getConfirmedSnapshot s1 `shouldBe` Just decrementing
+          let outcome = update soloAliceEnv ledger now s1 (rollbackTo 3 now)
+          outcome `hasEffectSatisfying` \case
+            OnChainEffect{postChainTx = DecrementTx{decrementingSnapshot}} -> getSnapshot decrementingSnapshot == decrementing
+            _ -> False
+          outcome `hasNoEffectSatisfying` \case
+            OnChainEffect{postChainTx = IncrementTx{}} -> True
+            _ -> False
+
         it "retains the racing second decommit, not the already settled snapshot" $ do
           -- With two decommits back to back, the second decrement can be
           -- observed (posted first by another party) while 'confirmedSnapshot'
@@ -4126,6 +4165,48 @@ spec =
           outcome `hasEffectSatisfying` \case
             NetworkEffect ReqSn{depositTxId, decommitTx} -> depositTxId == Just depositTxId' && isNothing decommitTx
             _ -> False
+
+        forM_ [False, True] $ \inputFromPendingTx ->
+          it ("keeps a deferred decommit's inputs reserved across commit snapshots, pending input: " <> show inputFromPendingTx) $ do
+            now <- getCurrentTime
+            let initialUTxO = if inputFromPendingTx then utxoRef 10 else utxoRef 1
+                parentTx = SimpleTx 10 (utxoRef 10) (utxoRef 1)
+                parentTxs = [parentTx | inputFromPendingTx]
+                withdrawing = SimpleTx 2 (utxoRef 1) (utxoRef 2)
+                conflicting = SimpleTx 3 (utxoRef 1) (utxoRef 3)
+                committing1 = withAccumulators incrementingSnapshot1{utxo = initialUTxO}
+                committing2 = withAccumulators incrementingSnapshot1{number = 2, confirmed = parentTxs, utxo = utxoRef 1}
+                decrementing = withAccumulators (testSnapshot 3 1 [] depositedUTxO){utxoToDecommit = Just (utxoRef 2)}
+                s0 =
+                  inOpenState' [alice] $
+                    coordinatedHeadState
+                      { localUTxO = initialUTxO
+                      , confirmedSnapshot = ConfirmedSnapshot (testSnapshot 0 0 [] initialUTxO) mempty
+                      }
+            (conflict, s1) <- runHeadLogic soloAliceEnv ledger s0 $ do
+              step (observeTxAtSlot 1 (mkDepositObserved now))
+              step . ChainInput $ Tick{chainTime = addUTCTime 62 now, chainPoint = 2}
+              forM_ parentTxs $ step . receiveMessage . ReqTx
+              step . receiveMessage $ ReqDec withdrawing
+              -- Leave the parent pending while rebuilding the optimistic local ledger.
+              step . receiveMessage $ ReqSn 0 1 [] Nothing (Just depositTxId')
+              step . receiveMessage $ AckSn (sign aliceSk committing1) 1
+              conflict <- step . receiveMessage $ ReqTx conflicting
+              step . receiveMessage $ ReqSn 0 2 (txId <$> parentTxs) Nothing (Just depositTxId')
+              step . receiveMessage $ AckSn (sign aliceSk committing2) 2
+              step $ observeTxAtSlot 3 OnIncrementTx{headId = testHeadId, newVersion = 1, depositTxId = depositTxId', snapshotNumber = 2, signatures = mempty}
+              step . receiveMessage $ ReqSn 1 3 [] (Just withdrawing) Nothing
+              step . receiveMessage $ AckSn (sign aliceSk decrementing) 3
+              step $ observeTxAtSlot 4 OnDecrementTx{headId = testHeadId, newVersion = 2, distributedUTxO = utxoRef 2, snapshotNumber = 3, signatures = mempty}
+              (conflict,) <$> getState
+            conflict `assertWait` WaitOnNotApplicableTx (ValidationError "cannot apply transaction")
+            getConfirmedSnapshot s1 `shouldBe` Just decrementing
+            case headState s1 of
+              Open OpenState{coordinatedHeadState = CoordinatedHeadState{version, decommitTx, localUTxO}} -> do
+                version `shouldBe` 2
+                decommitTx `shouldBe` Nothing
+                localUTxO `shouldBe` depositedUTxO
+              _ -> expectationFailure "Expected an open head"
 
         it "proposes a recorded decommit once the commit in flight has landed" $ do
           -- The decommit was recorded while the confirmed snapshot's commit was
@@ -5617,6 +5698,29 @@ spec =
             -- Rejection must be due to the occupied name, not an invalid payment.
             applyTransactions ledger (ChainSlot 0) seed [tx] `shouldSatisfy` isRight
             pure (tx, seed, deposited)
+
+      it "matches a finalized decrement by output content and multiplicity" $ do
+        (vk, _) <- generate genKeyPair
+        output <- generate (genOutputFor vk)
+        otherOutput <- generate (genOutputFor vk `suchThat` (/= output))
+        TxIn txId' _ <- generate genTxIn
+        let ref = TxIn txId' . TxIx
+            distributed = forceUTxO $ UTxO.fromList [(ref 0, output), (ref 1, output)]
+            snapshot = withAccumulators $ (testSnapshot 1 0 [] mempty){utxoToDecommit = Just distributed}
+            signatures = aggregate [sign aliceSk snapshot]
+            confirmed = ConfirmedSnapshot{snapshot, signatures}
+            st = aggregateStateOrFail (openWith mempty []) $ newState SnapshotConfirmed{headId = testHeadId, snapshot = Just snapshot, signatures}
+            -- The chain observer relabels the distributed outputs. Matching
+            -- ignores those references, but preserves duplicate output counts.
+            observed = forceUTxO $ UTxO.fromList [(ref 2, output), (ref 3, output)]
+            differentContents = forceUTxO $ UTxO.fromList [(ref 2, output), (ref 3, otherOutput)]
+            fewerOutputs = forceUTxO $ UTxO.singleton (ref 2) output
+        forM_ [(observed, True), (differentContents, False), (fewerOutputs, False)] $ \(distributedUTxO, matches) -> do
+          let finalized = DecommitFinalized{chainState = ChainStateAt{spendableUTxO = mempty, recordedAt = Nothing}, headId = testHeadId, newVersion = 1, distributedUTxO}
+          case HeadLogic.aggregateNodeState st finalized of
+            Right NodeInSync{headState = Open OpenState{coordinatedHeadState = CoordinatedHeadState{settlements}}} ->
+              ((\settlement -> settlement.snapshot) <$> Map.lookup 0 (settlementEntries settlements)) `shouldBe` if matches then Just confirmed else Nothing
+            other -> expectationFailure $ "Expected finalized decrement, got: " <> show other
 
       it "rejects a ReqSn whose requested tx produces an output the deposit names" $ do
         (tx, seed, deposited) <- paymentWithCollision

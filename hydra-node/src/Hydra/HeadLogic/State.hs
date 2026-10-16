@@ -12,7 +12,7 @@ import Hydra.Prelude
 import Cardano.Binary (Decoder)
 import Data.Aeson (object, withObject, (.:), (.=))
 import Data.Map.Strict qualified as Map
-import Hydra.Chain.ChainState (IsChainState (..))
+import Hydra.Chain.ChainState (ChainSlot, IsChainState (..))
 import Hydra.HeadLogic.Settlements
 import Hydra.Tx (
   HeadId,
@@ -27,6 +27,7 @@ import Hydra.Tx.Snapshot (
   Snapshot (..),
   SnapshotNumber,
   SnapshotVersion,
+  getSnapshot,
  )
 
 -- | The main state of the Hydra protocol state machine. It holds both, the
@@ -170,17 +171,19 @@ deriving stock instance IsTx tx => Show (CoordinatedHeadState tx)
 deriving anyclass instance IsTx tx => ToJSON (CoordinatedHeadState tx)
 deriving anyclass instance IsTx tx => FromJSON (CoordinatedHeadState tx)
 
--- | Tag of the current on-disk\/wire layout, which carries 'settlements'. The
--- fields are a bare concatenation with no length prefix, so a layout change is
--- only decodable when the tag distinguishes it: 'coordinatedHeadStateCBORTagV1'
--- names the layout written before that field existed and is still accepted,
--- letting a node replay an event log from an earlier version.
+-- | Tag of the layout carrying the retained settlement map. Fields are a bare
+-- concatenation, so each layout needs its own tag. Older layouts remain readable.
 coordinatedHeadStateCBORTag :: Text
-coordinatedHeadStateCBORTag = "CoordinatedHeadState2"
+coordinatedHeadStateCBORTag = "CoordinatedHeadState3"
 
--- | Tag of the layout without 'settlements'. Decoded, never written.
+-- | Tag of the layout without retained settlements. Decoded, never written.
 coordinatedHeadStateCBORTagV1 :: Text
 coordinatedHeadStateCBORTagV1 = "CoordinatedHeadState"
+
+-- | Tag of the layout with optional finalized commit and decommit records.
+-- Decoded, never written.
+coordinatedHeadStateCBORTagV2 :: Text
+coordinatedHeadStateCBORTagV2 = "CoordinatedHeadState2"
 
 instance IsTx tx => ToCBOR (CoordinatedHeadState tx) where
   toCBOR CoordinatedHeadState{localUTxO, localTxs, allTxs, confirmedSnapshot, seenSnapshot, currentDepositTxId, decommitTx, version, settlements} =
@@ -199,12 +202,13 @@ instance IsTx tx => FromCBOR (CoordinatedHeadState tx) where
   fromCBOR =
     fromCBOR >>= \case
       (tag :: Text)
-        | tag == coordinatedHeadStateCBORTag -> decode True
-        | tag == coordinatedHeadStateCBORTagV1 -> decode False
+        | tag == coordinatedHeadStateCBORTag -> decode fromCBOR
+        | tag == coordinatedHeadStateCBORTagV2 -> decode decodeV2Settlements
+        | tag == coordinatedHeadStateCBORTagV1 -> decode (pure emptySettlements)
         | otherwise -> fail $ show tag <> " is not a proper CBOR-encoded CoordinatedHeadState"
    where
-    decode :: Bool -> Decoder s (CoordinatedHeadState tx)
-    decode hasSettlements = do
+    decode :: Decoder s (Settlements tx) -> Decoder s (CoordinatedHeadState tx)
+    decode decodeSettlements = do
       localUTxO <- fromCBOR
       localTxs <- fromCBOR
       allTxs <- fromCBOR
@@ -213,11 +217,35 @@ instance IsTx tx => FromCBOR (CoordinatedHeadState tx) where
       currentDepositTxId <- fromCBOR
       decommitTx <- fromCBOR
       version <- fromCBOR
-      -- A state from before this field existed retains no settlements:
-      -- rollback re-posting is unavailable for increments and decrements
-      -- finalized before the upgrade, like it was at the time.
-      settlements <- if hasSettlements then fromCBOR else pure emptySettlements
+      settlements <- decodeSettlements
       pure CoordinatedHeadState{localUTxO, localTxs, allTxs, confirmedSnapshot, seenSnapshot, currentDepositTxId, decommitTx, version, settlements}
+
+    decodeV2Settlements :: Decoder s (Settlements tx)
+    decodeV2Settlements = do
+      finalizedCommit <- fromCBOR
+      finalizedDecommit <- fromCBOR
+      foldlM retain emptySettlements (catMaybes [finalizedCommit, finalizedDecommit])
+     where
+      retain :: Settlements tx -> FinalizedSnapshot tx -> Decoder s (Settlements tx)
+      retain retained (FinalizedSnapshot snapshot observedAtSlot) = do
+        let Snapshot{version = snapshotVersion} = getSnapshot snapshot
+            -- V2 records observation slots, but no explicit rollback status.
+            status = Landed observedAtSlot
+        case Map.lookup snapshotVersion (settlementEntries retained) of
+          Just Settlement{snapshot = previousSnapshot, status = previousStatus}
+            | previousSnapshot /= snapshot -> fail "Conflicting V2 finalized snapshots at the same version"
+            | Landed previousSlot <- previousStatus ->
+                pure $ adjustSettlementStatus snapshotVersion (Landed $ max previousSlot observedAtSlot) retained
+            | otherwise -> pure retained
+          Nothing -> either (fail . show) pure $ tryInsertSettlement Settlement{snapshot, status} retained
+
+-- | Decode-only record for the V2 layout. Its constructor name and field order
+-- are part of the legacy CBOR format.
+data FinalizedSnapshot tx = FinalizedSnapshot (ConfirmedSnapshot tx) ChainSlot
+  deriving stock (Generic)
+
+instance IsTx tx => FromCBOR (FinalizedSnapshot tx) where
+  fromCBOR = genericFromCBOR
 
 -- | Data structure to help in tracking whether we have seen or requested a
 -- ReqSn already and if seen, the signatures we collected already.
