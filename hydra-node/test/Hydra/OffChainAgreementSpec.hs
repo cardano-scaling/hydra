@@ -616,9 +616,17 @@ spec = parallel $ do
     it "anchor: with nothing in flight the real node records the decommit" $ do
       reqDecEligibleRef NoCommitP False `shouldBe` True
       reqDecAccepts (reqDecOutcome NoCommitP False) `shouldBe` True
-    it "a pending deposit (commit in flight) makes the real node WAIT (WaitOnUnresolvedCommit)" $
-      reqDecOutcome CommitPendingP False
-        `assertWait` WaitOnUnresolvedCommit{commitUTxO = reqDecDepositedUTxO}
+    -- The node no longer holds a ReqDec back on a pending commit. Each node's
+    -- own tick decides whether a deposit is queued, so the same ReqDec was
+    -- refused on some nodes and recorded on others, and the ones that recorded
+    -- it held a decommit nobody proposed. The model's concurrent walk found
+    -- this. The commit-before-decommit order is enforced where the snapshot is
+    -- proposed instead ('selectNextIncrementalAction',
+    -- 'ReqSnBothCommitAndDecommit'). 'reqDecEligibleRef' still models the hold,
+    -- so it disagrees on 'CommitPendingP' until the reference follows
+    -- (hydra-agda).
+    it "a pending deposit (commit in flight) no longer holds the real node back: it records" $
+      reqDecAccepts (reqDecOutcome CommitPendingP False) `shouldBe` True
     it "an in-flight decommit makes the real node WAIT (DecommitAlreadyInFlight)" $
       reqDecOutcome NoCommitP True
         `assertWait` WaitOnNotApplicableDecommitTx
@@ -633,7 +641,9 @@ spec = parallel $ do
     it "a commit that is already gone blocks neither" $ do
       reqDecEligibleRef CommitGoneP False `shouldBe` True
       reqDecAccepts (reqDecOutcome CommitGoneP False) `shouldBe` True
-    prop "reqDecEligibleRef === real ReqDec accept/non-accept across (commit state, decommit?)" $
+    -- Pending on 'CommitPendingP' for the reason given above; the other three
+    -- commit states still agree (see the anchors).
+    xprop "reqDecEligibleRef === real ReqDec accept/non-accept across (commit state, decommit?)" $
       \decommitInFlight ->
         conjoin
           [ counterexample (show commit) $
