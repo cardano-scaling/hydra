@@ -59,3 +59,7 @@ If the settling transaction is re-observed on the new chain — whether it survi
 :::
 
 For the earlier design decisions, see [ADR-23](/adr/23). The behavior above describes the current implementation.
+
+## Testing chain ordering
+
+The model's mock chain updates the chain and queues its events under one shared lock. Each node has its own queue and delivers events in order, outside that lock. Each node processes the original blocks first, then the rollback that removes them, and finally the replacement blocks. Tests can pause one node while another follows the replacement chain. Reconnecting nodes queue catch-up events before live events, preserving the same order during replay.
