@@ -58,3 +58,7 @@ If the settling transaction is re-observed on the new chain — whether it survi
 :::
 
 Rollback handling has been partially deactivated in Hydra per [ADR-23](/adr/23). This section will be updated with a more comprehensive and refined rollback handling approach with issue [#185](https://github.com/cardano-scaling/hydra/issues/185).
+
+## Testing chain ordering
+
+The model's mock chain updates the chain and queues its events under one shared lock. Each node has its own queue and delivers events in order, outside that lock. A rollback therefore follows earlier blocks at each node, and replacement blocks follow the rollback. Tests can pause one node while another follows the replacement chain. Reconnecting nodes queue catch-up events before live events, preserving the same order during replay.
