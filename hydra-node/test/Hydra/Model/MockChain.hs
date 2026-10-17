@@ -272,8 +272,11 @@ mockChainAndNetworkWithChainTracer tr chainTracer seedKeys networkLatencySeed = 
         now <- getCurrentTime
         let remaining = realToFrac $ addUTCTime (realToFrac latency) arrival `diffUTCTime` now
         when (remaining > 0) $ threadDelay remaining
-        atomically bumpOffset
-        enqueue (mkNetworkInput sender msg)
+        -- Count the message as consumed and hand it to the node in one go. A
+        -- crash in between would lose it (see below).
+        mask_ $ do
+          atomically bumpOffset
+          enqueue (mkNetworkInput sender msg)
     link deliveryThread
     chainQueue <- newLabelledTQueueIO "mock-chain-events"
     let handler = chainSyncHandler (chainTracer ownParty) (enqueue . ChainInput) (const getTimeHandle) ctx localChainState
@@ -290,6 +293,7 @@ mockChainAndNetworkWithChainTracer tr chainTracer seedKeys networkLatencySeed = 
             , chainQueue
             , chainDeliveryThread
             , mailbox
+            , deliveryThread
             }
     -- Resume chain sync from the node's recovered chain point, like a real
     -- node re-syncing after a restart. Its head state comes from the event
@@ -319,6 +323,13 @@ mockChainAndNetworkWithChainTracer tr chainTracer seedKeys networkLatencySeed = 
     -- snapshot the network log in one atomic step, so the log partitions
     -- cleanly: messages already logged are replayed below, later ones reach
     -- the freshly registered mailbox — no message lost or delivered twice.
+    -- An earlier incarnation of this party (see 'performRestartNode' in the
+    -- model) stops consuming first. Otherwise its delivery thread keeps
+    -- counting its mailbox as consumed by a node that no longer processes
+    -- anything, and the next reconnect skips that many live messages. What it
+    -- had not delivered yet is replayed from the log below.
+    previous <- filter (matchingParty ownParty) <$> readTVarIO nodes
+    forM_ previous $ \MockHydraNode{deliveryThread = previousDelivery} -> cancel previousDelivery
     (pastMessages, ownOffset) <- atomically $ do
       modifyTVar nodes ((mockNode :) . filter (not . matchingParty ownParty))
       history <- readTVar networkHistory
@@ -639,6 +650,9 @@ data MockHydraNode m = MockHydraNode
   , mailbox :: TQueue m (UTCTime, Party, Message Tx)
   -- ^ Pending network deliveries to this node (with their arrival time), see
   -- 'createMockNetwork'.
+  , deliveryThread :: Async m ()
+  -- ^ The thread draining 'mailbox' into the node. It is stopped when the
+  -- party reconnects as a new incarnation (see 'connectNode').
   }
 
 createMockChain ::
