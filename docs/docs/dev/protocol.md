@@ -149,6 +149,8 @@ Users of a Hydra head can request decommits UTxO from L1 by sending a `POST /dec
 The decommit transaction is necessary to prove to the head participants that the decommitted UTxO can be spent by the requestor.
 :::
 
+A node can record a decommit while a commit is pending. The leader carries the commit first and proposes the decommit after the increment lands. Until then, the decommit's inputs remain reserved in the local UTxO used to validate incoming transactions. When a snapshot request rebuilds that UTxO, the node first reapplies pending transactions, then reserves the decommit's inputs again. This order matters because a pending transaction may create an input that the decommit needs. The reservation does not change the signed snapshot's UTxO.
+
 As the decommit is first decided on the L2 with full consensus, no honest node would approve further spending of funds to be decommitted — so a rollback cannot lead to a double spend of them. A rollback erasing an already observed `decrementTx` still needs handling though: the node retains the signed snapshot that authorized the decrement and re-posts the transaction should a rollback erase it, see [rollbacks](./rollbacks) for details.
 
 ```mermaid
