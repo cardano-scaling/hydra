@@ -7,11 +7,12 @@ module Data.EventSource.Rotation (
   LogId,
   EventStore (..),
   newRotatedEventStore,
+  newRotatedEventStoreM,
 ) where
 
-import Conduit (MonadUnliftIO, runConduit, runResourceT, (.|))
+import Conduit (MonadUnliftIO, lift, runConduit, runResourceT, (.|))
 import Control.Concurrent.Class.Labelled (newLabelledTVarIO)
-import Control.Concurrent.Class.MonadSTM (MonadLabelledSTM, atomically, modifyTVar', readTVarIO, writeTVar)
+import Control.Concurrent.Class.MonadSTM (MonadLabelledSTM, STM, atomically, modifyTVar', readTVar, readTVarIO, writeTVar)
 import Control.Monad (forM_, when)
 import Control.Monad.Class.MonadTime.SI (MonadTime, getCurrentTime)
 import Data.Conduit.Combinators qualified as C
@@ -51,10 +52,23 @@ newRotatedEventStore ::
   (s -> EventId -> UTCTime -> e) ->
   EventStore e m ->
   m (EventStore e m)
-newRotatedEventStore config s0 aggregator checkpointer eventStore = do
+newRotatedEventStore config s0 aggregator =
+  newRotatedEventStoreM config s0 (\state event -> pure $ aggregator state event)
+
+-- | Rotate with an aggregate update that can reject a conflicting event.
+-- A failed replay stops startup before any archive or checkpoint is written.
+newRotatedEventStoreM ::
+  (HasEventId e, MonadUnliftIO m, MonadTime m, MonadLabelledSTM m) =>
+  RotationConfig ->
+  s ->
+  (s -> e -> STM m s) ->
+  (s -> EventId -> UTCTime -> e) ->
+  EventStore e m ->
+  m (EventStore e m)
+newRotatedEventStoreM config s0 aggregator checkpointer eventStore = do
   (currentNumberOfEvents, lastEventId, currentAggregateState) <-
     runResourceT . runConduit $
-      sourceEvents eventSource .| C.foldl aggregateEvents (0, 0, s0)
+      sourceEvents eventSource .| C.foldM (\acc event -> lift $ atomically $ aggregateEvents acc event) (0, 0, s0)
   aggregateStateV <- newLabelledTVarIO "rotated-event-store-aggregate-state" currentAggregateState
   numberOfEventsV <- newLabelledTVarIO "rotated-event-store-number-of-events" currentNumberOfEvents
   -- check rotation on startup
@@ -74,7 +88,14 @@ newRotatedEventStore config s0 aggregator checkpointer eventStore = do
  where
   RotateAfter rotateAfterX = config
 
-  aggregateEvents (!n, !_evId, !acc) e = (n + 1, getEventId e, aggregator acc e)
+  aggregateEvents (!n, !_evId, !acc) e = do
+    next <- aggregator acc e
+    pure (n + 1, getEventId e, next)
+
+  updateAggregate tv event = do
+    state <- readTVar tv
+    next <- aggregator state event
+    writeTVar tv $! next
 
   shouldRotate numberOfEventsV = do
     currentNumberOfEvents <- readTVarIO numberOfEventsV
@@ -87,7 +108,7 @@ newRotatedEventStore config s0 aggregator checkpointer eventStore = do
     putEvent event
     atomically $ do
       -- aggregate new state
-      modifyTVar' aggregateStateV (`aggregator` event)
+      updateAggregate aggregateStateV event
       -- bump numberOfEvents
       modifyTVar' numberOfEventsV (+ 1)
     -- check rotation
@@ -99,7 +120,7 @@ newRotatedEventStore config s0 aggregator checkpointer eventStore = do
     putEvents evts
     atomically $ do
       forM_ evts $ \evt -> do
-        modifyTVar' aggregateStateV (`aggregator` evt)
+        updateAggregate aggregateStateV evt
         modifyTVar' numberOfEventsV (+ 1)
     whenM (shouldRotate numberOfEventsV) $ do
       case nonEmpty evts of
