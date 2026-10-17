@@ -11,8 +11,11 @@ import Cardano.Api.UTxO qualified as UTxO
 import Control.Concurrent.Class.MonadSTM (
   MonadSTM (writeTVar),
   modifyTVar,
+  newTMVarIO,
+  putTMVar,
   readTQueue,
   readTVarIO,
+  takeTMVar,
   throwSTM,
   tryReadTQueue,
   writeTQueue,
@@ -115,6 +118,9 @@ mockChainAndNetwork tr seedKeys networkLatencySeed = do
   nodes <- newLabelledTVarIO "mock-chain-nodes" []
   queue <- newLabelledTQueueIO "mock-chain-chain-queue"
   chain <- newLabelledTVarIO "mock-chain-state" (0 :: ChainSlot, 0 :: Natural, Empty, initialUTxO)
+  -- Chain mutations and delivery form one ordered stream. A rollback cannot
+  -- overtake a block halfway through delivery to the connected handlers.
+  chainSyncLock <- newTMVarIO ()
   latencySeed <- newLabelledTVarIO "mock-network-latency-seed" networkLatencySeed
   -- Persisted, totally-ordered network log plus a per-party consumer offset,
   -- mirroring the production etcd network: a node reconnecting after a restart
@@ -123,14 +129,14 @@ mockChainAndNetwork tr seedKeys networkLatencySeed = do
   -- re-processed). See 'connectNode' and 'createMockNetwork'.
   networkHistory <- newLabelledTVarIO "mock-network-history" ([] :: [(Party, Message Tx)])
   consumerOffsets <- newLabelledTVarIO "mock-network-offsets" (mempty :: Map Party Int)
-  tickThread <- asyncLabelled "mock-chain-tick" (simulateChain nodes chain queue)
+  tickThread <- asyncLabelled "mock-chain-tick" (simulateChain chainSyncLock nodes chain queue)
   link tickThread
   pure
     SimulatedChainNetwork
-      { connectNode = connectNode latencySeed networkHistory consumerOffsets nodes chain queue
+      { connectNode = connectNode chainSyncLock latencySeed networkHistory consumerOffsets nodes chain queue
       , tickThread
-      , rollbackAndForward = rollbackAndForward nodes chain
-      , rollbackAndFork = rollbackAndFork nodes chain queue
+      , rollbackAndForward = rollbackAndForward chainSyncLock nodes chain
+      , rollbackAndFork = rollbackAndFork chainSyncLock nodes chain queue
       , simulateDeposit = simulateDeposit nodes
       , closeWithInitialSnapshot = closeWithInitialSnapshot nodes
       , getChainHistory = pure []
@@ -158,7 +164,7 @@ mockChainAndNetwork tr seedKeys networkLatencySeed = do
     let vks = (\(_, CardanoSigningKey sk) -> getVerificationKey sk) <$> seedKeys
     env{participants = verificationKeyToOnChainId <$> vks}
 
-  connectNode latencySeed networkHistory consumerOffsets nodes chain queue draftNode = do
+  connectNode chainSyncLock latencySeed networkHistory consumerOffsets nodes chain queue draftNode = withChainSync chainSyncLock $ do
     localChainState <- newLocalChainState (initHistory initialChainState)
     let DraftHydraNode{env} = draftNode
         Environment{party = ownParty, depositPeriod} = env
@@ -303,10 +309,8 @@ mockChainAndNetwork tr seedKeys networkLatencySeed = do
     forM_ (drop ownOffset pastMessages) $ \(msgSender, msg) -> do
       atomically bumpOffset
       enqueueOwn $ mkNetworkInput msgSender msg
-    -- Re-observe blocks produced during the reconnect above (all past the
-    -- recovered slot, so 'replayBlock' re-observes them).
-    (_, caughtUpPosition, caughtUpBlocks, _) <- readTVarIO chain
-    forM_ (Seq.take (fromIntegral caughtUpPosition - fromIntegral replayPosition) $ Seq.drop (fromIntegral replayPosition) caughtUpBlocks) replayBlock
+    -- Replay and registration share the chain-sync lock, so live delivery
+    -- starts exactly after the last replayed block.
     pure node'
 
   simulateDeposit :: TVar m [MockHydraNode m] -> HeadId -> UTxO -> UTCTime -> m TxId
@@ -375,27 +379,29 @@ mockChainAndNetwork tr seedKeys networkLatencySeed = do
   blockTime :: DiffTime
   blockTime = 20
 
-  simulateChain nodes chain queue =
-    forever $ rollForward nodes chain queue
+  simulateChain chainSyncLock nodes chain queue =
+    forever $ rollForward chainSyncLock nodes chain queue
 
-  rollForward nodes chain queue = do
+  rollForward chainSyncLock nodes chain queue = do
     threadDelay blockTime
-    dropped <- atomically $ do
-      transactions <- flushQueue queue
-      addNewBlockToChain chain transactions
-    -- A real chain drops invalid transactions silently, but an invisible drop
-    -- makes test failures undiagnosable: surface each like a failed posting.
-    forM_ dropped $ \(tx, reason) ->
-      traceWith tr PostingFailed{tx, postTxError = FailedToPostTx{failureReason = "MockChain: dropped at block inclusion: " <> reason, failingTx = tx}}
-    doRollForward nodes chain
+    withChainSync chainSyncLock $ do
+      dropped <- atomically $ do
+        transactions <- flushQueue queue
+        addNewBlockToChain chain transactions
+      -- A real chain drops invalid transactions silently, but an invisible drop
+      -- makes test failures undiagnosable: surface each like a failed posting.
+      forM_ dropped $ \(tx, reason) ->
+        traceWith tr PostingFailed{tx, postTxError = FailedToPostTx{failureReason = "MockChain: dropped at block inclusion: " <> reason, failingTx = tx}}
+      doRollForward nodes chain
+
+  withChainSync :: TMVar m () -> m a -> m a
+  withChainSync lock =
+    bracket_ (atomically $ takeTMVar lock) (atomically $ putTMVar lock ())
 
   doRollForward :: TVar m [MockHydraNode m] -> TVar m (ChainSlot, Natural, Seq (BlockHeader, [Tx], UTxO), UTxO) -> m ()
   doRollForward nodes chain = do
-    -- NOTE: Advance the chain state in a single transaction: a separate
-    -- read-then-write races concurrent mutations (block production,
-    -- rollbacks, forks) and would clobber them with the stale read. The
-    -- ledger must also be reset to this utxo before calling the node handlers
-    -- (as they might submit transactions directly).
+    -- The caller holds the chain-sync lock. Update the ledger before calling
+    -- the node handlers, which can submit transactions against it directly.
     mServed <- atomically $ do
       (slotNum, position, blocks, _) <- readTVar chain
       case Seq.lookup (fromIntegral position) blocks of
@@ -416,18 +422,17 @@ mockChainAndNetwork tr seedKeys networkLatencySeed = do
   -- and we issue rollback and forwards to synchronize clients. However,
   -- submission will already validate against the new ledger state.
   rollbackAndForward ::
+    TMVar m () ->
     TVar m [MockHydraNode m] ->
     TVar m (ChainSlot, Natural, Seq (BlockHeader, [Tx], UTxO), UTxO) ->
     Natural ->
     m ()
-  rollbackAndForward nodes chain numberOfBlocks = do
-    doRollBackward nodes chain numberOfBlocks
-    replicateM_ (fromIntegral numberOfBlocks) $
-      doRollForward nodes chain
-    -- NOTE: There seems to be a race condition on multiple consecutive
-    -- rollbackAndForward calls, which would require some minimal (1ms) delay
-    -- here. However, waiting here for one blockTime is not wrong and enforces
-    -- rollbacks / chain switches to be not more often than blocks being added.
+  rollbackAndForward chainSyncLock nodes chain numberOfBlocks = do
+    withChainSync chainSyncLock $ do
+      doRollBackward nodes chain numberOfBlocks
+      replicateM_ (fromIntegral numberOfBlocks) $
+        doRollForward nodes chain
+    -- Pace chain switches while allowing the next block to be delivered.
     threadDelay blockTime
 
   doRollBackward ::
@@ -436,7 +441,7 @@ mockChainAndNetwork tr seedKeys networkLatencySeed = do
     Natural ->
     m ()
   doRollBackward nodes chain nbBlocks = do
-    -- NOTE: Single transaction for the same reason as in 'doRollForward'.
+    -- The caller holds the chain-sync lock through the rollback callbacks.
     mPoint <- atomically $ do
       (slotNum, position, blocks, _) <- readTVar chain
       -- Roll back exactly @nbBlocks@ blocks: the block before them becomes
@@ -466,46 +471,48 @@ mockChainAndNetwork tr seedKeys networkLatencySeed = do
   -- transactions (re-)posted by the nodes reacting to the rollback make it
   -- onto the new chain.
   rollbackAndFork ::
+    TMVar m () ->
     TVar m [MockHydraNode m] ->
     TVar m (ChainSlot, Natural, Seq (BlockHeader, [Tx], UTxO), UTxO) ->
     TQueue m Tx ->
     Natural ->
     RequeueMode ->
     m ()
-  rollbackAndFork nodes chain queue numberOfBlocks requeueMode = do
+  rollbackAndFork chainSyncLock nodes chain queue numberOfBlocks requeueMode = do
     let requeues tx = case requeueMode of
           RequeueAll -> True
           -- A deposit transaction only creates an output at the deposit
           -- script; it does not spend the head output and stays valid.
           RequeueDeposits -> isJust (observeDepositTx testNetworkId tx)
           RequeueNone -> False
-    mPoint <- atomically $ do
-      (slotNum, position, blocks, _utxo) <- readTVar chain
-      -- Same rollback point arithmetic as 'doRollBackward': exactly
-      -- @numberOfBlocks@ blocks are erased and the one before them becomes
-      -- the new tip — but never fork past the block containing the head's
-      -- init tx (the one spending 'seedInput'): a permanently erased init
-      -- makes the head unrecoverable by design (see the known limitations in
-      -- docs/dev/rollbacks) and is not the scenario this simulates.
-      let initIndex =
-            fromMaybe 0 $
-              Seq.findIndexR (\(_, txs, _) -> any (elem seedInput . txIns') txs) blocks
-          tipIndex = max (toInteger initIndex) (toInteger position - toInteger numberOfBlocks - 1)
-      if tipIndex < 0
-        then pure Nothing
-        else case Seq.lookup (fromInteger tipIndex) blocks of
-          Nothing -> pure Nothing
-          Just (header, _, blockUTxO) -> do
-            let kept = Seq.take (fromInteger tipIndex + 1) blocks
-                erased = concatMap (\(_, txs, _) -> txs) $ toList $ Seq.drop (fromInteger tipIndex + 1) blocks
-            writeTVar chain (slotNum, fromInteger tipIndex + 1, kept, blockUTxO)
-            forM_ (filter requeues erased) (writeTQueue queue)
-            pure $ Just (getChainPoint header)
-    case mPoint of
-      Nothing -> pure ()
-      Just point -> do
-        allHandlers <- fmap chainHandler <$> readTVarIO nodes
-        forM_ allHandlers (`onRollBackward` point)
+    withChainSync chainSyncLock $ do
+      mPoint <- atomically $ do
+        (slotNum, position, blocks, _utxo) <- readTVar chain
+        -- Same rollback point arithmetic as 'doRollBackward': exactly
+        -- @numberOfBlocks@ blocks are erased and the one before them becomes
+        -- the new tip — but never fork past the block containing the head's
+        -- init tx (the one spending 'seedInput'): a permanently erased init
+        -- makes the head unrecoverable by design (see the known limitations in
+        -- docs/dev/rollbacks) and is not the scenario this simulates.
+        let initIndex =
+              fromMaybe 0 $
+                Seq.findIndexR (\(_, txs, _) -> any (elem seedInput . txIns') txs) blocks
+            tipIndex = max (toInteger initIndex) (toInteger position - toInteger numberOfBlocks - 1)
+        if tipIndex < 0
+          then pure Nothing
+          else case Seq.lookup (fromInteger tipIndex) blocks of
+            Nothing -> pure Nothing
+            Just (header, _, blockUTxO) -> do
+              let kept = Seq.take (fromInteger tipIndex + 1) blocks
+                  erased = concatMap (\(_, txs, _) -> txs) $ toList $ Seq.drop (fromInteger tipIndex + 1) blocks
+              writeTVar chain (slotNum, fromInteger tipIndex + 1, kept, blockUTxO)
+              forM_ (filter requeues erased) (writeTQueue queue)
+              pure $ Just (getChainPoint header)
+      case mPoint of
+        Nothing -> pure ()
+        Just point -> do
+          allHandlers <- fmap chainHandler <$> readTVarIO nodes
+          forM_ allHandlers (`onRollBackward` point)
     -- Give the nodes and the chain time to converge onto the new fork: nodes
     -- re-post erased settlements upon observing the rollback and requeued
     -- transactions are included in the following blocks.
