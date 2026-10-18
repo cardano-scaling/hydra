@@ -5,6 +5,7 @@ module Hydra.HeadLogic.StateEvent where
 
 import Data.EventSource (EventId, HasEventId (..))
 import Hydra.Chain.ChainState (IsChainState)
+import Hydra.HeadLogic (aggregateNodeState)
 import Hydra.HeadLogic.Outcome (StateChanged (Checkpoint))
 import Hydra.Node.State (NodeState)
 import Hydra.Prelude
@@ -44,3 +45,20 @@ mkCheckpoint nodeState eventId time =
     , stateChanged = Checkpoint nodeState
     , time
     }
+
+-- | A persisted event conflicts with the settlements retained so far.
+data StateAggregationException = StateAggregationException
+  { conflictingEventId :: EventId
+  , reason :: Text
+  }
+  deriving stock (Eq, Show)
+
+instance Exception StateAggregationException
+
+aggregateStateEvent :: IsChainState tx => NodeState tx -> StateEvent tx -> Either StateAggregationException (NodeState tx)
+aggregateStateEvent current StateEvent{eventId, stateChanged} =
+  first (StateAggregationException eventId . show) $ aggregateNodeState current stateChanged
+
+-- | Stop replay at a conflicting event, before exposing an incomplete state.
+replayStateEvent :: (IsChainState tx, MonadThrow m) => NodeState tx -> StateEvent tx -> m (NodeState tx)
+replayStateEvent current event = either throwIO pure $ aggregateStateEvent current event

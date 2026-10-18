@@ -55,16 +55,7 @@ updateModel a m = case a of
     case readMaybe (MS.unpack s) :: Maybe Int of
       Just n -> noEff $ m{cursor = clamp m n}
       Nothing -> noEff m
-  AppendEvents events ->
-    let existing = V.toList (history m)
-        extended = extendHistory (initial m) existing events
-        followingTail = cursor m == max 0 (V.length (visibleHistory m) - 1)
-        newModel = m{history = V.fromList extended}
-        newCursor =
-          if followingTail
-            then max 0 (V.length (visibleHistory newModel) - 1)
-            else cursor m
-     in noEff newModel{cursor = newCursor}
+  AppendEvents events -> noEff $ appendEvents events m
   SetInputDraft s -> noEff $ m{inputDraft = s, inputError = Nothing}
   LoadPreset s -> noEff $ m{inputDraft = s, inputError = Nothing}
   ApplyDraft -> applyDraft m
@@ -174,20 +165,22 @@ applyInput env ledger input m =
         Continue{stateChanges} -> withIds nextEventId walltime stateChanges
         Wait{stateChanges} -> withIds nextEventId walltime stateChanges
         Error{} -> []
-      newSteps = buildHistory priorState synthEvents
       err = case outcome of
         Error{error = e} ->
           Just (MS.ms ("update returned Error: " <> show (e :: HL.LogicError tx) :: Text))
         _ -> Nothing
-   in m
-        { history = history m <> V.fromList newSteps
-        , cursor =
-            if null newSteps
-              then cursor m
-              else V.length (history m) + length newSteps - 1
-        , inputError = err
-        , inputDraft = if isNothing err then "" else inputDraft m
-        }
+   in case buildHistory priorState synthEvents of
+        Left conflict -> m{inputError = Just (MS.ms (show conflict :: Text))}
+        Right newSteps ->
+          m
+            { history = history m <> V.fromList newSteps
+            , cursor =
+                if null newSteps
+                  then cursor m
+                  else V.length (history m) + length newSteps - 1
+            , inputError = err
+            , inputDraft = if isNothing err then "" else inputDraft m
+            }
  where
   withIds startId t =
     zipWith
@@ -212,16 +205,7 @@ applyAction a m = case a of
   SetCursor s -> case readMaybe (MS.unpack s) :: Maybe Int of
     Just n -> m{cursor = clamp n}
     Nothing -> m
-  AppendEvents events ->
-    let existing = V.toList (history m)
-        extended = extendHistory (initial m) existing events
-        followingTail = cursor m == max 0 (V.length (visibleHistory m) - 1)
-        newModel = m{history = V.fromList extended}
-        newCursor =
-          if followingTail
-            then max 0 (V.length (visibleHistory newModel) - 1)
-            else cursor m
-     in newModel{cursor = newCursor}
+  AppendEvents events -> appendEvents events m
   SetInputDraft s -> m{inputDraft = s, inputError = Nothing}
   LoadPreset s -> m{inputDraft = s, inputError = Nothing}
   ApplyDraft -> case ctx m of
@@ -265,3 +249,14 @@ followSub path initialLastSeen sink =
               <> ")"
           sink (AppendEvents (toList ne))
     pure ()
+
+-- | Keep the displayed history unchanged when a batch contains a conflict.
+appendEvents :: IsChainState tx => [StateEvent tx] -> Model tx -> Model tx
+appendEvents events m =
+  case extendHistory (initial m) (V.toList (history m)) events of
+    Left conflict -> m{inputError = Just (MS.ms (show conflict :: Text))}
+    Right extended ->
+      let followingTail = cursor m == max 0 (V.length (visibleHistory m) - 1)
+          newModel = m{history = V.fromList extended}
+          newCursor = if followingTail then max 0 (V.length (visibleHistory newModel) - 1) else cursor m
+       in newModel{cursor = newCursor}

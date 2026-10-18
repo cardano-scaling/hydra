@@ -9,7 +9,7 @@ import Cardano.Slotting.Time (mkSlotLength)
 import Control.Monad.Trans.Except (runExcept)
 import Control.Tracer.JSON (Tracer, traceWith, withTracer)
 import Data.EventSource (EventSink)
-import Data.EventSource.Rotation (EventStore (..), RotationConfig (..), newRotatedEventStore)
+import Data.EventSource.Rotation (EventStore (..), RotationConfig (..), newRotatedEventStoreM)
 import Data.EventSource.SQLite (withSQLiteEventStore)
 import Hydra.API.Server (APIServerConfig (..), withAPIServer)
 import Hydra.API.ServerOutputFilter (serverOutputFilter)
@@ -19,13 +19,11 @@ import Hydra.Chain.Backend (ChainBackend (queryEraHistory, queryGenesisParameter
 import Hydra.Chain.Blockfrost (runBlockfrostBackend)
 import Hydra.Chain.Cardano (withCardanoChain)
 import Hydra.Chain.CardanoClient (QueryPoint (..))
-import Hydra.Chain.ChainState (IsChainState (..))
 import Hydra.Chain.Direct (runDirectBackend)
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Chain.Offline (loadGenesisFile, withOfflineChain)
 import Hydra.Contract.KZGTrustedSetup qualified as KZG
-import Hydra.HeadLogic (aggregateNodeState)
-import Hydra.HeadLogic.StateEvent (StateEvent (StateEvent, stateChanged), mkCheckpoint)
+import Hydra.HeadLogic.StateEvent (StateEvent, mkCheckpoint, replayStateEvent)
 import Hydra.Ledger (Ledger)
 import Hydra.Ledger.Cardano (cardanoLedger, newLedgerEnv)
 import Hydra.Logging.Messages (HydraLog (..))
@@ -45,7 +43,7 @@ import Hydra.Node (
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.Network (NetworkConfiguration (..), withNetwork)
 import Hydra.Node.Outbox (Outbox (outboxStalled))
-import Hydra.Node.State (NodeState (..), initNodeState)
+import Hydra.Node.State (initNodeState)
 import Hydra.Options (
   CardanoChainConfig (..),
   ChainBackendOptions (..),
@@ -163,9 +161,7 @@ run opts = do
         pure eventStore
       Just rotationConfig -> do
         let initialState = initNodeState initialChainState
-        let aggregator :: IsChainState tx => NodeState tx -> StateEvent tx -> NodeState tx
-            aggregator s StateEvent{stateChanged} = aggregateNodeState s stateChanged
-        newRotatedEventStore rotationConfig initialState aggregator mkCheckpoint eventStore
+        newRotatedEventStoreM rotationConfig initialState replayStateEvent mkCheckpoint eventStore
 
   RunOptions
     { verbosity

@@ -187,30 +187,9 @@ spec = do
   context "fail-recovery" $ do
     prop "a party restarted twice right after a settlement still confirms snapshots" $
       propScripted partyRestartedTwiceAfterSettlement
-  -- Properties that find open bugs, pending ('xprop') until those are fixed.
-  -- Re-enable them to check the fix.
-  --
-  -- The concurrent random walk lets several deposits and decommits settle at
-  -- the same time as L2 traffic and divergent forks. It finds:
-  --
-  --   * A snapshot requested while an increment or decrement is still
-  --     settling can carry a stale version: a party that observed the
-  --     settlement first parks the request on 'WaitOnSnapshotVersion' until
-  --     its TTL drops it, and the leader never re-requests. No later snapshot
-  --     confirms.
-  --   * Settlements erased by a fork are not all re-posted.
-  --
-  -- The scripted settlement scenarios pin the last point down: only the last
-  -- finalized increment/decrement is retained, the two re-post branches are
-  -- alternatives instead of both, and re-posts are fire-and-forget (a later
-  -- settlement is not posted again once the earlier one re-lands).
-  --
-  -- The scripted fanout scenarios show the same gap for a fanout in progress:
-  -- after a fork erases a landed step, the node's fanout bookkeeping is ahead
-  -- of the chain. Automatic mode re-posts the next step instead of the erased
-  -- one, which cannot land, and manual mode posts nothing at all since it
-  -- waits for the client. The head is never fully fanned out.
-  context "pending until the open settlement bugs are fixed" $ do
+  -- Scripted settlement rollback scenarios exercise retention and replay.
+  -- Concurrent walks and fanout rollback regressions remain pending.
+  context "settlement and fanout rollback stress" $ do
     xprop "check model with concurrent settlements" $
       forAllDL concurrentWalk propHydraModel
     xprop "check model balances with concurrent settlements" $
@@ -221,15 +200,15 @@ spec = do
     -- makes the driver's waits time out spuriously, cf. ServerSpec).
     around_ onlyNightly $
       xprop "check model balances under load with divergent forks @nightly" propStressModelBalances
-    xprop "two finalized increments are both erased by a fork" $
+    prop "two finalized increments are both erased by a fork" $
       propScripted twoFinalizedIncrementsErased
-    xprop "two finalized decrements are both erased by a fork" $
+    prop "two finalized decrements are both erased by a fork" $
       propScripted twoFinalizedDecrementsErased
-    xprop "a finalized increment is erased while the next increment is in flight" $
+    prop "a finalized increment is erased while the next increment is in flight" $
       propScripted finalizedIncrementErasedWithNextInFlight
-    xprop "a finalized increment and decrement are both erased by a fork" $
+    prop "a finalized increment and decrement are both erased by a fork" $
       propScripted finalizedIncrementAndDecrementErased
-    xprop "new settlements requested during a replay settle in order" $
+    prop "new settlements requested during a replay settle in order" $
       propScripted newSettlementsDuringReplay
     xprop "a fork erases a step of an automatic fanout" $
       propScripted autoFanoutStepErased
