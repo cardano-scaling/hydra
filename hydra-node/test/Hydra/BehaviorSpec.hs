@@ -36,8 +36,8 @@ import Hydra.Chain (
  )
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot), ChainStateType, IsChainState, chainStatePoint, chainStateSlot)
 import Hydra.Chain.Direct.Handlers (LocalChainState, getLatest, newLocalChainState, pushNew, rollback)
-import Hydra.HeadLogic (CoordinatedHeadState (..), Effect (..), HeadState (..), Input (..), OpenState (..), aggregateChainStateHistory, aggregateNodeState)
-import Hydra.HeadLogic.StateEvent (StateEvent (..))
+import Hydra.HeadLogic (CoordinatedHeadState (..), Effect (..), HeadState (..), Input (..), OpenState (..), aggregateChainStateHistory)
+import Hydra.HeadLogic.StateEvent (StateEvent (..), replayStateEvent)
 import Hydra.HeadLogicSpec (testSnapshot)
 import Hydra.Ledger (Ledger)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), simpleLedger)
@@ -216,8 +216,8 @@ spec = parallel $ do
     -- After the deposit snapshot confirms (ver=0), maybeRequestNextSnapshot
     -- fires ReqSn(ver=0, sn=2) immediately for pending L2 txs. Then
     -- CommitFinalized bumps version to 1 before the echo returns (25s).
-    -- The stale ReqSn(ver=0) is rejected with ReqSvNumberInvalid and nobody
-    -- re-triggers ReqSn(ver=1) → head permanently stuck without the fix.
+    -- The stale ReqSn(ver=0) waits on the version mismatch, so the leader
+    -- must request the pending work again at version 1.
     it "snapshot does not get stuck on CommitFinalized version race with slow network" $
       shouldRunInSim $
         withSimulatedChainAndSlowNetwork 25 0 $ \chain ->
@@ -240,9 +240,8 @@ spec = parallel $ do
                 _ -> Nothing
               -- After the deposit snapshot confirms, the leader sends
               -- ReqSn(ver=0, sn=2) for tx 999. CommitFinalized then arrives
-              -- and bumps version to 1. The stale ReqSn(ver=0) echo is
-              -- rejected. Without the fix the head gets permanently stuck
-              -- as nobody re-triggers ReqSn(ver=1).
+              -- and bumps version to 1. The stale ReqSn(ver=0) echo waits;
+              -- the pending transaction must confirm at the new version.
               waitUntilMatch [n1, n2] $ \case
                 SnapshotConfirmed{snapshot = Snapshot{version = 1}} -> Just ()
                 _ -> Nothing
@@ -407,9 +406,9 @@ spec = parallel $ do
       -- A transaction that never becomes applicable is dropped as 'TxInvalid'
       -- once its TTL expires. The head has to stay usable afterwards: later
       -- transactions still confirm, and the head still closes and fans out the
-      -- UTxO they produced. The ledger reason carried by 'TxInvalid' for a
+      -- UTxO they produced. The ledger reason 'TxInvalid' carries for a
       -- transaction missing its witness is pinned in
-      -- 'Hydra.Ledger.CardanoSpec'; 'SimpleTx' has no notion of witnesses.
+      -- 'Hydra.Ledger.CardanoSpec', since 'SimpleTx' has no witnesses.
       it "stays usable after a transaction was dropped as invalid" $
         shouldRunInSim $
           withSimulatedChainAndNetwork $ \chain ->
@@ -1893,7 +1892,7 @@ createHydraNodeWithEventStore EventStore{eventSource, eventSink} events tracer l
   -- server output history (e.g. HeadIsOpen) is available like after a real
   -- fail-recovery.
   putEventsToSinks [apiSink] events
-  let nodeState = foldl' (\s StateEvent{stateChanged} -> aggregateNodeState s stateChanged) (initNodeState chainState) events
+  nodeState <- foldlM replayStateEvent (initNodeState chainState) events
   let chainStateHistory = foldl' (\h StateEvent{stateChanged} -> aggregateChainStateHistory h stateChanged) (initHistory chainState) events
   let lastEventId = getEventId <$> viaNonEmpty last events
   nodeStateHandler <- createNodeStateHandler lastEventId nodeState

@@ -7,18 +7,21 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Hydra.Chain.ChainState (IsChainState (..))
-import Hydra.HeadLogic.Settlements (Settlement (..), SettlementStatus (..), Settlements, emptySettlements, tryInsertSettlement)
 import Hydra.HeadLogic.State (
   ClosedState (..),
   CoordinatedHeadState (..),
   FanoutMode (..),
-  FinalizedSnapshot (..),
   HeadState (..),
   IdleState (..),
   OpenState (..),
   PartialFanoutState (..),
   SeenSnapshot (..),
+  Settlement (..),
+  SettlementStatus (..),
+  Settlements,
+  emptySettlements,
   mkSeenSnapshot,
+  tryInsertSettlement,
  )
 import Hydra.Tx.Snapshot qualified as Snapshot
 import Test.Hydra.Tx.Gen (ArbitraryIsTx)
@@ -68,9 +71,6 @@ instance ArbitraryIsTx tx => Arbitrary (FanoutMode tx) where
   arbitrary = genericArbitrary
 
 instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (PartialFanoutState tx) where
-  arbitrary = genericArbitrary
-
-instance ArbitraryIsTx tx => Arbitrary (FinalizedSnapshot tx) where
   arbitrary = genericArbitrary
 
 instance Arbitrary SettlementStatus where

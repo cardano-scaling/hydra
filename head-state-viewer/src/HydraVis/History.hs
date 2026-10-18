@@ -30,8 +30,7 @@ import Database.SQLite.Simple.FromField (FromField (..), ResultError (..), retur
 import Database.SQLite.Simple.Internal (Field (..))
 import Database.SQLite.Simple.Ok (Ok (..))
 import Hydra.Chain.ChainState (IsChainState)
-import Hydra.HeadLogic (aggregateNodeState)
-import Hydra.HeadLogic.StateEvent (StateEvent (..))
+import Hydra.HeadLogic.StateEvent (StateAggregationException, StateEvent (..), aggregateStateEvent)
 import Hydra.Node.State (NodeState)
 
 -- | One entry in the scrub-able history: the persisted event and the
@@ -50,7 +49,8 @@ deriving stock instance (IsChainState tx, Show (NodeState tx)) => Show (HistoryS
 -- @initial@. Returns one 'HistoryStep' per persisted event in event-id order.
 --
 -- Decoding errors are surfaced as 'IOError' exceptions; we do not try to
--- recover. If the file does not exist the underlying 'open' call throws.
+-- recover. Settlement conflicts report the event id and stop replay.
+-- If the file does not exist the underlying 'open' call throws.
 loadHistoryFor ::
   forall tx.
   (FromCBOR (StateEvent tx), FromJSON (StateEvent tx), IsChainState tx) =>
@@ -66,7 +66,7 @@ loadHistoryFor initial path = do
       IO [Only EventBlob]
   SQL.close conn
   events <- forM rows $ \(Only (EventBlob blob)) -> decodeEventBlob path blob
-  pure (buildHistory initial events)
+  either throwIO pure $ buildHistory initial events
 
 -- | Decode an event payload: CBOR (the current production format) first,
 -- falling back to JSON for version 1 databases and pre-rotation archives.
@@ -106,12 +106,14 @@ buildHistory ::
   IsChainState tx =>
   NodeState tx ->
   [StateEvent tx] ->
-  [HistoryStep tx]
+  Either StateAggregationException [HistoryStep tx]
 buildHistory initial events =
-  let step :: NodeState tx -> StateEvent tx -> NodeState tx
-      step s e = aggregateNodeState s (stateChanged e)
-      states = drop 1 $ scanl' step initial events
-   in zipWith HistoryStep events states
+  reverse . snd <$> foldlM step (initial, []) events
+ where
+  step :: (NodeState tx, [HistoryStep tx]) -> StateEvent tx -> Either StateAggregationException (NodeState tx, [HistoryStep tx])
+  step (current, history) event = do
+    next <- aggregateStateEvent current event
+    pure (next, HistoryStep event next : history)
 
 -- | Read events with @event_id > lastSeen@ (or every event when 'Nothing').
 -- Used by the follow loop to fetch only newly persisted rows on each poll.
@@ -146,9 +148,9 @@ extendHistory ::
   NodeState tx ->
   [HistoryStep tx] ->
   [StateEvent tx] ->
-  [HistoryStep tx]
+  Either StateAggregationException [HistoryStep tx]
 extendHistory fallback existing newEvents =
   let priorState = case nonEmpty existing of
         Nothing -> fallback
         Just ne -> stateAfter (last ne)
-   in existing <> buildHistory priorState newEvents
+   in (existing <>) <$> buildHistory priorState newEvents

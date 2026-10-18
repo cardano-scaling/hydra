@@ -11,7 +11,7 @@ import Data.Aeson (Result (Error, Success), fromJSON)
 import Data.Map.Strict qualified as Map
 import Data.Set qualified as Set
 import Hydra.Chain.ChainState (ChainSlot (..))
-import Hydra.HeadLogic.Settlements (
+import Hydra.HeadLogic.State (
   Settlement (..),
   SettlementConflict (..),
   SettlementStatus (..),
