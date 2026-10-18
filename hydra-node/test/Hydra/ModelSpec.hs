@@ -187,19 +187,21 @@ spec = do
   context "fail-recovery" $ do
     prop "a party restarted twice right after a settlement still confirms snapshots" $
       propScripted partyRestartedTwiceAfterSettlement
-  -- Scripted settlement rollback scenarios exercise retention and replay.
-  -- Concurrent walks and fanout rollback regressions remain pending.
+  -- The concurrent walks keep deposits and forks overlapping, but observe
+  -- pending settlements before payments or new decommit requests to avoid
+  -- the known snapshot version race; see 'Model.settlementsObserved'.
   context "settlement and fanout rollback stress" $ do
-    xprop "check model with concurrent settlements" $
+    prop "check model with concurrent settlements" $
       forAllDL concurrentWalk propHydraModel
-    xprop "check model balances with concurrent settlements" $
+    prop "check model balances with concurrent settlements" $
       within 30000000 $
         forAllDL concurrentWalk checkModelBalances
     -- Heavy: run the deep-stress version only on nightly, where it does not
     -- compete with the rest of the suite for CPU (a starved io-sim schedule
-    -- makes the driver's waits time out spuriously, cf. ServerSpec).
+    -- makes the driver's waits time out for no reason, cf. ServerSpec). It is
+    -- the same generator as the walks above, only deeper.
     around_ onlyNightly $
-      xprop "check model balances under load with divergent forks @nightly" propStressModelBalances
+      prop "check model balances under load with divergent forks @nightly" propStressModelBalances
     prop "two finalized increments are both erased by a fork" $
       propScripted twoFinalizedIncrementsErased
     prop "two finalized decrements are both erased by a fork" $
@@ -597,8 +599,9 @@ propStressModelBalances =
       mapSize (const 100) $
         forAllDL concurrentWalk checkModelBalances
 
--- | A random walk with 'concurrentSettlements': deposits and decommits may
--- overlap each other, L2 traffic and forks of every 'RequeueMode'.
+-- | A random walk with 'concurrentSettlements': deposits may overlap each
+-- other, decommits and forks of every 'RequeueMode'. Payments and new decommit
+-- requests wait for pending settlements to be observed as finalized.
 concurrentWalk :: DL WorldState ()
 concurrentWalk = do
   seed <- forAllNonVariableQ $ withGenQ (genSeedWith True) (const True) (const [])
