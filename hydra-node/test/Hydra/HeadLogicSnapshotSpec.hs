@@ -8,7 +8,7 @@ import Test.Hydra.Prelude
 
 import Data.List qualified as List
 import Data.Map.Strict qualified as Map
-import Hydra.HeadLogic (CoordinatedHeadState (..), Effect (..), HeadState (..), OpenState (OpenState), Outcome, SeenSnapshot (..), coordinatedHeadState, isLeader, mkSeenSnapshot, update)
+import Hydra.HeadLogic (CoordinatedHeadState (..), Effect (..), HeadState (..), OpenState (OpenState), Outcome, SeenSnapshot (..), coordinatedHeadState, emptySettlements, isLeader, mkSeenSnapshot, update)
 import Hydra.HeadLogicSpec (StepState, getState, hasEffect, hasEffectSatisfying, hasNoEffectSatisfying, inOpenState, inOpenState', nowFromSlot, receiveMessage, receiveMessageFrom, runHeadLogic, step)
 import Hydra.Ledger.Simple (SimpleTx (..), simpleLedger)
 import Hydra.Network.Message (Message (..))
@@ -65,8 +65,7 @@ spec = do
             , currentDepositTxId = Nothing
             , decommitTx = Nothing
             , version = 0
-            , finalizedCommit = Nothing
-            , finalizedDecommit = Nothing
+            , settlements = emptySettlements
             }
     let sendReqSn :: Effect tx -> Bool
         sendReqSn = \case
@@ -240,8 +239,7 @@ prop_singleMemberHeadAlwaysSnapshotOnReqTx sn = monadicIO $ do
         , currentDepositTxId = Nothing
         , decommitTx = Nothing
         , version
-        , finalizedCommit = Nothing
-        , finalizedDecommit = Nothing
+        , settlements = emptySettlements
         }
     s0 = inOpenState' [alice] st
   now <- run $ nowFromSlot (currentSlot . chainPointTime $ s0)

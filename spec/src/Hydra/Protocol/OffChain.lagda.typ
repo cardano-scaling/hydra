@@ -191,7 +191,9 @@ than $Tdeposit$, the protocol's settlement margin against rollbacks (a deposit
 stops being claimed that long before its deadline for the same reason). Merely
 $sans("Expired")$ is too early — that status is set $Tdeposit$ ahead of the
 deadline — so a settling commit whose deposit counts as $sans("Expired")$ is
-still carried on.
+still carried on. If a deposit is re-observed after a rollback and is locally
+$sans("Inactive")$, a snapshot request carrying it still waits for activation,
+even when the confirmed snapshot already claims that deposit.
 
 A settling decommit — $macron(mc(S)).U_omega != bot$ at the current version —
 is never dropped: every request at that version must carry a decommit with the
@@ -514,6 +516,71 @@ leader and there are already transactions to snapshot in $hatmT$, a
 corresponding $hpRS$ is distributed. \
 \
 
+The implementation caches the deposit IDs claimed by retained settlements to
+exclude them from new snapshot proposals and recovery. This cache equals the
+set derived from all retained snapshots, including erased settlements, and is
+rebuilt on decode. The opaque `Settlements` type keeps the entries and cache
+private, with operations that update them together. Each deposit can be
+claimed by only one retained version. Inserting the same version preserves
+its original snapshot and status; inserting another version with an already
+claimed deposit fails. Decoding checks these claims and the correspondence
+between map keys and snapshot versions. A conflicting live update applies
+neither its events nor its effects; replay stops at the conflicting event.
+This is implementation bookkeeping outside `LocalState`.
+
+The implementation's CBOR layout uses a distinct version tag for this map.
+Decoding the preceding layout migrates its retained commit and decommit
+snapshots without changing their signatures, preserving their observation
+slots as landed entries. That layout does not record explicit rollback status;
+startup reconstructs it by replaying persisted state events. The oldest layout
+has no retained snapshots. These storage migrations do not change the protocol
+transitions specified here.
+
+An observed settlement retains the current confirmed snapshot only if its
+version is one below the observed version and its action matches the
+observation: the same deposit reference for an increment, or the same
+distributed output contents and counts for a decrement, ignoring references
+which the chain observer relabels. Version equality alone is insufficient:
+a recovered deposit can be replaced by a decommit at the same version. If the
+settling snapshot has not confirmed locally yet, its later confirmation fills
+the entry. Re-observation still updates an existing entry's landed slot even
+when the current confirmed snapshot does not match.
+
+The following predicate specifies eligibility to retain a confirmed snapshot
+on observation. Output matching uses a bijection between the two maps' occupied
+references that preserves their outputs, including multiplicity. It does not
+model the retained store or its insertion policy.
+
+```
+record SameOutputs (U V : UTxO) : Set where
+  field
+    forward backward  : OutputRef → OutputRef
+    preservesForward  : ∀ {r : OutputRef} {o : Output} → (r , o) ∈ (U ˢ) → (forward r , o) ∈ (V ˢ)
+    preservesBackward : ∀ {r : OutputRef} {o : Output} → (r , o) ∈ (V ˢ) → (backward r , o) ∈ (U ˢ)
+    inverseForward    : ∀ {r : OutputRef} {o : Output} → (r , o) ∈ (U ˢ) → backward (forward r) ≡ r
+    inverseBackward   : ∀ {r : OutputRef} {o : Output} → (r , o) ∈ (V ˢ) → forward (backward r) ≡ r
+
+data ObservedSettlement : Set where
+  observedIncrement : Data → ObservedSettlement
+  observedDecrement : UTxO → ObservedSettlement
+
+data MatchesObservedSettlement : ObservedSettlement → Snapshot → Set where
+  matchingIncrement : ∀ {dep snap}
+    → Snapshot.depRef snap ≡ just dep
+    → MatchesObservedSettlement (observedIncrement dep) snap
+  matchingDecrement : ∀ {U snap}
+    → SameOutputs (Snapshot.utxoDec snap) U
+    → ¬ (U ≡ εᵘ)
+    → MatchesObservedSettlement (observedDecrement U) snap
+
+record RetainableObservedSnapshot (observed : ObservedSettlement) (newVersion : ℕ) (snap : Snapshot) : Set where
+  field
+    previousVersion : suc (Snapshot.version snap) ≡ newVersion
+    signature       : AggSig
+    confirmed       : Snapshot.sig snap ≡ just signature
+    matchingAction  : MatchesObservedSettlement observed snap
+```
+
 The network-message handlers above are transcribed as the relation
 `_handles_↝_`: one constructor per handler arm, each carrying
 its `require`/`wait` guards from @fig:off-chain-prot as premises (the reqTx applicability guard, the
@@ -573,6 +640,9 @@ data _handles_↝_ : LocalState → Message → LocalState → Set where
   -- honest party signed it). The figure's operational `require msVfy(…, msComb Σ̂)` over the COMBINED
   -- multisignature is the implementation of that n-of-n condition (via ms-unforgeability); it is
   -- formalised precisely at the §7 `confirm` step (`AggVerified`/`msVfy`), so it is not duplicated here.
+  -- The implementation's opaque Settlements type maintains retained deposit claims outside
+  -- LocalState. Checked insertion gives each deposit one retained version;
+  -- erasing a settlement keeps its claims. A conflict leaves the state unchanged.
   ackSn-confirm : ∀ {st s σ snap}
     → (∀ {k} → k < HeadParameters.n (LocalState.params st) → k ∈ˡ map proj₁ (LocalState.seenSigs st))  -- ∀k:(k,·)∈Σ̂
     → Snapshot.txs snap ≡ LocalState.pending st          -- S̄'.T = T̂
@@ -1113,7 +1183,7 @@ preventing inconsistency between the on-chain and off-chain state.
                   #nst[
                     #kw("if") $v = macron(mc(S)).v and macron(mc(S)).U_alpha != bot$
                     #nst[
-                      #kw("require") $tx_alpha = macron(mc(S)).tx_alpha and macron(mc(S)).U_alpha = mc(D).U$ #text(size: 0.8em)[(carried on whatever its status)] \
+                      #kw("require") $tx_alpha = macron(mc(S)).tx_alpha and macron(mc(S)).U_alpha = mc(D).U$ #text(size: 0.8em)[(carried on even if locally expired)] \
                       $U_alpha <- macron(mc(S)).U_alpha$
                     ]
                     #kw("else")
