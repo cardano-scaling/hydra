@@ -22,8 +22,9 @@ import Hydra.Cardano.Api (SigningKey)
 import Hydra.Chain (Chain (..), ChainEvent (..), OnChainTx (..), PostChainTx (..), PostTxError (..))
 import Hydra.Chain.ChainState (ChainSlot (..), IsChainState (..))
 import Hydra.HeadLogic (Input (..), StateChanged (..), TTL)
-import Hydra.HeadLogic.StateEvent (StateEvent (..))
-import Hydra.HeadLogicSpec (inOpenState, receiveMessage, receiveMessageFrom, testSnapshot)
+import Hydra.HeadLogic qualified as HeadLogic
+import Hydra.HeadLogic.StateEvent (StateAggregationException (..), StateEvent (..))
+import Hydra.HeadLogicSpec (inOpenState, receiveMessage, receiveMessageFrom, settlementConflictState, testSnapshot)
 import Hydra.Ledger.Simple (SimpleTx (..), simpleLedger)
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message (..), NetworkEvent (..))
@@ -138,6 +139,16 @@ spec = parallel $ do
 
   describe "hydrate" $ do
     around setupHydrate $ do
+      it "reports a settlement conflict before replaying events to sinks" $ \testHydrate -> do
+        currentState <- settlementConflictState 1
+        now <- getCurrentTime
+        let checkpoint = StateEvent 0 (Checkpoint currentState) now
+            conflict = StateEvent 1 HeadLogic.CommitFinalized{chainState = 9, headId = testHeadId, newVersion = 2, depositTxId = 42} now
+        (sink, getSinkEvents) <- createRecordingSink
+        testHydrate (mockEventStore [checkpoint, conflict]) [sink]
+          `shouldThrow` \StateAggregationException{conflictingEventId} -> conflictingEventId == 1
+        getSinkEvents `shouldReturn` []
+
       it "loads events from source into all sinks" $ \testHydrate ->
         forAllShrink (listOf $ genStateChanged testEnvironment >>= genStateEvent) shrink $
           \someEvents -> do
@@ -189,6 +200,36 @@ spec = parallel $ do
 
   describe "stepHydraNode" $ do
     around setupHydrate $ do
+      it "leaves state, events and effects unchanged on a settlement conflict" $ \testHydrate -> do
+        currentState <- settlementConflictState 2
+        (sink, getSinkEvents) <- createRecordingSink
+        node <- testHydrate (mockEventStore []) [sink] >>= notConnect
+        let NodeStateHandler{modifyNodeState, queryNodeState} = nodeStateHandler node
+            now = currentChainTime (chainPointTime currentState)
+            input = observationInput OnIncrementTx{headId = testHeadId, newVersion = 2, depositTxId = 42, snapshotNumber = 2, signatures = mempty}
+        -- The decision emits an event and a re-post; aggregation rejects both.
+        HeadLogic.update testEnvironment simpleLedger now currentState input `shouldSatisfy` \case
+          HeadLogic.Continue{stateChanges = _ : _, effects = _ : _} -> True
+          _ -> False
+        atomically $ modifyNodeState (const ((), currentState))
+        (withNetwork, networkMessages) <- recordNetwork node
+        (withChain, chainTransactions) <- recordChain withNetwork
+        (recorded, serverOutputs) <- recordServerOutputs withChain
+        logs <- newLabelledTVarIO "settlement-conflict" []
+        primeWith [input] recorded{tracer = traceInTVar logs "settlement-conflict"} >>= runToCompletion
+        atomically queryNodeState `shouldReturn` currentState
+        getSinkEvents `shouldReturn` []
+        networkMessages `shouldReturn` []
+        chainTransactions `shouldReturn` []
+        serverOutputs `shouldReturn` []
+        entries <- fmap Logging.message <$> readTVarIO logs
+        entries
+          `shouldSatisfy` any
+            ( \case
+                LogicOutcome{outcome = HeadLogic.Error HeadLogic.AssertionFailed{}} -> True
+                _ -> False
+            )
+
       it "events are sent to all sinks" $ \testHydrate -> do
         (mockSink1, getMockSinkEvents1) <- createRecordingSink
         (mockSink2, getMockSinkEvents2) <- createRecordingSink

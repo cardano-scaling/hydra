@@ -17,6 +17,7 @@ import Control.Concurrent.Class.MonadSTM (
  )
 import Control.Monad.Trans.Writer (execWriter, tell)
 import Control.Tracer.JSON (Tracer, traceWith)
+import Data.Conduit.Combinators qualified as C
 import Data.EventSource (EventId, EventSink (..), EventSource (..), getEventId, putEventsToSinks)
 import Data.EventSource.Rotation (EventStore (..))
 import Data.Secret (mkSecret)
@@ -36,13 +37,12 @@ import Hydra.HeadLogic (
   Outcome (..),
   TTL,
   aggregateChainStateHistory,
-  aggregateNodeState,
   aggregateState,
  )
 import Hydra.HeadLogic qualified as HeadLogic
 import Hydra.HeadLogic.Outcome (StateChanged (..), WaitReason (..))
 import Hydra.HeadLogic.State (getHeadParameters)
-import Hydra.HeadLogic.StateEvent (StateEvent (..))
+import Hydra.HeadLogic.StateEvent (StateEvent (..), replayStateEvent)
 import Hydra.Ledger (Ledger)
 import Hydra.Network (Host (..), Network (..), NetworkCallback (..))
 import Hydra.Network qualified as Network
@@ -236,12 +236,11 @@ hydrate tracer env ledger initialChainState EventStore{eventSource, eventSink} e
   initialState = initNodeState initialChainState
 
   recoverNodeStateC =
-    mapC stateChanged
-      .| getZipSink
-        ( (,)
-            <$> ZipSink (foldlC aggregateNodeState initialState)
-            <*> ZipSink (foldlC aggregateChainStateHistory $ initHistory initialChainState)
-        )
+    getZipSink
+      ( (,)
+          <$> ZipSink (C.foldM (\current event -> lift $ replayStateEvent current event) initialState)
+          <*> ZipSink (mapC stateChanged .| foldlC aggregateChainStateHistory (initHistory initialChainState))
+      )
 
 wireChainInput :: DraftHydraNode tx m -> (ChainEvent tx -> m ())
 wireChainInput node = enqueue . ChainInput
@@ -599,7 +598,10 @@ processNextInput ::
 processNextInput HydraNode{nodeStateHandler, ledger, env} e now =
   modifyNodeState $ \s ->
     let outcome = HeadLogic.update env ledger now s e
-     in (outcome, aggregateState s outcome)
+     in case aggregateState s outcome of
+          -- Reject the whole outcome so no partial events or effects escape.
+          Left conflict -> (Error $ HeadLogic.AssertionFailed ("Settlement conflict: " <> show conflict), s)
+          Right nextState -> (outcome, nextState)
  where
   NodeStateHandler{modifyNodeState} = nodeStateHandler
 
