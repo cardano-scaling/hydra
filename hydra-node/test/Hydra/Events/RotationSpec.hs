@@ -6,13 +6,13 @@ import Test.Hydra.Prelude
 import Control.Monad (foldM)
 import Control.Tracer.JSON (showLogsOnFailure)
 import Data.EventSource (EventId, EventSink (..), HasEventId (..), getEvents)
-import Data.EventSource.Rotation (EventStore (..), RotationConfig (..), newRotatedEventStore)
+import Data.EventSource.Rotation (EventStore (..), RotationConfig (..), newRotatedEventStore, newRotatedEventStoreM)
 import Data.List qualified as List
 import Data.Map.Strict qualified as Map
 import Hydra.Chain (OnChainTx (..))
-import Hydra.Chain.ChainState (IsChainState)
-import Hydra.HeadLogic (HeadState (..), StateChanged (..), aggregateNodeState)
-import Hydra.HeadLogic.StateEvent (StateEvent (..), mkCheckpoint)
+import Hydra.HeadLogic (HeadState (..), StateChanged (..))
+import Hydra.HeadLogic.StateEvent (StateAggregationException (..), StateEvent (..), mkCheckpoint, replayStateEvent)
+import Hydra.HeadLogicSpec (settlementConflictState)
 import Hydra.Ledger.Simple (SimpleTx, simpleLedger)
 import Hydra.Node (DraftHydraNode, hydrate)
 import Hydra.Node.State (NodeState (..), initNodeState, pendingDeposits)
@@ -41,6 +41,16 @@ spec = parallel $ do
             let testHydrate = hydrate tracer testEnvironment simpleLedger 0
             action testHydrate
     around setupHydrate $ do
+      it "does not rotate a log whose replay has a settlement conflict" $ \_ -> do
+        currentState <- settlementConflictState 1
+        now <- getCurrentTime
+        store@EventStore{eventSource, eventSink} <- createMockEventStore
+        let events = [StateEvent 0 (Checkpoint currentState) now, StateEvent 1 CommitFinalized{chainState = 9, headId = testHeadId, newVersion = 2, depositTxId = 42} now]
+        mapM_ (putEvent eventSink) events
+        newRotatedEventStoreM (RotateAfter 1) (initNodeState 0) replayStateEvent mkCheckpoint store
+          `shouldThrow` \StateAggregationException{conflictingEventId} -> conflictingEventId == 1
+        getEvents eventSource `shouldReturn` events
+
       it "rotates while running" $ \testHydrate -> do
         failAfter 10 $ do
           eventStore <- createMockEventStore
@@ -48,7 +58,7 @@ spec = parallel $ do
           -- this is hardcoded to ensure we get a checkpoint + single event at the end
           let rotationConfig = RotateAfter 2
           let s0 = initNodeState 0
-          rotatingEventStore <- newRotatedEventStore rotationConfig s0 mkAggregator mkCheckpoint eventStore
+          rotatingEventStore <- newRotatedEventStoreM rotationConfig s0 replayStateEvent mkCheckpoint eventStore
           testHydrate rotatingEventStore []
             >>= notConnect
             >>= primeWithTime
@@ -63,7 +73,7 @@ spec = parallel $ do
           -- this is hardcoded to ensure we get a single checkpoint event at the end
           let rotationConfig = RotateAfter 1
           let s0 = initNodeState 0
-          rotatingEventStore <- newRotatedEventStore rotationConfig s0 mkAggregator mkCheckpoint eventStore
+          rotatingEventStore <- newRotatedEventStoreM rotationConfig s0 replayStateEvent mkCheckpoint eventStore
           testHydrate rotatingEventStore []
             >>= notConnect
             >>= primeWithTime
@@ -87,7 +97,7 @@ spec = parallel $ do
           -- checkpoint capturing the recorded deposit.
           let rotationConfig = RotateAfter 1
           let s0 = initNodeState 0
-          rotatingEventStore <- newRotatedEventStore rotationConfig s0 mkAggregator mkCheckpoint eventStore
+          rotatingEventStore <- newRotatedEventStoreM rotationConfig s0 replayStateEvent mkCheckpoint eventStore
           now <- getCurrentTime
           let deadline = toNominalDiffTime cperiod `addUTCTime` now
           let depositTxId = 1
@@ -100,7 +110,7 @@ spec = parallel $ do
           -- Restart reconstructs the node state exactly like 'hydrate' does:
           -- fold the stored events (a single checkpoint) with 'aggregateNodeState'.
           events <- getEvents (eventSource rotatingEventStore)
-          let restored = foldl' mkAggregator s0 events
+          restored <- foldlM replayStateEvent s0 events
           Map.keys (pendingDeposits restored) `shouldBe` [depositTxId]
       it "a rotated and non-rotated node have consistent state" $ \testHydrate -> do
         -- prepare inputs
@@ -115,7 +125,7 @@ spec = parallel $ do
           let rotationConfig = RotateAfter 1
           -- run rotated event store with prepared inputs
           let s0 = initNodeState 0
-          rotatingEventStore <- newRotatedEventStore rotationConfig s0 mkAggregator mkCheckpoint eventStore
+          rotatingEventStore <- newRotatedEventStoreM rotationConfig s0 replayStateEvent mkCheckpoint eventStore
           testHydrate rotatingEventStore []
             >>= notConnect
             >>= primeWith inputs
@@ -129,7 +139,7 @@ spec = parallel $ do
           -- aggregating stored events should yield consistent states
           [StateEvent{stateChanged = checkpoint}] <- getEvents (eventSource rotatingEventStore)
           events' <- getEvents (eventSource eventStore')
-          let checkpoint' = foldl' mkAggregator s0 events'
+          checkpoint' <- foldlM replayStateEvent s0 events'
           checkpoint `shouldBe` Checkpoint checkpoint'
       it "a restarted and non-restarted node have consistent rotation" $ \testHydrate -> do
         -- prepare inputs
@@ -146,20 +156,20 @@ spec = parallel $ do
           let rotationConfig = RotateAfter 1
           -- run restarted node with prepared inputs
           eventStore <- createMockEventStore
-          rotatingEventStore1 <- newRotatedEventStore rotationConfig s0 mkAggregator mkCheckpoint eventStore
+          rotatingEventStore1 <- newRotatedEventStoreM rotationConfig s0 replayStateEvent mkCheckpoint eventStore
           testHydrate rotatingEventStore1 []
             >>= notConnect
             >>= primeWithTime
             >>= primeWith inputs1
             >>= runToCompletion
-          rotatingEventStore2 <- newRotatedEventStore rotationConfig s0 mkAggregator mkCheckpoint rotatingEventStore1
+          rotatingEventStore2 <- newRotatedEventStoreM rotationConfig s0 replayStateEvent mkCheckpoint rotatingEventStore1
           testHydrate rotatingEventStore2 []
             >>= notConnect
             >>= primeWith inputs2
             >>= runToCompletion
           -- run non-restarted node with prepared inputs
           eventStore' <- createMockEventStore
-          rotatingEventStore' <- newRotatedEventStore rotationConfig s0 mkAggregator mkCheckpoint eventStore'
+          rotatingEventStore' <- newRotatedEventStoreM rotationConfig s0 replayStateEvent mkCheckpoint eventStore'
           testHydrate rotatingEventStore' []
             >>= notConnect
             >>= primeWithTime
@@ -301,6 +311,3 @@ instance HasEventId TrivialEvent where
 
 trivialCheckpoint :: [TrivialEvent] -> TrivialEvent
 trivialCheckpoint = sum
-
-mkAggregator :: IsChainState tx => NodeState tx -> StateEvent tx -> NodeState tx
-mkAggregator s StateEvent{stateChanged} = aggregateNodeState s stateChanged

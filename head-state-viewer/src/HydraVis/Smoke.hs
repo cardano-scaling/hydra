@@ -37,7 +37,7 @@ go n nodeState (i : rest) = do
   let now = sampleStepTime n
       outcome :: Outcome SimpleTx
       outcome = update sampleEnvironment sampleLedger now nodeState i
-      nodeState' = aggregateState nodeState outcome
+  nodeState' <- either (fail . show) pure $ aggregateState nodeState outcome
   putTextLn $ "=== step " <> show n <> " ==="
   putTextLn "input:"
   printJson i

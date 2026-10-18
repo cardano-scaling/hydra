@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedRecordDot #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 -- | Tests for the 'ToCBOR' / 'FromCBOR' codecs of hydra-node types.
@@ -27,6 +28,7 @@ import Test.Hydra.Prelude
 import Cardano.Binary (decodeFull', serialize')
 import Codec.CBOR.Write (toStrictByteString)
 import Data.ByteString qualified as BS
+import Data.Map.Strict qualified as Map
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.HTTPServer (
   DraftCommitTxRequest,
@@ -57,7 +59,7 @@ import Hydra.Chain.ChainState (ChainSlot)
 import Hydra.Chain.Direct.State (ChainStateAt)
 import Hydra.HeadLogic.Error (RequirementFailure, SideLoadRequirementFailure)
 import Hydra.HeadLogic.Outcome (StateChanged)
-import Hydra.HeadLogic.State (ClosedState (..), CoordinatedHeadState (..), FanoutMode, HeadState, SeenSnapshot, closedStateCBORTag, closedStateCBORTagV1, coordinatedHeadStateCBORTag, coordinatedHeadStateCBORTagV1)
+import Hydra.HeadLogic.State (ClosedState (..), CoordinatedHeadState (..), FanoutMode, HeadState, SeenSnapshot, Settlement (..), SettlementStatus (..), closedStateCBORTag, closedStateCBORTagV1, coordinatedHeadStateCBORTagV1, emptySettlements, settlementEntries, trySettlementsFromMap)
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.Ledger (ValidationError)
 import Hydra.Ledger.Cardano (Tx)
@@ -74,7 +76,7 @@ import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Hydra.Tx.Crypto (MultiSignature, Signature)
 import Hydra.Tx.DepositPeriod (DepositPeriod)
 import Hydra.Tx.OnChainId (OnChainId)
-import Hydra.Tx.Snapshot (snapshotCBORTag, snapshotCBORTagV1)
+import Hydra.Tx.Snapshot (getSnapshot, snapshotCBORTag, snapshotCBORTagV1)
 import Test.Hydra.API.ClientInput ()
 import Test.Hydra.API.HTTPServer ()
 import Test.Hydra.API.ServerOutput ()
@@ -91,7 +93,8 @@ import Test.Hydra.Node.ApiTransactionTimeout ()
 import Test.Hydra.Node.Environment ()
 import Test.Hydra.Node.State ()
 import Test.Hydra.Node.UnsyncedPeriod ()
-import Test.Hydra.Tx.Gen ()
+import Test.Hydra.Tx.Fixture (aliceSk, bobSk)
+import Test.Hydra.Tx.Gen (genConfirmedSnapshot)
 import Test.QuickCheck (resize, suchThat)
 import Test.QuickCheck.Arbitrary.ADT (ADTArbitrary (..), ConstructorArbitraryPair (..), ToADTArbitrary, toADTArbitrary)
 
@@ -144,6 +147,14 @@ instance ToCBOR GenericCBORNewtype where
 
 instance FromCBOR GenericCBORNewtype where
   fromCBOR = genericFromCBOR
+
+-- The V2 layout stores two optional records with this constructor tag and
+-- field order. Keep the fixture independent of the current state encoder.
+data LegacyFinalizedSnapshot = LegacyFinalizedSnapshot (ConfirmedSnapshot Tx) ChainSlot
+
+instance ToCBOR LegacyFinalizedSnapshot where
+  toCBOR (LegacyFinalizedSnapshot snapshot slot) =
+    toCBOR ("FinalizedSnapshot" :: Text) <> toCBOR snapshot <> toCBOR slot
 
 spec :: Spec
 spec = parallel $ do
@@ -224,16 +235,15 @@ spec = parallel $ do
                 <> toCBOR utxoToDecommit
       decodeFull' legacy `shouldBe` Right snapshot{depositTxId = Nothing}
 
-  -- 'CoordinatedHeadState' gained 'finalizedCommit' and 'finalizedDecommit'
-  -- between two released layouts, same situation as 'Snapshot' above.
+  -- Each state layout needs a distinct tag because its fields are unframed.
   describe "CoordinatedHeadState layouts" $ do
-    let chs = generateWith (resize 3 arbitrary) 42 :: CoordinatedHeadState Tx
+    let chs = generateWith (resize 5 arbitrary) 42 :: CoordinatedHeadState Tx
         CoordinatedHeadState{localUTxO, localTxs, allTxs, confirmedSnapshot, seenSnapshot, currentDepositTxId, decommitTx, version} = chs
 
     it "writes the current layout under a tag of its own" $
-      serialize' chs `shouldSatisfy` BS.isPrefixOf (serialize' coordinatedHeadStateCBORTag)
+      serialize' chs `shouldSatisfy` BS.isPrefixOf (serialize' ("CoordinatedHeadState3" :: Text))
 
-    it "decodes the layout written before finalizedCommit/finalizedDecommit existed" $ do
+    it "decodes the layout written before settlements existed" $ do
       let legacy =
             toStrictByteString $
               toCBOR coordinatedHeadStateCBORTagV1
@@ -245,7 +255,51 @@ spec = parallel $ do
                 <> toCBOR currentDepositTxId
                 <> toCBOR decommitTx
                 <> toCBOR version
-      decodeFull' legacy `shouldBe` Right chs{finalizedCommit = Nothing, finalizedDecommit = Nothing}
+      decodeFull' legacy `shouldBe` Right chs{settlements = emptySettlements}
+
+    let headId = generateWith arbitrary 1
+        deposited = generateWith (resize 2 arbitrary) 2
+        distributed = generateWith (resize 2 arbitrary) 3
+        depositId = generateWith arbitrary 4
+        commit = generateWith (genConfirmedSnapshot headId 2 1 mempty (Just deposited) (Just depositId) Nothing [aliceSk, bobSk]) 5
+        decommit = generateWith (genConfirmedSnapshot headId 3 2 mempty Nothing Nothing (Just distributed) [aliceSk, bobSk]) 6
+        legacyV2 :: SnapshotVersion -> Maybe LegacyFinalizedSnapshot -> Maybe LegacyFinalizedSnapshot -> ByteString
+        legacyV2 openVersion finalizedCommit finalizedDecommit =
+          toStrictByteString $
+            toCBOR ("CoordinatedHeadState2" :: Text)
+              <> toCBOR localUTxO
+              <> toCBOR localTxs
+              <> toCBOR allTxs
+              <> toCBOR confirmedSnapshot
+              <> toCBOR seenSnapshot
+              <> toCBOR currentDepositTxId
+              <> toCBOR decommitTx
+              <> toCBOR openVersion
+              <> toCBOR finalizedCommit
+              <> toCBOR finalizedDecommit
+    forM_
+      [ ("no settlements", Nothing, Nothing)
+      , ("a finalized commit", Just (LegacyFinalizedSnapshot commit 40), Nothing)
+      , ("a finalized decommit", Nothing, Just (LegacyFinalizedSnapshot decommit 60))
+      , ("both finalized settlements", Just (LegacyFinalizedSnapshot commit 40), Just (LegacyFinalizedSnapshot decommit 60))
+      ]
+      $ \(description, finalizedCommit, finalizedDecommit) ->
+        it ("migrates V2 with " <> description) $ do
+          let expected = Map.fromList [((getSnapshot snapshot).version, Settlement{snapshot, status = Landed slot}) | LegacyFinalizedSnapshot snapshot slot <- catMaybes [finalizedCommit, finalizedDecommit]]
+          retained <- either (fail . show) pure $ trySettlementsFromMap expected
+          decodeFull' (legacyV2 version finalizedCommit finalizedDecommit) `shouldBe` Right chs{settlements = retained}
+
+    it "coalesces identical V2 snapshots using the later observation slot" $ do
+      decoded <- either (fail . show) pure $ decodeFull' @(CoordinatedHeadState Tx) (legacyV2 version (Just $ LegacyFinalizedSnapshot commit 40) (Just $ LegacyFinalizedSnapshot commit 60))
+      Map.elems (settlementEntries decoded.settlements) `shouldBe` [Settlement{snapshot = commit, status = Landed 60}]
+
+    it "rejects different V2 snapshots at the same version" $ do
+      let conflicting = generateWith (genConfirmedSnapshot headId 2 1 mempty Nothing Nothing (Just distributed) [aliceSk, bobSk]) 7
+      decodeFull' @(CoordinatedHeadState Tx) (legacyV2 version (Just $ LegacyFinalizedSnapshot commit 40) (Just $ LegacyFinalizedSnapshot conflicting 60)) `shouldSatisfy` isLeft
+
+    it "rejects V2 snapshots claiming the same deposit at different versions" $ do
+      let conflicting = generateWith (genConfirmedSnapshot headId 3 2 mempty (Just deposited) (Just depositId) Nothing [aliceSk, bobSk]) 8
+      decodeFull' @(CoordinatedHeadState Tx) (legacyV2 version (Just $ LegacyFinalizedSnapshot commit 40) (Just $ LegacyFinalizedSnapshot conflicting 60)) `shouldSatisfy` isLeft
 
   -- 'ClosedState' gained 'unconfirmedSnapshot' between two released layouts,
   -- same situation as 'Snapshot' above. The legacy layout is the one the
