@@ -187,11 +187,8 @@ spec = do
   context "fail-recovery" $ do
     prop "a party restarted twice right after a settlement still confirms snapshots" $
       propScripted partyRestartedTwiceAfterSettlement
-  -- The concurrent walks keep deposits and forks overlapping, but observe
-  -- pending settlements before payments or new decommit requests to avoid
-  -- the known snapshot version race; see 'Model.settlementsObserved'.
-  -- Landed fanout steps are rewound after a rollback so the driver can
-  -- distribute their outputs again. The scenarios below cover both modes.
+  -- Concurrent walks overlap payments, deposits, decommits and forks.
+  -- The scripted scenarios cover settlement and fanout replay after rollback.
   context "settlement and fanout rollback stress" $ do
     prop "check model with concurrent settlements" $
       forAllDL concurrentWalk propHydraModel
@@ -601,9 +598,7 @@ propStressModelBalances =
       mapSize (const 100) $
         forAllDL concurrentWalk checkModelBalances
 
--- | A random walk with 'concurrentSettlements': deposits may overlap each
--- other, decommits and forks of every 'RequeueMode'. Payments and new decommit
--- requests wait for pending settlements to be observed as finalized.
+-- | Overlap deposits, decommits, payments and forks in a random walk.
 concurrentWalk :: DL WorldState ()
 concurrentWalk = do
   seed <- forAllNonVariableQ $ withGenQ (genSeedWith True) (const True) (const [])
