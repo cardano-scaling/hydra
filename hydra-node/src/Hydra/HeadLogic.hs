@@ -366,7 +366,8 @@ onOpenNetworkReqSn env ledger pendingDeposits ChainPointTime{currentSlot, curren
       -- the bumped version before its own chain handler has processed the
       -- triggering OnIncrementTx/OnDecrementTx. Erroring here would drop the
       -- message permanently (Error outcomes are not re-enqueued), leaving the
-      -- head stuck until the deposit expires.
+      -- head stuck until the deposit expires. A proposal *behind* our version
+      -- is the opposite case, see 'waitOnSnapshotVersion'.
       waitOnSnapshotVersion $
         -- Require any pending utxo to decommit to be consistent
         requireApplicableDecommitTx $ \(activeUTxO, mUtxoToDecommit) ->
@@ -405,7 +406,11 @@ onOpenNetworkReqSn env ledger pendingDeposits ChainPointTime{currentSlot, curren
                       let nextSnapshot =
                             Snapshot
                               { headId
-                              , version = version
+                              , -- The version proposed, not the local one: for a
+                                -- proposal one version behind they differ, and the
+                                -- signed bytes must equal those of the parties that
+                                -- have not seen the bump ('waitOnSnapshotVersion').
+                                version = sv
                               , number = sn
                               , confirmed = requestedTxs
                               , utxo = nextUTxO
@@ -455,11 +460,48 @@ onOpenNetworkReqSn env ledger pendingDeposits ChainPointTime{currentSlot, curren
     | otherwise =
         wait $ WaitOnSnapshotNumber seenSn
 
+  -- Spec: wait v = v̂. Our version only ever goes up, so there are four cases:
+  --
+  --   * @sv == version@: the normal case.
+  --
+  --   * @sv + 1 == version && sv == confVersion@: the proposal is one version
+  --     behind us and based on our confirmed snapshot. The leader made it
+  --     before it saw the settlement land, and the parties that have not seen
+  --     it land either sign it at @sv@. We do the same (see @version = sv@ and
+  --     'confirmedUTxO'), so everyone signs the same bytes, and the round
+  --     confirms one version behind the chain, which 'CloseUsed' handles.
+  --     Waiting would never end, since the leader does not propose again while
+  --     it collects signatures. We only sign if the proposal carries the action
+  --     that settled, see 'reCarriesSettledAction'.
+  --
+  --   * @sv > version@: the leader saw a settlement land that our chain handler
+  --     has not processed yet. A retry fixes this, so we wait.
+  --
+  --   * Anything else can never be signed: two or more versions behind, or
+  --     below the confirmed snapshot's version. Waiting would only use up the
+  --     retries and then drop the message in silence, so we fail right away.
   waitOnSnapshotVersion continue
-    | version == sv =
-        continue
-    | otherwise =
-        wait $ WaitOnSnapshotVersion sv
+    | sv == version = continue
+    | sv + 1 == version
+    , sv == confVersion =
+        if reCarriesSettledAction
+          then continue
+          else Error $ RequireFailed ReqSvBehindMustReCarry{requestedSv = sv, requestedDepositTxId = mDepositTxId, requestedDecommitTxId = txId <$> mDecommitTx}
+    | sv > version = wait $ WaitOnSnapshotVersion sv
+    | otherwise = Error $ RequireFailed ReqSvNumberInvalid{requestedSv = sv, lastSeenSv = version}
+
+  -- A proposal one version behind us must carry exactly what the confirmed
+  -- snapshot settled: the deposit it claims, or the decommit it pays out, and
+  -- nothing else. We saw that action land, while the parties that have not
+  -- seen it sign whatever the leader proposes. A proposal that drops the
+  -- action would confirm a snapshot without something the chain has already
+  -- applied, and no close redeemer can express that. A proposal that swaps in
+  -- a fresh deposit would make us count that deposit as absorbed once we apply
+  -- the bump, although no increment ever claimed it. An honest leader always
+  -- carries the action again ('selectNextIncrementalAction').
+  reCarriesSettledAction =
+    mDepositTxId == confDepositTxId
+      && (utxoFromTx <$> mDecommitTx) == confUTxOToDecommit
 
   waitResolvableTxs continue =
     case toList (fromList requestedTxIds \\ Map.keysSet allTxs) of
@@ -481,6 +523,21 @@ onOpenNetworkReqSn env ledger pendingDeposits ChainPointTime{currentSlot, curren
         case settlingCommitAt env version currentChainTime pendingDeposits (getSnapshot confirmedSnapshot) of
           Just (ContinueCommit (_, Deposit{deposited})) -> wait WaitOnUnresolvedCommit{commitUTxO = deposited}
           _ -> cont Nothing
+      Just depositTxId
+        -- A proposal one version behind us carries the confirmed snapshot's own
+        -- commit again ('waitOnSnapshotVersion'). We already saw its increment
+        -- land, so here the deposit is consumed and retained, while the parties
+        -- that have not seen the increment still hold it pending and sign a
+        -- snapshot carrying it. Sign the same bytes, taking the deposited
+        -- outputs from the confirmed snapshot. Only while the retained
+        -- settlement is landed: once a rollback erased the increment, the
+        -- deposit is settled by re-posting that snapshot and never by a new
+        -- claim (#2741), which the next guard refuses.
+        | sv == confVersion
+        , confDepositTxId == Just depositTxId
+        , isJust confUTxOToCommit
+        , confirmedSettlementLanded ->
+            cont confUTxOToCommit
       Just depositTxId
         -- The deposit is already claimed by a signed snapshot whose increment
         -- landed. It is only pending again because a rollback erased that
@@ -631,9 +688,22 @@ onOpenNetworkReqSn env ledger pendingDeposits ChainPointTime{currentSlot, curren
     InitialSnapshot{} -> Nothing
     ConfirmedSnapshot{snapshot = Snapshot{utxoToDecommit}} -> utxoToDecommit
 
+  -- Whether the settlement of the confirmed snapshot's own commit or decommit
+  -- landed on the chain we follow: it is retained at its version and no
+  -- rollback marked it erased (see 'retainSettlement', 'markErased').
+  confirmedSettlementLanded =
+    case Map.lookup confVersion (settlementEntries settlements) of
+      Just Settlement{status = Landed{}} -> True
+      _ -> False
+
   seenSn = seenSnapshotNumber seenSnapshot
 
-  confirmedUTxO = settledUTxO version (getSnapshot confirmedSnapshot)
+  -- The base UTxO of the requested snapshot. The confirmed snapshot's pending
+  -- commit is spendable exactly when its increment had landed as of the
+  -- version being signed, hence @sv@ and not the local version: in a straddle
+  -- the local version is one ahead, and keying on it would make this node's
+  -- base UTxO, and so its signed bytes, differ from everyone else's.
+  confirmedUTxO = settledUTxO sv (getSnapshot confirmedSnapshot)
 
   CoordinatedHeadState{confirmedSnapshot, seenSnapshot, allTxs, localTxs, version, settlements} = coordinatedHeadState
 
@@ -1151,14 +1221,11 @@ onOpenChainTick env chainTime pendingDeposits st
 --     node keeps collecting signatures. Once it confirms,
 --     'maybeRequestNextSnapshot' requests the next snapshot with the bumped
 --     version. Firing here uses stale 'localTxs' and can cause 'BadInputsUTxO'
---     on other parties. A party that receives the ReqSn after the bump still
---     waits on the version mismatch.
---   * Allows 'RequestedSnapshot': the in-flight ReqSn carries the old version
---     and will be parked by 'waitOnSnapshotVersion' until TTL drops it, so we
---     re-request immediately with the new version to make progress without
---     waiting for the stale request's retries to exhaust. This is the only
---     thing that unparks the other parties, so it must also fire when the
---     stale request carried a deposit and no local txs.
+--     on other parties. A party that receives the ReqSn after the bump can
+--     sign one version behind when it preserves the confirmed action.
+--   * Allows 'RequestedSnapshot': our request may still be in transit.
+--     Requesting at the new version also covers a lost request; receivers
+--     reject a second request for the same snapshot number as a duplicate.
 --
 -- The caller builds the request after removing the action that just settled.
 -- A decommit recorded while a commit was in flight can now be proposed, even
@@ -3131,8 +3198,8 @@ isReobservation newVersion CoordinatedHeadState{version} = newVersion <= version
 
 -- | The 'SeenSnapshot' after a version bump. A snapshot already in flight is
 -- kept so this node can collect the remaining signatures. Other states reset
--- to the confirmed snapshot number. This does not resolve a version mismatch
--- for a party that receives the 'ReqSn' after the bump.
+-- to the confirmed snapshot number. A party that receives the 'ReqSn' after
+-- the bump signs at the requested version if it preserves the settled action.
 seenSnapshotAfterVersionBump :: IsTx tx => ConfirmedSnapshot tx -> SeenSnapshot tx -> SeenSnapshot tx
 seenSnapshotAfterVersionBump confirmedSnapshot = \case
   seen@SeenSnapshot{} -> seen

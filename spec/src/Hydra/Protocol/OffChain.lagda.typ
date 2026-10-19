@@ -504,7 +504,7 @@ if the signature from each party has been collected, $party_i$ aggregates the
 multisignature $msCSig$ and #kw("require") it to be valid (constructing the signed
 message as in $hpRS$). If everything is fine, the snapshot can be considered
 confirmed by creating the snapshot object
-$macron(mc(S)) <- Sno(hatv, hats, hatmT, hatmU, U_(alpha), sans("outputs")(tx_(omega)))$
+$macron(mc(S)) <- Sno(v_(sans("signed")), hats, hatmT, hatmU, U_(alpha), sans("outputs")(tx_(omega)))$
 and storing the multi-signature $msCSig$ in it for later reference. In case
 there is a pending decommit, any participant can now submit a $mtxDecrement$
 transaction by providing the just confirmed snapshot with its accumulator
@@ -590,6 +590,15 @@ Partial fanout recovery also lives outside `LocalState`. Each observed step
 records its slot, distributed outputs, and previous mode. A rollback removes
 later steps, returns their outputs to the remaining fanout, and restores the
 driver's selection. A passive observer continues waiting for the driver.
+
+A delayed snapshot request can arrive after a settlement moves the local
+version one step ahead of the leader. The implementation signs at the requested
+version when it equals the confirmed snapshot's version and carries the same
+deposit reference and decommit outputs. The base ledger also uses that requested
+version, so every party signs the same snapshot. Requests ahead of the local
+version wait for chain observations; older requests are rejected.
+`OffChainReference.signEligibleRef` checks this version rule. The operational figure stores the requested version as $v_(sans("signed"))$ and uses it for acknowledgement verification and settlement posting, even if the local chain version advances. The `reqSn-sign`
+constructor below describes its equal-version subcase.
 
 The network-message handlers above are transcribed as the relation
 `_handles_↝_`: one constructor per handler arm, each carrying
@@ -1167,11 +1176,12 @@ preventing inconsistency between the on-chain and off-chain state.
 
             #proc([#kw("on") $(hpRS, v, s, underline(tx)_(sans("req")), tx_alpha, tx_omega)$ #kw("from") $party_j$])[
               #kw("require") $s = hats + 1 and hpLdr(s) = j$ \
-              #kw("wait") $hats = macron(mc(S)).s and v = hatv$
+              #kw("wait") $hats = macron(mc(S)).s and (v = hatv or (v + 1 = hatv and v = macron(mc(S)).v))$
               #nst[
                 #kw("require") $tx_omega = bot or tx_alpha = bot$ \
+                #kw("require") $v = hatv or sans("sameIncrementalAction")(tx_alpha, tx_omega, macron(mc(S)))$ #text(size: 0.8em)[(a delayed request carries the confirmed snapshot's own action)] \
                 $U_(sans("active")) <- macron(mc(S)).U$ \
-                #kw("if") $hatv > macron(mc(S)).v and macron(mc(S)).U_alpha != bot$
+                #kw("if") $v > macron(mc(S)).v and macron(mc(S)).U_alpha != bot$
                 #nst[
                   $U_(sans("active")) <- U_(sans("active")) union macron(mc(S)).U_alpha$
                 ]
@@ -1209,6 +1219,7 @@ preventing inconsistency between the on-chain and off-chain state.
                 #kw("require") $sans("outputs")(underline(tx)_(sans("req"))) inter U_(sans("active")) = emptyset$ #text(size: 0.8em)[(no output reference is re-created)] \
                 #kw("require") $U_(sans("active")) applytx underline(tx)_(sans("req")) != bot$ \
                 $U <- U_(sans("active")) applytx underline(tx)_(sans("req"))$ \
+                $v_(sans("signed")) <- v$ \
                 $hats <- s$ \
                 $eta' <- accUTxO(U)$ \
                 $(eta')^(\#) <- hash(eta')$ \
@@ -1237,9 +1248,9 @@ preventing inconsistency between the on-chain and off-chain state.
                 $(eta')^(\#) <- hash(eta')$ \
                 $delta^(\#) <- hash(U_omega)$ \
                 $kappa^(\#) <- hash(hash(U_alpha) || tx_alpha)$ \
-                #kw("if") $msVfy(hydraKeysAgg, (cid || hatv || hats || (eta')^(\#) || delta^(\#) || kappa^(\#)), xi)$
+                #kw("if") $msVfy(hydraKeysAgg, (cid || v_(sans("signed")) || hats || (eta')^(\#) || delta^(\#) || kappa^(\#)), xi)$
                 #nst[
-                  $macron(mc(S)) <- Sno(hatv, hats, hatmT, hatmU, U_alpha, U_omega)$ \
+                  $macron(mc(S)) <- Sno(v_(sans("signed")), hats, hatmT, hatmU, U_alpha, U_omega)$ \
                   $macron(mc(S)).sigma <- xi$
                 ]
               ]
@@ -1259,17 +1270,17 @@ preventing inconsistency between the on-chain and off-chain state.
                   $(eta')^(\#) <- hash(eta')$ \
                   $delta^(\#) <- hash(U_omega)$ \
                   $kappa^(\#) <- hash(hash(U_alpha) || tx_alpha)$ \
-                  #kw("require") $msVfy(hydraKeysAgg, (cid || hatv || hats || (eta')^(\#) || delta^(\#) || kappa^(\#)), msCSig)$ \
-                  $macron(mc(S)) <- Sno(hatv, hats, hatmT, hatmU, U_alpha, U_omega)$ \
+                  #kw("require") $msVfy(hydraKeysAgg, (cid || v_(sans("signed")) || hats || (eta')^(\#) || delta^(\#) || kappa^(\#)), msCSig)$ \
+                  $macron(mc(S)) <- Sno(v_(sans("signed")), hats, hatmT, hatmU, U_alpha, U_omega)$ \
                   $macron(mc(S)).sigma <- msCSig$ \
                   $forall tx in mT_(sans("req")) :$ #kw("output") $(hpConf, tx)$ \
                   #kw("if") $macron(S).U_omega != bot$
                   #nst[
-                    #kw("postTx") $(mtxDecrement, hatv, hats, (eta')^(\#), macron(mc(S)).sigma)$
+                    #kw("postTx") $(mtxDecrement, v_(sans("signed")), hats, (eta')^(\#), macron(mc(S)).sigma)$
                   ]
                   #kw("if") $macron(S).U_alpha != bot$
                   #nst[
-                    #kw("postTx") $(mtxIncrement, hatv, hats, (eta')^(\#), macron(mc(S)).sigma)$
+                    #kw("postTx") $(mtxIncrement, v_(sans("signed")), hats, (eta')^(\#), macron(mc(S)).sigma)$
                   ]
                   #kw("if") $hpLdr(s + 1) = i and hatmT != emptyset$
                   #nst[

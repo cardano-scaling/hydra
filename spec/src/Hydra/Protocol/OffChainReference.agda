@@ -56,20 +56,15 @@ _&&_ : Bool → Bool → Bool
 true  && b = b
 false && _ = false
 
--- The §6 reqSn signing-eligibility check (`require v = v̂ ∧ s = ŝ + 1 ∧ leader(s) = j`), as a pure
--- decision over the version/number inputs with the leader test resolved to a Bool by the caller
--- (the leader function needs the party set, supplied Haskell-side). `_==_` is the
--- `Agda.Builtin.Nat` Bool equality.
---
--- `true` means the party goes on to sign, which is what the differential compares. It does NOT say
--- which outcome a `false` produces: the node splits these three conjuncts across two outcome kinds.
--- `requireReqSn` errors out on the number (`ReqSnNumberInvalid`) and on the leader
--- (`ReqSnNotLeader`), but the version conjunct is `waitOnSnapshotVersion`, a WAIT: a follower can see
--- a ReqSn for the bumped version before its own chain handler has processed the increment/decrement
--- that bumps it, and an error would drop the message permanently (see the NOTE in HeadLogic.hs). The
--- spec figure writes all three as `require`; the wait is a deliberate implementation refinement.
-signEligibleRef : Nat → Nat → Nat → Nat → Bool → Bool
-signEligibleRef v vHat s sHat leaderOk = (v == vHat) && ((s == suc sHat) && leaderOk)
+-- A request uses the current version, or the confirmed snapshot's version
+-- exactly one behind it. The latter must carry the same incremental action.
+-- The requested number must follow the seen number and its leader must send it.
+signEligibleRef : Nat → Nat → Nat → Bool → Nat → Nat → Bool → Bool
+signEligibleRef v vHat confirmedV sameAction s sHat leaderOk =
+  versionOk && ((s == suc sHat) && leaderOk)
+  where
+    versionOk = if v == vHat then true
+                else ((suc v == vHat) && ((v == confirmedV) && sameAction))
 
 infixr 5 _||_
 _||_ : Bool → Bool → Bool

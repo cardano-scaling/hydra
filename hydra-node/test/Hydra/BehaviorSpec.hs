@@ -217,8 +217,10 @@ spec = parallel $ do
     -- After the deposit snapshot confirms (ver=0), maybeRequestNextSnapshot
     -- fires ReqSn(ver=0, sn=2) immediately for pending L2 txs. Then
     -- CommitFinalized bumps version to 1 before the echo returns (25s).
-    -- The stale ReqSn(ver=0) waits on the version mismatch, so the leader
-    -- must request the pending work again at version 1.
+    -- Both nodes then sign one version behind: they sign the ver=0 echo (see
+    -- 'waitOnSnapshotVersion') and the round confirms one version behind the
+    -- chain. Before that, the stale echo was parked until its TTL dropped it
+    -- and nobody asked for a ReqSn at ver=1, so the head was stuck for good.
     it "snapshot does not get stuck on CommitFinalized version race with slow network" $
       shouldRunInSim $
         withSimulatedChainAndSlowNetwork 25 0 $ \chain ->
@@ -241,8 +243,16 @@ spec = parallel $ do
                 _ -> Nothing
               -- After the deposit snapshot confirms, the leader sends
               -- ReqSn(ver=0, sn=2) for tx 999. CommitFinalized then arrives
-              -- and bumps version to 1. The stale ReqSn(ver=0) echo waits;
-              -- the pending transaction must confirm at the new version.
+              -- and bumps version to 1 before the echo returns. Both nodes
+              -- sign one version behind, the echo at ver=0, and the round
+              -- confirms one version behind the chain, carrying tx 999.
+              waitUntilMatch [n1, n2] $ \case
+                SnapshotConfirmed{snapshot = Snapshot{confirmed}}
+                  | aValidTx 999 `elem` confirmed -> Just ()
+                _ -> Nothing
+              -- The head is not stuck: the next transaction is snapshotted at
+              -- the bumped version.
+              send n1 (NewTx (aValidTx 1000))
               waitUntilMatch [n1, n2] $ \case
                 SnapshotConfirmed{snapshot = Snapshot{version = 1}} -> Just ()
                 _ -> Nothing
