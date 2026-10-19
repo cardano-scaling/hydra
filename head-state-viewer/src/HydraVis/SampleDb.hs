@@ -13,7 +13,7 @@ import Hydra.Prelude
 import Cardano.Binary (serialize')
 import Data.EventSource (EventId)
 import Database.SQLite.Simple (close, execute, execute_, open)
-import Hydra.HeadLogic (aggregateState, update)
+import Hydra.HeadLogic (SettlementConflict, aggregateState, update)
 import Hydra.HeadLogic.Input (Input)
 import Hydra.HeadLogic.Outcome (Outcome (..), StateChanged)
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
@@ -30,17 +30,17 @@ import HydraVis.Sample (
 -- | Step the sample script through 'HeadLogic.update', collect every emitted
 -- 'StateChanged', and tag each with a monotonically increasing 'EventId' and
 -- the same wall-clock time we used when stepping it.
-sampleStateEvents :: [StateEvent SimpleTx]
-sampleStateEvents =
-  let pairs :: [(Int, [StateChanged SimpleTx])]
-      pairs = collect 1 sampleInitialState sampleScript
-   in [ StateEvent
-        { eventId = eid
-        , stateChanged = sc
-        , time = sampleStepTime stepIx
-        }
-      | (eid, (stepIx, sc)) <- zip [(0 :: EventId) ..] (flatten pairs)
-      ]
+sampleStateEvents :: Either (SettlementConflict SimpleTx) [StateEvent SimpleTx]
+sampleStateEvents = do
+  pairs <- collect 1 sampleInitialState sampleScript
+  pure
+    [ StateEvent
+      { eventId = eid
+      , stateChanged = sc
+      , time = sampleStepTime stepIx
+      }
+    | (eid, (stepIx, sc)) <- zip [(0 :: EventId) ..] (flatten pairs)
+    ]
  where
   flatten :: [(Int, [a])] -> [(Int, a)]
   flatten xs = [(i, x) | (i, ys) <- xs, x <- ys]
@@ -49,8 +49,8 @@ sampleStateEvents =
     Int ->
     NodeState SimpleTx ->
     [Input SimpleTx] ->
-    [(Int, [StateChanged SimpleTx])]
-  collect _ _ [] = []
+    Either (SettlementConflict SimpleTx) [(Int, [StateChanged SimpleTx])]
+  collect _ _ [] = pure []
   collect n s (i : rest) =
     let outcome :: Outcome SimpleTx
         outcome = update sampleEnvironment sampleLedger (sampleStepTime n) s i
@@ -58,14 +58,16 @@ sampleStateEvents =
           Continue{stateChanges} -> stateChanges
           Wait{stateChanges} -> stateChanges
           Error{} -> []
-        s' = aggregateState s outcome
-     in (n, scs) : collect (n + 1) s' rest
+     in do
+          s' <- aggregateState s outcome
+          ((n, scs) :) <$> collect (n + 1) s' rest
 
 -- | Create (or recreate) a SQLite database at @path@ holding
 -- 'sampleStateEvents'. Overwrites any existing rows. Rows are CBOR-encoded
 -- and the schema version set to 2, matching what a current hydra-node writes.
 writeSampleDb :: FilePath -> IO ()
 writeSampleDb path = do
+  events <- either (fail . show) pure sampleStateEvents
   conn <- open path
   execute_
     conn
@@ -73,7 +75,7 @@ writeSampleDb path = do
     \(event_id INTEGER NOT NULL PRIMARY KEY, event_data BLOB NOT NULL)"
   execute_ conn "PRAGMA user_version = 2"
   execute_ conn "DELETE FROM events"
-  forM_ sampleStateEvents $ \e ->
+  forM_ events $ \e ->
     execute
       conn
       "INSERT INTO events (event_id, event_data) VALUES (?, ?)"
