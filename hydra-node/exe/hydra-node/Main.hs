@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 
@@ -5,12 +6,18 @@ module Main where
 
 import Hydra.Prelude hiding (fromList, intercalate)
 
+#ifndef mingw32_HOST_OS
 import Control.Concurrent (mkWeakThreadId)
 import Control.Exception (AsyncException (UserInterrupt), throwTo)
+import GHC.Weak (deRefWeak)
+import System.Posix.Signals qualified as Signals
+#else
+import GHC.IO.Encoding (setLocaleEncoding)
+import System.IO (hSetEncoding, utf8)
+#endif
 import Control.Tracer.JSON (Verbosity (..))
 import Data.ByteString (intercalate)
 import Data.List (stripPrefix)
-import GHC.Weak (deRefWeak)
 import Hydra.Cardano.Api (serialiseToRawBytesHex)
 import Hydra.Chain.Blockfrost (runBlockfrostBackend)
 import Hydra.Chain.Direct (runDirectBackend)
@@ -33,11 +40,10 @@ import Hydra.Options (
  )
 import Hydra.Utils (genHydraKeys)
 import System.IO (hPutStrLn)
-import System.Posix.Signals qualified as Signals
 
 main :: IO ()
 main = do
-  installSigTermHandler
+  initialisePlatform
   args <- getArgs
   -- Strip --config FILE before optparse sees the args so that it is always
   -- accepted (even when used alongside subcommands) and appears correctly in
@@ -88,11 +94,18 @@ main = do
         runBlockfrostBackend blockfrostOptions $ publishHydraScripts sk
     putBSLn $ intercalate "," (serialiseToRawBytesHex <$> txIds)
 
--- | Handle SIGTERM like SIGINT
---
--- Taken from: <https://github.com/IntersectMBO/cardano-node/commit/ce26b8e6e5b2ccda123f04c224036be44529b97e>
-installSigTermHandler :: IO ()
-installSigTermHandler = do
+-- | Configure console encoding on Windows and SIGTERM handling on Unix.
+initialisePlatform :: IO ()
+#ifdef mingw32_HOST_OS
+initialisePlatform = do
+  -- Windows code pages may not represent the Unicode help banner.
+  -- Console interrupts are handled by the RTS.
+  setLocaleEncoding utf8
+  mapM_ (`hSetEncoding` utf8) [stdin, stdout, stderr]
+#else
+initialisePlatform = do
+  -- Handle SIGTERM like SIGINT, following:
+  -- https://github.com/IntersectMBO/cardano-node/commit/ce26b8e6e5b2ccda123f04c224036be44529b97e
   -- Similar implementation to the RTS's handling of SIGINT (see GHC's
   -- https://gitlab.haskell.org/ghc/ghc/-/blob/master/libraries/base/GHC/TopHandler.hs).
   runThreadIdWk <- mkWeakThreadId =<< myThreadId
@@ -105,6 +118,7 @@ installSigTermHandler = do
       )
       Nothing
   pure ()
+#endif
 
 identifyNode :: RunOptions -> RunOptions
 identifyNode opt@RunOptions{verbosity = Verbose "HydraNode", nodeId} = opt{verbosity = Verbose $ "HydraNode-" <> show nodeId}

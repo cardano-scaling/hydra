@@ -39,12 +39,15 @@ import Hydra.Chain (
   PostTxError (..),
  )
 import Hydra.Chain.ChainState (ChainSlot (..), IsChainState)
-import Hydra.Chain.Direct.State (ChainStateAt (..))
+import Hydra.Chain.Direct.State (ChainStateAt (..), HasKnownUTxO (getKnownUTxO), HydraContext (..))
+import Hydra.Chain.Direct.State qualified as Direct
 import Hydra.Chain.Direct.TimeHandle (TimeHandle, mkTimeHandle, slotToUTCTime)
 import Hydra.HeadLogic (ClosedState (..), CoordinatedHeadState (..), Effect (..), FanoutMode (..), HeadState (..), Input (..), LogicError (..), OpenState (..), Outcome (..), PartialFanoutState (..), RequirementFailure (..), SettlingCommit (..), SideLoadRequirementFailure (..), SnapshotRequest (..), StateChanged (..), TTL, WaitReason (..), absorbable, aggregateState, applyTransactionsWithoutCollision, cause, chainedSnapshotRequest, existingDeposit, maxTxsPerSnapshot, namesNoneOf, newState, nextSnapshotRequest, noop, settlingCommitAt, update)
 import Hydra.HeadLogic.State (IdleState (..), SeenSnapshot (..), getHeadParameters, mkSeenSnapshot)
 import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano (cardanoLedger, mkSimpleTx)
+import Hydra.Ledger.Cardano.Evaluate (renderEvaluationReport)
+import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
 import Hydra.Ledger.Cardano.TimeSpec (genUTCTime)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), SimpleTxOut (..), simpleLedger)
 import Hydra.Network (Connectivity)
@@ -55,32 +58,40 @@ import Hydra.Node.State (ChainPointTime (..), Deposit (..), DepositStatus (Activ
 import Hydra.Node.UnsyncedPeriod (UnsyncedPeriod (..), unsyncedPeriodToNominalDiffTime)
 import Hydra.Options (defaultContestationPeriod, defaultDepositActivation, defaultDepositPeriod, defaultUnsyncedPeriod)
 import Hydra.Prelude qualified as Prelude
-import Hydra.Tx (HeadId)
+import Hydra.Tx (HeadId, confirmedSignatures, headSeedToTxIn, registryUTxO, txInToHeadSeed)
 import Hydra.Tx.Accumulator qualified as Accumulator
-import Hydra.Tx.Close (isClosableAt)
+import Hydra.Tx.Close (CloseObservation (..), isClosableAt)
+import Hydra.Tx.Close qualified as Close
+import Hydra.Tx.Contest (ContestObservation (..), observeContestTx)
 import Hydra.Tx.ContestationPeriod qualified as CP
 import Hydra.Tx.Crypto (aggregate, generateSigningKey, sign)
 import Hydra.Tx.Crypto qualified as Crypto
+import Hydra.Tx.Decrement (DecrementObservation (..), observeDecrementTx)
+import Hydra.Tx.Deposit (DepositObservation (..), observeDepositTx)
 import Hydra.Tx.DepositPeriod (toNominalDiffTime)
+import Hydra.Tx.Fanout (FanoutObservation (..), observeFanoutTx)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
+import Hydra.Tx.Increment (IncrementObservation (..), observeIncrementTx)
 import Hydra.Tx.IsTx (IsTx (..))
 import Hydra.Tx.Party (Party (..), deriveParty)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, SnapshotVersion, getSnapshot)
 import Test.Gen.Cardano.Api.Typed (genBlockHeaderHash)
 import Test.Hydra.API.ClientInput ()
 import Test.Hydra.Chain ()
+import Test.Hydra.Chain.Direct.State (ctxParticipants, genDecrementTxWithSnapshot, genDepositTx, genIncrementTxWithSnapshot, pickChainContext, unsafeClose, unsafeContest, unsafeFanout)
 import Test.Hydra.Chain.Direct.TimeHandle (safeZone)
 import Test.Hydra.HeadLogic.Input ()
 import Test.Hydra.HeadLogic.State ()
 import Test.Hydra.Ledger.Cardano (mkRangedTx)
-import Test.Hydra.Ledger.Cardano.Fixtures (eraHistoryWithHorizonAt)
+import Test.Hydra.Ledger.Cardano.Fixtures (eraHistoryWithHorizonAt, evaluateTx)
+import Test.Hydra.Ledger.Cardano.Fixtures qualified as LedgerFixture
 import Test.Hydra.Ledger.Simple (aValidTx, utxoRef, utxoRefs)
 import Test.Hydra.Network.Message ()
 import Test.Hydra.Node.Environment ()
 import Test.Hydra.Node.Fixture qualified as Fixture
 import Test.Hydra.Node.State ()
 import Test.Hydra.Tx.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, deriveOnChainId, fanoutChunkSize, fanoutOutputThreshold, testHeadId, testHeadSeed)
-import Test.Hydra.Tx.Gen (genKeyPair, genOutputFor, genTxOutAdaOnly)
+import Test.Hydra.Tx.Gen (genKeyPair, genOutputFor, genTxOutAdaOnly, genValidityBoundsFromContestationPeriod)
 import Test.QuickCheck (Property, choose, counterexample, elements, forAll, forAllShrink, oneof, shuffle, sublistOf, suchThat, (.&&.), (===), (==>))
 import Test.QuickCheck.Gen (generate)
 import Test.QuickCheck.Hedgehog (hedgehog)
@@ -438,9 +449,52 @@ spec =
                 utxo == utxoRef 3 && utxoToCommit == Just depositedUtxo && depositTxId == Just pendingDepositTxId
               _ -> False
 
+          it "rejects a same-version ReqSn replacing the settling commit with another deposit" $ do
+            now <- getCurrentTime
+            let u0 = utxoRef 1
+                replacementDepositTxId = pendingDepositTxId + 1
+                replacementUTxO = utxoRef 99
+                committing =
+                  ConfirmedSnapshot
+                    { snapshot =
+                        (testSnapshot 0 0 [] u0)
+                          { utxoToCommit = Just depositedUtxo
+                          , depositTxId = Just pendingDepositTxId
+                          , accumulator = fst $ Accumulator.buildFromSnapshotUTxOs u0 (Just depositedUtxo) Nothing
+                          , appliedAccumulator = snd $ Accumulator.buildFromSnapshotUTxOs u0 (Just depositedUtxo) Nothing
+                          }
+                    , signatures = mempty
+                    }
+                active deposited =
+                  Deposit
+                    { headId = testHeadId
+                    , deposited
+                    , created = now
+                    , deadline = addUTCTime 3600 now
+                    , status = Active
+                    }
+                s0 =
+                  ( inOpenState' threeParties $
+                      coordinatedHeadState
+                        { localUTxO = u0
+                        , confirmedSnapshot = committing
+                        , currentDepositTxId = Just pendingDepositTxId
+                        }
+                  )
+                    { deposits =
+                        trackedFromPending $
+                          Map.fromList
+                            [ (pendingDepositTxId, active depositedUtxo)
+                            , (replacementDepositTxId, active replacementUTxO)
+                            ]
+                    }
+            update bobEnv ledger now s0 (receiveMessage $ ReqSn 0 1 [] Nothing (Just replacementDepositTxId))
+              `shouldBe` Error (RequireFailed ReqSnCommitNotSettled)
+
           it "as a follower, signs a same-version ReqSn dropping the settling commit only once its increment can no longer land" $ do
             now <- getCurrentTime
             let u0 = utxoRef 1
+                margin = toNominalDiffTime bobEnv.depositPeriod
                 committing =
                   ConfirmedSnapshot
                     { snapshot =
@@ -492,8 +546,13 @@ spec =
             justPassed <- runHeadLogic bobEnv ledger (s0 [(pendingDepositTxId, claimedWith (addUTCTime (-1) now))]) $ step tick >> getState
             update bobEnv ledger now justPassed (receiveMessage dropping)
               `assertWait` WaitOnUnresolvedCommit{commitUTxO = depositedUtxo}
-            -- Past the margin: signed.
-            passed <- runHeadLogic bobEnv ledger (s0 [(pendingDepositTxId, claimedWith (addUTCTime (-4000) now))]) $ step tick >> getState
+            -- Exactly at deadline + depositPeriod: the increment can still be
+            -- included, so equality belongs to the continue side.
+            atMargin <- runHeadLogic bobEnv ledger (s0 [(pendingDepositTxId, claimedWith (addUTCTime (negate margin) now))]) $ step tick >> getState
+            update bobEnv ledger now atMargin (receiveMessage dropping)
+              `assertWait` WaitOnUnresolvedCommit{commitUTxO = depositedUtxo}
+            -- One second past that boundary: signed without the commit.
+            passed <- runHeadLogic bobEnv ledger (s0 [(pendingDepositTxId, claimedWith (addUTCTime (negate margin - 1) now))]) $ step tick >> getState
             update bobEnv ledger now passed (receiveMessage dropping) `signs` Nothing
             -- Recovered (gone): the drop is signed.
             recovered <- runHeadLogic bobEnv ledger (s0 []) $ step tick >> getState
@@ -1486,8 +1545,10 @@ spec =
             -- Landable: continued, also when Expired but before the deadline.
             continues (decide 0 (Map.singleton 7 (depositWith (addUTCTime 3600 now))) claiming) `shouldBe` True
             continues (decide 0 (Map.singleton 7 (depositWith (addUTCTime (-1) now)){status = Expired}) claiming) `shouldBe` True
-            -- Past the margin, recovered, or no 'depositTxId': dropped.
+            -- Equality is still landable; immediately after it is not.
+            continues (decide 0 (Map.singleton 7 (depositWith (addUTCTime (negate margin) now))) claiming) `shouldBe` True
             drops (decide 0 (Map.singleton 7 (depositWith (addUTCTime (negate margin - 1) now))) claiming) `shouldBe` True
+            -- Recovered or no 'depositTxId': dropped.
             drops (decide 0 mempty claiming) `shouldBe` True
             drops (decide 0 (Map.singleton 7 (depositWith (addUTCTime 3600 now))) claiming{depositTxId = Nothing}) `shouldBe` True
 
@@ -5037,6 +5098,74 @@ spec =
     describe "Coordinated Head Protocol using real Tx" $ do
       let ledger = cardanoLedger Fixture.defaultGlobals Fixture.defaultLedgerEnv
 
+          environmentFor :: HydraContext -> Secret (Crypto.SigningKey Crypto.HydraKey) -> Environment
+          environmentFor hydraContext signingKey =
+            Environment
+              { party
+              , signingKey
+              , otherParties = List.delete party parties
+              , contestationPeriod = hydraContext.ctxContestationPeriod
+              , depositPeriod = hydraContext.ctxDepositPeriod
+              , depositActivation = defaultDepositActivation
+              , unsyncedPeriod = defaultUnsyncedPeriod
+              , participants = ctxParticipants hydraContext
+              , configuredPeers = ""
+              }
+           where
+            party = deriveParty signingKey
+            parties = deriveParty <$> hydraContext.ctxHydraSigningKeys
+
+          withoutPending :: UTxOType Tx -> Snapshot Tx -> Snapshot Tx
+          withoutPending live snapshot =
+            snapshot
+              { number = number snapshot - 1
+              , confirmed = []
+              , utxo = live
+              , utxoToCommit = Nothing
+              , utxoToDecommit = Nothing
+              , depositTxId = Nothing
+              , accumulator = Accumulator.buildFromUTxO live
+              , appliedAccumulator = Accumulator.buildFromUTxO live
+              }
+
+          openWaitingFor :: HydraContext -> Direct.OpenState -> Snapshot Tx -> Map.Map Party (Crypto.Signature (Snapshot Tx)) -> Map.Map (TxIdType Tx) (Deposit Tx) -> Maybe (TxIdType Tx) -> NodeState Tx
+          openWaitingFor hydraContext directOpen target seenSignatures pendingDeposits currentDepositTxId =
+            ( inSync $
+                Open
+                  OpenState
+                    { parameters = HeadParameters hydraContext.ctxContestationPeriod hydraContext.ctxDepositPeriod parties
+                    , coordinatedHeadState =
+                        CoordinatedHeadState
+                          { localUTxO = target.utxo
+                          , allTxs = mempty
+                          , localTxs = mempty
+                          , confirmedSnapshot = ConfirmedSnapshot prior (aggregate [sign key prior | key <- hydraContext.ctxHydraSigningKeys])
+                          , seenSnapshot = mkSeenSnapshot target seenSignatures
+                          , currentDepositTxId
+                          , decommitTx = Nothing
+                          , version = target.version
+                          , finalizedCommit = Nothing
+                          , finalizedDecommit = Nothing
+                          }
+                    , chainState = ChainStateAt{spendableUTxO = getKnownUTxO directOpen, recordedAt = Nothing}
+                    , headId = target.headId
+                    , headSeed = txInToHeadSeed directOpen.seedTxIn
+                    }
+            )
+              { deposits = trackedFromPending pendingDeposits
+              }
+           where
+            parties = deriveParty <$> hydraContext.ctxHydraSigningKeys
+            liveBeforeSettlement = target.utxo <> fold target.utxoToDecommit
+            prior = withoutPending liveBeforeSettlement target
+
+          partialSignatures :: HydraContext -> Snapshot Tx -> Map.Map Party (Crypto.Signature (Snapshot Tx))
+          partialSignatures hydraContext target =
+            Map.fromList
+              [ (deriveParty signingKey, sign signingKey target)
+              | signingKey <- List.init hydraContext.ctxHydraSigningKeys
+              ]
+
           openWith :: UTxOType Tx -> [Tx] -> NodeState Tx
           openWith utxo txs =
             inSync $
@@ -5076,6 +5205,90 @@ spec =
             -- Rejection must be due to the occupied name, not an invalid payment.
             applyTransactions ledger (ChainSlot 0) seed [tx] `shouldSatisfy` isRight
             pure (tx, seed, deposited)
+
+      it "adopts a validated IncrementTx snapshot when an AckSn is withheld, then can close, contest and fanout" $ do
+        now <- getCurrentTime
+        (hydraContext, directOpen, depositTx, spendableUTxO, incrementTx, confirmedSnapshot) <-
+          generate $ genIncrementTxWithSnapshot (genDepositTx 2)
+        chainContext <- generate $ pickChainContext hydraContext
+        let target = getSnapshot confirmedSnapshot
+            lookupUTxO = spendableUTxO <> registryUTxO hydraContext.ctxScriptRegistry
+        assertValidCardanoTx incrementTx lookupUTxO
+        DepositObservation{deadline} <-
+          maybe (failure "generated deposit was not observed") pure $
+            observeDepositTx hydraContext.ctxNetworkId depositTx
+        IncrementObservation{newVersion, depositTxId, deposited, snapshotNumber, signatures} <-
+          maybe (failure "validated increment was not observed") pure $
+            observeIncrementTx hydraContext.ctxNetworkId lookupUTxO incrementTx
+        signatures `shouldBe` confirmedSignatures confirmedSnapshot
+        let pendingDeposits =
+              Map.singleton
+                depositTxId
+                Deposit{headId = target.headId, deposited, created = now, deadline, status = Active}
+            initial =
+              openWaitingFor
+                hydraContext
+                directOpen
+                target
+                (partialSignatures hydraContext target)
+                pendingDeposits
+                (Just depositTxId)
+            observed =
+              OnIncrementTx
+                { headId = target.headId
+                , newVersion
+                , depositTxId
+                , snapshotNumber
+                , signatures
+                }
+        forM_ hydraContext.ctxHydraSigningKeys $ \signingKey ->
+          assertObservedSettlementRecovery
+            (environmentFor hydraContext signingKey)
+            ledger
+            initial
+            observed
+            confirmedSnapshot
+            hydraContext
+            chainContext
+            (utxoFromTx incrementTx)
+
+      it "adopts a validated DecrementTx snapshot when an AckSn is withheld, then can close, contest and fanout" $ do
+        (hydraContext, chainContext, _distributed, directOpen, spendableUTxO, decrementTx, confirmedSnapshot) <-
+          generate $ genDecrementTxWithSnapshot 2
+        let target = getSnapshot confirmedSnapshot
+            lookupUTxO = getKnownUTxO directOpen <> getKnownUTxO chainContext <> spendableUTxO
+        assertValidCardanoTx decrementTx lookupUTxO
+        DecrementObservation{newVersion, distributedUTxO, snapshotNumber, signatures} <-
+          maybe (failure "validated decrement was not observed") pure $
+            observeDecrementTx lookupUTxO decrementTx
+        signatures `shouldBe` confirmedSignatures confirmedSnapshot
+        UTxO.txOutputs distributedUTxO `shouldBe` maybe [] UTxO.txOutputs target.utxoToDecommit
+        let initial =
+              openWaitingFor
+                hydraContext
+                directOpen
+                target
+                (partialSignatures hydraContext target)
+                mempty
+                Nothing
+            observed =
+              OnDecrementTx
+                { headId = target.headId
+                , newVersion
+                , distributedUTxO
+                , snapshotNumber
+                , signatures
+                }
+        forM_ hydraContext.ctxHydraSigningKeys $ \signingKey ->
+          assertObservedSettlementRecovery
+            (environmentFor hydraContext signingKey)
+            ledger
+            initial
+            observed
+            confirmedSnapshot
+            hydraContext
+            chainContext
+            (utxoFromTx decrementTx)
 
       it "rejects a ReqSn whose requested tx produces an output the deposit names" $ do
         (tx, seed, deposited) <- paymentWithCollision
@@ -5538,6 +5751,140 @@ prop_ignoresUnrelatedOnInitTx =
         , headParameters = HeadParameters{contestationPeriod, depositPeriod, parties = party : otherParties}
         , participants = differentParticipants
         }
+
+-- | Evaluate every script and require that the transaction actually exercises one.
+assertValidCardanoTx :: Tx -> UTxOType Tx -> IO ()
+assertValidCardanoTx tx lookupUTxO =
+  case evaluateTx tx lookupUTxO of
+    Left err -> expectationFailure $ "transaction evaluation failed: " <> show err
+    Right reports -> do
+      reports `shouldSatisfy` (not . null)
+      unless (all isRight reports) $
+        expectationFailure $
+          toString $
+            renderEvaluationReport reports
+
+-- | Recover a snapshot from settlement evidence, then build and evaluate the
+-- close, contest and fanout transactions requested by the node.
+assertObservedSettlementRecovery ::
+  Environment ->
+  Ledger Tx ->
+  NodeState Tx ->
+  OnChainTx Tx ->
+  ConfirmedSnapshot Tx ->
+  HydraContext ->
+  Direct.ChainContext ->
+  UTxOType Tx ->
+  IO ()
+assertObservedSettlementRecovery env ledger initial observed expectedConfirmed hydraContext chainContext settledUTxO = do
+  (startSlot, closePoint@(_, now)) <- generate $ genValidityBoundsFromContestationPeriod env.contestationPeriod
+  let target = getSnapshot expectedConfirmed
+      references = registryUTxO hydraContext.ctxScriptRegistry
+      observe spendableUTxO input =
+        ChainInput
+          Observation
+            { observedTx = input
+            , newChainState = ChainStateAt{spendableUTxO, recordedAt = Nothing}
+            }
+      adopted = aggregateState initial $ update env ledger now initial (observe settledUTxO observed)
+      chainRequest :: Outcome Tx -> IO (PostChainTx Tx)
+      chainRequest outcome =
+        case [request | OnChainEffect{postChainTx = request} <- effectsOf outcome] of
+          [request] -> pure request
+          requests -> failure $ "expected one chain request, got: " <> show requests
+      buildClose spendableUTxO = \case
+        CloseTx{headId, headParameters, openVersion, closingSnapshot} ->
+          pure $ unsafeClose chainContext spendableUTxO headId headParameters openVersion closingSnapshot startSlot closePoint
+        request -> failure $ "expected CloseTx, got: " <> show request
+      closeObservation :: UTxOType Tx -> Tx -> IO (OnChainTx Tx)
+      closeObservation spendableUTxO tx = do
+        CloseObservation{headId, snapshotNumber, contestationDeadline, signatures} <-
+          maybe (failure "close was not observed") pure $ Close.observeCloseTx spendableUTxO tx
+        pure OnCloseTx{headId, snapshotNumber, contestationDeadline, signatures}
+      assertFanout closedUTxO closed deadline = do
+        let afterDeadline = addUTCTime 1 deadline
+            ready =
+              aggregateState closed $
+                update env ledger afterDeadline closed $
+                  ChainInput Tick{chainTime = afterDeadline, chainPoint = ChainPointAtGenesis}
+        request <- chainRequest $ update env ledger afterDeadline ready (ClientInput Fanout)
+        tx <- case request of
+          FanoutTx{utxo, utxoToCommit, utxoToDecommit, headSeed, contestationDeadline} -> do
+            let expectedLive = target.utxo <> fold target.utxoToCommit
+            (utxo <> fold utxoToCommit <> fold utxoToDecommit) `shouldBe` expectedLive
+            seedTxIn <- headSeedToTxIn headSeed
+            pure $
+              unsafeFanout
+                chainContext
+                closedUTxO
+                seedTxIn
+                utxo
+                utxoToCommit
+                utxoToDecommit
+                (slotNoFromUTCTime LedgerFixture.systemStart LedgerFixture.slotLength contestationDeadline + 1)
+          other -> failure $ "expected full fanout for the small fixture, got: " <> show other
+        assertValidCardanoTx tx (closedUTxO <> references)
+        FanoutObservation{fanoutUTxO} <-
+          maybe (failure "fanout was not observed") pure $ observeFanoutTx closedUTxO tx
+        let expectedOutputs = UTxO.txOutputs (target.utxo <> fold target.utxoToCommit)
+        UTxO.txOutputs fanoutUTxO `shouldMatchList` expectedOutputs
+        UTxO.txOutputs (utxoFromTx tx) `shouldMatchList` expectedOutputs
+
+  case adopted of
+    NodeInSync{headState = Open OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot, seenSnapshot}}} -> do
+      confirmedSnapshot `shouldBe` expectedConfirmed
+      seenSnapshot `shouldBe` LastSeenSnapshot target.number
+    other -> expectationFailure $ "expected adopted Open state, got: " <> show other
+
+  let incomplete = case observed of
+        OnIncrementTx{headId, newVersion, depositTxId, snapshotNumber} ->
+          OnIncrementTx{headId, newVersion, depositTxId, snapshotNumber, signatures = mempty}
+        OnDecrementTx{headId, newVersion, distributedUTxO, snapshotNumber} ->
+          OnDecrementTx{headId, newVersion, distributedUTxO, snapshotNumber, signatures = mempty}
+        other -> other
+      rejected = aggregateState initial $ update env ledger now initial (observe settledUTxO incomplete)
+  getConfirmedSnapshot rejected `shouldBe` getConfirmedSnapshot initial
+
+  closeRequest <- chainRequest $ update env ledger now adopted (ClientInput Close)
+  case closeRequest of
+    CloseTx{closingSnapshot} -> closingSnapshot `shouldBe` expectedConfirmed
+    other -> failure $ "expected close, got: " <> show other
+  closeTx <- buildClose settledUTxO closeRequest
+  assertValidCardanoTx closeTx (settledUTxO <> references)
+  closedObservation@OnCloseTx{contestationDeadline} <- closeObservation settledUTxO closeTx
+  let closedUTxO = utxoFromTx closeTx
+      closed = aggregateState adopted $ update env ledger now adopted (observe closedUTxO closedObservation)
+  assertFanout closedUTxO closed contestationDeadline
+
+  -- An older signed snapshot with the same balance can close the settled head.
+  -- The recovering node must contest it using the adopted snapshot.
+  let stale = target{number = target.number - 1}
+      staleConfirmed = ConfirmedSnapshot stale (aggregate [sign key stale | key <- hydraContext.ctxHydraSigningKeys])
+  staleClose <- buildClose settledUTxO $ case closeRequest of
+    request@CloseTx{} -> request{closingSnapshot = staleConfirmed}
+    other -> other
+  assertValidCardanoTx staleClose (settledUTxO <> references)
+  staleObservation <- closeObservation settledUTxO staleClose
+  let staleUTxO = utxoFromTx staleClose
+      staleOutcome = update env ledger now adopted (observe staleUTxO staleObservation)
+      staleState = aggregateState adopted staleOutcome
+  contestRequest <- chainRequest staleOutcome
+  contestTx <- case contestRequest of
+    ContestTx{headId, headParameters, openVersion, contestingSnapshot} -> do
+      contestingSnapshot `shouldBe` expectedConfirmed
+      pure $ unsafeContest chainContext staleUTxO headId headParameters.contestationPeriod openVersion contestingSnapshot closePoint
+    other -> failure $ "expected ContestTx, got: " <> show other
+  assertValidCardanoTx contestTx (staleUTxO <> references)
+  ContestObservation{headId, snapshotNumber, contestationDeadline = contestedDeadline, signatures} <-
+    maybe (failure "contest was not observed") pure $ observeContestTx staleUTxO contestTx
+  snapshotNumber `shouldBe` target.number
+  signatures `shouldBe` confirmedSignatures expectedConfirmed
+  let contestedUTxO = utxoFromTx contestTx
+      contested =
+        aggregateState staleState $
+          update env ledger now staleState $
+            observe contestedUTxO OnContestTx{headId, snapshotNumber, contestationDeadline = contestedDeadline, signatures}
+  assertFanout contestedUTxO contested contestedDeadline
 
 genClosedState :: Gen (NodeState SimpleTx)
 genClosedState = do

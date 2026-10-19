@@ -133,6 +133,7 @@ jobs:
         path: |
           /tmp/nix-shell.*/*/logs/*
           /tmp/nix-build-*-check*/**/logs/*
+          ${{ runner.temp }}/nix-shell.*/*/logs/*.log
         if-no-files-found: ignore
 
   spec:

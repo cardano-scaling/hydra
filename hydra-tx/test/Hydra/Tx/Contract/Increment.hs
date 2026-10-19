@@ -45,6 +45,7 @@ import Test.Hydra.Tx.Gen (genForParty, genMintedOrBurnedValue, genScriptRegistry
 import Test.Hydra.Tx.Mutation (
   Mutation (..),
   SomeMutation (..),
+  applyMutation,
   changeMintedTokens,
   modifyInlineDatum,
   replaceParties,
@@ -98,6 +99,24 @@ healthyIncrementTx =
   depositUTxO =
     UTxO.singleton healthyDepositInput $
       mkDepositOutput testNetworkId (mkHeadId testPolicyId) healthyDeposited healthyDeadline
+
+-- | A structurally valid increment carrying no snapshot signatures. Kept as a
+-- named regression so rejection of incomplete on-chain evidence does not rely
+-- on the random mutation suite selecting 'ProduceInvalidSignatures'.
+incrementWithIncompleteSignatures :: (Tx, UTxO)
+incrementWithIncompleteSignatures =
+  healthyIncrementTx
+    & applyMutation
+      ( ChangeHeadRedeemer $
+          Head.Increment
+            Head.IncrementRedeemer
+              { signature = toPlutusSignatures (mempty :: MultiSignature (Snapshot Tx))
+              , snapshotNumber = fromIntegral $ number healthySnapshot
+              , increment = toPlutusTxOutRef healthyDepositInput
+              , appliedAccumulatorHash = toBuiltin healthyAppliedAccumulatorHash
+              , decommitOutputsHash = toBuiltin $ hashUTxO @Tx (mempty :: UTxO)
+              }
+      )
 
 -- | The deposit is the first output of its transaction, as built by
 -- 'Hydra.Tx.Deposit.depositTx' and required by 'checkIncrement'.

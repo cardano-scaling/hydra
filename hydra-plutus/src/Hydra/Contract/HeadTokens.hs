@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE NoPolyKinds #-}
@@ -13,6 +14,13 @@
 module Hydra.Contract.HeadTokens where
 
 import PlutusTx.Prelude
+
+#ifdef HYDRA_PRECOMPILED_SCRIPTS
+import Hydra.Contract.Precompiled qualified as Precompiled
+import Hydra.Plutus.Extras (MintingPolicyType)
+#else
+import Hydra.Plutus.Extras (MintingPolicyType, scriptValidatorHash, wrapMintingPolicy)
+#endif
 
 import Hydra.Cardano.Api (
   PolicyId,
@@ -31,7 +39,6 @@ import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokensError (HeadTokensError (..), errorCode)
 import Hydra.Contract.MintAction (MintAction (Burn, Mint))
 import Hydra.Contract.Util (hasST, hydraHeadV2, scriptOutputsAt)
-import Hydra.Plutus.Extras (MintingPolicyType, scriptValidatorHash, wrapMintingPolicy)
 import PlutusCore.Version (plcVersion110)
 import PlutusLedgerApi.V3 (
   Datum (getDatum),
@@ -161,9 +168,13 @@ validateTokensBurning context =
 
 -- | Raw minting policy code where the 'TxOutRef' is still a parameter.
 unappliedMintingPolicy :: CompiledCode (TxOutRef -> MintingPolicyType)
+#ifdef HYDRA_PRECOMPILED_SCRIPTS
+unappliedMintingPolicy = Precompiled.unappliedMintingPolicy
+#else
 unappliedMintingPolicy =
   $$(PlutusTx.compile [||\vHead ref -> wrapMintingPolicy (validate vHead ref)||])
     `PlutusTx.unsafeApplyCode` PlutusTx.liftCode plcVersion110 (scriptValidatorHash Head.validatorScript)
+#endif
 
 -- | Get the applied head minting policy script given a seed 'TxOutRef'.
 mintingPolicyScript :: TxOutRef -> Api.PlutusScript

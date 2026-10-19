@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE NoPolyKinds #-}
@@ -10,6 +11,13 @@
 module Hydra.Contract.Head where
 
 import PlutusTx.Prelude
+
+#ifdef HYDRA_PRECOMPILED_SCRIPTS
+import Hydra.Contract.Precompiled qualified as Precompiled
+import Hydra.Plutus.Extras (ValidatorType)
+#else
+import Hydra.Plutus.Extras (ValidatorType, wrapValidator)
+#endif
 
 import GHC.ByteOrder (ByteOrder (BigEndian))
 import Hydra.Cardano.Api (
@@ -40,7 +48,6 @@ import Hydra.Contract.Util (hasST, hashPreSerializedCommits, hashTxOuts, mustBur
 import Hydra.Data.ContestationPeriod (ContestationPeriod, addContestationPeriod, milliseconds)
 import Hydra.Data.DepositPeriod (DepositPeriod)
 import Hydra.Data.Party (Party (vkey))
-import Hydra.Plutus.Extras (ValidatorType, wrapValidator)
 import PlutusCore.Version (plcVersion110)
 import PlutusLedgerApi.Common (serialiseCompiledCode)
 import PlutusLedgerApi.V1.Time (fromMilliSeconds)
@@ -965,10 +972,14 @@ verifyPartySignature (headId, snapshotVersion, snapshotNumber, accumulatorHash, 
 {-# INLINEABLE verifyPartySignature #-}
 
 unappliedValidator :: CompiledCode (BuiltinByteString -> ValidatorType)
+#ifdef HYDRA_PRECOMPILED_SCRIPTS
+unappliedValidator = Precompiled.unappliedValidator
+#else
 unappliedValidator =
   $$(PlutusTx.compile [||wrap . headValidator||])
  where
   wrap = wrapValidator @DatumType @RedeemerType
+#endif
 
 compiledValidator :: CompiledCode ValidatorType
 compiledValidator =

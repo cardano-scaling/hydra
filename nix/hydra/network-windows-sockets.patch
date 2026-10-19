@@ -1,0 +1,8 @@
+diff --git a/Network/Socket/Syscall.hs b/Network/Socket/Syscall.hs
+--- a/Network/Socket/Syscall.hs
++++ b/Network/Socket/Syscall.hs
+@@ -124,3 +124,3 @@ socket family stype protocol = E.bracketOnError create c_close $ \fd -> do
+     setDontFragment s = when (family == AF_INET) $
+-#if HAVE_DECL_IP_DONTFRAG || HAVE_DECL_IP_MTU_DISCOVER
++#if HAVE_DECL_IP_DONTFRAG || (HAVE_DECL_IP_MTU_DISCOVER && !defined(mingw32_HOST_OS))
+       setSocketOption s DontFragment 1

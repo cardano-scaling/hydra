@@ -46,3 +46,60 @@ To proceed, you’ll need to allow it manually in the **Privacy & Security** sec
 ### Build from source
 
 While using Docker is the recommended way to _use_ Hydra, you can also build the `hydra-node` from source. We recommend using [Nix](https://nixos.org/download.html) for this and you can find instructions in our [contributing guidelines](https://github.com/cardano-scaling/hydra/blob/master/CONTRIBUTING.md).
+
+### Windows cross-build
+
+The experimental Windows target builds `hydra-node.exe` on x86_64 Linux with Nix:
+
+```shell
+nix build .#release-windows
+```
+
+The result is `result/hydra-x86_64-windows.zip`. Extract the entire archive into
+one directory and keep the bundled DLLs alongside `hydra-node.exe`. The node
+embeds its Windows `etcd.exe` and installs it in the persistence directory on
+startup. No Haskell compiler or separate etcd installation is needed on Windows.
+
+The ZIP includes the DLLs imported by the node and their transitive dependencies.
+`WINDOWS-RUNTIME-NOTICES.txt` identifies their licenses, with the original license
+and copyright texts in `licenses/`. `runtime-provenance.json` records each DLL's
+SHA-256, Nix package, version, source revision or URL, and source hash. It also
+records the Hydra revision and the commits, hashes and links for the Nix build
+inputs. Source archives, patches and build recipes are not bundled. Keep the
+notices and provenance with redistributions, and arrange any required
+GPL/LGPL corresponding-source access separately; hashes alone do not provide it.
+This inventory covers the DLLs and MinGW runtime; it does not enumerate all
+Haskell or embedded etcd dependencies.
+
+The cross-build compiles the Plutus contracts on Linux, then embeds those
+artifacts using the `precompiled-scripts` Cabal flag. Both builds use the same
+contract sources and dependency pins; the flag selects embedding directly in
+the Haskell modules without rewriting their source.
+Only the Head validator, Head minting policy and CRS validator use this path;
+dummy and example validators are excluded from the Windows build. The deposit
+validator is already embedded from its Aiken blueprint by both builds.
+
+From PowerShell:
+
+```powershell
+.\hydra-node.exe --version
+.\hydra-node.exe --help
+.\hydra-node.exe gen-hydra-key --output-file hydra
+```
+
+The Binaries workflow produces the Windows artifact alongside the Linux and
+macOS artifacts. Its nightly run at 04:00 UTC builds Windows and runs a smoke
+test on Windows Server 2022 using that run's ZIP. Pushes, tags, and manual runs
+only build the artifacts. The smoke test compares the script catalogue with the
+native exporter and checks two offline nodes' API, peer connectivity, shutdown,
+and restart from paths containing spaces.
+
+Shutdown interrupts the embedded etcd process before joining its reader threads,
+allowing blocked Windows reads to finish. If etcd does not exit within five
+seconds, the node terminates it. The smoke test requires the node to report
+`user interrupt` with exit code 1 (the current top-level exception handler's
+normal interrupt outcome) and release its ports before restarting it with the
+same persisted state. Other shutdown exceptions fail the test.
+
+The archive includes only `hydra-node`. Live Cardano connectivity and TLS are
+untested; a Cardano connection requires a separate Cardano node or Blockfrost.
