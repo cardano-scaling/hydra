@@ -15,6 +15,7 @@ import Cardano.Api.UTxO qualified as UTxO
 import Data.Map.Strict qualified as Map
 import Data.Maybe (fromJust)
 import Hydra.Cardano.Api (
+  Coin (..),
   ExecutionUnits (..),
   Key (VerificationKey),
   NetworkId (Testnet),
@@ -24,12 +25,17 @@ import Hydra.Cardano.Api (
   Tx,
   TxIn,
   UTxO,
+  fromCtxUTxOTxOut,
+  fromScriptData,
   getTxBody,
   getTxId,
+  lovelaceToValue,
   mkTxIn,
   modifyTxOutValue,
   negateValue,
+  selectLovelace,
   toCtxUTxOTxOut,
+  txOutScriptData,
   txOuts',
  )
 import Hydra.Cardano.Api.Gen (genTxIn)
@@ -53,6 +59,7 @@ import Hydra.Chain.Direct.State (
   partialFanoutFromPlan,
   preparePartialFanout,
  )
+import Hydra.Contract.HeadState qualified as Head
 import Hydra.Ledger.Cardano (adjustUTxO)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
 import Hydra.Tx (
@@ -343,14 +350,37 @@ genIncrementTxWith ::
     , UTxO -- Spendable UTxO (head output <> deposit output)
     , Tx -- Increment transaction
     )
-genIncrementTxWith genDeposit = do
+genIncrementTxWith genDeposit =
+  (\(ctx, st, deposit, spendable, tx, _snapshot) -> (ctx, st, deposit, spendable, tx))
+    <$> genIncrementTxWithSnapshot genDeposit
+
+-- | As 'genIncrementTxWith', additionally returning the fully signed snapshot
+-- encoded in the real Cardano transaction. This lets observation tests prove
+-- that the evidence used by HeadLogic to recover from a withheld AckSn survives
+-- construction, validator evaluation and observation unchanged.
+genIncrementTxWithSnapshot ::
+  Gen (HydraContext, OpenState, UTxO, Tx) ->
+  Gen
+    ( HydraContext
+    , OpenState
+    , Tx -- Deposit transaction
+    , UTxO -- Spendable UTxO (head output <> deposit output)
+    , Tx -- Increment transaction
+    , ConfirmedSnapshot Tx
+    )
+genIncrementTxWithSnapshot genDeposit = do
   (ctx, st@OpenState{seedTxIn, headId}, _, txDeposit) <- genDeposit
   cctx <- pickChainContext ctx
   let DepositObservation{deposited, depositTxId, deadline} = fromJust $ observeDepositTx (ctxNetworkId ctx) txDeposit
   let openUTxO = getKnownUTxO st
   let version = 0
-  -- XXX: openUTxO can't be right here
-  snapshot <- genConfirmedSnapshot headId version 1 openUTxO (Just deposited) (Just depositTxId) Nothing (ctxHydraSigningKeys ctx)
+  -- Exclude the head's protocol tokens and reserved ADA from the L2 balance.
+  let overhead = case UTxO.txOutputs openUTxO of
+        [output] | Just (Head.Open datum) <- txOutScriptData (fromCtxUTxOTxOut output) >>= fromScriptData -> Coin datum.headAdaOverhead
+        _ -> error "increment fixture: missing Open datum"
+      liveValue = lovelaceToValue (selectLovelace (UTxO.totalValue openUTxO) - overhead)
+  live <- UTxO.map (modifyTxOutValue (const liveValue)) <$> genUTxOAdaOnlyOfSize 1
+  snapshot <- genConfirmedSnapshot headId version 1 live (Just deposited) (Just depositTxId) Nothing (ctxHydraSigningKeys ctx)
   let deadlineSlot = slotNoFromUTCTime systemStart slotLength deadline
   slotBeforeDeadline <- chooseEnum (0, deadlineSlot)
   pure
@@ -365,20 +395,30 @@ genIncrementTxWith genDeposit = do
         (ctxHeadParameters ctx)
         snapshot
         slotBeforeDeadline
+    , snapshot
     )
 
 genDecrementTx :: Int -> Gen (ChainContext, UTxO, OpenState, UTxO, Tx)
-genDecrementTx numParties = do
-  (ctx, stOpen@OpenState{seedTxIn, headId}, utxo, txIncrement) <- genIncrementTx numParties
+genDecrementTx numParties =
+  (\(_hydraContext, ctx, distributed, st, spendable, tx, _snapshot) -> (ctx, distributed, st, spendable, tx))
+    <$> genDecrementTxWithSnapshot numParties
+
+-- | As 'genDecrementTx', additionally returning the fully signed snapshot
+-- encoded in the transaction.
+genDecrementTxWithSnapshot :: Int -> Gen (HydraContext, ChainContext, UTxO, OpenState, UTxO, Tx, ConfirmedSnapshot Tx)
+genDecrementTxWithSnapshot numParties = do
+  (ctx, stOpen@OpenState{seedTxIn, headId}, _, utxo, txIncrement, incrementSnapshot) <- genIncrementTxWithSnapshot (genDepositTx numParties)
   let IncrementObservation{newVersion, deposited} = fromJust $ observeIncrementTx (ctxNetworkId ctx) utxo txIncrement
-  let (confirmedUtxo, toDecommit) = splitUTxO deposited
+  let (confirmedUtxo, toDecommit) = splitUTxO (getSnapshot incrementSnapshot).utxo
+      liveAfterIncrement = confirmedUtxo <> deposited
   cctx <- pickChainContext ctx
-  snapshot <- genConfirmedSnapshot headId newVersion 1 confirmedUtxo Nothing Nothing (Just toDecommit) (ctxHydraSigningKeys ctx)
+  snapshot <- genConfirmedSnapshot headId newVersion 1 liveAfterIncrement Nothing Nothing (Just toDecommit) (ctxHydraSigningKeys ctx)
   let utxoSpendable = utxoFromTx txIncrement
   pure
-    ( cctx
+    ( ctx
+    , cctx
     , fromMaybe mempty (utxoToDecommit $ getSnapshot snapshot)
-    , stOpen
+    , stOpen{openUTxO = utxoSpendable}
     , utxoSpendable
     , unsafeDecrement
         cctx
@@ -386,6 +426,7 @@ genDecrementTx numParties = do
         (txInToHeadSeed seedTxIn, headId)
         (ctxHeadParameters ctx)
         snapshot
+    , snapshot
     )
 
 genCloseTx :: Int -> Gen (ChainContext, OpenState, UTxO, Tx, ConfirmedSnapshot Tx)

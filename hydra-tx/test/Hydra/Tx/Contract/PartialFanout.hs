@@ -29,7 +29,7 @@ import Hydra.Tx.Crypto (HydraKey, aggregate, sign)
 import Hydra.Tx.DepositPeriod qualified as DP
 import Hydra.Tx.Fanout (partialFanoutTx)
 import Hydra.Tx.Init (mkHeadOutput)
-import Hydra.Tx.Party (Party, partyToChain, vkey)
+import Hydra.Tx.Party (Party, partyToChain)
 import Hydra.Tx.Utils (IncrementalAction (..), verificationKeyToOnChainId)
 import PlutusLedgerApi.V3 (CurrencySymbol, POSIXTime, toBuiltin)
 import Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk, dperiod, fanoutChunkSize, fanoutOutputThreshold, slotLength, systemStart, testNetworkId, testPolicyId, testSeedInput)
@@ -80,7 +80,11 @@ mkHealthyPartialFanoutTxWith reg fullUTxO distributeUTxO progressDatum remaining
       (verificationKeyToOnChainId <$> healthyParticipants)
       (mkTxOutDatumInline inputState)
 
-  headOutput = modifyTxOutValue (<> healthyParticipationTokens <> UTxO.totalValue fullUTxO) headOutput'
+  -- 'mkHeadOutput' already contains the state token and one participation
+  -- token per participant. Adding another set here creates an unreachable
+  -- head value which an intermediate partial fanout accepts, but which can
+  -- never be finalized because the minting policy refuses to burn it.
+  headOutput = modifyTxOutValue (<> UTxO.totalValue fullUTxO) headOutput'
 
 -- | Closed → FanoutProgress partial fanout.
 healthyPartialFanoutTx :: (Tx, UTxO)
@@ -166,13 +170,6 @@ healthyParticipants =
 
 healthyHeadInput :: TxIn
 healthyHeadInput = generateWith arbitrary 42
-
-healthyParticipationTokens :: Value
-healthyParticipationTokens =
-  fromList $
-    map
-      (\party -> (AssetId testPolicyId (UnsafeAssetName . serialiseToRawBytes . verificationKeyHash . vkey $ party), 1))
-      healthyParties
 
 -- | A UTxO set where two entries share identical TxOut content (same address + value).
 -- This exposes the duplicate-element bug: buildFromUTxO deduplicates them in the
@@ -261,7 +258,7 @@ healthyPartialFanoutTxWithUnburnedToken = (tx, lookupUTxO)
 
   headOutput =
     modifyTxOutValue
-      (<> healthyParticipationTokens <> UTxO.totalValue healthyFullUTxO <> unburnedToken)
+      (<> UTxO.totalValue healthyFullUTxO <> unburnedToken)
       headOutput'
 
 -- * Pre-settled drain (GHSA-f825-9gwc-h5xq)
@@ -317,7 +314,7 @@ presettledOpenHeadInput = generateWith arbitrary 43
 -- set's value left in it.
 presettledOpenHeadOutput :: TxOut CtxUTxO
 presettledOpenHeadOutput =
-  modifyTxOutValue (<> healthyParticipationTokens <> UTxO.totalValue healthyFullUTxO) $
+  modifyTxOutValue (<> UTxO.totalValue healthyFullUTxO) $
     mkHeadOutput testNetworkId testPolicyId (verificationKeyToOnChainId <$> healthyParticipants) $
       mkTxOutDatumInline $
         Head.Open

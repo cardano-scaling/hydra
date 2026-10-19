@@ -19,6 +19,8 @@ import Data.Text (pack)
 import Data.Text qualified as Text
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime, utcTimeToPOSIXSeconds)
 import Data.Vector qualified as Vector
+import Foreign.C.Error (Errno (..), eCONNREFUSED, eNOENT)
+import GHC.IO.Exception (IOException (ioe_errno))
 import Hydra.Cardano.Api (
   Coin,
   File (..),
@@ -471,10 +473,11 @@ withCardanoNode tr stateDirectory args action = do
   waitForNode = do
     let nodeSocketPath = File socketPath
     traceWith tr $ MsgNodeStarting{stateDirectory}
-    waitForSocket nodeSocketPath
-    traceWith tr $ MsgSocketIsReady nodeSocketPath
     shelleyGenesis <- readShelleyGenesisJSON $ stateDirectory </> nodeShelleyGenesisFile args
-    action (getShelleyGenesisBlockTime shelleyGenesis) DirectOptions{networkId = getShelleyGenesisNetworkId shelleyGenesis, nodeSocket = File (stateDirectory </> nodeSocket)}
+    let opts = DirectOptions{networkId = getShelleyGenesisNetworkId shelleyGenesis, nodeSocket = nodeSocketPath}
+    waitForNodeReady opts
+    traceWith tr $ MsgSocketIsReady nodeSocketPath
+    action (getShelleyGenesisBlockTime shelleyGenesis) opts
 
   cleanupSocketFile =
     whenM (doesFileExist socketPath) $
@@ -521,12 +524,15 @@ waitForFullySynchronized tracer opts = do
       then pure ()
       else threadDelay 3 >> check systemStart
 
--- | Wait for the node socket file to become available.
-waitForSocket :: SocketPath -> IO ()
-waitForSocket socketPath =
-  unlessM (doesFileExist $ unFile socketPath) $ do
-    threadDelay 0.1
-    waitForSocket socketPath
+-- | Wait until the node answers a query. A bound socket may not be listening yet.
+waitForNodeReady :: DirectOptions -> IO ()
+waitForNodeReady opts =
+  void (runDirectBackend opts queryTip)
+    `catch` \e -> case Errno <$> ioe_errno e of
+      Just errno | errno `elem` [eNOENT, eCONNREFUSED] -> do
+        threadDelay 0.1
+        waitForNodeReady opts
+      _ -> throwIO e
 
 -- | Generate command-line arguments for launching @cardano-node@.
 cardanoNodeProcess :: Maybe FilePath -> CardanoNodeArgs -> CreateProcess

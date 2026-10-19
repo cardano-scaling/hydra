@@ -8,6 +8,7 @@ import Test.Hydra.Prelude
 import Test.Hydra.Tx.Mutation (
   Mutation (..),
   SomeMutation (..),
+  applyMutation,
   changeMintedTokens,
   modifyInlineDatum,
   replaceDepositPeriod,
@@ -99,6 +100,24 @@ healthyDecrementTx =
       (verificationKeyToOnChainId <$> healthyParticipants)
       (mkTxOutDatumInline healthyDatum)
       & modifyTxOutValue (<> UTxO.totalValue healthyUTxO)
+
+-- | A structurally valid decrement carrying no snapshot signatures. This
+-- explicitly pins rejection of incomplete evidence used by the withheld-AckSn
+-- recovery path.
+decrementWithIncompleteSignatures :: (Tx, UTxO)
+decrementWithIncompleteSignatures =
+  healthyDecrementTx
+    & applyMutation
+      ( ChangeHeadRedeemer $
+          Head.Decrement
+            Head.DecrementRedeemer
+              { signature = toPlutusSignatures (mempty :: MultiSignature (Snapshot Tx))
+              , snapshotNumber = fromIntegral $ number healthySnapshot
+              , numberOfDecommitOutputs = fromIntegral $ maybe 0 UTxO.size $ utxoToDecommit healthySnapshot
+              , appliedAccumulatorHash = toBuiltin healthyAppliedAccumulatorHash
+              , commitOutputsHash = toBuiltin $ Snapshot.commitOutputsHash healthySnapshot
+              }
+      )
 
 somePartyCardanoVerificationKey :: VerificationKey PaymentKey
 somePartyCardanoVerificationKey =
