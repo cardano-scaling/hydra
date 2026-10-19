@@ -156,11 +156,12 @@ snapshotFor settlement =
     , depositTxId =
         if settledDecommit
           then Nothing
-          else Just . getTxId . getTxBody . fst $ Partial.presettledCloseTx
+          else Just depositId
     , accumulator
     , appliedAccumulator
     }
  where
+  TxIn depositId _ = Partial.presettledOpenHeadInput
   settledDecommit = settlement == SettledDecommit
   pendingCommit = if settledDecommit then Nothing else Just excludedUTxO
   pendingDecommit = if settledDecommit then Just excludedUTxO else Nothing
