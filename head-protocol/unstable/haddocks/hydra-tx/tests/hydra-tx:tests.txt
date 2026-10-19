@@ -889,6 +889,11 @@ instance GHC.Generics.Generic Hydra.Tx.Contract.Contest.ContestCurrent.ContestMu
 
 module Hydra.Tx.Contract.Decrement
 healthyDecrementTx :: (Tx, UTxO)
+
+-- | A structurally valid decrement carrying no snapshot signatures. This
+--   explicitly pins rejection of incomplete evidence used by the
+--   withheld-AckSn recovery path.
+decrementWithIncompleteSignatures :: (Tx, UTxO)
 somePartyCardanoVerificationKey :: VerificationKey PaymentKey
 healthySigningKeys :: [Secret (SigningKey HydraKey)]
 healthyParticipants :: [VerificationKey PaymentKey]
@@ -1205,6 +1210,12 @@ instance GHC.Generics.Generic Hydra.Tx.Contract.FinalPartialFanout.FinalPartialF
 module Hydra.Tx.Contract.Increment
 healthyIncrementTx :: (Tx, UTxO)
 
+-- | A structurally valid increment carrying no snapshot signatures. Kept
+--   as a named regression so rejection of incomplete on-chain evidence
+--   does not rely on the random mutation suite selecting
+--   <a>ProduceInvalidSignatures</a>.
+incrementWithIncompleteSignatures :: (Tx, UTxO)
+
 -- | The deposit is the first output of its transaction, as built by
 --   <a>depositTx</a> and required by <tt>checkIncrement</tt>.
 healthyDepositInput :: TxIn
@@ -1406,7 +1417,6 @@ healthySigningKeys :: [Secret (SigningKey HydraKey)]
 healthyParties :: [Party]
 healthyParticipants :: [VerificationKey PaymentKey]
 healthyHeadInput :: TxIn
-healthyParticipationTokens :: Value
 
 -- | A UTxO set where two entries share identical TxOut content (same
 --   address + value). This exposes the duplicate-element bug:
@@ -1534,6 +1544,53 @@ instance GHC.Enum.Bounded Hydra.Tx.Contract.PartialFanout.PartialFanoutMutation
 instance GHC.Enum.Enum Hydra.Tx.Contract.PartialFanout.PartialFanoutMutation
 instance GHC.Show.Show Hydra.Tx.Contract.PartialFanout.PartialFanoutMutation
 instance GHC.Generics.Generic Hydra.Tx.Contract.PartialFanout.PartialFanoutMutation
+
+
+-- | Regressions for equal-value output substitution during fanout.
+--   
+--   Every attack pays an output which has exactly the value of a live
+--   output but a different identity. Consequently value conservation and
+--   token burning are valid; only the accumulator membership check can
+--   reject it.
+module Hydra.Tx.Contract.FanoutSnapshotIdentity
+data FanoutIdentityScenario
+FanoutIdentityScenario :: String -> (Tx, UTxO) -> (Tx, UTxO) -> (Tx, UTxO) -> (Tx, UTxO) -> (Tx, UTxO) -> (Tx, UTxO) -> (Tx, UTxO) -> (Tx, UTxO) -> (Tx, UTxO) -> FanoutIdentityScenario
+[$sel:scenarioName:FanoutIdentityScenario] :: FanoutIdentityScenario -> String
+[$sel:validClose:FanoutIdentityScenario] :: FanoutIdentityScenario -> (Tx, UTxO)
+[$sel:validFullFanout:FanoutIdentityScenario] :: FanoutIdentityScenario -> (Tx, UTxO)
+[$sel:substitutedFullFanout:FanoutIdentityScenario] :: FanoutIdentityScenario -> (Tx, UTxO)
+[$sel:validPartialFromClosed:FanoutIdentityScenario] :: FanoutIdentityScenario -> (Tx, UTxO)
+[$sel:substitutedPartialFromClosed:FanoutIdentityScenario] :: FanoutIdentityScenario -> (Tx, UTxO)
+[$sel:validPartialFromProgress:FanoutIdentityScenario] :: FanoutIdentityScenario -> (Tx, UTxO)
+[$sel:substitutedPartialFromProgress:FanoutIdentityScenario] :: FanoutIdentityScenario -> (Tx, UTxO)
+[$sel:validFinalPartialFanout:FanoutIdentityScenario] :: FanoutIdentityScenario -> (Tx, UTxO)
+[$sel:substitutedFinalPartialFanout:FanoutIdentityScenario] :: FanoutIdentityScenario -> (Tx, UTxO)
+data Settlement
+UnabsorbedCommit :: Settlement
+SettledDecommit :: Settlement
+fanoutIdentityScenarios :: [FanoutIdentityScenario]
+
+-- | Three live outputs let us exercise both partial-fanout transitions
+--   before the final step. The first output is the victim replaced by
+--   <a>excludedUTxO</a>.
+liveUTxO :: UTxO
+victimUTxO :: UTxO
+firstBatchUTxO :: UTxO
+lastBatchUTxO :: UTxO
+nonVictimUTxO :: UTxO
+
+-- | An output excluded from the amount the head owes. Its value is changed
+--   to exactly equal the victim, while its address and TxIn remain
+--   different.
+excludedUTxO :: UTxO
+substitutedFullUTxO :: UTxO
+scenarioFor :: Settlement -> FanoutIdentityScenario
+snapshotFor :: Settlement -> Snapshot Tx
+closeFor :: Settlement -> Snapshot Tx -> (Tx, UTxO)
+outputOf :: Tx -> (TxIn, TxOut CtxUTxO)
+progressDatum :: TxOut CtxUTxO -> FanoutProgressDatum
+withLookup :: Tx -> (TxIn, TxOut CtxUTxO) -> (Tx, UTxO)
+instance GHC.Classes.Eq Hydra.Tx.Contract.FanoutSnapshotIdentity.Settlement
 
 module Hydra.Tx.Contract.Recover
 healthyRecoverTx :: (Tx, UTxO)

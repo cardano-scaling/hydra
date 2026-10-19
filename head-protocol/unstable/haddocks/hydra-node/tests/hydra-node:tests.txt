@@ -713,6 +713,14 @@ genNonCanonicalHashableScriptData :: Gen HashableScriptData
 module Hydra.HeadLogicSpec
 spec :: Spec
 prop_ignoresUnrelatedOnInitTx :: Property
+
+-- | Evaluate every script and require that the transaction actually
+--   exercises one.
+assertValidCardanoTx :: Tx -> UTxOType Tx -> IO ()
+
+-- | Recover a snapshot from settlement evidence, then build and evaluate
+--   the close, contest and fanout transactions requested by the node.
+assertObservedSettlementRecovery :: Environment -> Ledger Tx -> NodeState Tx -> OnChainTx Tx -> ConfirmedSnapshot Tx -> HydraContext -> ChainContext -> UTxOType Tx -> IO ()
 genClosedState :: Gen (NodeState SimpleTx)
 
 -- | Create a network input about a received protocol message with default

@@ -541,8 +541,9 @@ getShelleyGenesisBlockTime :: Value -> NominalDiffTime
 --   a while!
 waitForFullySynchronized :: Tracer IO NodeLog -> ChainBackendOptions -> IO ()
 
--- | Wait for the node socket file to become available.
-waitForSocket :: SocketPath -> IO ()
+-- | Wait until the node answers a query. A bound socket may not be
+--   listening yet.
+waitForNodeReady :: DirectOptions -> IO ()
 
 -- | Generate command-line arguments for launching <tt>cardano-node</tt>.
 cardanoNodeProcess :: Maybe FilePath -> CardanoNodeArgs -> CreateProcess
