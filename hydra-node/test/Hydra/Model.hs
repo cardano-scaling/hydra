@@ -61,7 +61,7 @@ import Hydra.HeadLogic.State qualified as HeadLogic
 import Hydra.HeadLogic.StateEvent (StateEvent)
 import Hydra.Ledger.Cardano (cardanoLedger, mkSimpleTx)
 import Hydra.Logging.Messages (HydraLog (DirectChain, Node))
-import Hydra.Model.MockChain (mockChainAndNetwork)
+import Hydra.Model.MockChain (FaultMode (..), mockChainAndNetworkWithFaults)
 import Hydra.Model.Payment (CardanoSigningKey (..), Payment (..), applyTx, genAdaValue)
 import Hydra.Node (HydraNode (..), NodeStateHandler (..), runHydraNode)
 import Hydra.Node.State (NodeState (..))
@@ -201,7 +201,10 @@ instance StateModel WorldState where
       , -- Seeds the mock network's per-message delays, so each run explores a
         -- different interleaving of network messages and chain observations.
         networkLatencySeed :: Word64
+      , faultyParty :: Maybe (Party, FaultMode)
       } ->
+      -- \^ The party that adds invalid or duplicate network messages, if any.
+
       -- \^ Whether the random walk may have several deposits/decommits in
       -- flight at once ('SubmitDeposit' & co., forks in every 'RequeueMode')
       -- or settles each one before the next ('Deposit'/'Decommit', forks
@@ -661,6 +664,17 @@ restartNodeEnabled = True
 genSeed :: Gen (Action WorldState ())
 genSeed = genSeedWith False
 
+-- | 'genSeedWith' with one of the parties misbehaving on the network in the
+-- given way, see 'FaultMode'.
+genFaultySeed :: Bool -> FaultMode -> Gen (Action WorldState ())
+genFaultySeed concurrentSettlements mode = do
+  seed <- genSeedWith concurrentSettlements
+  case seed of
+    Seed{seedKeys} -> do
+      (hsk, _) <- elements seedKeys
+      pure seed{faultyParty = Just (deriveParty hsk, mode)}
+    _ -> pure seed
+
 genSeedWith :: Bool -> Gen (Action WorldState ())
 genSeedWith concurrentSettlements = do
   seedKeys <- resize maximumNumberOfParties partyKeys
@@ -672,7 +686,7 @@ genSeedWith concurrentSettlements = do
     value <- genAdaValue
     pure (sk, value)
   networkLatencySeed <- arbitrary
-  pure $ Seed{seedKeys, contestationPeriod, additionalUTxO, concurrentSettlements, networkLatencySeed}
+  pure $ Seed{seedKeys, contestationPeriod, additionalUTxO, concurrentSettlements, networkLatencySeed, faultyParty = Nothing}
 
 genContestationPeriod :: Gen ContestationPeriod
 genContestationPeriod =
@@ -840,8 +854,8 @@ instance
 
   perform st action lookup = do
     case action of
-      Seed{seedKeys, contestationPeriod, networkLatencySeed} ->
-        seedWorld seedKeys contestationPeriod networkLatencySeed
+      Seed{seedKeys, contestationPeriod, networkLatencySeed, faultyParty} ->
+        seedWorld seedKeys contestationPeriod networkLatencySeed faultyParty
       Init party ->
         performInit party
       Deposit headIdVar utxo -> do
@@ -920,12 +934,13 @@ seedWorld ::
   [(Secret (SigningKey HydraKey), CardanoSigningKey)] ->
   ContestationPeriod ->
   Word64 ->
+  Maybe (Party, FaultMode) ->
   RunMonad m ()
-seedWorld seedKeys seedCP networkLatencySeed = do
+seedWorld seedKeys seedCP networkLatencySeed faulty = do
   tr <- gets logger
 
   mockChain@SimulatedChainNetwork{tickThread} <-
-    lift $ mockChainAndNetwork (contramap DirectChain tr) seedKeys networkLatencySeed
+    lift $ mockChainAndNetworkWithFaults (contramap DirectChain tr) seedKeys networkLatencySeed faulty
   pushThread tickThread
 
   perNode <- forM seedKeys $ \(hsk, _csk) -> do

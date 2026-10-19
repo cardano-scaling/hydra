@@ -66,6 +66,7 @@ import Hydra.HeadLogic (
   IdleState (..),
   Input (..),
   OpenState (..),
+  isLeader,
  )
 import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano (adjustUTxO, fromChainSlot)
@@ -74,11 +75,11 @@ import Hydra.Model.Payment (CardanoSigningKey (..))
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message (..))
 import Hydra.Node (DraftHydraNode (..), HydraNode (..), NodeStateHandler (..), connect, mkNetworkInput)
-import Hydra.Node.Environment (Environment (Environment, depositPeriod, participants, party))
+import Hydra.Node.Environment (Environment (Environment, depositPeriod, participants, party), mkHeadParameters)
 import Hydra.Node.InputQueue (InputQueue (..))
 import Hydra.Node.State (ChainPointTime (..), NodeState (..))
 import Hydra.NodeSpec (mockServer)
-import Hydra.Tx (txId)
+import Hydra.Tx (TxIdType, txId)
 import Hydra.Tx.BlueprintTx (mkSimpleBlueprintTx)
 import Hydra.Tx.Crypto (HydraKey, getVerificationKey)
 import Hydra.Tx.Deposit (observeDepositTx)
@@ -86,7 +87,7 @@ import Hydra.Tx.DepositPeriod (DepositPeriod)
 import Hydra.Tx.HeadId (HeadId)
 import Hydra.Tx.Party (Party (..), deriveParty)
 import Hydra.Tx.ScriptRegistry (registryUTxO)
-import Hydra.Tx.Snapshot (ConfirmedSnapshot (..))
+import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), SnapshotNumber)
 import Hydra.Tx.Utils (verificationKeyToOnChainId)
 import Test.Gen.Cardano.Api.Typed (genBlockHeaderAt)
 import Test.Hydra.Ledger (collectTransactions)
@@ -133,7 +134,48 @@ mockChainAndNetworkWithChainTracer ::
   [(Secret (SigningKey HydraKey), CardanoSigningKey)] ->
   Word64 ->
   m (SimulatedChainNetwork Tx m)
-mockChainAndNetworkWithChainTracer tr chainTracer seedKeys networkLatencySeed = do
+mockChainAndNetworkWithChainTracer tr chainTracer seedKeys latency =
+  mockChainAndNetworkWith tr chainTracer seedKeys latency Nothing
+
+-- | Add network faults while preserving independent chain delivery per node.
+mockChainAndNetworkWithFaults ::
+  forall m.
+  ( MonadTimer m
+  , MonadAsync m
+  , MonadMask m
+  , MonadThrow (STM m)
+  , MonadLabelledSTM m
+  , MonadFork m
+  , MonadDelay m
+  , MonadTime m
+  ) =>
+  Tracer m CardanoChainLog ->
+  [(Secret (SigningKey HydraKey), CardanoSigningKey)] ->
+  Word64 ->
+  Maybe (Party, FaultMode) ->
+  m (SimulatedChainNetwork Tx m)
+mockChainAndNetworkWithFaults tr seedKeys latency = \case
+  Nothing -> mockChainAndNetwork tr seedKeys latency
+  Just faulty -> mockChainAndNetworkWith tr (const tr) seedKeys latency (Just faulty)
+
+mockChainAndNetworkWith ::
+  forall m.
+  ( MonadTimer m
+  , MonadAsync m
+  , MonadMask m
+  , MonadThrow (STM m)
+  , MonadLabelledSTM m
+  , MonadFork m
+  , MonadDelay m
+  , MonadTime m
+  ) =>
+  Tracer m CardanoChainLog ->
+  (Party -> Tracer m CardanoChainLog) ->
+  [(Secret (SigningKey HydraKey), CardanoSigningKey)] ->
+  Word64 ->
+  Maybe (Party, FaultMode) ->
+  m (SimulatedChainNetwork Tx m)
+mockChainAndNetworkWith tr chainTracer seedKeys networkLatencySeed faulty = do
   nodes <- newLabelledTVarIO "mock-chain-nodes" []
   queue <- newLabelledTQueueIO "mock-chain-chain-queue"
   chain <- newLabelledTVarIO "mock-chain-state" (0 :: ChainSlot, 0 :: Natural, Empty, initialUTxO)
@@ -255,7 +297,12 @@ mockChainAndNetworkWithChainTracer tr chainTracer seedKeys networkLatencySeed = 
             getTimeHandle
             seedInput
             localChainState
-    node <- connect mockChain (createMockNetwork draftNode networkHistory nodes) mockServer draftNode
+    ackedVar <- newLabelledTVarIO "mock-network-faulty-acked" 0
+    let honestNetwork = createMockNetwork draftNode networkHistory nodes
+        network = case faulty of
+          Just (p, AddsMessages) | p == ownParty -> faultyBroadcast ackedVar draftNode honestNetwork
+          _ -> honestNetwork
+    node <- connect mockChain network mockServer draftNode
     let node' = (node :: HydraNode Tx m){env = updateEnvironment env}
     -- Advance this party's consumer offset as a message reaches the node, so a
     -- later reconnect resumes from exactly here (see the network-log replay).
@@ -639,6 +686,60 @@ createMockNetwork draftNode networkHistory nodes =
         writeTQueue mailbox (now, sender, msg)
 
   DraftHydraNode{env = Environment{party = sender}} = draftNode
+
+-- | Network behavior of the selected faulty party.
+data FaultMode
+  = AddsMessages
+  deriving stock (Eq, Show)
+
+-- | Add duplicate acknowledgements and invalid proposals to honest traffic.
+-- All required signatures are still sent, so liveness remains testable.
+faultyBroadcast ::
+  MonadSTM m =>
+  TVar m SnapshotNumber ->
+  DraftHydraNode Tx m ->
+  Network m (Message Tx) ->
+  Network m (Message Tx)
+faultyBroadcast ackedVar draftNode Network{broadcast} =
+  Network{broadcast = misbehave}
+ where
+  misbehave msg = do
+    -- Send the honest message first so every round can still complete.
+    broadcast msg
+    case msg of
+      AckSn{signed, snapshotNumber} -> do
+        -- Duplicate the acknowledgement and send one for the previous round.
+        broadcast msg
+        broadcast AckSn{signed, snapshotNumber = oneBefore snapshotNumber}
+        atomically $ modifyTVar ackedVar (max snapshotNumber)
+      ReqTx{} -> do
+        -- Between rounds, propose an empty snapshot as a party that does not lead it.
+        acked <- readTVarIO ackedVar
+        let next = acked + 1
+        unless (isLeader parameters ownParty next) $
+          forM_ [0 .. 3] $ \v ->
+            broadcast ReqSn{snapshotVersion = v, snapshotNumber = next, transactionIds = [], decommitTx = Nothing, depositTxId = Nothing}
+      ReqSn{snapshotVersion, snapshotNumber, transactionIds} -> do
+        -- Neighbouring rounds exercise number, leader and version checks.
+        broadcast ReqSn{snapshotVersion, snapshotNumber = snapshotNumber + 1, transactionIds = [], decommitTx = Nothing, depositTxId = Just bogusDepositId}
+        broadcast ReqSn{snapshotVersion, snapshotNumber = oneBefore snapshotNumber, transactionIds = bogusDepositId : transactionIds, decommitTx = Nothing, depositTxId = Nothing}
+        broadcast ReqSn{snapshotVersion = snapshotVersion + 1, snapshotNumber = snapshotNumber + 1, transactionIds = [], decommitTx = Nothing, depositTxId = Nothing}
+      _ -> pure ()
+
+  parameters = mkHeadParameters env
+
+  DraftHydraNode{env} = draftNode
+
+  Environment{party = ownParty} = env
+
+-- | Snapshot numbers cannot be negative.
+oneBefore :: SnapshotNumber -> SnapshotNumber
+oneBefore n = if n == 0 then n else n - 1
+
+-- | A transaction id of nothing at all: no deposit and no transaction carries
+-- it, so a proposal naming it can never be satisfied. See 'deviateFrom'.
+bogusDepositId :: TxIdType Tx
+bogusDepositId = case genTxIn `generateWith` 11 of TxIn tid _ -> tid
 
 -- | Upper bound of the random delivery delay per network message and node,
 -- see 'createMockNetwork'. One block time: enough for messages to routinely
