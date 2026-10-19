@@ -341,6 +341,25 @@ onOpenNetworkReqTx env ledger ChainPointTime{currentSlot, currentChainTime} st t
 -- the pending transaction set gets pruned to only contain still applicable
 -- transactions.
 --
+-- A snapshot round needs every party's signature. Once the leader is collecting
+-- signatures, it does not replace that request. Refusing a request that other
+-- parties sign can therefore stop the round permanently.
+--
+-- Base permanent refusals on the request and the agreed snapshot. Local chain
+-- observations can differ: one party may have seen a deposit expire, settle,
+-- recover, or return after rollback while another has not. Carrying the same
+-- signed claim must not depend on these differences.
+--
+-- When a different deposit could be valid after recovery of the previous claim,
+-- wait for that recovery while the request still has retries. Likewise, a
+-- locally expired deposit may still be active for the honest leader that chose
+-- it. The leader selects new deposits only while active, but receivers do not
+-- reject that selection solely because their local expiry tick came first.
+--
+-- Requests two or more versions behind remain unsupported: the close redeemer
+-- can express only the current or preceding version. That limitation can still
+-- cause parties with sufficiently different chain views to disagree.
+--
 -- __Transition__: 'OpenState' → 'OpenState'
 onOpenNetworkReqSn ::
   forall tx.
@@ -582,14 +601,21 @@ onOpenNetworkReqSn env ledger pendingDeposits ChainPointTime{currentSlot, curren
             | status == Inactive -> wait WaitOnDepositActivation{depositTxId}
             -- NOTE: this makes the commits sequential in a sense that you can't
             -- commit unless the previous commit is settled.
+            --
+            -- Only while the claimed deposit is still tracked: once it was
+            -- recovered on L1 the claim is dropped (see 'settlingCommitAt') and
+            -- the leader may propose a fresh one. That recover is a chain
+            -- observation, so a leader can have seen it while we have not, and
+            -- refusing outright would be a refusal the other parties do not
+            -- make. Wait instead while the ttl lasts: a retry after our own
+            -- chain follower catches up takes the arm below. See the note on
+            -- unanimous refusals above.
             | sv == confVersion
             , isJust confUTxOToCommit
-            , -- Only while the claimed deposit is still tracked: once it was
-              -- recovered on L1 the claim is dropped (see 'settlingCommitAt') and
-              -- the leader may propose a fresh one.
-              maybe False (`Map.member` pendingDeposits) confDepositTxId ->
-                Error $ RequireFailed ReqSnCommitNotSettled
-            | status == Expired -> Error $ RequireFailed RequestedDepositExpired{depositTxId}
+            , maybe False (`Map.member` pendingDeposits) confDepositTxId ->
+                if ttl > 0
+                  then wait WaitOnUnsettledCommit{depositTxId}
+                  else Error $ RequireFailed ReqSnCommitNotSettled
             | otherwise -> cont (Just deposited)
 
   requireApplicableDecommitTx cont =
@@ -3176,8 +3202,7 @@ aggregateNodeState rollbackHorizon nodeState sc =
               nodeState{headState = st}
         DepositExpired{depositTxId, deposit} ->
           pure $
-            -- NB: We keep expired deposits since we actually need them when Recovering.
-            -- There is a corresponding error RequestedDepositExpired which gives users context on stale ReqSn.
+            -- Keep expired deposits so they can still be recovered.
             updateDeposit depositTxId deposit $
               nodeState{headState = st}
         DepositRecovered{chainState, depositTxId} ->

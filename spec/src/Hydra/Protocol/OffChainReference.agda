@@ -135,6 +135,8 @@ reqSnDecommitOutputsRef n = 0 < n
 -- deposit's local activation or expiry status.
 -- The tx-ids are supplied as deterministic Integer encodings (as the on-chain
 -- reference's `refCodeOf`); `contentOk` is the caller-resolved `confUTxOToCommit == Just deposited`.
+-- False includes waiting for a recovery observation before a different deposit
+-- can be accepted. This reference checks acceptance, not retry timing.
 reqSnDepositSettledRef : Bool → Nat → Nat → Bool   -- (contentOk, confirmed dep tx-id, requested)
 reqSnDepositSettledRef contentOk confDep reqDep = contentOk && (confDep == reqDep)
 
