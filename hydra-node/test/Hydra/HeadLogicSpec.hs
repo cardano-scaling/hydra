@@ -4302,9 +4302,9 @@ spec =
             getState
           settlementStatuses s1 `shouldBe` settlementStatuses s0
           restarted <- either (fail . show) pure $ decodeFull' (serialize' s1)
-          outcome <-
-            runHeadLogic soloAliceEnv ledger restarted $
-              step (rollbackTo 0 now)
+          outcome <- runHeadLogic soloAliceEnv ledger restarted $ do
+            step (rollbackTo 0 now)
+            step (tickSlot 1 now)
           outcome `hasEffectSatisfying` \case
             OnChainEffect{postChainTx = DecrementTx{}} -> True
             _ -> False
@@ -4697,6 +4697,7 @@ spec =
                               , distributedOutputs = priorDistributed
                               , mode = AutoDrain
                               , stepsLanded = []
+                              , everLanded = priorDistributed /= mempty
                               }
                       }
                   _ -> closedState
@@ -4909,6 +4910,61 @@ spec =
             mode `shouldBe` AwaitingSelection
             distributedOutputs `shouldBe` mempty
             remainingOutputs `shouldBe` allItems
+          other -> failure $ "Expected FanoutProgress, got: " <> show other
+
+      it "keeps driving when the re-post after a fork fails because the erased step re-landed" $ do
+        -- A fork erased the only landed step, so the progress rewinds to
+        -- nothing distributed and the full fanout is posted again. When the new
+        -- fork already brought the erased step back, that post fails at
+        -- submission. That is not a failed start: reverting to Closed would
+        -- turn this node into a passive observer of the fanout it drives, while
+        -- the step that landed again is about to be observed anyway.
+        let allItems = Set.fromList [SimpleTxOut i | i <- [1 .. 6]]
+            chunkA = Set.fromList [SimpleTxOut 1, SimpleTxOut 2]
+            s0 = inFanoutProgressDistributed threeParties allItems mempty AutoDrain
+        now <- nowFromSlot s0.chainPointTime.currentSlot
+        let rollbackTo slot = ChainInput Rollback{rolledBackChainState = SimpleChainState slot, chainTime = now}
+        (s1, erased) <- runHeadLogic bobEnv ledger s0 $ do
+          step (observeTxAtSlot 5 OnPartialFanoutTx{headId = testHeadId, distributedOutputs = chunkA})
+          o <- step (rollbackTo 4)
+          s <- getState
+          pure (s, o)
+        postedTx <- case [postChainTx | OnChainEffect{postChainTx} <- effectsOf erased] of
+          tx : _ -> pure tx
+          [] -> failure "Expected the erased step to be re-posted"
+        let failed =
+              update bobEnv ledger now s1 . ChainInput $
+                PostTxError{postChainTx = postedTx, postTxError = FailedToConstructPartialFanoutTx, failingTx = Nothing}
+        failed `hasNoStateChangedSatisfying` \case
+          HeadFanoutReverted{} -> True
+          _ -> False
+        failed `hasEffectSatisfying` \case
+          ClientEffect{clientMessage = PostTxOnChainFailed{}} -> True
+          _ -> False
+        -- The step is observed landing again and the drain goes on from there.
+        update bobEnv ledger now s1 (observeTxAtSlot 6 OnPartialFanoutTx{headId = testHeadId, distributedOutputs = chunkA})
+          `hasEffectSatisfying` \case
+            OnChainEffect{postChainTx = FinalPartialFanoutTx{utxoToDistribute}} -> utxoToDistribute == Set.difference allItems chunkA
+            _ -> False
+
+      it "keeps outputs distributed before steps were recorded when a fork erases a recorded step" $ do
+        -- A state persisted before steps were recorded knows what it has
+        -- distributed, but not in which steps. When a fork erases a step
+        -- recorded since then, only that step's outputs go back into the head.
+        let allItems = Set.fromList [SimpleTxOut i | i <- [1 .. 6]]
+            chunkA = Set.fromList [SimpleTxOut 1, SimpleTxOut 2]
+            chunkB = Set.fromList [SimpleTxOut 3, SimpleTxOut 4]
+            s0 = inFanoutProgressDistributed threeParties (Set.difference allItems chunkA) chunkA AutoDrain
+        now <- nowFromSlot s0.chainPointTime.currentSlot
+        let rollbackTo slot = ChainInput Rollback{rolledBackChainState = SimpleChainState slot, chainTime = now}
+        s1 <- runHeadLogic bobEnv ledger s0 $ do
+          step (observeTxAtSlot 6 OnPartialFanoutTx{headId = testHeadId, distributedOutputs = chunkB})
+          step (rollbackTo 5)
+          getState
+        case headState s1 of
+          FanoutProgress PartialFanoutState{distributedOutputs, remainingOutputs} -> do
+            distributedOutputs `shouldBe` chunkA
+            remainingOutputs `shouldBe` Set.difference allItems chunkA
           other -> failure $ "Expected FanoutProgress, got: " <> show other
 
       it "partial fanout with small remaining triggers FinalPartialFanoutTx" $ do
@@ -6818,6 +6874,7 @@ inFanoutProgressDistributed parties remaining distributed mode =
         , distributedOutputs = distributed
         , mode
         , stepsLanded = []
+        , everLanded = distributed /= mempty
         }
  where
   parameters = HeadParameters defaultContestationPeriod defaultDepositPeriod parties

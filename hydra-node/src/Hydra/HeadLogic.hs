@@ -1927,6 +1927,7 @@ closedToFanoutProgress closedState chainState remaining distributed mode stepsLa
       , distributedOutputs = distributed
       , mode
       , stepsLanded
+      , everLanded = not (null stepsLanded)
       }
  where
   ClosedState{parameters, confirmedSnapshot, contestationDeadline, headId, headSeed, version} = closedState
@@ -2110,15 +2111,15 @@ repostFanoutStep pfs =
  where
   PartialFanoutState{confirmedSnapshot, version, headSeed, contestationDeadline} = pfs
 
--- | Rewind the fanout's progress to the steps still on the chain this node
--- follows after a rollback to the given slot: the erased steps' outputs are
--- back in the head, and the driver's mode goes back to what those steps
--- replaced. See 'FanoutStepLanded'.
+-- | Rewind the fanout's progress after a rollback to the given slot, to the
+-- steps still on the chain we follow. The erased steps' outputs are back in
+-- the head, and the driver's mode goes back to what those steps replaced. See
+-- 'FanoutStepLanded'.
 --
 -- A step observed exactly at the rollback point is still on chain, so only
--- steps strictly after it are erased, as for 'markErased'.
+-- steps strictly after it are erased, as in 'markErased'.
 rewindFanoutProgress :: IsTx tx => ChainSlot -> PartialFanoutState tx -> PartialFanoutState tx
-rewindFanoutProgress rolledBackSlot pfs@PartialFanoutState{confirmedSnapshot, version, mode, stepsLanded}
+rewindFanoutProgress rolledBackSlot pfs@PartialFanoutState{confirmedSnapshot, version, mode, stepsLanded, distributedOutputs}
   | null erased = pfs
   | otherwise =
       pfs
@@ -2130,11 +2131,15 @@ rewindFanoutProgress rolledBackSlot pfs@PartialFanoutState{confirmedSnapshot, ve
  where
   (kept, erased) = partition (\FanoutStepLanded{landedAt} -> landedAt <= rolledBackSlot) stepsLanded
 
-  distributed = foldMap (\FanoutStepLanded{stepOutputs} -> stepOutputs) kept
+  -- Subtract the erased steps' outputs rather than sum the kept ones. A state
+  -- persisted before steps were recorded has distributed outputs that no step
+  -- accounts for, and those must stay distributed.
+  distributed = removeDistributedOutputs (outputsOfUTxO (foldMap (\FanoutStepLanded{stepOutputs} -> stepOutputs) erased)) distributedOutputs
 
-  -- The erased outputs that a selection of this node's was distributing are its
-  -- job again. A driver draining automatically covers them anyway, and an
-  -- observer, whose steps replaced no selection, must not start driving.
+  -- The outputs of an erased step that one of this node's selections was
+  -- distributing are its job again. A driver draining automatically covers
+  -- them anyway, and an observer, whose steps replaced no selection, must not
+  -- start driving.
   erasedSelected =
     foldMap (\FanoutStepLanded{selectedOutputs} -> selectedOutputs) erased
 
@@ -2564,7 +2569,6 @@ pruneSettlements cutoff chs@CoordinatedHeadState{settlements, unretained} =
     , unretained = pruneUnretained cutoff unretained
     }
 
-
 -- | Update the coordinated head state of an open head; any other head state is
 -- left alone.
 onCoordinatedHeadState :: (CoordinatedHeadState tx -> CoordinatedHeadState tx) -> HeadState tx -> HeadState tx
@@ -2925,8 +2929,16 @@ handleChainInput env _ledger now _chainPointTime pendingDeposits st ev syncStatu
     -- flight — a selection covering the whole remainder turns into a full fanout
     -- and leaves the earlier chunk behind — and reverting on its failure would
     -- drop the driver role for a transaction nobody is waiting on.
-    | PartialFanoutState{headId, distributedOutputs} <- pfs
+    --
+    -- Nor once any step ever landed ('everLanded'). A fork can erase every
+    -- landed step and rewind the progress to nothing distributed. The re-post
+    -- issued then fails when the new fork already brought the erased step
+    -- back. That is a race which observing the step land again resolves, not
+    -- a failed start; reverting would turn this node into a passive observer
+    -- of a fanout it was driving.
+    | PartialFanoutState{headId, distributedOutputs, everLanded} <- pfs
     , nullOutputs distributedOutputs
+    , not everLanded
     , maybe False (`matchesFanoutStep` postChainTx) (currentFanoutStep pfs) ->
         newState HeadFanoutReverted{headId}
           <> cause (ClientEffect ServerOutput.PostTxOnChainFailed{postChainTx, postTxError})
@@ -3645,6 +3657,7 @@ applyEvent st = \case
               , distributedOutputs = priorDistributed <> newlyDistributed
               , mode
               , stepsLanded = stepsLanded <> [landed priorMode]
+              , everLanded = True
               }
       _otherState -> pure st
    where

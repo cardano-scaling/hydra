@@ -328,7 +328,7 @@ spec = parallel $ do
         fromJSON legacyJSON `shouldBe` Success expected
 
   -- 'PartialFanoutState' gained 'stepsLanded' between two released layouts.
-  -- The legacy layout is what 'genericToCBOR' wrote: the constructor name as
+  -- The old layout is what 'genericToCBOR' wrote: the constructor name as the
   -- tag, then the fields in declaration order.
   describe "PartialFanoutState layouts" $ do
     let pfs = generateWith (resize 3 arbitrary) 42 :: PartialFanoutState Tx
@@ -351,7 +351,24 @@ spec = parallel $ do
                 <> toCBOR remainingOutputs
                 <> toCBOR distributedOutputs
                 <> toCBOR mode
-      decodeFull' legacy `shouldBe` Right pfs{stepsLanded = []}
+      decodeFull' legacy `shouldBe` Right pfs{stepsLanded = [], everLanded = distributedOutputs /= mempty}
+
+    it "decodes tracked steps written before the persistent driver flag" $ do
+      let legacy =
+            toStrictByteString $
+              toCBOR ("PartialFanoutState2" :: Text)
+                <> toCBOR parameters
+                <> toCBOR confirmedSnapshot
+                <> toCBOR contestationDeadline
+                <> toCBOR chainState
+                <> toCBOR headId
+                <> toCBOR headSeed
+                <> toCBOR version
+                <> toCBOR remainingOutputs
+                <> toCBOR distributedOutputs
+                <> toCBOR mode
+                <> toCBOR pfs.stepsLanded
+      decodeFull' legacy `shouldBe` Right pfs{everLanded = not (null pfs.stepsLanded) || distributedOutputs /= mempty}
 
   -- 'ClosedState' gained 'unconfirmedSnapshot' between two released layouts,
   -- same situation as 'Snapshot' above. The legacy layout is the one the
