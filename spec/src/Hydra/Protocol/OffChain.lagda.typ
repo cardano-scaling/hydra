@@ -772,7 +772,8 @@ data _observes_↝_ : LocalState → ChainEvent → LocalState → Set where
 
   -- Partial fanout progress also records whether any step has ever landed.
   -- A rollback preserves that flag, so a failed retry does not stop the driver.
-  -- The implementation retries the lowest erased settlement on each block tick.
+  -- The implementation retries the lowest erased settlement on each block tick
+  -- while in sync. Replayed blocks during catch-up do not trigger these retries.
   -- An increment waits until its deposit is observed again. Retry scheduling
   -- and retained snapshots are outside LocalState; the protocol rules are unchanged.
   tick-update : ∀ {st t}
