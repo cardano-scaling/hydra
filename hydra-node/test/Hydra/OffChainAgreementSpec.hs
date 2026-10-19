@@ -118,6 +118,7 @@ import Hydra.Tx.IsTx (TxIdType, UTxOType, txId)
 import Hydra.Tx.Party (Party)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
 import Test.Hydra.Ledger.Simple (utxoRef)
+import Test.Hydra.Node.Fixture (testRollbackHorizon)
 import Test.Hydra.Tx.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, deriveOnChainId, testHeadId)
 import Test.QuickCheck (choose, conjoin, counterexample, elements, forAll, sublistOf, (===))
 
@@ -135,6 +136,7 @@ aliceEnv =
     , depositPeriod = defaultDepositPeriod
     , depositActivation = defaultDepositActivation
     , unsyncedPeriod = defaultUnsyncedPeriod
+    , rollbackHorizon = testRollbackHorizon
     , participants = deriveOnChainId <$> threeParties
     , configuredPeers = ""
     }

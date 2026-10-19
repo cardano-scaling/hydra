@@ -19,6 +19,7 @@ import Hydra.HeadLogic.Outcome (Outcome (..), StateChanged)
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Node.State (NodeState)
+import HydraVis.History (viewerRollbackHorizon)
 import HydraVis.Sample (
   sampleEnvironment,
   sampleInitialState,
@@ -59,7 +60,7 @@ sampleStateEvents = do
           Wait{stateChanges} -> stateChanges
           Error{} -> []
      in do
-          s' <- aggregateState s outcome
+          s' <- aggregateState viewerRollbackHorizon s outcome
           ((n, scs) :) <$> collect (n + 1) s' rest
 
 -- | Create (or recreate) a SQLite database at @path@ holding

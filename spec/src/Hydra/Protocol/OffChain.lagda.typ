@@ -528,6 +528,11 @@ between map keys and snapshot versions. A conflicting live update applies
 neither its events nor its effects; replay stops at the conflicting event.
 This is implementation bookkeeping outside `LocalState`.
 
+The retention window is the network's stability window, read from its genesis
+parameters. Live aggregation and event replay use the same window. Landed
+settlements and consumed deposits can be removed once they are outside that
+window; erased settlements remain available for resubmission.
+
 The implementation's CBOR layout uses a distinct version tag for this map.
 Decoding the preceding layout migrates its retained commit and decommit
 snapshots without changing their signatures, preserving their observation
