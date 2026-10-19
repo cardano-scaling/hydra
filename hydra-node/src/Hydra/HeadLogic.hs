@@ -121,6 +121,7 @@ import Hydra.Tx.Crypto (
   Verified (..),
   aggregateInOrder,
   sign,
+  verify,
   verifyMultiSignature,
   verifyMultiSignatureBytes,
  )
@@ -787,29 +788,30 @@ onOpenNetworkAckSn env@Environment{party} ChainPointTime{currentChainTime} pendi
     waitOnSeenSnapshot $ \snapshot sigs snapshotBytes -> do
       -- Spec: require (j,⋅) ∉ ̂Σ
       requireNotSignedYet sigs $ do
-        -- Spec: ̂Σ[j] ← σⱼ
-        (newState PartySignedSnapshot{snapshotNumber = snapshot.number, party = otherParty, signature = snapshotSignature} <>) $
-          --       if ∀k ∈ [1..n] : (k,·) ∈ ̂Σ
-          ifAllMembersHaveSigned snapshot sigs $ \sigs' -> do
-            -- Spec: σ̃ ← MS-ASig(kₕˢᵉᵗᵘᵖ,̂Σ)
-            let multisig = aggregateInOrder sigs' parties
-            -- Spec: η ← combine(𝑈ˆ)
-            --       require MS-Verify(k ̃H, (cid‖v̂‖ŝ‖η), σ̃)
-            requireVerifiedMultisignature multisig snapshotBytes $
-              do
-                -- NOTE: Fix all the spec comments once specification is in place
-                -- Spec: ̅S ← snObj(v̂, ŝ, Û, T̂, 𝑈𝛼, 𝑈𝜔)
-                --       ̅S.σ ← ̃σ
-                newState SnapshotConfirmed{headId, snapshot = Nothing, signatures = multisig}
-                -- Spec: if 𝑈𝛼 ≠ ⊥
-                --         postTx (increment, v̂, ŝ, η)
-                & maybePostIncrementTx snapshot multisig
-                -- Spec: if txω ≠ ⊥
-                --         postTx (decrement, v̂, ŝ, η)
-                & maybePostDecrementTx snapshot multisig
-                -- Spec: if leader(s + 1) = i ∧ T̂ ≠ ∅
-                -- REVIEW: multicast (reqSn, v, ̅S.s + 1, T̂, S.𝑈𝛼, S.txω)
-                & maybeRequestNextSnapshot snapshot
+        requireSignatureForThisSnapshot snapshot $ do
+          -- Spec: ̂Σ[j] ← σⱼ
+          (newState PartySignedSnapshot{snapshotNumber = snapshot.number, party = otherParty, signature = snapshotSignature} <>) $
+            --       if ∀k ∈ [1..n] : (k,·) ∈ ̂Σ
+            ifAllMembersHaveSigned snapshot sigs $ \sigs' -> do
+              -- Spec: σ̃ ← MS-ASig(kₕˢᵉᵗᵘᵖ,̂Σ)
+              let multisig = aggregateInOrder sigs' parties
+              -- Spec: η ← combine(𝑈ˆ)
+              --       require MS-Verify(k ̃H, (cid‖v̂‖ŝ‖η), σ̃)
+              requireVerifiedMultisignature multisig snapshotBytes $
+                do
+                  -- NOTE: Fix all the spec comments once specification is in place
+                  -- Spec: ̅S ← snObj(v̂, ŝ, Û, T̂, 𝑈𝛼, 𝑈𝜔)
+                  --       ̅S.σ ← ̃σ
+                  newState SnapshotConfirmed{headId, snapshot = Nothing, signatures = multisig}
+                  -- Spec: if 𝑈𝛼 ≠ ⊥
+                  --         postTx (increment, v̂, ŝ, η)
+                  & maybePostIncrementTx snapshot multisig
+                  -- Spec: if txω ≠ ⊥
+                  --         postTx (decrement, v̂, ŝ, η)
+                  & maybePostDecrementTx snapshot multisig
+                  -- Spec: if leader(s + 1) = i ∧ T̂ ≠ ∅
+                  -- REVIEW: multicast (reqSn, v, ̅S.s + 1, T̂, S.𝑈𝛼, S.txω)
+                  & maybeRequestNextSnapshot snapshot
  where
   seenSn = seenSnapshotNumber seenSnapshot
 
@@ -833,6 +835,13 @@ onOpenNetworkAckSn env@Environment{party} ChainPointTime{currentChainTime} pendi
     if not (Map.member otherParty sigs)
       then continue
       else Error $ RequireFailed $ SnapshotAlreadySigned{knownSignatures = Map.keys sigs, receivedSignature = otherParty}
+
+  -- Verify before recording the signature so a bad acknowledgement cannot
+  -- prevent the same party's valid acknowledgement from being collected later.
+  requireSignatureForThisSnapshot snapshot continue =
+    if verify (vkey otherParty) snapshotSignature snapshot
+      then continue
+      else Error $ RequireFailed $ AckSnSignatureInvalid{requestedSn = sn, receivedSignature = otherParty}
 
   ifAllMembersHaveSigned snapshot sigs cont =
     let sigs' = Map.insert otherParty snapshotSignature sigs

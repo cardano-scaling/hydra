@@ -163,7 +163,9 @@ disjointᵇ (x ∷ xs) ys = not (elemᵇ x ys) && disjointᵇ xs ys
 reqSnDepositDisjointRef : List Nat → List Nat → List Nat → Bool   -- (active, created, deposit TxIns)
 reqSnDepositDisjointRef active created deposit = disjointᵇ deposit active && disjointᵇ deposit created
 
--- ackSn-collect (the §6 `require (j,·) ∉ Σ̂`): sender j has not already signed this round.
+-- The freshness part of ackSn-collect: sender j has not already signed this round.
+-- The node also verifies the individual signature before recording it. These
+-- counting helpers assume valid signatures; they do not model cryptography.
 notAlreadySignedRef : List Nat → Nat → Bool   -- (Σ̂ signer indices, j)
 notAlreadySignedRef signers j = not (elemᵇ j signers)
 

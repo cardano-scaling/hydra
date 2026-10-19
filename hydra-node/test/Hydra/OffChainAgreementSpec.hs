@@ -768,6 +768,8 @@ spec = parallel $ do
                     depositStatusRef created deadline tDep tAct t
                       === realTickStatus created deadline tDep tAct t
 
+  -- The counting reference assumes valid individual signatures. The node also
+  -- rejects invalid incoming signatures; HeadLogicSpec covers that boundary.
   describe "ackSn collect/confirm: extracted notAlreadySignedRef/allSignedRef vs the real onOpenNetworkAckSn" $ do
     it "anchor: a fresh, non-final ack is collected (neither already-signed nor confirmed)" $ do
       notAlreadySignedRef [0] 1 `shouldBe` True

@@ -257,6 +257,22 @@ spec =
                   }
             )
 
+      it "still confirms a snapshot after a party offered a signature for another one" $ do
+        -- Rejecting the wrong signature must leave room for the valid one.
+        let reqSn :: Input tx
+            reqSn = receiveMessage $ ReqSn 0 1 [] Nothing Nothing
+            snapshot1 = testSnapshot 1 0 [] mempty
+            misplaced = receiveMessageFrom carol $ AckSn (sign carolSk (testSnapshot 2 0 [] mempty)) 1
+            ackFrom sk vk = receiveMessageFrom vk $ AckSn (sign sk snapshot1) 1
+        confirmed <- runHeadLogic bobEnv ledger (inOpenState threeParties) $ do
+          step reqSn
+          step misplaced
+          step (ackFrom carolSk carol)
+          step (ackFrom aliceSk alice)
+          step (ackFrom bobSk bob)
+          getState
+        getConfirmedSnapshot confirmed `shouldBe` Just snapshot1
+
       it "confirms snapshot given it receives AckSn from all parties" $ do
         let reqSn :: Input tx
             reqSn = receiveMessage $ ReqSn 0 1 [] Nothing Nothing
@@ -2441,7 +2457,8 @@ spec =
             (Open OpenState{coordinatedHeadState = CoordinatedHeadState{allTxs}}) -> txId t1 `notMember` allTxs
             _ -> False
 
-      it "rejects last AckSn if one signature was from a different snapshot" $ do
+      -- Reject invalid signatures before they occupy the sender's place.
+      it "refuses an AckSn signed over a different snapshot" $ do
         let reqSn :: Input tx
             reqSn = receiveMessage $ ReqSn 0 1 [] Nothing Nothing
             snapshot = testSnapshot 1 0 [] mempty
@@ -2457,11 +2474,9 @@ spec =
 
         now <- nowFromSlot waitingForLastAck.chainPointTime.currentSlot
         update bobEnv ledger now waitingForLastAck (invalidAckFrom bobSk bob)
-          `shouldSatisfy` \case
-            Error (RequireFailed InvalidMultisignature{vkeys}) -> vkeys == [vkey bob]
-            _ -> False
+          `shouldBe` Error (RequireFailed AckSnSignatureInvalid{requestedSn = 1, receivedSignature = bob})
 
-      it "rejects last AckSn if one signature was from a different key" $ do
+      it "refuses an AckSn signed with a key that is not the sender's" $ do
         let reqSn :: Input tx
             reqSn = receiveMessage $ ReqSn 0 1 [] Nothing Nothing
             snapshot = testSnapshot 1 0 [] mempty
@@ -2475,11 +2490,9 @@ spec =
 
         now <- nowFromSlot waitingForLastAck.chainPointTime.currentSlot
         update bobEnv ledger now waitingForLastAck (ackFrom (generateSigningKey "foo") bob)
-          `shouldSatisfy` \case
-            Error (RequireFailed InvalidMultisignature{vkeys}) -> vkeys == [vkey bob]
-            _ -> False
+          `shouldBe` Error (RequireFailed AckSnSignatureInvalid{requestedSn = 1, receivedSignature = bob})
 
-      it "rejects last AckSn if one signature was from a completely different message" $ do
+      it "refuses an AckSn signed over something that is not a snapshot" $ do
         let reqSn :: Input tx
             reqSn = receiveMessage $ ReqSn 0 1 [] Nothing Nothing
             snapshot1 = testSnapshot 1 0 [] mempty
@@ -2489,18 +2502,15 @@ spec =
             invalidAckFrom sk vk =
               receiveMessageFrom vk $
                 AckSn (coerce $ sign sk ("foo" :: ByteString)) 1
-        waitingForLastAck <-
+        collecting <-
           runHeadLogic bobEnv ledger (inOpenState threeParties) $ do
             step reqSn
             step (ackFrom carolSk carol)
-            step (invalidAckFrom bobSk bob)
             getState
 
-        now <- nowFromSlot waitingForLastAck.chainPointTime.currentSlot
-        update bobEnv ledger now waitingForLastAck (ackFrom aliceSk alice)
-          `shouldSatisfy` \case
-            Error (RequireFailed InvalidMultisignature{vkeys}) -> vkeys == [vkey bob]
-            _ -> False
+        now <- nowFromSlot collecting.chainPointTime.currentSlot
+        update bobEnv ledger now collecting (invalidAckFrom bobSk bob)
+          `shouldBe` Error (RequireFailed AckSnSignatureInvalid{requestedSn = 1, receivedSignature = bob})
 
       it "rejects last AckSn if already received signature from this party" $ do
         let reqSn :: Input tx

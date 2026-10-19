@@ -51,6 +51,9 @@
 #     cidToNat, refCodeOf                          head-id / out-ref → ℕ encodings (used with cong only)
 #     signerCodes, ptCodes, participantSigned→ref  signer / PT-name encodings + overlap faithfulness
 #     mintEntryCount, noMint→ref                   mint-entry count encoding + noMint faithfulness
+#   Model-layer verification boundary:
+#     ValidSeenSignature  the sender's signature verifies against the full seen snapshot;
+#                         LocalState omits that snapshot's full payload. No validity law is assumed.
 set -euo pipefail
 # Compare names byte-wise. Under a UTF-8 locale `sort -u` treats names that differ
 # only in a modifier letter (εᵘ vs εᵛ) as equal and drops one of them, and which
@@ -139,7 +142,7 @@ expected_model=$(printf '%s\n' \
   depositDatumCommitsHash G₁ _≟ℍ_ ℍ hash headTokenCount Liveness mintedCount msVfy noCommitHash \
   nonAdaOf nonAdaOf-+ᵛ noTxId outputs outsOf PartySig PartyVerified quantityOf quantityOfᴺ \
   quantityOfᴺ-+ᵛ recoveredMatchesDeposited Script setSize setSize-pos signerKeyHash sigUnforge \
-  stQty sumValue sumValue-∅ _∖ᵘ_ _∪ᵘ_ _+ᵛ_ +ᵛ-assoc +ᵛ-cancelʳ +ᵛ-identityʳ VKey εᵘ εᵛ μHead \
+  stQty sumValue sumValue-∅ _∖ᵘ_ _∪ᵘ_ _+ᵛ_ +ᵛ-assoc +ᵛ-cancelʳ +ᵛ-identityʳ ValidSeenSignature VKey εᵘ εᵛ μHead \
   | sort -u)
 
 # The solvency theorem's trust parameters, gated by FULL SIGNATURE (see the header): these are the
