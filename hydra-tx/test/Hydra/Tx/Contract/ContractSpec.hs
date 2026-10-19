@@ -17,9 +17,11 @@ import Data.ByteString.Base16 qualified as Base16
 import Data.List qualified as List
 import Data.Maybe (fromJust)
 import Hydra.Cardano.Api (
-  AssetId (AdaAssetId),
+  AssetId (..),
   CtxTx,
+  CtxUTxO,
   Tx,
+  TxOut,
   TxOutDatum,
   UTxO,
   filterValue,
@@ -48,8 +50,9 @@ import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Deposit (DepositRedeemer (..))
 import Hydra.Contract.Error (toErrorCode)
 import Hydra.Contract.Head (verifySnapshotSignature)
-import Hydra.Contract.HeadError (HeadError (PartialFanoutMembershipFailed))
+import Hydra.Contract.HeadError (HeadError (FanoutUTxOHashMismatch, FinalPartialFanoutMembershipFailed, PartialFanoutMembershipFailed, SignatureVerificationFailed))
 import Hydra.Contract.HeadState qualified as Head
+import Hydra.Contract.HeadTokens (mkHeadTokenScript)
 import Hydra.Contract.Util qualified as OnChain
 import Hydra.Plutus.Orphans ()
 import Hydra.Tx (
@@ -72,21 +75,25 @@ import Hydra.Tx.Contract.Contest.ContestCurrent (genContestMutation)
 import Hydra.Tx.Contract.Contest.ContestDec (genContestDecMutation, genContestUsedMutation, healthyContestUsedTx)
 import Hydra.Tx.Contract.Contest.ContestInc (genContestIncMutation, healthyContestIncTx)
 import Hydra.Tx.Contract.Contest.Healthy (healthyContestTx)
-import Hydra.Tx.Contract.Decrement (genDecrementMutation, healthyDecrementTx)
+import Hydra.Tx.Contract.Decrement (decrementWithIncompleteSignatures, genDecrementMutation, healthyDecrementTx)
 import Hydra.Tx.Contract.Deposit (genDepositMutation, genHealthyDepositTx, healthyDeadline)
 import Hydra.Tx.Contract.FanOut (fanoutTxWithOverlappingSets, genFanoutMutation, healthyFanoutTx, healthyFanoutTxWithWalletChange)
+import Hydra.Tx.Contract.FanoutSnapshotIdentity (FanoutIdentityScenario (..), excludedUTxO, fanoutIdentityScenarios, liveUTxO, substitutedFullUTxO, victimUTxO)
 import Hydra.Tx.Contract.FinalPartialFanout (genFinalPartialFanoutMutation, healthyFinalPartialFanoutTx)
-import Hydra.Tx.Contract.Increment (genIncrementMutation, healthyDeposited, healthyIncrementTx)
+import Hydra.Tx.Contract.Increment (genIncrementMutation, healthyDeposited, healthyIncrementTx, incrementWithIncompleteSignatures)
 import Hydra.Tx.Contract.Init (genInitMutation, healthyHeadParameters, healthyInitTx, healthyParticipants)
 import Hydra.Tx.Contract.PartialFanout (genPartialFanoutMutation, healthyIntermediatePartialFanoutTx, healthyPartialFanoutTx, healthyPartialFanoutTxWithDuplicates, healthyPartialFanoutTxWithUnburnedToken, liveFanoutWithPresettledTx, presettledCloseTx, presettledFanoutAttackFromProgressTx, presettledFanoutAttackTx)
+import Hydra.Tx.Contract.PartialFanout qualified as PartialFanout
 import Hydra.Tx.Contract.Recover (genRecoverMutation, healthyRecoverTx)
 import Hydra.Tx.Crypto (aggregate, sign, toPlutusSignatures)
 import Hydra.Tx.Deposit (mkDepositOutput)
 import Hydra.Tx.DepositPeriod qualified as DP
 import Hydra.Tx.HeadParameters (HeadParameters (..))
+import Hydra.Tx.Init (mkHeadOutput)
 import Hydra.Tx.Observe qualified as Observation
+import Hydra.Tx.Utils (headTokensFromValue, hydraHeadV2AssetName, verificationKeyToOnChainId)
 import PlutusLedgerApi.V3 (PubKeyHash (..), fromBuiltin, toBuiltin)
-import Test.Hydra.Tx.Fixture (defaultPParams, testHeadId, testNetworkId, testPolicyId)
+import Test.Hydra.Tx.Fixture (defaultPParams, testHeadId, testNetworkId, testPolicyId, testSeedInput)
 import Test.Hydra.Tx.Gen (
   genUTxOSized,
   genUTxOWithSimplifiedAddresses,
@@ -173,6 +180,8 @@ spec = parallel $ do
       propTransactionEvaluates healthyIncrementTx
     prop "does not survive random adversarial mutations" $
       propMutation healthyIncrementTx genIncrementMutation
+    prop "rejects incomplete snapshot evidence" $
+      propTransactionFailsPhase2 [toErrorCode SignatureVerificationFailed] incrementWithIncompleteSignatures
     it "is not observed as a recover when it also pays out the deposited outputs" $ do
       let (tx, utxo) =
             healthyIncrementTx
@@ -187,6 +196,8 @@ spec = parallel $ do
       propTransactionEvaluates healthyDecrementTx
     prop "does not survive random adversarial mutations" $
       propMutation healthyDecrementTx genDecrementMutation
+    prop "rejects incomplete snapshot evidence" $
+      propTransactionFailsPhase2 [toErrorCode SignatureVerificationFailed] decrementWithIncompleteSignatures
 
   describe "Deposit" $ do
     prop "healthy evaluates" $
@@ -390,6 +401,64 @@ spec = parallel $ do
       -- A head closed after a settled decommit must still validate partial
       -- fanouts of its live outputs.
       propTransactionEvaluates liveFanoutWithPresettledTx
+    it "uses exactly the state token and one participation token per participant in every fixture" $ do
+      let canonicalHeadOutput :: TxOut CtxUTxO
+          canonicalHeadOutput =
+            mkHeadOutput
+              testNetworkId
+              testPolicyId
+              (verificationKeyToOnChainId <$> PartialFanout.healthyParticipants)
+              Api.TxOutDatumNone
+          expectedTokens =
+            headTokensFromValue
+              (mkHeadTokenScript testSeedInput)
+              (txOutValue canonicalHeadOutput)
+          fixtureTransactions =
+            [ healthyPartialFanoutTx
+            , healthyIntermediatePartialFanoutTx
+            , healthyPartialFanoutTxWithUnburnedToken
+            , presettledCloseTx
+            ]
+          findHeadInput (tx, lookupUTxO) =
+            List.find
+              (\output -> Api.selectAsset (txOutValue output) (AssetId testPolicyId hydraHeadV2AssetName) == 1)
+              (UTxO.txOutputs $ resolveInputsUTxO lookupUTxO tx)
+      forM_ fixtureTransactions $ \fixture ->
+        case findHeadInput fixture of
+          Nothing -> expectationFailure "fixture has no input carrying the head state token"
+          Just output ->
+            headTokensFromValue (mkHeadTokenScript testSeedInput) (txOutValue output)
+              `shouldBe` expectedTokens
+
+  describe "Fanout snapshot identity" $ do
+    it "uses three live outputs" $
+      UTxO.size liveUTxO `shouldBe` 3
+    it "substitutes one excluded output" $
+      UTxO.size excludedUTxO `shouldBe` 1
+    it "preserves the total value under substitution" $
+      UTxO.totalValue liveUTxO `shouldBe` UTxO.totalValue substitutedFullUTxO
+    it "substitutes different output content" $
+      UTxO.txOutputs victimUTxO `shouldNotBe` UTxO.txOutputs excludedUTxO
+    forM_ fanoutIdentityScenarios $ \FanoutIdentityScenario{scenarioName, validClose, validFullFanout, substitutedFullFanout, validPartialFromClosed, substitutedPartialFromClosed, validPartialFromProgress, substitutedPartialFromProgress, validFinalPartialFanout, substitutedFinalPartialFanout} ->
+      describe scenarioName $ do
+        prop "accepts the close transaction used by the fanout fixtures" $
+          propTransactionEvaluates validClose
+        prop "accepts an honest full fanout" $
+          propTransactionEvaluates validFullFanout
+        prop "rejects equal-value substitution in a full fanout" $
+          propTransactionFailsPhase2 [toErrorCode FanoutUTxOHashMismatch] substitutedFullFanout
+        prop "accepts an honest partial fanout from Closed" $
+          propTransactionEvaluates validPartialFromClosed
+        prop "rejects equal-value substitution in a partial fanout from Closed" $
+          propTransactionFailsPhase2 [toErrorCode PartialFanoutMembershipFailed] substitutedPartialFromClosed
+        prop "accepts an honest partial fanout from FanoutProgress" $
+          propTransactionEvaluates validPartialFromProgress
+        prop "rejects equal-value substitution in a partial fanout from FanoutProgress" $
+          propTransactionFailsPhase2 [toErrorCode PartialFanoutMembershipFailed] substitutedPartialFromProgress
+        prop "accepts an honest final partial fanout" $
+          propTransactionEvaluates validFinalPartialFanout
+        prop "rejects equal-value substitution in a final partial fanout" $
+          propTransactionFailsPhase2 [toErrorCode FinalPartialFanoutMembershipFailed] substitutedFinalPartialFanout
   describe "FinalPartialFanout" $ do
     prop "is healthy" $
       propTransactionEvaluates healthyFinalPartialFanoutTx

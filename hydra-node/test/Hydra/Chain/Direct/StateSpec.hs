@@ -112,6 +112,7 @@ import Test.Hydra.Chain.Direct.State (
   genClosedStateWithUnconfirmedCommit,
   genContestTx,
   genDecrementTx,
+  genDecrementTxWithSnapshot,
   genDepositTx,
   genDepositTxWith,
   genFanoutTx,
@@ -120,6 +121,7 @@ import Test.Hydra.Chain.Direct.State (
   genHydraContext,
   genIncrementTx,
   genIncrementTxWith,
+  genIncrementTxWithSnapshot,
   genPartialFanoutTx,
   genPartialFanoutTxWithComplexUTxO,
   genRecoverTx,
@@ -279,6 +281,22 @@ spec = parallel $ do
     propIsValid forAllIncrement
     it "increment observation observes correct utxo" prop_incrementObservesCorrectUTxO
     it "increment requires the deposit to be its transaction's first output" prop_incrementRequiresFirstDepositOutput
+    modifyMaxSuccess (const 10) $
+      prop "validator evaluation and observation preserve the full snapshot evidence" $
+        forAllBlind (genIncrementTxWithSnapshot $ genDepositTx maximumNumberOfParties) $
+          \(ctx, st, _deposit, spendableUTxO, tx, confirmedSnapshot) ->
+            forAllBlind (pickChainContext ctx) $ \cctx ->
+              let lookupUTxO = getKnownUTxO st <> getKnownUTxO cctx <> spendableUTxO
+                  Snapshot{number, version} = getSnapshot confirmedSnapshot
+               in propTransactionEvaluates (tx, lookupUTxO)
+                    .&&. case observeIncrementTx (ctxNetworkId ctx) lookupUTxO tx of
+                      Nothing -> counterexample ("increment was valid but not observed:\n" <> renderTxWithUTxO lookupUTxO tx) False
+                      Just IncrementObservation{newVersion, snapshotNumber, signatures} ->
+                        conjoin
+                          [ newVersion === version + 1
+                          , snapshotNumber === number
+                          , signatures === confirmedSignatures confirmedSnapshot
+                          ]
 
     -- Ties 'rejectOversizedDeposit' (which sizes a dry-run increment with a
     -- fabricated snapshot and dummy signatures) to reality: whenever the check
@@ -305,6 +323,22 @@ spec = parallel $ do
   describe "decrement" $ do
     propBelowSizeLimit maxTxSize forAllDecrement
     propIsValid forAllDecrement
+    modifyMaxSuccess (const 10) $
+      prop "validator evaluation and observation preserve the full snapshot evidence" $
+        forAllBlind (genDecrementTxWithSnapshot maximumNumberOfParties) $
+          \(_context, cctx, _distributed, st, spendableUTxO, tx, confirmedSnapshot) ->
+            let lookupUTxO = getKnownUTxO st <> getKnownUTxO cctx <> spendableUTxO
+                Snapshot{number, version, utxoToDecommit} = getSnapshot confirmedSnapshot
+             in propTransactionEvaluates (tx, lookupUTxO)
+                  .&&. case observeDecrementTx lookupUTxO tx of
+                    Nothing -> counterexample ("decrement was valid but not observed:\n" <> renderTxWithUTxO lookupUTxO tx) False
+                    Just DecrementObservation{newVersion, snapshotNumber, signatures, distributedUTxO} ->
+                      conjoin
+                        [ newVersion === version + 1
+                        , snapshotNumber === number
+                        , signatures === confirmedSignatures confirmedSnapshot
+                        , UTxO.txOutputs distributedUTxO === maybe [] UTxO.txOutputs utxoToDecommit
+                        ]
 
   prop "observes distributed outputs" $
     forAllDecrement' $ \toDistribute utxo tx ->
