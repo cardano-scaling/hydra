@@ -533,8 +533,16 @@ data PartialFanoutState tx = PartialFanoutState
   , mode :: FanoutMode tx
   -- ^ Drives the chunk source for the next step (see 'FanoutMode').
   , stepsLanded :: [FanoutStepLanded tx]
-  -- ^ The steps observed so far, oldest first: the chain-derived record the
-  --   two sets above and 'mode' are rewound from on a rollback.
+  -- ^ The steps observed so far, oldest first. This is the record, derived
+  --   from the chain, that the two sets above and 'mode' are rewound from on a
+  --   rollback.
+  , everLanded :: Bool
+  -- ^ Whether a step of this fanout was ever observed on chain, on any fork.
+  --   A rollback that rewinds the progress to nothing distributed does not
+  --   reset it. A re-post that fails after such a rewind is racing the erased
+  --   step landing again; that is not a failed start, and it must not cost
+  --   this node the driver role (see the 'PostTxError' arm of
+  --   'Hydra.HeadLogic.update').
   }
   deriving stock (Generic)
 
@@ -545,7 +553,7 @@ deriving anyclass instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (
 
 -- | CBOR tag of the current 'PartialFanoutState' layout.
 partialFanoutStateCBORTag :: Text
-partialFanoutStateCBORTag = "PartialFanoutState2"
+partialFanoutStateCBORTag = "PartialFanoutState3"
 
 -- | CBOR tag of the layout written before 'stepsLanded' existed: the
 -- constructor-name tag 'genericToCBOR' wrote, followed by the other fields in
@@ -554,7 +562,7 @@ partialFanoutStateCBORTagV1 :: Text
 partialFanoutStateCBORTagV1 = "PartialFanoutState"
 
 instance IsChainState tx => ToCBOR (PartialFanoutState tx) where
-  toCBOR PartialFanoutState{parameters, confirmedSnapshot, contestationDeadline, chainState, headId, headSeed, version, remainingOutputs, distributedOutputs, mode, stepsLanded} =
+  toCBOR PartialFanoutState{parameters, confirmedSnapshot, contestationDeadline, chainState, headId, headSeed, version, remainingOutputs, distributedOutputs, mode, stepsLanded, everLanded} =
     toCBOR partialFanoutStateCBORTag
       <> toCBOR parameters
       <> toCBOR confirmedSnapshot
@@ -567,17 +575,19 @@ instance IsChainState tx => ToCBOR (PartialFanoutState tx) where
       <> toCBOR distributedOutputs
       <> toCBOR mode
       <> toCBOR stepsLanded
+      <> toCBOR everLanded
 
 instance IsChainState tx => FromCBOR (PartialFanoutState tx) where
   fromCBOR =
     fromCBOR >>= \case
       (tag :: Text)
-        | tag == partialFanoutStateCBORTag -> decode True
-        | tag == partialFanoutStateCBORTagV1 -> decode False
+        | tag == partialFanoutStateCBORTag -> decode True True
+        | tag == "PartialFanoutState2" -> decode True False
+        | tag == partialFanoutStateCBORTagV1 -> decode False False
         | otherwise -> fail $ show tag <> " is not a proper CBOR-encoded PartialFanoutState"
    where
-    decode :: Bool -> Decoder s (PartialFanoutState tx)
-    decode hasSteps = do
+    decode :: Bool -> Bool -> Decoder s (PartialFanoutState tx)
+    decode hasSteps hasEverLanded = do
       parameters <- fromCBOR
       confirmedSnapshot <- fromCBOR
       contestationDeadline <- fromCBOR
@@ -591,4 +601,6 @@ instance IsChainState tx => FromCBOR (PartialFanoutState tx) where
       -- A state written before steps were tracked cannot rewind them on a
       -- rollback, exactly as before the upgrade; steps landing from now on can.
       stepsLanded <- if hasSteps then fromCBOR else pure []
-      pure PartialFanoutState{parameters, confirmedSnapshot, contestationDeadline, chainState, headId, headSeed, version, remainingOutputs, distributedOutputs, mode, stepsLanded}
+      -- Such a state can only have distributed something by seeing a step land.
+      everLanded <- if hasEverLanded then fromCBOR else pure (not (null stepsLanded) || distributedOutputs /= mempty)
+      pure PartialFanoutState{parameters, confirmedSnapshot, contestationDeadline, chainState, headId, headSeed, version, remainingOutputs, distributedOutputs, mode, stepsLanded, everLanded}
