@@ -28,6 +28,7 @@ import Hydra.Node.State (NodeState, initNodeState, initialChainTime)
 import Hydra.Node.UnsyncedPeriod (defaultUnsyncedPeriodFor)
 import Hydra.Tx.DepositPeriod (DepositPeriod (..))
 import Hydra.Tx.HeadParameters (HeadParameters (..))
+import HydraVis.History (viewerRollbackHorizon)
 import Test.Hydra.Tx.Fixture (
   alice,
   aliceSk,
@@ -52,6 +53,7 @@ sampleEnvironment =
     , depositPeriod = DepositPeriod 20
     , depositActivation = DepositPeriod 20
     , unsyncedPeriod = defaultUnsyncedPeriodFor cperiod
+    , rollbackHorizon = viewerRollbackHorizon
     , participants = deriveOnChainId <$> [alice, bob, carol]
     , configuredPeers = ""
     }
