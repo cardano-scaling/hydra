@@ -29,7 +29,7 @@ import Hydra.Cardano.Api (
   getCardanoPaymentVerificationKey,
  )
 import Hydra.Chain (Chain (..), ChainEvent (..), ChainStateHistory (lastKnown), PostTxError, initHistory)
-import Hydra.Chain.ChainState (IsChainState (..))
+import Hydra.Chain.ChainState (ChainSlot, IsChainState (..))
 import Hydra.HeadLogic (
   Effect (..),
   HeadState (..),
@@ -61,9 +61,10 @@ import Hydra.Tx.Utils (verificationKeyToOnChainId)
 
 -- * Environment Handling
 
--- | Initialize the 'Environment' from command line options.
-initEnvironment :: RunOptions -> IO Environment
-initEnvironment options = do
+-- | Initialize the 'Environment' from command line options and the rollback
+-- horizon of the network the node runs on (see 'rollbackHorizon').
+initEnvironment :: ChainSlot -> RunOptions -> IO Environment
+initEnvironment rollbackHorizon options = do
   -- Wrap the raw key as soon as it leaves disk: every in-process holder
   -- after this point sees only a 'Secret'.
   sk <- mkSecret <$> readFileTextEnvelopeThrow hydraSigningKey
@@ -79,6 +80,7 @@ initEnvironment options = do
       , depositPeriod
       , depositActivation
       , unsyncedPeriod
+      , rollbackHorizon
       , configuredPeers
       }
  where
@@ -238,7 +240,7 @@ hydrate tracer env ledger initialChainState EventStore{eventSource, eventSink} e
   recoverNodeStateC =
     getZipSink
       ( (,)
-          <$> ZipSink (C.foldM (\current event -> lift $ replayStateEvent current event) initialState)
+          <$> ZipSink (C.foldM (\current event -> lift $ replayStateEvent (rollbackHorizon env) current event) initialState)
           <*> ZipSink (mapC stateChanged .| foldlC aggregateChainStateHistory (initHistory initialChainState))
       )
 
@@ -598,7 +600,7 @@ processNextInput ::
 processNextInput HydraNode{nodeStateHandler, ledger, env} e now =
   modifyNodeState $ \s ->
     let outcome = HeadLogic.update env ledger now s e
-     in case aggregateState s outcome of
+     in case aggregateState (rollbackHorizon env) s outcome of
           -- Reject the whole outcome so no partial events or effects escape.
           Left conflict -> (Error $ HeadLogic.AssertionFailed ("Settlement conflict: " <> show conflict), s)
           Right nextState -> (outcome, nextState)

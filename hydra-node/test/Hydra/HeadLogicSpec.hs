@@ -52,7 +52,7 @@ import Hydra.Network (Connectivity)
 import Hydra.Network.Message (Message (..), NetworkEvent (..))
 import Hydra.Node (mkNetworkInput)
 import Hydra.Node.Environment (Environment (..), mkHeadParameters)
-import Hydra.Node.State (ChainPointTime (..), Deposit (..), DepositStatus (Active, Expired, Inactive), NodeState (..), SyncedStatus (..), depositRetentionHorizon, initNodeState, initialChainTime, trackedFromPending)
+import Hydra.Node.State (ChainPointTime (..), Deposit (..), DepositStatus (Active, Expired, Inactive), NodeState (..), SyncedStatus (..), initNodeState, initialChainTime, trackedFromPending)
 import Hydra.Node.UnsyncedPeriod (UnsyncedPeriod (..), unsyncedPeriodToNominalDiffTime)
 import Hydra.Options (defaultContestationPeriod, defaultDepositActivation, defaultDepositPeriod, defaultUnsyncedPeriod)
 import Hydra.Prelude qualified as Prelude
@@ -101,6 +101,7 @@ spec =
             , depositPeriod = defaultDepositPeriod
             , depositActivation = defaultDepositActivation
             , unsyncedPeriod = defaultUnsyncedPeriod
+            , rollbackHorizon = Fixture.testRollbackHorizon
             , participants = deriveOnChainId <$> threeParties
             , configuredPeers = ""
             }
@@ -113,6 +114,7 @@ spec =
             , depositPeriod = defaultDepositPeriod
             , depositActivation = defaultDepositActivation
             , unsyncedPeriod = defaultUnsyncedPeriod
+            , rollbackHorizon = Fixture.testRollbackHorizon
             , participants = deriveOnChainId <$> threeParties
             , configuredPeers = ""
             }
@@ -121,7 +123,7 @@ spec =
       forM_ [1, 2] $ \currentVersion -> do
         it ("rejects CommitFinalized with a shared claim at version " <> show currentVersion) $ do
           currentState <- settlementConflictState currentVersion
-          HeadLogic.aggregateNodeState currentState CommitFinalized{chainState = 9, headId = testHeadId, newVersion = 2, depositTxId = 42}
+          HeadLogic.aggregateNodeState Fixture.testRollbackHorizon currentState CommitFinalized{chainState = 9, headId = testHeadId, newVersion = 2, depositTxId = 42}
             `shouldBe` Left (DepositAlreadyClaimed (Set.singleton 42))
 
         forM_
@@ -131,7 +133,7 @@ spec =
           $ \(actionName, finalized) ->
             it ("does not retain an unrelated confirmed commit at version " <> show currentVersion <> " for " <> actionName) $ do
               currentState <- settlementConflictState currentVersion
-              case HeadLogic.aggregateNodeState currentState finalized of
+              case HeadLogic.aggregateNodeState Fixture.testRollbackHorizon currentState finalized of
                 Right NodeInSync{headState = Open OpenState{coordinatedHeadState = CoordinatedHeadState{settlements}}} ->
                   Map.keys (settlementEntries settlements) `shouldBe` [0]
                 other -> expectationFailure $ "Expected finalization without retaining the unrelated commit, got: " <> show other
@@ -139,7 +141,7 @@ spec =
       it "rejects a late snapshot confirmation with a shared claim" $ do
         currentState <- settlementConflictState 2
         let snapshot = settlementConflictSnapshot
-        HeadLogic.aggregateNodeState currentState SnapshotConfirmed{headId = testHeadId, snapshot = Just snapshot, signatures = mempty}
+        HeadLogic.aggregateNodeState Fixture.testRollbackHorizon currentState SnapshotConfirmed{headId = testHeadId, snapshot = Just snapshot, signatures = mempty}
           `shouldBe` Left (DepositAlreadyClaimed (Set.singleton 42))
 
       it "rejects a whole batch when a later event conflicts" $ do
@@ -147,7 +149,7 @@ spec =
         let conflict = CommitFinalized{chainState = 9, headId = testHeadId, newVersion = 2, depositTxId = 42}
             changes = [TransactionReceived (SimpleTx 7 mempty mempty), conflict]
         forM_ [Continue changes [], Wait{reason = WaitOnSeenSnapshot, stateChanges = changes}] $ \outcome ->
-          HeadLogic.aggregateState currentState outcome `shouldBe` Left (DepositAlreadyClaimed (Set.singleton 42))
+          HeadLogic.aggregateState Fixture.testRollbackHorizon currentState outcome `shouldBe` Left (DepositAlreadyClaimed (Set.singleton 42))
 
     describe "Coordinated Head Protocol" $ do
       let ledger = simpleLedger
@@ -4172,18 +4174,18 @@ spec =
           -- The increment was observed at slot 3: retained while a rollback
           -- can still reach it ...
           s1 <- runHeadLogic soloAliceEnv ledger s0 $ do
-            step (tickAt (2 + depositRetentionHorizon))
+            step (tickAt (2 + Fixture.testRollbackHorizon))
             getState
           settlementStatuses s1 `shouldBe` [Landed 3]
           -- ... and dropped once none can
           s2 <- runHeadLogic soloAliceEnv ledger s0 $ do
-            step (tickAt (3 + depositRetentionHorizon))
+            step (tickAt (3 + Fixture.testRollbackHorizon))
             getState
           settlementStatuses s2 `shouldBe` []
           -- An erased settlement is due for re-posting and kept regardless
           s3 <- runHeadLogic soloAliceEnv ledger s0 $ do
             step (rollbackTo 2 now)
-            step (tickAt (3 + depositRetentionHorizon))
+            step (tickAt (3 + Fixture.testRollbackHorizon))
             getState
           settlementStatuses s3 `shouldBe` [Erased]
 
@@ -5679,7 +5681,7 @@ spec =
             fewerOutputs = forceUTxO $ UTxO.singleton (ref 2) output
         forM_ [(observed, True), (differentContents, False), (fewerOutputs, False)] $ \(distributedUTxO, matches) -> do
           let finalized = DecommitFinalized{chainState = ChainStateAt{spendableUTxO = mempty, recordedAt = Nothing}, headId = testHeadId, newVersion = 1, distributedUTxO}
-          case HeadLogic.aggregateNodeState st finalized of
+          case HeadLogic.aggregateNodeState Fixture.testRollbackHorizon st finalized of
             Right NodeInSync{headState = Open OpenState{coordinatedHeadState = CoordinatedHeadState{settlements}}} ->
               ((\settlement -> settlement.snapshot) <$> Map.lookup 0 (settlementEntries settlements)) `shouldBe` if matches then Just confirmed else Nothing
             other -> expectationFailure $ "Expected finalized decrement, got: " <> show other
@@ -6513,7 +6515,7 @@ withAccumulators snapshot@Snapshot{utxo, utxoToCommit, utxoToDecommit} =
 -- | Fail a successful-scenario test if aggregation rejects its events.
 aggregateStateOrFail :: (HasCallStack, IsChainState tx) => NodeState tx -> Outcome tx -> NodeState tx
 aggregateStateOrFail currentState outcome =
-  either (Prelude.error . ("Unexpected settlement conflict: " <>) . show) id $ HeadLogic.aggregateState currentState outcome
+  either (Prelude.error . ("Unexpected settlement conflict: " <>) . show) id $ HeadLogic.aggregateState Fixture.testRollbackHorizon currentState outcome
 
 -- | A valid retained store plus a later snapshot that tries to claim its deposit.
 settlementConflictState :: SnapshotVersion -> IO (NodeState SimpleTx)
