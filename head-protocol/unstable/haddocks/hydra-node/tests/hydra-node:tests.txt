@@ -434,6 +434,9 @@ instance Test.QuickCheck.Arbitrary.Arbitrary Cardano.Api.Value.Internal.Value
 instance Cardano.Binary.ToCBOR.ToCBOR Cardano.Api.Value.Internal.Value
 instance Cardano.Binary.FromCBOR.FromCBOR Cardano.Api.Value.Internal.Value
 
+module Hydra.Network.EtcdBinarySpec
+spec :: Spec
+
 module Hydra.NetworkVersionsSpec
 spec :: Spec
 propParseNetworkTxIds :: Version -> String -> Property

@@ -2350,21 +2350,30 @@ instance GHC.Real.Integral Hydra.Node.ApiTransactionTimeout.ApiTransactionTimeou
 -- | Template haskell expression to embed executables.
 module Hydra.Node.EmbedTH
 
--- | Template haskell expression to find and embed an executable with given
---   name.
-embedExecutable :: String -> Q Exp
+-- | Embed an executable selected by an environment variable, falling back
+--   to PATH for native development builds. Cross builds supply the target
+--   executable explicitly, independently of the tools running on the build
+--   machine.
+embedExecutable :: String -> String -> Q Exp
 
 
 -- | Embedding and installation of <tt>etcd</tt> binary. In a dedicated
---   module as HLS tends to choke on $(embedExecutable "etcd").
+--   module as HLS tends to choke on the executable's Template Haskell
+--   splice.
 module Hydra.Network.EtcdBinary
 
 -- | Return the path of the etcd binary. Will either install it first, or
 --   just assume there is one available on the system path.
 getEtcdBinary :: FilePath -> WhichEtcd -> IO FilePath
+etcdExecutable :: FilePath
 
 -- | Install the embedded <tt>etcd</tt> binary to given file path.
 installEtcd :: FilePath -> IO ()
+
+-- | Write without letting another process retain the writable file
+--   descriptor.
+writeBinaryFile :: FilePath -> ByteString -> IO ()
+makeExecutable :: FilePath -> IO ()
 
 
 -- | Implements a Hydra network component using <a>etcd</a>.
@@ -2560,6 +2569,10 @@ pollConnectivity :: Tracer IO EtcdLog -> Connection -> Host -> NetworkCallback m
 --   recreate the lease, not crash the node.
 isTransientGrpcError :: GrpcError -> Bool
 
+-- | Handle transient RPC failures without losing cancellation to an
+--   exception raised by RPC cleanup.
+catchEtcdError :: IO a -> (Text -> IO a) -> IO a
+
 -- | Classify a failure talking to our local etcd, giving a reason to trace
 --   when retrying is the right response.
 --   
@@ -2577,9 +2590,11 @@ retryableEtcdError :: SomeException -> Maybe Text
 --   raised.
 withGrpcContext :: MonadCatch m => Text -> m a -> m a
 
--- | Like <tt>withProcessTerm</tt>, but sends first SIGINT and only SIGTERM
---   if not stopped within 5 seconds.
-withProcessInterrupt :: (MonadIO m, MonadThrow m) => ProcessConfig stdin stdout stderr -> (Process stdin stdout stderr -> m a) -> m a
+-- | Stop the child before joining the action's threads. On Windows, a
+--   reader blocked on the child's stderr or sockets cannot be cancelled
+--   until those resources close. The action can also stop the child before
+--   unwinding its own thread scopes on normal completion.
+withProcessInterrupt :: ProcessConfig stdin stdout stderr -> (Process stdin stdout stderr -> IO () -> IO a) -> IO a
 
 -- | Map the standalone queue's log events onto the node's etcd log, so the
 --   emitted JSON is unchanged by the extraction of <a>PersistentQueue</a>.

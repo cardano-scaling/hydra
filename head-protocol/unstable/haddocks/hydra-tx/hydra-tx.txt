@@ -1122,6 +1122,32 @@ instance Cardano.Binary.ToCBOR.ToCBOR Hydra.Chain.ChainState.ChainSlot
 instance Cardano.Binary.FromCBOR.FromCBOR Hydra.Chain.ChainState.ChainSlot
 
 module Hydra.Tx.Utils
+hydraHeadV2AssetName :: AssetName
+
+-- | The metadata label used for identifying Hydra protocol transactions.
+--   As suggested by a friendly large language model: The number most
+--   commonly associated with <a>Hydra</a> is 5, as in the mythological
+--   creature Hydra, which had multiple heads, and the number 5 often
+--   symbolizes multiplicity or diversity. However, there is no specific
+--   numerical association for Hydra smaller than 10000 beyond this
+--   mythological reference.
+hydraMetadataLabel :: Word64
+
+-- | Create a transaction metadata entry to identify Hydra transactions
+--   (for informational purposes).
+mkHydraHeadV2TxName :: Text -> TxMetadata
+assetNameToOnChainId :: AssetName -> OnChainId
+onChainIdToAssetName :: OnChainId -> AssetName
+
+-- | Find first occurrence including a transformation.
+findFirst :: Foldable t => (a -> Maybe b) -> t a -> Maybe b
+
+-- | Derive the <a>OnChainId</a> from a Cardano <a>PaymentKey</a>. The
+--   on-chain identifier is the public key hash as it is also available to
+--   plutus validators.
+verificationKeyToOnChainId :: VerificationKey PaymentKey -> OnChainId
+headTokensFromValue :: PlutusScript -> Value -> PolicyAssets
+addMetadata :: TxMetadata -> Tx -> Tx TopTx LedgerEra -> Tx TopTx LedgerEra
 
 -- | Type to encapsulate one of the two possible incremental actions or a
 --   regular snapshot. This actually signals that our snapshot modeling is
@@ -1141,39 +1167,12 @@ data IncrementalAction
 ToCommit :: IncrementalAction
 ToDecommit :: IncrementalAction
 NoThing :: IncrementalAction
+setIncrementalActionMaybe :: Maybe UTxO -> Maybe UTxO -> Maybe IncrementalAction
 
 -- | Find (if it exists) the head identifier contained in given
 --   <a>TxOut</a>.
 findStateToken :: TxOut ctx -> Maybe HeadId
-
--- | Create a transaction metadata entry to identify Hydra transactions
---   (for informational purposes).
-mkHydraHeadV2TxName :: Text -> TxMetadata
-addMetadata :: TxMetadata -> Tx -> Tx TopTx LedgerEra -> Tx TopTx LedgerEra
-headTokensFromValue :: PlutusScript -> Value -> PolicyAssets
-assetNameToOnChainId :: AssetName -> OnChainId
-
--- | Find first occurrence including a transformation.
-findFirst :: Foldable t => (a -> Maybe b) -> t a -> Maybe b
-hydraHeadV2AssetName :: AssetName
-onChainIdToAssetName :: OnChainId -> AssetName
-
--- | The metadata label used for identifying Hydra protocol transactions.
---   As suggested by a friendly large language model: The number most
---   commonly associated with <a>Hydra</a> is 5, as in the mythological
---   creature Hydra, which had multiple heads, and the number 5 often
---   symbolizes multiplicity or diversity. However, there is no specific
---   numerical association for Hydra smaller than 10000 beyond this
---   mythological reference.
-hydraMetadataLabel :: Word64
-
--- | Derive the <a>OnChainId</a> from a Cardano <a>PaymentKey</a>. The
---   on-chain identifier is the public key hash as it is also available to
---   plutus validators.
-verificationKeyToOnChainId :: VerificationKey PaymentKey -> OnChainId
-setIncrementalActionMaybe :: Maybe UTxO -> Maybe UTxO -> Maybe IncrementalAction
 findHeadAssetId :: TxOut ctx -> Maybe (PolicyId, AssetName)
-dummyValidatorScript :: PlutusScript
 instance GHC.Show.Show Hydra.Tx.Utils.IncrementalAction
 instance GHC.Classes.Eq Hydra.Tx.Utils.IncrementalAction
 
