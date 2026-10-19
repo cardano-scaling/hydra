@@ -301,6 +301,7 @@ mockChainAndNetworkWith tr chainTracer seedKeys networkLatencySeed faulty = do
     let honestNetwork = createMockNetwork draftNode networkHistory nodes
         network = case faulty of
           Just (p, AddsMessages) | p == ownParty -> faultyBroadcast ackedVar draftNode honestNetwork
+          Just (p, ReplacesMessages) | p == ownParty -> replacingBroadcast honestNetwork
           _ -> honestNetwork
     node <- connect mockChain network mockServer draftNode
     let node' = (node :: HydraNode Tx m){env = updateEnvironment env}
@@ -690,6 +691,7 @@ createMockNetwork draftNode networkHistory nodes =
 -- | Network behavior of the selected faulty party.
 data FaultMode
   = AddsMessages
+  | ReplacesMessages
   deriving stock (Eq, Show)
 
 -- | Add duplicate acknowledgements and invalid proposals to honest traffic.
@@ -731,6 +733,37 @@ faultyBroadcast ackedVar draftNode Network{broadcast} =
   DraftHydraNode{env} = draftNode
 
   Environment{party = ownParty} = env
+
+-- | Replace proposals while leaving other messages unchanged.
+-- The head may stop; the safety tests inspect the snapshots it does confirm.
+replacingBroadcast ::
+  Network m (Message Tx) ->
+  Network m (Message Tx)
+replacingBroadcast Network{broadcast} =
+  Network{broadcast = broadcast . deviateFrom}
+
+-- | Change every proposal, including proposals without an incremental action.
+deviateFrom :: Message Tx -> Message Tx
+deviateFrom = \case
+  proposal@ReqSn{snapshotVersion, snapshotNumber, transactionIds, decommitTx, depositTxId} ->
+    case snapshotNumber `mod` 5 of
+      -- Drop an existing claim or introduce one when absent.
+      0 -> proposal{depositTxId = toggle bogusDepositId depositTxId}
+      1 -> proposal{decommitTx = toggle bogusDecommitTx decommitTx}
+      2
+        | depositTxId == Just bogusDepositId -> proposal{depositTxId = Nothing}
+        | otherwise -> proposal{depositTxId = Just bogusDepositId}
+      -- Propose the version before its settlement is observed.
+      3 -> proposal{snapshotVersion = snapshotVersion + 1}
+      _ -> proposal{transactionIds = [bogusDepositId | null transactionIds]}
+  msg -> msg
+ where
+  toggle :: a -> Maybe a -> Maybe a
+  toggle x = maybe (Just x) (const Nothing)
+
+-- | A transaction that cannot spend any output held by the head.
+bogusDecommitTx :: Tx
+bogusDecommitTx = arbitrary `generateWith` 13
 
 -- | Snapshot numbers cannot be negative.
 oneBefore :: SnapshotNumber -> SnapshotNumber

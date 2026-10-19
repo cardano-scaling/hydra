@@ -203,7 +203,7 @@ instance StateModel WorldState where
         networkLatencySeed :: Word64
       , faultyParty :: Maybe (Party, FaultMode)
       } ->
-      -- \^ The party that adds invalid or duplicate network messages, if any.
+      -- \^ The party that deviates on the network, if any.
 
       -- \^ Whether the random walk may have several deposits/decommits in
       -- flight at once ('SubmitDeposit' & co., forks in every 'RequeueMode')
@@ -775,7 +775,7 @@ newtype RunState m = RunState {nodesState :: TVar m (Nodes m)}
 -- We could perhaps getaway with it and just have a type based on `IOSim` monad
 -- but this is cumbersome to write.
 newtype RunMonad m a = RunMonad {runMonad :: ReaderT (RunState m) m a}
-  deriving newtype (Functor, Applicative, Monad, MonadReader (RunState m), MonadThrow, MonadTime)
+  deriving newtype (Functor, Applicative, Monad, MonadReader (RunState m), MonadThrow, MonadCatch, MonadTime)
 
 instance MonadTrans RunMonad where
   lift = RunMonad . lift
