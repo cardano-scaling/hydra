@@ -164,6 +164,9 @@ data CoordinatedHeadState tx = CoordinatedHeadState
   , settlements :: !(Settlements tx)
   -- ^ Snapshots whose increment or decrement settled on chain and may still be
   -- erased by a rollback, see 'Settlements'.
+  , unretained :: !UnretainedSettlements
+  -- ^ Version bumps observed on chain whose snapshot this node has not
+  -- confirmed yet, see 'UnretainedSettlements'.
   }
   deriving stock (Generic)
 
@@ -181,14 +184,16 @@ instance IsTx tx => FromJSON (CoordinatedHeadState tx) where
           commit <- fields .:? "finalizedCommit"
           decommit <- fields .:? "finalizedDecommit"
           migrateFinalizedSnapshots (catMaybes [commit, decommit])
+    unretained <- fields .:? "unretained" .!= mempty
     genericParseJSON defaultOptions $
       Object $
-        KeyMap.insert "settlements" (toJSON (settlements :: Settlements tx)) fields
+        KeyMap.insert "settlements" (toJSON (settlements :: Settlements tx)) $
+          KeyMap.insert "unretained" (toJSON (unretained :: UnretainedSettlements)) fields
 
--- | Tag of the layout carrying the retained settlement map. Fields are a bare
+-- | Tag of the layout carrying retained settlements and observation notes. Fields are a bare
 -- concatenation, so each layout needs its own tag. Older layouts remain readable.
 coordinatedHeadStateCBORTag :: Text
-coordinatedHeadStateCBORTag = "CoordinatedHeadState3"
+coordinatedHeadStateCBORTag = "CoordinatedHeadState4"
 
 -- | Tag of the layout without retained settlements. Decoded, never written.
 coordinatedHeadStateCBORTagV1 :: Text
@@ -200,7 +205,7 @@ coordinatedHeadStateCBORTagV2 :: Text
 coordinatedHeadStateCBORTagV2 = "CoordinatedHeadState2"
 
 instance IsTx tx => ToCBOR (CoordinatedHeadState tx) where
-  toCBOR CoordinatedHeadState{localUTxO, localTxs, allTxs, confirmedSnapshot, seenSnapshot, currentDepositTxId, decommitTx, version, settlements} =
+  toCBOR CoordinatedHeadState{localUTxO, localTxs, allTxs, confirmedSnapshot, seenSnapshot, currentDepositTxId, decommitTx, version, settlements, unretained} =
     toCBOR coordinatedHeadStateCBORTag
       <> toCBOR localUTxO
       <> toCBOR localTxs
@@ -211,18 +216,20 @@ instance IsTx tx => ToCBOR (CoordinatedHeadState tx) where
       <> toCBOR decommitTx
       <> toCBOR version
       <> toCBOR settlements
+      <> toCBOR unretained
 
 instance IsTx tx => FromCBOR (CoordinatedHeadState tx) where
   fromCBOR =
     fromCBOR >>= \case
       (tag :: Text)
-        | tag == coordinatedHeadStateCBORTag -> decode fromCBOR
-        | tag == coordinatedHeadStateCBORTagV2 -> decode decodeV2Settlements
-        | tag == coordinatedHeadStateCBORTagV1 -> decode (pure emptySettlements)
+        | tag == coordinatedHeadStateCBORTag -> decode fromCBOR fromCBOR
+        | tag == "CoordinatedHeadState3" -> decode fromCBOR (pure mempty)
+        | tag == coordinatedHeadStateCBORTagV2 -> decode decodeV2Settlements (pure mempty)
+        | tag == coordinatedHeadStateCBORTagV1 -> decode (pure emptySettlements) (pure mempty)
         | otherwise -> fail $ show tag <> " is not a proper CBOR-encoded CoordinatedHeadState"
    where
-    decode :: Decoder s (Settlements tx) -> Decoder s (CoordinatedHeadState tx)
-    decode decodeSettlements = do
+    decode :: Decoder s (Settlements tx) -> Decoder s UnretainedSettlements -> Decoder s (CoordinatedHeadState tx)
+    decode decodeSettlements decodeNotes = do
       localUTxO <- fromCBOR
       localTxs <- fromCBOR
       allTxs <- fromCBOR
@@ -232,7 +239,8 @@ instance IsTx tx => FromCBOR (CoordinatedHeadState tx) where
       decommitTx <- fromCBOR
       version <- fromCBOR
       settlements <- decodeSettlements
-      pure CoordinatedHeadState{localUTxO, localTxs, allTxs, confirmedSnapshot, seenSnapshot, currentDepositTxId, decommitTx, version, settlements}
+      unretained <- decodeNotes
+      pure CoordinatedHeadState{localUTxO, localTxs, allTxs, confirmedSnapshot, seenSnapshot, currentDepositTxId, decommitTx, version, settlements, unretained}
 
     decodeV2Settlements :: Decoder s (Settlements tx)
     decodeV2Settlements = do

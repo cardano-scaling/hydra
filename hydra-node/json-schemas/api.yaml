@@ -4023,6 +4023,7 @@ components:
         - decommitTx
         - version
         - settlements
+        - unretained
       properties:
         localUTxO:
           $ref: "api.yaml#/components/schemas/UTxO"
@@ -4061,6 +4062,18 @@ components:
             pattern: "^[0-9]+$"
           additionalProperties:
             $ref: "api.yaml#/components/schemas/Settlement"
+        unretained:
+          type: object
+          description: |
+            Version bumps observed on-chain (an increment or decrement
+            landing) whose snapshot this node has not confirmed yet, keyed
+            like settlements. Each holds the status the settlement gets once
+            the snapshot confirms, so a rollback in between is not lost.
+          propertyNames:
+            type: string
+            pattern: "^[0-9]+$"
+          additionalProperties:
+            $ref: "api.yaml#/components/schemas/SettlementStatus"
 
     Deposit:
       type: object

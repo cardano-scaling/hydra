@@ -242,7 +242,7 @@ spec = parallel $ do
         CoordinatedHeadState{localUTxO, localTxs, allTxs, confirmedSnapshot, seenSnapshot, currentDepositTxId, decommitTx, version} = chs
 
     it "writes the current layout under a tag of its own" $
-      serialize' chs `shouldSatisfy` BS.isPrefixOf (serialize' ("CoordinatedHeadState3" :: Text))
+      serialize' chs `shouldSatisfy` BS.isPrefixOf (serialize' ("CoordinatedHeadState4" :: Text))
 
     it "decodes the layout written before settlements existed" $ do
       let legacy =
@@ -256,7 +256,22 @@ spec = parallel $ do
                 <> toCBOR currentDepositTxId
                 <> toCBOR decommitTx
                 <> toCBOR version
-      decodeFull' legacy `shouldBe` Right chs{settlements = emptySettlements}
+      decodeFull' legacy `shouldBe` Right chs{settlements = emptySettlements, unretained = mempty}
+
+    it "decodes the retained-map layout written before observation notes" $ do
+      let legacy =
+            toStrictByteString $
+              toCBOR ("CoordinatedHeadState3" :: Text)
+                <> toCBOR localUTxO
+                <> toCBOR localTxs
+                <> toCBOR allTxs
+                <> toCBOR confirmedSnapshot
+                <> toCBOR seenSnapshot
+                <> toCBOR currentDepositTxId
+                <> toCBOR decommitTx
+                <> toCBOR version
+                <> toCBOR chs.settlements
+      decodeFull' legacy `shouldBe` Right chs{unretained = mempty}
 
     let headId = generateWith arbitrary 1
         deposited = generateWith (resize 2 arbitrary) 2
@@ -288,7 +303,7 @@ spec = parallel $ do
         it ("migrates V2 with " <> description) $ do
           let expected = Map.fromList [((getSnapshot snapshot).version, Settlement{snapshot, status = Landed slot}) | LegacyFinalizedSnapshot snapshot slot <- catMaybes [finalizedCommit, finalizedDecommit]]
           retained <- either (fail . show) pure $ trySettlementsFromMap expected
-          decodeFull' (legacyV2 version finalizedCommit finalizedDecommit) `shouldBe` Right chs{settlements = retained}
+          decodeFull' (legacyV2 version finalizedCommit finalizedDecommit) `shouldBe` Right chs{settlements = retained, unretained = mempty}
 
     it "coalesces identical V2 snapshots using the later observation slot" $ do
       decoded <- either (fail . show) pure $ decodeFull' @(CoordinatedHeadState Tx) (legacyV2 version (Just $ LegacyFinalizedSnapshot commit 40) (Just $ LegacyFinalizedSnapshot commit 60))

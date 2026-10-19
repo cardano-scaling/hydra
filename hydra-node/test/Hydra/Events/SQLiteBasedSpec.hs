@@ -291,7 +291,7 @@ legacyCheckpoint kind = do
       trySettlementsFromMap $
         Map.fromList
           [((getSnapshot snapshot).version, Settlement snapshot (Landed slot)) | (snapshot, slot) <- finalized]
-  let chs = openState.coordinatedHeadState{settlements = retained}
+  let chs = openState.coordinatedHeadState{settlements = retained, unretained = mempty}
       checkpointHead =
         if kind == "partial fanout"
           then FanoutProgress partial{stepsLanded = []}
