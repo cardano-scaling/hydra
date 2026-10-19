@@ -761,6 +761,9 @@ data _observes_↝_ : LocalState → ChainEvent → LocalState → Set where
     → LocalState.deposits st ≡ before ++ ((txα , D) ∷ after)
     → st observes (recoverTx txα) ↝ record st { deposits = before ++ after }
 
+  -- The implementation retries the lowest erased settlement on each block tick.
+  -- An increment waits until its deposit is observed again. Retry scheduling
+  -- and retained snapshots are outside LocalState; the protocol rules are unchanged.
   tick-update : ∀ {st t}
     → st observes (tick t)
         ↝ record st
