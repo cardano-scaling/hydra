@@ -20,9 +20,11 @@ import Hydra.HeadLogic.State (
   Settlement (..),
   SettlementStatus (..),
   Settlements,
+  UnretainedSettlements,
   emptySettlements,
   mkSeenSnapshot,
   tryInsertSettlement,
+  unretainedFromMap,
  )
 import Hydra.Tx.Snapshot qualified as Snapshot
 import Test.Hydra.Tx.Gen (ArbitraryIsTx)
@@ -104,3 +106,6 @@ instance forall tx. ArbitraryIsTx tx => Arbitrary (Settlements tx) where
       case tryInsertSettlement entry current of
         Left _ -> current
         Right updated -> updated
+
+instance Arbitrary UnretainedSettlements where
+  arbitrary = unretainedFromMap <$> arbitrary
