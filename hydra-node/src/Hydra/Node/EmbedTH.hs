@@ -6,12 +6,17 @@ import Hydra.Prelude
 import Data.FileEmbed (embedFile)
 import Language.Haskell.TH (Exp, Q, runIO)
 import System.Directory (findExecutable)
+import System.Environment qualified as Env
 
--- | Template haskell expression to find and embed an executable with given name.
-embedExecutable :: String -> Q Exp
-embedExecutable exe = do
+-- | Embed an executable selected by an environment variable, falling back to
+-- PATH for native development builds. Cross builds supply the target executable
+-- explicitly, independently of the tools running on the build machine.
+embedExecutable :: String -> String -> Q Exp
+embedExecutable pathVariable exe = do
   fp <- runIO $ do
-    findExecutable exe >>= \case
+    configured <- Env.lookupEnv pathVariable
+    candidate <- maybe (findExecutable exe) (pure . Just) configured
+    case candidate of
       Nothing -> fail $ exe <> " not found, ensure it is in PATH when compiling (and do a cabal clean)"
       Just fp -> do
         putStrLn $ "Embedding " <> exe <> " from: " <> fp

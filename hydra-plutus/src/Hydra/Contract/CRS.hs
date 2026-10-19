@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -fno-specialize #-}
 {-# OPTIONS_GHC -fplugin-opt Plinth.Plugin:conservative-optimisation #-}
@@ -13,14 +14,19 @@ module Hydra.Contract.CRS (
 
 import Hydra.Prelude hiding (filter, foldMap, isJust, map, (<$>), (==), (>=))
 
-import Hydra.Cardano.Api (PlutusScript, pattern PlutusScriptSerialised)
+#ifdef HYDRA_PRECOMPILED_SCRIPTS
+import Hydra.Contract.Precompiled qualified as Precompiled
+import Hydra.Plutus.Extras (ValidatorType)
+import PlutusLedgerApi.V3 (serialiseCompiledCode)
+import PlutusTx (CompiledCode)
+#else
 import Hydra.Plutus.Extras (ValidatorType, wrapValidator)
-import Plutus.Crypto.BlsUtils (getFinalPoly, getG2Commitment, mkScalar)
-import PlutusLedgerApi.V3 (
-  ScriptContext (..),
-  serialiseCompiledCode,
- )
+import PlutusLedgerApi.V3 (ScriptContext (..), serialiseCompiledCode)
 import PlutusTx (CompiledCode, compile)
+#endif
+
+import Hydra.Cardano.Api (PlutusScript, pattern PlutusScriptSerialised)
+import Plutus.Crypto.BlsUtils (getFinalPoly, getG2Commitment, mkScalar)
 import PlutusTx.Builtins (
   BuiltinBLS12_381_G1_Element,
   BuiltinBLS12_381_G2_Element,
@@ -69,6 +75,7 @@ checkMembershipPairing commitment proof crsG2 ints =
             (bls12_381_millerLoop commitment g2)
             (bls12_381_millerLoop proof (getG2Commitment crsG2 (getFinalPoly (fmap mkScalar ints))))
 
+#ifndef HYDRA_PRECOMPILED_SCRIPTS
 -- | Validator for the CRS reference script UTxO.
 --
 -- This UTxO is published at an __AlwaysFails__ script address, meaning the
@@ -84,14 +91,19 @@ crsValidator ::
   ScriptContext ->
   Bool
 crsValidator _ _ _ = False
+#endif
 
 crsValidatorScript :: CompiledCode ValidatorType
+#ifdef HYDRA_PRECOMPILED_SCRIPTS
+crsValidatorScript = Precompiled.crsValidatorScript
+#else
 crsValidatorScript =
   $$( PlutusTx.compile
         [||wrap crsValidator||]
     )
  where
   wrap = wrapValidator @CRSDatum @()
+#endif
 
 validatorScript :: PlutusScript
 validatorScript = PlutusScriptSerialised $ serialiseCompiledCode crsValidatorScript

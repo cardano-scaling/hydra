@@ -12,13 +12,18 @@ import Codec.CBOR.Write (toLazyByteString)
 import Control.Concurrent.Class.MonadSTM (
   check,
   modifyTVar',
+  newEmptyTMVarIO,
   newTVarIO,
+  putTMVar,
   readTBQueue,
   readTQueue,
   readTVarIO,
+  retry,
+  takeTMVar,
   writeTBQueue,
   writeTQueue,
  )
+import Control.Monad.Class.MonadAsync (AsyncCancelled (..), cancel, wait)
 import Control.Tracer.JSON (Envelope (message), showLogsOnFailure, traceInTVar)
 import Data.Aeson (Result (..), fromJSON, object, (.=))
 import Data.Bits (testBit)
@@ -34,7 +39,7 @@ import Hydra.Network (
   ProtocolVersion (..),
   WhichEtcd (..),
  )
-import Hydra.Network.Etcd (EtcdLog (..), LastKnownRevisionException (..), batchValue, connParams, getClientPort, getLastKnownRevision, grpcServer, isTransientGrpcError, peerPortToClientPort, putLastKnownRevision, putMessage, queryInitialModRev, retryableEtcdError, withEtcdNetwork)
+import Hydra.Network.Etcd (EtcdLog (..), LastKnownRevisionException (..), batchValue, catchEtcdError, connParams, getClientPort, getLastKnownRevision, grpcServer, isTransientGrpcError, peerPortToClientPort, putLastKnownRevision, putMessage, queryInitialModRev, retryableEtcdError, withEtcdNetwork, withProcessInterrupt)
 import Hydra.Network.Message (Message (..))
 import Hydra.Node.Network (NetworkConfiguration (..))
 import Network.GRPC.Client (Address (..), Server (..), ServerDisconnected (..), withConnection)
@@ -62,7 +67,7 @@ import Network.Socket.ByteString (recv, sendAll)
 import System.Directory (removeFile)
 import System.FilePath ((</>))
 import System.IO.Error (userError)
-import System.Process.Typed (readProcessStdout_, runProcess_, shell)
+import System.Process.Typed (proc, readProcessStdout_, runProcess_, shell, waitExitCode)
 import Test.Aeson.GenericSpecs (Settings (..), defaultSettings, roundtripAndGoldenADTSpecsWithSettings)
 import Test.Hydra.Ledger.Simple ()
 import Test.Hydra.Network.Message ()
@@ -74,6 +79,39 @@ import Test.Util (noopCallback, waitEq, waitMatch)
 
 spec :: Spec
 spec = do
+  it "stops a child before waiting for its blocked reader on cancellation" $
+    failAfter 10 $ do
+      reading <- newEmptyTMVarIO
+      let runChild = withProcessInterrupt (proc "sleep" ["30"]) $ \p _ ->
+            withAsyncLabelled
+              ( "blocked-child-reader"
+              , -- Model a Windows read that cannot receive cancellation until
+                -- the child exits. The old cleanup order waits for all 30s.
+                uninterruptibleMask_ $ do
+                  atomically $ putTMVar reading ()
+                  void $ waitExitCode p
+              )
+              $ \_ -> atomically retry
+      withAsyncLabelled ("child-scope", runChild) $ \worker -> do
+        atomically $ takeTMVar reading
+        cancel worker
+
+  it "preserves cancellation when RPC cleanup throws a retryable error" $ do
+    started <- newEmptyTMVarIO
+    releaseRetry <- newEmptyTMVarIO
+    let request =
+          (atomically (putTMVar started ()) >> atomically retry)
+            `finally` throwIO ConnectionIsClosed
+    withAsyncLabelled ("retrying-request", catchEtcdError request $ const $ atomically $ takeTMVar releaseRetry) $ \worker ->
+      ( do
+          atomically $ takeTMVar started
+          failAfter 1 $ cancel worker
+          wait worker `shouldThrow` (== AsyncCancelled)
+      )
+        -- Let a broken implementation finish its retry handler on failure,
+        -- so this regression fails rather than hanging the test suite.
+        `finally` atomically (putTMVar releaseRetry ())
+
   -- TODO: add tests about advertise being honored
   --
   -- Per-test 'failAfter' budgets in this block are deliberately generous

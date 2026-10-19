@@ -45,10 +45,12 @@ import Cardano.Crypto.Hash (SHA256, hashToStringAsHex, hashWithSerialiser)
 import Codec.CBOR.Encoding qualified as CBOR
 import Codec.CBOR.Write qualified as CBOR
 import Control.Concurrent.Class.MonadSTM (
+  check,
   readTVarIO,
   swapTVar,
   writeTVar,
  )
+import Control.Concurrent.MVar (newMVar, withMVar)
 import Control.Concurrent.PersistentQueue (
   PersistentQueue,
   newPersistentQueue,
@@ -60,6 +62,7 @@ import Control.Concurrent.PersistentQueue (
 import Control.Concurrent.PersistentQueue qualified as Queue
 import Control.Exception (IOException)
 import Control.Lens ((^.), (^..), (^?))
+import Control.Monad.Class.MonadAsync (wait)
 import Control.Tracer.JSON (Tracer, traceWith)
 import Data.Aeson (decodeFileStrict', encodeFile)
 import Data.Aeson qualified as Aeson
@@ -112,11 +115,12 @@ import System.Directory (renameFile)
 import System.Environment.Blank (getEnvironment)
 import System.FilePath ((</>))
 import System.IO.Error (isDoesNotExistError, isEOFError)
-import System.Process (interruptProcessGroupOf)
+import System.Process (interruptProcessGroupOf, terminateProcess)
 import System.Process.Typed (
   Process,
   ProcessConfig,
   createPipe,
+  getExitCode,
   getStderr,
   proc,
   setCreateGroup,
@@ -147,11 +151,16 @@ withEtcdNetwork tracer protocolVersion config callback action = do
   -- message below, which is otherwise silent about the reason etcd exited
   -- (e.g. which port was already bound).
   recentStderr <- newIORef []
-  withProcessInterrupt (etcdCmd etcdBinPath envVars) $ \p -> do
+  withProcessInterrupt (etcdCmd etcdBinPath envVars) $ \p stop -> do
+    stopping <- newLabelledTVarIO "etcd-stopping" False
+    let stopEtcd = atomically (writeTVar stopping True) >> stop
     raceLabelled_
       ( "etcd-waitExitCode"
       , do
           ec <- waitExitCode p
+          -- An intentional shutdown lets the callback finish with its own
+          -- result rather than reporting the child exit as a network failure.
+          atomically $ readTVar stopping >>= check . not
           -- Let 'traceStderr' drain the last lines out of the closing pipe.
           threadDelay 0.1
           stderrLines <- reverse <$> readIORef recentStderr
@@ -185,6 +194,7 @@ withEtcdNetwork tracer protocolVersion config callback action = do
                                     Network
                                       { broadcast = writePersistentQueue (contramap fromPersistentQueueLog tracer) queue
                                       }
+                                    `finally` stopEtcd
                               )
                         )
                     )
@@ -409,7 +419,7 @@ broadcastMessages tracer config ourHost queue = do
     -- ports. Messages are only popped after a successful put, so a recycled or
     -- failed connection never loses one.
     void $ peekPersistentQueue queue
-    catchJust retryableEtcdError (sendPending lastModRevVar inFlightVar) $ \reason -> do
+    catchEtcdError (sendPending lastModRevVar inFlightVar) $ \reason -> do
       traceWith tracer $ BroadcastFailed{reason}
       threadDelay 1
  where
@@ -445,7 +455,7 @@ broadcastMessages tracer config ourHost queue = do
   -- Same retry shape as the broadcast loop, so we survive an etcd cluster that
   -- is still electing or that we briefly cannot reach.
   retryInitQuery =
-    catchJust retryableEtcdError (queryInitialModRev tracer config ourHost) $ \reason -> do
+    catchEtcdError (queryInitialModRev tracer config ourHost) $ \reason -> do
       traceWith tracer $ BroadcastFailed{reason}
       threadDelay 1
       retryInitQuery
@@ -596,7 +606,7 @@ waitMessages tracer conn directory NetworkCallback{deliver} =
   withGrpcContext "waitMessages" . forever $ do
     -- Restart a failed watch from the last known revision, same as one that
     -- ended cleanly. Without this any connection blip kills the node.
-    catchJust retryableEtcdError watch $ \reason ->
+    catchEtcdError watch $ \reason ->
       traceWith tracer WatchFailed{reason}
     -- Wait before re-trying
     threadDelay 1
@@ -722,7 +732,7 @@ pollConnectivity ::
 pollConnectivity tracer conn advertise NetworkCallback{onConnectivity} = do
   seenAliveVar <- newLabelledTVarIO "etcd-seen-alive" []
   withGrpcContext "pollConnectivity" . forever $
-    catchJust retryableEtcdError (poll seenAliveVar) (onConnectionLost seenAliveVar)
+    catchEtcdError (poll seenAliveVar) (onConnectionLost seenAliveVar)
  where
   poll seenAliveVar = do
     leaseId <- createLease
@@ -812,6 +822,15 @@ isTransientGrpcError :: GrpcError -> Bool
 isTransientGrpcError =
   (`elem` [GrpcUnavailable, GrpcDeadlineExceeded, GrpcCancelled, GrpcNotFound])
 
+-- | Handle transient RPC failures without losing cancellation to an exception
+-- raised by RPC cleanup.
+catchEtcdError :: IO a -> (Text -> IO a) -> IO a
+catchEtcdError action =
+  -- When etcd stops, RPC cleanup can replace AsyncCancelled with a connection
+  -- error. Keep the request in its own thread so cancelling the caller still
+  -- propagates the original exception instead of entering the retry handler.
+  catchJust retryableEtcdError $ withAsyncLabelled ("etcd-rpc", action) wait
+
 -- | Classify a failure talking to our local etcd, giving a reason to trace when
 -- retrying is the right response.
 --
@@ -844,30 +863,33 @@ withGrpcContext context action =
               Just msg -> Just $ context <> ": " <> msg
         }
 
--- | Like 'withProcessTerm', but sends first SIGINT and only SIGTERM if not
--- stopped within 5 seconds.
+-- | Stop the child before joining the action's threads. On Windows, a reader
+-- blocked on the child's stderr or sockets cannot be cancelled until those
+-- resources close. The action can also stop the child before unwinding its own
+-- thread scopes on normal completion.
 withProcessInterrupt ::
-  (MonadIO m, MonadThrow m) =>
   ProcessConfig stdin stdout stderr ->
-  (Process stdin stdout stderr -> m a) ->
-  m a
-withProcessInterrupt config =
-  bracket (startProcess $ config & setCreateGroup True) signalAndStopProcess
- where
-  signalAndStopProcess :: MonadIO m => Process stdin stdout stderr -> m ()
-  signalAndStopProcess p = liftIO $ do
-    interruptProcessGroupOf (unsafeProcessHandle p)
-    raceLabelled_
-      ("etcd-signalAndStopProcess-waitExitCode", void $ waitExitCode p)
-      -- 'stopProcess' can lose a reap race against its own waiter thread when
-      -- the process dies right around the SIGTERM escalation: its internal
-      -- 'waitForProcess' then throws ECHILD ("does not exist"). The process is
-      -- dead either way, which is all we wanted here.
-      ( "etcd-signalAndStopProcess-stopProcess"
-      , threadDelay 5
-          >> stopProcess p
-          `catch` (\e -> unless (isDoesNotExistError e) $ throwIO e)
-      )
+  (Process stdin stdout stderr -> IO () -> IO a) ->
+  IO a
+withProcessInterrupt config action =
+  bracket (startProcess $ config & setCreateGroup True) stopProcess $ \p -> do
+    stopping <- newMVar ()
+    let stop = withMVar stopping $ \_ -> do
+          exited <- getExitCode p
+          when (isNothing exited) $ do
+            interruptProcessGroupOf (unsafeProcessHandle p)
+            raceLabelled_
+              ("etcd-stop-waitExitCode", void $ waitExitCode p)
+              ( "etcd-stop-terminate"
+              , do
+                  threadDelay 5
+                  -- stopProcess closes pipe handles first, which can itself
+                  -- block on a Windows reader. Terminate before closing them.
+                  terminateProcess (unsafeProcessHandle p)
+                  void $ waitExitCode p
+              )
+    withAsyncLabelled ("etcd-network", action p stop) $ \worker ->
+      wait worker `finally` stop
 
 -- * Tracing
 
