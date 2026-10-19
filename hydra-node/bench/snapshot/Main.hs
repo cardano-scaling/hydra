@@ -94,6 +94,7 @@ benchCell n m = do
                         , decommitTx = Nothing
                         , version = 0
                         , settlements = emptySettlements
+                        , unretained = mempty
                         }
                   , chainState = initialChainState
                   , headId = testHeadId

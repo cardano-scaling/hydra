@@ -516,6 +516,13 @@ leader and there are already transactions to snapshot in $hatmT$, a
 corresponding $hpRS$ is distributed. \
 \
 
+The implementation records a settlement observed before its snapshot confirms
+as a note indexed by snapshot version. When version $v$ confirms, it first uses
+the note at $v$ to retain the settlement with its observed or erased status,
+then removes all notes at or below $v$. Splitting the ordered map at $v$ keeps
+exactly the notes above $v$ without scanning the whole map. These rollback
+notes are implementation bookkeeping outside the `LocalState` model below.
+
 The implementation caches the deposit IDs claimed by retained settlements to
 exclude them from new snapshot proposals and recovery. This cache equals the
 set derived from all retained snapshots, including erased settlements, and is
@@ -600,6 +607,12 @@ version wait for chain observations; older requests are rejected.
 `OffChainReference.signEligibleRef` checks this version rule. The operational figure stores the requested version as $v_(sans("signed"))$ and uses it for acknowledgement verification and settlement posting, even if the local chain version advances. The `reqSn-sign`
 constructor below describes its equal-version subcase.
 
+The implementation indexes erased settlement versions and caches the earliest
+landed observation slot for retained settlements and unretained notes. Ticks
+select the lowest erased version and skip expiry scans until a landed entry
+reaches the rollback cutoff. Re-landing refreshes the observation slot; erased
+entries never expire. These derived caches do not alter protocol transitions.
+
 The network-message handlers above are transcribed as the relation
 `_handles_↝_`: one constructor per handler arm, each carrying
 its `require`/`wait` guards from @fig:off-chain-prot as premises (the reqTx applicability guard, the
@@ -659,6 +672,9 @@ data _handles_↝_ : LocalState → Message → LocalState → Set where
   -- honest party signed it). The figure's operational `require msVfy(…, msComb Σ̂)` over the COMBINED
   -- multisignature is the implementation of that n-of-n condition (via ms-unforgeability); it is
   -- formalised precisely at the §7 `confirm` step (`AggVerified`/`msVfy`), so it is not duplicated here.
+  -- LocalState omits settlement observation notes. The implementation consumes the note at
+  -- snap.version before pruning notes at or below it; notes at greater versions remain.
+
   -- The implementation's opaque Settlements type maintains retained deposit claims outside
   -- LocalState. Checked insertion gives each deposit one retained version;
   -- erasing a settlement keeps its claims. A conflict leaves the state unchanged.

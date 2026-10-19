@@ -168,6 +168,7 @@ reqSnState vHat sHat =
       , decommitTx = Nothing
       , version = fromInteger vHat
       , settlements = emptySettlements
+      , unretained = mempty
       }
 
 -- Run the REAL handler on a (v, s) request from the given sender.
@@ -220,6 +221,7 @@ reqDecState commit decommitInFlight =
       , decommitTx = if decommitInFlight then Just inFlightDecommit else Nothing
       , version = 0
       , settlements = emptySettlements
+      , unretained = mempty
       }
   registry = case commit of
     NoCommitP -> mempty
@@ -307,6 +309,7 @@ settleState =
       , decommitTx = Nothing
       , version = 0
       , settlements = emptySettlements
+      , unretained = mempty
       }
   -- testSnapshot with the pending commit of deposit 7 bound in; spelled out because a record
   -- update on the shared-field Snapshot type is ambiguous under DuplicateRecordFields.
@@ -356,6 +359,7 @@ decommitSettleState =
       , decommitTx = Just settlingDecommit
       , version = 0
       , settlements = emptySettlements
+      , unretained = mempty
       }
   decommitSettleSnapshot :: Snapshot SimpleTx
   decommitSettleSnapshot =
@@ -406,6 +410,7 @@ collisionState txs d =
       , decommitTx = Nothing
       , version = 0
       , settlements = emptySettlements
+      , unretained = mempty
       }
   headUTxO = utxoRef 1 <> utxoRef 2
   headSnapshot :: Snapshot SimpleTx
@@ -518,6 +523,7 @@ ackState collected =
       , decommitTx = Nothing
       , version = 0
       , settlements = emptySettlements
+      , unretained = mempty
       }
 
 -- Run the REAL handler on sender's (real-signature) AckSn over the given collected subset.
