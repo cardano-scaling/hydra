@@ -769,6 +769,8 @@ data _observes_↝_ : LocalState → ChainEvent → LocalState → Set where
     → LocalState.deposits st ≡ before ++ ((txα , D) ∷ after)
     → st observes (recoverTx txα) ↝ record st { deposits = before ++ after }
 
+  -- Partial fanout progress also records whether any step has ever landed.
+  -- A rollback preserves that flag, so a failed retry does not stop the driver.
   -- The implementation retries the lowest erased settlement on each block tick.
   -- An increment waits until its deposit is observed again. Retry scheduling
   -- and retained snapshots are outside LocalState; the protocol rules are unchanged.
