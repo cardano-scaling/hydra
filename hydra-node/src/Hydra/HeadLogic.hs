@@ -559,19 +559,21 @@ onOpenNetworkReqSn env ledger pendingDeposits ChainPointTime{currentSlot, curren
             | ttl > 0 -> wait WaitOnDepositObserved{depositTxId}
             | otherwise -> Error $ RequireFailed RequestedDepositNotFoundLocally{depositTxId}
           Just Deposit{status, deposited}
+            -- A signed claim remains the same claim after local status changes.
+            | sv == confVersion
+            , confDepositTxId == Just depositTxId
+            , confUTxOToCommit == Just deposited ->
+                cont confUTxOToCommit
             | status == Inactive -> wait WaitOnDepositActivation{depositTxId}
             -- NOTE: this makes the commits sequential in a sense that you can't
             -- commit unless the previous commit is settled.
-            | sv == confVersion && isJust confUTxOToCommit ->
-                -- NOTE: identity, not just content. Two deposits can record
-                -- the same UTxO, and only the one bound into the confirmed
-                -- snapshot is the pending commit being settled.
-                --
-                -- Accepted even if the deposit is 'Expired': its increment
-                -- may still land.
-                if confUTxOToCommit == Just deposited && confDepositTxId == Just depositTxId
-                  then cont confUTxOToCommit
-                  else Error $ RequireFailed ReqSnCommitNotSettled
+            | sv == confVersion
+            , isJust confUTxOToCommit
+            , -- Only while the claimed deposit is still tracked: once it was
+              -- recovered on L1 the claim is dropped (see 'settlingCommitAt') and
+              -- the leader may propose a fresh one.
+              maybe False (`Map.member` pendingDeposits) confDepositTxId ->
+                Error $ RequireFailed ReqSnCommitNotSettled
             | status == Expired -> Error $ RequireFailed RequestedDepositExpired{depositTxId}
             | otherwise -> cont (Just deposited)
 
@@ -1028,15 +1030,14 @@ onOpenNetworkReqDec env ledger ttl ChainPointTime{currentSlot, currentChainTime}
   -- ('nextSnapshotRequest'), and every receiver rejects a proposal
   -- carrying both ('ReqSnBothCommitAndDecommit').
   --
-  -- A ReqDec is a broadcast, and every party must reach the same decision on
-  -- it. Whether a deposit is queued locally is decided by this node's own
-  -- tick, so holding the ReqDec back on it (and rejecting it with
-  -- 'DepositInFlight' once its ttl ran out) refused the same request on some
-  -- nodes and recorded it on others; the recording nodes then held a decommit
-  -- the leader never knew about, and it was never proposed. The model's
-  -- concurrent walk found this once the late-ReqSn deadlock stopped masking
-  -- it. Only network-derived state may decide here: an in-flight decommit,
-  -- and whether the transaction applies.
+  -- A ReqDec is a broadcast, and every party must decide the same way. Whether
+  -- a deposit is queued locally depends on this node's own tick. Holding the
+  -- ReqDec back on that, and rejecting it once its ttl ran out, refused the
+  -- same request on some nodes and recorded it on others. The nodes that
+  -- recorded it then held a decommit the leader never knew about, and it was
+  -- never proposed. The model's concurrent walk found this once the late-ReqSn
+  -- deadlock stopped hiding it. Only state that every party shares may decide
+  -- here: a decommit already in flight, and whether the transaction applies.
   waitOnApplicableDecommit cont =
     case mExistingDecommitTx of
       Nothing ->
@@ -1162,7 +1163,13 @@ onOpenChainTick env chainTime pendingDeposits st
   | snapshotInFlight seenSnapshot || not (isLeader parameters party nextSn) = noop
   | otherwise =
       let settling = settlingCommitAt env version chainTime deposits confirmed
-          built = nextSnapshotRequest (settledUTxO version (getSnapshot confirmedSnapshot)) localTxs deposits currentDepositTxId decommitTx settling
+          -- A recovered claim can be replaced immediately. A claim dropped
+          -- only because its deadline passed is cleared before another one.
+          requestSettling = case settling of
+            Just DropCommit
+              | maybe True (`Map.notMember` deposits) confirmed.depositTxId -> Nothing
+            _ -> settling
+          built = nextSnapshotRequest (settledUTxO version (getSnapshot confirmedSnapshot)) localTxs deposits currentDepositTxId decommitTx requestSettling
        in case (settling, built) of
             -- The commit is still settling; requests carrying txs continue it.
             (Just (ContinueCommit _), _) -> noop
@@ -1205,27 +1212,28 @@ onOpenChainTick env chainTime pendingDeposits st
 
   OpenState{coordinatedHeadState, parameters} = st
 
--- | If this node is the snapshot leader and there is anything to snapshot
--- (pending local transactions, a deposit to carry, or a decommit recorded
--- while the commit was in flight), request the next snapshot with the bumped
--- version after a commit or decommit finalises on-chain.
+-- | If this node is the snapshot leader and there is something to snapshot
+-- (local transactions, a deposit to carry, or a decommit recorded while the
+-- commit was in flight), request the next snapshot with the bumped version
+-- after a commit or decommit lands on chain.
 --
 -- Guards:
---   * Only fires when 'newVersion' is ahead of the local 'version': this
---     avoids duplicate 'SnapshotRequestDecided' events when multiple parties
---     post the same on-chain tx and each posting produces a separate
---     finalisation observation, and it keeps a finalization re-landing after a
---     rollback (its 'newVersion' is at or behind the local version, which
---     never rolls back) from requesting a snapshot with a stale version.
---   * Skips when AckSns are already being collected ('SeenSnapshot'): the
---     node keeps collecting signatures. Once it confirms,
---     'maybeRequestNextSnapshot' requests the next snapshot with the bumped
---     version. Firing here uses stale 'localTxs' and can cause 'BadInputsUTxO'
---     on other parties. A party that receives the ReqSn after the bump can
---     sign one version behind when it preserves the confirmed action.
---   * Allows 'RequestedSnapshot': our request may still be in transit.
---     Requesting at the new version also covers a lost request; receivers
---     reject a second request for the same snapshot number as a duplicate.
+--   * Only when 'newVersion' is ahead of our 'version'. Several parties post
+--     the same transaction and each posting is observed, so this avoids one
+--     'SnapshotRequestDecided' per observation. It also keeps a settlement
+--     that landed again after a rollback (its 'newVersion' is at or behind our
+--     version, which never goes down) from requesting a snapshot with a stale
+--     version.
+--   * Not while signatures are being collected ('SeenSnapshot'). That snapshot
+--     will complete, because every party can sign it: those that saw the bump
+--     before the ReqSn sign one version behind their own (see
+--     'waitOnSnapshotVersion'), and 'maybeRequestNextSnapshot' then requests
+--     the next one with the bumped version. Firing here would use stale
+--     'localTxs' and cause 'BadInputsUTxO' on other parties.
+--   * Allowed in 'RequestedSnapshot': our own request at the old version is
+--     still on its way. Requesting again at the new version costs nothing,
+--     since every party rejects a second request for the same number as a
+--     duplicate, and it covers the case where the first one was lost.
 --
 -- The caller builds the request after removing the action that just settled.
 -- A decommit recorded while a commit was in flight can now be proposed, even

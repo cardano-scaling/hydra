@@ -191,9 +191,9 @@ than $Tdeposit$, the protocol's settlement margin against rollbacks (a deposit
 stops being claimed that long before its deadline for the same reason). Merely
 $sans("Expired")$ is too early — that status is set $Tdeposit$ ahead of the
 deadline — so a settling commit whose deposit counts as $sans("Expired")$ is
-still carried on. If a deposit is re-observed after a rollback and is locally
-$sans("Inactive")$, a snapshot request carrying it still waits for activation,
-even when the confirmed snapshot already claims that deposit.
+still carried on. A request carrying the confirmed snapshot's deposit is also
+accepted when that deposit is locally $sans("Inactive")$ after re-observation.
+The existing signed claim does not depend on this node's activation status.
 
 A settling decommit — $macron(mc(S)).U_omega != bot$ at the current version —
 is never dropped: every request at that version must carry a decommit with the
@@ -1201,11 +1201,11 @@ preventing inconsistency between the on-chain and off-chain state.
                 #kw("if") $tx_alpha != bot$
                 #nst[
                   $mc(D) <- mc(D)[tx_alpha]$ \
-                  #kw("wait") $mc(D).sans("status") != sans("Inactive")$
+                  #kw("wait") $mc(D).sans("status") != sans("Inactive") or (v = macron(mc(S)).v and tx_alpha = macron(mc(S)).tx_alpha and mc(D).U = macron(mc(S)).U_alpha)$
                   #nst[
-                    #kw("if") $v = macron(mc(S)).v and macron(mc(S)).U_alpha != bot$
+                    #kw("if") $v = macron(mc(S)).v and macron(mc(S)).U_alpha != bot and sans("tracked")(macron(mc(S)).tx_alpha)$
                     #nst[
-                      #kw("require") $tx_alpha = macron(mc(S)).tx_alpha and macron(mc(S)).U_alpha = mc(D).U$ #text(size: 0.8em)[(carried on even if locally expired)] \
+                      #kw("require") $tx_alpha = macron(mc(S)).tx_alpha and macron(mc(S)).U_alpha = mc(D).U$ #text(size: 0.8em)[(the same tracked claim is carried regardless of local status)] \
                       $U_alpha <- macron(mc(S)).U_alpha$
                     ]
                     #kw("else")
