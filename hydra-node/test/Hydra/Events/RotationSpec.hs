@@ -19,7 +19,7 @@ import Hydra.Node.State (NodeState (..), initNodeState, pendingDeposits)
 import Hydra.NodeSpec (createMockEventStore, inputsToOpenHead, notConnect, observationInput, primeWith, primeWithTime, runToCompletion)
 import Hydra.Tx.ContestationPeriod (toNominalDiffTime)
 import Test.Hydra.Ledger.Simple (utxoRef)
-import Test.Hydra.Node.Fixture (testEnvironment, testHeadId)
+import Test.Hydra.Node.Fixture (testEnvironment, testHeadId, testRollbackHorizon)
 import Test.Hydra.Tx.Fixture (cperiod)
 import Test.QuickCheck (Positive (..), choose, sized)
 import Test.QuickCheck.Instances.Natural ()
@@ -47,7 +47,7 @@ spec = parallel $ do
         store@EventStore{eventSource, eventSink} <- createMockEventStore
         let events = [StateEvent 0 (Checkpoint currentState) now, StateEvent 1 CommitFinalized{chainState = 9, headId = testHeadId, newVersion = 2, depositTxId = 42} now]
         mapM_ (putEvent eventSink) events
-        newRotatedEventStoreM (RotateAfter 1) (initNodeState 0) replayStateEvent mkCheckpoint store
+        newRotatedEventStoreM (RotateAfter 1) (initNodeState 0) (replayStateEvent testRollbackHorizon) mkCheckpoint store
           `shouldThrow` \StateAggregationException{conflictingEventId} -> conflictingEventId == 1
         getEvents eventSource `shouldReturn` events
 
@@ -58,7 +58,7 @@ spec = parallel $ do
           -- this is hardcoded to ensure we get a checkpoint + single event at the end
           let rotationConfig = RotateAfter 2
           let s0 = initNodeState 0
-          rotatingEventStore <- newRotatedEventStoreM rotationConfig s0 replayStateEvent mkCheckpoint eventStore
+          rotatingEventStore <- newRotatedEventStoreM rotationConfig s0 (replayStateEvent testRollbackHorizon) mkCheckpoint eventStore
           testHydrate rotatingEventStore []
             >>= notConnect
             >>= primeWithTime
@@ -73,7 +73,7 @@ spec = parallel $ do
           -- this is hardcoded to ensure we get a single checkpoint event at the end
           let rotationConfig = RotateAfter 1
           let s0 = initNodeState 0
-          rotatingEventStore <- newRotatedEventStoreM rotationConfig s0 replayStateEvent mkCheckpoint eventStore
+          rotatingEventStore <- newRotatedEventStoreM rotationConfig s0 (replayStateEvent testRollbackHorizon) mkCheckpoint eventStore
           testHydrate rotatingEventStore []
             >>= notConnect
             >>= primeWithTime
@@ -97,7 +97,7 @@ spec = parallel $ do
           -- checkpoint capturing the recorded deposit.
           let rotationConfig = RotateAfter 1
           let s0 = initNodeState 0
-          rotatingEventStore <- newRotatedEventStoreM rotationConfig s0 replayStateEvent mkCheckpoint eventStore
+          rotatingEventStore <- newRotatedEventStoreM rotationConfig s0 (replayStateEvent testRollbackHorizon) mkCheckpoint eventStore
           now <- getCurrentTime
           let deadline = toNominalDiffTime cperiod `addUTCTime` now
           let depositTxId = 1
@@ -110,7 +110,7 @@ spec = parallel $ do
           -- Restart reconstructs the node state exactly like 'hydrate' does:
           -- fold the stored events (a single checkpoint) with 'aggregateNodeState'.
           events <- getEvents (eventSource rotatingEventStore)
-          restored <- foldlM replayStateEvent s0 events
+          restored <- foldlM (replayStateEvent testRollbackHorizon) s0 events
           Map.keys (pendingDeposits restored) `shouldBe` [depositTxId]
       it "a rotated and non-rotated node have consistent state" $ \testHydrate -> do
         -- prepare inputs
@@ -125,7 +125,7 @@ spec = parallel $ do
           let rotationConfig = RotateAfter 1
           -- run rotated event store with prepared inputs
           let s0 = initNodeState 0
-          rotatingEventStore <- newRotatedEventStoreM rotationConfig s0 replayStateEvent mkCheckpoint eventStore
+          rotatingEventStore <- newRotatedEventStoreM rotationConfig s0 (replayStateEvent testRollbackHorizon) mkCheckpoint eventStore
           testHydrate rotatingEventStore []
             >>= notConnect
             >>= primeWith inputs
@@ -139,7 +139,7 @@ spec = parallel $ do
           -- aggregating stored events should yield consistent states
           [StateEvent{stateChanged = checkpoint}] <- getEvents (eventSource rotatingEventStore)
           events' <- getEvents (eventSource eventStore')
-          checkpoint' <- foldlM replayStateEvent s0 events'
+          checkpoint' <- foldlM (replayStateEvent testRollbackHorizon) s0 events'
           checkpoint `shouldBe` Checkpoint checkpoint'
       it "a restarted and non-restarted node have consistent rotation" $ \testHydrate -> do
         -- prepare inputs
@@ -156,20 +156,20 @@ spec = parallel $ do
           let rotationConfig = RotateAfter 1
           -- run restarted node with prepared inputs
           eventStore <- createMockEventStore
-          rotatingEventStore1 <- newRotatedEventStoreM rotationConfig s0 replayStateEvent mkCheckpoint eventStore
+          rotatingEventStore1 <- newRotatedEventStoreM rotationConfig s0 (replayStateEvent testRollbackHorizon) mkCheckpoint eventStore
           testHydrate rotatingEventStore1 []
             >>= notConnect
             >>= primeWithTime
             >>= primeWith inputs1
             >>= runToCompletion
-          rotatingEventStore2 <- newRotatedEventStoreM rotationConfig s0 replayStateEvent mkCheckpoint rotatingEventStore1
+          rotatingEventStore2 <- newRotatedEventStoreM rotationConfig s0 (replayStateEvent testRollbackHorizon) mkCheckpoint rotatingEventStore1
           testHydrate rotatingEventStore2 []
             >>= notConnect
             >>= primeWith inputs2
             >>= runToCompletion
           -- run non-restarted node with prepared inputs
           eventStore' <- createMockEventStore
-          rotatingEventStore' <- newRotatedEventStoreM rotationConfig s0 replayStateEvent mkCheckpoint eventStore'
+          rotatingEventStore' <- newRotatedEventStoreM rotationConfig s0 (replayStateEvent testRollbackHorizon) mkCheckpoint eventStore'
           testHydrate rotatingEventStore' []
             >>= notConnect
             >>= primeWithTime

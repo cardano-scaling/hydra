@@ -45,7 +45,7 @@ import Hydra.HeadLogic.Outcome qualified as StateChanged
 import Hydra.HeadLogic.StateEvent (StateEvent (..), replayStateEvent)
 import Hydra.Network (IP, PortNumber, StallReason)
 import Hydra.Node.ApiTransactionTimeout (ApiTransactionTimeout)
-import Hydra.Node.Environment (Environment)
+import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.State (Deposit (..), NodeState (..), initNodeState, pendingDeposits)
 import Hydra.Options (RunOptions)
 import Hydra.Tx (IsTx (..), Party, Snapshot, txId, utxoFromTx)
@@ -114,7 +114,7 @@ withAPIServer config runOptions env party eventSource tracer initialChainState c
     responseChannel <- newBroadcastTChanIO
     -- Initialize our read models from stored events
     -- NOTE: we do not keep the stored events around in memory
-    nodeStateP <- mkProjectionM "nodeStateP" (initNodeState initialChainState) replayStateEvent
+    nodeStateP <- mkProjectionM "nodeStateP" (initNodeState initialChainState) (replayStateEvent (rollbackHorizon env))
     -- XXX: We never subscribe to changes of commitInfoP et al directly so a
     -- single read model and normal functions mapping from HeadState ->
     -- CommitInfo etc. would suffice and are less fragile

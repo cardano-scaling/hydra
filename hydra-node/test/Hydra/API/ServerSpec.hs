@@ -64,7 +64,7 @@ import Network.WebSockets (Connection, ConnectionException, receiveData, runClie
 import System.IO.Error (isAlreadyInUseError)
 import Test.Hydra.HeadLogic.StateEvent (genStateEvent)
 import Test.Hydra.Ledger.Simple (aValidTx, utxoRefs)
-import Test.Hydra.Node.Fixture (testEnvironment)
+import Test.Hydra.Node.Fixture (testEnvironment, testRollbackHorizon)
 import Test.Hydra.Tx.Fixture (alice, defaultPParams, testHeadId)
 import Test.Hydra.Tx.Gen ()
 import Test.QuickCheck (checkCoverage, cover, forAllShrink, generate, listOf, suchThat)
@@ -77,7 +77,7 @@ spec =
     it "keeps the API projection unchanged on a settlement conflict" $ do
       currentState <- settlementConflictState 1
       now <- getCurrentTime
-      projection <- mkProjectionM "settlement-conflict" currentState replayStateEvent
+      projection <- mkProjectionM "settlement-conflict" currentState (replayStateEvent testRollbackHorizon)
       let event = StateEvent 7 Outcome.CommitFinalized{chainState = 9, headId = testHeadId, newVersion = 2, depositTxId = 42} now
       atomically (update projection event)
         `shouldThrow` \StateAggregationException{conflictingEventId} -> conflictingEventId == 7

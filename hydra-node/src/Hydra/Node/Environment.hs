@@ -4,6 +4,7 @@ import Hydra.Prelude hiding (show)
 
 import Data.Aeson (object, withObject, (.:), (.=))
 import Data.Secret (Secret)
+import Hydra.Chain.ChainState (ChainSlot)
 import Hydra.Node.UnsyncedPeriod (UnsyncedPeriod)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Hydra.Tx.Crypto (HydraKey, SigningKey, generateSigningKey)
@@ -30,6 +31,9 @@ data Environment = Environment
   , unsyncedPeriod :: UnsyncedPeriod
   -- ^ Period of time after which we consider the node becoming unsynced with the chain.
   -- Beyond this period the node will refuse to process new transactions and signing snapshots.
+  , rollbackHorizon :: ChainSlot
+  -- ^ Legacy slot-based retention setting, retained for persisted environment
+  -- compatibility. Pruning now requires block-depth finality from the backend.
   , configuredPeers :: Text
   -- ^ Configured peers for the network layer, used for comparison on etcd errors.
   }
@@ -39,7 +43,7 @@ data Environment = Environment
 -- 'signingKey' field, which is a 'TypeError'. The hand-rolled instance
 -- below simply omits it.
 instance Show Environment where
-  show Environment{party, otherParties, participants, contestationPeriod, depositPeriod, depositActivation, unsyncedPeriod, configuredPeers} =
+  show Environment{party, otherParties, participants, contestationPeriod, depositPeriod, depositActivation, unsyncedPeriod, rollbackHorizon, configuredPeers} =
     "Environment {party = "
       <> show party
       <> ", signingKey = <Secret>, otherParties = "
@@ -54,6 +58,8 @@ instance Show Environment where
       <> show depositActivation
       <> ", unsyncedPeriod = "
       <> show unsyncedPeriod
+      <> ", rollbackHorizon = "
+      <> show rollbackHorizon
       <> ", configuredPeers = "
       <> show configuredPeers
       <> "}"
@@ -62,7 +68,7 @@ instance Show Environment where
 -- the WebSocket API sends 'Environment' to clients as part of 'Greetings',
 -- and the signing key must never appear on the wire.
 instance ToJSON Environment where
-  toJSON Environment{party, otherParties, participants, contestationPeriod, depositPeriod, depositActivation, unsyncedPeriod, configuredPeers} =
+  toJSON Environment{party, otherParties, participants, contestationPeriod, depositPeriod, depositActivation, unsyncedPeriod, rollbackHorizon, configuredPeers} =
     object
       [ "party" .= party
       , "otherParties" .= otherParties
@@ -71,6 +77,7 @@ instance ToJSON Environment where
       , "depositPeriod" .= depositPeriod
       , "depositActivation" .= depositActivation
       , "unsyncedPeriod" .= unsyncedPeriod
+      , "rollbackHorizon" .= rollbackHorizon
       , "configuredPeers" .= configuredPeers
       ]
 
@@ -91,13 +98,14 @@ instance FromJSON Environment where
       <*> o .: "depositPeriod"
       <*> o .: "depositActivation"
       <*> o .: "unsyncedPeriod"
+      <*> o .: "rollbackHorizon"
       <*> o .: "configuredPeers"
 
 -- | Like the JSON instance above, 'ToCBOR' deliberately omits 'signingKey'
 -- (CBOR-encoding a 'Secret' is a compile-time error by design). This is why
 -- the codec stays hand-written; the leading tag matches the generic format.
 instance ToCBOR Environment where
-  toCBOR Environment{party, otherParties, participants, contestationPeriod, depositPeriod, depositActivation, unsyncedPeriod, configuredPeers} =
+  toCBOR Environment{party, otherParties, participants, contestationPeriod, depositPeriod, depositActivation, unsyncedPeriod, rollbackHorizon, configuredPeers} =
     toCBOR ("Environment" :: Text)
       <> toCBOR party
       <> toCBOR otherParties
@@ -106,6 +114,7 @@ instance ToCBOR Environment where
       <> toCBOR depositPeriod
       <> toCBOR depositActivation
       <> toCBOR unsyncedPeriod
+      <> toCBOR rollbackHorizon
       <> toCBOR configuredPeers
 
 -- | Like the JSON instance above, the decoded signing key is
@@ -121,6 +130,7 @@ instance FromCBOR Environment where
         depositPeriod <- fromCBOR
         depositActivation <- fromCBOR
         unsyncedPeriod <- fromCBOR
+        rollbackHorizon <- fromCBOR
         configuredPeers <- fromCBOR
         pure
           Environment
@@ -132,6 +142,7 @@ instance FromCBOR Environment where
             , depositPeriod
             , depositActivation
             , unsyncedPeriod
+            , rollbackHorizon
             , configuredPeers
             }
       tag -> fail $ show tag <> " is not a proper CBOR-encoded Environment"

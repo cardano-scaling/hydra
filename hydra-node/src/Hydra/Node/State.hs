@@ -32,7 +32,8 @@ data TrackedDeposit tx = TrackedDeposit
   , consumedAt :: Maybe ChainSlot
   -- ^ Slot at which a consuming transaction (increment or recover) was
   -- observed, if any. A consumed deposit is no longer pending, but is retained
-  -- for 'depositRetentionHorizon' so a rollback can resurface it.
+  -- for the rollback horizon, so that a rollback can make it pending again
+  -- (see 'pruneConsumedDeposits').
   }
   deriving stock (Generic)
 
@@ -68,8 +69,16 @@ instance view ~ PendingDeposits tx => HasField "pendingDeposits" (NodeState tx) 
 
 -- | Record a newly observed deposit at the given slot. Re-recording an id (its
 -- deposit transaction re-landed after a rollback) starts a fresh lifecycle.
-recordDeposit :: IsTx tx => ChainSlot -> TxIdType tx -> Deposit tx -> NodeState tx -> NodeState tx
-recordDeposit slot depositTxId deposit nodeState =
+recordDeposit ::
+  IsTx tx =>
+  -- | Legacy slot horizon (ignored; pruning requires block-depth finality).
+  ChainSlot ->
+  ChainSlot ->
+  TxIdType tx ->
+  Deposit tx ->
+  NodeState tx ->
+  NodeState tx
+recordDeposit _horizon slot depositTxId deposit nodeState =
   nodeState
     { deposits =
         Map.insert depositTxId TrackedDeposit{deposit, recordedAt = slot, consumedAt = Nothing} $
@@ -86,8 +95,15 @@ updateDeposit depositTxId deposit nodeState =
 -- observed on chain. Re-consuming (the consuming transaction re-landed after a
 -- rollback) re-stamps the slot, so a rollback of the re-landed transaction
 -- still resurfaces the deposit.
-consumeDeposit :: IsTx tx => ChainSlot -> TxIdType tx -> NodeState tx -> NodeState tx
-consumeDeposit slot depositTxId nodeState =
+consumeDeposit ::
+  IsTx tx =>
+  -- | Legacy slot horizon (ignored; pruning requires block-depth finality).
+  ChainSlot ->
+  ChainSlot ->
+  TxIdType tx ->
+  NodeState tx ->
+  NodeState tx
+consumeDeposit _horizon slot depositTxId nodeState =
   nodeState
     { deposits =
         Map.adjust (\tracked -> tracked{consumedAt = Just slot}) depositTxId $
@@ -110,10 +126,6 @@ rollbackDeposits slot nodeState =
 pruneConsumedDeposits :: ChainSlot -> TrackedDeposits tx -> TrackedDeposits tx
 pruneConsumedDeposits immutableSlot =
   Map.filter (\TrackedDeposit{consumedAt} -> maybe True (> immutableSlot) consumedAt)
-
--- | Legacy slot estimate, retained only for regression tests.
-depositRetentionHorizon :: ChainSlot
-depositRetentionHorizon = ChainSlot 129600
 
 data ChainPointTime = ChainPointTime
   { currentSlot :: ChainSlot

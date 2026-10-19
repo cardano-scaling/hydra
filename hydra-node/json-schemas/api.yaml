@@ -3500,7 +3500,10 @@ components:
       description: |
         Running context derived from hydra-node run options. The node's own
         signing key is deliberately omitted from this representation: it is a
-        secret and must not be sent to clients.
+        secret and must not be sent to clients. The rollbackHorizon retains the
+        network stability window (3k/f slots) for compatibility with earlier
+        environments. It does not determine pruning: deposits and settlements
+        are retained until the chain backend reports block-depth finality.
       required:
       - party
       - otherParties
@@ -3509,6 +3512,7 @@ components:
       - depositPeriod
       - depositActivation
       - unsyncedPeriod
+      - rollbackHorizon
       - configuredPeers
       additionalProperties: false
       properties:
@@ -3530,6 +3534,8 @@ components:
           $ref: "api.yaml#/components/schemas/DepositPeriod"
         unsyncedPeriod:
           $ref: "api.yaml#/components/schemas/UnsyncedPeriod"
+        rollbackHorizon:
+          $ref: "api.yaml#/components/schemas/ChainSlot"
         configuredPeers:
           type: string
 

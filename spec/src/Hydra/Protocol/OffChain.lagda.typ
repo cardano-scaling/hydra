@@ -521,6 +521,12 @@ between map keys and snapshot versions. A conflicting live update applies
 neither its events nor its effects; replay stops at the conflicting event.
 This is implementation bookkeeping outside `LocalState`.
 
+Landed settlements and consumed deposits are removed only after the chain
+backend observes $k$ successor blocks, where $k$ is the security parameter
+read from genesis. Elapsed slots alone do not establish immutability. The
+resulting immutable-point event is persisted so live aggregation and replay
+prune at the same boundary; erased settlements remain available for resubmission.
+
 The implementation's CBOR layout uses a distinct version tag for this map.
 Decoding the preceding layout migrates its retained commit and decommit
 snapshots without changing their signatures, preserving their observation

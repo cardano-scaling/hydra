@@ -4,7 +4,7 @@
 module Hydra.HeadLogic.StateEvent where
 
 import Data.EventSource (EventId, HasEventId (..))
-import Hydra.Chain.ChainState (IsChainState)
+import Hydra.Chain.ChainState (ChainSlot, IsChainState)
 import Hydra.HeadLogic (aggregateNodeState)
 import Hydra.HeadLogic.Outcome (StateChanged (Checkpoint))
 import Hydra.Node.State (NodeState)
@@ -55,10 +55,10 @@ data StateAggregationException = StateAggregationException
 
 instance Exception StateAggregationException
 
-aggregateStateEvent :: IsChainState tx => NodeState tx -> StateEvent tx -> Either StateAggregationException (NodeState tx)
-aggregateStateEvent current StateEvent{eventId, stateChanged} =
-  first (StateAggregationException eventId . show) $ aggregateNodeState current stateChanged
+aggregateStateEvent :: IsChainState tx => ChainSlot -> NodeState tx -> StateEvent tx -> Either StateAggregationException (NodeState tx)
+aggregateStateEvent rollbackHorizon current StateEvent{eventId, stateChanged} =
+  first (StateAggregationException eventId . show) $ aggregateNodeState rollbackHorizon current stateChanged
 
 -- | Stop replay at a conflicting event, before exposing an incomplete state.
-replayStateEvent :: (IsChainState tx, MonadThrow m) => NodeState tx -> StateEvent tx -> m (NodeState tx)
-replayStateEvent current event = either throwIO pure $ aggregateStateEvent current event
+replayStateEvent :: (IsChainState tx, MonadThrow m) => ChainSlot -> NodeState tx -> StateEvent tx -> m (NodeState tx)
+replayStateEvent rollbackHorizon current event = either throwIO pure $ aggregateStateEvent rollbackHorizon current event
