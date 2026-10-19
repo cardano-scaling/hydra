@@ -13,12 +13,14 @@
 --     to the real @isLeader@ in 'Hydra.OffChainLeaderSpec'), so the composed decision is fully Agda-derived.
 --
 --   * @reqDecEligibleRef@ vs @onOpenNetworkReqDec@: ACCEPT iff the node records the decommit
---     ('DecommitRecorded'). A PENDING deposit makes the node WAIT ('WaitOnUnresolvedCommit') at
---     ttl > 0, and so does an in-flight decommit ('WaitOnNotApplicableDecommitTx' with
---     'DecommitAlreadyInFlight'); both are non-accept. The commit axis is the reference's
---     'HsPendingCommit', not a Bool, so this test cannot decide which commits count: an expired or
---     already-recovered deposit is a state the node reaches (it clears @currentDepositTxId@ on
---     neither) and the reference is what says those do not block.
+--     ('DecommitRecorded'). A decommit already in flight makes the node WAIT
+--     ('WaitOnNotApplicableDecommitTx' with 'DecommitAlreadyInFlight'), which is non-accept. A
+--     pending deposit no longer holds the node back, since the commit-before-decommit order is
+--     enforced where the snapshot is proposed. The reference still models that hold, so that one
+--     point of the commit axis is masked until the reference follows. The commit axis is the
+--     reference's 'HsPendingCommit', not a Bool, so this test cannot decide which commits count:
+--     an expired or already recovered deposit is a state the node reaches, since it clears
+--     @currentDepositTxId@ on neither, and the reference is what says those do not block.
 --
 --   * @reqSnNotBothRef@ / @reqSnDecommitOutputsRef@ / @reqSnDepositSettledRef@ vs
 --     @onOpenNetworkReqSn@'s incremental-action guards: a request carrying both a deposit and a
@@ -646,15 +648,16 @@ spec = parallel $ do
     it "a commit that is already gone blocks neither" $ do
       reqDecEligibleRef CommitGoneP False `shouldBe` True
       reqDecAccepts (reqDecOutcome CommitGoneP False) `shouldBe` True
-    -- Pending on 'CommitPendingP' for the reason given above; the other three
-    -- commit states still agree (see the anchors).
-    xprop "reqDecEligibleRef === real ReqDec accept/non-accept across (commit state, decommit?)" $
+    -- 'CommitPendingP' is masked for the reason given above, and the test
+    -- right after the first one anchors it. The other three commit states are
+    -- checked against the reference on both decommit axes.
+    prop "reqDecEligibleRef === real ReqDec accept/non-accept across (commit state, decommit?), except a pending commit" $
       \decommitInFlight ->
         conjoin
           [ counterexample (show commit) $
             reqDecEligibleRef commit decommitInFlight
               === reqDecAccepts (reqDecOutcome commit decommitInFlight)
-          | commit <- [NoCommitP, CommitPendingP, CommitExpiredP, CommitGoneP]
+          | commit <- [NoCommitP, CommitExpiredP, CommitGoneP]
           ]
 
   describe "reqSn incremental-action guards: extracted reqSn*Ref vs the real onOpenNetworkReqSn" $ do
