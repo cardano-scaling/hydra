@@ -308,14 +308,16 @@ instance StateModel WorldState where
     -- 'SubmitDeposit'. Observation is weighted higher so most pending
     -- settlements do get observed within a sequence. Without, every
     -- settlement completes before the next action.
+    -- Give decommits enough weight to exercise their submit/observe cycle.
+    -- Do not generate a second decommit while the first is pending.
     settlementActions headIdVar confirmedUTxO
       | concurrentSettlements =
-          [(2, genSubmitDecommit) | length confirmedUTxO > 1]
-            <> [(3, genObserveDecommitFinalized) | not $ null pendingDecommits]
+          [(5, genSubmitDecommit) | length confirmedUTxO > 1, null pendingDecommits]
+            <> [(8, genObserveDecommitFinalized) | not $ null pendingDecommits]
             <> [(2, genSubmitDeposit headIdVar) | not $ null availableToDeposit]
             <> [(3, genObserveCommitFinalized) | not $ null pendingCommits]
       | otherwise =
-          [(2, genDecommit) | length confirmedUTxO > 1]
+          [(4, genDecommit) | length confirmedUTxO > 1]
             <> [(2, genDeposit headIdVar) | not $ null availableToDeposit]
 
     -- NOTE: Deposits all of one signer's available UTxO at once, see
