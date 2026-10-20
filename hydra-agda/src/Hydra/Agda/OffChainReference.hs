@@ -49,17 +49,11 @@ import MAlonzo.Code.Hydra.Protocol.OffChainReference qualified as M
 depositStatusRef :: Integer -> Integer -> Integer -> Integer -> Integer -> HsDepositStatus
 depositStatusRef = M.hsDepositStatusRef
 
--- | Extracted decidable reqSn signing-eligibility check (the §6 @require v = v̂ ∧ s = ŝ + 1 ∧
--- leader(s) = j@): given the requested version @v@, the party's seen version @v̂@, the requested
--- snapshot number @s@, the party's seen number @ŝ@, and whether the requested leader is the sender
--- (resolved Haskell-side from the party set), decides whether the party goes on to sign.
---
--- Only that decision, not the outcome a rejection produces. @onOpenNetworkReqSn@ splits the three
--- conjuncts: @requireReqSn@ errors on the number (@ReqSnNumberInvalid@) and the leader
--- (@ReqSnNotLeader@), while the version conjunct is @waitOnSnapshotVersion@, a wait, so that a
--- follower which has not yet processed the version-bumping increment\/decrement retries instead of
--- dropping the message. The §6 figure writes all three as @require@.
-signEligibleRef :: Integer -> Integer -> Integer -> Integer -> Bool -> Bool
+-- | Whether the requested version and number can be signed. Arguments are
+-- the requested version, local version, confirmed snapshot version, whether
+-- the incremental action matches, requested number, seen number and leader check.
+-- A request one version behind must preserve the confirmed snapshot's action.
+signEligibleRef :: Integer -> Integer -> Integer -> Bool -> Integer -> Integer -> Bool -> Bool
 signEligibleRef = M.hsSignEligibleRef
 
 -- | Extracted reqDec eligibility (§6 @wait U_α = ∅ ∧ tx_ω = ⊥@): given the state of the head's

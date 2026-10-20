@@ -596,7 +596,7 @@ spec :: Spec
 spec = parallel $ do
   describe "reqSn signing eligibility: extracted signEligibleRef vs the real onOpenNetworkReqSn" $ do
     it "anchor: an eligible ReqSn (v = v̂, s = ŝ + 1, sender leads s) is signed by the real node" $ do
-      signEligibleRef 0 0 1 0 (leaderRef 2 1 0) `shouldBe` True
+      signEligibleRef 0 0 0 True 1 0 (leaderRef 2 1 0) `shouldBe` True
       reqSnAccepts (reqSnOutcome 0 0 0 1 alice) `shouldBe` True
     it "a wrong snapshot number is the node's ReqSnNumberInvalid" $
       reqSnOutcome 0 0 0 2 alice `shouldBe` Error (RequireFailed $ ReqSnNumberInvalid 2 0)
@@ -604,13 +604,15 @@ spec = parallel $ do
       reqSnOutcome 0 0 0 1 bob `shouldBe` Error (RequireFailed $ ReqSnNotLeader 1 bob)
     it "a version mismatch WAITS (WaitOnSnapshotVersion), which is non-accept" $
       reqSnOutcome 0 0 1 1 alice `assertWait` WaitOnSnapshotVersion 1
-    prop "signEligibleRef === real ReqSn accept/reject across (v, v̂, s, ŝ, sender)" $
+    it "one version behind, based on the confirmed snapshot, is signed" $
+      reqSnAccepts (reqSnOutcome 1 0 0 1 alice) `shouldBe` True
+    prop "signEligibleRef agrees with the node across versions, numbers and senders" $
       forAll (choose (0, 1)) $ \vHat ->
         forAll (choose (0, 2)) $ \v ->
           forAll (choose (0, 2)) $ \sHat ->
             forAll (choose (0, 4)) $ \s ->
               forAll (elements (zip [0 ..] threeParties)) $ \(i, sender) ->
-                signEligibleRef v vHat s sHat (leaderRef 2 s i)
+                signEligibleRef v vHat (if sHat == 0 then 0 else vHat) True s sHat (leaderRef 2 s i)
                   === reqSnAccepts (reqSnOutcome vHat sHat v s sender)
 
   describe "reqDec eligibility: extracted reqDecEligibleRef vs the real onOpenNetworkReqDec" $ do

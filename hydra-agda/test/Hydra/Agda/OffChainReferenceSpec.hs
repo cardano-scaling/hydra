@@ -46,16 +46,27 @@ spec = do
     it "prefers Expired over Active when both hold" $
       status 10_000 500 100_000 `shouldBe` ExpiredS
 
-  -- v v̂ s ŝ leaderOk
+  -- requested version, local version, confirmed version, same action, number, seen number, leader
   describe "signEligibleRef" $ do
     it "signs the next snapshot from the leader at the seen version" $
-      signEligibleRef 1 1 5 4 True `shouldBe` True
+      signEligibleRef 1 1 1 True 5 4 True `shouldBe` True
+    it "accepts the current version independently of the previous confirmed action" $
+      signEligibleRef 1 1 0 False 5 4 True `shouldBe` True
     it "declines a snapshot number that skips one" $
-      signEligibleRef 1 1 6 4 True `shouldBe` False
+      signEligibleRef 1 1 1 True 6 4 True `shouldBe` False
     it "declines a request from a non-leader" $
-      signEligibleRef 1 1 5 4 False `shouldBe` False
+      signEligibleRef 1 1 1 True 5 4 False `shouldBe` False
     it "declines a version it has not seen" $
-      signEligibleRef 2 1 5 4 True `shouldBe` False
+      signEligibleRef 2 1 1 True 5 4 True `shouldBe` False
+
+    it "signs one version behind when the confirmed action is preserved" $
+      signEligibleRef 1 2 1 True 5 4 True `shouldBe` True
+    it "rejects a delayed request that changes the confirmed action" $
+      signEligibleRef 1 2 1 False 5 4 True `shouldBe` False
+    it "rejects a request below the confirmed version" $
+      signEligibleRef 1 2 2 True 5 4 True `shouldBe` False
+    it "rejects a request two versions behind" $
+      signEligibleRef 1 3 1 True 5 4 True `shouldBe` False
 
   describe "reqDecEligibleRef" $ do
     it "starts a decommit when nothing is in flight" $
