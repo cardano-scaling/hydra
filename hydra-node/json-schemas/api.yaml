@@ -1881,6 +1881,7 @@ components:
                 tag:
                   type: string
                   enum: ["DepositInFlight"]
+                  description: Historical refusal retained for decoding older messages.
                 depositTxId:
                   $ref: "api.yaml#/components/schemas/TxId"
                 commitUTxO:

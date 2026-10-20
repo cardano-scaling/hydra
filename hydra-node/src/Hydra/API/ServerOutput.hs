@@ -69,10 +69,9 @@ instance IsChainState tx => FromCBOR (TimedServerOutput tx) where
 data DecommitInvalidReason tx
   = DecommitTxInvalid {localUTxO :: UTxOType tx, validationError :: ValidationError}
   | DecommitAlreadyInFlight {otherDecommitTxId :: TxIdType tx}
-  | -- | A deposit (commit) is in flight: the decommit cannot be recorded until it
-    -- finalises or is recovered. Clients may need to recover the deposit before
-    -- another decommit is possible ('currentDepositTxId' clears on 'CommitFinalized'
-    -- and 'DepositRecovered').
+  | -- | Historical refusal kept so stored events and older API messages remain
+    -- readable. New decommit requests are recorded while a deposit is pending;
+    -- the snapshot proposal orders the commit before the decommit.
     DepositInFlight {depositTxId :: TxIdType tx, commitUTxO :: UTxOType tx}
   deriving stock (Generic)
 

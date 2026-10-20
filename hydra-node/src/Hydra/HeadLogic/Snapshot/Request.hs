@@ -74,9 +74,10 @@ import Hydra.Tx.Snapshot (
 maxTxsPerSnapshot :: Int
 maxTxsPerSnapshot = 4000
 
--- | If this node is the snapshot leader and there are pending local transactions,
--- request the next snapshot with the bumped version after a commit or decommit
--- finalises on-chain.
+-- | If this node is the snapshot leader and there is anything to snapshot
+-- (pending local transactions, a deposit to carry, or a decommit recorded
+-- while the commit was in flight), request the next snapshot with the bumped
+-- version after a commit or decommit finalises on-chain.
 --
 -- Guards:
 --   * Only fires when 'newVersion' is ahead of the local 'version': this
@@ -86,24 +87,28 @@ maxTxsPerSnapshot = 4000
 --     rollback (its 'newVersion' is at or behind the local version, which
 --     never rolls back) from requesting a snapshot with a stale version.
 --   * Skips when AckSns are already being collected ('SeenSnapshot'): the
---     in-flight snapshot will complete and 'maybeRequestNextSnapshot' will chain
---     the next one with the bumped version. Firing here would use stale
---     'localTxs' and cause 'BadInputsUTxO' on other parties.
+--     node keeps collecting signatures. Once it confirms,
+--     'maybeRequestNextSnapshot' requests the next snapshot with the bumped
+--     version. Firing here uses stale 'localTxs' and can cause 'BadInputsUTxO'
+--     on other parties. A party that receives the ReqSn after the bump still
+--     waits on the version mismatch.
 --   * Allows 'RequestedSnapshot': the in-flight ReqSn carries the old version
 --     and will be parked by 'waitOnSnapshotVersion' until TTL drops it, so we
 --     re-request immediately with the new version to make progress without
---     waiting for the stale request's retries to exhaust.
+--     waiting for the stale request's retries to exhaust. This is the only
+--     thing that unparks the other parties, so it must also fire when the
+--     stale request carried a deposit and no local txs.
 --
--- The optional 'depositTxId' argument is forwarded into 'ReqSn': commit
--- finalisation passes 'Nothing' (deposit already included), while decommit
--- finalisation passes the next queued deposit if one is pending.
+-- The caller builds the request after removing the action that just settled.
+-- A decommit recorded while a commit was in flight can now be proposed, even
+-- without local transactions; a settled decommit must not be proposed again.
 maybeRequestSnapshotAfterVersionBump ::
   IsTx tx =>
   HeadParameters ->
   Party ->
   SnapshotNumber ->
-  -- | The request to make, if any, built for the new version. Its decommit is
-  -- ignored: it is the one that just settled.
+  -- | The request to make, if any, built for the new version. The caller
+  -- excludes the incremental action that just settled.
   Maybe (SnapshotRequest tx) ->
   SnapshotVersion ->
   SnapshotVersion ->
@@ -111,10 +116,10 @@ maybeRequestSnapshotAfterVersionBump ::
   Outcome tx
 maybeRequestSnapshotAfterVersionBump parameters party nextSn mRequest version newVersion seenSnapshot =
   case mRequest of
-    Just SnapshotRequest{requestTxs, requestDepositTxId}
+    Just SnapshotRequest{requestTxs, requestDecommitTx, requestDepositTxId}
       | isLeader parameters party nextSn && newVersion > version && not (isCollectingAcks seenSnapshot) ->
           newState SnapshotRequestDecided{snapshotNumber = nextSn}
-            <> cause (NetworkEffect $ ReqSn newVersion nextSn (txId <$> requestTxs) Nothing requestDepositTxId)
+            <> cause (NetworkEffect $ ReqSn newVersion nextSn (txId <$> requestTxs) requestDecommitTx requestDepositTxId)
     _ -> noop
 
 isLeader :: HeadParameters -> Party -> SnapshotNumber -> Bool
@@ -325,8 +330,9 @@ applyTransactionsWithoutCollision Ledger{applyTransactions = apply} slot =
       else Left (tx, ValidationError "transaction creates an output the head already holds")
 
 -- | The 'SeenSnapshot' after a version bump. A snapshot already in flight is
--- kept: every party has processed its 'ReqSn', so it can still complete and
--- chain the next one with the bumped version.
+-- kept so this node can collect the remaining signatures. Other states reset
+-- to the confirmed snapshot number. This does not resolve a version mismatch
+-- for a party that receives the 'ReqSn' after the bump.
 seenSnapshotAfterVersionBump :: IsTx tx => ConfirmedSnapshot tx -> SeenSnapshot tx -> SeenSnapshot tx
 seenSnapshotAfterVersionBump confirmedSnapshot = \case
   seen@SeenSnapshot{} -> seen

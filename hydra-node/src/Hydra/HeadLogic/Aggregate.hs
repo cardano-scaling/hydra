@@ -377,17 +377,21 @@ applyEvent st = \case
                   coordinatedHeadState
                     { seenSnapshot = mkSeenSnapshot snapshot mempty
                     , localTxs = newLocalTxs
-                    , -- NOTE: pure UTxO arithmetic. 'newLocalTxs' was pre-pruned
-                      -- by 'pruneTransactions' in 'onOpenNetworkReqSn' (so each tx
-                      -- is guaranteed to apply), making 'applyTxTo' safe to use
-                      -- without ledger validation.
-                      localUTxO = foldl' (flip applyTxTo) (settledUTxO version snapshot) newLocalTxs
+                    , localUTxO =
+                        case (decommitTx, snapshot.utxoToDecommit) of
+                          -- A commit can defer the recorded decommit to a later
+                          -- snapshot. Reserve its inputs after reapplying local
+                          -- transactions, which may produce those inputs.
+                          (Just tx, Nothing) -> applyTxTo tx rebuiltUTxO `withoutUTxO` utxoFromTx tx
+                          _ -> rebuiltUTxO
                     , allTxs = foldr (Map.delete . txId) allTxs snapshot.confirmed
                     , currentDepositTxId = newCurrentDepositTxId
                     }
               }
        where
-        CoordinatedHeadState{allTxs, version} = coordinatedHeadState
+        -- 'pruneTransactions' validates these transactions before the event.
+        rebuiltUTxO = foldl' (flip applyTxTo) (settledUTxO version snapshot) newLocalTxs
+        CoordinatedHeadState{allTxs, version, decommitTx} = coordinatedHeadState
       _otherState -> pure st
   PartySignedSnapshot{party, signature} ->
     case st of

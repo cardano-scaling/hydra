@@ -628,7 +628,7 @@ spec =
                 transactionIds == [txId unrelated] && depositTxId == Just pendingDepositTxId
               _ -> False
 
-          it "holds a decommit back while a commit is settling, even one a pending tx collides with" $ do
+          it "records a decommit but keeps proposing the settling commit without colliding transactions" $ do
             now <- getCurrentTime
             let u0 = utxoRef 1 <> utxoRef 2
                 committing =
@@ -661,8 +661,14 @@ spec =
             -- Active, or Expired but still landable.
             forM_ [addUTCTime 3600 now, addUTCTime 1800 now] $ \deadline -> do
               s <- runHeadLogic singlePartyEnv ledger (s0 (claimedWith deadline)) $ step tick >> getState
-              update singlePartyEnv ledger now s (receiveMessage $ ReqDec decommit)
-                `assertWait` WaitOnUnresolvedCommit{commitUTxO = depositedUtxo}
+              let outcome = update singlePartyEnv ledger now s (receiveMessage $ ReqDec decommit)
+              outcome `hasStateChangedSatisfying` \case
+                DecommitRecorded{decommitTx} -> decommitTx == decommit
+                _ -> False
+              outcome `hasEffectSatisfying` \case
+                NetworkEffect ReqSn{transactionIds, decommitTx, depositTxId} ->
+                  null transactionIds && isNothing decommitTx && depositTxId == Just pendingDepositTxId
+                _ -> False
 
           it "rejects a ReqSn whose tx re-creates an output the head holds" $ do
             -- Output 42 exists, e.g. from a deposit that named it.
@@ -1736,32 +1742,27 @@ spec =
             DecommitInvalid{decommitTx = invalidTx} -> invalidTx == decommitTx
             _ -> False
 
-        -- Spec §6.4 reqDec: wait U_α = ∅. A decommit must wait while a commit
-        -- (deposit) is pending, otherwise a later snapshot would carry both. This
-        -- is the missing symmetric counterpart to the guard on 'DepositActivated'.
-        --
-        -- "Pending" is what 'existingDeposit' decides: registered and unexpired. The
-        -- two states that are NOT pending yet still leave 'currentDepositTxId' set
-        -- each get a case below, because blocking on either waits on something that
-        -- can never settle.
-        it "waits on a ReqDec while a pending commit (deposit) is in flight" $ do
+        -- Proposals carry a pending commit before a queued decommit. Receivers
+        -- still reject snapshots containing both actions. Record the request
+        -- regardless of local deposit activation, which can differ between
+        -- nodes and otherwise leave them with different pending decommits.
+        it "records a ReqDec while a deposit is queued and proposes the deposit first" $ do
           let s0 = reqDecStateWith threeParties (Just Active)
           now <- nowFromSlot s0.chainPointTime.currentSlot
-          update aliceEnv ledger now s0 (receiveMessage ReqDec{transaction = reqDecDecommitTx})
-            `assertWait` WaitOnUnresolvedCommit{commitUTxO = reqDecDepositedUTxO}
+          let outcome = update aliceEnv ledger now s0 (receiveMessage ReqDec{transaction = reqDecDecommitTx})
+          outcome `hasStateChangedSatisfying` \case
+            DecommitRecorded{decommitTx = recorded} -> recorded == reqDecDecommitTx
+            _ -> False
+          outcome `hasEffectSatisfying` \case
+            NetworkEffect ReqSn{depositTxId, decommitTx} -> depositTxId == Just reqDecDepositTxId && isNothing decommitTx
+            _ -> False
 
-        -- Once ttl is exhausted the pending-deposit wait turns into a rejection
-        -- (DepositInFlight) so the client learns it must recover the deposit,
-        -- rather than the ReqDec being silently dropped.
-        it "rejects a ReqDec with DepositInFlight once ttl is exhausted while a pending commit is in flight" $ do
+        it "records a ReqDec while a deposit is queued even with its ttl exhausted" $ do
           let s0 = reqDecStateWith threeParties (Just Active)
               reqDecEvent = NetworkInput 0 $ ReceivedMessage{sender = alice, msg = ReqDec{transaction = reqDecDecommitTx}}
           now <- nowFromSlot s0.chainPointTime.currentSlot
           update aliceEnv ledger now s0 reqDecEvent `hasStateChangedSatisfying` \case
-            DecommitInvalid{decommitTx = invalidTx, decommitInvalidReason = DepositInFlight{depositTxId, commitUTxO}} ->
-              invalidTx == reqDecDecommitTx
-                && depositTxId == reqDecDepositTxId
-                && commitUTxO == reqDecDepositedUTxO
+            DecommitRecorded{decommitTx = recorded} -> recorded == reqDecDecommitTx
             _ -> False
 
         -- An expired deposit must NOT hold a decommit back. 'DepositExpired' deliberately keeps the
@@ -4338,6 +4339,116 @@ spec =
             step (tickAt (3 + Fixture.testRollbackHorizon))
             getState
           settlementStatuses s3 `shouldBe` [Erased]
+
+        it "records a decommit while the confirmed snapshot's commit is unsettled and proposes that commit first" $ do
+          -- The decommit used to be proposed straight away, which dropped the
+          -- unsettled commit from the snapshot, and the deposited outputs then
+          -- counted as neither applied nor pending. The commit is carried first
+          -- ('selectNextIncrementalAction') whatever the deposit's local
+          -- status, and the decommit follows in a later round. Holding the
+          -- ReqDec back instead would decide a broadcast on state only this
+          -- node has, see the ReqDec tests.
+          now <- getCurrentTime
+          let expiredDeposit =
+                Deposit
+                  { headId = testHeadId
+                  , deposited = depositedUTxO
+                  , created = now
+                  , deadline = addUTCTime 600 now
+                  , status = Expired
+                  }
+              s0 =
+                ( inOpenState' [alice] $
+                    coordinatedHeadState
+                      { confirmedSnapshot = ConfirmedSnapshot{snapshot = incrementingSnapshot1, signatures = Crypto.aggregate []}
+                      , version = 0
+                      , currentDepositTxId = Just depositTxId'
+                      }
+                )
+                  { deposits = trackedFromPending (Map.singleton depositTxId' expiredDeposit)
+                  }
+          now' <- nowFromSlot s0.chainPointTime.currentSlot
+          let outcome = update soloAliceEnv ledger now' s0 (receiveMessage ReqDec{transaction = decommitTx'})
+          outcome `hasStateChangedSatisfying` \case
+            DecommitRecorded{decommitTx = recorded} -> recorded == decommitTx'
+            _ -> False
+          outcome `hasEffectSatisfying` \case
+            NetworkEffect ReqSn{depositTxId, decommitTx} -> depositTxId == Just depositTxId' && isNothing decommitTx
+            _ -> False
+
+        forM_ [False, True] $ \inputFromPendingTx ->
+          it ("keeps a deferred decommit's inputs reserved across commit snapshots, pending input: " <> show inputFromPendingTx) $ do
+            now <- getCurrentTime
+            let initialUTxO = if inputFromPendingTx then utxoRef 10 else utxoRef 1
+                parentTx = SimpleTx 10 (utxoRef 10) (utxoRef 1)
+                parentTxs = [parentTx | inputFromPendingTx]
+                withdrawing = SimpleTx 2 (utxoRef 1) (utxoRef 2)
+                conflicting = SimpleTx 3 (utxoRef 1) (utxoRef 3)
+                committing1 = withAccumulators incrementingSnapshot1{utxo = initialUTxO}
+                committing2 = withAccumulators incrementingSnapshot1{number = 2, confirmed = parentTxs, utxo = utxoRef 1}
+                decrementing = withAccumulators (testSnapshot 3 1 [] depositedUTxO){utxoToDecommit = Just (utxoRef 2)}
+                s0 =
+                  inOpenState' [alice] $
+                    coordinatedHeadState
+                      { localUTxO = initialUTxO
+                      , confirmedSnapshot = ConfirmedSnapshot (testSnapshot 0 0 [] initialUTxO) mempty
+                      }
+            (conflict, s1) <- runHeadLogic soloAliceEnv ledger s0 $ do
+              step (observeTxAtSlot 1 (mkDepositObserved now))
+              step . ChainInput $ Tick{chainTime = addUTCTime 62 now, chainPoint = 2}
+              forM_ parentTxs $ step . receiveMessage . ReqTx
+              step . receiveMessage $ ReqDec withdrawing
+              -- Leave the parent pending while rebuilding the optimistic local ledger.
+              step . receiveMessage $ ReqSn 0 1 [] Nothing (Just depositTxId')
+              step . receiveMessage $ AckSn (sign aliceSk committing1) 1
+              conflict <- step . receiveMessage $ ReqTx conflicting
+              step . receiveMessage $ ReqSn 0 2 (txId <$> parentTxs) Nothing (Just depositTxId')
+              step . receiveMessage $ AckSn (sign aliceSk committing2) 2
+              step $ observeTxAtSlot 3 OnIncrementTx{headId = testHeadId, newVersion = 1, depositTxId = depositTxId', snapshotNumber = 2, signatures = mempty}
+              step . receiveMessage $ ReqSn 1 3 [] (Just withdrawing) Nothing
+              step . receiveMessage $ AckSn (sign aliceSk decrementing) 3
+              step $ observeTxAtSlot 4 OnDecrementTx{headId = testHeadId, newVersion = 2, distributedUTxO = utxoRef 2, snapshotNumber = 3, signatures = mempty}
+              (conflict,) <$> getState
+            conflict `assertWait` WaitOnNotApplicableTx (ValidationError "cannot apply transaction")
+            getConfirmedSnapshot s1 `shouldBe` Just decrementing
+            case headState s1 of
+              Open OpenState{coordinatedHeadState = CoordinatedHeadState{version, decommitTx, localUTxO}} -> do
+                version `shouldBe` 2
+                decommitTx `shouldBe` Nothing
+                localUTxO `shouldBe` depositedUTxO
+              _ -> expectationFailure "Expected an open head"
+
+        it "proposes a recorded decommit once the commit in flight has landed" $ do
+          -- The decommit was recorded while the confirmed snapshot's commit was
+          -- in flight, so every proposal carried the commit first. When the
+          -- increment then lands on a head with no local txs, nothing else
+          -- would propose the decommit, since the tick only proposes deposits.
+          now <- getCurrentTime
+          let activeDeposit =
+                Deposit
+                  { headId = testHeadId
+                  , deposited = depositedUTxO
+                  , created = now
+                  , deadline = addUTCTime 600 now
+                  , status = Active
+                  }
+              s0 =
+                ( inOpenState' [alice] $
+                    coordinatedHeadState
+                      { confirmedSnapshot = ConfirmedSnapshot{snapshot = incrementingSnapshot1, signatures = Crypto.aggregate []}
+                      , seenSnapshot = LastSeenSnapshot{lastSeen = 1}
+                      , version = 0
+                      , currentDepositTxId = Just depositTxId'
+                      , decommitTx = Just decommitTx'
+                      }
+                )
+                  { deposits = trackedFromPending (Map.singleton depositTxId' activeDeposit)
+                  }
+          now' <- nowFromSlot s0.chainPointTime.currentSlot
+          update soloAliceEnv ledger now' s0 (observeTxAtSlot 3 OnIncrementTx{headId = testHeadId, newVersion = 1, depositTxId = depositTxId', snapshotNumber = 1, signatures = mempty})
+            `hasEffectSatisfying` \case
+              NetworkEffect ReqSn{snapshotVersion = 1, decommitTx = Just tx, depositTxId = Nothing} -> tx == decommitTx'
+              _ -> False
 
       it "ignores in-flight ReqTx when closed" $ do
         let s0 = inClosedState threeParties
