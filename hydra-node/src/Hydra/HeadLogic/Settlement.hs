@@ -251,15 +251,14 @@ onOpenNetworkReqDec env ledger ttl ChainPointTime{currentSlot, currentChainTime}
   -- ('nextSnapshotRequest'), and every receiver rejects a proposal
   -- carrying both ('ReqSnBothCommitAndDecommit').
   --
-  -- A ReqDec is a broadcast, and every party must reach the same decision on
-  -- it. Whether a deposit is queued locally is decided by this node's own
-  -- tick, so holding the ReqDec back on it (and rejecting it with
-  -- 'DepositInFlight' once its ttl ran out) refused the same request on some
-  -- nodes and recorded it on others; the recording nodes then held a decommit
-  -- the leader never knew about, and it was never proposed. The model's
-  -- concurrent walk found this once the late-ReqSn deadlock stopped masking
-  -- it. Only network-derived state may decide here: an in-flight decommit,
-  -- and whether the transaction applies.
+  -- A ReqDec is a broadcast, and every party must decide the same way. Whether
+  -- a deposit is queued locally depends on this node's own tick. Holding the
+  -- ReqDec back on that, and rejecting it once its ttl ran out, refused the
+  -- same request on some nodes and recorded it on others. The nodes that
+  -- recorded it then held a decommit the leader never knew about, and it was
+  -- never proposed. The model's concurrent walk found this once the late-ReqSn
+  -- deadlock stopped hiding it. Only state that every party shares may decide
+  -- here: a decommit already in flight, and whether the transaction applies.
   waitOnApplicableDecommit cont =
     case mExistingDecommitTx of
       Nothing ->
@@ -385,7 +384,13 @@ onOpenChainTick env chainTime pendingDeposits st
   | snapshotInFlight seenSnapshot || not (isLeader parameters party nextSn) = noop
   | otherwise =
       let settling = settlingCommitAt env version chainTime deposits confirmed
-          built = nextSnapshotRequest (settledUTxO version (getSnapshot confirmedSnapshot)) localTxs deposits currentDepositTxId decommitTx settling
+          -- A recovered claim can be replaced immediately. A claim dropped
+          -- only because its deadline passed is cleared before another one.
+          requestSettling = case settling of
+            Just DropCommit
+              | maybe True (`Map.notMember` deposits) confirmed.depositTxId -> Nothing
+            _ -> settling
+          built = nextSnapshotRequest (settledUTxO version (getSnapshot confirmedSnapshot)) localTxs deposits currentDepositTxId decommitTx requestSettling
        in case (settling, built) of
             -- The commit is still settling; requests carrying txs continue it.
             (Just (ContinueCommit _), _) -> noop

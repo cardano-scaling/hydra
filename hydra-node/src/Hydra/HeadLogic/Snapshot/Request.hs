@@ -74,27 +74,28 @@ import Hydra.Tx.Snapshot (
 maxTxsPerSnapshot :: Int
 maxTxsPerSnapshot = 4000
 
--- | If this node is the snapshot leader and there is anything to snapshot
--- (pending local transactions, a deposit to carry, or a decommit recorded
--- while the commit was in flight), request the next snapshot with the bumped
--- version after a commit or decommit finalises on-chain.
+-- | If this node is the snapshot leader and there is something to snapshot
+-- (local transactions, a deposit to carry, or a decommit recorded while the
+-- commit was in flight), request the next snapshot with the bumped version
+-- after a commit or decommit lands on chain.
 --
 -- Guards:
---   * Only fires when 'newVersion' is ahead of the local 'version': this
---     avoids duplicate 'SnapshotRequestDecided' events when multiple parties
---     post the same on-chain tx and each posting produces a separate
---     finalisation observation, and it keeps a finalization re-landing after a
---     rollback (its 'newVersion' is at or behind the local version, which
---     never rolls back) from requesting a snapshot with a stale version.
---   * Skips when AckSns are already being collected ('SeenSnapshot'): the
---     node keeps collecting signatures. Once it confirms,
---     'maybeRequestNextSnapshot' requests the next snapshot with the bumped
---     version. Firing here uses stale 'localTxs' and can cause 'BadInputsUTxO'
---     on other parties. A party that receives the ReqSn after the bump can
---     sign one version behind when it preserves the confirmed action.
---   * Allows 'RequestedSnapshot': our request may still be in transit.
---     Requesting at the new version also covers a lost request; receivers
---     reject a second request for the same snapshot number as a duplicate.
+--   * Only when 'newVersion' is ahead of our 'version'. Several parties post
+--     the same transaction and each posting is observed, so this avoids one
+--     'SnapshotRequestDecided' per observation. It also keeps a settlement
+--     that landed again after a rollback (its 'newVersion' is at or behind our
+--     version, which never goes down) from requesting a snapshot with a stale
+--     version.
+--   * Not while signatures are being collected ('SeenSnapshot'). That snapshot
+--     will complete, because every party can sign it: those that saw the bump
+--     before the ReqSn sign one version behind their own (see
+--     'waitOnSnapshotVersion'), and 'maybeRequestNextSnapshot' then requests
+--     the next one with the bumped version. Firing here would use stale
+--     'localTxs' and cause 'BadInputsUTxO' on other parties.
+--   * Allowed in 'RequestedSnapshot': our own request at the old version is
+--     still on its way. Requesting again at the new version costs nothing,
+--     since every party rejects a second request for the same number as a
+--     duplicate, and it covers the case where the first one was lost.
 --
 -- The caller builds the request after removing the action that just settled.
 -- A decommit recorded while a commit was in flight can now be proposed, even

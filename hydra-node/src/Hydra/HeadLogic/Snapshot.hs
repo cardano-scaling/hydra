@@ -452,19 +452,21 @@ onOpenNetworkReqSn env ledger pendingDeposits ChainPointTime{currentSlot, curren
             | ttl > 0 -> wait WaitOnDepositObserved{depositTxId}
             | otherwise -> Error $ RequireFailed RequestedDepositNotFoundLocally{depositTxId}
           Just Deposit{status, deposited}
+            -- A signed claim remains the same claim after local status changes.
+            | sv == confVersion
+            , confDepositTxId == Just depositTxId
+            , confUTxOToCommit == Just deposited ->
+                cont confUTxOToCommit
             | status == Inactive -> wait WaitOnDepositActivation{depositTxId}
             -- NOTE: this makes the commits sequential in a sense that you can't
             -- commit unless the previous commit is settled.
-            | sv == confVersion && isJust confUTxOToCommit ->
-                -- NOTE: identity, not just content. Two deposits can record
-                -- the same UTxO, and only the one bound into the confirmed
-                -- snapshot is the pending commit being settled.
-                --
-                -- Accepted even if the deposit is 'Expired': its increment
-                -- may still land.
-                if confUTxOToCommit == Just deposited && confDepositTxId == Just depositTxId
-                  then cont confUTxOToCommit
-                  else Error $ RequireFailed ReqSnCommitNotSettled
+            | sv == confVersion
+            , isJust confUTxOToCommit
+            , -- Only while the claimed deposit is still tracked: once it was
+              -- recovered on L1 the claim is dropped (see 'settlingCommitAt') and
+              -- the leader may propose a fresh one.
+              maybe False (`Map.member` pendingDeposits) confDepositTxId ->
+                Error $ RequireFailed ReqSnCommitNotSettled
             | status == Expired -> Error $ RequireFailed RequestedDepositExpired{depositTxId}
             | otherwise -> cont (Just deposited)
 

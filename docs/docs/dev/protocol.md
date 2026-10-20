@@ -146,7 +146,7 @@ An observed increment does. If that increment rolls back, the node retains
 the signed snapshot and attempts to settle it again. Signed L2 state does not
 roll back; see [rollback handling](./rollbacks/index.md) for recovery limits.
 
-A snapshot request carrying a deposit already claimed by the confirmed snapshot still waits while that deposit is locally `Inactive`, including after re-observation following a rollback. A locally `Expired` deposit can still be carried as that same claim, because its increment may still land before the on-chain deadline.
+A snapshot request carrying the confirmed snapshot's own deposit claim is accepted while that deposit remains tracked, even if it is locally `Inactive` or `Expired`. This includes re-observation after a rollback. Once recovery removes the deposit, a request may carry a fresh claim. The leader still selects new deposits only while they are `Active`.
 
 ## Incremental decommits
 
