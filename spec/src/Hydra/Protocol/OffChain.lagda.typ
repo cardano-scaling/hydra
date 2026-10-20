@@ -620,6 +620,12 @@ A rollback that erases the settlement does not prevent the same confirmed
 claim from being carried again. Local settlement status does not change the
 bytes that an honest leader requests the parties to sign.
 
+A receiver waits for missing recovery observations before refusing a request
+that replaces an earlier deposit claim. Local expiry does not alone reject a
+fresh claim selected by an honest leader while that deposit was active.
+The leader still selects fresh deposits only while active. The executable
+settlement guard records acceptance versus non-acceptance; a wait is non-acceptance.
+
 `OffChainReference.signEligibleRef` checks this version rule. The operational figure stores the requested version as $v_(sans("signed"))$ and uses it for acknowledgement verification and settlement posting, even if the local chain version advances. The `reqSn-sign`
 constructor below describes its equal-version subcase.
 
@@ -1237,12 +1243,12 @@ preventing inconsistency between the on-chain and off-chain state.
                   #nst[
                     #kw("if") $v = macron(mc(S)).v and macron(mc(S)).U_alpha != bot and sans("tracked")(macron(mc(S)).tx_alpha)$
                     #nst[
-                      #kw("require") $tx_alpha = macron(mc(S)).tx_alpha and macron(mc(S)).U_alpha = mc(D).U$ #text(size: 0.8em)[(the same tracked claim is carried regardless of local status)] \
+                      #kw("wait") $tx_alpha = macron(mc(S)).tx_alpha and macron(mc(S)).U_alpha = mc(D).U$ #text(size: 0.8em)[(the same claim proceeds; a replacement retries until recovery removes the old claim)] \
                       $U_alpha <- macron(mc(S)).U_alpha$
                     ]
                     #kw("else")
                     #nst[
-                      #kw("require") $mc(D).sans("status") = sans("Active")$ \
+                      #text(size: 0.8em)[Local expiry does not reject a fresh claim; another node may still see it as active.] \
                       $U_alpha <- mc(D).U$
                     ]
                     #kw("require") $U_alpha inter U_(sans("active")) = emptyset and U_alpha inter sans("outputs")(underline(tx)_(sans("req"))) = emptyset$

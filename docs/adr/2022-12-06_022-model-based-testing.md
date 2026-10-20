@@ -30,7 +30,7 @@ Accepted
 ## Consequences
 
 - We need to ensure the Model covers the full lifecycle of a Hydra Head network which at the time of writing this ADR is not the case
-- Concurrent settlement walks allow overlapping deposits and forks during settlement. They require pending settlements to be observed as finalized before a payment or a new decommit request. This excludes the known snapshot version race: a settlement can advance the version while a snapshot request is in transit, leaving nodes waiting on an old version or signing different versions of the same snapshot number. These walks therefore do not establish liveness for L2 traffic during settlement.
+- Concurrent settlement walks allow payments and decommit requests while deposits settle, including forks during settlement. Only one decommit is pending at a time, matching the protocol. Sequential walks remain useful for isolating individual operations.
 - There cannot be _One Model to Rule Them All_ so we should refrain from defining different `StateModel` or different `RunModel` depending on what needs to be tested
 - In particular, testing against adversarial conditions will certainly require defining different instances of the `Network` or `Chain` components, for example:
   - An _Accepted Adversary_ that fully the controls the protocol and the parties,

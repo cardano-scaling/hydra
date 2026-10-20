@@ -196,9 +196,9 @@ spec = do
   context "fail-recovery" $ do
     prop "a party restarted twice right after a settlement still confirms snapshots" $
       propScripted partyRestartedTwiceAfterSettlement
-    prop "duplicate and invalid messages preserve progress between settlements" $
+    prop "duplicate and invalid messages preserve progress" $
       propScripted headSurvivesFaultyParty
-    prop "check model with extra network messages between settlements" $
+    prop "check model with extra network messages" $
       forAllDL faultyWalk propHydraModel
     prop "a replaced proposal is never the one an honest leader would send" propReplacingDeviates
     -- A replacement may stop a round. Check the snapshots confirmed before it stops.
@@ -207,11 +207,8 @@ spec = do
         withMaxShrinks 25 $
           withMaxSuccess 50 $
             forAllDL soundnessWalk checkSnapshotsAreSound
-  -- The concurrent walks keep deposits and forks overlapping, but observe
-  -- pending settlements before payments or new decommit requests to avoid
-  -- the known snapshot version race; see 'Model.settlementsObserved'.
-  -- Landed fanout steps are rewound after a rollback so the driver can
-  -- distribute their outputs again. The scenarios below cover both modes.
+  -- Concurrent walks overlap payments, deposits, decommits and forks.
+  -- The scripted scenarios cover settlement and fanout replay after rollback.
   context "settlement and fanout rollback stress" $ do
     prop "check model with concurrent settlements" $
       forAllDL concurrentWalk propHydraModel
@@ -412,8 +409,6 @@ twoFinalizedDecrementsErased = do
   headStillSettles
 
 -- | Confirm transactions and settle funds despite duplicate and invalid messages.
--- Observe each settlement before new payments to isolate network faults from
--- the known snapshot version race.
 headSurvivesFaultyParty :: DL WorldState ()
 headSurvivesFaultyParty = do
   (headId, fuel) <- openHeadWithFaultyParty AddsMessages 3
@@ -421,6 +416,7 @@ headSurvivesFaultyParty = do
   -- Advance through several leader rotations and settlement states.
   someTraffic
   a <- action $ Model.SubmitDeposit headId fuelA
+  someTraffic
   action_ $ Model.ObserveCommitFinalized a
   someTraffic
   b <- action $ Model.SubmitDeposit headId fuelB
@@ -430,6 +426,7 @@ headSurvivesFaultyParty = do
     Nothing -> pure ()
     Just held -> do
       dA <- action $ Model.SubmitDecommit partyA held
+      someTraffic
       action_ $ Model.ObserveDecommitFinalized dA
   someTraffic
   c <- action $ Model.SubmitDeposit headId fuelC
@@ -689,9 +686,7 @@ defaultWalk = do
   action_ seed
   anyActions_
 
--- | A random walk with 'concurrentSettlements': deposits may overlap each
--- other, decommits and forks of every 'RequeueMode'. Payments and new decommit
--- requests wait for pending settlements to be observed as finalized.
+-- | Overlap deposits, decommits, payments and forks in a random walk.
 concurrentWalk :: DL WorldState ()
 concurrentWalk = do
   seed <- forAllNonVariableQ $ withGenQ (genSeedWith True) (const True) (const [])
@@ -699,7 +694,6 @@ concurrentWalk = do
   anyActions_
 
 -- | Concurrent settlements with one party adding invalid network messages.
--- As in the honest walk, payments and new decommits wait for settlements.
 faultyWalk :: DL WorldState ()
 faultyWalk = do
   seed <- forAllNonVariableQ $ withGenQ (genFaultySeed True AddsMessages) (const True) (const [])

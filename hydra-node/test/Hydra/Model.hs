@@ -44,7 +44,7 @@ import GHC.IsList (IsList (..))
 import GHC.Natural (wordToNatural)
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.ClientInput qualified as Input
-import Hydra.API.ServerOutput (DecommitInvalidReason (..), ServerOutput (..))
+import Hydra.API.ServerOutput (ServerOutput (..))
 import Hydra.BehaviorSpec (
   RequeueMode (..),
   SimulatedChainNetwork (..),
@@ -209,10 +209,8 @@ instance StateModel WorldState where
       -- or settles each one before the next ('Deposit'/'Decommit', forks
       -- re-landing everything). See 'genOpenActions'.
       --
-      -- TODO: Remove this switch and always settle concurrently. The
-      -- sequential walk only exists because concurrent settlements still
-      -- need restrictions to avoid known protocol races; see
-      -- 'settlementsObserved'.
+      -- Both modes remain useful: sequential walks isolate individual
+      -- operations, while concurrent walks exercise overlapping settlements.
 
       Action WorldState ()
     Init :: Party -> Action WorldState HeadId
@@ -301,7 +299,7 @@ instance StateModel WorldState where
           -- 'RestartNode' models fail-recovery under load, see 'restartNodeEnabled'.
           <> [(1, genRestartNode) | restartNodeEnabled]
           -- XXX: if using > 0 we could run into a new tx not having utxo available situation?
-          <> [(10, genNewTx) | length confirmedUTxO > 1, settlementsObserved st]
+          <> [(10, genNewTx) | length confirmedUTxO > 1]
           <> settlementActions headIdVar confirmedUTxO
 
     -- With 'concurrentSettlements', settlements are submitted and observed as
@@ -310,10 +308,10 @@ instance StateModel WorldState where
     -- settlements do get observed within a sequence. Without, every
     -- settlement completes before the next action.
     -- Give decommits enough weight to exercise their submit/observe cycle.
-    -- New decommits still wait for outstanding settlements.
+    -- Do not generate a second decommit while the first is pending.
     settlementActions headIdVar confirmedUTxO
       | concurrentSettlements =
-          [(5, genSubmitDecommit) | length confirmedUTxO > 1, settlementsObserved st]
+          [(5, genSubmitDecommit) | length confirmedUTxO > 1, null pendingDecommits]
             <> [(8, genObserveDecommitFinalized) | not $ null pendingDecommits]
             <> [(2, genSubmitDeposit headIdVar) | not $ null availableToDeposit]
             <> [(3, genObserveCommitFinalized) | not $ null pendingCommits]
@@ -379,10 +377,9 @@ instance StateModel WorldState where
     p `elem` idleParties
   precondition WorldState{hydraState = Open{headParameters}} Close{party} =
     party `elem` headParameters.parties
-  precondition st@WorldState{hydraState = Open{headParameters, offChainState}} (NewTx party tx) =
+  precondition WorldState{hydraState = Open{headParameters, offChainState}} (NewTx party tx) =
     party `elem` headParameters.parties
       && (from tx, value tx) `List.elem` confirmedUTxO offChainState
-      && settlementsObserved st
   precondition _ Wait{} =
     True
   precondition WorldState{hydraState = Open{headIdVar}} Deposit{headIdVar = var, utxoToDeposit} =
@@ -390,10 +387,9 @@ instance StateModel WorldState where
       -- An empty deposit is rejected at draft time; also keeps shrinking from
       -- emptying a deposit's utxo.
       && not (null utxoToDeposit)
-  precondition st@WorldState{hydraState = Open{headParameters, offChainState}} Decommit{party, decommitTx} =
+  precondition WorldState{hydraState = Open{headParameters, offChainState}} Decommit{party, decommitTx} =
     party `elem` headParameters.parties
       && (from decommitTx, value decommitTx) `List.elem` confirmedUTxO offChainState
-      && settlementsObserved st
   precondition WorldState{hydraState = Open{headIdVar}} (SubmitDeposit var utxoToDeposit) =
     var == headIdVar
       && not (null utxoToDeposit)
@@ -401,10 +397,14 @@ instance StateModel WorldState where
     var `elem` (fst <$> pendingCommits)
   precondition WorldState{hydraState = Open{}, pendingCommits, settledCommits} (ObserveCommitFinalized var) =
     var `elem` (fst <$> pendingCommits) || var `elem` settledCommits
-  precondition st@WorldState{hydraState = Open{headParameters, offChainState}} (SubmitDecommit party decommitTx) =
+  precondition WorldState{hydraState = Open{headParameters, offChainState}, pendingDecommits} (SubmitDecommit party decommitTx) =
     party `elem` headParameters.parties
       && (from decommitTx, value decommitTx) `List.elem` confirmedUTxO offChainState
-      && settlementsObserved st
+      -- A decommit requested while another one is unsettled is rejected right
+      -- away ('DecommitAlreadyInFlight'): decommits are sequential by design.
+      -- One requested while a deposit is unsettled is fine, see
+      -- 'performSubmitDecommit'.
+      && null pendingDecommits
   precondition WorldState{hydraState = Open{}, pendingDecommits, settledDecommits} (ObserveDecommitFinalized var) =
     var `elem` (fst <$> pendingDecommits) || var `elem` settledDecommits
   precondition WorldState{hydraState = Open{}} (ObserveConfirmedTx _) =
@@ -602,16 +602,6 @@ instance StateModel WorldState where
       let cardanoKeys' = snd <$> seedKeys'
       pure $ Some $ seed{seedKeys = seedKeys', additionalUTxO = filter ((`elem` cardanoKeys') . fst) additionalUTxO}
     _other -> []
-
--- | Whether all submitted settlements are observed as finalized. Payments and
--- new decommit requests can trigger a snapshot while a settlement advances the
--- version, leaving peers waiting on a stale request or signing different
--- versions of the same snapshot number. Exclude that known race from the model
--- walks. The action preconditions also keep shrinking from removing the
--- observations before these requests. Deposits and forks may still overlap.
-settlementsObserved :: WorldState -> Bool
-settlementsObserved WorldState{pendingCommits, pendingDecommits} =
-  null pendingCommits && null pendingDecommits
 
 -- | Add a finalized commit to the head's UTxO and bump the on-chain version.
 settleCommit :: UTxOType Payment -> GlobalState -> GlobalState
@@ -1189,28 +1179,12 @@ performSubmitDecommit party tx = do
         SnapshotConfirmed{snapshot} ->
           (sortTxOuts . UTxO.txOutputs <$> Snapshot.utxoToDecommit snapshot) == Just (sortTxOuts (UTxO.txOutputs decommitted))
         _ -> False
-      -- A decommit requested while a deposit is unsettled is parked by the
-      -- node; if the deposit does not settle within the request's TTL the
-      -- node rejects it. A client then simply asks again once the deposit is
-      -- through, which is what this does.
-      rejectedForPendingDeposit = \case
-        DecommitInvalid{decommitTx, decommitInvalidReason = DepositInFlight{}} ->
-          getTxId (getTxBody decommitTx) == decommitTxId
-        _ -> False
-      submit :: Int -> RunMonad m ()
-      submit attempt
-        | attempt > maxAttempts =
-            failure $ "SubmitDecommit " <> show decommitTxId <> " rejected " <> show maxAttempts <> " times for a deposit in flight"
-        | otherwise = do
-            party `sendsInput` Input.Decommit realTx
-            lift . waitUntilHistory ("snapshot with decommit " <> show decommitTxId <> " confirmed (attempt " <> show attempt <> ")") (elems nodes) $ \outs ->
-              any approved outs || length (filter rejectedForPendingDeposit outs) >= attempt
-            outs <- lift $ serverOutputs thisNode
-            unless (any approved outs) $ submit (attempt + 1)
-  submit 1
+  -- A decommit requested while a deposit is unsettled is recorded on every
+  -- node and proposed once the commit landed, so one request is enough.
+  party `sendsInput` Input.Decommit realTx
+  lift . waitUntilHistory ("snapshot with decommit " <> show decommitTxId <> " confirmed") (elems nodes) $ \outs ->
+    any approved outs
   pure decommitted
- where
-  maxAttempts = 5 :: Int
 
 -- | Wait until every node has reported the decrement distributing the given
 -- decommitted UTxO for the n-th time.
