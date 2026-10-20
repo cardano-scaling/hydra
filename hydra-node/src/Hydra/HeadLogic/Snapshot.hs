@@ -44,6 +44,7 @@ import Hydra.HeadLogic.Snapshot.Request (
   SnapshotRequest (..),
   absorbable,
   applyTransactionsWithoutCollision,
+  buildSnapshotRequest,
   chainedSnapshotRequest,
   isLeader,
   namesNoneOf,
@@ -635,9 +636,9 @@ onOpenNetworkAckSn env@Environment{party} ChainPointTime{currentChainTime} pendi
   maybeRequestNextSnapshot previous outcome =
     -- Checked against the snapshot just confirmed: the followers check the
     -- request against that snapshot too.
-    case chainedSnapshotRequest (settledUTxO version previous) localTxs deposits currentDepositTxId decommitTx (settlingCommitAt env version currentChainTime deposits previous) of
-      Just SnapshotRequest{requestTxs, requestDecommitTx, requestDepositTxId}
-        | isLeader parameters party nextSn ->
+    case request of
+      SnapshotRequest{requestTxs, requestDecommitTx, requestDepositTxId}
+        | isLeader parameters party nextSn && (worthChaining || carriesNewDecommit) ->
             outcome
               <> newState SnapshotRequestDecided{snapshotNumber = nextSn}
               <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> requestTxs) requestDecommitTx requestDepositTxId)
@@ -650,6 +651,10 @@ onOpenNetworkAckSn env@Environment{party} ChainPointTime{currentChainTime} pendi
       if version > previous.version
         then maybe pendingDeposits (`Map.delete` pendingDeposits) previous.depositTxId
         else pendingDeposits
+    (request, worthChaining) =
+      buildSnapshotRequest (settledUTxO version previous) localTxs deposits currentDepositTxId decommitTx (settlingCommitAt env version currentChainTime deposits previous)
+    carriesNewDecommit =
+      isJust request.requestDecommitTx && (version > previous.version || isNothing previous.utxoToDecommit)
 
   maybePostIncrementTx snapshot@Snapshot{utxoToCommit, depositTxId = signedDepositTxId} signatures outcome =
     -- NOTE: use the snapshot's own deposit and not 'currentDepositTxId'. The

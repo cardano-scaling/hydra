@@ -165,6 +165,8 @@ split them into separate UTxOs before constructing the decommit transaction.
 The decommit transaction proves that the requester can spend the L2 inputs.
 :::
 
+A node can record a decommit while a commit is pending. The leader carries the commit first and proposes the decommit after the increment lands. Until then, the decommit's inputs remain reserved in the local UTxO used to validate incoming transactions. When a snapshot request rebuilds that UTxO, the node first reapplies pending transactions, then reserves the decommit's inputs again. This order matters because a pending transaction may create an input that the decommit needs. The reservation does not change the signed snapshot's UTxO.
+
 The confirmed snapshot excludes the decommitted outputs from spendable L2
 funds. A rollback of the decrement does not make those outputs spendable on
 L2 again: the node retains the authorizing snapshot and re-posts the

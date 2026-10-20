@@ -53,6 +53,7 @@ import Hydra.API.ServerOutput (
   ServerOutput,
   TimedServerOutput,
  )
+import Hydra.API.ServerOutput qualified as ServerOutput
 import Hydra.Cardano.Api (ChainPoint (..), NetworkId (..), NetworkMagic (..))
 import Hydra.Cardano.Api.Gen ()
 import Hydra.Chain (ChainEvent, OnChainTx, PostChainTx, PostTxError)
@@ -60,6 +61,7 @@ import Hydra.Chain.ChainState (ChainSlot)
 import Hydra.Chain.Direct.State (ChainStateAt)
 import Hydra.HeadLogic.Error (RequirementFailure, SideLoadRequirementFailure)
 import Hydra.HeadLogic.Outcome (StateChanged)
+import Hydra.HeadLogic.Outcome qualified as Outcome
 import Hydra.HeadLogic.State (ClosedState (..), CoordinatedHeadState (..), FanoutMode (..), FanoutStepLanded (..), HeadState, PartialFanoutState (..), SeenSnapshot, Settlement (..), SettlementStatus (..), closedStateCBORTag, closedStateCBORTagV1, coordinatedHeadStateCBORTagV1, emptySettlements, partialFanoutStateCBORTag, partialFanoutStateCBORTagV1, selectedOutputsInStep, settlementEntries, trySettlementsFromMap)
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.Ledger (ValidationError)
@@ -192,6 +194,29 @@ spec = parallel $ do
       case decodeFull' @GenericCBORSum (serialize' ("Bogus" :: Text)) of
         Left err -> show err `shouldContain` "is not a proper CBOR-encoded GenericCBORSum"
         Right v -> expectationFailure $ "unexpectedly decoded: " <> show v
+
+  describe "historical decommit refusals" $ do
+    it "reads a stored DepositInFlight refusal" $ do
+      let headId = generateWith arbitrary 1
+          decommitTx = generateWith (resize 2 arbitrary) 2 :: Tx
+          depositTxId = generateWith arbitrary 3
+          commitUTxO = generateWith (resize 2 arbitrary) 4
+          stored =
+            toStrictByteString $
+              toCBOR ("DecommitInvalid" :: Text)
+                <> toCBOR headId
+                <> toCBOR decommitTx
+                <> toCBOR ("DepositInFlight" :: Text)
+                <> toCBOR depositTxId
+                <> toCBOR commitUTxO
+          expected :: StateChanged Tx
+          expected =
+            Outcome.DecommitInvalid
+              { headId
+              , decommitTx
+              , decommitInvalidReason = ServerOutput.DepositInFlight{depositTxId, commitUTxO}
+              }
+      decodeFull' stored `shouldBe` Right expected
 
   describe "API types" $ do
     roundtripCBOR $ Proxy @(ClientInput Tx)
