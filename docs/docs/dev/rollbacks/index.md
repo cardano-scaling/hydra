@@ -55,6 +55,8 @@ For deposits and incremental commits/decommits while the head is open, this work
 
 - A partial fanout in progress is rewound the same way. Each landed step is recorded with the slot it was observed at and the fanout mode it replaced. A rollback drops the steps past the rolled-back slot, so the erased steps' outputs count as still in the head again, the driver's mode goes back to what it was before them (an erased selection is the node's to distribute again; a passive observer keeps waiting), and the driver posts the next step from that rewound progress rather than from bookkeeping the chain no longer matches.
 
+A delayed snapshot request one version behind may carry the confirmed snapshot's own deposit claim again, even if a rollback erased its settlement. Each party signs at the requested version. A request that substitutes a different retained deposit is rejected.
+
 Settlement observations that arrive before local snapshot confirmation leave version-indexed notes. Confirmation first uses the matching note to retain the settlement, then removes notes at or below the confirmed version. An ordered map split keeps only greater versions, avoiding a scan of every note.
 
 The opaque `Settlements` type in `Hydra.HeadLogic.Settlements` holds the retained settlement map and its cached deposit IDs. Callers read these through accessors and update them through operations that maintain the cache. Retaining or pruning entries updates the cache; rollback and re-landing preserve the claims. The cache is rebuilt from the entries on restart and does not change the persisted format.

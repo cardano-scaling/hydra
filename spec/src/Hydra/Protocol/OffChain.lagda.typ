@@ -616,6 +616,10 @@ version when it equals the confirmed snapshot's version and carries the same
 deposit reference and decommit outputs. The base ledger also uses that requested
 version, so every party signs the same snapshot. Requests ahead of the local
 version wait for chain observations; older requests are rejected.
+A rollback that erases the settlement does not prevent the same confirmed
+claim from being carried again. Local settlement status does not change the
+bytes that an honest leader requests the parties to sign.
+
 `OffChainReference.signEligibleRef` checks this version rule. The operational figure stores the requested version as $v_(sans("signed"))$ and uses it for acknowledgement verification and settlement posting, even if the local chain version advances. The `reqSn-sign`
 constructor below describes its equal-version subcase.
 
