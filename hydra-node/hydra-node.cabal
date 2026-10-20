@@ -74,6 +74,7 @@ library
     Hydra.Chain.ScriptRegistry
     Hydra.Config
     Hydra.HeadLogic
+    Hydra.HeadLogic.Snapshot.Request
     Hydra.HeadLogic.Error
     Hydra.HeadLogic.Input
     Hydra.HeadLogic.Outcome
