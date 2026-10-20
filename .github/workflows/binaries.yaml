@@ -55,7 +55,7 @@ jobs:
       with:
         name: hydra-windows-candidate
         path: candidate
-    - uses: actions/setup-python@v5
+    - uses: actions/setup-python@v7
       with:
         python-version: '3.12'
     - name: Extract and exercise the release
