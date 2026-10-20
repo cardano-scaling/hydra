@@ -3,6 +3,14 @@
 Implementation details of the Hydra Head protocol, including deposits,
 decommits, and snapshot settlement.
 
+## Implementation modules
+
+`Hydra.HeadLogic` dispatches inputs and re-exports the handlers below. These module boundaries preserve the existing protocol rules and public imports.
+
+| Module | Responsibility |
+| --- | --- |
+| `Hydra.HeadLogic.Snapshot.Request` | Snapshot proposal construction and leader selection |
+
 ## Deposits and decommits
 
 A head opens with an empty UTxO set. Deposits add funds from L1 while the head

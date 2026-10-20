@@ -1,5 +1,6 @@
 ```
 module Hydra.Protocol.OffChain where
+-- Haskell snapshot proposal construction and leader selection: Hydra.HeadLogic.Snapshot.Request.
 
 open import Hydra.Protocol.Prelude
 open import Hydra.Protocol.Preliminaries
