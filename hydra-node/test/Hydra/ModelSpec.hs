@@ -150,6 +150,7 @@ import Test.QuickCheck.StateModel (
   pattern Actions,
  )
 import Test.Util (printTrace, traceInIOSim)
+import Text.Printf (printf)
 
 instance HasVariables Payment.CardanoSigningKey where
   getAllVariables = mempty
@@ -157,6 +158,7 @@ instance HasVariables Payment.CardanoSigningKey where
 spec :: Spec
 spec = do
   context "modeling" $ do
+    reportWalkActionMix
     prop "not generate actions with 0 Ada" $ withMaxSuccess 10000 propDoesNotGenerate0AdaUTxO
     prop "toRealUTxO is distributive" $ propIsDistributive toRealUTxO
     prop "toTxOuts is distributive" $ propIsDistributive toTxOuts
@@ -678,6 +680,13 @@ propStressModelBalances =
       mapSize (const 100) $
         forAllDL concurrentWalk checkModelBalances
 
+-- | Settle each deposit and decommit before the next action.
+defaultWalk :: DL WorldState ()
+defaultWalk = do
+  seed <- forAllNonVariableQ $ withGenQ (genSeedWith False) (const True) (const [])
+  action_ seed
+  anyActions_
+
 -- | A random walk with 'concurrentSettlements': deposits may overlap each
 -- other, decommits and forks of every 'RequeueMode'. Payments and new decommit
 -- requests wait for pending settlements to be observed as finalized.
@@ -967,6 +976,84 @@ propDoesNotGenerate0AdaUTxO (Actions actions) =
 
   contains0Ada :: (a, Value) -> Bool
   contains0Ada = (== lovelaceToValue 0) . snd
+
+-- | Report the generated action mix and require deposits, decommits,
+-- payments and forks to each make up at least one percent of every walk.
+reportWalkActionMix :: Spec
+reportWalkActionMix =
+  it "generates a usable mix of actions in every random walk" $ do
+    measured <- traverse measure walks
+    putTextLn . toText $ intercalate "\n" (render <$> measured)
+    traverse_ requireEnoughOfEach measured
+ where
+  walks =
+    [ ("default walk", defaultWalk)
+    , ("concurrent walk", concurrentWalk)
+    , ("faulty-party walk", faultyWalk)
+    , ("replacing-party walk", soundnessWalk)
+    ]
+
+  measure (walkName, walk) = do
+    runs <- QC.generate (QC.choose (300, 500))
+    ActionMix walkName runs <$> walkActionMix runs walk
+
+  requireEnoughOfEach ActionMix{walkName, generated} =
+    for_ needed $ \(what, belongs) -> do
+      let share = percentOf (length (filter belongs generated)) (length generated)
+      when (share < 1) $
+        expectationFailure (printf "%s is only %s of the %s" what (showPercent share) walkName)
+
+  needed :: [(String, String -> Bool)]
+  needed =
+    [ ("a deposit", (`elem` ["Deposit", "SubmitDeposit"]))
+    , ("a decommit", (`elem` ["Decommit", "SubmitDecommit"]))
+    , ("a transaction", (== "NewTx"))
+    , ("a divergent fork", (== "RollbackAndFork"))
+    ]
+
+  render ActionMix{walkName, runs, generated} =
+    intercalate "\n" $
+      printf "\n  %s, %d actions over %d runs:" walkName total runs
+        : [ printf "    %-7s %s" (showPercent (percentOf count total)) name
+          | (name, count) <- sortOn (Down . snd) (Map.toList (tally generated))
+          ]
+   where
+    total = length generated
+
+  tally :: Ord a => [a] -> Map a Int
+  tally xs = Map.fromListWith (+) [(x, 1) | x <- xs]
+
+  percentOf :: Int -> Int -> Double
+  percentOf n total = 100 * fromIntegral n / fromIntegral total
+
+  showPercent :: Double -> String
+  showPercent = printf "%.1f%%"
+
+-- | The generated action names and sample size for one walk.
+data ActionMix = ActionMix
+  { walkName :: String
+  , runs :: Int
+  , generated :: [String]
+  }
+
+-- | Generate actions without executing the simulation.
+walkActionMix :: Int -> DL WorldState () -> IO [String]
+walkActionMix runs walk = do
+  collected <- newIORef []
+  result <-
+    QC.quickCheckWithResult QC.stdArgs{QC.maxSuccess = runs, QC.chatty = False} $
+      forAllDL walk $ \(Actions steps) ->
+        QC.ioProperty $ do
+          modifyIORef' collected (map nameOf steps <>)
+          pure True
+  unless (QC.isSuccess result) $
+    fail ("a walk generated no actions: " <> QC.output result)
+  readIORef collected
+ where
+  -- Read the GADT constructor name from its Show instance.
+  nameOf :: Step WorldState -> String
+  nameOf (_var := ActionWithPolarity a _) =
+    takeWhile (\c -> c /= ' ' && c /= '{') (show a)
 
 -- * Utilities
 
