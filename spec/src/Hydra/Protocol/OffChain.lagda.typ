@@ -648,10 +648,16 @@ leader-multicast effects are not modelled at this level.
 -- reqTx the applicability guard `wait L̂ ∘ tx ≠ ⊥` (de-abstracted over `applyTxs`) + ledger update;
 -- reqDec its no-in-flight + applicability guard (`U_α = ∅ ∧ tx_ω = ⊥ ∧ L̂ ∘ tx ≠ ⊥`) + ledger update;
 -- reqSn-sign the version/number guards (§7);
--- ackSn-collect the no-double-sign guard (`(j,·) ∉ Σ̂`); ackSn-confirm the n-of-n all-signed guard. The
+-- ackSn-collect the no-double-sign and individual-signature guards; ackSn-confirm the n-of-n guard. The
 -- ackSn-confirm multisignature VERIFY is the operational realisation of all-signed and is formalised at
 -- the §7 `confirm` step (`AggVerified`), not duplicated here; the leader-snapshot multicast EFFECTS are
 -- likewise deferred to the §7 system wiring.
+-- LocalState does not store the full requested snapshot. Keep individual
+-- verification abstract: the sender's key must verify the signature against
+-- that snapshot, including its head id, version, number and UTxO hashes.
+postulate
+  ValidSeenSignature : LocalState → ℕ → PartySig → Set
+
 data _handles_↝_ : LocalState → Message → LocalState → Set where
   -- on (reqTx, tx): `wait L̂ ∘ tx ≠ ⊥` (tx applies to the local ledger), then `L̂ ← L̂ ∘ tx` and
   -- `T̂ ← T̂ ∪ {tx}`. The applicability guard is de-abstracted as the witness `applyTxs L̂ [tx] ≡ just L'`,
@@ -674,11 +680,11 @@ data _handles_↝_ : LocalState → Message → LocalState → Set where
     → applyTxs (LocalState.localLedger st) (tx ∷ []) ≡ just L'   -- L̂ ∘ tx ≠ ⊥ (applicability, witnessed)
     → st handles (reqDec tx) ↝ record st { localLedger = L' ∖ᵘ outputs tx ; pendingDecrement = just tx }
 
-  -- on (ackSn, s, σ) before the round completes: record sender j's signature in Σ̂; S̄ unchanged. The §6
-  -- `require (j,·) ∉ Σ̂` guard (sender j has not already signed this round) is de-abstracted as the
-  -- premise, so Σ̂ never double-counts a party.
+  -- Record a fresh sender's signature only after verifying it for the seen snapshot.
+  -- Rejecting a bad signature leaves that sender free to provide a valid one.
   ackSn-collect : ∀ {st s σ j}
     → ¬ (j ∈ˡ map proj₁ (LocalState.seenSigs st))   -- (j,·) ∉ Σ̂ (sender has not signed yet)
+    → ValidSeenSignature st j σ
     → st handles (ackSn s σ) ↝ record st { seenSigs = (j , σ) ∷ LocalState.seenSigs st }
 
   -- on (ackSn, s, σ) completing the round: every party has signed, so the seen snapshot becomes the new
@@ -887,7 +893,13 @@ reqTx-applicable (reqTx-pending eq) p with trans (sym eq) p
 ackSn-collect-fresh : ∀ {st s σ j}
   → st handles (ackSn s σ) ↝ record st { seenSigs = (j , σ) ∷ LocalState.seenSigs st }
   → ¬ (j ∈ˡ map proj₁ (LocalState.seenSigs st))
-ackSn-collect-fresh (ackSn-collect p) = p
+ackSn-collect-fresh (ackSn-collect p _) = p
+
+-- Every signature collected by this rule passes individual verification.
+ackSn-collect-valid : ∀ {st s σ j}
+  → st handles (ackSn s σ) ↝ record st { seenSigs = (j , σ) ∷ LocalState.seenSigs st }
+  → ValidSeenSignature st j σ
+ackSn-collect-valid (ackSn-collect _ valid) = valid
 
 -- ackSn-confirm adopts a snapshot only once EVERY party (index < n) has signed (the n-of-n condition
 -- the §7 `Certified` predicate captures):
@@ -1000,7 +1012,7 @@ noBothInFlight-step : ∀ {st st'} → st ⟶ᴴ st' → NoBothInFlight st → N
 ```
 noBothInFlight-step (hstep (reqTx-pending _))     inv = inv
 noBothInFlight-step (hstep (reqDec-pending p _ _)) _  = inj₁ p
-noBothInFlight-step (hstep (ackSn-collect _))     inv = inv
+noBothInFlight-step (hstep (ackSn-collect _ _))     inv = inv
 noBothInFlight-step (hstep (ackSn-confirm _ _ _ _)) inv = inv
 noBothInFlight-step (hstep (reqSn-sign _ _))      inv = inv
 noBothInFlight-step (ostep deposit-add)           inv = inv
@@ -1052,7 +1064,7 @@ versionDiscipline-step : ∀ {st st'} → st ⟶ᴴ st' → VersionDiscipline st
 ```
 versionDiscipline-step (hstep (reqTx-pending _))       inv = inv
 versionDiscipline-step (hstep (reqDec-pending _ _ _))  inv = inv
-versionDiscipline-step (hstep (ackSn-collect _))       inv = inv
+versionDiscipline-step (hstep (ackSn-collect _ _))       inv = inv
 versionDiscipline-step (hstep (ackSn-confirm _ _ _ d)) _   = d
 versionDiscipline-step (hstep (reqSn-sign _ _))        inv = inv
 versionDiscipline-step (ostep deposit-add)             inv = inv
@@ -1300,6 +1312,7 @@ preventing inconsistency between the on-chain and off-chain state.
               #kw("wait") $hats = s$
               #nst[
                 #kw("require") $(j, dot.c) in.not hatSigma$ \
+                #kw("require") $sans("verifySeenSignature")(j, msSig_j)$ #text(size: 0.8em)[(the sender's key verifies the complete snapshot being acknowledged)] \
                 $hatSigma[j] <- sigma_j$ \
                 #kw("if") $forall k in [1..n] : (k, dot.c) in hatSigma$
                 #nst[
