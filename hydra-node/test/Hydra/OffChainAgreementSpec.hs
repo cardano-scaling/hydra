@@ -12,13 +12,11 @@
 --     non-accept. The reference's leader input is resolved by the EXTRACTED @leaderRef@ (itself bound
 --     to the real @isLeader@ in 'Hydra.OffChainLeaderSpec'), so the composed decision is fully Agda-derived.
 --
---   * @reqDecEligibleRef@ vs @onOpenNetworkReqDec@: ACCEPT iff the node records the decommit
---     ('DecommitRecorded'). A PENDING deposit makes the node WAIT ('WaitOnUnresolvedCommit') at
---     ttl > 0, and so does an in-flight decommit ('WaitOnNotApplicableDecommitTx' with
---     'DecommitAlreadyInFlight'); both are non-accept. The commit axis is the reference's
---     'HsPendingCommit', not a Bool, so this test cannot decide which commits count: an expired or
---     already-recovered deposit is a state the node reaches (it clears @currentDepositTxId@ on
---     neither) and the reference is what says those do not block.
+--   * @reqDecEligibleRef@ vs @onOpenNetworkReqDec@: ACCEPT means the node records
+--     the decommit ('DecommitRecorded'). The node queues a decommit behind a pending
+--     commit, while the reference still waits. Compare absent, expired and recovered
+--     claims here, with and without a decommit in flight. Pending-commit agreement
+--     needs a reference-model update before this protocol candidate is ready.
 --
 --   * @reqSnNotBothRef@ / @reqSnDecommitOutputsRef@ / @reqSnDepositSettledRef@ vs
 --     @onOpenNetworkReqSn@'s incremental-action guards: a request carrying both a deposit and a
@@ -619,9 +617,12 @@ spec = parallel $ do
     it "anchor: with nothing in flight the real node records the decommit" $ do
       reqDecEligibleRef NoCommitP False `shouldBe` True
       reqDecAccepts (reqDecOutcome NoCommitP False) `shouldBe` True
-    it "a pending deposit (commit in flight) makes the real node WAIT (WaitOnUnresolvedCommit)" $
-      reqDecOutcome CommitPendingP False
-        `assertWait` WaitOnUnresolvedCommit{commitUTxO = reqDecDepositedUTxO}
+    -- A local deposit activation can differ between nodes receiving the same
+    -- request. This candidate records the request and orders the commit first
+    -- when proposing a snapshot. The reference still waits on the pending
+    -- commit, so this case remains outside the agreement comparison below.
+    it "a pending deposit (commit in flight) no longer holds the real node back: it records" $
+      reqDecAccepts (reqDecOutcome CommitPendingP False) `shouldBe` True
     it "an in-flight decommit makes the real node WAIT (DecommitAlreadyInFlight)" $
       reqDecOutcome NoCommitP True
         `assertWait` WaitOnNotApplicableDecommitTx
@@ -636,13 +637,15 @@ spec = parallel $ do
     it "a commit that is already gone blocks neither" $ do
       reqDecEligibleRef CommitGoneP False `shouldBe` True
       reqDecAccepts (reqDecOutcome CommitGoneP False) `shouldBe` True
-    prop "reqDecEligibleRef === real ReqDec accept/non-accept across (commit state, decommit?)" $
+    -- Pending commits need a model change. Check the other claim states with
+    -- and without a decommit already in flight.
+    prop "reqDecEligibleRef === real ReqDec accept/non-accept across (commit state, decommit?), except a pending commit" $
       \decommitInFlight ->
         conjoin
           [ counterexample (show commit) $
             reqDecEligibleRef commit decommitInFlight
               === reqDecAccepts (reqDecOutcome commit decommitInFlight)
-          | commit <- [NoCommitP, CommitPendingP, CommitExpiredP, CommitGoneP]
+          | commit <- [NoCommitP, CommitExpiredP, CommitGoneP]
           ]
 
   describe "reqSn incremental-action guards: extracted reqSn*Ref vs the real onOpenNetworkReqSn" $ do

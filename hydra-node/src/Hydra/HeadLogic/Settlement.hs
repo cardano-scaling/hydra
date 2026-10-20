@@ -45,6 +45,7 @@ import Hydra.HeadLogic.Outcome (
 import Hydra.HeadLogic.Snapshot.Request (
   SettlingCommit (..),
   SnapshotRequest (..),
+  buildSnapshotRequest,
   chainedSnapshotRequest,
   isLeader,
   maybeRequestSnapshotAfterVersionBump,
@@ -244,59 +245,53 @@ onOpenNetworkReqDec env ledger ttl ChainPointTime{currentSlot, currentChainTime}
         --         multicast (reqSn, v, ̅S.s + 1, T̂ , 𝑈𝛼, txω )
         <> maybeRequestSnapshot
  where
-  -- Spec: wait 𝑈𝛼 = ∅. A pending commit (deposit) must settle before a
-  -- decommit can be recorded, otherwise a later snapshot would carry both (see
-  -- the symmetric guard on 'DepositActivated', which blocks a deposit while a
-  -- decommit is pending). While ttl remains we wait, so the decommit proceeds
-  -- once the increment finalises and clears 'currentDepositTxId'; once ttl is
-  -- exhausted we reject with 'DepositInFlight' (mirroring the branches below) so
-  -- the client can act (e.g. recover the deposit) instead of the request being
-  -- silently dropped.
+  -- Spec: wait 𝑈𝛼 = ∅. A snapshot must never carry both a commit and a
+  -- decommit, and must never drop a commit still in flight. Both are enforced
+  -- where the snapshot is made, not here: the leader carries a pending commit
+  -- first and the recorded decommit in a later round
+  -- ('nextSnapshotRequest'), and every receiver rejects a proposal
+  -- carrying both ('ReqSnBothCommitAndDecommit').
   --
-  -- The decommit waits if the next snapshot request would include a deposit.
-  waitOnApplicableDecommit cont
-    | Just depositTxId <- requestDepositTxId
-    , Just Deposit{deposited = commitUTxO} <- Map.lookup depositTxId pendingDeposits =
-        if ttl > 0
-          then wait $ WaitOnUnresolvedCommit{commitUTxO}
-          else
-            newState
-              DecommitInvalid
-                { headId
-                , decommitTx
-                , decommitInvalidReason = DepositInFlight{depositTxId, commitUTxO}
-                }
-    | otherwise =
-        case mExistingDecommitTx of
-          Nothing ->
-            case applyTransactions currentSlot localUTxO [decommitTx] of
-              Right _ -> cont
-              Left (_, validationError)
-                | ttl > 0 ->
-                    wait $
-                      WaitOnNotApplicableDecommitTx
-                        ServerOutput.DecommitTxInvalid{localUTxO, validationError}
-                | otherwise ->
-                    newState
-                      DecommitInvalid
-                        { headId
-                        , decommitTx
-                        , decommitInvalidReason =
-                            ServerOutput.DecommitTxInvalid{localUTxO, validationError}
-                        }
-          Just existingDecommitTx
+  -- A ReqDec is a broadcast, and every party must reach the same decision on
+  -- it. Whether a deposit is queued locally is decided by this node's own
+  -- tick, so holding the ReqDec back on it (and rejecting it with
+  -- 'DepositInFlight' once its ttl ran out) refused the same request on some
+  -- nodes and recorded it on others; the recording nodes then held a decommit
+  -- the leader never knew about, and it was never proposed. The model's
+  -- concurrent walk found this once the late-ReqSn deadlock stopped masking
+  -- it. Only network-derived state may decide here: an in-flight decommit,
+  -- and whether the transaction applies.
+  waitOnApplicableDecommit cont =
+    case mExistingDecommitTx of
+      Nothing ->
+        case applyTransactions currentSlot localUTxO [decommitTx] of
+          Right _ -> cont
+          Left (_, validationError)
             | ttl > 0 ->
                 wait $
                   WaitOnNotApplicableDecommitTx
-                    DecommitAlreadyInFlight{otherDecommitTxId = txId existingDecommitTx}
+                    ServerOutput.DecommitTxInvalid{localUTxO, validationError}
             | otherwise ->
                 newState
                   DecommitInvalid
                     { headId
                     , decommitTx
                     , decommitInvalidReason =
-                        DecommitAlreadyInFlight{otherDecommitTxId = txId existingDecommitTx}
+                        ServerOutput.DecommitTxInvalid{localUTxO, validationError}
                     }
+      Just existingDecommitTx
+        | ttl > 0 ->
+            wait $
+              WaitOnNotApplicableDecommitTx
+                DecommitAlreadyInFlight{otherDecommitTxId = txId existingDecommitTx}
+        | otherwise ->
+            newState
+              DecommitInvalid
+                { headId
+                , decommitTx
+                , decommitInvalidReason =
+                    DecommitAlreadyInFlight{otherDecommitTxId = txId existingDecommitTx}
+                }
 
   -- May carry a settling commit instead of the decommit.
   maybeRequestSnapshot =
@@ -483,7 +478,9 @@ onOpenChainIncrementTx env pendingDeposits openState newChainState newVersion de
   -- one, if any), as followers check it. The deposit just settled, so it is
   -- excluded.
   requestOn snapshot =
-    chainedSnapshotRequest (settledUTxO newVersion snapshot) localTxs (Map.delete depositTxId (eligibleDeposits openState pendingDeposits)) Nothing decommitTx Nothing
+    let (request, worthChaining) =
+          buildSnapshotRequest (settledUTxO newVersion snapshot) localTxs (Map.delete depositTxId (eligibleDeposits openState pendingDeposits)) Nothing decommitTx Nothing
+     in request <$ guard (worthChaining || isJust request.requestDecommitTx)
 
   HeadParameters{parties} = parameters
 
@@ -545,13 +542,13 @@ onOpenChainDecrementTx env pendingDeposits openState newChainState newVersion di
 
   OpenState{headId, parameters, coordinatedHeadState} = openState
 
-  CoordinatedHeadState{localTxs, confirmedSnapshot, currentDepositTxId, version, seenSnapshot, decommitTx} = coordinatedHeadState
+  CoordinatedHeadState{localTxs, confirmedSnapshot, currentDepositTxId, version, seenSnapshot} = coordinatedHeadState
 
   -- Built on the snapshot that is confirmed after this decrement (the adopted
   -- one, if any), as followers check it. No commit is settling next to a
   -- decommit.
   requestOn snapshot =
-    chainedSnapshotRequest (settledUTxO newVersion snapshot) localTxs (eligibleDeposits openState pendingDeposits) currentDepositTxId decommitTx Nothing
+    chainedSnapshotRequest (settledUTxO newVersion snapshot) localTxs (eligibleDeposits openState pendingDeposits) currentDepositTxId Nothing Nothing
 
   HeadParameters{parties} = parameters
 
