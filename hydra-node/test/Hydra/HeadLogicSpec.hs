@@ -43,7 +43,7 @@ import Hydra.Chain.Direct.State (ChainStateAt (..))
 import Hydra.Chain.Direct.TimeHandle (TimeHandle, mkTimeHandle, slotToUTCTime)
 import Hydra.HeadLogic (ClosedState (..), CoordinatedHeadState (..), Effect (..), FanoutMode (..), HeadState (..), Input (..), LogicError (..), OpenState (..), Outcome (..), PartialFanoutState (..), RequirementFailure (..), SettlingCommit (..), SideLoadRequirementFailure (..), SnapshotRequest (..), StateChanged (..), TTL, WaitReason (..), absorbable, applyTransactionsWithoutCollision, cause, chainedSnapshotRequest, existingDeposit, maxTxsPerSnapshot, namesNoneOf, newState, nextSnapshotRequest, noop, retainSettlement, settlingCommitAt, update)
 import Hydra.HeadLogic qualified as HeadLogic
-import Hydra.HeadLogic.State (IdleState (..), SeenSnapshot (..), Settlement (..), SettlementConflict (..), SettlementStatus (..), emptySettlements, getHeadParameters, mkSeenSnapshot, settlementEntries, tryInsertSettlement)
+import Hydra.HeadLogic.State (IdleState (..), SeenSnapshot (..), Settlement (..), SettlementConflict (..), SettlementStatus (..), Settlements, emptySettlements, getHeadParameters, mkSeenSnapshot, settlementEntries, tryInsertSettlement)
 import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano (cardanoLedger, mkSimpleTx)
 import Hydra.Ledger.Cardano.TimeSpec (genUTCTime)
@@ -1199,8 +1199,8 @@ spec =
             _ -> False
 
         it "does not carry an expired deposit into the next ReqSn" $ do
-          -- Requesting an expired deposit makes every receiving party hard-error
-          -- with RequestedDepositExpired, so a deposit that became unclaimable would
+          -- The leader selects new deposits only while they are active. A deposit
+          -- that became unclaimable would
           -- stall snapshots for the whole head. Dropping it downgrades that to a
           -- commit its depositor recovers after the deadline.
           now <- getCurrentTime
@@ -3239,6 +3239,9 @@ spec =
                   , depositTxId = Just depositTxId'
                   }
 
+            signedIncrementingSnapshot1 =
+              ConfirmedSnapshot{snapshot = incrementingSnapshot1, signatures = Crypto.aggregate []}
+
             -- Snapshot 2 (version 1), confirmed after the version bump; holds
             -- no commit, so once it is confirmed the incrementing snapshot is
             -- no longer in 'confirmedSnapshot'.
@@ -4561,6 +4564,133 @@ spec =
           outcome `hasEffectSatisfying` \case
             NetworkEffect (AckSn _ 2) -> True
             _ -> False
+
+        -- Peers may observe expiry at different times. That local timing
+        -- must not make one refuse a claim that another signs.
+        it "accepts a new deposit claim across the local expiry cutoff" $ do
+          now <- getCurrentTime
+          forM_ [Active, Expired] $ \status -> do
+            let deposit =
+                  Deposit
+                    { headId = testHeadId
+                    , deposited = depositedUTxO
+                    , created = addUTCTime (-3600) now
+                    , deadline = addUTCTime 600 now
+                    , status
+                    }
+                s = (inOpenState [alice]){deposits = trackedFromPending (Map.singleton depositTxId' deposit)}
+            now' <- nowFromSlot s.chainPointTime.currentSlot
+            update soloAliceEnv ledger now' s (receiveMessage $ ReqSn 0 1 [] Nothing (Just depositTxId'))
+              `hasEffectSatisfying` \case
+                NetworkEffect (AckSn _ 1) -> True
+                _ -> False
+
+        it "decides a re-carried claim the same way whatever this node has seen" $ do
+          now <- getCurrentTime
+          let retained :: SettlementStatus -> Settlements SimpleTx
+              retained status =
+                either (Prelude.error . show) id $ tryInsertSettlement Settlement{snapshot = signedIncrementingSnapshot1, status} emptySettlements
+              -- What this node's chain follower has made of the increment:
+              -- not seen, seen landing, or seen and then erased by a rollback.
+              chainViews = [(0, emptySettlements), (1, retained (Landed 3)), (1, retained Erased)]
+              deposit :: DepositStatus -> Deposit SimpleTx
+              deposit status =
+                Deposit
+                  { headId = testHeadId
+                  , deposited = depositedUTxO
+                  , created = now
+                  , deadline = addUTCTime 600 now
+                  , status
+                  }
+              stateFor :: (SnapshotVersion, Settlements SimpleTx) -> DepositStatus -> Maybe Integer -> NodeState SimpleTx
+              stateFor (version, settlements) status queued =
+                ( inOpenState' [alice] $
+                    coordinatedHeadState
+                      { confirmedSnapshot = signedIncrementingSnapshot1
+                      , seenSnapshot = LastSeenSnapshot{lastSeen = 1}
+                      , version
+                      , currentDepositTxId = queued
+                      , settlements
+                      }
+                )
+                  { deposits = trackedFromPending (Map.singleton depositTxId' (deposit status))
+                  }
+              signsTheClaim :: Outcome SimpleTx -> Bool
+              signsTheClaim = \case
+                Continue{stateChanges, effects} ->
+                  any (\case SnapshotRequested{requestedSnapshot = Snapshot{version, utxoToCommit}} -> version == 0 && utxoToCommit == Just depositedUTxO; _ -> False) stateChanges
+                    && any (\case NetworkEffect AckSn{} -> True; _ -> False) effects
+                _ -> False
+          forM_ chainViews $ \view ->
+            forM_ [Active, Expired, Inactive] $ \status ->
+              forM_ [Nothing, Just depositTxId', Just depositTxId2] $ \queued -> do
+                let s = stateFor view status queued
+                now' <- nowFromSlot s.chainPointTime.currentSlot
+                let outcome = update soloAliceEnv ledger now' s (receiveMessage $ ReqSn 0 2 [] Nothing (Just depositTxId'))
+                unless (signsTheClaim outcome) $
+                  expectationFailure $
+                    "Refused the confirmed snapshot's own claim with version "
+                      <> show (fst view)
+                      <> ", deposit "
+                      <> show status
+                      <> ", queued "
+                      <> show queued
+                      <> ": "
+                      <> show outcome
+
+        -- A request must preserve the unsettled action in the confirmed
+        -- snapshot. Dropping or replacing it can leave funds unaccounted for.
+        it "signs no deviation from the claim an honest leader would carry" $ do
+          now <- getCurrentTime
+          let stillPending :: Integer -> UTxOType SimpleTx -> (Integer, Deposit SimpleTx)
+              stillPending txId' utxo =
+                (txId', Deposit{headId = testHeadId, deposited = utxo, created = now, deadline = addUTCTime 600 now, status = Active})
+              withClaim :: SnapshotVersion -> Settlements SimpleTx -> NodeState SimpleTx
+              withClaim version settlements =
+                ( inOpenState' [alice] $
+                    coordinatedHeadState
+                      { confirmedSnapshot = signedIncrementingSnapshot1
+                      , seenSnapshot = LastSeenSnapshot{lastSeen = 1}
+                      , version
+                      , settlements
+                      }
+                )
+                  { deposits = trackedFromPending . Map.fromList $ [stillPending depositTxId' depositedUTxO, stillPending depositTxId2 depositedUTxO2]
+                  }
+              -- Also check a pending decommit instead of a deposit claim.
+              withDecommit :: NodeState SimpleTx
+              withDecommit =
+                inOpenState' [alice] $
+                  coordinatedHeadState
+                    { confirmedSnapshot = ConfirmedSnapshot{snapshot = decrementingSnapshot1, signatures = Crypto.aggregate []}
+                    , seenSnapshot = LastSeenSnapshot{lastSeen = 1}
+                    , version = 0
+                    , decommitTx = Just decommitTx'
+                    }
+              states =
+                [ ("unsettled", withClaim 0 emptySettlements)
+                , ("settled, and this node one version ahead", withClaim 1 (either (Prelude.error . show) id $ tryInsertSettlement Settlement{snapshot = signedIncrementingSnapshot1, status = Landed 3} emptySettlements))
+                , ("a decommit rather than a commit, unsettled", withDecommit)
+                ]
+              deviations =
+                [ ("drops the claim", Nothing, Nothing)
+                , ("swaps in another deposit", Just depositTxId2, Nothing)
+                , ("replaces it with a decommit", Nothing, Just (aValidTx 7))
+                , ("carries it and a decommit", Just depositTxId', Just (aValidTx 7))
+                ]
+              signs :: Outcome SimpleTx -> Bool
+              signs = \case
+                Continue{stateChanges, effects} ->
+                  any (\case SnapshotRequested{} -> True; _ -> False) stateChanges
+                    && any (\case NetworkEffect AckSn{} -> True; _ -> False) effects
+                _ -> False
+          forM_ states $ \(claimIs, s) ->
+            forM_ deviations $ \(how, dep, dec) -> do
+              now' <- nowFromSlot s.chainPointTime.currentSlot
+              let outcome = update soloAliceEnv ledger now' s (receiveMessage $ ReqSn 0 2 [] dec dep)
+              when (signs outcome) $
+                expectationFailure $
+                  "Signed a request that " <> how <> ", with the claim " <> claimIs <> ": " <> show outcome
 
         it "rejects a ReqSn one version behind that swaps in a different deposit" $ do
           -- Only the confirmed snapshot's own commit may be carried again. A
