@@ -970,7 +970,7 @@ spec =
             o' <- runHeadLogic singlePartyEnv ledger (settling [colliding] (utxoRef 1 <> depositedUtxo <> utxoRef 5)) $ step (receiveMessage $ ReqTx another)
             requests o' `shouldBe` []
 
-          it "on tick, drops a settling commit only once its increment can no longer land, never claiming another" $ do
+          it "on tick, waits for a landable commit and only replaces a recovered claim" $ do
             now <- getCurrentTime
             let depositTime = plusTime now
                 farDeadline = depositTime 5 `plusTime` toNominalDiffTime aliceEnv.depositPeriod `plusTime` toNominalDiffTime aliceEnv.depositPeriod
@@ -1009,8 +1009,8 @@ spec =
             requests (update aliceEnv ledger now (s0 [(pendingDepositTxId, claimedWith (depositTime 2)), (43, other)]) tick) `shouldBe` []
             -- Past the margin: drop the commit, claim nothing.
             requests (update aliceEnv ledger now (s0 [(pendingDepositTxId, claimedWith (depositTime (-4000))), (43, other)]) tick) `shouldBe` [([], Nothing)]
-            -- Recovered: drop the commit, claim nothing.
-            requests (update aliceEnv ledger now (s0 [(43, other)]) tick) `shouldBe` [([], Nothing)]
+            -- Recovered: the dead claim can be replaced immediately.
+            requests (update aliceEnv ledger now (s0 [(43, other)]) tick) `shouldBe` [([], Just 43)]
 
         prop "does not track depositTx of another head" $ \otherHeadId -> do
           let depositOtherHead =
@@ -4234,9 +4234,45 @@ spec =
               NetworkEffect ReqSn{} -> True
               _ -> False
 
+        it "proposes and signs a fresh deposit once the confirmed snapshot's claim was recovered" $ do
+          -- The deposit the confirmed snapshot claims was recovered on L1, so
+          -- its increment can never land and the claim is dropped. The leader
+          -- may then claim another deposit at the same version, and every
+          -- party must accept it rather than hold the dead claim against it.
+          now <- getCurrentTime
+          let otherActive =
+                Deposit
+                  { headId = testHeadId
+                  , deposited = depositedUTxO2
+                  , created = addUTCTime (-120) now
+                  , deadline = addUTCTime 600 now
+                  , status = Active
+                  }
+              s0 =
+                ( inOpenState' [alice] $
+                    coordinatedHeadState
+                      { confirmedSnapshot = ConfirmedSnapshot{snapshot = incrementingSnapshot1, signatures = Crypto.aggregate []}
+                      , seenSnapshot = LastSeenSnapshot{lastSeen = 1}
+                      , version = 0
+                      , currentDepositTxId = Nothing
+                      }
+                )
+                  { deposits = trackedFromPending (Map.singleton depositTxId2 otherActive)
+                  }
+          now' <- nowFromSlot s0.chainPointTime.currentSlot
+          update soloAliceEnv ledger now' s0 (ChainInput Tick{chainTime = now, chainPoint = 2})
+            `hasEffectSatisfying` \case
+              NetworkEffect ReqSn{snapshotVersion = 0, depositTxId} -> depositTxId == Just depositTxId2
+              _ -> False
+          update soloAliceEnv ledger now' s0 (receiveMessage $ ReqSn 0 2 [] Nothing (Just depositTxId2))
+            `hasStateChangedSatisfying` \case
+              SnapshotRequested{requestedSnapshot = Snapshot{version, utxoToCommit}} ->
+                version == 0 && utxoToCommit == Just depositedUTxO2
+              _ -> False
+
         forM_ [Inactive, Active, Expired] $ \status ->
-          it ("checks activation of a ReqSn re-carrying the confirmed snapshot's deposit with status " <> show status) $ do
-            -- A carried claim still waits for activation after re-observation.
+          it ("signs the confirmed snapshot's deposit again with local status " <> show status) $ do
+            -- A signed claim is independent of this node's activation status.
             -- Local expiry alone does not prevent its increment from landing.
             now <- getCurrentTime
             let deposit =
@@ -4260,12 +4296,9 @@ spec =
                     }
             now' <- nowFromSlot s0.chainPointTime.currentSlot
             let outcome = update soloAliceEnv ledger now' s0 (receiveMessage $ ReqSn 0 2 [] Nothing (Just depositTxId'))
-            case status of
-              Inactive -> outcome `assertWait` WaitOnDepositActivation{depositTxId = depositTxId'}
-              _ ->
-                outcome `hasStateChangedSatisfying` \case
-                  SnapshotRequested{requestedSnapshot = Snapshot{utxoToCommit}} -> utxoToCommit == Just depositedUTxO
-                  _ -> False
+            outcome `hasStateChangedSatisfying` \case
+              SnapshotRequested{requestedSnapshot = Snapshot{utxoToCommit}} -> utxoToCommit == Just depositedUTxO
+              _ -> False
 
         it "does not propose the deposit of the snapshot it is just confirming" $ do
           -- A rollback inside the window where the snapshot is still

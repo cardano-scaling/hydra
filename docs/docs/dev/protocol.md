@@ -139,7 +139,7 @@ For `depositTx`, the inputs may very well be spent by an attacker and an honest 
 
 The time a deposit must mature before it becomes `Active` is configured independently from the deposit period via the **deposit activation** (defaulting to the same value as the deposit period). This decouples how fast a deposit activates from the deadline/expiry window, so both can be tuned separately.
 
-A snapshot request carrying a deposit already claimed by the confirmed snapshot still waits while that deposit is locally `Inactive`, including after re-observation following a rollback. A locally `Expired` deposit can still be carried as that same claim, because its increment may still land before the on-chain deadline.
+A snapshot request carrying the confirmed snapshot's own deposit claim is accepted while that deposit remains tracked, even if it is locally `Inactive` or `Expired`. This includes re-observation after a rollback. Once recovery removes the deposit, a request may carry a fresh claim. The leader still selects new deposits only while they are `Active`.
 
 In summary, a deposit may only be picked up while `Active` in the following deposit life cycle:
 ```mermaid
