@@ -196,6 +196,10 @@ remains in subsequent snapshots until the deposit is recovered or chain time
 passes `deadline + DP`. This extra period allows for rollbacks; the earlier
 expiry at `deadline - DP` alone does not allow the pending commit to be dropped.
 
+## Checking snapshot acknowledgements
+
+A node verifies each `AckSn` with the sender's key against the snapshot it is collecting before recording the signature. A signature for another snapshot, another key, or another message is rejected immediately. The sender can still provide a valid acknowledgement for the same round. The node also verifies the combined signatures before confirming the snapshot.
+
 ## Closing with a snapshot still collecting signatures
 
 Close and contest redeemers also carry the snapshot's multisignature. A node
