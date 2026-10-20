@@ -90,14 +90,11 @@ maxTxsPerSnapshot = 4000
 --     node keeps collecting signatures. Once it confirms,
 --     'maybeRequestNextSnapshot' requests the next snapshot with the bumped
 --     version. Firing here uses stale 'localTxs' and can cause 'BadInputsUTxO'
---     on other parties. A party that receives the ReqSn after the bump still
---     waits on the version mismatch.
---   * Allows 'RequestedSnapshot': the in-flight ReqSn carries the old version
---     and will be parked by 'waitOnSnapshotVersion' until TTL drops it, so we
---     re-request immediately with the new version to make progress without
---     waiting for the stale request's retries to exhaust. This is the only
---     thing that unparks the other parties, so it must also fire when the
---     stale request carried a deposit and no local txs.
+--     on other parties. A party that receives the ReqSn after the bump can
+--     sign one version behind when it preserves the confirmed action.
+--   * Allows 'RequestedSnapshot': our request may still be in transit.
+--     Requesting at the new version also covers a lost request; receivers
+--     reject a second request for the same snapshot number as a duplicate.
 --
 -- The caller builds the request after removing the action that just settled.
 -- A decommit recorded while a commit was in flight can now be proposed, even
@@ -331,8 +328,8 @@ applyTransactionsWithoutCollision Ledger{applyTransactions = apply} slot =
 
 -- | The 'SeenSnapshot' after a version bump. A snapshot already in flight is
 -- kept so this node can collect the remaining signatures. Other states reset
--- to the confirmed snapshot number. This does not resolve a version mismatch
--- for a party that receives the 'ReqSn' after the bump.
+-- to the confirmed snapshot number. A party that receives the 'ReqSn' after
+-- the bump signs at the requested version if it preserves the settled action.
 seenSnapshotAfterVersionBump :: IsTx tx => ConfirmedSnapshot tx -> SeenSnapshot tx -> SeenSnapshot tx
 seenSnapshotAfterVersionBump confirmedSnapshot = \case
   seen@SeenSnapshot{} -> seen
