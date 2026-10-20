@@ -9,6 +9,7 @@ Additional implementation-specific documentation for the Hydra Head protocol and
 | Module | Responsibility |
 | --- | --- |
 | `Hydra.HeadLogic.Snapshot.Request` | Snapshot proposal construction and leader selection |
+| `Hydra.HeadLogic.Settlement` | Deposit and decommit handling, retention and rollback retries |
 
 ## General notes on incremental commits/decommits
 
