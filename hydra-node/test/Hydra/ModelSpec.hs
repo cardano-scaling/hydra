@@ -95,6 +95,7 @@ import Hydra.Model (
   RunMonad,
   RunState (..),
   WorldState (..),
+  genFaultySeed,
   genPartyKeysExactly,
   genPayment,
   genSeedWith,
@@ -104,6 +105,7 @@ import Hydra.Model (
   toTxOuts,
  )
 import Hydra.Model qualified as Model
+import Hydra.Model.MockChain (FaultMode (..))
 import Hydra.Model.Payment (Payment (..))
 import Hydra.Model.Payment qualified as Payment
 import Hydra.Tx (HeadId)
@@ -187,6 +189,10 @@ spec = do
   context "fail-recovery" $ do
     prop "a party restarted twice right after a settlement still confirms snapshots" $
       propScripted partyRestartedTwiceAfterSettlement
+    prop "duplicate and invalid messages preserve progress between settlements" $
+      propScripted headSurvivesFaultyParty
+    prop "check model with extra network messages between settlements" $
+      forAllDL faultyWalk propHydraModel
   -- The concurrent walks keep deposits and forks overlapping, but observe
   -- pending settlements before payments or new decommit requests to avoid
   -- the known snapshot version race; see 'Model.settlementsObserved'.
@@ -234,6 +240,7 @@ propFanoutLimit limit =
           , additionalUTxO = utxo
           , concurrentSettlements = False
           , networkLatencySeed
+          , faultyParty = Nothing
           }
     headId <- action $ Init alice
     void $ action $ Deposit{headIdVar = headId, utxoToDeposit = utxo}
@@ -263,7 +270,21 @@ propScripted d = withMaxSuccess 5 $ noShrinking $ mapSize (max 60) $ forAllDL d 
 -- scenario starts from here. The 'Wait' leaves room for deep forks that must
 -- stay clear of the head-opening transactions.
 openHeadWithDepositFuel :: Int -> DL WorldState (Var HeadId, [(Party, UTxOType Payment)])
-openHeadWithDepositFuel n = do
+openHeadWithDepositFuel = openHeadWith (const Nothing)
+
+-- | 'openHeadWithDepositFuel' with the last party misbehaving on the network
+-- in the given way, see 'FaultMode'. Not the first, which leads the head's
+-- opening.
+openHeadWithFaultyParty :: FaultMode -> Int -> DL WorldState (Var HeadId, [(Party, UTxOType Payment)])
+openHeadWithFaultyParty mode = openHeadWith $ \fuel -> case reverse fuel of
+  (party, _) : _ -> Just (party, mode)
+  [] -> Nothing
+
+openHeadWith ::
+  ([(Party, UTxOType Payment)] -> Maybe (Party, FaultMode)) ->
+  Int ->
+  DL WorldState (Var HeadId, [(Party, UTxOType Payment)])
+openHeadWith pickFaulty n = do
   seedKeys <- forAllNonVariableQ $ withGenQ (genPartyKeysExactly n) (const True) (const [])
   networkLatencySeed <- forAllNonVariableQ $ withGenQ arbitrary (const True) (const [])
   let fuel = [(deriveParty hk, [(ck, lovelaceToValue 10_000_000)]) | (hk, ck) <- seedKeys]
@@ -274,10 +295,11 @@ openHeadWithDepositFuel n = do
       , additionalUTxO = concatMap snd fuel
       , concurrentSettlements = True
       , networkLatencySeed
+      , faultyParty = pickFaulty fuel
       }
   leader <- case fuel of
     (party, _) : _ -> pure party
-    [] -> error "openHeadWithDepositFuel: no parties"
+    [] -> error "openHeadWith: no parties"
   headId <- action $ Init leader
   action_ $ Model.Wait 200
   pure (headId, fuel)
@@ -372,6 +394,50 @@ twoFinalizedDecrementsErased = do
   action_ $ Model.ObserveDecommitFinalized dB
   action_ Model.RollbackAndFork{numberOfBlocks = 3, requeueErased = RequeueNone}
   headStillSettles
+
+-- | Confirm transactions and settle funds despite duplicate and invalid messages.
+-- Observe each settlement before new payments to isolate network faults from
+-- the known snapshot version race.
+headSurvivesFaultyParty :: DL WorldState ()
+headSurvivesFaultyParty = do
+  (headId, fuel) <- openHeadWithFaultyParty AddsMessages 3
+  let ((partyA, fuelA), (_, fuelB), (_, fuelC)) = threeParties fuel
+  -- Advance through several leader rotations and settlement states.
+  someTraffic
+  a <- action $ Model.SubmitDeposit headId fuelA
+  action_ $ Model.ObserveCommitFinalized a
+  someTraffic
+  b <- action $ Model.SubmitDeposit headId fuelB
+  action_ $ Model.ObserveCommitFinalized b
+  someTraffic
+  whatTheHeadHolds >>= \case
+    Nothing -> pure ()
+    Just held -> do
+      dA <- action $ Model.SubmitDecommit partyA held
+      action_ $ Model.ObserveDecommitFinalized dA
+  someTraffic
+  c <- action $ Model.SubmitDeposit headId fuelC
+  action_ $ Model.ObserveCommitFinalized c
+  someTraffic
+  headStillSettles
+
+someTraffic :: DL WorldState ()
+someTraffic = replicateM_ 3 $ do
+  st <- getModelStateDL
+  case st of
+    WorldState{hydraState = Open{offChainState = OffChainState{confirmedUTxO}}}
+      | not (null confirmedUTxO) -> do
+          (party, payment) <- forAllNonVariableQ (nonConflictingTx st)
+          tx <- action $ Model.NewTx party payment
+          eventually (ObserveConfirmedTx tx)
+    _ -> pure ()
+
+whatTheHeadHolds :: DL WorldState (Maybe Payment)
+whatTheHeadHolds =
+  getModelStateDL <&> \case
+    WorldState{hydraState = Open{offChainState = OffChainState{confirmedUTxO = (ck, value) : _}}} ->
+      Just Payment{from = ck, to = ck, value}
+    _ -> Nothing
 
 -- | Scenario 4: an increment and then a decrement settle in consecutive
 -- versions; a fork erases both. The decrement can only re-land after the
@@ -476,6 +542,7 @@ closedHeadWithManyOutputs n = do
       , additionalUTxO = utxo
       , concurrentSettlements = False
       , networkLatencySeed
+      , faultyParty = Nothing
       }
   headId <- action $ Init alice
   action_ $ Deposit{headIdVar = headId, utxoToDeposit = utxo}
@@ -605,6 +672,14 @@ propStressModelBalances =
 concurrentWalk :: DL WorldState ()
 concurrentWalk = do
   seed <- forAllNonVariableQ $ withGenQ (genSeedWith True) (const True) (const [])
+  action_ seed
+  anyActions_
+
+-- | Concurrent settlements with one party adding invalid network messages.
+-- As in the honest walk, payments and new decommits wait for settlements.
+faultyWalk :: DL WorldState ()
+faultyWalk = do
+  seed <- forAllNonVariableQ $ withGenQ (genFaultySeed True AddsMessages) (const True) (const [])
   action_ seed
   anyActions_
 
