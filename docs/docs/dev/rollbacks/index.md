@@ -76,6 +76,16 @@ If the settling transaction is re-observed on the new chain — whether it survi
 
 For the earlier design decisions, see [ADR-23](/adr/23). The behavior above describes the current implementation.
 
+## Scope of recovery
+
+Settlement retention and replay preserve the existing snapshot version checks,
+deposit eligibility checks, and decommit request rules. Recovery submits
+transactions authorized by snapshots the parties have already signed.
+
+The [deferred protocol changes](protocol-follow-ups.md) describe separate
+agreement and liveness questions, with timelines that distinguish unfinished
+rounds from temporary waits. Those changes are outside this rollback mechanism.
+
 ## Testing chain ordering
 
 The model's mock chain updates the chain and queues its events under one shared lock. Each node has its own queue and delivers events in order, outside that lock. A rollback therefore follows earlier blocks at each node, and replacement blocks follow the rollback. Tests can pause one node while another follows the replacement chain. Reconnecting nodes queue catch-up events before live events, preserving the same order during replay.
