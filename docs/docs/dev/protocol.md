@@ -2,6 +2,14 @@
 
 Additional implementation-specific documentation for the Hydra Head protocol and extensions like incremental decommits.
 
+## Implementation modules
+
+`Hydra.HeadLogic` dispatches inputs and re-exports the handlers below. These module boundaries preserve the existing protocol rules and public imports.
+
+| Module | Responsibility |
+| --- | --- |
+| `Hydra.HeadLogic.Snapshot.Request` | Snapshot proposal construction and leader selection |
+
 ## General notes on incremental commits/decommits
 
 Especially, incremental commit and decommit are additions to the originally researched [Hydra Head protocol](https://eprint.iacr.org/2020/299.pdf) and deserve more explanation how they work under the hood. 

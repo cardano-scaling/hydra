@@ -16,6 +16,7 @@
 -- (`notAlreadySignedRef`/`allSignedRef`), the close/contest eligibility gate
 -- (`contestEligibleRef`), and round-robin leader selection (`leaderRef`).
 module Hydra.Protocol.OffChainReference where
+-- Haskell snapshot proposal construction and leader selection: Hydra.HeadLogic.Snapshot.Request.
 
 open import Agda.Builtin.Bool
 open import Agda.Builtin.Nat
