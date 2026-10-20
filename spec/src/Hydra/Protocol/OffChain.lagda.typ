@@ -1,5 +1,6 @@
 ```
 module Hydra.Protocol.OffChain where
+-- Haskell state-event aggregation and chain-history updates: Hydra.HeadLogic.Aggregate.
 -- Haskell transaction intake, snapshot requests and acknowledgements: Hydra.HeadLogic.Snapshot.
 -- Haskell close, contest and fanout handling: Hydra.HeadLogic.Close.
 -- Haskell deposit and decommit handling, retention and rollback retries: Hydra.HeadLogic.Settlement.

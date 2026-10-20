@@ -13,6 +13,7 @@ decommits, and snapshot settlement.
 | `Hydra.HeadLogic.Settlement` | Deposit and decommit handling, retention and rollback retries |
 | `Hydra.HeadLogic.Close` | Close, contest and fanout handling |
 | `Hydra.HeadLogic.Snapshot` | Transaction intake, snapshot requests and acknowledgements |
+| `Hydra.HeadLogic.Aggregate` | State-event aggregation and chain-history updates |
 
 ## Deposits and decommits
 
