@@ -150,7 +150,7 @@ second oracle against the real Plutus validator (see @sec:security).
 
 == What the formalisation assumes <sec:assumption-inventory>
 
-The trust base, in five families:
+The trust base, in six families:
 
 - *Ledger and crypto primitives* (the typecheck-only `Prelude`, postulates):
   `hash`, `bytes`/`concat`, the multisignature verifier `msVfy`, the `Value`
@@ -169,6 +169,10 @@ The trust base, in five families:
   `crsDatumHashAt`/`canonicalCRS#` (the CRS
   reference-input datum hash and the canonical trusted-setup constant the
   fanout bundles bind it to).
+- *Individual acknowledgement verification*: `ValidSeenSignature` abstracts
+  verification against the full snapshot being acknowledged. `LocalState`
+  omits that payload, so the model requires this predicate before collecting
+  a signature without deriving it from the cryptographic implementation.
 - *Security-model assumptions* (@sec:security): per-signature EUF-CMA
   (`sigUnforge`) plus the aggregation scheme's decomposition (`aggSound`), from
   which `ms-unforgeable` is _derived_; `aggKey`/`aggSigOf`/`PartyVerified` and

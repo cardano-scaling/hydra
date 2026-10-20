@@ -71,6 +71,9 @@ data RequirementFailure tx
     ReqSnDecommitNoOutputs {decommitTxId :: TxIdType tx}
   | InvalidMultisignature {multisig :: Text, vkeys :: [VerificationKey HydraKey]}
   | SnapshotAlreadySigned {knownSignatures :: [Party], receivedSignature :: Party}
+  | -- | The sender's key does not verify this signature for the seen snapshot.
+    -- A valid acknowledgement from the same sender can still be collected.
+    AckSnSignatureInvalid {requestedSn :: SnapshotNumber, receivedSignature :: Party}
   | AckSnNumberInvalid {requestedSn :: SnapshotNumber, lastSeenSn :: SnapshotNumber}
   | SnapshotDoesNotApply {requestedSn :: SnapshotNumber, txid :: TxIdType tx, error :: ValidationError}
   | NoMatchingDeposit
