@@ -136,8 +136,8 @@ reqSnDecommitOutputsRef n = 0 < n
 -- carries a pending commit, the requested deposit must be the same deposit, matched by identity
 -- (deposit tx-id, `confDepositTxId == Just depositTxId`) on top of content: two deposits can record
 -- the same UTxO, and only the one bound into the confirmed snapshot's κ# is the pending commit
--- being settled. This require follows the activation wait: Inactive deposits wait even when
--- already claimed by the confirmed snapshot; Active and Expired deposits reach this check.
+-- being settled. A request carrying that same claim is accepted independently of the
+-- deposit's local activation or expiry status.
 -- The tx-ids are supplied as deterministic Integer encodings (as the on-chain
 -- reference's `refCodeOf`); `contentOk` is the caller-resolved `confUTxOToCommit == Just deposited`.
 reqSnDepositSettledRef : Bool → Nat → Nat → Bool   -- (contentOk, confirmed dep tx-id, requested)
