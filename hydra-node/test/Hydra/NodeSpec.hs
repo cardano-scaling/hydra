@@ -207,9 +207,9 @@ spec = parallel $ do
         let NodeStateHandler{modifyNodeState, queryNodeState} = nodeStateHandler node
             now = currentChainTime (chainPointTime currentState)
             input = observationInput OnIncrementTx{headId = testHeadId, newVersion = 2, depositTxId = 42, snapshotNumber = 2, signatures = mempty}
-        -- The decision emits an event and a re-post; aggregation rejects both.
+        -- The decision emits an event; aggregation rejects the outcome.
         HeadLogic.update testEnvironment simpleLedger now currentState input `shouldSatisfy` \case
-          HeadLogic.Continue{stateChanges = _ : _, effects = _ : _} -> True
+          HeadLogic.Continue{stateChanges = _ : _} -> True
           _ -> False
         atomically $ modifyNodeState (const ((), currentState))
         (withNetwork, networkMessages) <- recordNetwork node

@@ -3270,6 +3270,11 @@ spec =
             rollbackTo slot now =
               ChainInput Rollback{rolledBackChainState = SimpleChainState slot, chainTime = now}
 
+            -- The tick of a block: erased settlements are re-posted on ticks,
+            -- never at rollback time, so a rollback is followed by one here.
+            tickSlot :: ChainSlot -> UTCTime -> Input SimpleTx
+            tickSlot slot now = ChainInput Tick{chainTime = now, chainPoint = slot}
+
             depositTxId2 = 43 :: Integer
             depositedUTxO2 = utxoRef 43
 
@@ -3358,8 +3363,8 @@ spec =
 
           -- Rollback past the increment observation (slot 3) but not past the
           -- deposit (slot 1): the increment is erased from chain and must be
-          -- re-posted from the signed snapshot.
-          let outcome = update soloAliceEnv ledger now s (rollbackTo 2 now)
+          -- re-posted from the signed snapshot, by the tick of the next block.
+          outcome <- runHeadLogic soloAliceEnv ledger s (step (rollbackTo 2 now) >> step (tickSlot 3 now))
           outcome `hasEffectSatisfying` \case
             OnChainEffect{postChainTx = IncrementTx{incrementingSnapshot = snap, depositTxId = dep}} ->
               case getSnapshot snap of
@@ -3374,12 +3379,30 @@ spec =
             getState
           Map.member depositTxId' s'.pendingDeposits `shouldBe` True
 
+        it "re-posts an erased increment on every tick until it re-lands" $ do
+          -- Erased settlements are posted on ticks and nowhere else, so a post
+          -- that failed is retried on the next block and a node restarted with
+          -- the erased entry resumes by itself. The retries stop once the
+          -- increment is observed again.
+          now <- getCurrentTime
+          s0 <- afterCommitFinalized now
+          let tick slot = ChainInput Tick{chainTime = now, chainPoint = slot}
+          s1 <- runHeadLogic soloAliceEnv ledger s0 $ step (rollbackTo 2 now) >> getState
+          update soloAliceEnv ledger now s1 (tick 4) `hasEffectSatisfying` isIncrementOf 1 depositTxId'
+          s2 <- runHeadLogic soloAliceEnv ledger s1 $ do
+            step (tick 4)
+            step $ observeTxAtSlot 5 OnIncrementTx{headId = testHeadId, newVersion = 1, depositTxId = depositTxId', snapshotNumber = 1, signatures = mempty}
+            getState
+          update soloAliceEnv ledger now s2 (tick 6) `hasNoEffectSatisfying` \case
+            OnChainEffect{postChainTx = IncrementTx{}} -> True
+            _ -> False
+
         it "does not re-post IncrementTx when the rollback does not reach the finalized increment" $ do
           -- Rolling back TO the increment's slot means the increment is still
           -- on chain; re-posting would only produce PostTxOnChainFailed noise.
           now <- getCurrentTime
           s <- afterCommitFinalized now
-          let outcome = update soloAliceEnv ledger now s (rollbackTo 3 now)
+          outcome <- runHeadLogic soloAliceEnv ledger s (step (rollbackTo 3 now) >> step (tickSlot 4 now))
           outcome `hasNoEffectSatisfying` \case
             OnChainEffect{postChainTx = IncrementTx{}} -> True
             _ -> False
@@ -3399,7 +3422,7 @@ spec =
 
           -- Rollback past the increment: only snapshot 1 is signed to claim
           -- the deposit, so the re-posted increment must carry snapshot 1.
-          let outcome = update soloAliceEnv ledger now s1 (rollbackTo 2 now)
+          outcome <- runHeadLogic soloAliceEnv ledger s1 (step (rollbackTo 2 now) >> step (tickSlot 3 now))
           outcome `hasEffectSatisfying` \case
             OnChainEffect{postChainTx = IncrementTx{incrementingSnapshot = snap}} ->
               case getSnapshot snap of
@@ -3470,7 +3493,7 @@ spec =
             getState
           -- A rollback erasing the re-landed increment (slot 5) while keeping
           -- the original observation slot (3) must still re-post
-          let outcome = update soloAliceEnv ledger now s1 (rollbackTo 4 now)
+          outcome <- runHeadLogic soloAliceEnv ledger s1 (step (rollbackTo 4 now) >> step (tickSlot 5 now))
           outcome `hasEffectSatisfying` \case
             OnChainEffect{postChainTx = IncrementTx{incrementingSnapshot = snap, depositTxId = dep}} ->
               case getSnapshot snap of
@@ -3621,7 +3644,7 @@ spec =
               decommitTx `shouldBe` Nothing
             other -> expectationFailure $ "Expected Open state, got: " <> show other
 
-          let outcome = update soloAliceEnv ledger now s (rollbackTo 0 now)
+          outcome <- runHeadLogic soloAliceEnv ledger s (step (rollbackTo 0 now) >> step (tickSlot 1 now))
           outcome `hasEffectSatisfying` \case
             OnChainEffect{postChainTx = DecrementTx{decrementingSnapshot = snap}} ->
               case getSnapshot snap of
@@ -3632,7 +3655,7 @@ spec =
         it "does not re-post DecrementTx when the rollback does not reach the finalized decrement" $ do
           now <- getCurrentTime
           s <- afterDecommitFinalized
-          let outcome = update soloAliceEnv ledger now s (rollbackTo 3 now)
+          outcome <- runHeadLogic soloAliceEnv ledger s (step (rollbackTo 3 now) >> step (tickSlot 4 now))
           outcome `hasNoEffectSatisfying` \case
             OnChainEffect{postChainTx = DecrementTx{}} -> True
             _ -> False
@@ -3648,7 +3671,7 @@ spec =
             Just Snapshot{number} -> number `shouldBe` 2
             Nothing -> expectationFailure "Expected a confirmed snapshot"
 
-          let outcome = update soloAliceEnv ledger now s1 (rollbackTo 0 now)
+          outcome <- runHeadLogic soloAliceEnv ledger s1 (step (rollbackTo 0 now) >> step (tickSlot 1 now))
           outcome `hasEffectSatisfying` \case
             OnChainEffect{postChainTx = DecrementTx{decrementingSnapshot = snap}} ->
               case getSnapshot snap of
@@ -3704,7 +3727,7 @@ spec =
             step $ observeTxAtSlot 3 OnIncrementTx{headId = testHeadId, newVersion = 1, depositTxId = depositTxId', snapshotNumber = 1, signatures = mempty}
             step . receiveMessage $ AckSn (sign aliceSk incrementingSnapshot1) 1
             getState
-          let outcome = update soloAliceEnv ledger now s1 (rollbackTo 2 now)
+          outcome <- runHeadLogic soloAliceEnv ledger s1 (step (rollbackTo 2 now) >> step (tickSlot 3 now))
           outcome `hasEffectSatisfying` \case
             OnChainEffect{postChainTx = IncrementTx{incrementingSnapshot = snap, depositTxId = dep}} ->
               case getSnapshot snap of
@@ -3720,7 +3743,7 @@ spec =
             step $ observeTxAtSlot 3 OnDecrementTx{headId = testHeadId, newVersion = 1, distributedUTxO = utxoRef 3, snapshotNumber = 1, signatures = mempty}
             step . receiveMessage $ AckSn (sign aliceSk decrementingSnapshot1) 1
             getState
-          let outcome = update soloAliceEnv ledger now s1 (rollbackTo 2 now)
+          outcome <- runHeadLogic soloAliceEnv ledger s1 (step (rollbackTo 2 now) >> step (tickSlot 3 now))
           outcome `hasEffectSatisfying` \case
             OnChainEffect{postChainTx = DecrementTx{decrementingSnapshot = snap}} ->
               case getSnapshot snap of
@@ -3752,7 +3775,8 @@ spec =
             step $ observeTxAtSlot 4 OnDecrementTx{headId = testHeadId, newVersion = 1, distributedUTxO = utxoRef 7, snapshotNumber = 2, signatures = Crypto.aggregate [sign aliceSk decrementing]}
             getState
           getConfirmedSnapshot s1 `shouldBe` Just decrementing
-          let outcome = update soloAliceEnv ledger now s1 (rollbackTo 3 now)
+          s2 <- runHeadLogic soloAliceEnv ledger s1 $ step (rollbackTo 3 now) >> getState
+          let outcome = update soloAliceEnv ledger now s2 (tickSlot 4 now)
           outcome `hasEffectSatisfying` \case
             OnChainEffect{postChainTx = DecrementTx{decrementingSnapshot}} -> getSnapshot decrementingSnapshot == decrementing
             _ -> False
@@ -3782,7 +3806,7 @@ spec =
           -- A rollback erasing only decrement 2 must re-post it from snapshot
           -- 2; re-posting the already settled snapshot 1 would be invalid
           -- on-chain and leave decommit 2 unsettled.
-          let outcome = update soloAliceEnv ledger now s1 (rollbackTo 4 now)
+          outcome <- runHeadLogic soloAliceEnv ledger s1 (step (rollbackTo 4 now) >> step (tickSlot 5 now))
           outcome `hasEffectSatisfying` \case
             OnChainEffect{postChainTx = DecrementTx{decrementingSnapshot = snap}} ->
               case getSnapshot snap of
@@ -3797,9 +3821,10 @@ spec =
         it "re-posts IncrementTx when the deposit is observed again after deposit and increment were both rolled back" $ do
           -- When the rollback reaches before the deposit itself, the increment
           -- re-post issued at rollback time cannot land (the deposit UTxO does
-          -- not exist on the new chain). Once the deposit tx re-lands, the
-          -- increment must be re-posted again — nothing else settles this
-          -- deposit ('retainedDeposits' blocks all alternatives).
+          -- not exist on the new chain), and the ticks post nothing either.
+          -- Once the deposit tx lands again, the next tick posts the increment.
+          -- Nothing else settles this deposit, since 'retainedDeposits' blocks
+          -- every other way.
           now <- getCurrentTime
           s0 <- afterCommitFinalized now
           s1 <- runHeadLogic soloAliceEnv ledger s0 $ do
@@ -3807,9 +3832,14 @@ spec =
             getState
           -- The rollback erased the deposit tx as well: not tracked anymore
           Map.member depositTxId' s1.pendingDeposits `shouldBe` False
+          update soloAliceEnv ledger now s1 (ChainInput Tick{chainTime = now, chainPoint = 1}) `hasNoEffectSatisfying` \case
+            OnChainEffect{postChainTx = IncrementTx{}} -> True
+            _ -> False
 
-          let outcome = update soloAliceEnv ledger now s1 (observeTxAtSlot 1 (mkDepositObserved now))
-          outcome `hasEffectSatisfying` \case
+          s2 <- runHeadLogic soloAliceEnv ledger s1 $ do
+            step (observeTxAtSlot 1 (mkDepositObserved now))
+            getState
+          update soloAliceEnv ledger now s2 (ChainInput Tick{chainTime = now, chainPoint = 2}) `hasEffectSatisfying` \case
             OnChainEffect{postChainTx = IncrementTx{incrementingSnapshot = snap, depositTxId = dep}} ->
               case getSnapshot snap of
                 Snapshot{number} -> number == 1 && dep == depositTxId'
@@ -3891,8 +3921,9 @@ spec =
 
           -- The rollback erases the increment (chain back before its slot). We
           -- deliberately keep 'version = 1' and re-post the SAME increment
-          -- (same snapshot, same deposit) — that re-post is how the chain heals.
-          let rollbackOutcome = update soloAliceEnv ledger now s0 (rollbackTo 2 now)
+          -- (same snapshot, same deposit) on the next block's tick — that
+          -- re-post is how the chain heals.
+          rollbackOutcome <- runHeadLogic soloAliceEnv ledger s0 (step (rollbackTo 2 now) >> step (tickSlot 3 now))
           rollbackOutcome `hasEffectSatisfying` \case
             OnChainEffect{postChainTx = IncrementTx{incrementingSnapshot = snap, depositTxId = dep}} ->
               (getSnapshot snap).number == 1 && dep == depositTxId'
@@ -3924,26 +3955,29 @@ spec =
               _ -> False
 
         it "re-posts two erased finalized increments one at a time, in version order" $ do
-          -- A rollback can erase several finalized settlements at once. The
-          -- chain only accepts the lowest one (the head output regressed to
-          -- its base version), so the others wait for it to re-land.
+          -- A rollback can erase several settlements at once. The chain only
+          -- accepts the lowest one, since the head output went back to its
+          -- base version, so the others wait for it to land again.
           now <- getCurrentTime
           s0 <- afterTwoCommitsFinalized now
-          let rolledBack = update soloAliceEnv ledger now s0 (rollbackTo 2 now)
+          rolledBack <- runHeadLogic soloAliceEnv ledger s0 (step (rollbackTo 2 now) >> step (tickSlot 3 now))
           rolledBack `hasEffectSatisfying` isIncrementOf 1 depositTxId'
           rolledBack `hasNoEffectSatisfying` isIncrementOf 2 depositTxId2
-          (s1, relanded1, relanded2) <- runHeadLogic soloAliceEnv ledger s0 $ do
+          (s1, relanded1, afterFirst, afterSecond) <- runHeadLogic soloAliceEnv ledger s0 $ do
             step (rollbackTo 2 now)
+            step (tickSlot 3 now)
             -- The re-posted first increment lands again, at a later slot
             o1 <- step $ observeTxAtSlot 7 OnIncrementTx{headId = testHeadId, newVersion = 1, depositTxId = depositTxId', snapshotNumber = 1, signatures = mempty}
-            o2 <- step $ observeTxAtSlot 8 OnIncrementTx{headId = testHeadId, newVersion = 2, depositTxId = depositTxId2, snapshotNumber = 2, signatures = mempty}
+            t1 <- step (tickSlot 7 now)
+            step $ observeTxAtSlot 8 OnIncrementTx{headId = testHeadId, newVersion = 2, depositTxId = depositTxId2, snapshotNumber = 2, signatures = mempty}
+            t2 <- step (tickSlot 8 now)
             s <- getState
-            pure (s, o1, o2)
-          -- Its re-landing triggers the second increment ...
-          relanded1 `hasEffectSatisfying` isIncrementOf 2 depositTxId2
+            pure (s, o1, t1, t2)
+          -- It lands again, which frees the second increment for the next tick ...
           relanded1 `hasNoEffectSatisfying` isIncrementOf 1 depositTxId'
-          -- ... and nothing is left to re-post once that one re-landed too
-          relanded2 `hasNoEffectSatisfying` \case
+          afterFirst `hasEffectSatisfying` isIncrementOf 2 depositTxId2
+          -- ... and nothing is left to post once that one landed too
+          afterSecond `hasNoEffectSatisfying` \case
             OnChainEffect{postChainTx = IncrementTx{}} -> True
             _ -> False
           -- Both settlements are retained again, stamped with their new slots
@@ -3955,18 +3989,19 @@ spec =
           settlementStatuses s1 `shouldBe` [Landed 7, Landed 8]
 
         it "re-posts an erased finalized increment before the in-flight next increment" $ do
-          -- With the next incrementing snapshot already confirmed (its
-          -- increment posted but not observed yet), a rollback erasing the
-          -- finalized increment must re-post that one first: the in-flight
-          -- increment builds on a version the chain no longer has. It is
-          -- re-posted once the erased increment re-lands.
+          -- The next incrementing snapshot is already confirmed and its
+          -- increment posted, but not observed yet. A rollback erasing the
+          -- settled increment must post that one first, because the increment
+          -- in flight builds on a version the chain no longer has. It follows
+          -- once the erased increment lands again.
           now <- getCurrentTime
           s0 <- afterTwoCommitsRequested now
-          let rolledBack = update soloAliceEnv ledger now s0 (rollbackTo 2 now)
+          rolledBack <- runHeadLogic soloAliceEnv ledger s0 (step (rollbackTo 2 now) >> step (tickSlot 3 now))
           rolledBack `hasEffectSatisfying` isIncrementOf 1 depositTxId'
           rolledBack `hasNoEffectSatisfying` isIncrementOf 2 depositTxId2
           (s1, relanded) <- runHeadLogic soloAliceEnv ledger s0 $ do
             step (rollbackTo 2 now)
+            step (tickSlot 3 now)
             o <- step $ observeTxAtSlot 7 OnIncrementTx{headId = testHeadId, newVersion = 1, depositTxId = depositTxId', snapshotNumber = 1, signatures = mempty}
             s <- getState
             pure (s, o)
@@ -3987,17 +4022,20 @@ spec =
             step $ observeTxAtSlot 5 OnDecrementTx{headId = testHeadId, newVersion = 2, distributedUTxO = utxoRef 3, snapshotNumber = 2, signatures = mempty}
             getState
           -- The rollback erases both settlements: only the increment is re-posted
-          let rolledBack = update soloAliceEnv ledger now s1 (rollbackTo 2 now)
+          rolledBack <- runHeadLogic soloAliceEnv ledger s1 (step (rollbackTo 2 now) >> step (tickSlot 3 now))
           rolledBack `hasEffectSatisfying` isIncrementOf 1 depositTxId'
           rolledBack `hasNoEffectSatisfying` isDecrementOf 2
-          (relanded1, relanded2) <- runHeadLogic soloAliceEnv ledger s1 $ do
+          (afterFirst, afterSecond) <- runHeadLogic soloAliceEnv ledger s1 $ do
             step (rollbackTo 2 now)
-            o1 <- step $ observeTxAtSlot 7 OnIncrementTx{headId = testHeadId, newVersion = 1, depositTxId = depositTxId', snapshotNumber = 1, signatures = mempty}
-            o2 <- step $ observeTxAtSlot 8 OnDecrementTx{headId = testHeadId, newVersion = 2, distributedUTxO = utxoRef 3, snapshotNumber = 2, signatures = mempty}
-            pure (o1, o2)
-          -- The increment re-landing triggers the decrement, nothing after that
-          relanded1 `hasEffectSatisfying` isDecrementOf 2
-          relanded2 `hasNoEffectSatisfying` \case
+            step (tickSlot 3 now)
+            step $ observeTxAtSlot 7 OnIncrementTx{headId = testHeadId, newVersion = 1, depositTxId = depositTxId', snapshotNumber = 1, signatures = mempty}
+            t1 <- step (tickSlot 7 now)
+            step $ observeTxAtSlot 8 OnDecrementTx{headId = testHeadId, newVersion = 2, distributedUTxO = utxoRef 3, snapshotNumber = 2, signatures = mempty}
+            t2 <- step (tickSlot 8 now)
+            pure (t1, t2)
+          -- The increment landing again frees the decrement for the next tick, nothing after that
+          afterFirst `hasEffectSatisfying` isDecrementOf 2
+          afterSecond `hasNoEffectSatisfying` \case
             OnChainEffect{postChainTx = DecrementTx{}} -> True
             OnChainEffect{postChainTx = IncrementTx{}} -> True
             _ -> False
@@ -4020,19 +4058,17 @@ spec =
               other -> expectationFailure $ "Expected RecoverBlockedByFinalizedCommit, got: " <> show other
 
         it "retaining a later snapshot does not overwrite the settlement that landed" $ do
-          -- 'applyEvent SnapshotConfirmed' calls 'retainSettlement' with the
-          -- LOCAL version, so a snapshot confirmed one version behind the chain
-          -- (the race where another party's settlement was observed before our
-          -- own AckSn completed) satisfies 'version + 1 == newVersion' and used
-          -- to replace the entry for that version wholesale. That swaps in a
-          -- snapshot whose settlement was never observed, re-stamps
-          -- 'observedAtSlot', and downgrades 'Erased' back to 'Landed'. From
-          -- there 'nextErasedSettlement' finds nothing, 'repostNextSettlement'
-          -- short-circuits on the retained key, and the erased increment is
-          -- never re-posted: the local version stays above the chain's for
-          -- good, which a close cannot express.
+          -- The confirmation branch retains with our own version. A snapshot
+          -- confirmed one version behind the chain, which happens when another
+          -- party's settlement is observed before our own signature completes,
+          -- then matches the version of an existing entry and used to replace
+          -- it. That swapped in a snapshot whose settlement was never observed,
+          -- stamped a new slot, and turned erased back into landed. After that
+          -- 'nextErasedSettlement' finds nothing, 'repostErased' posts nothing,
+          -- and the erased increment is never posted again: our version stays
+          -- above the chain's for good, which a close cannot express.
           let landed = ConfirmedSnapshot{snapshot = incrementingSnapshot1, signatures = Crypto.aggregate []}
-              -- A later snapshot at the same version, re-carrying the same commit.
+              -- A later snapshot at the same version, carrying the same commit again.
               later =
                 ConfirmedSnapshot
                   { snapshot =
