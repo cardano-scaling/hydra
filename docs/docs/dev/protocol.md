@@ -10,6 +10,7 @@ decommits, and snapshot settlement.
 | Module | Responsibility |
 | --- | --- |
 | `Hydra.HeadLogic.Snapshot.Request` | Snapshot proposal construction and leader selection |
+| `Hydra.HeadLogic.Settlement` | Deposit and decommit handling, retention and rollback retries |
 
 ## Deposits and decommits
 
