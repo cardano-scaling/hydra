@@ -12,6 +12,7 @@ Additional implementation-specific documentation for the Hydra Head protocol and
 | `Hydra.HeadLogic.Settlement` | Deposit and decommit handling, retention and rollback retries |
 | `Hydra.HeadLogic.Close` | Close, contest and fanout handling |
 | `Hydra.HeadLogic.Snapshot` | Transaction intake, snapshot requests and acknowledgements |
+| `Hydra.HeadLogic.Aggregate` | State-event aggregation and chain-history updates |
 
 ## General notes on incremental commits/decommits
 
