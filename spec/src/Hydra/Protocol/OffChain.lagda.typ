@@ -1,5 +1,6 @@
 ```
 module Hydra.Protocol.OffChain where
+-- Haskell close, contest and fanout handling: Hydra.HeadLogic.Close.
 -- Haskell deposit and decommit handling, retention and rollback retries: Hydra.HeadLogic.Settlement.
 -- Haskell snapshot proposal construction and leader selection: Hydra.HeadLogic.Snapshot.Request.
 
