@@ -201,7 +201,7 @@ instance StateModel WorldState where
       , -- Seeds the mock network's per-message delays, so each run explores a
         -- different interleaving of network messages and chain observations.
         networkLatencySeed :: Word64
-      , -- The party that adds invalid or duplicate network messages, if any.
+      , -- The party that adds or replaces network messages, if any.
         faultyParty :: Maybe (Party, FaultMode)
       } ->
       -- \^ Whether the random walk may have several deposits/decommits in
@@ -784,7 +784,7 @@ newtype RunState m = RunState {nodesState :: TVar m (Nodes m)}
 -- We could perhaps getaway with it and just have a type based on `IOSim` monad
 -- but this is cumbersome to write.
 newtype RunMonad m a = RunMonad {runMonad :: ReaderT (RunState m) m a}
-  deriving newtype (Functor, Applicative, Monad, MonadReader (RunState m), MonadThrow, MonadTime)
+  deriving newtype (Functor, Applicative, Monad, MonadReader (RunState m), MonadThrow, MonadCatch, MonadTime)
 
 instance MonadTrans RunMonad where
   lift = RunMonad . lift

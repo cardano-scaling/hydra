@@ -85,6 +85,7 @@ import Data.Map.Strict ((!))
 import Data.Map.Strict qualified as Map
 import Data.Set qualified as Set
 import Data.Typeable (cast)
+import Hydra.API.ServerOutput (ServerOutput (SnapshotConfirmed, snapshot))
 import Hydra.BehaviorSpec (RequeueMode (..), TestHydraClient (..), dummySimulatedChainNetwork)
 import Hydra.Logging.Messages (HydraLog)
 import Hydra.Model (
@@ -105,19 +106,23 @@ import Hydra.Model (
   toTxOuts,
  )
 import Hydra.Model qualified as Model
-import Hydra.Model.MockChain (FaultMode (..))
+import Hydra.Model.MockChain (FaultMode (..), bogusDepositId, deviateFrom)
 import Hydra.Model.Payment (Payment (..))
 import Hydra.Model.Payment qualified as Payment
+import Hydra.Network.Message (Message (..))
 import Hydra.Tx (HeadId)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Tx.IsTx (UTxOType)
+import Hydra.Tx.IsTx qualified as IsTx
 import Hydra.Tx.Party (Party (..), deriveParty)
+import Hydra.Tx.Snapshot (Snapshot (..))
 import System.IO.Temp (writeSystemTempFile)
 import System.IO.Unsafe (unsafePerformIO)
 import Test.HUnit.Lang (formatFailureReason)
 import Test.Hydra.Node.Fixture (alice, aliceSk)
 import Test.Hydra.Tx.Fixture (fanoutOutputThreshold)
-import Test.QuickCheck (Property, Testable, counterexample, forAllShrink, mapSize, noShrinking, property, suchThat, vectorOf, withMaxShrinks, withMaxSuccess, within)
+import Test.QuickCheck (Property, Testable, conjoin, counterexample, forAllShrink, mapSize, noShrinking, property, suchThat, vectorOf, withMaxShrinks, withMaxSuccess, within)
+import Test.QuickCheck qualified as QC
 import Test.QuickCheck.DynamicLogic (
   DL,
   Quantification,
@@ -193,6 +198,13 @@ spec = do
       propScripted headSurvivesFaultyParty
     prop "check model with extra network messages between settlements" $
       forAllDL faultyWalk propHydraModel
+    prop "a replaced proposal is never the one an honest leader would send" propReplacingDeviates
+    -- A replacement may stop a round. Check the snapshots confirmed before it stops.
+    prop "a party replacing its proposals cannot make the head lose track of funds" $
+      within 60000000 $
+        withMaxShrinks 25 $
+          withMaxSuccess 50 $
+            forAllDL soundnessWalk checkSnapshotsAreSound
   -- The concurrent walks keep deposits and forks overlapping, but observe
   -- pending settlements before payments or new decommit requests to avoid
   -- the known snapshot version race; see 'Model.settlementsObserved'.
@@ -682,6 +694,118 @@ faultyWalk = do
   seed <- forAllNonVariableQ $ withGenQ (genFaultySeed True AddsMessages) (const True) (const [])
   action_ seed
   anyActions_
+
+-- | Replace one leader's proposals during concurrent settlement walks.
+soundnessWalk :: DL WorldState ()
+soundnessWalk = do
+  seed <- forAllNonVariableQ $ withGenQ (genFaultySeed True ReplacesMessages) (const True) (const [])
+  action_ seed
+  anyActions_
+
+-- | Each mutation must change the proposal for every payload shape.
+propReplacingDeviates :: Property
+propReplacingDeviates =
+  conjoin
+    [ counterexample ("Proposal:     " <> show honest) $
+      counterexample ("Sent instead: " <> show (deviateFrom honest)) $
+        deviateFrom honest QC.=/= honest
+    | honest <- proposals
+    ]
+ where
+  proposals =
+    [ ReqSn{snapshotVersion, snapshotNumber, transactionIds, decommitTx, depositTxId}
+    | snapshotVersion <- [0 .. 2]
+    , snapshotNumber <- [0 .. 9]
+    , transactionIds <- [[], [IsTx.txId aValidTx]]
+    , decommitTx <- [Nothing, Just aValidTx]
+    , depositTxId <- [Nothing, Just (IsTx.txId aValidTx), Just bogusDepositId]
+    ]
+
+  aValidTx :: Tx
+  aValidTx = generateWith arbitrary 42
+
+-- | Inspect every confirmation, including runs that stop before finishing.
+-- Limit stalled runs to one simulated hour so their traces remain bounded.
+checkSnapshotsAreSound :: Actions WorldState -> Property
+checkSnapshotsAreSound actions =
+  property $ runRunMonadIOSimGen $ do
+    runThem <- monadic' (void $ runActions actions)
+    pure $ do
+      env <- ask
+      outcome <-
+        try @_ @SomeException . lift $
+          timeout Model.observationTimeout (runReaderT (runMonad runThem) env)
+      Nodes{nodes} <- get
+      confirmed <- forM (Map.toList nodes) $ \(party, node) ->
+        (party,) . mapMaybe confirmationOf <$> lift (serverOutputs node)
+      let judged = map (uncurry partyConfirmedSoundSnapshots) confirmed
+          counted = map (length . snd) confirmed
+      pure $
+        QC.cover 2 (either (const True) isNothing outcome) "the run stopped before completing its actions" $
+          QC.cover 5 (foldr max 0 counted > (3 :: Int)) "more than three snapshots confirmed" $
+            conjoin judged
+ where
+  confirmationOf :: ServerOutput Tx -> Maybe (Snapshot Tx)
+  confirmationOf = \case
+    SnapshotConfirmed{snapshot} -> Just snapshot
+    _ -> Nothing
+
+-- | Compare consecutive snapshots recorded by one node.
+-- Restarts clear the output history, so gaps between snapshot numbers are skipped.
+partyConfirmedSoundSnapshots :: Party -> [Snapshot Tx] -> Property
+partyConfirmedSoundSnapshots party confirmed =
+  counterexample ("Party " <> show party <> " confirmed " <> show (length confirmed) <> " snapshot(s)") $
+    conjoin (zipWith step confirmed (drop 1 confirmed))
+ where
+  step :: Snapshot Tx -> Snapshot Tx -> Property
+  step earlier later
+    | numberAfter /= numberBefore + 1 = property True
+    | versionAfter == versionBefore =
+        accountsFor "no settlement landed" (accountedValue earlier)
+    | versionAfter == versionBefore + 1 =
+        case (utxoToCommit earlier, utxoToDecommit earlier) of
+          (Just committed, Nothing) ->
+            accountsFor "an increment landed" (accountedValue earlier <> UTxO.totalValue committed)
+          (Nothing, Just decommitted) ->
+            accountsFor "a decrement landed" (accountedValue earlier <> negateValue (UTxO.totalValue decommitted))
+          _ ->
+            failing "a settlement landed for an action the snapshot preceding it did not carry"
+    | otherwise = failing "the version moved by more than one settlement"
+   where
+    Snapshot{number = numberBefore, version = versionBefore} = earlier
+    Snapshot{number = numberAfter, version = versionAfter} = later
+
+    accountsFor what expected =
+      counterexample ("Between them: " <> what) $
+        counterexample (describePair earlier later) $
+          accountedValue later === expected
+
+    failing why = counterexample (describePair earlier later) $ counterexample why False
+
+  describePair :: Snapshot Tx -> Snapshot Tx -> String
+  describePair earlier later =
+    "Snapshot "
+      <> show (number earlier)
+      <> " at version "
+      <> show (version earlier)
+      <> " accounting for "
+      <> toString (renderValue (accountedValue earlier))
+      <> ", carrying commit "
+      <> show (UTxO.totalValue <$> utxoToCommit earlier)
+      <> " and decommit "
+      <> show (UTxO.totalValue <$> utxoToDecommit earlier)
+      <> "\nSnapshot "
+      <> show (number later)
+      <> " at version "
+      <> show (version later)
+      <> " accounting for "
+      <> toString (renderValue (accountedValue later))
+
+-- | Count the head's funds and decommits that have not left yet.
+-- Deposits count only once their increment advances the version.
+accountedValue :: Snapshot Tx -> Value
+accountedValue Snapshot{utxo, utxoToDecommit} =
+  UTxO.totalValue utxo <> foldMap UTxO.totalValue utxoToDecommit
 
 checkModelBalances :: Actions WorldState -> Property
 checkModelBalances actions =
