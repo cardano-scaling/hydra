@@ -125,8 +125,7 @@ aggregateNodeState rollbackHorizon nodeState sc =
               nodeState{headState = st}
         DepositExpired{depositTxId, deposit} ->
           pure $
-            -- NB: We keep expired deposits since we actually need them when Recovering.
-            -- There is a corresponding error RequestedDepositExpired which gives users context on stale ReqSn.
+            -- Keep expired deposits so they can still be recovered.
             updateDeposit depositTxId deposit $
               nodeState{headState = st}
         DepositRecovered{chainState, depositTxId} ->
