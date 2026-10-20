@@ -16,6 +16,7 @@
 -- (`notAlreadySignedRef`/`allSignedRef`), the close/contest eligibility gate
 -- (`contestEligibleRef`), and round-robin leader selection (`leaderRef`).
 module Hydra.Protocol.OffChainReference where
+-- Haskell transaction intake, snapshot requests and acknowledgements: Hydra.HeadLogic.Snapshot.
 -- Haskell close, contest and fanout handling: Hydra.HeadLogic.Close.
 -- Haskell deposit and decommit handling, retention and rollback retries: Hydra.HeadLogic.Settlement.
 -- Haskell snapshot proposal construction and leader selection: Hydra.HeadLogic.Snapshot.Request.
