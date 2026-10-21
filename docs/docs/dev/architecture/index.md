@@ -2,13 +2,24 @@
 
 This document describes the architecture of the current implementation
 of a `hydra-node`. The following diagram represents the main
-components and their interfaces.
+components of a Hydra node using the [C4 Component
+Diagram](https://c4model.com/#ComponentDiagram) notation.
 
-[![Head logic connects to SQLite persistence, the Cardano ledger, API, networking, and chain access.](./hydra-components.svg)](./hydra-components.svg)
+```mdx-code-block
+import ArchitectureSvg from './hydra-components.svg';
 
-The upper panel shows the components inside `hydra-node`. The lower panel
-shows how networking, chain access, and ledger validation connect to their
-external dependencies.
+<ArchitectureSvg className="architecture" />
+```
+
+:::info
+
+This diagram is manually produced using the [PlantUML](https://plantuml.com) graphing tool with [C4 extensions](https://github.com/plantuml-stdlib/C4-PlantUML).
+
+```
+$ plantuml -tsvg architecture-c4.puml
+```
+
+:::
 
 ### Event sourcing
 
