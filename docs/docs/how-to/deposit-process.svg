@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="560" height="748" viewBox="0 0 560 748" role="img" aria-labelledby="title description">
   <title id="title">Deposit transaction structure</title>
-  <desc id="description">A dApp input is spent with its witness in a deposit transaction. Output zero locks the deposited value and records the target Head ID, deadline, and L2 outputs. Optional change stays on L1 under the dApp spending rules. A signed increment claims the deposit before its deadline, or recovery reproduces the recorded outputs after the deadline. The dApp must check the head, outputs, value, and timing.</desc>
+  <desc id="description">A dApp input is spent with its witness in a deposit transaction. Output zero locks the deposited value and records the target Head ID, deadline, and L2 outputs. Optional change stays on L1 under the dApp spending rules. A signed increment claims the deposit before its deadline. After the deadline, a recovery transaction recreates all recorded outputs as its first n outputs. The dApp must check the head, outputs, value, and timing.</desc>
   <!-- Maintained directly as SVG; see docs/README.md for the shared diagram style. -->
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
@@ -52,8 +52,8 @@
   <rect x="288" y="480" width="248" height="164" rx="12" class="card"/>
   <text x="412.0" y="526.0" text-anchor="middle" class="heading">Recover n</text>
   <text x="412.0" y="552.0" text-anchor="middle" class="body">After the deadline</text>
-  <text x="412.0" y="573.0" text-anchor="middle" class="body">Reproduce the first n</text>
-  <text x="412.0" y="594.0" text-anchor="middle" class="body">recorded outputs</text>
+  <text x="412.0" y="573.0" text-anchor="middle" class="body">First n transaction outputs</text>
+  <text x="412.0" y="594.0" text-anchor="middle" class="body">reproduce all recorded outputs</text>
   <text x="412.0" y="615.0" text-anchor="middle" class="body">One deposit per transaction</text>
   <rect x="24" y="668" width="512" height="64" rx="12" class="card"/>
   <text x="280" y="694.5" text-anchor="middle" class="body">Check head, outputs, value, and timing.</text>

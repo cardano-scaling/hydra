@@ -592,10 +592,12 @@ Next, similar to the Cardano layer 1, build a transaction using the `cardano-cli
 
 ```shell
 LOVELACE=10000000
+CHANGE=$(jq -er --arg input "$TX_IN" --argjson amount "$LOVELACE" \
+  '.[$input].value.lovelace - $amount' utxo.json)
 cardano-cli conway transaction build-raw \
   --tx-in "$TX_IN" \
-  --tx-out $(cat credentials/bob-funds.addr)+${LOVELACE} \
-  --tx-out $(cat credentials/alice-funds.addr)+$(jq "to_entries[0].value.value.lovelace - ${LOVELACE}" < utxo.json) \
+  --tx-out "$(cat credentials/bob-funds.addr)+$LOVELACE" \
+  --tx-out "$(cat credentials/alice-funds.addr)+$CHANGE" \
   --fee 0 \
   --out-file tx.json
 ```

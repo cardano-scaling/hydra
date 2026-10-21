@@ -59,7 +59,9 @@ writes; operators still need backups and reliable storage.
 
 #### Async write-behind
 
-To keep persistence off the hot path, writes use an async write-behind strategy. `putEvent` encodes events eagerly to strict `ByteString` and enqueues them into a bounded `TBQueue`. A background writer thread drains the queue and batch-inserts rows using a single transaction, amortising WAL frame writes across multiple events.
+To keep persistence off the hot path, `putEvent` enqueues events in a bounded
+`TBQueue`. A background writer drains the queue, encodes the events as CBOR,
+and batch-inserts the rows in one transaction, amortising WAL writes across events.
 
 The last-seen event id is updated atomically at enqueue time (not write time), so de-duplication tracking remains correct even though the physical write is deferred. Reads via `sourceEvents` auto-flush the write queue before reading, so callers always see all enqueued events without manual synchronisation.
 

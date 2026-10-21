@@ -60,10 +60,10 @@ TX_IN=$(jq -er 'keys[0] // error("No ADA-only UTxO at this address")' utxo.json)
 
 Now, the `decommit` command requires us to build a transaction that proves we can spend what we want to decommit. The outputs of this transaction will be the outputs that are also going to be made available on the main chain.
 
-For example, to spend the first UTXO queried above in a transaction sending the same value to Alice's key (so she can spend it on layer 1 later):
+For example, spend the selected UTxO and send its full value to Alice's address on L1:
 
 ```shell
-LOVELACE=$(jq -r 'to_entries[0].value.value.lovelace' < utxo.json)
+LOVELACE=$(jq -er --arg input "$TX_IN" '.[$input].value.lovelace' utxo.json)
 cardano-cli conway transaction build-raw \
   --tx-in "$TX_IN" \
   --tx-out "$WALLET_ADDR+$LOVELACE" \

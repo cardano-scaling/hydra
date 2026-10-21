@@ -49,12 +49,18 @@ Please follow this [technical writing style guide](./standalone/writing-style-gu
 
 ## Diagrams
 
-Maintain current diagrams directly as editable SVG files. Keep text as text
+Maintain most diagrams directly as editable SVG files. Keep text as text
 and use explicit positions so fonts and automatic layout do not change the
-result. Historical ADR illustrations retain their original format.
+result.
 
-Use the head lifecycle diagram as the style reference: Arial, Helvetica,
-sans-serif; rounded cards; open arrowheads; and the following colors:
+Regenerate the C4 diagram from its [PlantUML source](./docs/dev/architecture/architecture-c4.puml)
+and flamegraphs using the [profiling workflow](./benchmarks/profiling.md#produce-a-function-level-profile).
+These generated diagrams keep their own styles. Historical ADR illustrations
+retain their original format.
+
+For manually maintained SVGs, use the head lifecycle diagram as the style
+reference: Arial, Helvetica, sans-serif; rounded cards; open arrowheads; and
+the following colors:
 
 | Element | Color |
 | --- | --- |
