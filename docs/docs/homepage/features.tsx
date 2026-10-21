@@ -17,7 +17,7 @@ export const FeatureList = [
     description: translate({
       id: "homepage.featureList.lowLatency.description",
       message:
-        "Transaction finality is only bounded by head network latency, resulting in near-instant settlement",
+        "L2 confirmation depends on validation, networking, and signatures from all parties; returning funds to L1 also takes chain time",
     }),
   },
   {
@@ -53,7 +53,7 @@ export const FeatureList = [
     description: translate({
       id: "homepage.featureList.isomorphicStateChannels.description",
       message:
-        "Cardano transactions are processed off-chain using the exact same battle-tested Cardano ledger",
+        "Cardano transaction formats and ledger validation are reused off-chain, with head-specific parameters and limitations",
     }),
   },
   {
@@ -65,7 +65,7 @@ export const FeatureList = [
     description: translate({
       id: "homepage.featureList.censorshipResistance.description",
       message:
-        "Participants of a Hydra head cannot lose any funds that they have not explicitly authorized",
+        "An honest party can use signed snapshots to contest an outdated close, provided it monitors Cardano within the contestation period",
     }),
   },
   {
@@ -77,7 +77,7 @@ export const FeatureList = [
     description: translate({
       id: "homepage.featureList.basedOnThoroughResearch.description",
       message:
-        "The Hydra protocols have been peer-reviewed and implementations are heavily tested resulting in high-security standards",
+        "Hydra builds on peer-reviewed research, an executable specification, and implementation tests",
     }),
   },
 ];

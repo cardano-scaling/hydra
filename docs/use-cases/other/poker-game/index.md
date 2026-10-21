@@ -8,10 +8,10 @@ We often use the analogy of a _poker game_ to explain how Hydra heads function, 
 For this use case, we consider the possibility of implementing a decentralized poker game with pseudo-randomness or multi-party computation (refer to [ROYALE by David & al](https://eprint.iacr.org/2018/157)). We focus here on the state channel aspect, for which Hydra heads provide a robust solution.
 :::
 
-In this scenario, each player represents a member of a Hydra head, operating their own Hydra node. The game begins with each participant committing funds to the head, which serve as their chips. Once the head is active, participants can start the game, utilizing on-head Plutus contracts to facilitate gameplay. Players can instantly process fund transfers within the head, with the script acting as the game dealer — ensuring adherence to rules and smooth game progression.
+In this scenario, each player represents a member of a Hydra head, operating their own Hydra node. The participants first open an empty head, then deposit funds to use as chips. Once those deposits finalize, participants can start the game, utilizing on-head Plutus contracts to facilitate gameplay. Players can instantly process fund transfers within the head, with the script acting as the game dealer — ensuring adherence to rules and smooth game progression.
 
-![](./poker.webp)
+![Players use a shared head to exchange chips under the poker application rules.](./poker.webp)
 
-Ultimately, the game concludes with a well-defined distribution of funds. Participants can choose to play another game or close the head and record the final outcomes on layer 1. The entire gameplay remains opaque to layer 1; only the ultimate UTXO distribution is known.
+Ultimately, the game concludes with a well-defined distribution of funds. Participants can choose to play another game or close the head and record the final outcomes on layer 1. The entire gameplay remains opaque to layer 1; L1 records funding, deposits, decommits, and final settlement rather than every move.
 
 While it is technically feasible to conduct this game entirely on layer 1, using a Hydra head offers significant advantages. It enables fast-paced transactions throughout the game and minimizes transaction fees beyond the initial costs needed to establish the Hydra head.

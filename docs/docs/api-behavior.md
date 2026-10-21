@@ -1,18 +1,23 @@
 # API behavior
 
-:::caution Deprecated
-This page will soon move into the [API reference](/api-reference) itself.
-:::
+The node exposes HTTP endpoints and a WebSocket event stream. The diagram
+shows lifecycle commands and their observed results; see the
+[API reference](/api-reference) for payloads and response codes.
 
-This page documents the behavior of a `hydra-node` at the API layer. That is, how the system behaves given [ClientInputs](pathname:///haddocks/hydra-node/Hydra-API-ClientInput.html#t:ClientInput) and what [ServerOutputs](pathname:///haddocks/hydra-node/Hydra-API-ServerOutput.html#t:ServerOutput) are produced in response to it. See also the [API reference](/api-reference/) for more details about individual API messages. The only discrepancy is http `POST /commit` action which is not a state transition but a user action that drafts a deposit transaction — once signed and submitted on-chain, the node will emit `CommitRecorded` and eventually `CommitFinalized` outputs.
+[![Head API lifecycle: Init opens an empty head; Close starts contestation; Fanout or PartialFanout settles the head after the deadline.](./api-lifecycle.svg)](./api-lifecycle.svg)
 
-The formalism uses [UML statechart](https://en.wikipedia.org/wiki/UML_state_machine) language where transitions are labeled: `input [condition] / output`. When two outputs (e.g. `A` and `B`) are expected we write `A,B`, while `{A,B}` denotes mutual exclusiveness of outputs.
+Boxes use API status names. `ReadyToFanout` announces `FanoutPossible`;
+`HeadIsFinalized` returns the node to `Idle`.
 
-![](https://www.plantuml.com/plantuml/svg/ZP71JW8n48RlVOevge5mvs0mH2CN8RBnGZWKEiWaxNJJ3hfWV7VRBIw87hnrPhvl_-vq54K7sJchjcGGqDMo1uDn7QWMygpKucO9_VujJ9Y4jAK3yIiCsn86y8pQx2i_ziwHAFK3-YrTpQRp2WRhbhvEUl44pOMPr0TYRPDpj_8X9pscf4dCrP_uj4PEz3UNIwNQvcduXEzLav2Fgdb9hkbLpOJVZgVxfgQ0vhCtPrt7hPUnvmq5XwPy9eUChOzeO5WENLXfAtKSduCTubam2feEoh-esUzavcEabSL4BuGSGgrZn0Xw8nZ09DqIu_AqxA8fTQ7tBMxaR75btDsWRTCXtxCGXV_VmuwGpSxPBm00)
+Deposits and decommits leave the head open. Observe `CommitFinalized` or
+`DecommitFinalized` for their settlement. During fanout, use
+`HeadPartiallyFannedOut` to track progress and `HeadIsFinalized` for completion.
+See [selective fanout](./how-to/selective-fanout.md).
 
-[Edit this diagram](https://www.plantuml.com/plantuml/uml/ZP71JW8n48RlVOevge5mvs0mH2CN8RBnGZWKEiWaxNJJ3hfWV7VRBIw87hnrPhvl_-vq54K7sJchjcGGqDMo1uDn7QWMygpKucO9_VujJ9Y4jAK3yIiCsn86y8pQx2i_ziwHAFK3-YrTpQRp2WRhbhvEUl44pOMPr0TYRPDpj_8X9pscf4dCrP_uj4PEz3UNIwNQvcduXEzLav2Fgdb9hkbLpOJVZgVxfgQ0vhCtPrt7hPUnvmq5XwPy9eUChOzeO5WENLXfAtKSduCTubam2feEoh-esUzavcEabSL4BuGSGgrZn0Xw8nZ09DqIu_AqxA8fTQ7tBMxaR75btDsWRTCXtxCGXV_VmuwGpSxPBm00)
-
-Not pictured is the `CommandFailed` output, which is implicit emitted whenever an input is used when no transition below applies. Also non-state-changing or life-cycle relevant inputs like `Greetings` are not mentioned, as well as outputs like `InvalidInput`, `NetworkConnected` and `NetworkDisconnected`.
+The diagram omits outputs that do not change the lifecycle, including
+`Greetings`, detailed transaction results, and network status. An invalid command for
+the current state produces `CommandFailed`; malformed input produces
+`InvalidInput`.
 
 #### API configuration
 

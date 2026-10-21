@@ -5,7 +5,7 @@ sidebar_position: 6.5
 # Selective fanout
 
 When a head is closed and ready to fan out, the plain `Fanout` command distributes the
-**whole UTxO set** at once. With a _selective_ (partial) fanout you instead choose exactly
+**whole UTxO set**, splitting it across transactions as needed. With a _selective_ (partial) fanout you instead choose exactly
 which `UTXO` to distribute, and in which order — paying the on-chain cost only for what
 you care about, and leaving the rest in the head to fan out later.
 
@@ -24,19 +24,26 @@ First, find out what is still in the head. The confirmed snapshot UTxO is availa
 HTTP:
 
 ```shell
-curl localhost:4001/snapshot/utxo | jq
+curl --fail-with-body -sS http://127.0.0.1:4001/snapshot/utxo -o fanout-utxo.json
+jq . fanout-utxo.json
 ```
 
-Pick the subset you want to fan out now and send a `PartialFanout` client input with it
-under `utxoToFanout`. For example, to fan out a single `UTXO`:
+A `PartialFanout` command supplies the selected outputs under `utxoToFanout`.
+For example, generate a command for the first output in the response:
 
-```json title="Websocket API"
-{ "tag": "PartialFanout", "utxoToFanout": { "<txin>#<ix>": { /* the matching output */ } } }
+```shell
+jq -ce '
+  if length == 0 then error("No outputs to fan out")
+  else {tag: "PartialFanout", utxoToFanout: (to_entries | .[:1] | from_entries)}
+  end' fanout-utxo.json
 ```
+
+Paste the generated JSON into the WebSocket session. To choose a different
+subset, edit `utxoToFanout`, preserving each selected output exactly.
 
 The node submits the corresponding layer 1 transaction (automatically splitting it across
-several transactions if the selection is too large to fit in one) and replies with a
-`HeadPartiallyFannedOut` message:
+several transactions if the selection is too large to fit in one) and reports intermediate progress with
+`HeadPartiallyFannedOut`:
 
 ```json title="Example HeadPartiallyFannedOut"
 {
@@ -54,7 +61,11 @@ selection (`AwaitingFanoutSelection`) — so a client can show the right prompt
 instead of guessing. Use `remainingUTxO` to choose your next selection. Keep issuing `PartialFanout` commands —
 selecting the entire remaining set when you want to finish — until the head is drained. On
 the final step the node automatically submits the transaction that burns the head tokens
-and emits `HeadIsFinalized` with the complete distributed `utxo`.
+and emits `HeadIsFinalized` with the complete distributed `finalizedUTxO` map. If the entire head fits in one final transaction, there may be no intermediate `HeadPartiallyFannedOut` event.
+
+Selecting the entire remaining set can take the automatic-drain path. Use the
+reported `fanoutMode` and finalization event rather than assuming every
+selection ends in `AwaitingFanoutSelection`.
 
 :::info Selective fanout is sticky
 
@@ -87,10 +98,13 @@ re-appear; a deeply divergent rollback may require re-issuing a `PartialFanout`.
 
 :::
 
-To confirm, query the funds of the wallet on layer 1 from a `cardano-node`:
+To confirm, query the wallet on layer 1. Use the address file from the
+testnet tutorial and keep `CARDANO_NODE_SOCKET_PATH` and
+`CARDANO_NODE_NETWORK_ID` set for that network:
 
 ```shell
+WALLET_ADDR=$(cat credentials/alice-funds.addr)
 cardano-cli query utxo \
-  --address ${WALLET_ADDR} \
+  --address "$WALLET_ADDR" \
   --output-json | jq
 ```

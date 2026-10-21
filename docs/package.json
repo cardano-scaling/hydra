@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "docusaurus": "docusaurus",
-    "prepare": "yarn enrich-document-metadata && yarn regenerate-plantuml",
+    "prepare": "yarn enrich-document-metadata",
     "preview-build": "docusaurus build",
     "preview-install": "docusaurus install",
     "build": "yarn prepare && docusaurus build",
@@ -17,8 +17,7 @@
     "write-translations": "docusaurus write-translations",
     "write-heading-ids": "docusaurus write-heading-ids",
     "enrich-document-metadata": "node ./scripts/enrich-document-metadata.js",
-    "dummy-spec": "[ -e static/hydra-spec.pdf ] || echo 'Do a nix build .#spec and put this instead here' > static/hydra-spec.pdf",
-    "regenerate-plantuml": "./scripts/regenerate-plantuml.sh"
+    "dummy-spec": "[ -e static/hydra-spec.pdf ] || echo 'Do a nix build .#spec and put this instead here' > static/hydra-spec.pdf"
   },
   "dependencies": {
     "@asyncapi/specs": "4.2.1",

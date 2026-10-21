@@ -4,7 +4,7 @@ This tutorial demonstrates how to use `hydra-node` on Cardano's `preprod` testin
 
 This setup follows the [basic Hydra head](/topologies/basic) topology, establishing the 'green' Hydra head between `X` and `Y` as shown below:
 
-![](../../topologies/basic/basic-hydra-head.png)
+![Two participants form a head; each runs a Hydra node connected to Cardano.](../../topologies/basic/basic-hydra-head.png)
 
 ## Prerequisites
 
@@ -12,18 +12,32 @@ This setup follows the [basic Hydra head](/topologies/basic) topology, establish
 - [ ] Either:
   - [ ] Another participant following this tutorial (recommended), or
   - [ ] Access to two such machines
-- [ ] 100 test ada per participant in a wallet on the `preprod` network.
+- [ ] 100 test ADA per participant in a wallet on the `preprod` network.
 
 ## Step 0. Installation
 
 This tutorial assumes the following tools are available on your system:
 
+- [ ] Bash
+- [ ] [Nix](https://nixos.org/download/) with flakes enabled
 - [ ] `curl`
 - [ ] `tar`
 - [ ] [`jq`](https://jqlang.github.io/jq/)
 - [ ] [`websocat`](https://github.com/vi/websocat).
 
-After ensuring the tools above are available, begin by downloading pre-built binaries of the involved Cardano software components and placing them in a `bin/` directory:
+Build Hydra from the pinned release and put its executables on your local
+`bin/` path. This works on Linux and macOS and does not depend on release ZIP
+attachments being available:
+
+```shell
+mkdir -p bin
+nix build github:cardano-scaling/hydra/2.4.1#hydra-node --out-link hydra-node-build
+nix build github:cardano-scaling/hydra/2.4.1#hydra-tui --out-link hydra-tui-build
+ln -sfn "$PWD/hydra-node-build/bin/hydra-node" bin/hydra-node
+ln -sfn "$PWD/hydra-tui-build/bin/hydra-tui" bin/hydra-tui
+```
+
+Then download Cardano node, Cardano CLI, and Mithril for your platform:
 
 :::tip
 Older versions of `jq` (`<= 1.6`) have a bug where they do not successfully
@@ -45,18 +59,14 @@ that you have a good version of jq with this command:
 ```shell
 mkdir -p bin
 
-hydra_version=2.4.1
-curl -L -O https://github.com/cardano-scaling/hydra/releases/download/${hydra_version}/hydra-x86_64-linux-${hydra_version}.zip
-unzip -d bin hydra-x86_64-linux-${hydra_version}.zip
-
 cardano_node_version=11.1.3
-curl -L -O https://github.com/IntersectMBO/cardano-node/releases/download/${cardano_node_version}/cardano-node-${cardano_node_version}-linux-amd64.tar.gz
+curl --fail -L -O https://github.com/IntersectMBO/cardano-node/releases/download/${cardano_node_version}/cardano-node-${cardano_node_version}-linux-amd64.tar.gz
 tar xf cardano-node-${cardano_node_version}-linux-amd64.tar.gz ./bin/cardano-node ./bin/cardano-cli
 tar xf cardano-node-${cardano_node_version}-linux-amd64.tar.gz ./share/preprod --strip-components=3
 
 curl --proto '=https' --tlsv1.2 -sSfL https://raw.githubusercontent.com/IntersectMBO/mithril/refs/heads/main/mithril-install.sh | sh -s -- -c mithril-client -d latest -p bin
 
-chmod +x bin/*
+chmod +x bin/cardano-node bin/cardano-cli bin/mithril-client
 ```
 
 Finally, verify your node installation by running `./bin/hydra-node --help`
@@ -67,18 +77,14 @@ Finally, verify your node installation by running `./bin/hydra-node --help`
 ```shell
 mkdir -p bin
 
-hydra_version=2.4.1
-curl -L -O https://github.com/cardano-scaling/hydra/releases/download/${hydra_version}/hydra-aarch64-darwin-${hydra_version}.zip
-unzip -d bin hydra-aarch64-darwin-${hydra_version}.zip
-
 cardano_node_version=11.1.3
-curl -L -O https://github.com/IntersectMBO/cardano-node/releases/download/${cardano_node_version}/cardano-node-${cardano_node_version}-macos.tar.gz
-tar xf cardano-node-${cardano_node_version}-macos.tar.gz ./bin/cardano-node ./bin/cardano-cli './bin/*.dylib'
-tar xf cardano-node-${cardano_node_version}-macos.tar.gz --strip-components=3 ./share/preprod/
+curl --fail -L -O https://github.com/IntersectMBO/cardano-node/releases/download/${cardano_node_version}/cardano-node-${cardano_node_version}-macos-arm64.tar.gz
+tar xf cardano-node-${cardano_node_version}-macos-arm64.tar.gz ./bin/cardano-node ./bin/cardano-cli './bin/*.dylib'
+tar xf cardano-node-${cardano_node_version}-macos-arm64.tar.gz --strip-components=3 ./share/preprod/
 
 curl --proto '=https' --tlsv1.2 -sSfL https://raw.githubusercontent.com/IntersectMBO/mithril/refs/heads/main/mithril-install.sh | sh -s -- -c mithril-client -d latest -p bin
 
-chmod +x bin/*
+chmod +x bin/cardano-node bin/cardano-cli bin/mithril-client
 ```
 
 Finally, verify your node installation by running `./bin/hydra-node --help`
@@ -100,11 +106,11 @@ Next, set various environment variables to simplify command execution. Ensure ea
 <TabItem value="linux" label="Linux x86-64">
 
 ```shell
-export PATH=$(pwd)/bin:$PATH
-export GENESIS_VERIFICATION_KEY=$(curl -L https://raw.githubusercontent.com/IntersectMBO/mithril/main/mithril-infra/configuration/release-preprod/genesis.vkey 2> /dev/null)
-export ANCILLARY_VERIFICATION_KEY=$(curl -L https://raw.githubusercontent.com/IntersectMBO/mithril/main/mithril-infra/configuration/release-preprod/ancillary.vkey 2> /dev/null)
+export PATH="$PWD/bin:$PATH"
+export GENESIS_VERIFICATION_KEY=$(curl --fail -sSL https://raw.githubusercontent.com/IntersectMBO/mithril/main/mithril-infra/configuration/release-preprod/genesis.vkey)
+export ANCILLARY_VERIFICATION_KEY=$(curl --fail -sSL https://raw.githubusercontent.com/IntersectMBO/mithril/main/mithril-infra/configuration/release-preprod/ancillary.vkey)
 export AGGREGATOR_ENDPOINT=https://aggregator.release-preprod.api.mithril.network/aggregator
-export CARDANO_NODE_SOCKET_PATH=$(pwd)/node.socket
+export CARDANO_NODE_SOCKET_PATH="$PWD/node.socket"
 export CARDANO_NODE_NETWORK_ID=1
 ```
 
@@ -112,13 +118,13 @@ export CARDANO_NODE_NETWORK_ID=1
 <TabItem value="macos" label="Mac OS aarch64">
 
 ```shell
-export PATH=$(pwd)/bin:$PATH
-export GENESIS_VERIFICATION_KEY=$(curl -L https://raw.githubusercontent.com/IntersectMBO/mithril/main/mithril-infra/configuration/release-preprod/genesis.vkey 2> /dev/null)
-export ANCILLARY_VERIFICATION_KEY=$(curl -L https://raw.githubusercontent.com/IntersectMBO/mithril/main/mithril-infra/configuration/release-preprod/ancillary.vkey 2> /dev/null)
+export PATH="$PWD/bin:$PATH"
+export GENESIS_VERIFICATION_KEY=$(curl --fail -sSL https://raw.githubusercontent.com/IntersectMBO/mithril/main/mithril-infra/configuration/release-preprod/genesis.vkey)
+export ANCILLARY_VERIFICATION_KEY=$(curl --fail -sSL https://raw.githubusercontent.com/IntersectMBO/mithril/main/mithril-infra/configuration/release-preprod/ancillary.vkey)
 export AGGREGATOR_ENDPOINT=https://aggregator.release-preprod.api.mithril.network/aggregator
-export CARDANO_NODE_SOCKET_PATH=$(pwd)/node.socket
+export CARDANO_NODE_SOCKET_PATH="$PWD/node.socket"
 export CARDANO_NODE_NETWORK_ID=1
-export DYLD_FALLBACK_LIBRARY_PATH=$(pwd)/bin
+export DYLD_FALLBACK_LIBRARY_PATH="$PWD/bin"
 ```
 
 </TabItem>
@@ -269,10 +275,10 @@ Next, fund these addresses. If you have test ada on the `preprod` network, distr
 
 ```shell
 echo "Send at least 30 tADA to alice-node:"
-echo $(cat credentials/alice-node.addr)"\n"
+echo "$(cat credentials/alice-node.addr)"
 
 echo "Send any amount of tADA or assets to alice-funds:"
-echo $(cat credentials/alice-funds.addr)"\n"
+echo "$(cat credentials/alice-funds.addr)"
 ```
 
 </TabItem>
@@ -280,10 +286,10 @@ echo $(cat credentials/alice-funds.addr)"\n"
 
 ```shell
 echo "Send at least 30 tADA to bob-node:"
-echo $(cat credentials/bob-node.addr)"\n"
+echo "$(cat credentials/bob-node.addr)"
 
 echo "Send any amount of tADA or assets to bob-funds:"
-echo $(cat credentials/bob-funds.addr)"\n"
+echo "$(cat credentials/bob-funds.addr)"
 ```
 
 </TabItem>
@@ -293,7 +299,7 @@ echo $(cat credentials/bob-funds.addr)"\n"
 
 In case you don't have test ada on `preprod`, you can use the [testnet faucet](https://docs.cardano.org/cardano-testnets/tools/faucet/) to fund your wallet or the addresses above. Note that due to rate limiting, it's better to request large sums for efficiency and distribute as needed.
 
-Something like the following (if you used the faucet to give funds only to `alice-funds.addr`):
+If the combined 200 test ADA is at `alice-funds.addr`, this example sends 60 ADA to Bob's funds address and 30 ADA to each node wallet. Alice keeps the remaining change, less fees:
 
 ```
 # Get alices UTxO state
@@ -303,20 +309,20 @@ cardano-cli query utxo \
 
 # Build a Tx to send funds from `alice-funds` to the others who need them: bob
 # funds and nodes.
-cardano-cli latest transaction build \
+cardano-cli conway transaction build \
     $(cat alice-funds-utxo.json | jq -j 'to_entries[].key | "--tx-in ", ., " "') \
     --change-address $(cat credentials/alice-funds.addr) \
-    --tx-out $(cat credentials/bob-funds.addr)+1000000000 \
-    --tx-out $(cat credentials/bob-node.addr)+1000000000 \
-    --tx-out $(cat credentials/alice-node.addr)+1000000000 \
+    --tx-out $(cat credentials/bob-funds.addr)+60000000 \
+    --tx-out $(cat credentials/bob-node.addr)+30000000 \
+    --tx-out $(cat credentials/alice-node.addr)+30000000 \
     --out-file tx.json
 
-cardano-cli latest transaction sign \
+cardano-cli conway transaction sign \
   --tx-file tx.json \
   --signing-key-file credentials/alice-funds.sk \
   --out-file tx-signed.json
 
-cardano-cli latest transaction submit --tx-file tx-signed.json
+cardano-cli conway transaction submit --tx-file tx-signed.json
 ```
 
 :::
@@ -377,17 +383,24 @@ Before launching the `hydra-node`, it's crucial to establish and communicate eac
 
 Alice: <code>127.0.0.1:5001</code>
 
-Bob: <code>127.0.0.1:5001</code>
+Bob: <code>127.0.0.1:5002</code>
+
+The commands below use loopback addresses for two nodes on one machine. On
+separate machines, replace each `--peer` with the other machine's reachable
+address and add `--advertise HOST:PORT` using your own reachable address.
+Keep API ports local; use an SSH tunnel for remote clients.
 
 The next step involves configuring the protocol parameters for the ledger within our Hydra head. For the purposes of this tutorial, we'll modify the default Cardano layer 1 parameters to eliminate transaction fees, simplifying test interactions:
 
 ```
 cardano-cli query protocol-parameters \
-  | jq '.txFeeFixed = 0 |.txFeePerByte = 0 | .executionUnitPrices.priceMemory = 0 | .executionUnitPrices.priceSteps = 0 | .utxoCostPerByte = 0' \
+  | jq '.txFeeFixed = 0 |.txFeePerByte = 0 | .executionUnitPrices.priceMemory = 0 | .executionUnitPrices.priceSteps = 0 | .minFeeRefScriptCostPerByte = 0 | .maxTxSize = 10250' \
   > protocol-parameters.json
 ```
 
-This command adjusts the fees and pricing mechanisms to zero, ensuring that transactions within the Hydra head incur no costs.
+This removes L2 transaction fees while preserving the L1 minimum-ADA rule.
+The reduced transaction-size limit leaves room for fanout overhead and is
+intended for heads of up to 10 parties. See [ledger parameters](../configuration.md#ledger-parameters) before changing output-related limits. L1 operations still incur fees.
 
 In summary, the Hydra head participants exchanged and agreed on:
 
@@ -406,19 +419,18 @@ Start the `hydra-node` using these parameters:
 <TabItem value="alice" label="Alice">
 
 ```shell
-hydra_version=2.4.1
 hydra-node \
   --node-id "alice-node" \
   --persistence-dir persistence-alice \
   --cardano-signing-key credentials/alice-node.sk \
   --hydra-signing-key credentials/alice-hydra.sk \
-  --hydra-scripts-tx-id $(curl https://raw.githubusercontent.com/cardano-scaling/hydra/master/hydra-node/networks.json | jq -r ".preprod.\"${hydra_version}\"") \
+  --network preprod \
   --ledger-protocol-parameters protocol-parameters.json \
   --testnet-magic 1 \
   --node-socket node.socket \
   --api-port 4001 \
   --listen 0.0.0.0:5001 \
-  --api-host 0.0.0.0 \
+  --api-host 127.0.0.1 \
   --peer 127.0.0.1:5002 \
   --hydra-verification-key credentials/bob-hydra.vk \
   --cardano-verification-key credentials/bob-node.vk
@@ -428,19 +440,18 @@ hydra-node \
 <TabItem value="bob" label="Bob">
 
 ```shell
-hydra_version=2.4.1
 hydra-node \
   --node-id "bob-node" \
   --persistence-dir persistence-bob \
   --cardano-signing-key credentials/bob-node.sk \
   --hydra-signing-key credentials/bob-hydra.sk \
-  --hydra-scripts-tx-id $(curl https://raw.githubusercontent.com/cardano-scaling/hydra/master/hydra-node/networks.json | jq -r ".preprod.\"${hydra_version}\"") \
+  --network preprod \
   --ledger-protocol-parameters protocol-parameters.json \
   --testnet-magic 1 \
   --node-socket node.socket \
   --api-port 4002 \
   --listen 0.0.0.0:5002 \
-  --api-host 0.0.0.0 \
+  --api-host 127.0.0.1 \
   --peer 127.0.0.1:5001 \
   --hydra-verification-key credentials/alice-hydra.vk \
   --cardano-verification-key credentials/alice-node.vk
@@ -468,33 +479,19 @@ websocat ws://127.0.0.1:4002 | jq
 </TabItem>
 </Tabs>
 
-This opens a duplex connection, and you should see messages indicating successful connections like:
-
-```json
-{
-  "peer": "bob-node",
-  "seq": 0,
-  "tag": "PeerConnected",
-  "timestamp": "2023-08-17T18:25:02.903974459Z"
-}
-{
-  "headStatus": "Idle",
-  "hydraNodeVersion": "0.12.0-54db2265c257c755df98773c64754c9854d879e8",
-  "me": {
-    "vkey": "ab159b29b87b498fa060f6045cccf84ecd20cf623f7820ed130ffc849633a120"
-  },
-  "seq": 1,
-  "tag": "Greetings",
-  "timestamp": "2023-08-17T18:32:29.092329511Z"
-}
-```
+The server sends `Greetings`, including the current `headStatus`, Head ID
+when present, node version, and network status. Subsequent connectivity
+changes arrive as events. Historical events are only replayed when the
+connection requests `?history=yes`; see [API behavior](../api-behavior.md).
 
 :::tip
 You can use the `hydra-tui` to view the state of the node and perform actions
 as well. For example, to run the TUI for Alice:
 
 ```
-hydra-tui -k credentials/alice-funds.sk
+hydra-tui --connect 127.0.0.1:4001 \
+  --funds-signing-key credentials/alice-funds.sk \
+  --testnet-magic 1 --node-socket node.socket
 ```
 
 :::
@@ -525,16 +522,17 @@ cardano-cli query utxo \
   --address $(cat credentials/alice-funds.addr) \
   --out-file alice-deposit-utxo.json
 
-curl -X POST 127.0.0.1:4001/commit \
-  --data @alice-deposit-utxo.json \
+curl --fail-with-body -sS http://127.0.0.1:4001/commit \
+  -H 'Content-Type: application/json' \
+  --data-binary @alice-deposit-utxo.json \
   > alice-deposit-tx.json
 
-cardano-cli latest transaction sign \
+cardano-cli conway transaction sign \
   --tx-file alice-deposit-tx.json \
   --signing-key-file credentials/alice-funds.sk \
   --out-file alice-deposit-tx-signed.json
 
-cardano-cli latest transaction submit --tx-file alice-deposit-tx-signed.json
+cardano-cli conway transaction submit --tx-file alice-deposit-tx-signed.json
 ```
 
 </TabItem>
@@ -545,28 +543,29 @@ cardano-cli query utxo \
   --address $(cat credentials/bob-funds.addr) \
   --out-file bob-deposit-utxo.json
 
-curl -X POST 127.0.0.1:4002/commit \
-  --data @bob-deposit-utxo.json \
+curl --fail-with-body -sS http://127.0.0.1:4002/commit \
+  -H 'Content-Type: application/json' \
+  --data-binary @bob-deposit-utxo.json \
   > bob-deposit-tx.json
 
-cardano-cli latest transaction sign \
+cardano-cli conway transaction sign \
   --tx-file bob-deposit-tx.json \
   --signing-key-file credentials/bob-funds.sk \
   --out-file bob-deposit-tx-signed.json
 
-cardano-cli latest transaction submit --tx-file bob-deposit-tx-signed.json
+cardano-cli conway transaction submit --tx-file bob-deposit-tx-signed.json
 ```
 
 </TabItem>
 </Tabs>
 
-The `hydra-node` drafts a balanced deposit transaction that you sign with your funds key and submit to layer 1. Once the deposit is observed on-chain, you will see a `CommitFinalized` message on the WebSocket connection and the deposited UTXOs will appear in the head's UTXO set.
+The `hydra-node` drafts a balanced deposit transaction that you sign with your funds key and submit to layer 1. Observing the deposit produces `CommitRecorded`. It then matures, becomes active (`DepositActivated`), and is approved by all parties (`CommitApproved`). Only after the increment is observed does `CommitFinalized` confirm that the outputs are spendable on L2. With default activation settings, maturation takes roughly an hour plus the transaction-validity offset; see [deposit timing](../configuration.md#deposit-activation).
 
 You can deposit at any time while the head is open — there is no need to wait for other parties or to coordinate deposits.
 
 ## Step 6. Use the Hydra head
 
-In this step, we'll demonstrate a basic transaction between `alice` and `bob` using the Hydra head. Hydra Head operates as an isomorphic protocol, meaning that functionalities available on the Cardano layer 1 network are also available on the layer 2 network. This compatibility allows us to use familiar tools like `cardano-cli` for transaction creation within the head.
+In this step, we'll demonstrate a basic transaction between `alice` and `bob` using the Hydra head. Hydra reuses Cardano transaction formats and ledger validation, so tools such as `cardano-cli` can construct L2 transactions. Features tied to L1 consensus, staking, or governance are not provided by the head.
 
 In this example, we will transfer 10 ada from Alice to Bob. Adjust the transaction amount based on the funds deposited into the head.
 
@@ -582,17 +581,19 @@ spend:
 <!-- TODO: make this for both parties -->
 
 ```shell
-curl -s 127.0.0.1:4001/snapshot/utxo \
-  | jq "with_entries(select(.value.address == \"$(cat credentials/alice-funds.addr)\"))" \
+curl --fail-with-body -sS http://127.0.0.1:4001/snapshot/utxo \
+  | jq --arg address "$(cat credentials/alice-funds.addr)" \
+    'with_entries(select(.value.address == $address and (.value.value | keys) == ["lovelace"] and .value.value.lovelace >= 12000000))' \
   > utxo.json
+TX_IN=$(jq -er 'keys[0] // error("Need an ADA-only UTxO of at least 12 ADA")' utxo.json)
 ```
 
 Next, similar to the Cardano layer 1, build a transaction using the `cardano-cli` that spends this UTXO and sends it to an address. If you haven't done so already, obtain the address of your partner to send the funds to (in this case, `credentials/bob-funds.addr`, which `alice` would not have automatically).
 
 ```shell
-LOVELACE=1000000
-cardano-cli latest transaction build-raw \
-  --tx-in $(jq -r 'to_entries[0].key' < utxo.json) \
+LOVELACE=10000000
+cardano-cli conway transaction build-raw \
+  --tx-in "$TX_IN" \
   --tx-out $(cat credentials/bob-funds.addr)+${LOVELACE} \
   --tx-out $(cat credentials/alice-funds.addr)+$(jq "to_entries[0].value.value.lovelace - ${LOVELACE}" < utxo.json) \
   --fee 0 \
@@ -601,10 +602,13 @@ cardano-cli latest transaction build-raw \
 
 Note that we need to use the `build-raw` version because the client cannot (yet?) index the Hydra head directly and would not find the UTxO to spend. This means we also need to create a change output with the correct amount. Additionally, since we have set the protocol parameters of the head to have zero fees, we can use the `--fee 0` option.
 
+The filter selects an ADA-only input of at least 12 ADA, leaving at least
+2 ADA of change after the 10 ADA payment.
+
 Before submission, we need to sign the transaction to authorize spending `alice`'s funds:
 
 ```shell
-cardano-cli latest transaction sign \
+cardano-cli conway transaction sign \
   --tx-body-file tx.json \
   --signing-key-file credentials/alice-funds.sk \
   --out-file tx-signed.json
@@ -622,14 +626,16 @@ cat tx-signed.json | jq -c '{tag: "NewTx", transaction: .}'
 Alternatively, you can submit the transaction using the HTTP API endpoint:
 
 ```shell
-curl -X POST 127.0.0.1:4001/transaction \
-  --data @tx-signed.json
+curl --fail-with-body -sS http://127.0.0.1:4001/transaction \
+  -H 'Content-Type: application/json' \
+  --data-binary @tx-signed.json
 ```
 
 The HTTP endpoint provides a synchronous response with different status codes:
 - **200 OK**: Transaction was included in a confirmed snapshot (includes `snapshotNumber`)
 - **202 Accepted**: Transaction was accepted but not yet confirmed
 - **400 Bad Request**: Transaction was rejected due to validation errors (includes `validationError`)
+- **503 Service Unavailable**: The node cannot accept new work, for example while unsynchronized or its broadcast queue is stalled
 
 </details>
 
@@ -668,11 +674,13 @@ You can do this through the WebSocket API one last time:
 { "tag": "Fanout" }
 ```
 
-This will submit a transaction to layer 1. Once successful, it will be indicated by a `HeadIsFinalized` message that includes the distributed `utxo`.
+The node submits one or more transactions to L1. Intermediate steps produce
+`HeadPartiallyFannedOut`. Completion produces `HeadIsFinalized`, whose
+`finalizedUTxO` map contains the distributed outputs.
 
 :::tip Selective fanout
 
-Instead of fanning out the whole head at once, you can choose exactly which UTxOs to
+Instead of automatically distributing the whole head, you can choose exactly which UTxOs to
 distribute and in which order, paying the on-chain cost only for what you care about:
 
 ```json title="Websocket API"
@@ -680,8 +688,8 @@ distribute and in which order, paying the on-chain cost only for what you care a
 ```
 
 Each `PartialFanout` distributes the selected subset (chunked across transactions
-automatically if it is too large for one) and replies with a `HeadPartiallyFannedOut`
-message reporting the `distributedUTxO` and the `remainingUTxO`. Keep issuing
+automatically if it is too large for one) and reports intermediate progress with a `HeadPartiallyFannedOut`
+message containing the `distributedUTxO` and the `remainingUTxO`. Keep issuing
 `PartialFanout` — selecting the entire remaining set when you want to finish — until the
 head is drained, at which point the node automatically submits the final transaction that
 burns the head tokens and emits `HeadIsFinalized`.
@@ -719,18 +727,18 @@ cardano-cli query utxo \
   --address $(cat credentials/alice-funds.addr) \
   --out-file alice-return-utxo.json
 
-cardano-cli latest transaction build \
+cardano-cli conway transaction build \
   $(cat alice-return-utxo.json | jq -j 'to_entries[].key | "--tx-in ", ., " "') \
   --change-address addr_test1qqr585tvlc7ylnqvz8pyqwauzrdu0mxag3m7q56grgmgu7sxu2hyfhlkwuxupa9d5085eunq2qywy7hvmvej456flknswgndm3 \
   --out-file alice-return-tx.json
 
-cardano-cli latest transaction sign \
+cardano-cli conway transaction sign \
   --tx-file alice-return-tx.json \
   --signing-key-file credentials/alice-node.sk \
   --signing-key-file credentials/alice-funds.sk \
   --out-file alice-return-tx-signed.json
 
-cardano-cli latest transaction submit --tx-file alice-return-tx-signed.json
+cardano-cli conway transaction submit --tx-file alice-return-tx-signed.json
 ```
 
 </TabItem>
@@ -742,18 +750,18 @@ cardano-cli query utxo \
   --address $(cat credentials/bob-funds.addr) \
   --out-file bob-return-utxo.json
 
-cardano-cli latest transaction build \
+cardano-cli conway transaction build \
   $(cat bob-return-utxo.json | jq -j 'to_entries[].key | "--tx-in ", ., " "') \
   --change-address addr_test1qqr585tvlc7ylnqvz8pyqwauzrdu0mxag3m7q56grgmgu7sxu2hyfhlkwuxupa9d5085eunq2qywy7hvmvej456flknswgndm3 \
   --out-file bob-return-tx.json
 
-cardano-cli latest transaction sign \
+cardano-cli conway transaction sign \
   --tx-file bob-return-tx.json \
   --signing-key-file credentials/bob-node.sk \
   --signing-key-file credentials/bob-funds.sk \
   --out-file bob-return-tx-signed.json
 
-cardano-cli latest transaction submit --tx-file bob-return-tx-signed.json
+cardano-cli conway transaction submit --tx-file bob-return-tx-signed.json
 ```
 
 </TabItem>

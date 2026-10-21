@@ -6,7 +6,9 @@ Before running a Hydra node on the Cardano mainnet, it is important to be aware 
 
 Due to the limitations on transaction sizes and execution budgets on Cardano, the Hydra protocol has the following constraints:
 
-- The protocol can only handle a maximum number of participants in a head. When attempting to configure too many peers, the Hydra node will inform you of the current configured maximum.
+- A head supports at most **29 parties**. Mirrors do not add parties.
+- The accumulator supports at most **4,095 outputs**, counting pending deposits or decommits alongside the head UTxO. See [head size limits](./dev/architecture/partial-fanout.md#head-size-limit).
+- Fanout can use multiple transactions, but every individual output must still fit L1 size and minimum-ADA constraints. Use the [recommended ledger parameters](./configuration.md#ledger-parameters).
 
 Currently, participants may be denied access to their funds by other protocol participants at different stages within a Hydra head because of the complexity or size of the UTXO being deposited or created while the head is open:
 
@@ -25,7 +27,7 @@ Known errors are:
       - `configuredPeers` - peers info coming from `hydra-node` arguments.
 
  - `member ... has already been bootstrapped` - missing information in `<persistence-dir>/etcd`
-   - restart your hydra-node with the `ETCD_INITIAL_CLUSTER_STATE` environment variable set to `existing` (`new` is the default), see also https://etcd.io/docs/v3.3/op-guide/configuration/
+   - restart your hydra-node with the `ETCD_INITIAL_CLUSTER_STATE` environment variable set to `existing` (`new` is the default), see also https://etcd.io/docs/v3.6/op-guide/configuration/
 
 We should be able to work around these UX issues using [etcd discovery](https://etcd.io/docs/v3.6/op-guide/clustering/#etcd-discovery) eventually.
 
@@ -39,13 +41,26 @@ here: [Etcd Configuration](configuration#auto-compaction-of-networking-buffers)
 
 #### Adapting to new breaking changes
 
-If the hydra-node has breaking changes in regards to reading the files it stores in the `persistence` folder, it used to be recommended to just delete the entire folder.
+Plan upgrades with every party in the head. Before stopping nodes, read the
+release notes for changes to scripts, snapshot signatures, network encoding,
+and persistence. Settle existing heads before switching to an incompatible
+script or snapshot format; a database migration does not migrate an on-chain
+head. In particular, the 2.4.0 snapshot-signing changes require existing heads
+to be closed and fanned out before upgrading.
 
-Now, because of etcd, it is important to only delete the `hydra-node` specific files; not the files associated with `etcd`. In particular you may like to delete the following files:
+After a clean shutdown, back up each node's entire persistence directory and
+keys. Keep SQLite files together, including any WAL files, along with etcd
+state and `pending-broadcast/`. Do not delete state to make an upgrade start.
 
-- `persistence/state*`
+The node automatically migrates legacy state files to `hydra.db` and older
+SQLite payloads to CBOR. After a successful CBOR migration, older releases
+cannot read that database. Keep the pre-upgrade backup; do not resume an old
+backup after the head has made new progress. See
+[persistence migrations](./dev/architecture/event-sourcing.md#schema-versioning).
 
-Note that, as with any adjustments of this kind, it is good practice to make a backup first!
+Upgrade all peers to a compatible [network protocol version](./configuration.md#network-protocol-version-and-upgrades).
+The embedded etcd version also has its own data-format compatibility rules;
+replacing the Hydra executable does not make an etcd downgrade safe.
 
 #### Pending outbound messages
 
@@ -53,8 +68,7 @@ Note that, as with any adjustments of this kind, it is good practice to make a b
 that the cluster has not accepted yet. It fills while the node cannot reach a
 majority of the `etcd` cluster, and drains once it can.
 
-Do not delete it as part of a routine upgrade cleanup. Unlike
-`persistence/state*`, deleting it discards messages the other participants
+Do not delete it as part of a routine upgrade cleanup. Deleting it discards messages the other participants
 never saw, which breaks the reliable-broadcast guarantee the off-chain
 protocol relies on and can leave the head unable to make progress. The
 recovery for a growing `pending-broadcast/` is to restore quorum by bringing

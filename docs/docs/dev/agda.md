@@ -146,8 +146,8 @@ Two layers bind the extracted spec to the real implementation:
 
 | Task | What to do |
 | --- | --- |
-| Build the PDF | `nix build .#spec`, or `./build.sh` inside `nix develop` (output: `spec/_build/hydra-spec.pdf`) |
-| Type-check only | `agda src/Hydra/Protocol/Main.lagda.typ` in `spec/` |
+| Build the PDF | `nix build .#spec` from the repository root (output: `result/hydra-spec.pdf`), or `just spec` (output: `spec/_build/hydra-spec.pdf`) |
+| Type-check only | `agda src/Hydra/Protocol/Main.lagda.typ` in `spec/`, inside `nix develop .#spec` |
 | Change a validator condition | Update the section + `*Valid` bundle in `OnChain.lagda.typ`, mirror in `Reference.agda`, prove in `ReferenceBridge.agda`, `regenerate.sh`, extend the shim + `HeadValidatorAgreement`; see the checklist in [`spec/README.md`](https://github.com/cardano-scaling/hydra/tree/master/spec) |
 | Change a head-logic handler | Update the §6 arm (+ figure) in `OffChain.lagda.typ`, mirror in `OffChainReference.agda`, bind in the hydra-node agreement tests |
 | Change the datum shape | `HeadDatum` in `OnChain.lagda.typ` + `state-fields` in `diagrams.typ`; `check-refs.sh` catches constructor drift |

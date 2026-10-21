@@ -2,71 +2,45 @@
 
 Additional implementation-specific documentation for the Hydra Head protocol and extensions like incremental decommits.
 
-## General notes on incremental commits/decommits
+## Deposits and decommits
 
-Especially, incremental commit and decommit are additions to the originally researched [Hydra Head protocol](https://eprint.iacr.org/2020/299.pdf) and deserve more explanation how they work under the hood. 
-
-For now these two new additions run sequentially so we are doing one thing at a time, at least for now, while we will think about batching certain actions in the future if the need for that arises.
-
-It is only possible to either commit or decommit - we don't allow snapshots with both fields specified for simplicity. This restriction might be lifted later on - once we are sure this simpler version works nicely.
+A head opens with an empty UTxO set. Deposits add funds from L1 while the head
+is open; decommits return funds to L1. A snapshot can settle one deposit or
+one decommit, but cannot carry both.
 
 ## Incremental commits
 
-Incremental commits allow anyone to lock up `UTxO` from L1 and make it available on L2 for transacting inside of a running Hydra Head. For a user, the process of doing an incremental commit is very similar to doing a normal commit before the Head is in the `Open` state. From a protocol standpoint though, the process is quite different as it requires users to first lock up funds in a `deposit` transaction before the head can collect it in an `incrementTx`. Should the depositted UTxO not be collected, a user can recover their funds in a `recoverTx`.
-
-```mermaid
-stateDiagram
-    [*] --> Depositted : depositTx
-    Depositted --> Incremented : incrementTx
-    Depositted --> Recovered : recoverTx
-```
+An incremental commit starts with a `depositTx` that locks funds at the
+deposit script. An `incrementTx` then adds them to the head. A deposit that
+cannot be claimed can be recovered after its deadline, subject to the
+[rollback restrictions](./rollbacks/index.md).
 
 ### Deposit flow
 
-The nominal case of depositing and later incrementing funds starts with a user request to `POST /commit`, which will draft a `depositTx` analogously what users know from the normal commit workflow.
-
-:::info
-See [commit](./commit.md) for more details about the commit API.
-:::
-
-A successful API response includes a `depositTx` that needs to be signed and submitted by the user in order to lock the specified `UTxO` at a deposit script address. The `hydra-node` of all participants will observe the deposit transaction and the snapshot leader _should_ request inclusion of the UTxO via a snapshot. With this snapshot an `incrementTx` can be posted that will update the Head state `UTxO` on L1 and upon observing this make the committed `UTxO` available on L2.
-
-The overall sequence diagram of a deposit and later increment across the `hydra-node`:
+`POST /commit` returns a draft deposit transaction with the node's wallet
+witness. The client adds the required owner signatures and submits it to L1.
+See [deposit request forms](./commit.md).
 
 ```mermaid
 sequenceDiagram
-    Alice->>+Node A: POST /commit UTxO
-    Node A-->>-Alice: depositTx
-
-    Alice ->> Alice: sign depositTx
-    Alice ->> Chain: submit depositTx
-
-    Chain ->>+ Node A: OnDepositTx utxo
-    Chain ->>+ Node B: OnDepositTx utxo
-
-    Node A -->> Alice: CommitRecorded
-
-    par Alice isLeader
-        Node A->>Node A: ReqSn utxoToCommit
-    and
-        Node A->>Node B: ReqSn utxoToCommit
-    end
-
-    Node A->>Node A: sig = sign snapshot incl. utxoToCommit
-
-    par broadcast
-        Node A->>Node A: AckSn sig
-    and
-        Node A->>Node B: AckSn sig
-    end
-    Node B->>Node A: AckSn sig
-    Node A -->> Alice: SnapshotConfirmed
-
-    Node A -->> Alice: CommitApproved
-
-    Node A ->> Chain: IncrementTx snapshot sig
-    Chain ->> Node A: OnIncrementTx
-    Node A -->> Alice: CommitFinalized
+    participant Client
+    participant Node
+    participant Parties
+    participant L1
+    Client->>Node: POST /commit
+    Node-->>Client: Draft deposit transaction
+    Client->>L1: Sign and submit depositTx
+    L1-->>Node: Observe depositTx
+    Node-->>Client: CommitRecorded
+    Note over Node,Parties: Wait until the deposit is active
+    Node-->>Client: DepositActivated
+    Node->>Parties: Request snapshot with depositTxId and UTxO
+    Parties-->>Node: Sign snapshot
+    Node-->>Client: CommitApproved
+    Node->>L1: Submit incrementTx with snapshot signatures
+    L1-->>Node: Observe incrementTx
+    Node-->>Client: CommitFinalized
+    Note over Client,Node: Deposited outputs are now spendable on L2
 ```
 
 ### Tracking deposits
@@ -81,7 +55,7 @@ Note that the draft returned by `POST /commit` is signed and submitted by the cl
 Note that any node that posts increment transaction will also pay the fees even if the deposit will not be owned by them on L2.
 :::
 
-Upon observing increment transaction we remove the corresponding deposit from the local pending deposits and the process can start again.
+When the increment is observed, the deposit is marked as settled. The node retains its lifecycle and the authorizing snapshot so it can re-post the increment after a rollback.
 
 The output references in a deposit datum are supplied by the depositor. A snapshot can claim the deposit only if its references are disjoint from both the active UTxO set and every output created by the requested transactions, including outputs spent later in that request. Leaders select deposits using the same rule that followers validate. The Cardano ledger also rejects transactions, including decommits, that create an output reference already present in the UTxO set.
 
@@ -105,45 +79,49 @@ sequenceDiagram
     Chain ->>+ Node B: OnRecoverTx utxo
     Node A -->>- Alice: CommitRecovered
     Node B -->>- Bob: CommitRecovered
-    Node A-->>-Alice: OK
 
 ```
 
 ### Rollback resistance
 
-In a perfect world the processes as explained above would be sufficient. However, the Cardano L1 is evolved using a probabilistic consensus algorithm and [rollbacks](./rollbacks) need to be considered.
+Cardano transactions can be rolled back. A deposit must therefore mature
+before an honest party signs a snapshot that claims it.
 
-Lets consider this example scenario of depositing funds into a head as an L1 transaction trace with L2 snapshots:
+[![A deposit matures before approval; an observed increment makes its outputs spendable, and a rolled-back increment is re-posted.](./deposit-increment.svg)](./deposit-increment.svg)
 
-![](./deposit-increment.svg)
+The **deposit activation** delay (`DA`, default `3600s`) is measured from the
+deposit transaction's upper validity bound. The **deposit period** (`DP`) is
+agreed by all parties and recorded in the head's on-chain parameters. It
+reserves time to settle or re-post an increment before the deposit deadline.
+Changing `DP` does not change the default `DA`.
 
-The biggest risk of chain re-organization attacks, which would be "adversarial rollbacks", comes from an attacker to be able to trick an honest `hydra-node` into making a funds on the L2 available which are in fact not locked up on the L1; i.e. a double spend of deposited funds.
+A node considers a deposit active only after its creation time plus `DA` and
+while its deadline remains more than `DP` away. `POST /commit` chooses the
+deadline as drafting time plus `DA + 2 * DP`. Because the creation time is a
+future upper validity bound, activation occurs later than drafting time plus
+`DA`. See [configuration](../configuration.md#deposit-activation).
 
-As indicated on the transaction trace example above, a successful incremental commit consists of two sequential L1 transactions: `depositTx` and `incrementTx`. Malicious rollbacks and double spending of their inputs need to be considered.
-
-For `incrementTx`, the input is governed by the deposit validator which ensures funds can only be spent into the destined head before the **deposit deadline** (by anyone using a `recoverTx` after the deadline). Hence, any rollbacks _before_ this deadline can be mitigated by re-submitting the same (or a new) `incrementTx`. It is vital though, that the deadline is _far enough_ in the future to not be prone to yet more chain re-organization and run out of time mitigating eventually. As the deposit deadline is only relevant for the pessimistic case, we can pick fairly *high values* without affecting user experience. For example: **1 week**, equating to roughly 5x the worst case settlement time of Cardano.
-
-For `depositTx`, the inputs may very well be spent by an attacker and an honest `hydra-node` should be cautious in observing a deposit as settled before signing a snapshot that authorizes addition of those funds to the L2 state. To mitigate this, a **deposit period** analogous to the contestation period of close/contest phase is introduced. A valid deposit must have an upper validity to indicate when it was created (at latest) and record the deposit deadline in the output datum (see [specification](./specification.md)). An honest `hydra-node` will only consider deposits that are **older** than the deposit period and when the deadline is **further out** than the deposit period. While the deposit period will delay all increments by at least that time, a `hydra-node` can configure the risk it is willing to take using this period. For example: **1 hour** means that roughly after 180 blocks on `mainnet` we would only see a rollback including the `depositTx` with `0.01%` likelihood, assuming a `15%` adversarial stake fairly conservative grinding power. See [this excellent explanation and calculator](https://aiken-lang.org/fundamentals/what-i-wish-i-knew#transaction-latency-vs-finality) in the Aiken docs.
-
-The time a deposit must mature before it becomes `Active` is configured independently from the deposit period via the **deposit activation** (defaulting to the same value as the deposit period). This decouples how fast a deposit activates from the deadline/expiry window, so both can be tuned separately.
-
-In summary, a deposit may only be picked up while `Active` in the following deposit life cycle:
 ```mermaid
-stateDiagram
-    direction LR
-    [*] --> Inactive : observeDepositTx{depositTime}
-    Inactive --> Active : Tick{chainTime} > depositTime + depositActivation
-    Active --> Expired : Tick{chainTime} > deadline - depositPeriod
-    Inactive --> Expired : Tick{chainTime} > deadline - depositPeriod
-    Active --> [*] : incrementTx
-    Expired --> [*] : recoverTx
+stateDiagram-v2
+    [*] --> Inactive: Observe deposit
+    Inactive --> Active: Creation time + DA passes
+    Inactive --> Expired: Deadline - DP reached
+    Active --> Expired: Deadline - DP reached
+    Active --> Settled: Observe increment
+    Expired --> Recovered: Observe recovery after deadline
 ```
+
+The signed snapshot binds the deposit transaction ID as well as the deposited
+outputs. Approval alone does not add those outputs to the spendable L2 UTxO.
+An observed increment does. If that increment rolls back, the node retains
+the signed snapshot and attempts to settle it again. Signed L2 state does not
+roll back; see [rollback handling](./rollbacks/index.md) for recovery limits.
 
 ## Incremental decommits
 
 Incremental decommits allow us to take some L2 `UTxO` and bring it to the L1 while the Head protocol is running.
 
-Users of a Hydra head can request decommits UTxO from L1 by sending a `POST /decommit` request with a so-called **decommit transaction** in the request body. Hydra node validates this transaction by applying it to its local `UTxO` set. If it applies, it will broadcast a `ReqDec` message signalling to other parties that we want to produce a new `Snapshot` that contains the same `UTxO` to decommit. The snapshot leader may request such a snapshot and once it is signed by everyone, any of the participant nodes posts a `decrementTx` that will produce a corresponding output on the L1.
+Users of a Hydra head can request decommits of UTxO from L2 to L1 by sending a `POST /decommit` request with a so-called **decommit transaction** in the request body. Hydra node validates this transaction by applying it to its local `UTxO` set. If it applies, it will broadcast a `ReqDec` message signalling to other parties that we want to produce a new `Snapshot` that contains the same `UTxO` to decommit. The snapshot leader may request such a snapshot and once it is signed by everyone, any of the participant nodes posts a `decrementTx` that will produce a corresponding output on the L1.
 
 :::info
 The decommit transaction is necessary to prove to the head participants that the decommitted UTxO can be spent by the requestor.
@@ -154,7 +132,6 @@ As the decommit is first decided on the L2 with full consensus, no honest node w
 ```mermaid
 sequenceDiagram
     Alice->>+Node A: POST /decommit (decTx)
-    Node A-->>-Alice: OK
 
     Node A->>Node A: canApply decTx
 
@@ -189,6 +166,7 @@ sequenceDiagram
     Node A ->> Chain: DecrementTx snapshot sig
     Chain ->> Node A: OnDecrementTx
     Node A -->> Alice: DecommitFinalized
+    Note over Alice,Node A: HTTP waits for a result or returns a pending response
 ```
 
 As with increments, the decrement redeemer carries the settled snapshot's multisignature, and a node still collecting `AckSn` for that snapshot adopts it as confirmed upon observing the decrement.

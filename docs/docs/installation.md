@@ -33,7 +33,7 @@ the embedded binary with `--use-system-etcd` does `etcd` need to be
 
 ### Prebuilt binaries
 
-We provide binaries of `hydra-node` and `hydra-tui` for x86_64 Linux, aarch64 Linux and ARM64 MacOS platforms. These binaries are available as attachments in our [GitHub releases](https://github.com/cardano-scaling/hydra/releases). The x86_64 Linux ones are statically linked; the aarch64 Linux ones are not, as there is no musl cross build for that platform yet.
+We provide binaries of `hydra-node` and `hydra-tui` for x86_64 Linux, aarch64 Linux and ARM64 MacOS platforms. When published, these binaries are attached to our [GitHub releases](https://github.com/cardano-scaling/hydra/releases). If the selected release has no binary attachments, use Docker or build that release from source. The x86_64 Linux ones are statically linked; the aarch64 Linux ones are not, as there is no musl cross build for that platform yet.
 
 :::info
 Recent versions of MacOS block unverified binaries to protect your system.

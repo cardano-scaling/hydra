@@ -1,21 +1,37 @@
-# Deposit funds into a Head
+# Deposit funds into a head
 
-In order to transact inside of a Head on L2, users need to have some funds available to spend. Users can deposit public key outputs or script outputs into a Head to accommodate different use cases.
+Deposits move public-key or script outputs from Cardano L1 into an open Hydra
+head. `POST /commit` drafts a deposit transaction and adds the node's wallet
+witness. The client adds any required owner signatures and submits the
+transaction to L1 without changing its body or output order.
 
-All deposits use the same `POST /commit` API endpoint, which returns a signed deposit transaction (`depositTx`) to be submitted to L1. See [protocol](./protocol.md) or [specification](./specification.md) for more details.
+## Request forms
 
-Depending on what is to be deposited, a user needs to decide between a _simple_ or _blueprint_ deposit request:
+| Request | Outputs deposited on L2 | Change on L1 |
+| --- | --- | --- |
+| UTxO without a blueprint | The supplied UTxO | None from the supplied inputs |
+| Blueprint without outputs | The supplied UTxO | None from the supplied inputs |
+| Blueprint with outputs | The blueprint outputs | Supply a balanced blueprint |
+| Blueprint with outputs and `changeAddress` | The blueprint outputs | Remaining input value goes to `changeAddress` |
 
-- **Simple** request to deposit a public key output into a Head, in which case they only need to show the JSON representation of the `UTxO` they want to deposit. The returned transaction then needs to be signed by the correct private key to prove ownership.
+A blueprint supplies transaction context such as script witnesses, redeemers,
+reference inputs, and required signers. Include the UTxO context needed to
+resolve its inputs. When that context includes reference inputs, use explicit
+blueprint outputs: a blueprint without outputs deposits the entire supplied
+UTxO map. The node replaces the blueprint's outputs on L1 with the
+deposit output and any change; the deposit datum records the outputs destined
+for L2. Output references for explicit blueprint outputs use the blueprint
+transaction ID.
 
-- **Blueprint** requests allow providing a _blueprint_ transaction together with the `UTxO` it spends to have more fine-grained control over the created deposit transaction. This is necessary when depositing script `UTxO` where more control over transaction attributes is needed (redeemers, reference inputs, validity bounds, etc.).
+Depositing funds from a script does not automatically preserve that script's
+control. To preserve it, the recorded L2 outputs must retain the required
+script address and datum. See [dApp validator guidance](../how-to/best-practise-dapp.md).
 
-:::info
-Blueprint transaction outputs are ignored — all value is locked into the Hydra deposit validator on L1.
-:::
+## Completion
 
-:::danger
-TODO: Add section about _why_ the design is this way here, about how to make scripts spendable in a Hydra head deposit or link a document in the user manual, or consolidate this document further into [protocol](./protocol.md) and user manual. See https://github.com/cardano-scaling/hydra/issues/1655 
-:::
-
-For concrete examples on how to use the deposit API see the [simple](./../how-to/incremental-commit) and [blueprint](./../how-to/commit-blueprint) how-tos in the user manual.
+Submission and `CommitRecorded` do not make funds spendable on L2. The deposit
+must mature, be approved in a signed snapshot, and settle through an increment
+transaction. Wait for `CommitFinalized`. See the
+[protocol flow](./protocol.md#deposit-flow),
+[deposit how-to](../how-to/incremental-commit.md), and
+[blueprint example](../how-to/commit-blueprint.md).

@@ -1,180 +1,93 @@
 ---
-sidebar_position: 1
+sidebar_position: 3
 ---
 
 # Deposit using a blueprint
 
-This guide provides a walkthrough on using `cardano-cli` to assemble the necessary components for depositing funds into an open Hydra head using a blueprint transaction.
+A blueprint describes the inputs to spend and the outputs to create inside
+an open head. This example deposits 5 ADA from an ADA-only input worth at
+least 8 ADA and returns the remaining input value on L1.
 
-**Prerequisites**
+## Prerequisites
 
-You should have access to the following repositories:
-
-- `hydra-node`
-- `hydra-tui`
-- `cardano-cli`, and
-- `curl` binaries.
-
-## Step 1
-You can use `cardano-cli` to create a _blueprint_ transaction from some `UTXO` you own. First, initiate a Cardano node on the pre-production network:
-
- ```shell
- ./testnets/cardano-node.sh ~/code/hydra/testnets/preprod
- ```
-
-## Step 2
-Determine which `UTXO` you intend to deposit into the `head`. This example uses Alice's external wallet key to identify her address:
-
- ```shell
- cardano-cli address build \
-  --payment-verification-key-file hydra-cluster/config/credentials/alice-funds.vk \
-  --testnet-magic 1
-
-addr_test1vp5cxztpc6hep9ds7fjgmle3l225tk8ske3rmwr9adu0m6qchmx5z
- ```
-
-Next, query to see what `UTXO` Alice has:
+Complete the [testnet setup](../tutorial/index.md) through opening the head.
+Use its node, matching Hydra scripts, funded node wallet, and
+`credentials/alice-funds.{sk,addr}`. Run these commands from that tutorial's
+working directory with `cardano-cli`, `jq`, and `curl` available.
 
 ```shell
-cardano-cli query utxo \
-   --socket-path testnets/preprod/node.socket \
-   --address addr_test1vp5cxztpc6hep9ds7fjgmle3l225tk8ske3rmwr9adu0m6qchmx5z \
-   --testnet-magic 1 \
-   --output-json
+export CARDANO_NODE_SOCKET_PATH="$PWD/node.socket"
+export CARDANO_NODE_NETWORK_ID=1
+export HYDRA_API=http://127.0.0.1:4001
+WALLET_ADDR=$(cat credentials/alice-funds.addr)
 
-{
-    "14ab373afb1112d925b0f6a84518ac26d4a8cfcc99231e1f47e6996182e843a9#0": {
-        "address": "addr_test1vp5cxztpc6hep9ds7fjgmle3l225tk8ske3rmwr9adu0m6qchmx5z",
-        "datum": null,
-        "datumhash": null,
-        "inlineDatum": null,
-        "referenceScript": null,
-        "value": {
-            "lovelace": 8000000
-        }
-    },
-    "14ab373afb1112d925b0f6a84518ac26d4a8cfcc99231e1f47e6996182e843a9#1": {
-        "address": "addr_test1vp5cxztpc6hep9ds7fjgmle3l225tk8ske3rmwr9adu0m6qchmx5z",
-        "datum": null,
-        "datumhash": null,
-        "inlineDatum": null,
-        "referenceScript": null,
-        "value": {
-            "lovelace": 1828427
-        }
-    },
-}
+cardano-cli query utxo --address "$WALLET_ADDR" --out-file wallet-utxo.json
+jq 'to_entries | map(select((.value.value | keys) == ["lovelace"] and .value.value.lovelace >= 8000000)) | .[:1] | from_entries' \
+  wallet-utxo.json > deposit-utxo.json
+TX_IN=$(jq -er 'keys[0] // error("Need an ADA-only UTxO of at least 8 ADA")' deposit-utxo.json)
 ```
 
-## Step 3
-Select the first `UTXO`, which has eight ada available. Use five ada to commit and rely on `hydra-node` to balance the commit transaction:
+## Build the blueprint
+
+The 5 ADA output below becomes an L2 output. The blueprint itself is not
+submitted to Cardano.
 
 ```shell
 cardano-cli conway transaction build-raw \
-  --tx-in 14ab373afb1112d925b0f6a84518ac26d4a8cfcc99231e1f47e6996182e843a9#0 \
-  --tx-out addr_test1vp5cxztpc6hep9ds7fjgmle3l225tk8ske3rmwr9adu0m6qchmx5z+5000000 \
+  --tx-in "$TX_IN" \
+  --tx-out "$WALLET_ADDR+5000000" \
   --fee 0 \
-  --out-file tx.json
+  --out-file blueprint.json
+
+cardano-cli debug transaction view --tx-file blueprint.json
 ```
 
-## Step 4
-You should now have the _blueprint_ transaction in the `tx.json` file. For `hydra-node` to provide a draft commit transaction, you need to:
-
-- Obtain the protocol parameters needed to run the `hydra-node`
-- Ensure the `hydra-node` is up and running
-- Have an open `head`
-- Submit the HTTP request to the `hydra-node` API server using the _blueprint_ transaction you just created and the `UTXO` used for its input.
-
-
-Query the protocol parameters:
+Check that the output contains 5,000,000 lovelace. Build the request from the
+files instead of copying an encoded transaction from another example:
 
 ```shell
-cardano-cli query protocol-parameters \
-  --testnet-magic 1 \
-  --socket-path testnets/preprod/node.socket \
-  --out-file pp-preprod.json
+jq -n \
+  --slurpfile blueprint blueprint.json \
+  --slurpfile utxo deposit-utxo.json \
+  --arg changeAddress "$WALLET_ADDR" \
+  '{blueprintTx: $blueprint[0], utxo: $utxo[0], changeAddress: $changeAddress}' \
+  > commit-request.json
+
+curl --fail-with-body -sS "$HYDRA_API/commit" \
+  -H 'Content-Type: application/json' \
+  --data-binary @commit-request.json \
+  > deposit-tx.json
 ```
 
-## Step 5
-Start the `hydra-node` as a _single_ party head instance.
+`changeAddress` asks the node to return the remainder on L1. Without it,
+provide a balanced blueprint whose entire output value is to be deposited.
+The node pays the deposit transaction's fees from its own fuel wallet.
 
-Note: The value `6264cee4d5eab3fb58ab67f3899ecbcc0d7e72732a2d9c1c5d638115db6ca711` comes from the `hydra-node` release [0.16.0](https://github.com/cardano-scaling/hydra/releases/tag/0.16.0).
+## Sign, submit, and wait
+
+Open a WebSocket connection in another terminal before submitting:
 
 ```shell
-hydra-node \
-  --node-id 1 --listen 0.0.0.0:5001 --api-port 4001 \
-  --hydra-signing-key demo/alice.sk \
-  --hydra-scripts-tx-id 6264cee4d5eab3fb58ab67f3899ecbcc0d7e72732a2d9c1c5d638115db6ca711 \
-  --cardano-signing-key hydra-cluster/config/credentials/alice.sk \
-  --ledger-protocol-parameters pp-preprod.json \
-  --testnet-magic 1 \
-  --node-socket testnets/preprod/node.socket \
-  --persistence-dir .
+websocat 'ws://127.0.0.1:4001?history=no'
 ```
 
-Now you can start `hydra-tui` and initialize the `head`:
+Add Alice's witness while preserving the node's witness and output order:
 
 ```shell
-hydra-tui \
-  --connect 0.0.0.0:4001 \
-  --funds-signing-key hydra-cluster/config/credentials/alice-funds.sk \
-  --testnet-magic 1 \
-  --node-socket testnets/preprod/node.socket
-```
-
-Press `i` to initialize the head. The head opens immediately. You can then send the HTTP request to the `POST /commit` API endpoint to deposit funds. Assemble the request body using the `cborHex` field from the tx-body file `tx.json` and the JSON representation of the `UTXO` you used as input.
-
-This is the valid JSON request:
-
-```json
-{
-  "blueprintTx": {
-    "cborHex": "84a3008182582014ab373afb1112d925b0f6a84518ac26d4a8cfcc99231e1f47e6996182e843a900018182581d6069830961c6af9095b0f2648dff31fa9545d8f0b6623db865eb78fde81a007a12000200a0f5f6",
-    "description": "",
-    "type": "Tx BabbageEra"
-  },
-  "utxo": {
-    "14ab373afb1112d925b0f6a84518ac26d4a8cfcc99231e1f47e6996182e843a9#0": {
-      "address": "addr_test1vp5cxztpc6hep9ds7fjgmle3l225tk8ske3rmwr9adu0m6qchmx5z",
-      "datum": null,
-      "datumhash": null,
-      "inlineDatum": null,
-      "referenceScript": null,
-      "value": {
-        "lovelace": 8000000
-      }
-    }
-  }
-}
-```
-
-Save this JSON to a `commit-request.json` file.
-
-You can now prompt the running `hydra-node` to draft a deposit transaction:
-
-
-```
-curl -X POST 127.0.0.1:4001/commit \
-  --data @commit-request.json
-
-```
-
-This yields a large CBOR blob, which you can save to the `commit-tx.json` file.
-
-Next, sign and submit the draft deposit transaction:
-
-```shell
-
 cardano-cli conway transaction sign \
-  --tx-file commit-tx.json \
-  --signing-key-file hydra-cluster/config/credentials/alice-funds.sk \
-  --out-file signed-tx.json
+  --tx-file deposit-tx.json \
+  --signing-key-file credentials/alice-funds.sk \
+  --out-file deposit-signed.json
 
-
-cardano-cli conway transaction submit \
-  --tx-file signed-tx.json \
-  --socket-path testnets/preprod/node.socket \
-  --testnet-magic 1
+cardano-cli conway transaction submit --tx-file deposit-signed.json
 ```
 
-If you start the `hydra-tui` and wait until the transaction you just sent is re-observed by the `hydra-node`, you should see that the head is now open.
+The head is already open. `CommitRecorded` means the deposit was observed on
+L1; it is not yet spendable on L2. After activation, snapshot approval, and
+settlement of the increment, `CommitFinalized` confirms that the deposit has settled.
+With default activation settings, maturation takes roughly an hour plus the
+transaction-validity offset. See [deposit timing](../configuration.md#deposit-activation).
+
+Verify the output in `GET /snapshot/utxo` and the change at Alice's L1 address.
+If the deposit expires without being claimed, follow the
+[recovery instructions](./incremental-commit.md#recover-a-deposit).

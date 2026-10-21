@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="560" height="846" viewBox="0 0 560 846" role="img" aria-labelledby="title description">
+  <title id="title">Re-posting an increment after a rollback</title>
+  <desc id="description">The node observes a deposit, matures it, signs its snapshot, submits an increment, and observes CommitFinalized. It continues signing L2 snapshots. If L1 rolls back before the increment, rewind chain observations but retain signed L2 state and the authorizing snapshot. While the head is open, block recovery of the deposit. Re-post the retained increment and observe it on the replacement chain. The deposit must exist on the new chain and its deadline must not have passed.</desc>
+  <!-- Maintained directly as SVG; see docs/README.md for the shared diagram style. -->
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 1 1 L 9 5 L 1 9" fill="none" stroke="#527b76" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <style>
+      text { font-family: Arial, Helvetica, sans-serif; }
+      .heading { font-size: 20px; font-weight: 600; fill: #194d46; }
+      .step { font-size: 18px; font-weight: 600; fill: #194d46; }
+      .body { font-size: 16px; fill: #415955; }
+      .label { font-size: 15px; fill: #526761; }
+      .detail { font-size: 14px; fill: #526761; }
+      .message { font-size: 16px; fill: #415955; paint-order: stroke; stroke: #fff; stroke-width: 5px; stroke-linejoin: round; }
+      .path { fill: none; stroke: #527b76; stroke-width: 1.8; marker-end: url(#arrow); }
+      .line { fill: none; stroke: #527b76; stroke-width: 1.8; }
+      .guide { fill: none; stroke: #b5d0c9; stroke-width: 1.2; stroke-dasharray: 5 6; }
+      .card { fill: #f0f7f5; stroke: #b5d0c9; stroke-width: 1.2; }
+      .group { fill: #fff; stroke: #b5d0c9; stroke-width: 1.2; }
+      .accent { fill: #e0eee9; stroke: #8fb8ac; stroke-width: 1.2; }
+    </style>
+  </defs>
+  <rect width="560" height="846" rx="12" fill="#fff"/>
+  <path d="M 104 80 V 736" class="guide"/>
+  <rect x="16.0" y="16" width="176" height="64" rx="12" class="card"/>
+  <text x="104.0" y="54.0" text-anchor="middle" class="step">Cardano chain</text>
+  <path d="M 456 80 V 736" class="guide"/>
+  <rect x="368.0" y="16" width="176" height="64" rx="12" class="card"/>
+  <text x="456.0" y="54.0" text-anchor="middle" class="step">Hydra node</text>
+  <path d="M 104 124 H 456" class="path"/>
+  <text x="280.0" y="112" text-anchor="middle" class="message">Observe deposit</text>
+  <rect x="344" y="152" width="192" height="74" rx="12" class="card"/>
+  <text x="440.0" y="184.5" text-anchor="middle" class="step">Mature deposit</text>
+  <text x="440.0" y="210.5" text-anchor="middle" class="body">Sign snapshot</text>
+  <path d="M 456 266 H 104" class="path"/>
+  <text x="280.0" y="254" text-anchor="middle" class="message">Submit increment</text>
+  <path d="M 104 332 H 456" class="path"/>
+  <text x="280.0" y="299" text-anchor="middle" class="message">Observe increment</text>
+  <text x="280.0" y="320" text-anchor="middle" class="message">CommitFinalized</text>
+  <rect x="344" y="364" width="192" height="74" rx="12" class="card"/>
+  <text x="440.0" y="396.5" text-anchor="middle" class="step">Continue signing</text>
+  <text x="440.0" y="422.5" text-anchor="middle" class="body">L2 snapshots</text>
+  <path d="M 104 484 H 456" class="path"/>
+  <text x="280.0" y="472" text-anchor="middle" class="message">Roll back before the increment</text>
+  <rect x="24" y="516" width="512" height="98" rx="12" class="card"/>
+  <text x="280" y="549.0" text-anchor="middle" class="body">Rewind chain observations.</text>
+  <text x="280" y="570.0" text-anchor="middle" class="body">Keep signed L2 state and the authorizing snapshot.</text>
+  <text x="280" y="591.0" text-anchor="middle" class="body">Block recovery while the head is open.</text>
+  <path d="M 456 664 H 104" class="path"/>
+  <text x="280.0" y="652" text-anchor="middle" class="message">Re-post retained increment</text>
+  <path d="M 104 726 H 456" class="path"/>
+  <text x="280.0" y="714" text-anchor="middle" class="message">Observe increment on replacement chain</text>
+  <rect x="24" y="764" width="512" height="64" rx="12" class="card"/>
+  <text x="280" y="790.5" text-anchor="middle" class="body">Requires the deposit on the new chain</text>
+  <text x="280" y="811.5" text-anchor="middle" class="body">and time before its deadline.</text>
+</svg>

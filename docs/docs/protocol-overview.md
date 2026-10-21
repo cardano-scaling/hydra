@@ -1,26 +1,49 @@
 # Protocol overview
 
-Hydra is the layer 2 scalability solution for Cardano, designed to increase transaction speed through low latency and high throughput while minimizing transaction costs. [Hydra Head](https://eprint.iacr.org/2020/299.pdf) is the first protocol of the Hydra family that lays the foundation for more advanced deployment scenarios using isomorphic, multi-party state channels. For an introduction to the protocol, refer to these two blog posts: 
+A Hydra head is a state channel between a fixed group of parties. Each party
+runs a node, validates L2 transactions, and signs snapshots of the agreed
+state. Multiple heads can operate independently alongside Cardano.
 
-* [Hydra – Cardano’s solution for ultimate layer 2 scalability](https://iohk.io/en/blog/posts/2021/09/17/hydra-cardano-s-solution-for-ultimate-scalability/)
-* [Implementing Hydra heads: the first step towards the full Hydra vision](https://iohk.io/en/blog/posts/2022/02/03/implementing-hydra-heads-the-first-step-towards-the-full-hydra-vision/).
+Hydra reuses Cardano transaction formats and script validation. Head-specific
+ledger parameters can remove L2 fees, but outputs must remain compatible with
+L1 settlement. Staking, governance, and L1 consensus are outside the head.
+See [ledger parameters](./configuration.md#ledger-parameters) and
+[known limitations](./known-issues.md).
 
-Hydra simplifies off-chain protocol and smart contract development by directly adopting the layer 1 smart contract system, allowing the same code to be used both on- and off-chain. Leveraging the Extended Unspent Transaction Output (EUTXO) model, Hydra enables fast off-chain protocol evolution with minimal round complexity and allows asynchronous and concurrent state channel processing. This design enhances transaction confirmation time and throughput while keeping storage requirements low.
+## Hydra head lifecycle
 
-In Hydra, a set of parties opens an off-chain state channel called a Hydra head and deposits funds from the Cardano main chain into it. The deposited UTXOs form the head state, which can be evolved by handling smart contracts and transactions among the parties without blockchain interaction, provided all participants behave optimistically. The isomorphic nature of Hydra heads ensures that transaction validation and script execution proceed according to the same rules as on-chain, simplifying engineering and guaranteeing consistency. In case of disputes or termination, the current state of the head is fanned out back to the blockchain, updating the blockchain state to reflect the off-chain protocol evolution. This fanout is efficient, independent of the number of parties or the size of the head state, and deposits and decommits allow UTXOs to be added or removed from a running head without closing it.
+[![Open, with deposit/increment and decommit/decrement flows; Closed, with contests before the deadline; Ready to fan out; then Settled directly or through repeated Fanning out steps.](./hydra-head-lifecycle.svg)](./hydra-head-lifecycle.svg)
 
-## Hydra head lifecycle 
+1. **Open.** `Init` on L1 opens the head with the agreed parties, protocol
+   parameters, and an empty UTxO set. Parties validate L2 transactions and
+   confirm snapshots. To add funds, users **deposit** on L1; after maturation
+   and approval by all parties, an **increment** makes them spendable in the
+   head. To withdraw, a **decommit** request on L2 receives the parties'
+   approval, then a **decrement** returns its outputs to L1. Both processes
+   can repeat while the head stays open.
+2. **Closed.** Any party can submit `Close` using its latest confirmed snapshot.
+   Parties must retain signed snapshots and monitor L1 to contest an outdated
+   snapshot before the contestation deadline. A contest keeps the head closed.
+3. **Ready to fan out.** Once the deadline passes, outputs can return to L1.
+   `Fanout` requests all outputs; `PartialFanout` selects which to distribute.
+   A fanout of the whole head that fits in one transaction goes directly to
+   **Settled**.
+4. **Fanning out.** When distribution takes several transactions, each partial
+   step returns more outputs to L1. After `Fanout`, the initiating node
+   continues automatically. With selective fanout, parties issue further
+   `PartialFanout` commands for the remaining outputs.
+5. **Settled.** The final transaction distributes the remaining outputs and
+   burns the head tokens. The node emits `HeadIsFinalized`.
 
-There are different flavors and extensions of the Hydra Head protocol, but first, let's discuss the full lifecycle of a basic Hydra head and how it allows for isomorphic state transfer between layer 1 and layer 2.
+L2 confirmation depends on validation, network communication, and signatures
+from every party. L1 operations have separate confirmation and settlement
+requirements. Total fanout cost depends on the outputs being distributed;
+partial fanout does not remove the size or minimum-ADA constraints on each
+individual output.
 
-![](./hydra-head-lifecycle.svg)
-
-A group of online and responsive participants form a Hydra head. Any participant can **init**ialize a head by announcing its parameters on-chain (participants list, contestation period). The `Init` transaction immediately creates the head in the **open** state with an empty UTXO set — there is no separate initialization phase. Participants then **deposit** UTXOs from the Cardano main chain into the open head at any time using the `POST /commit` endpoint.
-
-While open, participants can utilize the Hydra head via a Hydra node to submit transactions in the head network. These transactions maintain the same format and properties as those on the main chain – they are isomorphic. When spending UTXO entries and creating new ones in a Hydra head, all participants must acknowledge and agree on the new state in so-called snapshots (U1...Un). Snapshots are not posted back onto layer 1 but are only retained by the participants.
-
-Participants can continue to **deposit** additional UTXOs into the running head, or **decommit** UTXOs back to layer 1, at any time without closing the head.
-
-Any participant can **close** the head using a snapshot, for example, if they wish to cash out on the mainnet or if another party misbehaves or stalls the head's evolution. There exists a mechanism to **contest** the final state on the main chain. Ultimately, a `FanOut` transaction distributes the final agreed state and makes it available on layer 1, transitioning the state that existed virtually in the head to an on-chain state.
-
-
+See the [testnet tutorial](./tutorial/index.md) for a complete workflow,
+[protocol details](./dev/protocol.md) for deposits and rollbacks, and
+[selective fanout](./how-to/selective-fanout.md) for settlement controls.
+The [original research paper](https://eprint.iacr.org/2020/299.pdf) provides the
+research background; the [current specification](./dev/specification.md)
+describes the implemented protocol.
