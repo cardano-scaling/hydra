@@ -8,6 +8,27 @@ Start with whole-transaction costs, then use function-level traces to locate
 expensive parts of a validator. Record the repository revision, operation,
 party count, and UTxO shape so results can be reproduced.
 
+## Example: a five-party increment
+
+This flamegraph profiles the head validator when an increment adds a deposit
+to an open head. The fixture has five parties, one live ADA-only output, and
+one deposited ADA-only output.
+
+[![Memory-budget flamegraph for a five-party increment, showing context decoding, checkIncrement, and its validator checks.](./increment-memory.svg)](./increment-memory.svg)
+
+Open the image to zoom into functions or search their names. Frame widths show
+cumulative Plutus memory-budget units consumed within each call, including its
+children. They do not measure peak RAM usage or elapsed time. The graph covers
+traced calls; evaluation work outside the tracing markers is not shown.
+
+The profile uses revision
+[`ff531feba9`](https://github.com/cardano-scaling/hydra/commit/ff531feba9265788e22b155b474ad8420a6507da),
+seed `42`, GHC `9.6.7`, Plutus `1.68.0.0`, and the fixture's cost model at protocol
+version `11`. The instrumented head validator succeeds with a total budget of
+`1,025,536,803` CPU units and `3,242,316` memory units; `3,171,452` memory units
+appear in the graph. These are instrumented fixture costs, not release fees or
+the combined cost of the head and deposit validators.
+
 ## Measure transaction costs
 
 From the repository root, generate the current report:
@@ -50,23 +71,43 @@ for that script, and the transaction-cost benchmark for its total budget.
 
 ## Produce a function-level profile
 
-This step needs a fixture harness that exports the validator fully applied to
-its arguments, including the correct transaction context. Use the same ledger
-and Plutus versions as the checkout. A serialized validator alone does not
-include the context needed to profile a particular transaction.
-
-Follow the [Plutus profiling guide](https://plutus.cardano.intersectmbo.org/docs/working-with-scripts/profiling-budget-usage)
-to install matching `uplc` and `traceToStacks` executables. With a fully applied
-Flat-encoded script and `flamegraph.pl` on your `PATH`:
+After enabling the profiling flag, run the included
+[`ProfileIncrement.hs`](https://github.com/cardano-scaling/hydra/blob/master/docs/scripts/ProfileIncrement.hs)
+helper from the repository root in the development shell:
 
 ```shell
-uplc evaluate -i fully-applied-script.flat --if flat --trace-mode LogsWithBudgets -o logs
-traceToStacks < logs | flamegraph.pl > cpu.svg
-traceToStacks --column 2 < logs | flamegraph.pl > mem.svg
+cabal repl hydra-node:bench:tx-cost <<'EOF'
+:set -package cardano-ledger-alonzo -package cardano-ledger-core -package cardano-ledger-binary -package plutus-core
+:load docs/scripts/ProfileIncrement.hs
+:main /tmp/increment-budget.csv
+:quit
+EOF
 ```
 
-Select the input format matching the harness's export; named De Bruijn exports
-use `--if flat-namedDeBruijn`. Open the generated SVGs in a browser to inspect
-individual functions. Regenerate graphs when the transaction fixture,
-contracts, or compiler changes, and remove profiling flags before comparing
-release artifacts.
+The helper generates the five-party increment with seed `42`, obtains its
+arguments from the ledger, and selects the head validator by script hash. It
+checks that the validator succeeds and that the tracing evaluator agrees with
+the ledger evaluator's budget. It also joins source locations to function
+names so `traceToStacks` can parse the labels.
+
+Install `traceToStacks` from the same Plutus release as the checkout and
+[FlameGraph](https://github.com/brendangregg/FlameGraph)'s `flamegraph.pl`.
+The example uses Plutus `1.68.0.0` and FlameGraph `2023-11-06`. With both tools
+on your `PATH`, render the memory graph:
+
+```shell
+traceToStacks --column 2 < /tmp/increment-budget.csv > /tmp/increment-memory.folded
+flamegraph.pl \
+  --title 'Increment: Head validator memory budget' \
+  --subtitle '5 parties | 1 live output + 1 deposited output | seed 42' \
+  --countname 'memory units' \
+  --fonttype 'Arial, Helvetica, sans-serif' \
+  --colors hot --hash --bgcolors '#ffffff' \
+  --height 22 --fontsize 13 --width 1200 \
+  /tmp/increment-memory.folded > /tmp/increment-memory.svg
+```
+
+Use `--column 1` with `traceToStacks` to plot CPU units instead, and update the
+graph's title and `--countname` accordingly. Regenerate graphs when the fixture,
+contracts, or compiler changes, and remove the profiling flag after the
+experiment.
