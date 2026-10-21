@@ -31,9 +31,17 @@ Operator nodes maintain the _Hydra keys_ necessary for signing snapshots and the
 
 ## Use cases
 
-While requiring some level of trust from clients towards operators and involving the custodianship of funds committed to the head, this deployment model offers a straightforward method to create a _sidechain-a-la-carte_. In this model, operators are accountable for the safety and liveness of the network. These alternative chains can be created and deployed ad-hoc without the complexities associated with ‘classic’ sidechains.
+While requiring some level of trust from clients towards operators and relying on operators for snapshot signing and dispute handling, this deployment model offers a straightforward method to create a _sidechain-a-la-carte_. In this model, operators are accountable for the safety and liveness of the network. These alternative chains can be created and deployed ad-hoc without the complexities associated with ‘classic’ sidechains.
 
 Potential scenarios for this deployment model include:
 
 1. Environments where the Hydra nodes are fully trusted, either due to their established reputation, identity, or a disinterest in the specific purposes of the head.
 2. Situations that require scaling to hundreds or thousands of parties, which is unfeasible with a standard Hydra head.
+
+## Run the example
+
+The repository's [delegated demo](https://github.com/cardano-scaling/hydra/tree/master/delegated-demo)
+shows a deployment with operators and client wallets. Follow the README from
+the same revision as the node binaries. Users sign their own transactions;
+operators sign snapshots and monitor L1. Availability and dispute handling
+still depend on the operators.

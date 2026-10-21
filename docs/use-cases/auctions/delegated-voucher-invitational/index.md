@@ -7,9 +7,12 @@ sidebar_position: 1
 
 This is the first complete prototype of an auction that can host its bidding process using the Hydra head protocol (layer 2).
 
-:::tip This use case is under development
+:::note Prototype design
 
-This project is an ongoing effort in collaboration with MLabs. Source code and documentation are available [here](https://github.com/mlabs-haskell/hydra-auction).
+This article describes the earlier MLabs collaboration. Check the
+[reference repository](https://github.com/mlabs-haskell/hydra-auction) for
+maintenance status and supported node versions before using it with a current
+Hydra release.
 
 :::
 
@@ -17,7 +20,13 @@ This project is an ongoing effort in collaboration with MLabs. Source code and d
 
 This document outlines the first building block of what could, with the support of the Cardano community, develop into a comprehensive Hydra-based auction framework. Among the various design candidates explored in our [January 2023 paper](https://iohk.io/en/blog/posts/2023/01/20/implementing-auction-projects-using-hydra/), the delegated voucher auction optimally utilizes the strengths of both the Cardano mainnet (layer 1) and the Hydra Head protocol (layer 2) while addressing their respective limitations.
 
-![](./running-auctions-on-cardano.png)
+| Concern | Cardano L1 | Hydra head |
+| --- | --- | --- |
+| Bidding | Every bid is an L1 transaction. | Delegates confirm bids through signed snapshots. |
+| Costs | Each bid pays L1 transaction fees. | L2 fees are configurable; opening, deposits, and settlement still incur L1 costs. |
+| Availability | Progress depends on Cardano consensus. | Every head party must be available to sign snapshots. |
+| Security | Cardano's consensus and ledger rules apply. | Ledger rules are reused, but safe settlement also needs an honest party retaining signed state and contesting in time. |
+| Invitational design | The auction lot and bidder funds stay on L1. | The head records bidding information. |
 
 Cardano secures its mainnet ledger by broadcasting transactions across a globally distributed network of independent nodes. A slot leader is randomly selected among these nodes to add the next block to the chain, making it extremely challenging to add an invalid transaction, censor a new transaction, or contradict the existence of a stable transaction within the ledger. The Ouroboros consensus protocol ensures robustness to nodes entering and leaving the network, as long as an honest majority of stake is maintained. However, the mainnet has high overhead in terms of cost and latency, as every transaction and block must be broadcast, stored, and validated on every node worldwide.
 
@@ -31,7 +40,9 @@ To avoid granting custody of the bidder’s funds or the seller's NFT auction lo
 
 However, fixed-size security deposits don't completely protect the seller from dishonorable behavior by bidders, especially if bids unexpectedly rise. This could lead a bidder to dishonor a genuine bid or place a disingenuous bid to sabotage the auction. To mitigate this risk and manage the auction effectively, the seller needs to be able to apply know-your-customer (KYC) and anti-money-laundering (AML) processes to the auction. 
 
-For these reasons, we plan to implement an invitational private version of the auction initially, where the seller has absolute discretion over which bidders may participate. The public version of the auction, where bidders can freely participate, will be implemented in a later milestone.
+The invitational design lets the seller choose which bidders may participate.
+[Open auctions](../delegated-voucher-open/index.md) describe a proposed
+extension with fully backed bids.
 
 
 ## Workflow
@@ -49,15 +60,13 @@ In this prototype, each auction proceeds as follows:
 9. If the winning bidder does not purchase the auction lot after the voucher expiration, the seller can reclaim it and assert the winning bidder’s security deposit for the auction. Otherwise, the winning bidder can assert their security deposit.
 10. All other bidders can assert their security deposits at the end of the bidding phase.
 
-## Prerequisites from Hydra technical roadmap
+## Current Hydra integration
 
-During the design and early implementation phase, the following prerequisites were identified to enable using the auction smart contracts on layer 2:
-
-- Add a method to the Hydra node API to commit UTXOs from script addresses.
-- Support committing multiple UTXOs per Hydra head participant, so that collateral UTXOs can be committed to the Hydra head for transactions with validator scripts on layer 2.
-- Allow time to pass on the Layer 2 ledger (instead of maintaining time fixed at the start time of the Hydra head).
-
-Fortunately, the Hydra core developers implemented all of these features during the course of the milestone. Thank you! 🚀
+Hydra supports [script deposits](/docs/how-to/commit-script-utxo), multiple
+outputs, and time-dependent L2 transactions. An updated integration must open
+the head first, deposit its auction state, and wait for `CommitFinalized`.
+Validate the contracts and API client against the exact Hydra version used;
+the original prototype's compatibility does not imply current compatibility.
 
 ## Remaining limitations
 

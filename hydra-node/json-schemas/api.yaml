@@ -166,7 +166,7 @@ channels:
     servers:
       - localhost-http
     publish:
-      description: Draft a commit transaction, which can be completed and later submitted to the L1 network.
+      description: Draft a deposit transaction for an open head. Add the required owner signatures and submit it to L1 without changing its output order.
       operationId: draftCommitTxRequest
       message:
         $ref: "api.yaml#/components/messages/DraftCommitTxRequest"
@@ -182,6 +182,7 @@ channels:
           * DraftCommitTxResponse - 200 ok
           * UnsupportedLegacyOutput - 400 bad request
           * DepositTooLarge - 400 bad request
+          * DepositTooLow - 400 bad request
       message:
         $ref: "api.yaml#/components/messages/DraftCommitTxResponse"
       bindings:
@@ -477,7 +478,7 @@ channels:
               validationError:
                 type: string
         - name: SubmitTxRejected
-          summary: 503 Bad Request
+          summary: 503 Service Unavailable
           description: |
             Transaction was rejected without being processed: either the node is out of sync with the chain, or it cannot currently hand its outbound messages to the network. The reason says which.
           payload:
@@ -740,7 +741,7 @@ components:
     CommandFailed:
       title: CommandFailed
       description: |
-        Emitted by the server when a well-formed client input was not processable. For example, if trying to close a non opened head or, when trying to commit after having already committed.
+        Emitted by the server when a well-formed client input was not processable. For example, if trying to close a head that is not open or submit a fanout before its deadline.
       payload:
         $ref: "api.yaml#/components/schemas/CommandFailed"
 
@@ -2911,23 +2912,6 @@ components:
               enum: ["NoFuelUTXOFound"]
             failingTx:
               $ref: "api.yaml#/components/schemas/Transaction"
-        - title: CommittedTooMuchADAForMainnet
-          description: |
-            Raised if the user tries to commit more than 100 ADA while on the mainnet network.
-          type: object
-          additionalProperties: false
-          required:
-          - tag
-          - userCommittedLovelace
-          - mainnetLimitLovelace
-          properties:
-            userCommittedLovelace:
-              type: number
-            mainnetLimitLovelace:
-              type: number
-            tag:
-              type: string
-              enum: ["CommittedTooMuchADAForMainnet"]
         - title: UnsupportedLegacyOutput
           type: object
           additionalProperties: false
@@ -2992,7 +2976,7 @@ components:
               $ref: "api.yaml#/components/schemas/Transaction"
         - title: InvalidSeed
           description: |
-            Raised if the user fails to submit an abort or fanout tx using the wrong seed.
+            Raised when the head seed used to construct a transaction is invalid.
           type: object
           additionalProperties: false
           required:
@@ -3006,7 +2990,7 @@ components:
               $ref: "api.yaml#/components/schemas/HeadSeed"
         - title: InvalidHeadId
           description: |
-            Raised if the user fails to submit a commit tx using the wrong headId.
+            Raised when the supplied Head ID cannot be used to construct the transaction.
           type: object
           additionalProperties: false
           required:
@@ -3630,11 +3614,13 @@ components:
         }
 
     DraftCommitTxRequest:
-      type: object
-      items:
-        oneof:
-          - $ref: "api.yaml#/components/schemas/SimpleCommitRequest"
-          - $ref: "api.yaml#/components/schemas/FullCommitRequest"
+      description: |
+        Supply a UTxO map directly, wrap it in utxoToCommit, or provide a
+        blueprint with its input UTxO context and optional L1 change address.
+      oneOf:
+        - $ref: "api.yaml#/components/schemas/UTxO"
+        - $ref: "api.yaml#/components/schemas/SimpleCommitRequest"
+        - $ref: "api.yaml#/components/schemas/FullCommitRequest"
 
     SimpleCommitRequest:
       type: object
@@ -3643,8 +3629,6 @@ components:
       properties:
         utxoToCommit:
           $ref: "api.yaml#/components/schemas/UTxO"
-        amount:
-          $ref: "api.yaml#/components/schemas/Coin"
     FullCommitRequest:
       type: object
       required:
@@ -3655,11 +3639,16 @@ components:
           $ref: "api.yaml#/components/schemas/Transaction"
         utxo:
           $ref: "api.yaml#/components/schemas/UTxO"
+        changeAddress:
+          description: Address receiving remaining input value on L1 when the blueprint has explicit outputs.
+          oneOf:
+            - $ref: "api.yaml#/components/schemas/Address"
+            - type: "null"
       example:
         {
           "blueprintTx": {
             "cborHex": "...",
-            "type": "Tx BabbageEra"
+            "type": "Tx ConwayEra"
           },
           "utxo": {
             "e44bdebd6bd7f54f081b5945a5e30521833fd3944f4f4d13de309d36ac5f9615#80": {

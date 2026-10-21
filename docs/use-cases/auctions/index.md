@@ -21,13 +21,15 @@ Auctions need to be dynamic and efficient. Bidders often enter auctions spontane
 
 ### Running auctions with Hydra
 
-Auctions' bidding mechanism is ideally suited for scaling on layer 2 technologies such as Hydra, where transactions within a Hydra head are confirmed rapidly and attain immediate finality. An effective layer 2-powered auction service, leveraging Hydra’s capabilities, could significantly enhance the auction experience on Cardano.
+Auctions' bidding mechanism is ideally suited for scaling on layer 2 technologies such as Hydra, where transactions within a Hydra head are confirmed when all parties sign a snapshot; L1 settlement follows separately. An effective layer 2-powered auction service, leveraging Hydra’s capabilities, could significantly enhance the auction experience on Cardano.
 
 We envision that a Hydra-based auction framework could become a standard component integrated into NFT marketplaces, games, and other Web 3.0 applications. This integration would enable these platforms to incorporate digital asset auctions seamlessly. Additionally, it could stimulate a new ecosystem for professional scalability providers, offering layer 2 hosting services akin to the existing stake pool and emerging governance ecosystems.
 
-### A way forward
+### Designs and prototypes
 
-The path to achieving this vision could unfold through a series of feasible milestones, leveraging Hydra and its future enhancements:
+The following articles describe designs and earlier prototypes. They are not
+a delivery schedule or compatibility guarantee. Check the external project
+for supported Hydra versions and maintenance status:
 
 ```mdx-code-block
 import DocCardList from '@theme/DocCardList';

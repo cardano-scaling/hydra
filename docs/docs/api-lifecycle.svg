@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="560" height="838" viewBox="0 0 560 838" role="img" aria-labelledby="title description">
+  <title id="title">Head lifecycle through the API</title>
+  <desc id="description">Init moves the node from Idle to Open and emits HeadIsOpen. Close emits HeadIsClosed; contests emit HeadIsContested without leaving Closed. ReadyToFanout announces FanoutPossible. Fanout or PartialFanout can finalize the whole head in one transaction or enter FanningOut, with repeated HeadPartiallyFannedOut events. HeadIsFinalized returns the node to Idle.</desc>
+  <!-- Maintained directly as SVG; see docs/README.md for the shared diagram style. -->
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 1 1 L 9 5 L 1 9" fill="none" stroke="#527b76" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <style>
+      text { font-family: Arial, Helvetica, sans-serif; }
+      .heading { font-size: 20px; font-weight: 600; fill: #194d46; }
+      .step { font-size: 18px; font-weight: 600; fill: #194d46; }
+      .body { font-size: 16px; fill: #415955; }
+      .label { font-size: 15px; fill: #526761; }
+      .detail { font-size: 14px; fill: #526761; }
+      .message { font-size: 16px; fill: #415955; paint-order: stroke; stroke: #fff; stroke-width: 5px; stroke-linejoin: round; }
+      .path { fill: none; stroke: #527b76; stroke-width: 1.8; marker-end: url(#arrow); }
+      .line { fill: none; stroke: #527b76; stroke-width: 1.8; }
+      .guide { fill: none; stroke: #b5d0c9; stroke-width: 1.2; stroke-dasharray: 5 6; }
+      .card { fill: #f0f7f5; stroke: #b5d0c9; stroke-width: 1.2; }
+      .group { fill: #fff; stroke: #b5d0c9; stroke-width: 1.2; }
+      .accent { fill: #e0eee9; stroke: #8fb8ac; stroke-width: 1.2; }
+    </style>
+  </defs>
+  <rect width="560" height="838" rx="12" fill="#fff"/>
+  <rect x="120" y="16" width="320" height="50" rx="12" class="card"/>
+  <text x="280.0" y="47.0" text-anchor="middle" class="heading">Idle</text>
+  <path d="M 280 66 V 126" class="path"/>
+  <text x="294" y="101" text-anchor="start" class="label">Init / HeadIsOpen</text>
+  <rect x="120" y="132" width="320" height="78" rx="12" class="card"/>
+  <text x="280.0" y="166.5" text-anchor="middle" class="heading">Open</text>
+  <text x="280.0" y="192.5" text-anchor="middle" class="body">NewTx, deposits, and decommits</text>
+  <path d="M 280 210 V 270" class="path"/>
+  <text x="294" y="245" text-anchor="start" class="label">Close / HeadIsClosed</text>
+  <rect x="120" y="276" width="320" height="84" rx="12" class="card"/>
+  <text x="280.0" y="313.5" text-anchor="middle" class="heading">Closed</text>
+  <text x="280.0" y="339.5" text-anchor="middle" class="body">HeadIsContested</text>
+  <path d="M 440 296 H 454 Q 480 296 480 318 Q 480 340 454 340 H 445" class="path"/>
+  <path d="M 280 360 V 420" class="path"/>
+  <text x="294" y="395" text-anchor="start" class="label">ReadyToFanout</text>
+  <rect x="120" y="426" width="320" height="82" rx="12" class="card"/>
+  <text x="280.0" y="462.5" text-anchor="middle" class="heading">FanoutPossible</text>
+  <text x="280.0" y="488.5" text-anchor="middle" class="body">Fanout / PartialFanout</text>
+
+  <!-- One final transaction or repeated partial distributions. -->
+  <path d="M 120 467 H 60 V 778 H 114" class="path"/>
+  <text x="76" y="601" text-anchor="start" class="label">HeadIsFinalized</text>
+  <text x="76" y="623" text-anchor="start" class="label">(one transaction)</text>
+  <path d="M 280 508 V 550 H 394 V 578" class="path"/>
+  <text x="296" y="538" text-anchor="start" class="label">First partial step</text>
+  <rect x="278" y="584" width="232" height="84" rx="12" class="card"/>
+  <text x="394.0" y="621.5" text-anchor="middle" class="heading">FanningOut</text>
+  <text x="394.0" y="647.5" text-anchor="middle" class="body">HeadPartiallyFannedOut</text>
+  <path d="M 510 604 H 524 Q 548 604 548 626 Q 548 648 524 648 H 515" class="path"/>
+  <path d="M 394 668 V 704 H 280 V 738" class="path"/>
+  <text x="300" y="729" text-anchor="start" class="label">HeadIsFinalized</text>
+  <rect x="120" y="744" width="320" height="78" rx="12" class="accent"/>
+  <text x="280.0" y="778.5" text-anchor="middle" class="heading">Idle</text>
+  <text x="280.0" y="804.5" text-anchor="middle" class="body">After settlement</text>
+</svg>

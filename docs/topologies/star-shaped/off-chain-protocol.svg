@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="560" height="864" viewBox="0 0 560 864" role="img" aria-labelledby="title description">
+  <title id="title">Application coordination across two heads</title>
+  <desc id="description">An illustrative coordination sequence, not an atomic payment protocol. Alice asks the service to pay Bob. The service submits a transaction in Head A, whose leader proposes a snapshot and whose parties sign it. After Head A confirms, the service submits a separate transaction in Head B. Head B confirms independently and Bob observes SnapshotConfirmed. Atomic transfers require a separate protocol, liquidity, timeouts, and failure recovery.</desc>
+  <!-- Maintained directly as SVG; see docs/README.md for the shared diagram style. -->
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 1 1 L 9 5 L 1 9" fill="none" stroke="#527b76" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <style>
+      text { font-family: Arial, Helvetica, sans-serif; }
+      .heading { font-size: 20px; font-weight: 600; fill: #194d46; }
+      .step { font-size: 18px; font-weight: 600; fill: #194d46; }
+      .body { font-size: 16px; fill: #415955; }
+      .label { font-size: 15px; fill: #526761; }
+      .detail { font-size: 14px; fill: #526761; }
+      .message { font-size: 16px; fill: #415955; paint-order: stroke; stroke: #fff; stroke-width: 5px; stroke-linejoin: round; }
+      .path { fill: none; stroke: #527b76; stroke-width: 1.8; marker-end: url(#arrow); }
+      .line { fill: none; stroke: #527b76; stroke-width: 1.8; }
+      .guide { fill: none; stroke: #b5d0c9; stroke-width: 1.2; stroke-dasharray: 5 6; }
+      .card { fill: #f0f7f5; stroke: #b5d0c9; stroke-width: 1.2; }
+      .group { fill: #fff; stroke: #b5d0c9; stroke-width: 1.2; }
+      .accent { fill: #e0eee9; stroke: #8fb8ac; stroke-width: 1.2; }
+    </style>
+  </defs>
+  <rect width="560" height="864" rx="12" fill="#fff"/>
+  <rect x="24" y="16" width="512" height="68" rx="12" class="card"/>
+  <text x="280.0" y="45.5" text-anchor="middle" class="step">Alice asks the service to pay Bob</text>
+  <text x="280.0" y="71.5" text-anchor="middle" class="body">Example coordination; not an atomic payment</text>
+  <path d="M 280 84 V 114" class="path"/>
+  <path d="M 88 184 V 752" class="guide"/>
+  <rect x="16.0" y="120" width="144" height="64" rx="12" class="card"/>
+  <text x="88.0" y="147.5" text-anchor="middle" class="step">Head A</text>
+  <text x="88.0" y="173.5" text-anchor="middle" class="detail">Alice + service</text>
+  <path d="M 280 184 V 752" class="guide"/>
+  <rect x="208.0" y="120" width="144" height="64" rx="12" class="card"/>
+  <text x="280.0" y="147.5" text-anchor="middle" class="step">Service</text>
+  <text x="280.0" y="173.5" text-anchor="middle" class="detail">Application</text>
+  <path d="M 472 184 V 668" class="guide"/>
+  <rect x="400.0" y="120" width="144" height="64" rx="12" class="card"/>
+  <text x="472.0" y="147.5" text-anchor="middle" class="step">Head B</text>
+  <text x="472.0" y="173.5" text-anchor="middle" class="detail">Bob + service</text>
+  <path d="M 280 252 H 88" class="path"/>
+  <text x="184.0" y="219" text-anchor="middle" class="message">Submit Head A</text>
+  <text x="184.0" y="240" text-anchor="middle" class="message">transaction</text>
+  <rect x="16" y="288" width="144" height="96" rx="12" class="card"/>
+  <text x="88.0" y="321.0" text-anchor="middle" class="step">Snapshot</text>
+  <text x="88.0" y="347.0" text-anchor="middle" class="detail">Leader proposes</text>
+  <text x="88.0" y="368.0" text-anchor="middle" class="detail">Both parties sign</text>
+  <path d="M 88 432 H 280" class="path"/>
+  <text x="184.0" y="420" text-anchor="middle" class="message">SnapshotConfirmed</text>
+  <path d="M 280 496 H 472" class="path"/>
+  <text x="376.0" y="463" text-anchor="middle" class="message">Submit Head B</text>
+  <text x="376.0" y="484" text-anchor="middle" class="message">transaction</text>
+  <rect x="400" y="532" width="144" height="96" rx="12" class="card"/>
+  <text x="472.0" y="565.0" text-anchor="middle" class="step">Snapshot</text>
+  <text x="472.0" y="591.0" text-anchor="middle" class="detail">Leader proposes</text>
+  <text x="472.0" y="612.0" text-anchor="middle" class="detail">Both parties sign</text>
+  <path d="M 472 628 V 686" class="path"/>
+  <text x="472" y="658" text-anchor="middle" class="message">SnapshotConfirmed</text>
+  <rect x="400" y="692" width="144" height="60" rx="12" class="card"/>
+  <text x="472.0" y="717.5" text-anchor="middle" class="step">Bob</text>
+  <text x="472.0" y="743.5" text-anchor="middle" class="detail">Sees confirmation</text>
+  <rect x="24" y="784" width="512" height="64" rx="12" class="card"/>
+  <text x="280" y="810.5" text-anchor="middle" class="body">Atomic transfers require a separate protocol,</text>
+  <text x="280" y="831.5" text-anchor="middle" class="body">liquidity, timeouts, and failure recovery.</text>
+</svg>

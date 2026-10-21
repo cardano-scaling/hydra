@@ -6,10 +6,13 @@ sidebar_position: 3
 
 This section describes how to submit a transaction to an already open head using the `NewTx` command of the WebSocket API.
 
-First, query the UTXO available in the head:
+This example assumes zero L2 fees and an ADA-only input. Replace the sample
+input reference, destination address, and signing-key path with your own.
+
+First, query the UTxO available in the head:
 
 ```
-curl localhost:4001/snapshot/utxo | jq
+curl --fail-with-body -sS http://127.0.0.1:4001/snapshot/utxo | jq
 ```
 
 Below is an example response:

@@ -25,9 +25,11 @@ See also [ADR 27 (superseded)](/adr/27) and [ADR 32](/adr/32) for more context o
 
 ## Topology
 
-Currently, the `hydra-node` operates in a static, **fully connected** network topology where each node connects to each other node and a message is broadcast to all nodes. For this, we need to pass publicly reachable endpoints of *all other nodes* via `--peer` options to each hydra node and *all links* must be operational to achieve liveness[^1].
-
-[^1]: This is not entirely true anymore as the `etcd` based implementation requires only a connection to the majority of the cluster.
+The `hydra-node` uses a static etcd cluster. Configure every member with a
+consistent list of peers and reachable advertised addresses. Broadcasting
+requires a connected majority of the cluster, not every pairwise link.
+Confirming Hydra snapshots additionally requires signatures from every party;
+a Raft quorum alone is insufficient. See [mirror availability](../../how-to/operating-hydra.md#availability-with-mirror-nodes).
 
 Future implementations of a the `Network` interface could improve upon this by enabling **mesh** topologies where messages are forwarded across links. This would simplify configuration to only need to provide *at least one* `--peer`, while *peer sharing* in such a network could still allow for redundant connections and better fault tolerance.
 
@@ -90,7 +92,12 @@ The following diagram illustrates an ideated pull-based messaging system for Hyd
 
 This was not (yet) pursued as it does not fit the [broadcast interface](#interface) as required by the Hydra Head protocol design. However, we think it _should_ be possible to represent the off-chain protocol using pull-based semantics and follow this approach.
 
-## Network resilience testing
+## Historical network resilience experiments
+
+The results below describe the August 2024 network stack, before etcd. They
+are historical measurements, not packet-loss guarantees for the current
+implementation. Re-run experiments against a specified release to assess its
+behavior; monitor current [broadcast health](../../known-issues.md#pending-outbound-messages) in operation.
 
 In August 2024 we added some network resilience tests, implemented as a GitHub
 action step in [network-test.yaml](https://github.com/cardano-scaling/hydra/blob/master/.github/workflows/network-test.yaml).

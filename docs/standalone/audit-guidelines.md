@@ -26,7 +26,7 @@ As described in the following figure, the main entry points of a Hydra node are:
 * The network communication with other Hydra node peers;
 * The transactions posted on the Cardano ledger (accessed through a network connection).
 
-<center><img src={require("./artifacts.png").default} style={{width: 600}} /></center>
+<center><img src={require("./artifacts.png").default} alt="Audit boundaries include the client API, peer network, and Cardano chain interface." style={{width: 600}} /></center>
 
 A detailed description of each of the artifacts relevant for an audit can be found in the above section _Artifacts_.
 
@@ -53,8 +53,8 @@ Furthermore, we suggest to focus efforts on ensuring correctness and robustness 
 
 We suggest auditors to assess the following statements, which will be detailed in the next sections:
 1. Hydra Head specification proofs are sound.
-2. Hydra plutus scripts (on-chain code) are consistent with Hydra Head V1 specification and immune to common Cardano smart-contract weaknesses.
-3. Hydra node chain layer code generates transactions which are consistent with Hydra Head V1 specification.
+2. Hydra plutus scripts (on-chain code) are consistent with current Hydra Head specification and immune to common Cardano smart-contract weaknesses.
+3. Hydra node chain layer code generates transactions which are consistent with current Hydra Head specification.
 
 ### Specification is sound
 
@@ -93,7 +93,20 @@ The Hydra Head specification defines the transactions the off-chain code should 
 
 You could assess that the Hydra node chain layer code can only build transactions which are consistent with the Hydra Head specification.
 
-## Out of Scope
+## Current protocol review areas
+
+Include direct opening, deposits and recovery, decommits, closing/contesting,
+and automatic or selective fanout in the chosen scope. Review deposit identity
+binding, signature domains, output ordering, value conservation, and recovery
+after rollbacks. Check the KZG accumulator implementation, CRS handling,
+[trusted setup assumptions](/docs/dev/architecture/partial-fanout#trusted-setup),
+and bounds on parties, outputs, and proof sizes.
+
+Compare the [Agda specification](/docs/dev/agda) with the Haskell state machine
+and transaction tests. Identify which properties are proved, tested, or assumed;
+do not infer a proof for the full implementation from a model alone.
+
+## Scope exclusions
 
 For a first security audit, the Hydra team suggests to focus on the scope described in the above sections and consider anything else as out of scope.
 In particular, the following items should be seen as out of scope:
@@ -115,14 +128,14 @@ This sections gives a detailed description of the artifacts mentioned above in t
 
 The Hydra Head protocol implementation derives from [Hydra: Fast Isomorphic State Channels](https://eprint.iacr.org/2020/299.pdf) in several ways. Especially some simplifications have been introduced and generalizations removed.
 
-The [Hydra Head specification](/docs/dev/specification) captures these deviations and also includes the "formal notation" of the actual transaction constraints (which are foregone in the original paper). Also, it details the L2 protocol logic for the **Coordinated** Head protocol - which is implemented in V1.
+The [Hydra Head specification](/docs/dev/specification) captures these deviations and also includes the "formal notation" of the actual transaction constraints (which are foregone in the original paper). Also, it details the L2 protocol logic for the **Coordinated** Head protocol. The current specification is maintained in literate Agda and Typst; review its assumptions and coverage alongside the implementation.
 
 ### Artifact 2: Hydra Head Protocol Implementation
 
 With Hydra Head Protocol Implementation we refer to the software component that is used to operate a node in the Hydra Head protocol. The `hydra-node` allows its users to open a head, lock funds in it, connect to peers, process transactions as a layer 2, close a head and unlock the corresponding funds. It is comprised by the Hydra plutus scripts, Hydra head chain layer, layer 2 code, network communication between peers, and an API for clients to connect and use the node.
 
 - Source code repository: [cardano-scaling/hydra](https://github.com/cardano-scaling/hydra)
-- Version ready to be audited: Any [release](https://github.com/cardano-scaling/hydra/releases) after version 0.10.0
+- Version ready to be audited: Choose an exact [release](https://github.com/cardano-scaling/hydra/releases) and commit, and record script hashes, build inputs, and configuration. An audit of an earlier protocol version does not cover later contract changes.
 
 The following parts are described below:
  - Hydra plutus scripts (on-chain code)
@@ -132,7 +145,7 @@ The following parts are described below:
 
 Hydra plutus scripts source code can be found in the [hydra-plutus module](https://github.com/cardano-scaling/hydra/tree/master/hydra-plutus).
 
-Hydra plutus mutation based testing can be found in the [hydra-node module](https://github.com/cardano-scaling/hydra/tree/master/hydra-node) in test/Hydra/Chain/Direct/Contract/.
+Contract mutation tests are in [hydra-tx/test](https://github.com/cardano-scaling/hydra/tree/master/hydra-tx/test). Review the PlutusTx head/minting/CRS contracts and the [Aiken deposit validator](https://github.com/cardano-scaling/hydra/blob/master/hydra-plutus/validators/deposit.ak) together.
 
 #### Artifact 2.2: Hydra node chain layer code (off-chain code)
 

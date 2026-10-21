@@ -22,13 +22,13 @@ export const WhyHydraHeadContent = {
       For instance, buying a croissant or lending money to a friend
       doesn’t need the involvement of a central bank. Many
       transactions and arrangements can occur within a single Hydra
-      head, with only the final outcome recorded on the main chain.`,
+      head, with deposits, decommits, and final settlement recorded on the main chain.`,
   }),
   descriptionParagraphThree: translate({
     id: "homepage.featureList.lowLatency.description.paragraphThree",
     message: `The protocol facilitates frictionless state transfer between the
       main chain and individual heads, bypassing the 20-second block
       time limit. This enables state evolution at a pace approved by
-      involved parties, independent of blockchain constraints.`,
+      involved parties, while funding and settlement remain subject to L1 constraints.`,
   }),
 };

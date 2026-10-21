@@ -5,11 +5,14 @@ sidebar_position: 1
 
 # Hydra use cases
 
-This section aims to initiate a dialogue with community members interested in exploring how Hydra can be leveraged to address real-world problems or those considering using Hydra as a framework to develop solutions on the Cardano platform. Our goal is to expand this collection of case studies with contributions from the community, making it a valuable reference point, even for those not deeply familiar with the [technical feature roadmap](https://github.com/orgs/input-output-hk/projects/21).
+These articles explore payments, auctions, and other applications of Hydra.
+Some describe prototypes or design proposals rather than supported products.
+Check each integration's node version, trust assumptions, and recovery
+behavior before adopting it. The [current limitations](/docs/known-issues)
+apply to every application.
 
-We are eager to highlight the initial use cases where Hydra can significantly enhance value by reducing transaction costs, decreasing confirmation times, and increasing transaction throughput. We actively invite the community to engage in discussions, contribute to the featured use cases on the roadmap, and suggest additional scenarios we may have overlooked.
-
-We are currently exploring use cases across various domains, including payments, digital asset auctions, decentralized voting, and decentralized finance. This section will be updated as these use cases are further developed and detailed. So, stay tuned!
+Contributions should explain the user workflow, the role of head operators,
+and how funds return to L1 when a participant stops cooperating.
 
 ```mdx-code-block
 import DocCardList from '@theme/DocCardList';

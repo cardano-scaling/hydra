@@ -16,24 +16,28 @@ import ArchitectureSvg from './hydra-components.svg';
 This diagram is manually produced using the [PlantUML](https://plantuml.com) graphing tool with [C4 extensions](https://github.com/plantuml-stdlib/C4-PlantUML).
 
 ```
-$ plantuml -Tsvg architecture-c4.puml
+$ plantuml -tsvg architecture-c4.puml
 ```
 
 :::
 
 ### Event sourcing
 
-The `hydra-node` is an event sourced application. This means that the main logic is processing _inputs_ (also called commands) and produces _events_. These events are saved and loaded to persist application state across restarts. Also, most events are transformed to _outputs_ and can be observed on the API. See [Event Sourcing](./architecture/event-sourcing) for details.
+The `hydra-node` is an event sourced application. This means that the main logic is processing _inputs_ (also called commands) and produces _events_. These events are saved and loaded to persist application state across restarts. Also, most events are transformed to _outputs_ and can be observed on the API. See [Event Sourcing](./event-sourcing.md) for details.
 
 ### Network
 
-The _network_ component is responsible for communication between Hydra nodes related to the off-chain part of the Hydra protocol. See [Networking](./architecture/networking) for details.
+The _network_ component is responsible for communication between Hydra nodes related to the off-chain part of the Hydra protocol. See [Networking](./networking.md) for details.
 
 ### Chain interaction
 
 #### Chain
 
-The _chain_ component interfaces the Hydra node with the Cardano (layer 1) chain. The current implementation, called `Direct`, uses the `node-to-client` protocol to both 'follow the chain' and observe new blocks and transactions that can change the state of the head. It also submits transactions in response to client requests or as needed to advance the protocol's state. This component connects to a locally spun `cardano-node` using the _local socket_ and contains the _off-chain_ logic, based on `cardano-api`, which knows how to observe and build transactions relevant to the Hydra protocol. For more details, see [ADR-10](/adr/10).
+The chain component observes Cardano blocks and submits transactions that
+advance the head. Its backend can connect to a local `cardano-node` socket or
+use Blockfrost. Transaction construction and observation live in `hydra-tx`;
+the node coordinates chain access and its fuel wallet. See
+[chain configuration](../../configuration.md).
 
 #### Wallet
 
@@ -45,15 +49,18 @@ This component is at the core of the Hydra node, implementing the protocol's _st
 
 ### Hydra smart contracts
 
-This component represents all the Hydra smart contracts needed for the Hydra Head protocol operation. Currently, the contracts are written using `Plutus-Tx`. The scripts are optimized using a custom `ScriptContext` and specific error codes.
+This component represents all the Hydra smart contracts needed for the Hydra Head protocol operation. The head, minting, and CRS contracts use PlutusTx; the deposit validator uses Aiken. The implementation uses a KZG accumulator for UTxO commitments and fanout proofs, with native support in `rust-accumulator`.
 
 ### Partial fanout
 
-A head with many outputs can be fanned out across several transactions, each distributing a chosen subset, using a KZG accumulator commitment and membership proofs. See [Partial fanout](./architecture/partial-fanout) for details.
+A head with many outputs can be fanned out across several transactions, each distributing a chosen subset, using a KZG accumulator commitment and membership proofs. See [Partial fanout](./partial-fanout.md) for details.
 
 ### API
 
-The `hydra-node` component exposes an [asynchronous API](/api-reference) through a WebSocket server. This API is available to the _Hydra client_ for sending commands and observing changes in the state of the Hydra head. Upon startup, the API server loads all historical messages from the persistence layer and serves them to clients interested in observing them.
+The node exposes HTTP endpoints and a WebSocket event stream. Clients can
+use JSON or negotiate CBOR. WebSocket history is opt-in; `Greetings` marks the
+end of replay when requested. HTTP submission endpoints wait for a result or
+return a pending response. See [API behavior](../../api-behavior.md).
 
 ### Persistence
 

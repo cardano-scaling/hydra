@@ -4,288 +4,43 @@ sidebar_position: 5
 
 # Deposit funds to an open Head
 
-Assuming we already have an open Head and some funds on the L1 we would like to deposit.
+Deposits move funds from Cardano L1 into an already open head. The
+`POST /commit` endpoint drafts the transaction; the client adds the required
+signatures and submits it to L1.
 
+## Deposit request forms
 
-The `POST /commit` endpoint supports two ways of specifying what to deposit: the simple way is to provide the UTxO directly (assumed to be owned by public keys), while the more advanced way is to use a _blueprint_ transaction as a recipe for what to deposit.
-
-When it comes to **depositing** our users have four ways of using the blueprint transaction so it should work for even more involved scenarios:
-
-1. Only provide the UTxO to deposit - simple deposit where whole of the UTxO is deposited to the Head.
-2. Provide UTxO and a bluerprint transaction **without** any outputs - whole of the UTxO will be deposited but users get to specify additional transaction context
-needed for dApps.
-3. Provide UTxO, blueprint transaction **with** specified outputs but **NO** change address is provided - In this case we expect to see fully balanced blueprint transaction where it's outputs will be deposited completely.
-4. Provide UTxO, blueprint transaction **with** specified outputs **AND** a **change address** - hydra-node will **balance** the deposit transaction and give back any change to the provided change address. Provided outputs will be deposited.
-
+| Request | Deposited outputs | L1 change |
+| --- | --- | --- |
+| UTxO only | The supplied UTxO | None from these inputs |
+| UTxO and a blueprint without outputs | The supplied UTxO, with additional transaction context | None from these inputs |
+| UTxO and a blueprint with outputs | The blueprint outputs | Provide a balanced blueprint |
+| UTxO, a blueprint with outputs, and `changeAddress` | The blueprint outputs | Remaining input value returned to the address |
 
 :::info
-Hydra node assumes that the blueprint transaction does not contain any stake pool or DRep registration or delegation certificates since these don't make too much sense on L2 network.
+Do not include stake-pool or DRep registration or delegation certificates in
+a blueprint. Staking and governance are outside the head ledger.
 :::
 
 :::warning Deposit restrictions
 The `/commit` endpoint enforces the following restrictions:
 - **Byron addresses are rejected.** UTxOs held at Byron-era addresses cannot be deposited.
 - **Minimum ADA.** The deposited outputs are locked in a single deposit output whose inline datum embeds a copy of each of them, so that output needs more ADA than the deposited outputs would on their own. A UTxO holding a native token at its own minimum ADA is a typical case that falls short. The deposited value must cover the minimum ADA of this deposit output; otherwise the request fails with a `DepositTooLow` error (HTTP 400) reporting `providedValue`, the lovelace you deposit, and `minimumValue`, the lovelace the deposit output requires. To retry, deposit the same assets with at least the difference more lovelace: either create a new UTxO holding the tokens plus the extra ADA, or use a blueprint transaction whose deposited output carries the extra ADA taken from your other inputs. Adding further UTxOs to the same deposit also works, but each one enlarges the datum and so raises the required minimum a little beyond the reported difference.
-- **Output value is capped at input value.** When using a blueprint transaction, the value deposited into the head is taken directly from what you provide in the `utxo` field. If the blueprint outputs request more value than the inputs supply, any excess is silently capped to zero on the change output — you will never receive more on L2 than what you deposited on L1.
+- **Balance the requested value.** Explicit blueprint outputs determine what is deposited. With `changeAddress`, the node returns the remaining input value on L1; negative change components are clamped to zero. This does not reduce oversized blueprint outputs. Supply enough input value for the outputs you request and inspect the drafted transaction before signing.
 - **Deposits too large to claim are rejected.** A deposit is only accepted if the increment transaction claiming it would stay within layer 1 ledger limits: the merged head output value must fit within the maximum serialized value size (5000 bytes on mainnet) and the increment transaction within the maximum transaction size. Deposits carrying tokens under many distinct policy ids hit the value size limit first; such a request fails with a `DepositTooLarge` error (HTTP 400). Without this check the deposit transaction itself would succeed, but the funds could never be claimed into the head and would remain locked until recovered after the deadline.
 :::
 
-The last option is most flexible one for dApp builders since they can just specify which UTxO assets they want to deposit (providing the appropriate outputs in the blueprint tx) while the hydra-node will make sure to return any change to the specified address. Using script UTxO as a reference inputs is also possible for optimising the dApp workflow.
+For a reproducible partial deposit, follow the [blueprint tutorial](./commit-blueprint.md).
+It deposits 5 ADA from an input of at least 8 ADA, builds the request from the
+actual transaction and UTxO files, and returns change on L1. For native assets,
+preserve exact integer quantities throughout request construction; do not
+round values through JavaScript `Number` or other floating-point conversions.
 
 
-<details>
- <summary>Partial deposit example: </summary>
+## Settlement
 
-   If there exists a user UTxO that looks like this
-
-   ```json
-
-      {
-         "98ce7d553c87837735ce99d0452d6c78c14499a35a2ebe78a61653da422ba06b#0":
-            { "address":"addr_test1vznxtg0ljhlqghzr9sdw3stfffna97l6xuaradgdk8jnhegyza948",
-              "datum":null,
-              "datumhash":null,
-              "inlineDatum":null,
-              "inlineDatumRaw":null,
-              "referenceScript":null,
-              "value":
-                  { "dcf5fdd1d01c04b0e6262bba173a89c4b81b6570211f08bc059c8a75":
-                       { "32":6459586778467727683,
-                         "38":4726846541838542289,
-                         "58cfd525f109":2,
-                         "60c477033b55e1":6560058562233977644,
-                         "768b8dfd46f4d5b14873b4c3851f2c82d0301f61661347":4661096764720222855,
-                         "ab5f4e6486d24ad6744e54f95dd1bc4dbbe721":3250906605877226653,
-                         "d47f9b":1,
-                         "d6cc1ed8ac3cda":2,
-                         "f26fe54468b98902751e8d54553c1878b5f952d486":1
-                       },
-                     "lovelace":30000000
-                  }
-            }
-      }
-
-   ```
-   Then the user can decide to commit some amount of lovelace and assets while the _change_ would be given back to the origin address.
-   In order to do that they can send a http POST request to the `/commit` endpoint
-   providing the blueprint transaction with specified outputs, UTxO and a change address:
-
-   ```json
-
-      {
-        "blueprintTx": {
-          "cborHex": "84a300d901028182582098ce7d553c87837735ce99d0452d6c78c14499a35a2ebe78a61653da422ba06b00018182581d60a665a1ff95fe045c432c1ae8c1694a67d2fbfa373a3eb50db1e53be5821a00e4e1c0a1581cdcf5fdd1d01c04b0e6262bba173a89c4b81b6570211f08bc059c8a75a44658cfd525f109024760c477033b55e11b5b0a028173b74b2c53ab5f4e6486d24ad6744e54f95dd1bc4dbbe7211b2d1d8a5581486c9d55f26fe54468b98902751e8d54553c1878b5f952d486010200a0f5f6",
-          "description": "",
-          "txId": "8451c42d1a1b48fdb1b1d2b014dc700cbba15b3c20addb2076feeceeeb3d22a4",
-          "type": "Tx ConwayEra"
-        },
-        "changeAddress": "addr_test1vznxtg0ljhlqghzr9sdw3stfffna97l6xuaradgdk8jnhegyza948",
-        "utxo": {
-          "98ce7d553c87837735ce99d0452d6c78c14499a35a2ebe78a61653da422ba06b#0": {
-            "address": "addr_test1vznxtg0ljhlqghzr9sdw3stfffna97l6xuaradgdk8jnhegyza948",
-            "datum": null,
-            "datumhash": null,
-            "inlineDatum": null,
-            "inlineDatumRaw": null,
-            "referenceScript": null,
-            "value": {
-              "dcf5fdd1d01c04b0e6262bba173a89c4b81b6570211f08bc059c8a75": {
-                "32": 6459586778467727000,
-                "38": 4726846541838542000,
-                "58cfd525f109": 2,
-                "60c477033b55e1": 6560058562233978000,
-                "768b8dfd46f4d5b14873b4c3851f2c82d0301f61661347": 4661096764720223000,
-                "ab5f4e6486d24ad6744e54f95dd1bc4dbbe721": 3250906605877226500,
-                "d47f9b": 1,
-                "d6cc1ed8ac3cda": 2,
-                "f26fe54468b98902751e8d54553c1878b5f952d486": 1
-              },
-              "lovelace": 30000000
-            }
-          }
-        }
-      }
-
-   ```
-   In the provided blueprint tx we specified the outputs we want to deposit. Rendered blueprint tx looks like this:
-
-   ```
-   "8451c42d1a1b48fdb1b1d2b014dc700cbba15b3c20addb2076feeceeeb3d22a4"
-
-     == INPUTS (1)
-     - 98ce7d553c87837735ce99d0452d6c78c14499a35a2ebe78a61653da422ba06b#0
-           ShelleyAddress Testnet (KeyHashObj (KeyHash {unKeyHash = "a665a1ff95fe045c432c1ae8c1694a67d2fbfa373a3eb50db1e53be5"})) StakeRefNull
-           30000000 lovelace
-           6459586778467727683 dcf5fdd1d01c04b0e6262bba173a89c4b81b6570211f08bc059c8a75.32
-           4726846541838542289 dcf5fdd1d01c04b0e6262bba173a89c4b81b6570211f08bc059c8a75.38
-           2 dcf5fdd1d01c04b0e6262bba173a89c4b81b6570211f08bc059c8a75.58cfd525f109
-           6560058562233977644 dcf5fdd1d01c04b0e6262bba173a89c4b81b6570211f08bc059c8a75.60c477033b55e1
-           4661096764720222855 dcf5fdd1d01c04b0e6262bba173a89c4b81b6570211f08bc059c8a75.768b8dfd46f4d5b14873b4c3851f2c82d0301f61661347
-           3250906605877226653 dcf5fdd1d01c04b0e6262bba173a89c4b81b6570211f08bc059c8a75.ab5f4e6486d24ad6744e54f95dd1bc4dbbe721
-           1 dcf5fdd1d01c04b0e6262bba173a89c4b81b6570211f08bc059c8a75.d47f9b
-           2 dcf5fdd1d01c04b0e6262bba173a89c4b81b6570211f08bc059c8a75.d6cc1ed8ac3cda
-           1 dcf5fdd1d01c04b0e6262bba173a89c4b81b6570211f08bc059c8a75.f26fe54468b98902751e8d54553c1878b5f952d486
-           TxOutDatumNone
-           ReferenceScriptNone
-
-     == COLLATERAL INPUTS (0)
-
-     == REFERENCE INPUTS (0)
-
-     == OUTPUTS (1)
-     Total number of assets: 5
-     - ShelleyAddress Testnet (KeyHashObj (KeyHash {unKeyHash = "a665a1ff95fe045c432c1ae8c1694a67d2fbfa373a3eb50db1e53be5"})) StakeRefNull
-           15000000 lovelace
-           2 dcf5fdd1d01c04b0e6262bba173a89c4b81b6570211f08bc059c8a75.58cfd525f109
-           6560058562233977644 dcf5fdd1d01c04b0e6262bba173a89c4b81b6570211f08bc059c8a75.60c477033b55e1
-           3250906605877226653 dcf5fdd1d01c04b0e6262bba173a89c4b81b6570211f08bc059c8a75.ab5f4e6486d24ad6744e54f95dd1bc4dbbe721
-           1 dcf5fdd1d01c04b0e6262bba173a89c4b81b6570211f08bc059c8a75.f26fe54468b98902751e8d54553c1878b5f952d486
-           TxOutDatumNone
-
-     == TOTAL COLLATERAL
-     TxTotalCollateralNone
-
-     == RETURN COLLATERAL
-     TxReturnCollateralNone
-
-     == FEE
-     TxFeeExplicit ShelleyBasedEraConway (Coin 0)
-
-     == VALIDITY
-     TxValidityNoLowerBound
-     TxValidityUpperBound ShelleyBasedEraConway Nothing
-
-     == MINT/BURN
-     0 lovelace
-
-     == SCRIPTS (0)
-     Total size (bytes):  0
-
-     == DATUMS (0)
-
-     == REDEEMERS (0)
-
-     == REQUIRED SIGNERS
-     []
-
-     == METADATA
-     TxMetadataNone
-
-   ```
-   You can see that the UTxO contains the following assets present in the blueprint input:
-
-
-   ```
-           30000000 lovelace
-           6459586778467727683 dcf5fdd1d01c04b0e6262bba173a89c4b81b6570211f08bc059c8a75.32
-           4726846541838542289 dcf5fdd1d01c04b0e6262bba173a89c4b81b6570211f08bc059c8a75.38
-           2 dcf5fdd1d01c04b0e6262bba173a89c4b81b6570211f08bc059c8a75.58cfd525f109
-           6560058562233977644 dcf5fdd1d01c04b0e6262bba173a89c4b81b6570211f08bc059c8a75.60c477033b55e1
-           4661096764720222855 dcf5fdd1d01c04b0e6262bba173a89c4b81b6570211f08bc059c8a75.768b8dfd46f4d5b14873b4c3851f2c82d0301f61661347
-           3250906605877226653 dcf5fdd1d01c04b0e6262bba173a89c4b81b6570211f08bc059c8a75.ab5f4e6486d24ad6744e54f95dd1bc4dbbe721
-           1 dcf5fdd1d01c04b0e6262bba173a89c4b81b6570211f08bc059c8a75.d47f9b
-           2 dcf5fdd1d01c04b0e6262bba173a89c4b81b6570211f08bc059c8a75.d6cc1ed8ac3cda
-           1 dcf5fdd1d01c04b0e6262bba173a89c4b81b6570211f08bc059c8a75.f26fe54468b98902751e8d54553c1878b5f952d486
-
-   ```
-
-   But we decided to deposit some of them which we specified in the single blueprint output:
-
-   ```
-
-           15000000 lovelace
-           2 dcf5fdd1d01c04b0e6262bba173a89c4b81b6570211f08bc059c8a75.58cfd525f109
-           6560058562233977644 dcf5fdd1d01c04b0e6262bba173a89c4b81b6570211f08bc059c8a75.60c477033b55e1
-           3250906605877226653 dcf5fdd1d01c04b0e6262bba173a89c4b81b6570211f08bc059c8a75.ab5f4e6486d24ad6744e54f95dd1bc4dbbe721
-           1 dcf5fdd1d01c04b0e6262bba173a89c4b81b6570211f08bc059c8a75.f26fe54468b98902751e8d54553c1878b5f952d486
-   ```
-
-   Hydra node returns a deposit transaction which then needs to be signed and submitted to the network. Deposit looks like this:
-
-   ```
-
-    "ab4adce53699015ca8fd112689906338278f435d436516290c68c679921de8a4"
-
-    == INPUTS (2)
-    - 04e36b0eeb5d97be19e543583e3b736640b45ceaf5ece1d37f5db9ac88143f20#1
-    - 98ce7d553c87837735ce99d0452d6c78c14499a35a2ebe78a61653da422ba06b#0
-          ShelleyAddress Testnet (KeyHashObj (KeyHash {unKeyHash = "a665a1ff95fe045c432c1ae8c1694a67d2fbfa373a3eb50db1e53be5"})) StakeRefNull
-          30000000 lovelace
-          6459586778467727683 dcf5fdd1d01c04b0e6262bba173a89c4b81b6570211f08bc059c8a75.32
-          4726846541838542289 dcf5fdd1d01c04b0e6262bba173a89c4b81b6570211f08bc059c8a75.38
-          2 dcf5fdd1d01c04b0e6262bba173a89c4b81b6570211f08bc059c8a75.58cfd525f109
-          6560058562233977644 dcf5fdd1d01c04b0e6262bba173a89c4b81b6570211f08bc059c8a75.60c477033b55e1
-          4661096764720222855 dcf5fdd1d01c04b0e6262bba173a89c4b81b6570211f08bc059c8a75.768b8dfd46f4d5b14873b4c3851f2c82d0301f61661347
-          3250906605877226653 dcf5fdd1d01c04b0e6262bba173a89c4b81b6570211f08bc059c8a75.ab5f4e6486d24ad6744e54f95dd1bc4dbbe721
-          1 dcf5fdd1d01c04b0e6262bba173a89c4b81b6570211f08bc059c8a75.d47f9b
-          2 dcf5fdd1d01c04b0e6262bba173a89c4b81b6570211f08bc059c8a75.d6cc1ed8ac3cda
-          1 dcf5fdd1d01c04b0e6262bba173a89c4b81b6570211f08bc059c8a75.f26fe54468b98902751e8d54553c1878b5f952d486
-          TxOutDatumNone
-          ReferenceScriptNone
-
-    == COLLATERAL INPUTS (1)
-    - 04e36b0eeb5d97be19e543583e3b736640b45ceaf5ece1d37f5db9ac88143f20#1
-
-    == REFERENCE INPUTS (0)
-
-    == OUTPUTS (3)
-    Total number of assets: 10
-    - ShelleyAddress Testnet (ScriptHashObj (ScriptHash "ae01dade3a9c346d5c93ae3ce339412b90a0b8f83f94ec6baa24e30c")) StakeRefNull
-          15000000 lovelace
-          2 dcf5fdd1d01c04b0e6262bba173a89c4b81b6570211f08bc059c8a75.58cfd525f109
-          6560058562233977644 dcf5fdd1d01c04b0e6262bba173a89c4b81b6570211f08bc059c8a75.60c477033b55e1
-          3250906605877226653 dcf5fdd1d01c04b0e6262bba173a89c4b81b6570211f08bc059c8a75.ab5f4e6486d24ad6744e54f95dd1bc4dbbe721
-          1 dcf5fdd1d01c04b0e6262bba173a89c4b81b6570211f08bc059c8a75.f26fe54468b98902751e8d54553c1878b5f952d486
-          TxOutDatumInline [0,["0xe9e21b6e4f59b3c62721c99109e76abb46e018e4fc184b16e58d650a",1759768581709,[[0,[[0,["0x8451c42d1a1b48fdb1b1d2b014dc700cbba15b3c20addb2076feeceeeb3d22a4",0]],"0xd8799fd8799fd8799f581ca665a1ff95fe045c432c1ae8c1694a67d2fbfa373a3eb50db1e53be5ffd87a80ffa240a1401a00e4e1c0581cdcf5fdd1d01c04b0e6262bba173a89c4b81b6570211f08bc059c8a75a44658cfd525f109024760c477033b55e11b5b0a028173b74b2c53ab5f4e6486d24ad6744e54f95dd1bc4dbbe7211b2d1d8a5581486c9d55f26fe54468b98902751e8d54553c1878b5f9
-    52d48601d87980d87a80ff"]]]]]
-    - ShelleyAddress Testnet (KeyHashObj (KeyHash {unKeyHash = "a665a1ff95fe045c432c1ae8c1694a67d2fbfa373a3eb50db1e53be5"})) StakeRefNull
-          15000000 lovelace
-          6459586778467727683 dcf5fdd1d01c04b0e6262bba173a89c4b81b6570211f08bc059c8a75.32
-          4726846541838542289 dcf5fdd1d01c04b0e6262bba173a89c4b81b6570211f08bc059c8a75.38
-          4661096764720222855 dcf5fdd1d01c04b0e6262bba173a89c4b81b6570211f08bc059c8a75.768b8dfd46f4d5b14873b4c3851f2c82d0301f61661347
-          1 dcf5fdd1d01c04b0e6262bba173a89c4b81b6570211f08bc059c8a75.d47f9b
-          2 dcf5fdd1d01c04b0e6262bba173a89c4b81b6570211f08bc059c8a75.d6cc1ed8ac3cda
-          TxOutDatumNone
-    - ShelleyAddress Testnet (KeyHashObj (KeyHash {unKeyHash = "f8a68cd18e59a6ace848155a0e967af64f4d00cf8acee8adc95a6b0d"})) StakeRefNull
-          21583379 lovelace
-          TxOutDatumNone
-
-    == TOTAL COLLATERAL
-    TxTotalCollateralNone
-
-    == RETURN COLLATERAL
-    TxReturnCollateralNone
-
-    == FEE
-    TxFeeExplicit ShelleyBasedEraConway (Coin 203737)
-
-    == VALIDITY
-    TxValidityNoLowerBound
-    TxValidityUpperBound ShelleyBasedEraConway (Just (SlotNo 37))
-
-    == MINT/BURN
-    0 lovelace
-
-    == SCRIPTS (0)
-    Total size (bytes):  0
-
-    == DATUMS (0)
-
-    == REDEEMERS (0)
-
-    == REQUIRED SIGNERS
-    []
-
-    == METADATA
-    TxMetadataInEra ShelleyBasedEraConway (TxMetadata {unTxMetadata = fromList [(55555,TxMetaText "HydraV1/DepositTx")]})
-
-   ```
-
-   If you take a look at the outputs of this deposit tx you will see that we only locked specified ADA amount + tokens at the deposit address and gave back leftover ADA and assets the provided change address.
-
-</details>
-
-This will result in a deposit being detected by the `hydra-node` and consequently the funds to be deposited to the Head.
+Observation, activation, approval, and settlement are separate steps. See
+[deposit timing](../configuration.md#deposit-activation).
 
 A deposit remains pending while any of its output references (transaction id and output index) collide with an output the head holds or a transaction in the proposed snapshot creates. It can be selected after the conflicting output has been spent in a confirmed snapshot; if it remains unclaimed, it can be recovered after its deadline. Layer 2 transactions, including decommits, are also rejected if they create an output reference already held by the head.
 
@@ -300,38 +55,43 @@ transaction is rejected outright and never signed. Wait for `CommitFinalized`
 before building transactions that spend the deposited outputs.
 :::
 
-:::warning Reference scripts are not preserved
-If a deposited UTxO has an inline reference script attached, **that reference script will not be available in L2**. The deposit datum encodes UTxOs using the Plutus `TxOut` representation, which has no reference script field. The address, value and datum of the deposited UTxO are preserved faithfully, but the reference script is silently dropped. If your use case depends on reference scripts being available inside the Head, they must be published separately on L2.
+:::warning Reference scripts
+Do not include reference scripts in the outputs to deposit. The serialized
+Plutus output can record a script hash, but the node cannot reconstruct the
+script from that hash. It rejects deposits whose outputs do not round-trip
+through its UTxO representation. If an input carries a reference script, use
+explicit blueprint outputs without it, and publish the script separately on
+L2 if needed. This restriction does not prevent using reference inputs to
+witness the L1 deposit transaction.
 :::
 
-### Recover a deposit
+## Recover a deposit
 
-Once we deposited funds we should not see the corresponding UTxO on L1.
-
-
-To inspect the pending deposits you can use `curl`:
-
-```
-curl -X GET localhost:4001/commits
-
-```
-You should see the tx-id of the deposit transaction in case it wasn't picked up by the hydra-node already. (e.g.`["ab4adce53699015ca8fd112689906338278f435d436516290c68c679921de8a4"]`
-
-To recover, we can use the `/commits` endpoint again using the transaction id of the deposit:
+Query the pending deposit transaction IDs:
 
 ```shell
-curl -X DELETE localhost:4001/commits/ab4adce53699015ca8fd112689906338278f435d436516290c68c679921de8a4)
+curl --fail-with-body -sS http://localhost:4001/commits
 ```
 
-If we inspect the address funds again we will see that the locked deposit is now recovered.
+Choose the deposit to recover and wait until its deadline has passed. Replace
+`DEPOSIT_TX_ID` below with the actual ID:
 
-Recovery works in all head states:
+```shell
+curl --fail-with-body -X DELETE http://localhost:4001/commits/DEPOSIT_TX_ID
+```
 
-- **Open** — recover a deposit that the head hasn't ingested yet (e.g. it expired before being picked up).
-- **Closed** — the head is in the closing/contestation period; recovery is still available.
-- **Idle (after fanout)** — deposits that were pending when the head closed are never discarded. The node keeps them in its internal state across the fanout, so you can still recover them after the head is fully settled.
-- **While a new head is running** — if you open a new head, old unrecovered deposits from a previous head remain recoverable. The new head will never accidentally ingest them: it only considers deposits that explicitly target its own head ID.
+Wait for `CommitRecovered`, then query the recorded output addresses on L1.
+Recovery reproduces those outputs, which may differ from the original inputs
+when a blueprint changes them. The transaction must recover one deposit at a
+time, after its deadline.
 
-The on-chain deposit validator enforces two conditions for recovery: the transaction validity lower bound must be after the deposit deadline, and the recovered outputs must match the originals. It does not require the head to be active, so recovery is always possible once the deadline passes regardless of the head lifecycle.
+Unclaimed deposits remain recoverable when the head closes, after fanout,
+and while a new head is running. The node only claims deposits targeting the
+current head's ID.
 
-
+There is one important restriction: while the head is open, the node rejects
+recovery of a deposit whose finalized increment rolled back
+(`RecoverBlockedByFinalizedCommit`). Its funds are already accounted for in
+signed L2 state, so the node re-posts that increment instead. After closure,
+recovery and selective fanout provide an escape path. See
+[rollback handling](../dev/rollbacks/index.md).
