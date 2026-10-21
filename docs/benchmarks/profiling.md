@@ -102,7 +102,7 @@ flamegraph.pl \
   --subtitle '5 parties | 1 live output + 1 deposited output | seed 42' \
   --countname 'memory units' \
   --fonttype 'Arial, Helvetica, sans-serif' \
-  --colors hot --hash --bgcolors '#ffffff' \
+  --colors hot --bgcolors '#ffffff' \
   --height 22 --fontsize 13 --width 1200 \
   /tmp/increment-memory.folded > /tmp/increment-memory.svg
 ```
