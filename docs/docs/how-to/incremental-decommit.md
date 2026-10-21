@@ -118,10 +118,16 @@ The connection receives `DecommitRequested`, followed by approval and
 use `?history=yes` to replay earlier events; history is opt-in.
 
 The HTTP request waits for a result and can return a pending response (202).
-A rejection requires inspecting the response before retrying. In particular,
-wait for an in-flight deposit to settle or expire when receiving
-`DepositInFlight`; a node that is unsynchronized or has a stalled broadcast
-can reject new work with HTTP 503.
+Inspect a rejection before retrying.
+
+If `DepositInFlight` refers to an approved deposit, retry after it settles,
+is recovered after its deadline, or chain time passes `deadline + DP`, where
+`DP` is the deposit period. `DepositExpired` alone does not unblock the
+decommit; it only closes the selection window for a new commit. See
+[pending commit retention](../dev/protocol.md#incremental-decommits).
+
+A node that is unsynchronized or has a stalled broadcast can reject new work
+with HTTP 503.
 
 A decommit must have at least one output. Its outputs must meet L1 minimum
 ADA and size limits, even when L2 fees are zero. This example assumes the

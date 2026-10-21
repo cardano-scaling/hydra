@@ -10,6 +10,8 @@ changes.
 
 ## UNRELEASED
 
+- Numerous fixes to the docs [#2917](https://github.com/cardano-scaling/hydra/pull/2917)
+
 - Windows build of hydra-node [#2360](https://github.com/cardano-scaling/hydra/issues/2360)
 
 - Updated to cardano-node 11.1.3 and cardano-api 11.7.0.0, adapting transaction
