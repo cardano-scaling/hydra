@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="560" height="1054" viewBox="0 0 560 1054" role="img" aria-labelledby="title description">
   <title id="title">Deposit settlement and rollback</title>
-  <desc id="description">A client submits a deposit at output zero. The Hydra parties observe it and emit CommitRecorded. Once the upper validity bound plus activation delay passes, DepositActivated is emitted. Parties sign a snapshot binding the deposit transaction ID and UTxO, emit CommitApproved, and submit an increment. Observing it emits CommitFinalized and makes the funds spendable on L2. If the increment rolls back, retain signed L2 state and the authorizing snapshot and re-post the increment before the deadline.</desc>
+  <desc id="description">A client submits a deposit at output zero. The Hydra parties observe it and emit CommitRecorded. Once the upper validity bound plus activation delay passes, and while chain time is at most deadline minus deposit period, DepositActivated is emitted. Parties sign a snapshot binding the deposit transaction ID and UTxO, emit CommitApproved, and submit an increment. Observing it emits CommitFinalized and makes the funds spendable on L2. If the increment rolls back, retain signed L2 state and the authorizing snapshot and attempt to re-post the increment before the deadline.</desc>
   <!-- Maintained directly as SVG; see docs/README.md for the shared diagram style. -->
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
@@ -39,8 +39,8 @@
   <path d="M 280 250 H 88" class="path"/>
   <text x="184.0" y="238" text-anchor="middle" class="message">CommitRecorded</text>
   <rect x="24" y="280" width="512" height="64" rx="12" class="card"/>
-  <text x="280" y="306.5" text-anchor="middle" class="body">Wait until upper validity bound</text>
-  <text x="280" y="327.5" text-anchor="middle" class="body">plus activation delay.</text>
+  <text x="280" y="306.5" text-anchor="middle" class="body">Wait until upper validity bound + DA has passed,</text>
+  <text x="280" y="327.5" text-anchor="middle" class="body">while chain time ≤ deadline − DP.</text>
   <path d="M 280 386 H 88" class="path"/>
   <text x="184.0" y="374" text-anchor="middle" class="message">DepositActivated</text>
   <rect x="192" y="412" width="176" height="82" rx="12" class="card"/>
@@ -66,5 +66,5 @@
   <rect x="24" y="916" width="512" height="54" rx="12" class="card"/>
   <text x="280" y="948.0" text-anchor="middle" class="body">Keep signed L2 state and the authorizing snapshot.</text>
   <path d="M 280 1018 H 472" class="path"/>
-  <text x="376.0" y="1006" text-anchor="middle" class="message">Re-post before deadline</text>
+  <text x="376.0" y="1006" text-anchor="middle" class="message">Try to re-post before deadline</text>
 </svg>

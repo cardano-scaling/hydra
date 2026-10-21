@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="978" viewBox="0 0 640 978" role="img" aria-labelledby="title description">
+  <title id="title">Decommit flow</title>
+  <desc id="description">Successful decommit flow with Node A leading the snapshot and settlement within the HTTP timeout. Node A validates the transaction and broadcasts ReqDec, then proposes it in ReqSn. Every party validates the transaction, removes its outputs from the active L2 UTxO, signs the snapshot, and broadcasts AckSn. Collecting all signatures confirms the snapshot and approves the decommit. Any participant can submit the decrement. Observing it emits DecommitFinalized and lets the HTTP request return 200 with OK. All decommit transaction outputs are recreated on L1. A wait that times out first instead returns 202 with DecommitSubmitted.</desc>
+  <!-- Maintained directly as SVG; see docs/README.md for the shared diagram style. -->
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 1 1 L 9 5 L 1 9" fill="none" stroke="#527b76" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <style>
+      text { font-family: Arial, Helvetica, sans-serif; }
+      .step { font-size: 18px; font-weight: 600; fill: #194d46; }
+      .body { font-size: 16px; fill: #415955; }
+      .label { font-size: 14px; fill: #526761; }
+      .message { font-size: 16px; fill: #415955; paint-order: stroke; stroke: #fff; stroke-width: 5px; stroke-linejoin: round; }
+      .path { fill: none; stroke: #527b76; stroke-width: 1.8; marker-end: url(#arrow); }
+      .response { stroke-dasharray: 6 4; }
+      .guide { fill: none; stroke: #b5d0c9; stroke-width: 1.2; stroke-dasharray: 5 6; }
+      .card { fill: #f0f7f5; stroke: #b5d0c9; stroke-width: 1.2; }
+      .accent { fill: #e0eee9; stroke: #8fb8ac; stroke-width: 1.2; }
+    </style>
+  </defs>
+  <rect width="640" height="978" rx="12" fill="#fff"/>
+  <path d="M 80 64 V 950" class="guide"/>
+  <g>
+    <rect x="16" y="16" width="128" height="48" rx="10" class="card"/>
+  <text x="80.0" y="46.0" text-anchor="middle" class="step">Client</text>
+  </g>
+  <path d="M 240 64 V 950" class="guide"/>
+  <g>
+    <rect x="176" y="16" width="128" height="48" rx="10" class="card"/>
+  <text x="240.0" y="46.0" text-anchor="middle" class="step">Node A</text>
+  </g>
+  <path d="M 400 64 V 950" class="guide"/>
+  <g>
+    <rect x="336" y="16" width="128" height="48" rx="10" class="card"/>
+  <text x="400.0" y="46.0" text-anchor="middle" class="step">Other nodes</text>
+  </g>
+  <path d="M 560 64 V 950" class="guide"/>
+  <g>
+    <rect x="496" y="16" width="128" height="48" rx="10" class="card"/>
+  <text x="560.0" y="46.0" text-anchor="middle" class="step">Cardano L1</text>
+  </g>
+  <path d="M 80 132 H 240" class="path"/>
+  <text x="160.0" y="98" text-anchor="middle" class="message">POST /decommit</text>
+  <text x="160.0" y="120" text-anchor="middle" class="message">(decTx)</text>
+  <g>
+    <rect x="168" y="154" width="144" height="64" rx="10" class="card"/>
+  <text x="240.0" y="181.0" text-anchor="middle" class="body">Validate</text>
+  <text x="240.0" y="203.0" text-anchor="middle" class="body">decTx</text>
+  </g>
+  <path d="M 240 260 H 400" class="path"/>
+  <text x="320.0" y="248" text-anchor="middle" class="message">ReqDec (decTx)</text>
+  <path d="M 240 310 H 80" class="path response"/>
+  <text x="160.0" y="298" text-anchor="middle" class="message">DecommitRequested</text>
+  <path d="M 240 360 H 400" class="path"/>
+  <text x="320.0" y="348" text-anchor="middle" class="message">ReqSn (decTx)</text>
+  <g>
+    <rect x="168" y="386" width="304" height="92" rx="10" class="card"/>
+  <text x="320.0" y="416.0" text-anchor="middle" class="body">Each node validates decTx,</text>
+  <text x="320.0" y="438.0" text-anchor="middle" class="body">removes its outputs from L2,</text>
+  <text x="320.0" y="460.0" text-anchor="middle" class="body">and signs the snapshot</text>
+  </g>
+  <path d="M 240 520 H 400" class="path"/>
+  <text x="320.0" y="508" text-anchor="middle" class="message">AckSn</text>
+  <path d="M 400 570 H 240" class="path"/>
+  <text x="320.0" y="558" text-anchor="middle" class="message">AckSn</text>
+  <path d="M 240 620 H 80" class="path response"/>
+  <text x="160.0" y="608" text-anchor="middle" class="message">SnapshotConfirmed</text>
+  <path d="M 240 670 H 80" class="path response"/>
+  <text x="160.0" y="658" text-anchor="middle" class="message">DecommitApproved</text>
+  <path d="M 240 720 H 560" class="path"/>
+  <text x="400.0" y="708" text-anchor="middle" class="message">Submit decrementTx</text>
+  <path d="M 560 770 H 240" class="path response"/>
+  <text x="400.0" y="758" text-anchor="middle" class="message">Observe decrementTx</text>
+  <path d="M 240 820 H 80" class="path response"/>
+  <text x="160.0" y="808" text-anchor="middle" class="message">DecommitFinalized</text>
+  <path d="M 240 870 H 80" class="path response"/>
+  <text x="160.0" y="858" text-anchor="middle" class="message">HTTP 200: &quot;OK&quot;</text>
+  <g>
+    <rect x="16" y="898" width="608" height="64" rx="10" class="accent"/>
+  <text x="320.0" y="925.0" text-anchor="middle" class="body">All outputs of decTx, including change,</text>
+  <text x="320.0" y="947.0" text-anchor="middle" class="body">are recreated on L1.</text>
+  </g>
+</svg>
