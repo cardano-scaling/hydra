@@ -212,6 +212,12 @@
       "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H benchmarks/index.md\n"
     }
   },
+  "benchmarks/ledger": {
+    "source": {
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI benchmarks/ledger.mdx\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H benchmarks/ledger.mdx\n"
+    }
+  },
   "benchmarks/metrics": {
     "source": {
       "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI benchmarks/metrics.md\n",
@@ -480,6 +486,12 @@
     "source": {
       "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI topologies/index.md\n",
       "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H topologies/index.md\n"
+    }
+  },
+  "topologies/managed": {
+    "source": {
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI topologies/managed/index.mdx\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H topologies/managed/index.mdx\n"
     }
   },
   "topologies/star-shaped": {

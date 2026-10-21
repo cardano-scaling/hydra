@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="560" height="814" viewBox="0 0 560 814" role="img" aria-labelledby="title description">
+  <title id="title">Managed heads: proposed client signing</title>
+  <desc id="description">Design proposal requiring node changes. Clients retain keys and signed state and approve snapshot signatures through an additional signing interface. The service hosts one node for each head, communicating with that head’s other parties. Each head settles independently on Cardano. Current hydra-node signs locally.</desc>
+  <!-- Maintained directly as SVG; see docs/README.md for the shared diagram style. -->
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 1 1 L 9 5 L 1 9" fill="none" stroke="#527b76" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <style>
+      text { font-family: Arial, Helvetica, sans-serif; }
+      .heading { font-size: 20px; font-weight: 600; fill: #194d46; }
+      .step { font-size: 18px; font-weight: 600; fill: #194d46; }
+      .body { font-size: 16px; fill: #415955; }
+      .label { font-size: 15px; fill: #526761; }
+      .detail { font-size: 14px; fill: #526761; }
+      .message { font-size: 16px; fill: #415955; paint-order: stroke; stroke: #fff; stroke-width: 5px; stroke-linejoin: round; }
+      .path { fill: none; stroke: #527b76; stroke-width: 1.8; marker-end: url(#arrow); }
+      .line { fill: none; stroke: #527b76; stroke-width: 1.8; }
+      .guide { fill: none; stroke: #b5d0c9; stroke-width: 1.2; stroke-dasharray: 5 6; }
+      .card { fill: #f0f7f5; stroke: #b5d0c9; stroke-width: 1.2; }
+      .group { fill: #fff; stroke: #b5d0c9; stroke-width: 1.2; }
+      .accent { fill: #e0eee9; stroke: #8fb8ac; stroke-width: 1.2; }
+    </style>
+  </defs>
+  <rect width="560" height="814" rx="12" fill="#fff"/>
+  <rect x="24" y="16" width="512" height="64" rx="12" class="card"/>
+  <text x="280.0" y="43.5" text-anchor="middle" class="heading">Design proposal</text>
+  <text x="280.0" y="69.5" text-anchor="middle" class="body">Remote signing requires node changes.</text>
+  <rect x="32" y="112" width="224" height="76" rx="12" class="card"/>
+  <text x="144.0" y="145.5" text-anchor="middle" class="heading">Client A</text>
+  <text x="144.0" y="171.5" text-anchor="middle" class="body">Keys and signed state</text>
+  <rect x="304" y="112" width="224" height="76" rx="12" class="card"/>
+  <text x="416.0" y="145.5" text-anchor="middle" class="heading">Client B</text>
+  <text x="416.0" y="171.5" text-anchor="middle" class="body">Keys and signed state</text>
+  <rect x="16" y="262" width="528" height="280" rx="12" class="group"/>
+  <text x="36" y="291" text-anchor="start" class="step">Hosting service</text>
+  <path d="M 144 188 V 238 H 280 V 310" class="path"/>
+  <path d="M 416 188 V 238 H 280" class="line"/>
+  <text x="280" y="221" text-anchor="middle" class="label">Approve snapshot signatures</text>
+  <rect x="128" y="316" width="304" height="68" rx="12" class="card"/>
+  <text x="280.0" y="345.5" text-anchor="middle" class="heading">Signing interface</text>
+  <text x="280.0" y="371.5" text-anchor="middle" class="body">Requires implementation</text>
+  <path d="M 280 384 V 414 H 144 V 438" class="path"/>
+  <path d="M 280 414 H 416 V 438" class="path"/>
+  <rect x="32" y="444" width="224" height="76" rx="12" class="card"/>
+  <text x="144.0" y="477.5" text-anchor="middle" class="step">Hosted party in A</text>
+  <text x="144.0" y="503.5" text-anchor="middle" class="body">One node instance</text>
+  <rect x="304" y="444" width="224" height="76" rx="12" class="card"/>
+  <text x="416.0" y="477.5" text-anchor="middle" class="step">Hosted party in B</text>
+  <text x="416.0" y="503.5" text-anchor="middle" class="body">Separate node instance</text>
+  <path d="M 144 526 V 590" class="path" marker-start="url(#arrow)"/>
+  <text x="144" y="568" text-anchor="middle" class="message">Head A snapshots</text>
+  <path d="M 416 526 V 590" class="path" marker-start="url(#arrow)"/>
+  <text x="416" y="568" text-anchor="middle" class="message">Head B snapshots</text>
+  <rect x="32" y="596" width="224" height="76" rx="12" class="card"/>
+  <text x="144.0" y="640.0" text-anchor="middle" class="step">Other Head A parties</text>
+  <rect x="304" y="596" width="224" height="76" rx="12" class="card"/>
+  <text x="416.0" y="640.0" text-anchor="middle" class="step">Other Head B parties</text>
+  <path d="M 32 482 H 8 V 764 H 122" class="path"/>
+  <path d="M 528 482 H 552 V 764 H 438" class="path"/>
+  <rect x="128" y="730" width="304" height="68" rx="12" class="card"/>
+  <text x="280.0" y="759.5" text-anchor="middle" class="heading">Cardano L1</text>
+  <text x="280.0" y="785.5" text-anchor="middle" class="body">Independent settlement per head</text>
+</svg>

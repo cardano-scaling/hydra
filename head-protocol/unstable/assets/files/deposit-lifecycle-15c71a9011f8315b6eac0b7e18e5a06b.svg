@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="560" height="854" viewBox="0 0 560 854" role="img" aria-labelledby="title description">
+  <title id="title">Deposit lifecycle</title>
+  <desc id="description">Forward deposit lifecycle. Observation records an inactive deposit. It becomes active once chain time exceeds creation time plus DA, provided chain time is at most deadline minus DP. Either inactive or active deposits expire once chain time exceeds deadline minus DP. An active deposit can settle through an observed increment. An expired deposit can still settle through an already approved increment before its deadline, or be recovered after the deadline if unclaimed. Expired means no longer selectable for a new commit, not immediately recoverable. Rollbacks are described separately.</desc>
+  <!-- Maintained directly as SVG; see docs/README.md for the shared diagram style. -->
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 1 1 L 9 5 L 1 9" fill="none" stroke="#527b76" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <style>
+      text { font-family: Arial, Helvetica, sans-serif; }
+      .step { font-size: 18px; font-weight: 600; fill: #194d46; }
+      .body { font-size: 16px; fill: #415955; }
+      .label { font-size: 14px; fill: #526761; }
+      .message { font-size: 16px; fill: #415955; paint-order: stroke; stroke: #fff; stroke-width: 5px; stroke-linejoin: round; }
+      .path { fill: none; stroke: #527b76; stroke-width: 1.8; marker-end: url(#arrow); }
+      .response { stroke-dasharray: 6 4; }
+      .guide { fill: none; stroke: #b5d0c9; stroke-width: 1.2; stroke-dasharray: 5 6; }
+      .card { fill: #f0f7f5; stroke: #b5d0c9; stroke-width: 1.2; }
+      .accent { fill: #e0eee9; stroke: #8fb8ac; stroke-width: 1.2; }
+    </style>
+  </defs>
+  <rect width="560" height="854" rx="12" fill="#fff"/>
+  <circle cx="280" cy="24" r="7" fill="#527b76"/>
+  <path d="M 280 31 V 86" class="path"/>
+  <text x="294" y="58" text-anchor="start" class="message">Observe deposit</text>
+  <g>
+    <rect x="206" y="86" width="148" height="52" rx="10" class="card"/>
+  <text x="280.0" y="118.0" text-anchor="middle" class="step">Inactive</text>
+  </g>
+  <path d="M 280 138 V 240" class="path"/>
+  <text x="294" y="179" text-anchor="start" class="message">Activation time passes</text>
+  <text x="294" y="201" text-anchor="start" class="message">while eligible</text>
+  <g>
+    <rect x="206" y="240" width="148" height="52" rx="10" class="card"/>
+  <text x="280.0" y="272.0" text-anchor="middle" class="step">Active</text>
+  </g>
+  <path d="M 206 112 H 78 V 464 H 206" class="path"/>
+  <text x="92" y="348" text-anchor="start" class="message">Selection</text>
+  <text x="92" y="370" text-anchor="start" class="message">window ends</text>
+  <path d="M 280 292 V 432" class="path"/>
+  <text x="294" y="351" text-anchor="start" class="message">Selection</text>
+  <text x="294" y="373" text-anchor="start" class="message">window ends</text>
+  <g>
+    <rect x="206" y="432" width="148" height="64" rx="10" class="card"/>
+  </g>
+  <text x="280" y="458" text-anchor="middle" class="step">Expired</text>
+  <text x="280" y="480" text-anchor="middle" class="label">(not selectable)</text>
+  <path d="M 354 266 H 524 V 722 H 490" class="path"/>
+  <text x="484" y="396" text-anchor="end" class="message">Observe</text>
+  <text x="484" y="418" text-anchor="end" class="message">increment</text>
+  <path d="M 280 496 V 550 L 140 666 V 696" class="path"/>
+  <text x="40" y="596" text-anchor="start" class="message">Observe recovery</text>
+  <text x="40" y="618" text-anchor="start" class="message">after deadline</text>
+  <path d="M 280 496 V 550 L 420 666 V 696" class="path"/>
+  <text x="354" y="570" text-anchor="start" class="message">Observe approved</text>
+  <text x="354" y="592" text-anchor="start" class="message">increment</text>
+  <g>
+    <rect x="58" y="696" width="164" height="52" rx="10" class="accent"/>
+  <text x="140.0" y="728.0" text-anchor="middle" class="step">Recovered</text>
+  </g>
+  <g>
+    <rect x="350" y="696" width="140" height="52" rx="10" class="accent"/>
+  <text x="420.0" y="728.0" text-anchor="middle" class="step">Settled</text>
+  </g>
+  <g>
+    <rect x="24" y="778" width="512" height="60" rx="10" class="card"/>
+  <text x="280.0" y="803.0" text-anchor="middle" class="body">Activation time = creation time + DA</text>
+  <text x="280.0" y="825.0" text-anchor="middle" class="body">Selection window ends after deadline − DP</text>
+  </g>
+</svg>
