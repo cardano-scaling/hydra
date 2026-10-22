@@ -4,7 +4,6 @@ import Hydra.Cardano.Api
 import Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
-import Data.List qualified as List
 import Hydra.Contract.Commit qualified as Commit
 import Hydra.Contract.Deposit qualified as Deposit
 import Hydra.Contract.Head qualified as Head
@@ -42,12 +41,12 @@ incrementTx ::
   (TxIn, TxOut CtxUTxO) ->
   -- | Confirmed Snapshot
   Snapshot Tx ->
-  -- | Deposit output UTxO to be spent in increment transaction
-  UTxO ->
+  -- | Deposit output to be spent in increment transaction
+  (TxIn, TxOut CtxUTxO) ->
   SlotNo ->
   MultiSignature (Snapshot Tx) ->
   Tx
-incrementTx scriptRegistry vk (seedTxIn, headId) headParameters (headInput, headOutput) snapshot depositScriptUTxO upperValiditySlot sigs =
+incrementTx scriptRegistry vk (seedTxIn, headId) headParameters (headInput, headOutput) snapshot (depositIn, _) upperValiditySlot sigs =
   unsafeBuildTransaction $
     defaultTxBodyContent
       & addTxIns [(headInput, headWitness), (depositIn, depositWitness)]
@@ -104,9 +103,6 @@ incrementTx scriptRegistry vk (seedTxIn, headId) headParameters (headInput, head
           }
 
   depositedValue = foldMap (txOutValue . snd) $ UTxO.toList (fromMaybe mempty utxoToCommit)
-
-  -- NOTE: we expect always a single output from a deposit tx
-  (depositIn, _) = List.head $ UTxO.toList depositScriptUTxO
 
   depositRedeemer = toScriptData $ Deposit.redeemer Deposit.Claim
 
