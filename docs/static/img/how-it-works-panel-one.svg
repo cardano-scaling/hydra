@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="0 0 600 400" role="img" aria-labelledby="title desc">
+<title id="title">Open an empty head</title>
+<desc id="desc">A fixed group of parties initializes an empty head on Cardano.</desc>
+<defs>
+  <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <path d="M 1 1 L 9 5 L 1 9" fill="none" stroke="#527b76" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+  </marker>
+</defs>
+<rect width="600" height="400" rx="12" fill="#f0f7f5"/>
+<text x="300" y="62" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="30" fill="#194d46" font-weight="600">Open an empty head</text>
+<circle cx="180" cy="140" r="27" fill="#527b76"/>
+<text x="180" y="147" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="20" fill="white" font-weight="600">A</text>
+<circle cx="420" cy="140" r="27" fill="#527b76"/>
+<text x="420" y="147" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="20" fill="white" font-weight="600">B</text>
+<circle cx="300" cy="280" r="27" fill="#527b76"/>
+<text x="300" y="287" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="20" fill="white" font-weight="600">C</text>
+<path d="M207,145 L245,175" fill="none" stroke="#527b76" stroke-width="1.8" marker-end="url(#arrow)"/>
+<path d="M393,145 L355,175" fill="none" stroke="#527b76" stroke-width="1.8" marker-end="url(#arrow)"/>
+<path d="M300,253 L300,225" fill="none" stroke="#527b76" stroke-width="1.8" marker-end="url(#arrow)"/>
+<rect x="235" y="175" width="130" height="50" rx="12" fill="#FFFFFF" stroke="#b5d0c9" stroke-width="1.2"/>
+<text x="300.0" y="207.0" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="22" fill="#415955" font-weight="normal">Empty head</text>
+<text x="300" y="345" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="19" fill="#415955" font-weight="normal">Agree on parties and protocol parameters</text>
+</svg>

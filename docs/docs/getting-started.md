@@ -5,16 +5,11 @@ To get started quickly, we'll walk you through the standard demo setup, which in
 * A single `cardano-node` producing blocks used as a (very fast) local `devnet`
 * The `hydra-tui` example for clients to interact with the individual `hydra-node`.
 
-This tutorial uses [Docker](https://www.docker.com/get-started) to install the nodes, so ensure Docker is installed. If you want to explore alternative ways of running the tools, see a [variant of this tutorial](./getting-started-without-docker.md) or the [testnet tutorial](./tutorial/index.md), which uses pre-built binaries. The documentation pages on [installation](./installation) and [configuration](./configuration) provide more details.
+This tutorial uses [Docker](https://www.docker.com/get-started) to install the nodes, so ensure Docker is installed. If you want to explore alternative ways of running the tools, see a [variant of this tutorial](./getting-started-without-docker.md) or the [testnet tutorial](./tutorial/index.md), which builds Hydra with Nix and downloads Cardano binaries. The documentation pages on [installation](./installation) and [configuration](./configuration) provide more details.
 
 Additionally, the `hydra-tui` uses the HTTP/WebSocket API provided by the `hydra-node` behind the scenes. The [testnet tutorial](./tutorial/index.md) will show how to use this API using low-level commands, or you can see the [API reference](/api-reference) for more details.
 
-<details>
-<summary>Video demonstration (a bit dated)</summary>
 
-<iframe style={{width: '100%', height: '480px'}} src="https://www.youtube.com/embed/dJk5_kB3BM4" title="Hydra Head Demo" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen="true"></iframe>
-
-</details>
 
 :::caution OS Compatibility
 These instructions have been tested only on Linux environments (Ubuntu, NixOS). If you're on Windows or Mac OS X, you might need to adapt to use [Volumes](https://docs.docker.com/storage/volumes/).
@@ -25,7 +20,7 @@ These instructions have been tested only on Linux environments (Ubuntu, NixOS). 
 All commands below are written as if executed from the `demo` folder in the project repository. Ensure you clone the repository, switch into the `demo` folder, and pull the latest Docker images:
 
 ```shell
-git clone --depth 1 git@github.com:cardano-scaling/hydra.git
+git clone --depth 1 https://github.com/cardano-scaling/hydra.git
 cd hydra/demo
 docker compose pull
 ```
@@ -99,9 +94,15 @@ This will start a full-blown terminal interface loaded with signing keys corresp
 
 ## Use the head
 
-Using the terminal interface of any node, you can now `[i]nit` the Hydra head. The head opens immediately — there is no commit phase. To add funds, use `[c]ommit` to deposit pre-distributed UTXOs into the open head. Note that these steps are near-instant as the devnet is producing blocks much faster than a public testnet or the mainnet. You can also use the `hydra-tui` or the API to create new transactions and submit them to the Hydra head.
+Press `[i]nit` in any TUI to open an empty head. Once it is open, use
+`[c]ommit` to deposit the pre-funded UTxOs. Wait for the deposit to finalize
+before spending its outputs. The demo uses short activation and deposit
+periods suitable only for the local devnet.
 
-![](./open-head.png)
+Use the TUI's on-screen actions to submit transactions, inspect deposits,
+close the head, and fan out funds after the contestation deadline. For the
+same workflow through HTTP and WebSocket, follow the
+[testnet tutorial](./tutorial/index.md).
 
 ## Monitoring
 
@@ -131,9 +132,9 @@ Grafana is preconfigured with a minimal dashboard visualizing key metrics from e
 
 | Panel                                    | Metric                               | Description                                                                              |
 | ---------------------------------------- | ------------------------------------ | ---------------------------------------------------------------------------------------- |
-| **Hydra Head Confirmed Tx**              | `hydra_head_confirmed_tx`            | Number of snapshots confirmed by the Hydra head                                          |
+| **Hydra Head Confirmed Tx**              | `hydra_head_confirmed_tx`            | Number of transactions confirmed by the Hydra head                                          |
 | **Hydra Head Inputs**                    | `hydra_head_inputs`                  | Number of inputs processed by the head                                                   |
-| **Hydra Head Tx Confirmation Time (ms)** | `hydra_head_tx_confirmation_time_ms` | Average time taken to confirm snapshots on the Hydra head (from request to confirmation) |
+| **Hydra Head Tx Confirmation Time (ms)** | `hydra_head_tx_confirmation_time_ms` | Time from transaction request to confirmation |
 | **Peer Connected**                       | `hydra_head_peers_connected`         | Number of peers each node is currently connected to                                      |
 | **Hydra Head Requested**                 | `hydra_head_requested_tx`            | Number of requested transactions received by the node (incoming ReqTx messages)          |
 
@@ -147,4 +148,4 @@ Grafana is preconfigured with a minimal dashboard visualizing key metrics from e
 
 ### Dashboard Preview
 
-![](./monitoring.png)
+![Grafana dashboard showing Hydra transaction, input, confirmation-time, and peer metrics.](./monitoring.png)

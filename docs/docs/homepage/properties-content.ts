@@ -31,7 +31,7 @@ export const PropertiesContent = [
     description: translate({
       id: "homepage.featureFAQ.isomorphic.description",
       message:
-        "Same transaction format and ledger rules on layer 2 as on the Cardano layer 1. This includes all the features you know and love from Cardano.",
+        "Reuse Cardano transaction formats and script validation on L2. L1 consensus, staking, and governance remain outside the head.",
     }),
   },
   {
@@ -42,7 +42,7 @@ export const PropertiesContent = [
     description: translate({
       id: "homepage.featureFAQ.customizable.description",
       message:
-        "Adjustable memory, CPU execution budgets, and other parameters on a per-head basis, allowing for flexible applications – even some that would not be possible on layer 1!",
+        "Configure fees and execution budgets per head while keeping outputs compatible with L1 settlement.",
     }),
   },
   {

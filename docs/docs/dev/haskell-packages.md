@@ -33,3 +33,14 @@ Standalone libraries under `libs/`, not specific to Hydra:
 | [hydra-tui](pathname:///haddocks/hydra-tui/index.html)               | Terminal User Interface (TUI) for managing a Hydra node                 |
 | [hydra-plutus](pathname:///haddocks/hydra-plutus/index.html)         | Hydra Plutus contracts                                                  |
 | [hydra-cluster](pathname:///haddocks/hydra-cluster/index.html)       | Integration test suite using a local cluster of Cardano and Hydra nodes |
+
+## Supporting components
+
+- [hydra-agda](https://github.com/cardano-scaling/hydra/tree/master/hydra-agda)
+  connects the executable protocol specification to Haskell tests.
+- [rust-accumulator](https://github.com/cardano-scaling/hydra/tree/master/rust-accumulator)
+  provides native KZG accumulator operations.
+- [Aiken contracts](https://github.com/cardano-scaling/hydra/tree/master/hydra-plutus/validators)
+  include the deposit validator.
+- [Specification sources](https://github.com/cardano-scaling/hydra/tree/master/spec)
+  contain the literate Agda and rendered protocol specification.

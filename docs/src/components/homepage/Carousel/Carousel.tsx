@@ -1,7 +1,6 @@
+import useBaseUrl from "@docusaurus/useBaseUrl";
 import React, { FC, useCallback, useEffect, useRef, useState } from "react";
 import clsx from "clsx";
-import Square from "../../icons/Square";
-import Triangle from "../../icons/Triangle";
 import Arrow from "../../icons/Arrow";
 import Dot from "../../icons/Dot";
 import { Pagination } from "swiper/modules";
@@ -14,34 +13,23 @@ import { HowItWorksCarouselContent } from "../../../../docs/homepage/how-it-work
 type Props = {
   idx: number;
   src: string;
+  alt: string;
   description: string;
 };
 
-const CarouselEntry: FC<Props> = ({ idx, src, description }) => {
+const CarouselEntry: FC<Props> = ({ src, alt, description }) => {
   return (
     <div className="flex items-center gap-6 h-full justify-center">
       <div className="basis-[40%]">
         <img
-          src={src}
+          src={useBaseUrl(src)}
           className="w-full rounded-lg object-cover"
-          alt={`How it works panel ${idx}`}
+          alt={alt}
         />
       </div>
       <div className="flex flex-col gap-4 max-w-md justify-center">
         <h4 className="text-2xl text-primary font-medium">How it works</h4>
         <p>{description}</p>
-        {idx === 0 && (
-          <div className="flex gap-4">
-            <span className="inline-flex gap-[5px]">
-              <Square className="mt-1" />
-              Passengers <span className="font-bold">(participants)</span>
-            </span>
-            <span className="inline-flex gap-[5px]">
-              <Triangle className="mt-[3px]" />
-              Supplies <span className="font-bold">(tokens)</span>
-            </span>
-          </div>
-        )}
       </div>
     </div>
   );

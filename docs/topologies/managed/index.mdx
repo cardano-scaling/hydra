@@ -7,29 +7,33 @@ sidebar_position: 3
 
 :::note
 
-:hammer_and_wrench: This document is a work in progress.
+This is a design proposal. The current `hydra-node` signs snapshots locally
+and manages one active head per process. A service with client-held Hydra
+keys requires additional signing infrastructure; it is not an existing remote
+signing mode of the node.
 
 :::
 
 This document outlines the _managed Hydra head_ topology, which could also be described as _Hydra as a service_.
 
-<p align="center">
-  <img
-    src={require('./managed-hydra-head.jpg').default}
-    alt="Managed Hydra Head"
-    height={400}
-  />
-</p>
+[![A proposed signing service connects client-held keys to hosted node instances; each instance serves one head.](./managed-hydra-head.svg)](./managed-hydra-head.svg)
 
-The [basic Hydra head setup](./basic) requires each participant to host an instance of a `hydra-node`, similar to how `cardano-node`s operate on the Cardano network. In contrast, 'light node' setups allow users to access the blockchain through a hosted API, with light wallets being a common example.
+The [basic Hydra head setup](/topologies/basic) requires each participant to host an instance of a `hydra-node`, similar to how `cardano-node`s operate on the Cardano network. In contrast, 'light node' setups allow users to access the blockchain through a hosted API, with light wallets being a common example.
 
 In this topology, clients do not need to run their own `hydra-node`s but instead access a `hydra-node` provided by a _service provider_. Client applications, such as light wallets, do not need to be aware of individual `hydra-node` instances. Instead, logical _Hydra heads_ are accessible via an API.
 
-The illustration above depicts three different Hydra heads: two pairwise (yellow and green) and one multi-party (blue). Clients A, B, and C access their heads using the service provider, while client D manages their own hosting.
-For this setup to be feasible, it is crucial that the _Hydra keys_ remain on the client side and that the `hydra-node` serves purely as infrastructure — it does not take custody of the user's funds.
+The illustration shows one hosted party in each of two independent heads.
+Each hosted instance has peers belonging to its own head. In this proposal,
+clients retain their Hydra keys and approve snapshot signatures through an
+additional signing interface. Implementing that interface requires changes
+to the current node; hosting existing nodes alone does not provide it.
 
 As a result, the client must be online for any progress to occur within a Hydra head. This requirement can be cumbersome in multi-party Hydra heads, as they may stall if a lightweight mobile client is offline for a period. However, this setup aligns well with _two-party Hydra heads_, where a transaction is only completed if both parties are online to send, receive, and acknowledge it.
 
-An example use case for two-party Hydra heads includes payment channels between two [machines](./../use-cases/payments/pay-per-use-api) or [individuals](./../use-cases/payments/inter-wallet-payments), especially if such multiple channels are logically interconnected, similar to the Lightning Network.
+An example use case for two-party Hydra heads includes payment channels between two [machines](/use-cases/payments/pay-per-use-api) or [individuals](/use-cases/payments/inter-wallet-payments), especially if such multiple channels are logically interconnected, similar to the Lightning Network.
 
-Although access to Hydra heads is facilitated by the service provider, this does not centralize the system. A client can always close a head and recover funds with an alternative provider or even use a transaction created out-of-band (eg, by the client application using another service to submit the transaction).
+A complete implementation must let clients retain the signed state and keys
+needed to close and contest independently, submit L1 transactions, and recover
+service availability. Hosting alone does not establish these guarantees. See
+[delegated heads](/topologies/delegated-head) for a different model in which
+operators hold the Hydra snapshot keys and users hold their spending keys.

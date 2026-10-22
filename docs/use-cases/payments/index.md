@@ -5,29 +5,24 @@ sidebar_position: 3
 
 # Hydra for payments
 
-:::caution This category will be restructured
+Hydra heads can support repeated payments between a fixed set of operators.
+Users can deposit funds while a head is open, transact on L2, and return funds
+to L1 through decommits or final settlement.
 
-The payments category will undergo restructuring to focus more coherently on use-case-centric roadmaps of application scenarios. Currently, it includes some legacy use case articles.
-:::
+The articles in this section describe application designs and earlier
+integration work. They are not compatibility guarantees for a particular
+Hydra release. Before adopting an external SDK, check its supported node
+version, deposit lifecycle, API events, and recovery behavior.
 
-Hydra for payments represents a collaborative effort with Obsidian Systems to enhance the Hydra head protocol with specialized tooling designed for payment-specific use cases.
+## Earlier tooling
 
-The ongoing development phase concentrates on expanding the existing open-source Hydra for payments library by incorporating the following enhancements:
+The [Hydra for payments project](https://github.com/obsidiansystems/hydra-pay)
+explored payment-channel APIs and wallet integration. Its
+[2022 introduction](https://iohk.io/en/blog/posts/2022/11/10/hydra-for-payments-introducing-developer-tooling-to-unlock-micropayments-on-cardano/)
+provides historical context; consult the project's current repository for
+maintenance and compatibility information.
 
-- An improved **payment channel API** that includes convenience features to reduce ramp-up time and accelerate market readiness for developers
-- Enhanced high-assurance mechanisms, which are crucial for developers of commercial projects that manage user assets
-- Versatile **configurations** equipped with sensible defaults to aid developers in dynamically scaling their products and crafting engaging user experiences.
+![A payment service connects client wallets to Hydra infrastructure.](./hydra-for-payments.png)
 
-The culmination of this phase will see the integration of these developments into the **mainnet-compatible Hydra for payments SDK**.
-
-To validate these enhancements, we plan to launch a **mobile reference application**. This application will directly leverage the Hydra for payments SDK, incorporating all essential payment channel functionalities.
-
-### Further reading
-
-- Discover the introductory post about the Hydra for payments project [here](https://iohk.io/en/blog/posts/2022/11/10/hydra-for-payments-introducing-developer-tooling-to-unlock-micropayments-on-cardano/)
-- Hydra for payments is actively being developed, with source code and documentation available [here](https://github.com/obsidiansystems/hydra-pay).
-
-
-### An example configuration
-
-![](./hydra-for-payments.png)
+For an example maintained in this repository, see the
+[delegated demo](https://github.com/cardano-scaling/hydra/tree/master/delegated-demo).

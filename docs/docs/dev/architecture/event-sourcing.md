@@ -32,8 +32,10 @@ generically via `genericToCBOR` / `genericFromCBOR` from
 `Codec.CBOR.Generic.Tagged` (cborg-generic-tagged, re-exported by
 `Hydra.Prelude`), which makes the data type declaration itself the on-disk
 format: changing the order or types of an existing constructor's fields is a
-breaking change that requires a schema migration, while adding, removing or
-reordering constructors keeps existing data decodable thanks to the name tags.
+breaking change that requires a schema migration, while adding or
+reordering constructors preserves the tags of existing constructors. Removing a
+constructor requires a compatibility decoder or migration for stored values
+that use it; older software cannot decode newly added constructors.
 The few hand-written codecs (e.g. `Snapshot`, `Environment`) carry the same
 leading tag and only exist where a field is deliberately omitted from the
 encoding. Untagged leaves are limited to standard external formats:
@@ -46,14 +48,20 @@ concrete bytes per constructor and fail on any accidental format change.
 The following connection pragmas are set on every open:
 
 - `journal_mode=WAL` — write-ahead logging for concurrent reads during writes
-- `synchronous=NORMAL` — skips per-write fsyncs (safe because the L1 chain is the source of truth)
+- `synchronous=NORMAL` — reduces fsync frequency; recent commits may be lost after a power or operating-system failure
 - `busy_timeout=5000` — wait up to 5 s for locks instead of failing immediately
 - `cache_size=-65536` — 64 MB page cache
 - `temp_store=MEMORY` — temporary tables and indexes in memory
 
+L1 is not a complete recovery source: signed L2 snapshots and off-chain events
+cannot all be reconstructed from the chain. Clean shutdowns flush pending
+writes; operators still need backups and reliable storage.
+
 #### Async write-behind
 
-To keep persistence off the hot path, writes use an async write-behind strategy. `putEvent` encodes events eagerly to strict `ByteString` and enqueues them into a bounded `TBQueue`. A background writer thread drains the queue and batch-inserts rows using a single transaction, amortising WAL frame writes across multiple events.
+To keep persistence off the hot path, `putEvent` enqueues events in a bounded
+`TBQueue`. A background writer drains the queue, encodes the events as CBOR,
+and batch-inserts the rows in one transaction, amortising WAL writes across events.
 
 The last-seen event id is updated atomically at enqueue time (not write time), so de-duplication tracking remains correct even though the physical write is deferred. Reads via `sourceEvents` auto-flush the write queue before reading, so callers always see all enqueued events without manual synchronisation.
 
@@ -79,7 +87,7 @@ To add a new migration:
 
 ## Examples
 
-Besides the efault event source and sinks, there are two examples in the `hydra-node:examples` library:
+Besides the default event source and sinks, there are two examples in the `hydra-node:examples` library:
 
 - [`Hydra.Events.UDP`](https://github.com/cardano-scaling/hydra/blob/master/hydra-node/examples/Hydra/Events/UDP.hs): A simple UDP sink that sends all events to a UDP socket. This is a simple example of an event sink that can be used to send events to other applications or services.
 

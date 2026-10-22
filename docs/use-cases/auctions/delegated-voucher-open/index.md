@@ -5,7 +5,7 @@ sidebar_position: 2
 
 # Delegated voucher auctions (open)
 
-This is an extension of invitational auctions to enable open auctions, where bidders can freely participate without sellers' permission. Bids must be fully collateralized upon submission.
+This proposal extends invitational auctions to enable open auctions, where bidders can freely participate without sellers' permission. Bids must be fully collateralized upon submission.
 
 ## Overview
 
@@ -25,9 +25,11 @@ The workflow for each public auction proceeds as follows:
 6. **Transaction completion**. The winning bidder’s deposit and the standing bid are used to transfer the auction lot to the winner and the payment to the seller.
 7. **Deposit reclamation**. All other bidders reclaim their deposits after the bidding phase ends.
 
-## Prerequisites from Hydra technical roadmap
+## Integration requirements
 
-Currently, no specific prerequisites are anticipated, though new requirements may emerge during development.
+Implement and test the L1 deposit proofs, bid-validation rules, and recovery
+paths against a specified Hydra release. This page describes the workflow,
+not a release-tested integration.
 
 ## Remaining limitations
 

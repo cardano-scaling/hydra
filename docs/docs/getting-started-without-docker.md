@@ -17,7 +17,7 @@ All steps of this tutorial are also available in a combined [process-compose](ht
 
 ## Preparation
 
-Make sure that you have a `cardano-node`, `hydra-node` and `hydra-tui` executable in your scope. You can either
+Make sure that you have `cardano-node`, `cardano-cli`, `hydra-node`, and `hydra-tui` executables in your scope. You can either
 
 - use `nix develop .#demo` or
 - `cabal build` and `cabal exec` them (do not forget the `--` before passing further arguments).
@@ -58,7 +58,7 @@ From the `demo` folder you can use the `seed-devnet.sh` script by passing it the
 
 ```
 export CARDANO_NODE_SOCKET_PATH=devnet/node.socket
-./seed-devnet.sh $(which cardano-cli) $(which hydra-node)
+./seed-devnet.sh "$(command -v cardano-cli)" "$(command -v hydra-node)"
 ```
 
 Note, should you want to use `cabal`, pass the invocation for example like this `"cabal exec hydra-node --"`.
@@ -90,6 +90,7 @@ source .env && hydra-node \
   --cardano-verification-key devnet/credentials/bob.vk \
   --cardano-verification-key devnet/credentials/carol.vk \
   --ledger-protocol-parameters devnet/protocol-parameters.json \
+  --deposit-period 10s --deposit-activation 10s \
   --testnet-magic 42 \
   --node-socket devnet/node.socket \
   --persistence-dir devnet/persistence/alice
@@ -112,6 +113,7 @@ source .env && hydra-node \
   --cardano-verification-key devnet/credentials/alice.vk \
   --cardano-verification-key devnet/credentials/carol.vk \
   --ledger-protocol-parameters devnet/protocol-parameters.json \
+  --deposit-period 10s --deposit-activation 10s \
   --testnet-magic 42 \
   --node-socket devnet/node.socket \
   --persistence-dir devnet/persistence/bob
@@ -123,7 +125,7 @@ source .env && hydra-node \
 
 ```
 source .env && hydra-node \
-  --node-id 3 --listen 127.0.0.1:5003 --monitoring-port 6003 \
+  --node-id 3 --listen 127.0.0.1:5003 --api-port 4003 --monitoring-port 6003 \
   --peer 127.0.0.1:5001 \
   --peer 127.0.0.1:5002 \
   --hydra-signing-key carol.sk \
@@ -134,6 +136,7 @@ source .env && hydra-node \
   --cardano-verification-key devnet/credentials/alice.vk \
   --cardano-verification-key devnet/credentials/bob.vk \
   --ledger-protocol-parameters devnet/protocol-parameters.json \
+  --deposit-period 10s --deposit-activation 10s \
   --testnet-magic 42 \
   --node-socket devnet/node.socket \
   --persistence-dir devnet/persistence/carol
@@ -147,6 +150,10 @@ source .env && hydra-node \
 
 If things go well, the nodes should start logging once connected to the chain.
 
+The short deposit timings above are for this local devnet. Use the
+[default timings](./configuration.md#deposit-period) on public networks
+unless you have assessed the rollback and recovery requirements.
+
 ## Run Hydra clients
 
 Connect to the nodes using hydra-tui.
@@ -158,7 +165,7 @@ Connect to the nodes using hydra-tui.
 
 ```
 hydra-tui \
-  --connect 0.0.0.0:4001 \
+  --connect 127.0.0.1:4001 \
   --funds-signing-key devnet/credentials/alice-funds.sk \
   --fuel-key devnet/credentials/alice.vk \
   --testnet-magic 42 \
@@ -171,7 +178,7 @@ hydra-tui \
 
 ```
 hydra-tui \
-  --connect 0.0.0.0:4002 \
+  --connect 127.0.0.1:4002 \
   --funds-signing-key devnet/credentials/bob-funds.sk \
   --fuel-key devnet/credentials/bob.vk \
   --testnet-magic 42 \
@@ -184,7 +191,7 @@ hydra-tui \
 
 ```
 hydra-tui \
-  --connect 0.0.0.0:4003 \
+  --connect 127.0.0.1:4003 \
   --funds-signing-key devnet/credentials/carol-funds.sk \
   --fuel-key devnet/credentials/carol.vk \
   --testnet-magic 42 \

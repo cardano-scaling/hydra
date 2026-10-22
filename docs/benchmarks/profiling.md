@@ -4,97 +4,110 @@ sidebar_position: 10
 
 # Profiling Hydra scripts
 
-This tutorial explains how to profile Hydra scripts and is intended for contributors to the `hydra-node`.
+Start with whole-transaction costs, then use function-level traces to locate
+expensive parts of a validator. Record the repository revision, operation,
+party count, and UTxO shape so results can be reproduced.
 
-## Overview
+## Example: a five-party increment
 
-For every pull request and the latest `master` branch, we compute typical transaction costs in terms of size, memory, and CPU usage of the Hydra protocol transactions on Cardano. You can view the latest results [here](./transaction-cost.md).
+This flamegraph profiles the head validator when an increment adds a deposit
+to an open head. The fixture has five parties, one live ADA-only output, and
+one deposited ADA-only output.
 
-Such benchmarks provide a comprehensive overview of the constraints for a given transaction, including maximum transaction size and percent of maximum memory and CPU budget. For a detailed assessment, we analyze _all_ scripts that run within a given transaction.
+[![Memory-budget flamegraph for a five-party increment, showing context decoding, checkIncrement, and its validator checks.](./increment-memory.svg)](./increment-memory.svg)
 
-To gain detailed insights into _what exactly_ results in excessive memory or CPU usage, we need to profile the scripts as they validate a transaction.
+Open the image to zoom into functions or search their names. Frame widths show
+cumulative Plutus memory-budget units consumed within each call, including its
+children. They do not measure peak RAM usage or elapsed time. The graph covers
+traced calls; evaluation work outside the tracing markers is not shown.
 
-Follow the instructions provided by the [`Plutus`](https://github.com/input-output-hk/plutus) project [here](https://plutus.readthedocs.io/en/latest/howtos/profiling-scripts.html), adapted for the `hydra` codebase.
+The profile uses revision
+[`ff531feba9`](https://github.com/cardano-scaling/hydra/commit/ff531feba9265788e22b155b474ad8420a6507da),
+seed `42`, GHC `9.6.7`, Plutus `1.68.0.0`, and the fixture's cost model at protocol
+version `11`. The instrumented head validator succeeds with a total budget of
+`1,025,536,803` CPU units and `3,242,316` memory units; `3,171,452` memory units
+appear in the graph. These are instrumented fixture costs, not release fees or
+the combined cost of the head and deposit validators.
 
+## Measure transaction costs
 
-## Isolating a transaction to profile
+From the repository root, generate the current report:
 
-First, isolate the specific Cardano transaction you want to profile. For example, let's investigate what the `increment` transaction
-for `5` parties in the `tx-cost` benchmark is spending most time and memory on.
+```shell
+nix build .#tx-cost
+./result/bin/tx-cost --seed 42 --output-directory /tmp/hydra-tx-cost
+```
 
-The benchmark computes many transactions with the growing number of participants in `computeIncrementCost`:
+The [published transaction-cost report](./transaction-cost.md) measures size,
+CPU, memory, and fees for protocol transactions. Its generators and evaluation
+code are in
+[TxCost.hs](https://github.com/cardano-scaling/hydra/blob/master/hydra-node/bench/tx-cost/TxCost.hs).
+For example, isolate a five-party increment by restricting
+`computeIncrementCost` to `[5]` and removing its limit-search loop during the
+experiment. Restore the full benchmark afterward.
+
+Use the evaluation report to distinguish the cost of the head validator from
+the deposit validator. The current evaluation interface is
+[`evaluateTxWith`](pathname:///haddocks/hydra-tx/Hydra-Ledger-Cardano-Evaluate.html#v:evaluateTxWith),
+which accepts the protocol parameters, time configuration, transaction, and
+input UTxO context.
+
+## Instrument a validator
+
+For the PlutusTx head validator, enable tracing in `Hydra.Contract.Head`:
 
 ```haskell
-computeIncrementCost = do
-  interesting <- catMaybes <$> mapM compute [1, 2, 3, 5, 10, 50]
-  -- [...]
- where
-  compute numParties = do
-    (ctx, st, utxo', tx) <- genIncrementTx numParties
-    cctx <- pickChainContext ctx
-    let utxo = getKnownUTxO st <> getKnownUTxO cctx <> utxo'
-    case checkSizeAndEvaluate tx utxo of
-      -- [...]
-```
-
-Here, isolate the transaction for `5` parties by replacing the list passed to `mapM compute` with `[5]`.
-
-## Compiling a script for profiling
-
-The `increment` transaction utilizes the `vDeposit` and `vHead` validator scripts. To enable profiling, add the following directive to the modules [`Hydra.Contract.Deposit`](pathname:///haddocks/hydra-plutus/Hydra-Contract-Deposit.html) and [`Hydra.Contract.Head`](pathname:///haddocks/hydra-plutus/Hydra-Contract-Head.html):
-
-```
 {-# OPTIONS_GHC -fplugin-opt Plinth.Plugin:profile-all #-}
+{-# OPTIONS_GHC -fplugin-opt Plinth.Plugin:conservative-optimisation #-}
 ```
 
-## Acquiring an executable script
+Rebuild the scripts and the fixture that uses them. Instrumentation can change
+optimization and script size, so compare the result with uninstrumented costs.
 
-You can achieve this using
-[`prepareTxScripts`](pathname:///haddocks/hydra-tx/Hydra-Ledger-Cardano-Evaluate.html#v:prepareTxScripts).
-To acquire and save the fully applied scripts from the transaction onto disk, run:
+The deposit validator is Aiken code in `hydra-plutus/validators/deposit.ak`.
+Its Haskell module defines datum and redeemer types; Plinth flags there do not
+instrument the validator. Use the pinned Aiken toolchain's tracing facilities
+for that script, and the transaction-cost benchmark for its total budget.
 
-```haskell
--- [...]
-(ctx, st, utxo', tx) <- genIncrementTx numParties
-cctx <- pickChainContext ctx
-let utxo = getKnownUTxO st <> getKnownUTxO cctx <> utxo'
-scripts <- either die pure $ prepareTxScripts tx utxo
-forM_ (zip [1 ..] scripts) $ \(i, s) -> writeFileBS ("scripts-" <> show i <> ".flat") s
--- [...]
+## Produce a function-level profile
+
+After enabling the profiling flag, run the included
+[`ProfileIncrement.hs`](https://github.com/cardano-scaling/hydra/blob/master/docs/scripts/ProfileIncrement.hs)
+helper from the repository root in the development shell:
+
+```shell
+cabal repl hydra-node:bench:tx-cost <<'EOF'
+:set -package cardano-ledger-alonzo -package cardano-ledger-core -package cardano-ledger-binary -package plutus-core
+:load docs/scripts/ProfileIncrement.hs
+:main /tmp/increment-budget.csv
+:quit
+EOF
 ```
 
-After running the corresponding code (`tx-cost` in our example), you will have
-`scripts-{1,2,...}.flat` files in the current directory.
+The helper generates the five-party increment with seed `42`, obtains its
+arguments from the ledger, and selects the head validator by script hash. It
+checks that the validator succeeds and that the tracing evaluator agrees with
+the ledger evaluator's budget. It also joins source locations to function
+names so `traceToStacks` can parse the labels.
 
-Script sizes should help in identifying the larger `vHead` script from the smaller `vDeposit` script. In the profile, the names of original `plutus-tx` functions will be retained, which should make it clear at the latest.
+Install `traceToStacks` from the same Plutus release as the checkout and
+[FlameGraph](https://github.com/brendangregg/FlameGraph)'s `flamegraph.pl`.
+The example uses Plutus `1.68.0.0` and FlameGraph `2023-11-06`. With both tools
+on your `PATH`, render the memory graph:
 
-## Running the script and analyzing the results
-
-To perform this step, use the following tools available through Nix:
-
-```
-nix shell nixpkgs#flamegraph github:input-output-hk/plutus#x86_64-linux.plutus.library.plutus-project-924.hsPkgs.plutus-core.components.exes.traceToStacks github:input-output-hk/plutus#x86_64-linux.plutus.library.plutus-project-924.hsPkgs.plutus-core.components.exes.uplc
-```
-
-To produce the profile log as explained above, you need to use a different input format since `prepareTxScripts` retains the original name annotations.
-
-```
-uplc evaluate -t -i scripts-1.flat --if flat-namedDeBruijn --trace-mode LogsWithBudgets -o logs
-```
-
-Check for a `logs` file output. If not present, ensure the script was compiled with profiling enabled as specified.
-
-Finally, you can inspect the logs or generate flame graph SVGs as outlined in the original tutorial:
-
-```
-cat logs | traceToStacks | flamegraph.pl > cpu.svg
-cat logs | traceToStacks --column 2 | flamegraph.pl > mem.svg
+```shell
+traceToStacks --column 2 < /tmp/increment-budget.csv > /tmp/increment-memory.folded
+flamegraph.pl \
+  --title 'Increment: Head validator memory budget' \
+  --subtitle '5 parties | 1 live output + 1 deposited output | seed 42' \
+  --countname 'memory units' \
+  --fonttype 'Arial, Helvetica, sans-serif' \
+  --colors hot --bgcolors '#ffffff' \
+  --height 22 --fontsize 13 --width 1200 \
+  /tmp/increment-memory.folded > /tmp/increment-memory.svg
 ```
 
-Here's an example of a memory profile for a `5` party `collectCom` (kept as a historical illustration; the `collectCom` transaction itself has been removed since [ADR-33](/adr/33)):
-
-![](profile-mem.svg)
-
-:::tip
-Open the SVG in a browser to interactively search and explore the profile in detail.
-:::
+Use `--column 1` with `traceToStacks` to plot CPU units instead, and update the
+graph's title and `--countname` accordingly. Regenerate graphs when the fixture,
+contracts, or compiler changes, and remove the profiling flag after the
+experiment.

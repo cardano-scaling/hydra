@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="560" height="562" viewBox="0 0 560 562" role="img" aria-labelledby="title description">
+  <title id="title">Deposit recovery</title>
+  <desc id="description">Successful recovery after the deposit deadline, completing within the HTTP timeout. The client sends DELETE /commits/&lt;tx-id&gt; to a node tracking the deposit. The node submits recoverTx and emits the CommitRecovered WebSocket event when it observes recovery. The HTTP request returns 200 with OK. If the wait times out first, it instead returns 202 with RecoverSubmitted. Recovery recreates the deposited outputs on L1; it is blocked while a rolled-back finalized increment still backs an open head.</desc>
+  <!-- Maintained directly as SVG; see docs/README.md for the shared diagram style. -->
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 1 1 L 9 5 L 1 9" fill="none" stroke="#527b76" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <style>
+      text { font-family: Arial, Helvetica, sans-serif; }
+      .step { font-size: 18px; font-weight: 600; fill: #194d46; }
+      .body { font-size: 16px; fill: #415955; }
+      .label { font-size: 14px; fill: #526761; }
+      .message { font-size: 16px; fill: #415955; paint-order: stroke; stroke: #fff; stroke-width: 5px; stroke-linejoin: round; }
+      .path { fill: none; stroke: #527b76; stroke-width: 1.8; marker-end: url(#arrow); }
+      .response { stroke-dasharray: 6 4; }
+      .guide { fill: none; stroke: #b5d0c9; stroke-width: 1.2; stroke-dasharray: 5 6; }
+      .card { fill: #f0f7f5; stroke: #b5d0c9; stroke-width: 1.2; }
+      .accent { fill: #e0eee9; stroke: #8fb8ac; stroke-width: 1.2; }
+    </style>
+  </defs>
+  <rect width="560" height="562" rx="12" fill="#fff"/>
+  <path d="M 88 64 V 534" class="guide"/>
+  <g>
+    <rect x="24" y="16" width="128" height="48" rx="10" class="card"/>
+  <text x="88.0" y="46.0" text-anchor="middle" class="step">Client</text>
+  </g>
+  <path d="M 280 64 V 534" class="guide"/>
+  <g>
+    <rect x="216" y="16" width="128" height="48" rx="10" class="card"/>
+  <text x="280.0" y="46.0" text-anchor="middle" class="step">Node</text>
+  </g>
+  <path d="M 472 64 V 534" class="guide"/>
+  <g>
+    <rect x="408" y="16" width="128" height="48" rx="10" class="card"/>
+  <text x="472.0" y="46.0" text-anchor="middle" class="step">Cardano L1</text>
+  </g>
+  <g>
+    <rect x="24" y="94" width="512" height="48" rx="10" class="card"/>
+  <text x="280.0" y="124.0" text-anchor="middle" class="body">After the deposit deadline</text>
+  </g>
+  <path d="M 88 218 H 280" class="path"/>
+  <text x="184.0" y="184" text-anchor="middle" class="message">DELETE</text>
+  <text x="184.0" y="206" text-anchor="middle" class="message">/commits/&lt;tx-id&gt;</text>
+  <path d="M 280 278 H 472" class="path"/>
+  <text x="376.0" y="266" text-anchor="middle" class="message">Submit recoverTx</text>
+  <path d="M 472 338 H 280" class="path response"/>
+  <text x="376.0" y="326" text-anchor="middle" class="message">Observe recoverTx</text>
+  <path d="M 280 398 H 88" class="path response"/>
+  <text x="184.0" y="386" text-anchor="middle" class="message">CommitRecovered</text>
+  <path d="M 280 458 H 88" class="path response"/>
+  <text x="184.0" y="446" text-anchor="middle" class="message">HTTP 200: &quot;OK&quot;</text>
+  <g>
+    <rect x="24" y="488" width="512" height="58" rx="10" class="accent"/>
+  <text x="280.0" y="523.0" text-anchor="middle" class="body">Deposited outputs are recreated on L1.</text>
+  </g>
+</svg>

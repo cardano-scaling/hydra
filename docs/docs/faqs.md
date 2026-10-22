@@ -16,9 +16,9 @@ foundation on which to build out further scalability.
 <summary>When Hydra?</summary>
 
 The project is available on all Cardano networks (including mainnet), and
-releases with new features become available every four to six weeks. The
-roadmap is publicly available on <a
-href="https://github.com/orgs/input-output-hk/projects/21/views/25">GitHub.</a>
+[release notes](https://github.com/cardano-scaling/hydra/releases) describe
+the features and compatibility requirements of each version. Track ongoing
+work in the [repository](https://github.com/cardano-scaling/hydra/issues).
 
 </details>
 
@@ -36,10 +36,14 @@ more in this blog post.</a>
 <details>
 <summary>Is the Hydra Head protocol secure?</summary>
 
-Absolutely. Hydra protocols were born out of IOG research, got peer-reviewed,
-and are implemented using test-driven development. The Hydra Head protocol
-is a true layer 2 and can fall back directly onto the Cardano layer 1 –
-hence inheriting the security model of the Cardano blockchain.
+Hydra is based on peer-reviewed research and tested implementations, but its
+security depends on operational and protocol assumptions. An honest party
+must retain signed snapshots and observe L1 in time to contest an outdated
+close. Progress requires all parties to sign. Deposits rely on Cardano
+settlement assumptions, and partial fanout uses a
+[KZG trusted setup](./dev/architecture/partial-fanout.md#trusted-setup).
+Review the [known limitations](./known-issues.md) and
+[operating guidance](./how-to/operating-hydra.md) before using a head.
 
 </details>
 
@@ -89,7 +93,7 @@ This security is backed by the possibility of settling disputes on layer 1.
 <details>
 <summary>Can I run Plutus scripts inside a head?</summary>
 
-Yes! Transactions running between head participants are fully developed Alonzo
+Yes! Transactions running between head participants are Conway
 transactions. They carry scripts and spend UTXOs in the same manner as layer 1
 transactions. Each Hydra node runs a Cardano ledger and maintains a ledger
 state.
@@ -99,24 +103,21 @@ state.
 <details>
 <summary>Can a third party run a Hydra node on behalf of wallet owners (eg, running managed Hydra heads)?</summary>
 
-Totally! This is similar to [Phoenix](https://phoenix.acinq.co/) in Bitcoin
-Lightning: a non-custodial managed lightning node. As an end-user, you retain
-full control over your keys and funds, but the underlying infrastructure is
-managed on your behalf (with associated fees). However, this setup requires
-some level of trust in the service provider to handle contestations and head
-closures properly.
+A provider can host nodes, but custody and availability depend on who holds
+the Hydra signing keys and who monitors L1. The current node signs snapshots
+locally; a service with client-held snapshot keys needs additional signing
+infrastructure. See [managed heads](/topologies/managed) for the proposal and
+[delegated heads](/topologies/delegated-head) for a different operating model.
 </details>
 
 <details>
 <summary>What is the relationship between Hydra heads and Hydra nodes?</summary>
 
-It is (at least\*) a **one-to-many** relationship. Each Hydra head consists of
-several Hydra nodes. We currently aim for up to 100 nodes per head as a
-stretch goal. Heads are independent and form isolated networks, allowing for
-infinitely many heads to run in parallel.
-
-_(\*) It is possible for Hydra nodes to support multiple heads, creating a
-many-to-many relationship._
+Each `hydra-node` process manages one active head. A head has up to 29
+parties; mirrors can run additional instances of an existing party. Multiple
+heads run independently, with separate node processes and funding. A service
+can host several such processes, but this does not provide built-in routing
+or atomic transfers between heads.
 
 </details>
 
@@ -161,7 +162,7 @@ If UTXOs are snapshotted on layer 2, they must be fanned out on layer 1
 
 ### Examples
 
-1. **Minimum UTXO value (`minUTxOValue = 0`)**:
+1. **Minimum ADA per output (`utxoCostPerByte = 0`)**:
    - Outputs with no 'ada' on layer 2 would be disallowed on layer 1,
    preventing their fanout. This restriction makes direct fanout impossible
    for such outputs. Even using [partial fanout](./dev/architecture/partial-fanout.md) would not
@@ -172,9 +173,8 @@ If UTXOs are snapshotted on layer 2, they must be fanned out on layer 1
    can still be fanned out but will become unspendable due to exceeding the
    allowable execution limits on layer 1.
 
-**Remember**, with great power comes great responsibility. It is crucial to
-carefully manage and align the layer 1 and layer 2 settings to ensure seamless
-operability and avoid unintended consequences in transaction processing.
+Use the [ledger parameter guidance](./configuration.md#ledger-parameters) to
+keep outputs compatible with L1, including sufficient space for fanout overhead.
 
 </details>
 

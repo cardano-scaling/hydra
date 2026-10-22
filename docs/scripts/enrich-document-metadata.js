@@ -38,7 +38,7 @@ const Utils = {
             // parts[3] is the version - we don't need it
             docKey = docKey + parts.slice(4).join("/")
         }
-        docKey = docKey.replace('.md', '').replace('/index', '')
+        docKey = docKey.replace(/\.mdx?$/, '').replace('/index', '')
 
         // NOTE: This assumes the file name include the adr number and that this
         // is consistent with the slug used for serving the page later
@@ -82,7 +82,7 @@ const Utils = {
 
 async function main() {
 
-    Utils.getItems("**/*.md", { "ignore": ['**/node_modules/**', 'README.md'] })
+    Utils.getItems("**/*.{md,mdx}", { "ignore": ['**/node_modules/**', 'README.md'] })
         .then(docs => {
             const docsMetadata = docs.map(Utils.getDocsMetadataJson)
             Promise

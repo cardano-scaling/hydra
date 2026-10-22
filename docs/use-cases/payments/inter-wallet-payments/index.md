@@ -4,7 +4,9 @@ Inter-wallet payments is a (semi-)custodial peer-to-peer (P2P) payment service t
 
 :::caution This is a legacy article
 
-The payments category will be restructured into a more consistent use-case-centric roadmap of application scenarios.
+This is an application proposal, not a release-tested integration. Verify the
+operator trust model, deposit finalization, and withdrawal guarantees before
+implementing it.
 :::
 
 A Hydra head has participant limitations, which makes developing a large-scale P2P payment solution complex when each peer is directly involved as a member of the head. While the long-term roadmap includes potential solutions like routing and networks of heads (referenced in [Interhead Hydra: Two Heads Are Better Than One](https://eprint.iacr.org/2021/1188) by Jourenko et al), intermediate solutions may involve trusted parties such as light wallet providers, supplemented by on-chain smart contracts to minimize trust requirements.

@@ -2,246 +2,135 @@
 sidebar_position: 2
 ---
 
-# Deposit a Script UTxO into a Head
+# Deposit a script UTxO
 
-This guide provides a walkthrough on how to deposit a UTxO from a script into a Hydra Head.
-
-A **Script UTxO** is a special kind of Unspent Transaction Output (UTxO) that isn't controlled by a simple private key. Instead, it is locked by a script - a small program that runs on the blockchain. To spend the funds in a Script UTxO, you must provide data (a "redeemer" and "datum") that satisfies the conditions defined in that script.
-
-Depositing a script UTxO into a Hydra Head is a powerful feature that allows for more complex on-chain validation logic to be brought into the Head. This is useful for scenarios where you need to enforce specific rules on how funds can be spent, even within the Head's off-chain environment.
-
-This tutorial will guide you through the entire process, which involves creating a script, locking an on-chain UTxO with it, and then preparing a special "blueprint" transaction to deposit this script UTxO into an open Head.
+This example deposits an output while preserving its script address and datum
+inside the head. It uses an always-succeeding script on **preprod only**;
+anyone can spend funds locked by this example script. For application-specific
+checks, see [deposit from a dApp](./best-practise-dapp.md).
 
 ## Prerequisites
 
-This tutorial assumes you are familiar with the process of depositing a standard UTxO into a Hydra Head. If you are not, please first read the [Deposit using a blueprint](./commit-blueprint.md) tutorial.
-
-You will also need:
-
-- A running `cardano-node` connected to a testnet.
-- `cardano-cli` in your `PATH`.
-- `hydra-node` and `hydra-tui` in your `PATH`.
-
-## Step 1: Set Up Your Environment
-
-To avoid specifying the network identifier and the path to the node's socket in every command, you can set the following environment variables in your shell. Make sure to replace the values with the ones that are appropriate for your setup (e.g., for the pre-production testnet, the magic is `1`).
+Complete the [testnet tutorial](../tutorial/index.md) through opening a head.
+Keep that node running with fuel available. Use the same working directory,
+Alice's funded wallet, `cardano-cli`, `jq`, and `curl`.
 
 ```shell
-export CARDANO_NODE_SOCKET_PATH=<path-to>/node.socket
-export CARDANO_TESTNET_MAGIC=1
-export CREDENTIALS_PATH=hydra-cluster/config/credentials
+export CARDANO_NODE_SOCKET_PATH="$PWD/node.socket"
+export CARDANO_NODE_NETWORK_ID=1
+export HYDRA_API=http://127.0.0.1:4001
+WALLET_ADDR=$(cat credentials/alice-funds.addr)
+cardano-cli query protocol-parameters --out-file l1-protocol-parameters.json
 ```
 
-## Step 2: Create the script
+## Create and fund the script output
 
-For this tutorial, we will use a simple "always true" validator script. This script will always succeed, regardless of the redeemer or datum.
-
-Create a file named `always-true.plutus` with the following content:
+Save this script as `always-true.plutus`:
 
 ```json
 {
-    "type": "PlutusScriptV2",
-    "description": "Always true validator",
-    "cborHex": "49480100002221200101"
+  "type": "PlutusScriptV2",
+  "description": "Always succeeds: test funds only",
+  "cborHex": "49480100002221200101"
 }
 ```
 
-## Step 3: Create the script address
-
-Now, we need to create an address for this script. We can do this using `cardano-cli`:
+Create its address and select an ADA-only funding input with enough value for
+the 10 ADA output, transaction fees, and change:
 
 ```shell
 cardano-cli address build \
   --payment-script-file always-true.plutus \
-  --testnet-magic $CARDANO_TESTNET_MAGIC \
-  --out-file script.addr
-```
+  --testnet-magic 1 --out-file script.addr
+SCRIPT_ADDR=$(cat script.addr)
+cardano-cli query utxo --address "$WALLET_ADDR" --out-file wallet-utxo.json
+FUNDING_INPUT=$(jq -er 'to_entries | map(select((.value.value | keys) == ["lovelace"] and .value.value.lovelace >= 15000000)) | .[0].key // error("Need at least 15 ADA")' wallet-utxo.json)
 
-This will create a file named `script.addr` containing the script address. You can inspect the address using `cat`:
-
-```shell
-cat script.addr
-```
-
-## Step 4: Lock funds in the script address
-
-Before we can deposit a script UTxO, we need to create one. This is done by sending funds to the script address.
-
-First, we need a UTxO in a wallet to fund the transaction. The following command will find the first available UTxO in a wallet funded by `alice-funds.sk`, and export its transaction input (`TxIn`) to an environment variable.
-
-```shell
-export UTXO_TXIX=$(cardano-cli query utxo --address $(cardano-cli address build --payment-verification-key-file ${CREDENTIALS_PATH}/alice-funds.vk --testnet-magic $CARDANO_TESTNET_MAGIC) --testnet-magic $CARDANO_TESTNET_MAGIC --output-json | jq -r 'keys[0]')
-echo "Captured funding UTxO TxIn: $UTXO_TXIX"
-```
-
-Now that we have a funding UTxO, we can build the transaction to lock 10 ADA at the script address.
-
-First, create a file named `datum.json` that contains the datum. For this example, we will just use the integer `42`.
-
-```json
-{
-    "constructor": 0,
-    "fields": [
-        {
-            "int": 42
-        }
-    ]
-}
-```
-
-Now, build the transaction:
-
-```shell
 cardano-cli conway transaction build \
-  --tx-in $UTXO_TXIX \
-  --tx-out $(cat script.addr)+10000000 \
-  --tx-out-inline-datum-file datum.json \
-  --change-address $(cardano-cli address build --payment-verification-key-file ${CREDENTIALS_PATH}/alice-funds.vk --testnet-magic $CARDANO_TESTNET_MAGIC) \
-  --testnet-magic $CARDANO_TESTNET_MAGIC \
-  --out-file tx.raw
-```
-
-Note that we are also providing an inline datum via the `datum.json` file. Even though our script does not use it, a datum is required for all script UTxOs.
-
-Now, sign and submit the transaction:
-
-```shell
+  --tx-in "$FUNDING_INPUT" \
+  --tx-out "$SCRIPT_ADDR+10000000" \
+  --tx-out-inline-datum-value 42 \
+  --change-address "$WALLET_ADDR" \
+  --out-file lock.json
 cardano-cli conway transaction sign \
-  --tx-body-file tx.raw \
-  --signing-key-file ${CREDENTIALS_PATH}/alice-funds.sk \
-  --out-file tx.signed
-
-cardano-cli conway transaction submit \
-  --tx-file tx.signed \
-  --testnet-magic $CARDANO_TESTNET_MAGIC
+  --tx-file lock.json \
+  --signing-key-file credentials/alice-funds.sk \
+  --out-file lock-signed.json
+cardano-cli conway transaction submit --tx-file lock-signed.json
+LOCK_TX_ID=$(cardano-cli conway transaction txid --tx-file lock-signed.json | jq -er .txhash)
 ```
 
-Once the transaction is confirmed, you can query the script address to find the transaction input (`TxIn`) of the script UTxO we just created.
+Wait until the following query returns the script output. Selecting its exact
+reference avoids accidentally using another person's output at this shared
+script address.
 
 ```shell
-export SCRIPT_UTXO_TXIX=$(cardano-cli query utxo --address $(cat script.addr) --testnet-magic $CARDANO_TESTNET_MAGIC --output-json | jq -r 'keys[0]')
-echo "Captured script UTxO TxIn: $SCRIPT_UTXO_TXIX"
+SCRIPT_INPUT="$LOCK_TX_ID#0"
+cardano-cli query utxo --tx-in "$SCRIPT_INPUT" --out-file script-utxo.json
+jq -e --arg input "$SCRIPT_INPUT" 'has($input)' script-utxo.json
 ```
 
-## Step 5: Prepare the Blueprint
+## Prepare the blueprint
 
-Now we are ready to prepare the deposit. We will create a blueprint transaction that spends the script UTxO. Note that this transaction is not meant to be signed and submitted to the Cardano network. It is just a blueprint that we will send to the `hydra-node` to get a properly drafted deposit transaction.
-
-We use `cardano-cli ... build-raw` to construct this blueprint because it gives us full control over the transaction structure without trying to automatically balance it or calculate fees, which is perfect for a blueprint.
-
-For a script UTxO, the blueprint only needs to declare the script UTxO as an input. The `hydra-node` will use this, along with the UTxO context provided in the next step, to build the full commit transaction.
+The blueprint includes the script witness, datum reference, redeemer, and an
+execution budget. It has no outputs, so the node records the supplied UTxO
+with its existing address, value, datum, and reference.
 
 ```shell
 cardano-cli conway transaction build-raw \
-  --tx-in $SCRIPT_UTXO_TXIX \
+  --tx-in "$SCRIPT_INPUT" \
   --tx-in-script-file always-true.plutus \
   --tx-in-inline-datum-present \
   --tx-in-redeemer-value 42 \
   --tx-in-execution-units '(1000000, 100000)' \
-  --tx-out $(cardano-cli address build --payment-verification-key-file ${CREDENTIALS_PATH}/alice-funds.vk --testnet-magic $CARDANO_TESTNET_MAGIC)+10000000 \
+  --protocol-params-file l1-protocol-parameters.json \
   --fee 0 \
-  --out-file tx.json
-```
+  --out-file script-blueprint.json
 
-A real-world script, like one written in [Aiken](https://aiken-lang.org/), would use the datum to carry state and the redeemer to provide input for validation. Our "always-true" script doesn't actually check any of these, but they are still required fields for a valid transaction that spends a script UTxO. Note that we use `--tx-in-inline-datum-present` because the datum was already included on-chain when we created the script UTxO. We also provide `--tx-in-execution-units`. This is required for any script spend to tell the network how much computational resource to budget for the script's execution. Since our script does nothing, we can use `(0, 0)`.
-
-## Step 6: Deposit the script UTxO 
-
-This final step brings everything together. We will start a `hydra-node`, initialize a Head, and then send our blueprint and UTxO context to the `POST /commit` endpoint.
-
-**1. Start the Hydra Node and TUI**
-
-In a **new terminal**, start a single-party `hydra-node`.
-```shell
-hydra-node \
-  --node-id 1 \
-  --api-port 4001 \
-  --hydra-signing-key ${CREDENTIALS_PATH}/../alice.sk \
-  --cardano-signing-key ${CREDENTIALS_PATH}/alice.sk \
-  --ledger-protocol-parameters devnet/protocol-parameters.json \
-  --testnet-magic $CARDANO_TESTNET_MAGIC \
-  --node-socket $CARDANO_NODE_SOCKET_PATH
-```
-
-In another **new terminal**, start the `hydra-tui`.
-```shell
-hydra-tui \
-  --connect 0.0.0.0:4001 \
-  --funds-signing-key ${CREDENTIALS_PATH}/alice-funds.sk
-```
-In the TUI, press `i` to initialize the Head. The head opens immediately. You can quit the TUI (`q`) and proceed.
-
-**2. Send the Deposit Request**
-
-Now, we will build the deposit request. This request contains two parts: the `utxo` context (which must include the script) and the `blueprintTx` (which provides the witness information).
-
-```shell
-# Set variables
-BLUEPRINT_JSON=$(cat tx.json)
-UTXO_JSON=$(cardano-cli query utxo --tx-in ${SCRIPT_UTXO_TXIX} --testnet-magic $CARDANO_TESTNET_MAGIC --output-json)
-
-# Create the request body
 jq -n \
-  --argjson utxo "${UTXO_JSON}" \
-  --argjson blueprintTx "${BLUEPRINT_JSON}" \
-  '{ "utxo": $utxo, "blueprintTx": $blueprintTx }' \
-  > commit-request.json
+  --slurpfile blueprint script-blueprint.json \
+  --slurpfile utxo script-utxo.json \
+  '{blueprintTx: $blueprint[0], utxo: $utxo[0]}' \
+  > script-commit-request.json
 ```
 
-Now, use `curl` to send the request to the `hydra-node`, which will respond with a drafted deposit transaction:
+`build-raw` constructs a transaction; it does not evaluate its scripts. The
+node evaluates and balances the actual deposit transaction. For a different
+script, supply its required datum, redeemer, signers, reference inputs, and
+input context. Use explicit blueprint outputs when supplying reference-input
+context, because a blueprint without outputs deposits the entire supplied
+UTxO map. Even an always-succeeding script consumes execution resources.
+
+If you supply explicit blueprint outputs, those outputs define ownership on
+L2. Paying them to a key address releases them from the script. Do not include reference
+scripts in the deposited outputs: the node cannot reconstruct them from the
+deposit encoding. Publish them separately on L2 if needed.
+
+## Submit the deposit
+
+Open a WebSocket connection before submitting to observe the lifecycle:
 
 ```shell
-curl -X POST --data @commit-request.json http://127.0.0.1:4001/commit > commit-tx.json
+websocat 'ws://127.0.0.1:4001?history=no'
 ```
 
-**3. Sign and Submit**
-
-This is the final step. The `commit-tx.json` file now contains a valid, balanced deposit transaction drafted by the `hydra-node`. Sign it with your funds key and submit it.
+In the original terminal, request the draft and add any client witness while
+preserving the node's existing witness:
 
 ```shell
+curl --fail-with-body -sS "$HYDRA_API/commit" \
+  -H 'Content-Type: application/json' \
+  --data-binary @script-commit-request.json \
+  > script-deposit.json
 cardano-cli conway transaction sign \
-  --tx-body-file commit-tx.json \
-  --signing-key-file ${CREDENTIALS_PATH}/alice-funds.sk \
-  --signing-key-file ${CREDENTIALS_PATH}/alice.sk \
-  --out-file signed-tx.json
-
-cardano-cli conway transaction submit \
-  --tx-file signed-tx.json \
-  --testnet-magic $CARDANO_TESTNET_MAGIC
+  --tx-file script-deposit.json \
+  --signing-key-file credentials/alice-funds.sk \
+  --out-file script-deposit-signed.json
+cardano-cli conway transaction submit --tx-file script-deposit-signed.json
 ```
 
-And that's it! After the transaction is confirmed on-chain, your script UTxO will be deposited into the Head.
-
-## Bonus: Experimenting with a Failing Script
-
-It can be very insightful to see what happens when a script validator fails. To demonstrate this, you can create an "always false" validator and see how `cardano-cli`'s local validation prevents you from even building a transaction that uses it.
-
-**1. Create the `always-false.plutus` script**
-
-Create a new file named `always-false.plutus` with the following content. This is a valid Plutus script that is guaranteed to fail validation.
-
-```json
-{
-    "type": "PlutusScriptV2",
-    "description": "Always false validator",
-    "cborHex": "49480100002221200100"
-}
-```
-
-**2. Lock funds with the failing script**
-
-Follow the same steps as in **Step 3** and **Step 4** of the main tutorial, but use `always-false.plutus` instead of `always-true.plutus` to create a new script address and lock a new UTxO in it.
-
-**3. Attempt to build a blueprint**
-
-Now, try to run the `build-raw` command from **Step 5** using the UTxO locked by the failing script.
-
-**Expected Result: Failure**
-
-You will find that the `cardano-cli conway transaction build-raw` command itself will fail. It will produce an error message similar to this:
-
-```shell
-Command failed: transaction build-raw  Error: A script in the transaction has failed.
-```
-
-This is a powerful feature of `cardano-cli`. It evaluates the scripts locally *before* creating the transaction. By catching the script failure at this early stage, it prevents you from submitting a transaction that would be guaranteed to fail on the blockchain, saving you time and the transaction fees.
+Wait for `CommitFinalized`, then inspect `GET /snapshot/utxo`. The deposited
+output should still have the script address and datum `42`. Submission and
+`CommitRecorded` precede activation and settlement; they do not make the
+output spendable on L2. See [deposit timing](../configuration.md#deposit-activation)
+and [recovery](./incremental-commit.md#recover-a-deposit).

@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="560" height="666" viewBox="0 0 560 666" role="img" aria-labelledby="title description">
+  <title id="title">Independent two-party heads around a service</title>
+  <desc id="description">Alice and Bob each run a head with a separate node at the same service. Each head confirms its own snapshots and settles separately on Cardano. The service coordinates applications across its nodes; cross-head routing and atomic transfers require an application protocol.</desc>
+  <!-- Maintained directly as SVG; see docs/README.md for the shared diagram style. -->
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 1 1 L 9 5 L 1 9" fill="none" stroke="#527b76" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <style>
+      text { font-family: Arial, Helvetica, sans-serif; }
+      .heading { font-size: 20px; font-weight: 600; fill: #194d46; }
+      .step { font-size: 18px; font-weight: 600; fill: #194d46; }
+      .body { font-size: 16px; fill: #415955; }
+      .label { font-size: 15px; fill: #526761; }
+      .detail { font-size: 14px; fill: #526761; }
+      .message { font-size: 16px; fill: #415955; paint-order: stroke; stroke: #fff; stroke-width: 5px; stroke-linejoin: round; }
+      .path { fill: none; stroke: #527b76; stroke-width: 1.8; marker-end: url(#arrow); }
+      .line { fill: none; stroke: #527b76; stroke-width: 1.8; }
+      .guide { fill: none; stroke: #b5d0c9; stroke-width: 1.2; stroke-dasharray: 5 6; }
+      .card { fill: #f0f7f5; stroke: #b5d0c9; stroke-width: 1.2; }
+      .group { fill: #fff; stroke: #b5d0c9; stroke-width: 1.2; }
+      .accent { fill: #e0eee9; stroke: #8fb8ac; stroke-width: 1.2; }
+    </style>
+  </defs>
+  <rect width="560" height="666" rx="12" fill="#fff"/>
+  <rect x="32" y="16" width="224" height="76" rx="12" class="card"/>
+  <text x="144.0" y="49.5" text-anchor="middle" class="heading">Alice</text>
+  <text x="144.0" y="75.5" text-anchor="middle" class="body">Node for Head A</text>
+  <rect x="304" y="16" width="224" height="76" rx="12" class="card"/>
+  <text x="416.0" y="49.5" text-anchor="middle" class="heading">Bob</text>
+  <text x="416.0" y="75.5" text-anchor="middle" class="body">Node for Head B</text>
+  <rect x="16" y="178" width="528" height="248" rx="12" class="group"/>
+  <text x="36" y="207" text-anchor="start" class="step">Service</text>
+  <path d="M 144 98 V 226" class="path" marker-start="url(#arrow)"/>
+  <text x="144" y="152" text-anchor="middle" class="message">Head A snapshots</text>
+  <path d="M 416 98 V 226" class="path" marker-start="url(#arrow)"/>
+  <text x="416" y="152" text-anchor="middle" class="message">Head B snapshots</text>
+  <rect x="32" y="232" width="224" height="70" rx="12" class="card"/>
+  <text x="144.0" y="273.0" text-anchor="middle" class="step">Node for Head A</text>
+  <rect x="304" y="232" width="224" height="70" rx="12" class="card"/>
+  <text x="416.0" y="273.0" text-anchor="middle" class="step">Node for Head B</text>
+  <path d="M 144 308 V 328 H 208 V 342" class="path" marker-start="url(#arrow)"/>
+  <path d="M 416 308 V 328 H 352 V 342" class="path" marker-start="url(#arrow)"/>
+  <rect x="128" y="348" width="304" height="56" rx="12" class="card"/>
+  <text x="280.0" y="382.0" text-anchor="middle" class="step">Application coordination</text>
+  <path d="M 32 267 H 8 V 516 H 122" class="path"/>
+  <path d="M 528 267 H 552 V 516 H 438" class="path"/>
+  <rect x="128" y="478" width="304" height="76" rx="12" class="card"/>
+  <text x="280.0" y="511.5" text-anchor="middle" class="heading">Cardano L1</text>
+  <text x="280.0" y="537.5" text-anchor="middle" class="body">Separate funding and settlement</text>
+  <rect x="24" y="586" width="512" height="64" rx="12" class="card"/>
+  <text x="280" y="612.5" text-anchor="middle" class="body">Cross-head routing and atomic transfers</text>
+  <text x="280" y="633.5" text-anchor="middle" class="body">require an application protocol.</text>
+</svg>
