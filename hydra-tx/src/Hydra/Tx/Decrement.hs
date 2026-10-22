@@ -137,7 +137,7 @@ observeDecrementTx utxo tx = do
               { headId
               , newVersion = fromChainSnapshotVersion version
               , distributedUTxO =
-                  let inputs = txIns' tx
+                  let inputs = mkTxIn tx <$> [1 ..]
                       outputs =
                         toCtxUTxOTxOut <$> txOuts' tx
                           & drop 1 -- NOTE: Head output must be in first position
