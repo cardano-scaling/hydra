@@ -16,7 +16,7 @@
 
 
 <script src="https://plausible.io/js/script.js" defer="defer" data-domain="hydra.family"></script><link rel="stylesheet" href="/head-protocol/unstable/assets/css/styles.91b2ba67.css">
-<script src="/head-protocol/unstable/assets/js/runtime~main.7cd5947e.js" defer="defer"></script>
+<script src="/head-protocol/unstable/assets/js/runtime~main.95ee0229.js" defer="defer"></script>
 <script src="/head-protocol/unstable/assets/js/main.07190c0b.js" defer="defer"></script>
 </head>
 <body class="navigation-with-keyboard">
@@ -51,6 +51,11 @@ for the authoring details.</p>
 the reachability invariant, no-settlement-without-unanimity) and the
 on-chain coverage/safety theorems (non-stuckness, value conservation,
 bounded contest window) are closed Agda proofs over the abstract model.
+The solvency invariant covers every close and contest redeemer, including
+<code>CloseUsed</code> / <code>ContestUsed</code> through the signed applied accumulator. Full
+fan-out pays exactly the owed set. A separate final-partial-fan-out theorem
+proves that the final batch pays the whole remaining committed set;
+intermediate partial fan-out steps remain outside the solvency relation.
 Multisignature unforgeability is <em>derived</em> from per-signature EUF-CMA plus
 the aggregation scheme&#x27;s decomposition, not assumed monolithically.</p>
 </li>
@@ -60,6 +65,11 @@ crypto primitives (hashing, the multisignature verifier, the <code>Value</code>
 algebra), the accumulator laws (the KZG construction itself is not
 modelled), a small set of on-chain &quot;search&quot; postulates over the opaque
 value/key models, and the honest-behaviour premises of the security model.
+The accumulator laws fix the full-set witness to the empty-set commitment
+and require verified membership with that witness to distribute the whole
+set, modelling H72/H73. Solvency also assumes honest construction of both
+signed owed sets and per-step L2 value preservation; deriving these facts
+from the off-chain ledger laws remains outside the proof.
 The PDF appendix section <strong>&quot;What the formalisation assumes&quot;</strong> inventories
 all of it; the reading rule is that <code>postulate</code> means assumption, everything
 else is proved.</p>
@@ -84,7 +94,7 @@ all while still type-checking;</li>
 friends, <code>primTrustMe</code>, <code>REWRITE</code>, and the <code>OPTIONS</code> flags that switch off
 termination, positivity or coverage checking. Agda&#x27;s own <code>--safe</code> would be
 the obvious tool and is unavailable, because <code>--safe</code> <em>bans postulates</em> and
-this specification rests on 63 of them by design (and <code>--safe</code> is contagious
+this specification rests on 65 of them by design (and <code>--safe</code> is contagious
 through imports, so nothing downstream of <code>Prelude</code> could carry it). The
 enumerated list buys the same protection.</li>
 </ul>
