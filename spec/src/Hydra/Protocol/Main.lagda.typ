@@ -158,8 +158,11 @@ The trust base, in five families:
   projections (`adaOf`, `nonAdaOf`, `quantityOf`, `stQty`, `headTokenCount`);
   the off-chain ledger `applyTxs` with its nil and compositionality laws (@sec:offchain).
 - *Accumulator laws* (@sec:on-chain): `accUTxO`/`accVerify`/`accVerifyExclude`
-  with the specifying laws `accUTxO-∅`, `accVerify-sound`/`-complete`/`-self`
-  and `setSize`; the KZG construction itself is not modelled.
+  with the specifying laws `accUTxO-∅`, `accVerify-sound`, `accVerify-full`
+  (the full set verifies with `emptyWitness`) and `accVerify-complete`
+  (a verified empty witness implies full distribution), plus `setSize`.
+  `emptyWitness` represents the empty-set commitment at the abstract witness
+  type, and `accVerify-self` is derived; the KZG construction itself is not modelled.
 - *On-chain search postulates* (@sec:on-chain): `burnedValue`, `burnedCount`,
   `mintedCount`, `μHead`, `signerKeyHash` - witnesses over the opaque value and
   key-set models - plus the context lookups the `Context` model does not expose:

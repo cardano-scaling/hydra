@@ -242,8 +242,9 @@ contestValuePreserved→ref ctx cid hk n cp v s η C tfin ada s′ η′ kh tfin
 
 -- ── fanout / finalPartialFanout ───────────────────────────────────────────────────────────────
 -- `burnedCount == n+1` from `burnAllTokensOK` (via `==-sound`); `tfinal < lo` (posted after the
--- deadline) from `afterDeadline` (via `<ᴮ-sound`). The accumulator-membership and value-conservation
--- conjuncts stay in the injected (mock) `fanoutCryptoOK`. No `0 < m` conjunct: the FULL fanout permits
+-- deadline) from `afterDeadline` (via `<ᴮ-sound`). The accumulator-membership, value-conservation
+-- and empty-witness completeness conjuncts stay in the injected (mock) `fanoutCryptoOK`.
+-- No `0 < m` conjunct: the FULL fanout permits
 -- m = 0 (empty-head finalisation), so `fanoutRefᵇ` does not gate it (`FanoutValid` carries no
 -- `outputsPositive`); `FinalPartialFanoutValid.outputsPositive` is in the spec record but not bridged.
 mockOpsFanout : R.OpsFanout

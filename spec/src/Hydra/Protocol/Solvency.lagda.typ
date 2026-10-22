@@ -37,9 +37,8 @@ the UTxO set the accumulator commits to, so that fanout can distribute what L2
 accounting says participants own. The deposit-binding vulnerability violated
 exactly this while satisfying every local check. This section states the
 invariant, proves it inductively over the head's on-chain transitions, and
-derives the payoff at fanout: every distributed output is one the committed
-L2 set actually contains, funded by the head value the invariant accounts
-for.
+derives the payoff at fanout: the distributed outputs are exactly the
+committed L2 set, funded by the head value the invariant accounts for.
 
 The L2 UTxO set is not recoverable from the on-chain state (the datum carries
 only the commitment $eta$), so the induction carries it as _ghost state_: a
@@ -121,10 +120,13 @@ data PendingShape (snap : Snapshot) : Set where
 
 record HonestFacts (snap : Snapshot) : Set where
   field
-    -- the L2 UTxO set the snapshot's accumulator commits to (the honest node computes
-    -- η from the snapshot UTxO it signs).
+    -- The snapshot UTxO plus a pending decommit: owed before the action lands.
     committed : ℙ Output
     ηCoheres  : Snapshot.etaHash snap ≡ hash (OC.accUTxO committed)
+    -- The snapshot UTxO plus a pending commit: owed after the action lands.
+    -- A pending decommit is absent because its outputs have already left L1.
+    applied   : ℙ Output
+    η̂Coheres  : Snapshot.appliedEtaHash snap ≡ hash (OC.accUTxO applied)
     shape     : PendingShape snap
 ```
 
@@ -208,6 +210,18 @@ Certification enters through the derived `*-certified` step forms inside
 `Invariant` below, which consume a `Certified` certificate through the named
 `honest-certified` assumption instead of taking the honest facts on faith.
 
+For `s-closeUsed` and `s-contestUsed`, the preceding state already includes
+the increment or decrement. Their value-preservation premise is therefore
+`sumValue applied ≡ sumValue U`, where $U$ is the _settled_ ghost set:
+`s-inc` has already added the deposit value and `s-dec` has already removed
+the decommit value. Relative to the set before settlement this is the same
+plus-deposit or minus-decommit equation as `IncCoherent` / `DecCoherent`.
+Close and contest preserve that settled value; adding the delta again would
+count it twice. The selected signed hash is `appliedEtaHash`, and the honest
+facts identify its owed set as the snapshot UTxO plus the pending commit,
+without the pending decommit. As for `committed`, this identification is an
+honest-signing assumption, not a derivation from the off-chain ledger laws.
+
 Which transitions the relation reaches is a real limit on what the theorem
 says, and nothing about adding a transition to @sec:on-chain forces a step to
 be added here - the theorem would simply say less. So the correspondence is
@@ -261,9 +275,8 @@ data SolventReach (r₀ : Value) : OC.HeadDatum → ℙ Output → Value → Set
     → OC.headValueIn ctx ≡ w                                   -- L1 continuity (ledger)
     → SolventReach r₀ (OC.Closed cid aggKey n cp v s' η' C tfin ada) ∅ˢ (OC.headValue ctx)
 
-  -- closing on a certified snapshot at the current version (the closeUnused
-  -- redeemer; closeAny differs only in its snapshot-number conjunct and follows
-  -- identically). The stored accumulator jumps to the closing snapshot's; the
+  -- Closing on a certified snapshot at the current version (closeUnused).
+  -- The stored accumulator jumps to the closing snapshot's; the
   -- head value is preserved exactly, so the per-step hypothesis is that the
   -- closing snapshot's committed value equals the settled one - L2 transactions
   -- between settlements preserve value (owner: the L2 ledger rules).
@@ -278,13 +291,31 @@ data SolventReach (r₀ : Value) : OC.HeadDatum → ℙ Output → Value → Set
     → SolventReach r₀ (OC.Closed cid aggKey n cp v s' η' C tfin ada)
                    (HonestFacts.committed hf) (OC.headValue ctx)
 
-  -- contesting with a newer certified snapshot (the contestUnused redeemer).
-  -- Same jump-and-preserve pattern as close. The contestUsed and closeUsed
-  -- redeemers are not covered: they store the snapshot's second signed
-  -- commitment (`η̂#`, over the owed set once the pending increment or
-  -- decrement has landed), which the reference validator binds in
-  -- `closeηOK`/`contestηOK` but which this relation does not yet track - see
-  -- the closing remarks of this section.
+  -- Closing without a pending action uses the same snapshot accumulator.
+  s-closeAny : ∀ {ctx cid n cp v η ada ξ η# η̂# δ# κ# s' η' C tfin U w} {snap : Snapshot}
+    → SolventReach r₀ (OC.Open cid aggKey n cp v η ada) U w
+    → OC.CloseValid ctx aggKey cid v cp s' (OC.Open cid aggKey n cp v η ada)
+                    (OC.Closed cid aggKey n cp v s' η' C tfin ada) (OC.closeAny ξ η# η̂# δ# κ#)
+    → (hf : HonestFacts snap)
+    → Snapshot.etaHash snap ≡ η#                               -- unforgeability: η# is the signed one
+    → OC.headValueIn ctx ≡ w                                   -- L1 continuity (ledger)
+    → sumValue (HonestFacts.committed hf) ≡ sumValue U         -- L2 value preservation
+    → SolventReach r₀ (OC.Closed cid aggKey n cp v s' η' C tfin ada)
+                   (HonestFacts.committed hf) (OC.headValue ctx)
+
+  -- The pending action has landed: bind the applied set to the settled value.
+  s-closeUsed : ∀ {ctx cid n cp v η ada ξ η# η̂# δ# κ# s' η' C tfin U w} {snap : Snapshot}
+    → SolventReach r₀ (OC.Open cid aggKey n cp v η ada) U w
+    → OC.CloseValid ctx aggKey cid v cp s' (OC.Open cid aggKey n cp v η ada)
+                    (OC.Closed cid aggKey n cp v s' η' C tfin ada) (OC.closeUsed ξ η# η̂# δ# κ#)
+    → (hf : HonestFacts snap)
+    → Snapshot.appliedEtaHash snap ≡ η̂#                       -- unforgeability: η̂# is the signed one
+    → OC.headValueIn ctx ≡ w                                   -- L1 continuity (ledger)
+    → sumValue (HonestFacts.applied hf) ≡ sumValue U           -- L2 value preservation
+    → SolventReach r₀ (OC.Closed cid aggKey n cp v s' η' C tfin ada)
+                   (HonestFacts.applied hf) (OC.headValue ctx)
+
+  -- Contesting with a newer certified snapshot at the current version.
   s-contest : ∀ {ctx cid n cp v s η C tfin ada ξ η# η̂# δ# κ# s' η' kh tfin' U w} {snap : Snapshot}
     → SolventReach r₀ (OC.Closed cid aggKey n cp v s η C tfin ada) U w
     → OC.ContestValid ctx aggKey cid v s tfin (OC.Closed cid aggKey n cp v s η C tfin ada)
@@ -296,6 +327,19 @@ data SolventReach (r₀ : Value) : OC.HeadDatum → ℙ Output → Value → Set
     → sumValue (HonestFacts.committed hf) ≡ sumValue U         -- L2 value preservation
     → SolventReach r₀ (OC.Closed cid aggKey n cp v s' η' (kh ∷ C) tfin' ada)
                    (HonestFacts.committed hf) (OC.headValue ctx)
+
+  -- Contesting at the previous version also selects the applied accumulator.
+  s-contestUsed : ∀ {ctx cid n cp v s η C tfin ada ξ η# η̂# δ# κ# s' η' kh tfin' U w} {snap : Snapshot}
+    → SolventReach r₀ (OC.Closed cid aggKey n cp v s η C tfin ada) U w
+    → OC.ContestValid ctx aggKey cid v s tfin (OC.Closed cid aggKey n cp v s η C tfin ada)
+                      (OC.Closed cid aggKey n cp v s' η' (kh ∷ C) tfin' ada)
+                      (OC.contestUsed ξ η# η̂# δ# κ#) kh
+    → (hf : HonestFacts snap)
+    → Snapshot.appliedEtaHash snap ≡ η̂#                       -- unforgeability: η̂# is the signed one
+    → OC.headValueIn ctx ≡ w                                   -- L1 continuity (ledger)
+    → sumValue (HonestFacts.applied hf) ≡ sumValue U           -- L2 value preservation
+    → SolventReach r₀ (OC.Closed cid aggKey n cp v s' η' (kh ∷ C) tfin' ada)
+                   (HonestFacts.applied hf) (OC.headValue ctx)
 ```
 
 ```
@@ -420,8 +464,23 @@ module Invariant {sys : System} (H : Assumptions sys) where
     trans (sym (OC.CloseValid.valuePreserved b))
       (trans chain (trans (proj₂ (solvency r)) (cong (r₀ +ᵛ_) (sym sumEq))))
 
+  solvency {r₀ = r₀} (s-closeAny {U = U} r b hf ηEq chain sumEq) =
+    η#-inj (trans (sym (trans ηEq (OC.CloseValid.etaOK b))) (HonestFacts.ηCoheres hf)) ,
+    trans (sym (OC.CloseValid.valuePreserved b))
+      (trans chain (trans (proj₂ (solvency r)) (cong (r₀ +ᵛ_) (sym sumEq))))
+
+  solvency {r₀ = r₀} (s-closeUsed {U = U} r b hf ηEq chain sumEq) =
+    η#-inj (trans (sym (trans ηEq (OC.CloseValid.etaOK b))) (HonestFacts.η̂Coheres hf)) ,
+    trans (sym (OC.CloseValid.valuePreserved b))
+      (trans chain (trans (proj₂ (solvency r)) (cong (r₀ +ᵛ_) (sym sumEq))))
+
   solvency {r₀ = r₀} (s-contest {U = U} r b hf ηEq chain sumEq) =
     η#-inj (trans (sym (trans ηEq (OC.ContestValid.etaOK b))) (HonestFacts.ηCoheres hf)) ,
+    trans (sym (OC.ContestValid.valuePreserved b))
+      (trans chain (trans (proj₂ (solvency r)) (cong (r₀ +ᵛ_) (sym sumEq))))
+
+  solvency {r₀ = r₀} (s-contestUsed {U = U} r b hf ηEq chain sumEq) =
+    η#-inj (trans (sym (trans ηEq (OC.ContestValid.etaOK b))) (HonestFacts.η̂Coheres hf)) ,
     trans (sym (OC.ContestValid.valuePreserved b))
       (trans chain (trans (proj₂ (solvency r)) (cong (r₀ +ᵛ_) (sym sumEq))))
 ```
@@ -482,6 +541,32 @@ relation through a certificate, never through free-floating honest facts.
   s-close-certified r b cert ηEq chain sumEq =
     s-close r b (honest-certified cert) ηEq chain sumEq
 
+  s-closeAny-certified : ∀ {r₀ ctx cid n cp v η ada ξ η# η̂# δ# κ# s' η' C tfin U w} {snap : Snapshot}
+    → SolventReach r₀ (OC.Open cid aggKey n cp v η ada) U w
+    → OC.CloseValid ctx aggKey cid v cp s' (OC.Open cid aggKey n cp v η ada)
+                    (OC.Closed cid aggKey n cp v s' η' C tfin ada) (OC.closeAny ξ η# η̂# δ# κ#)
+    → (cert : Certified sys snap)
+    → Snapshot.etaHash snap ≡ η#
+    → OC.headValueIn ctx ≡ w
+    → sumValue (HonestFacts.committed (honest-certified cert)) ≡ sumValue U
+    → SolventReach r₀ (OC.Closed cid aggKey n cp v s' η' C tfin ada)
+                   (HonestFacts.committed (honest-certified cert)) (OC.headValue ctx)
+  s-closeAny-certified r b cert ηEq chain sumEq =
+    s-closeAny r b (honest-certified cert) ηEq chain sumEq
+
+  s-closeUsed-certified : ∀ {r₀ ctx cid n cp v η ada ξ η# η̂# δ# κ# s' η' C tfin U w} {snap : Snapshot}
+    → SolventReach r₀ (OC.Open cid aggKey n cp v η ada) U w
+    → OC.CloseValid ctx aggKey cid v cp s' (OC.Open cid aggKey n cp v η ada)
+                    (OC.Closed cid aggKey n cp v s' η' C tfin ada) (OC.closeUsed ξ η# η̂# δ# κ#)
+    → (cert : Certified sys snap)
+    → Snapshot.appliedEtaHash snap ≡ η̂#
+    → OC.headValueIn ctx ≡ w
+    → sumValue (HonestFacts.applied (honest-certified cert)) ≡ sumValue U
+    → SolventReach r₀ (OC.Closed cid aggKey n cp v s' η' C tfin ada)
+                   (HonestFacts.applied (honest-certified cert)) (OC.headValue ctx)
+  s-closeUsed-certified r b cert ηEq chain sumEq =
+    s-closeUsed r b (honest-certified cert) ηEq chain sumEq
+
   s-contest-certified : ∀ {r₀ ctx cid n cp v s η C tfin ada ξ η# η̂# δ# κ# s' η' kh tfin' U w} {snap : Snapshot}
     → SolventReach r₀ (OC.Closed cid aggKey n cp v s η C tfin ada) U w
     → OC.ContestValid ctx aggKey cid v s tfin (OC.Closed cid aggKey n cp v s η C tfin ada)
@@ -495,44 +580,57 @@ relation through a certificate, never through free-floating honest facts.
                    (HonestFacts.committed (honest-certified cert)) (OC.headValue ctx)
   s-contest-certified r b cert ηEq chain sumEq =
     s-contest r b (honest-certified cert) ηEq chain sumEq
+
+  s-contestUsed-certified : ∀ {r₀ ctx cid n cp v s η C tfin ada ξ η# η̂# δ# κ# s' η' kh tfin' U w} {snap : Snapshot}
+    → SolventReach r₀ (OC.Closed cid aggKey n cp v s η C tfin ada) U w
+    → OC.ContestValid ctx aggKey cid v s tfin (OC.Closed cid aggKey n cp v s η C tfin ada)
+                      (OC.Closed cid aggKey n cp v s' η' (kh ∷ C) tfin' ada)
+                      (OC.contestUsed ξ η# η̂# δ# κ#) kh
+    → (cert : Certified sys snap)
+    → Snapshot.appliedEtaHash snap ≡ η̂#
+    → OC.headValueIn ctx ≡ w
+    → sumValue (HonestFacts.applied (honest-certified cert)) ≡ sumValue U
+    → SolventReach r₀ (OC.Closed cid aggKey n cp v s' η' (kh ∷ C) tfin' ada)
+                   (HonestFacts.applied (honest-certified cert)) (OC.headValue ctx)
+  s-contestUsed-certified r b cert ηEq chain sumEq =
+    s-contestUsed r b (honest-certified cert) ηEq chain sumEq
 ```
 
 The payoff. `membersOK` alone says the distributed outputs are members of
 _whatever_ the stored accumulator commits to; only together with the
 invariant does that become "members of the L2 set the parties actually
-built". Combined with the fanout value equation, a solvent head can neither
-fan out phantom outputs nor come up short funding the real ones.
+built". `completeOK` additionally fixes the witness to the empty remainder,
+so `accVerify-complete` upgrades membership to equality with the entire owed
+set. Combined with the fanout value equation, a solvent head pays every owed
+output, leaves none behind, and accounts for the burned tokens and ADA overhead.
 
 ```agda
   fanout-covered : ∀ {r₀ d U w ctx m π crs}
     → SolventReach r₀ d U w
     → (fb : OC.FanoutValid ctx d m π crs)
     → OC.headValueIn ctx ≡ w                                   -- L1 continuity (ledger)
-    → (OC.distributedOuts ctx m ⊆ U)
+    → (OC.distributedOuts ctx m ≡ᵉ U)
       × (w ≡ (OC.takeSumᵛ m (Context.outputs ctx) +ᵛ (OC.burnedValue ctx +ᵛ OC.headAda d)))
 ```
 
 ```
   fanout-covered {d = d} {ctx = ctx} {m = m} {π = π} r fb chain =
-    OC.accVerify-sound
+    OC.accVerify-complete
       (subst (λ e → OC.accVerify e (OC.distributedOuts ctx m) π ≡ true)
-             (proj₁ (solvency r)) (OC.FanoutValid.membersOK fb)) ,
+             (proj₁ (solvency r)) (OC.FanoutValid.membersOK fb))
+      (OC.FanoutValid.completeOK fb) ,
     trans (sym chain) (OC.FanoutValid.valueOK fb)
 ```
 
-Two companions round the section off. `SolvencyCounterModel` (typecheck-only,
+The companion `SolvencyCounterModel` (typecheck-only,
 not rendered) keeps the pre-fix attack derivable in miniature: against a
 digest covering datum content alone, a copied-datum deposit holding less
 value is accepted under the real deposit's signature and leaves the head
 insolvent, while the id-binding digest rejects the same claim by identity -
-regression documentation the checker rebuilds on every build. Not yet
-covered here, and therefore not carried by this proof, are both halves of the
-GHSA-f825-9gwc-h5xq fix: the `closeUsed`/`contestUsed` redeemers, whose stored
-commitment is the snapshot's second signed accumulator over the owed set after
-the pending increment or decrement landed (a `SolventReach` step for them needs
-`HonestFacts` to carry that applied set and a value-preservation hypothesis for
-it), and the fan-out completeness conjunct (`FanoutIncomplete`,
-`FinalPartialFanoutIncomplete`), which the abstract accumulator laws cannot
-express since they only provide the existence of a witness, not its identity.
-Also outside the section: partial fanout, and deriving the per-step L2
-value-preservation hypotheses from the off-chain ledger laws.
+regression documentation the checker rebuilds on every build. The Used close
+and contest steps and the fan-out completeness conclusion carry both halves
+of the GHSA-f825-9gwc-h5xq fix. Partial fan-out steps remain outside this
+solvency relation; @thm:fanout-complete separately proves that a valid final
+partial fan-out distributes the whole remaining committed set. Deriving the
+per-step L2 value-preservation hypotheses from the off-chain ledger laws also
+remains outside this section.

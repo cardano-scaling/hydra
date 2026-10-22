@@ -40,6 +40,11 @@ Three tiers, from strongest to weakest guarantee:
    the reachability invariant, no-settlement-without-unanimity) and the
    on-chain coverage/safety theorems (non-stuckness, value conservation,
    bounded contest window) are closed Agda proofs over the abstract model.
+   The solvency invariant covers every close and contest redeemer, including
+   `CloseUsed` / `ContestUsed` through the signed applied accumulator. Full
+   fan-out pays exactly the owed set. A separate final-partial-fan-out theorem
+   proves that the final batch pays the whole remaining committed set;
+   intermediate partial fan-out steps remain outside the solvency relation.
    Multisignature unforgeability is *derived* from per-signature EUF-CMA plus
    the aggregation scheme's decomposition, not assumed monolithically.
 
@@ -48,6 +53,11 @@ Three tiers, from strongest to weakest guarantee:
    algebra), the accumulator laws (the KZG construction itself is not
    modelled), a small set of on-chain "search" postulates over the opaque
    value/key models, and the honest-behaviour premises of the security model.
+   The accumulator laws fix the full-set witness to the empty-set commitment
+   and require verified membership with that witness to distribute the whole
+   set, modelling H72/H73. Solvency also assumes honest construction of both
+   signed owed sets and per-step L2 value preservation; deriving these facts
+   from the off-chain ledger laws remains outside the proof.
    The PDF appendix section **"What the formalisation assumes"** inventories
    all of it; the reading rule is that `postulate` means assumption, everything
    else is proved.
@@ -71,7 +81,7 @@ Three tiers, from strongest to weakest guarantee:
      friends, `primTrustMe`, `REWRITE`, and the `OPTIONS` flags that switch off
      termination, positivity or coverage checking. Agda's own `--safe` would be
      the obvious tool and is unavailable, because `--safe` *bans postulates* and
-     this specification rests on 63 of them by design (and `--safe` is contagious
+     this specification rests on 65 of them by design (and `--safe` is contagious
      through imports, so nothing downstream of `Prelude` could carry it). The
      enumerated list buys the same protection.
 
