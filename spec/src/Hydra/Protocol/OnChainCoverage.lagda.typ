@@ -126,7 +126,7 @@ fanout-empty-inhabited : ∀ {ctx cid hk n cp tfin ada} {crs}
 ```
 fanout-empty-inhabited aft burn val crsOK =
   let π , mem = accVerify-self ∅ˢ
-   in π , mkFanoutValid fanout burn mem aft val crsOK
+   in π , mkFanoutValid fanout burn mem refl aft val crsOK
 ```
 
 ```agda
@@ -178,7 +178,7 @@ fanout-coverage : ∀ {ctx cid hk n cp v s C tfin ada V crs}
 fanout-coverage {V = V} outsEq aft burn val crsOK =
   let (π , mem) = accVerify-self V
    in π , mkFanoutValid fanout burn
-            (subst (λ z → accVerify (accUTxO V) z π ≡ true) (sym outsEq) mem) aft val crsOK
+            (subst (λ z → accVerify (accUTxO V) z π ≡ true) (sym outsEq) mem) refl aft val crsOK
 ```
 
 ```agda
@@ -213,6 +213,7 @@ progress-finalizable {V = V} reach outsEq aft burn val crsOK =
   let (π , mem) = accVerify-self V
    in π , mkFinalPartialFanoutValid finalPartialFanout burn
             (subst (λ z → accVerify (accUTxO V) z π ≡ true) (sym outsEq) mem)
+            refl
             (setSize-pos (λ V≡∅ → progress-nonEmpty reach (trans (cong accUTxO V≡∅) accUTxO-∅)))
             aft val crsOK
 ```
@@ -368,6 +369,32 @@ finalPartialFanout-distributes-committed : ∀ {ctx cid hk n tfin V ada m π crs
 
 ```
 finalPartialFanout-distributes-committed b = accVerify-sound (FinalPartialFanoutValid.membersOK b)
+```
+
+#theorem(name: "No owed output is left behind at finalisation")[
+  Full fan-out distributes exactly the committed set $V$, and final partial
+  fan-out distributes exactly the remaining set $V$. Both conclusions use
+  membership verification and the empty-witness check through
+  `accVerify-complete`; membership alone only establishes a subset
+  (@agda-appendix: `fanout-distributes-all`, `finalPartialFanout-distributes-all`).
+] <thm:fanout-complete>
+
+```agda
+fanout-distributes-all : ∀ {ctx cid hk n cp v s V C tfin ada m π crs}
+  → FanoutValid ctx (Closed cid hk n cp v s (accUTxO V) C tfin ada) m π crs
+  → distributedOuts ctx m ≡ᵉ V
+
+finalPartialFanout-distributes-all : ∀ {ctx cid hk n tfin V ada m π crs}
+  → FinalPartialFanoutValid ctx (FanoutProgress cid hk n tfin (accUTxO V) ada) m π crs
+  → distributedOuts ctx m ≡ᵉ V
+```
+
+```
+fanout-distributes-all b =
+  accVerify-complete (FanoutValid.membersOK b) (FanoutValid.completeOK b)
+
+finalPartialFanout-distributes-all b =
+  accVerify-complete (FinalPartialFanoutValid.membersOK b) (FinalPartialFanoutValid.completeOK b)
 ```
 
 A validly-initialised head is moreover a reachable state, tying the

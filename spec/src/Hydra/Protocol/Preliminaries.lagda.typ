@@ -337,7 +337,13 @@ protocol's types (@sec:on-chain): `accUTxO`, `accVerify` and
 `accVerifyExclude` are abstract functions over UTxO-output sets, commitments
 and witnesses, and the security property above is captured by the specifying
 laws `accVerify-sound` (a verified membership witness attests a genuine
-subset) and `accVerify-self` (a set always verifies against its own commitment),
-which the fan-out safety and coverage theorems consume.
+subset), `accVerify-full` (the full set verifies with `emptyWitness`, the
+witness encoding of the empty-set commitment), and `accVerify-complete`
+(a verified witness equal to `emptyWitness` implies that the distributed
+set is the full member set). `accVerify-self`, the existence of a full-set
+witness, follows from `accVerify-full`. The fan-out safety, completeness
+and coverage theorems consume these laws; the empty-witness identity models
+the implementation's `FanoutIncomplete` / `FinalPartialFanoutIncomplete`
+checks.
 
 The implementation uses KZG polynomial commitments~@KZG10 over the BLS12-381 elliptic curve.

@@ -22,7 +22,7 @@
 #           equal, and the solvency theorem vacuous, all while still typechecking.
 #
 # It also forbids the escape hatches that are not postulates at all. Agda's own `--safe` would be the
-# obvious tool and is not available: `--safe` BANS postulates, and this specification is built on 63
+# obvious tool and is not available: `--safe` BANS postulates, and this specification is built on 65
 # of them by design (verified: adding the pragma to Prelude fails with "Cannot postulate +ᵛ-assoc
 # with safe flag"), and `--safe` is contagious through imports, so no module downstream of Prelude
 # could carry it either. The enumerated list below is what `--safe` would have bought us here: the
@@ -43,7 +43,8 @@
 #     incCryptoOK      increment/decrement snapshot signature incl. the recomputed commit-set hash
 #                      (increment, DepositDatumInvalid) / decommit-set hash (decrement) (real Ed25519)
 #     contestCryptoOK  contest snapshot signature, η binding, contest-once (real Ed25519)
-#     fanoutCryptoOK   fanout KZG membership + value conservation + the canonical-CRS datum binding
+#     fanoutCryptoOK   fanout KZG membership + empty-witness completeness + value conservation
+#                      + the canonical-CRS datum binding
 #                      (crsBindOK; real BLS pairing, InvalidCRSDatum reject in the test)
 #     recoverHashOK    recover recovered-outputs serialisation hash (empty-deposit case)
 #     initPlacementOK  μHead seed-spent + token placement (real validateTokensMinting)
@@ -51,6 +52,11 @@
 #     cidToNat, refCodeOf                          head-id / out-ref → ℕ encodings (used with cong only)
 #     signerCodes, ptCodes, participantSigned→ref  signer / PT-name encodings + overlap faithfulness
 #     mintEntryCount, noMint→ref                   mint-entry count encoding + noMint faithfulness
+#   Model accumulator laws:
+#     emptyWitness        witness encoding of the empty-set commitment (G₁)
+#     accVerify-full      the full member set verifies with emptyWitness
+#     accVerify-complete  verified membership with emptyWitness implies the full member set
+#     accVerify-self      derived from accVerify-full, no longer an independent postulate
 set -euo pipefail
 # Compare names byte-wise. Under a UTF-8 locale `sort -u` treats names that differ
 # only in a modifier letter (εᵘ vs εᵛ) as equal and drops one of them, and which
@@ -133,10 +139,10 @@ expected_postulates=$(printf '%s\n' \
 # silently either.
 actual_model=$(postulate_names "${MODEL_FILES[@]}")
 expected_model=$(printf '%s\n' \
-  AccCommitment accUTxO accUTxO-∅ accVerify accVerifyExclude accVerify-self accVerify-sound \
+  AccCommitment accUTxO accUTxO-∅ accVerify accVerifyExclude accVerify-full accVerify-complete accVerify-sound \
   AccWitness adaOf adaOf-+ᵛ aggKey AggSig aggSigOf aggSound applyTxs applyTxs-compose \
   applyTxs-nil burnedCount burnedValue bytes canonicalCRS# concat crsDatumHashAt Data \
-  depositDatumCommitsHash G₁ _≟ℍ_ ℍ hash headTokenCount Liveness mintedCount msVfy noCommitHash \
+  depositDatumCommitsHash emptyWitness G₁ _≟ℍ_ ℍ hash headTokenCount Liveness mintedCount msVfy noCommitHash \
   nonAdaOf nonAdaOf-+ᵛ noTxId outputs outsOf PartySig PartyVerified quantityOf quantityOfᴺ \
   quantityOfᴺ-+ᵛ recoveredMatchesDeposited Script setSize setSize-pos signerKeyHash sigUnforge \
   stQty sumValue sumValue-∅ _∖ᵘ_ _∪ᵘ_ _+ᵛ_ +ᵛ-assoc +ᵛ-cancelʳ +ᵛ-identityʳ VKey εᵘ εᵛ μHead \
