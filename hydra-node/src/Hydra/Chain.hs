@@ -12,6 +12,7 @@
 module Hydra.Chain where
 
 import Hydra.Prelude
+import Hydra.Tx.Settlement (SettlementEvidence)
 
 import Cardano.Ledger.Core (PParams)
 import Data.List.NonEmpty ((<|))
@@ -56,7 +57,7 @@ data PostChainTx tx
       { headSeed :: HeadSeed
       , headId :: HeadId
       , headParameters :: HeadParameters
-      , incrementingSnapshot :: ConfirmedSnapshot tx
+      , incrementingSnapshot :: SettlementEvidence tx
       , depositTxId :: TxIdType tx
       -- ^ Which deposit this increment was posted for. Not an input to building
       -- the transaction: 'Hydra.Chain.Direct.State.increment' takes the deposit
@@ -74,7 +75,7 @@ data PostChainTx tx
       { headSeed :: HeadSeed
       , headId :: HeadId
       , headParameters :: HeadParameters
-      , decrementingSnapshot :: ConfirmedSnapshot tx
+      , decrementingSnapshot :: SettlementEvidence tx
       }
   | CloseTx
       { headId :: HeadId

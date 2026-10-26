@@ -83,12 +83,12 @@ import Hydra.Chain.Direct.State (
   chainSlotFromPoint,
   close,
   contest,
-  decrement,
+  decrementWithEvidence,
   dryRunIncrementTx,
   fanout,
   finalPartialFanout,
   getKnownUTxO,
-  increment,
+  incrementWithEvidence,
   initialize,
   partialFanoutFromPlan,
   preparePartialFanout,
@@ -614,7 +614,7 @@ prepareTxToPost timeHandle ctx spendableUTxO tx =
       (_, currentTime) <- throwLeft currentPointInTime
       let HeadParameters{contestationPeriod} = headParameters
       (upperBound, _) <- calculateTxUpperBoundFromContestationPeriod currentTime contestationPeriod
-      case increment ctx spendableUTxO (headSeed, headId) headParameters incrementingSnapshot upperBound of
+      case incrementWithEvidence ctx spendableUTxO (headSeed, headId) headParameters incrementingSnapshot upperBound of
         Left err -> throwIO (FailedToConstructIncrementTx{failureReason = show err} :: PostTxError Tx)
         Right incrementTx' -> pure incrementTx'
     RecoverTx{headId, recoverTxId, deadline} -> do
@@ -622,7 +622,7 @@ prepareTxToPost timeHandle ctx spendableUTxO tx =
         Left err -> throwIO (FailedToConstructRecoverTx{failureReason = show err} :: PostTxError Tx)
         Right recoverTx' -> pure recoverTx'
     DecrementTx{headSeed, headId, headParameters, decrementingSnapshot} ->
-      case decrement ctx spendableUTxO (headSeed, headId) headParameters decrementingSnapshot of
+      case decrementWithEvidence ctx spendableUTxO (headSeed, headId) headParameters decrementingSnapshot of
         Left err -> throwIO (FailedToConstructDecrementTx{failureReason = show err} :: PostTxError Tx)
         Right decrementTx' -> pure decrementTx'
     CloseTx{headId, headParameters, openVersion, closingSnapshot} -> do

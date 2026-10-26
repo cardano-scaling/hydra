@@ -23,6 +23,7 @@ import Hydra.Tx (
   Party,
  )
 import Hydra.Tx.Crypto (Signature, getSignableRepresentation)
+import Hydra.Tx.Settlement (settlementEvidence)
 import Hydra.Tx.Snapshot (
   ConfirmedSnapshot,
   Snapshot (..),
@@ -258,11 +259,11 @@ migrateFinalizedSnapshots = foldlM retain emptySettlements
         status = Landed observedAtSlot
     case Map.lookup snapshotVersion (settlementEntries retained) of
       Just Settlement{snapshot = previousSnapshot, status = previousStatus}
-        | previousSnapshot /= snapshot -> fail "Conflicting V2 finalized snapshots at the same version"
+        | previousSnapshot /= settlementEvidence snapshot -> fail "Conflicting V2 finalized snapshots at the same version"
         | Landed previousSlot <- previousStatus ->
             pure $ adjustSettlementStatus snapshotVersion (Landed $ max previousSlot observedAtSlot) retained
         | otherwise -> pure retained
-      Nothing -> either (fail . show) pure $ tryInsertSettlement Settlement{snapshot, status} retained
+      Nothing -> either (fail . show) pure $ tryInsertSettlement Settlement{snapshot = settlementEvidence snapshot, status} retained
 
 -- | Decode-only record for the V2 layout. Its constructor name and field order
 -- are part of the legacy CBOR format.

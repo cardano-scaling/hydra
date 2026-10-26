@@ -79,6 +79,7 @@ import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Hydra.Tx.Crypto (MultiSignature, Signature)
 import Hydra.Tx.DepositPeriod (DepositPeriod)
 import Hydra.Tx.OnChainId (OnChainId)
+import Hydra.Tx.Settlement (SettlementEvidence, settlementEvidence)
 import Hydra.Tx.Snapshot (getSnapshot, snapshotCBORTag, snapshotCBORTagV1)
 import Test.Hydra.API.ClientInput ()
 import Test.Hydra.API.HTTPServer ()
@@ -261,6 +262,16 @@ spec = parallel $ do
                 <> toCBOR utxoToDecommit
       decodeFull' legacy `shouldBe` Right snapshot{depositTxId = Nothing}
 
+  describe "legacy retained settlements" $ do
+    legacySettlementCBOR (Proxy @(ClientMessage Tx)) "ClientMessage"
+    legacySettlementCBOR (Proxy @(PostChainTx Tx)) "PostChainTx"
+    legacySettlementCBOR (Proxy @(ChainEvent Tx)) "ChainEvent"
+    legacySettlementCBOR (Proxy @(HeadState Tx)) "HeadState"
+    it "reads a full snapshot payload under the old Settlement tag" $ do
+      let confirmed = generateWith (resize 5 arbitrary) 42 :: ConfirmedSnapshot Tx
+          bytes = toStrictByteString $ toCBOR ("Settlement" :: Text) <> toCBOR confirmed <> toCBOR Erased
+      decodeFull' bytes `shouldBe` Right Settlement{snapshot = settlementEvidence confirmed, status = Erased}
+
   -- Each state layout needs a distinct tag because its fields are unframed.
   describe "CoordinatedHeadState layouts" $ do
     let chs = generateWith (resize 5 arbitrary) 42 :: CoordinatedHeadState Tx
@@ -326,13 +337,13 @@ spec = parallel $ do
       ]
       $ \(description, finalizedCommit, finalizedDecommit) ->
         it ("migrates V2 with " <> description) $ do
-          let expected = Map.fromList [((getSnapshot snapshot).version, Settlement{snapshot, status = Landed slot}) | LegacyFinalizedSnapshot snapshot slot <- catMaybes [finalizedCommit, finalizedDecommit]]
+          let expected = Map.fromList [((getSnapshot snapshot).version, Settlement{snapshot = settlementEvidence snapshot, status = Landed slot}) | LegacyFinalizedSnapshot snapshot slot <- catMaybes [finalizedCommit, finalizedDecommit]]
           retained <- either (fail . show) pure $ trySettlementsFromMap expected
           decodeFull' (legacyV2 version finalizedCommit finalizedDecommit) `shouldBe` Right chs{settlements = retained, unretained = mempty}
 
     it "coalesces identical V2 snapshots using the later observation slot" $ do
       decoded <- either (fail . show) pure $ decodeFull' @(CoordinatedHeadState Tx) (legacyV2 version (Just $ LegacyFinalizedSnapshot commit 40) (Just $ LegacyFinalizedSnapshot commit 60))
-      Map.elems (settlementEntries decoded.settlements) `shouldBe` [Settlement{snapshot = commit, status = Landed 60}]
+      Map.elems (settlementEntries decoded.settlements) `shouldBe` [Settlement{snapshot = settlementEvidence commit, status = Landed 60}]
 
     it "rejects different V2 snapshots at the same version" $ do
       let conflicting = generateWith (genConfirmedSnapshot headId 2 1 mempty Nothing Nothing (Just distributed) [aliceSk, bobSk]) 7
@@ -510,6 +521,7 @@ spec = parallel $ do
     goldenCBOR "DecommitInvalidReason Tx" "golden/DecommitInvalidReason.cbor" (genGoldenSamples @(DecommitInvalidReason Tx))
     goldenCBOR "Message Tx" "golden/Message.cbor" (genGoldenSamples @(Message Tx))
     goldenCBOR "ConfirmedSnapshot Tx" "golden/ConfirmedSnapshot.cbor" (genGoldenSamples @(ConfirmedSnapshot Tx))
+    goldenCBOR "SettlementEvidence Tx" "golden/SettlementEvidence.cbor" (genGoldenSample @(SettlementEvidence Tx))
     goldenCBOR "PostChainTx Tx" "golden/PostChainTx.cbor" (genGoldenSamples @(PostChainTx Tx))
     goldenCBOR "OnChainTx Tx" "golden/OnChainTx.cbor" (genGoldenSamples @(OnChainTx Tx))
     goldenCBOR "PostTxError Tx" "golden/PostTxError.cbor" (genGoldenSamples @(PostTxError Tx))
@@ -580,3 +592,14 @@ genGoldenStateEvents = do
   ADTArbitrary{adtCAPs} <- resize 5 $ toADTArbitrary (Proxy @(StateChanged Tx))
   forM (zip [0 ..] adtCAPs) $ \(i, ConstructorArbitraryPair{capArbitrary}) ->
     StateEvent i capArbitrary <$> arbitrary
+
+-- Keep the old nested payloads as migration fixtures as well as locking the
+-- new canonical encoding. They must decode to the same values.
+legacySettlementCBOR :: forall a. (FromCBOR a, Eq a, Show a) => Proxy a -> String -> Spec
+legacySettlementCBOR _ name =
+  it ("migrates the old " <> name <> " golden without changing its evidence") $ do
+    legacy <- readFileBS $ "golden/full-settlement-snapshots/" <> name <> ".cbor"
+    current <- readFileBS $ "golden/" <> name <> ".cbor"
+    case decodeFull' @[a] legacy of
+      Left err -> expectationFailure $ show err
+      Right expected -> decodeFull' @[a] current `shouldBe` Right expected

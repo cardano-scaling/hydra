@@ -3190,6 +3190,11 @@
                     "settlements": {
                         "0": {
                             "snapshot": {
+                                "accumulatorHash": "b344f004ac6c74ab3fef940e969dbf3a915d631c4064b88195cd7dda93d4bd2f",
+                                "appliedAccumulatorHash": "d8a2c457c43fad08b63f1add44cd7c368e2c8649a8f82e8a82d28a44e729fa00",
+                                "depositTxId": "0606040505080401000306050302070601050205010208010101060005010605",
+                                "headId": "00030003010203070308060302060801",
+                                "number": 3,
                                 "signatures": {
                                     "multiSignature": [
                                         "a1e09b3dd56beedb7207606e6b8e80ec9741e66a37aec8132955daaaf7fc8c98cbb4db11f83a4317ea18fb745dd269ea7b4077844c81ac0d62d5ff496ffe9809",
@@ -3198,255 +3203,175 @@
                                         "583173889ab9368db2276cd7d982cb290a82f1b5124578b95a779dcd3c9bf3ad7afa20a8b55c81f577f35cb9760498d6e6b72a5694c9f8c6907bcf485d06ca03"
                                     ]
                                 },
-                                "snapshot": {
-                                    "accumulator": "b344f004ac6c74ab3fef940e969dbf3a915d631c4064b88195cd7dda93d4bd2f",
-                                    "appliedAccumulator": "d8a2c457c43fad08b63f1add44cd7c368e2c8649a8f82e8a82d28a44e729fa00",
-                                    "confirmed": [],
-                                    "depositTxId": "0606040505080401000306050302070601050205010208010101060005010605",
-                                    "headId": "00030003010203070308060302060801",
-                                    "number": 3,
-                                    "utxo": {
-                                        "0001010705080307020507060000010302000704060200070306000602020205#58": {
-                                            "address": "addr_test1qr8snq7zs26mdqg6etkmers75udfzz4ll8lnyytg6qcwmqrjupcg4pen26nf9jyq0lds86q28ggcf44n2ff7uujde5wshfxg35",
-                                            "datum": null,
-                                            "datumhash": null,
-                                            "inlineDatum": null,
-                                            "inlineDatumRaw": null,
-                                            "referenceScript": null,
-                                            "value": {
-                                                "lovelace": 969750
-                                            }
-                                        },
-                                        "0106030001050603070708080400050707000203060607080008050401000200#42": {
-                                            "address": "addr_test1vp5jwtk0h4tg7mxklsymwmlvenfva6aa58jtuuf8ffey7jcvtwvdk",
-                                            "datum": null,
-                                            "datumhash": null,
-                                            "inlineDatum": null,
-                                            "inlineDatumRaw": null,
-                                            "referenceScript": null,
-                                            "value": {
-                                                "lovelace": 7500000000000000
-                                            }
-                                        },
-                                        "0305040507060708040207060607030406040800030505020504030605000306#95": {
-                                            "address": "addr_test1xrw6lvku338ktdrch7qhumcvnwm6x7ylpq92eautqpxfl9rjf0h763y9rpzvj8rgp2klq9535lf4dnhcuc23vl5mxfnqr7g35m",
-                                            "datum": null,
-                                            "datumhash": null,
-                                            "inlineDatum": null,
-                                            "inlineDatumRaw": null,
-                                            "referenceScript": null,
-                                            "value": {
-                                                "lovelace": 969750
-                                            }
-                                        },
-                                        "0704000705030407020305000204060208020505010803030007070403020804#82": {
-                                            "address": "addr_test1zzawpzf4kvmtyvyqkpp8wf769j0ut486kztp3m64prslym4xys8m0d7hzq0numhmdw8lax9kdwv2zvtt9mmav4yqd6ysntq00j",
-                                            "datum": null,
-                                            "datumhash": null,
-                                            "inlineDatum": null,
-                                            "inlineDatumRaw": null,
-                                            "referenceScript": null,
-                                            "value": {
-                                                "lovelace": 969750
-                                            }
-                                        },
-                                        "0704020007060604030102070007070503080005000007070304070600000206#73": {
-                                            "address": "addr_test1qz8dzd4xs7a8zzfs7tqvslcydxwm2xqchrkp3vjzs738awrgzcnqyxvn0f8w3lxls8cll7xws45hyqu5na74vw3jp3ksfg8czk",
-                                            "datum": null,
-                                            "datumhash": "5fb89206ae78c413f5edce8daef57b0035e53d9c3f6d2999cdef2d1e9afdb559",
-                                            "inlineDatum": null,
-                                            "inlineDatumRaw": null,
-                                            "referenceScript": null,
-                                            "value": {
-                                                "8f461954fe2f18fee1dca233f358907e643ff839ed1f995e4bf325e3": {
-                                                    "30": 1
-                                                },
-                                                "lovelace": 1271450
-                                            }
-                                        },
-                                        "0704030405080304080508050508080607070705000200000201020204040605#25": {
-                                            "address": "addr_test1vprt0xhwee52p87mz8dpjvn5apeayg2pvmnsw6n9p6tem7sj4q07r",
-                                            "datum": null,
-                                            "datumhash": null,
-                                            "inlineDatum": null,
-                                            "inlineDatumRaw": null,
-                                            "referenceScript": null,
-                                            "value": {
-                                                "lovelace": 849070
-                                            }
-                                        }
-                                    },
-                                    "utxoToCommit": {
-                                        "0206000101010601000608070304030708050708080208020502000408030200#48": {
-                                            "address": "addr_test1yq5hxj8fguz2awqnrvnx8qrq4yvv2ee5hjrgx0gv5lhp38dwyj9r97es3c7hlztdnuyt7vxujuh57j43jdynzsmd92rqxuxs0m",
-                                            "datum": null,
-                                            "datumhash": "9b1306e3989031aa6dcba72ef6570011469402e9728ed836cfe7eb5448193724",
-                                            "inlineDatum": null,
-                                            "inlineDatumRaw": null,
-                                            "referenceScript": null,
-                                            "value": {
-                                                "82fa9d6edbfa0237db11fb9f1788e413b328b8e17df656956c674534": {
-                                                    "34": 1
-                                                },
-                                                "lovelace": 7500000000000000
-                                            }
-                                        },
-                                        "0207020505060105060603080806020705010401030606030200070508030106#50": {
-                                            "address": "addr_test1xpm8zk8af7x32lj4vlae454689ej8nqh3yfujr9qrdqm6sza8eshn0yappmg4r5c5ajlwj3fshfwkmfwhjrj7l7gxtls6p3w20",
-                                            "datum": null,
-                                            "datumhash": null,
-                                            "inlineDatum": null,
-                                            "inlineDatumRaw": null,
-                                            "referenceScript": null,
-                                            "value": {
-                                                "lovelace": 7500000000000000
-                                            }
-                                        },
-                                        "0303000400070004060605010208060102040207070804060808040207050008#19": {
-                                            "address": "addr_test1qq0hfur2xqfyf76x7djh48g7rch34t7pmkzjhdfpzfm6puf3q93fhyljsy9z72ru22dgalmtmf8wcv60zaa0l3sa07vqc5ye54",
-                                            "datum": null,
-                                            "datumhash": null,
-                                            "inlineDatum": null,
-                                            "inlineDatumRaw": null,
-                                            "referenceScript": null,
-                                            "value": {
-                                                "28ef14c186c13646aea0a711e2736fe6d437303c04beba501ef9e74e": {
-                                                    "a13e2de3": 1
-                                                },
-                                                "lovelace": 1137840
-                                            }
-                                        },
-                                        "0405080103000100030306050005060401040301060807050108030104060302#69": {
-                                            "address": "addr_test1zqstwmf6avxgjgnhjanvqh4wwj2krjuy8qjhx2yqg5t6fkkqu45a8lx7s4dk9pk34lpah2a8ckqlqta4ltlfaee7kkfsr9agmc",
-                                            "datum": null,
-                                            "datumhash": null,
-                                            "inlineDatum": null,
-                                            "inlineDatumRaw": null,
-                                            "referenceScript": null,
-                                            "value": {
-                                                "4d50a11e297e7783383bf06dd6e4e481230323bd96cd8b8d9ee3888d": {
-                                                    "9a138f1201918b7808d3b6b789c415405ca99732c835068d98ff6e24a442": 2465627846194003703
-                                                },
-                                                "lovelace": 7500000000000000
-                                            }
-                                        },
-                                        "0706070201030203070702040207020108050306010607000102000200010503#26": {
-                                            "address": "addr_test1zqv93tcmzjgrclrztm3uupx4qf6zywfjse2u6t90vevcxgw7cjuvg04m3v8f80z47ddk0fg32852amnz6mcajfz6r5dqvknwtu",
-                                            "datum": null,
-                                            "inlineDatum": {
-                                                "int": 1
+                                "utxoToCommit": {
+                                    "0206000101010601000608070304030708050708080208020502000408030200#48": {
+                                        "address": "addr_test1yq5hxj8fguz2awqnrvnx8qrq4yvv2ee5hjrgx0gv5lhp38dwyj9r97es3c7hlztdnuyt7vxujuh57j43jdynzsmd92rqxuxs0m",
+                                        "datum": null,
+                                        "datumhash": "9b1306e3989031aa6dcba72ef6570011469402e9728ed836cfe7eb5448193724",
+                                        "inlineDatum": null,
+                                        "inlineDatumRaw": null,
+                                        "referenceScript": null,
+                                        "value": {
+                                            "82fa9d6edbfa0237db11fb9f1788e413b328b8e17df656956c674534": {
+                                                "34": 1
                                             },
-                                            "inlineDatumRaw": "01",
-                                            "inlineDatumhash": "ee155ace9c40292074cb6aff8c9ccdd273c81648ff1149ef36bcea6ebb8a3e25",
-                                            "referenceScript": null,
-                                            "value": {
-                                                "bdc50d9319cbbf2661531af48220d60a7533a1396a28320f9c4fa755": {
-                                                    "13499d0c05bb793e30fbab1e7251": 1
-                                                },
-                                                "lovelace": 1219730
-                                            }
-                                        },
-                                        "0808040107080107040601020404060503010201030105080005060706010206#61": {
-                                            "address": "addr_test1vq22hrgulpwhssgelxf7d3km5cggg3z2n4vk0r90y2dv7uqx27z2u",
-                                            "datum": null,
-                                            "datumhash": "873c8964a87b8e12b323ef4ecd2abc196b5caa353b84295023fdc1a3bead0520",
-                                            "inlineDatum": null,
-                                            "inlineDatumRaw": null,
-                                            "referenceScript": null,
-                                            "value": {
-                                                "e0ade7181f7b185eb80c0248d1158fbfd952e5bc1092fd9d2d06f48a": {
-                                                    "28f1e448388bde295c134122d86b4a2c2d542bf0519ee0e8e919b3a7": 1
-                                                },
-                                                "lovelace": 1271450
-                                            }
+                                            "lovelace": 7500000000000000
                                         }
                                     },
-                                    "utxoToDecommit": {
-                                        "0100070600080706070205060304080607040600040706020105060204040805#81": {
-                                            "address": "addr_test1yrcwq3npvqpg0383h6yganw83xaa9j7fgg0aup77dgqmvfwyhkc570cz7n3ry9zvsrnxj5dn882ddd7pfhdjg7kphy9qqvqrd8",
-                                            "datum": null,
-                                            "datumhash": null,
-                                            "inlineDatum": null,
-                                            "inlineDatumRaw": null,
-                                            "referenceScript": null,
-                                            "value": {
-                                                "4a1c412d8e2b3015a7fb7d382808fb7cb721bf93a56e8bb6661cdebe": {
-                                                    "8401793bf3b58ac7a1ded52af9be0f": 1
-                                                },
-                                                "lovelace": 1185250
-                                            }
-                                        },
-                                        "0205020407010304030404050603070502030000080402030800080102020806#43": {
-                                            "address": "addr_test1yqqa6py9s0gyww4edeu0n00nvxrl9cwvqypescvdael3cm2wednzlhhau9t0xyjma84se0ajmy4pc4m6g7e3w08dcl4stlcjp6",
-                                            "datum": null,
-                                            "datumhash": "857aca93d85a60eb200a875edde9b8c477cc1a0a89b8f3775d89cd58ac90060c",
-                                            "inlineDatum": null,
-                                            "inlineDatumRaw": null,
-                                            "referenceScript": null,
-                                            "value": {
-                                                "2db8410d969b6ad6b6969703c77ebf6c44061aa51c5d6ceba46557e2": {
-                                                    "37": 147629374952025769
-                                                },
-                                                "lovelace": 1305930
-                                            }
-                                        },
-                                        "0307080507080408070603010408040605030308050603040406050000080605#70": {
-                                            "address": "addr_test1zrlulw678jynud5d477z6u3099fyfps8c0mu8qnnteuzdqqdr32e43p3au0jud7c4xy2jz2lgw6dst9ssmjkgk23zcwq75qz76",
-                                            "datum": null,
-                                            "datumhash": null,
-                                            "inlineDatum": null,
-                                            "inlineDatumRaw": null,
-                                            "referenceScript": null,
-                                            "value": {
-                                                "86f893b51136300f83bfe7b8fbaf89720522b26e3d619470d1b04e6d": {
-                                                    "78f27d9d4d7d3e9916674b0e4e755fd475ac71aea4154a": 1
-                                                },
-                                                "lovelace": 7500000000000000
-                                            }
-                                        },
-                                        "0403030803080603010800020708030503080507010608070604040800000001#66": {
-                                            "address": "addr_test1xr8f7cqkhrdavj08q36qjdlng8pqxsvdcj0kkv5ay7pumn3zs98nzaw73hzzawau2elwl20h425qlwrqksesekh23y8qklp538",
-                                            "datum": null,
-                                            "datumhash": null,
-                                            "inlineDatum": null,
-                                            "inlineDatumRaw": null,
-                                            "referenceScript": null,
-                                            "value": {
-                                                "245d5a7a06fe18358242e81281cd5ba9e6abe4efc54e7b659f25abae": {
-                                                    "05ab6a7d0f2f5f4e39b26be515b6f11a02a7c2f79bd01a2674824db035": 3918270854650455981
-                                                },
-                                                "lovelace": 1284380
-                                            }
-                                        },
-                                        "0405000306040303020604070206010808000805080601070406070707080304#81": {
-                                            "address": "addr_test1yzkn4xeq3sha86737fdezgv65cg9vj5truy6asrqrqvl26aya5zeq0fu7mkxke7jsu8fa6n25n4c7smjren40u58h0cqq5f8dz",
-                                            "datum": null,
-                                            "datumhash": null,
-                                            "inlineDatum": null,
-                                            "inlineDatumRaw": null,
-                                            "referenceScript": null,
-                                            "value": {
-                                                "b57be10f4755a2fcf71f9a090ba735345a40d74c32398d0b26db6666": {
-                                                    "36": 1
-                                                },
-                                                "lovelace": 7500000000000000
-                                            }
-                                        },
-                                        "0503010202040707070207050607050201000700020003010000050608050505#67": {
-                                            "address": "addr_test1qq3ulfh6mhf9xpl3hfzmnnzlevr4rpp3h45qc2463u9drfzrkfhcxefcrahqtqde2pvtc2epmnf8v438ngyamjltqydq4zeput",
-                                            "datum": null,
-                                            "datumhash": null,
-                                            "inlineDatum": null,
-                                            "inlineDatumRaw": null,
-                                            "referenceScript": null,
-                                            "value": {
-                                                "lovelace": 969750
-                                            }
+                                    "0207020505060105060603080806020705010401030606030200070508030106#50": {
+                                        "address": "addr_test1xpm8zk8af7x32lj4vlae454689ej8nqh3yfujr9qrdqm6sza8eshn0yappmg4r5c5ajlwj3fshfwkmfwhjrj7l7gxtls6p3w20",
+                                        "datum": null,
+                                        "datumhash": null,
+                                        "inlineDatum": null,
+                                        "inlineDatumRaw": null,
+                                        "referenceScript": null,
+                                        "value": {
+                                            "lovelace": 7500000000000000
                                         }
                                     },
-                                    "version": 0
+                                    "0303000400070004060605010208060102040207070804060808040207050008#19": {
+                                        "address": "addr_test1qq0hfur2xqfyf76x7djh48g7rch34t7pmkzjhdfpzfm6puf3q93fhyljsy9z72ru22dgalmtmf8wcv60zaa0l3sa07vqc5ye54",
+                                        "datum": null,
+                                        "datumhash": null,
+                                        "inlineDatum": null,
+                                        "inlineDatumRaw": null,
+                                        "referenceScript": null,
+                                        "value": {
+                                            "28ef14c186c13646aea0a711e2736fe6d437303c04beba501ef9e74e": {
+                                                "a13e2de3": 1
+                                            },
+                                            "lovelace": 1137840
+                                        }
+                                    },
+                                    "0405080103000100030306050005060401040301060807050108030104060302#69": {
+                                        "address": "addr_test1zqstwmf6avxgjgnhjanvqh4wwj2krjuy8qjhx2yqg5t6fkkqu45a8lx7s4dk9pk34lpah2a8ckqlqta4ltlfaee7kkfsr9agmc",
+                                        "datum": null,
+                                        "datumhash": null,
+                                        "inlineDatum": null,
+                                        "inlineDatumRaw": null,
+                                        "referenceScript": null,
+                                        "value": {
+                                            "4d50a11e297e7783383bf06dd6e4e481230323bd96cd8b8d9ee3888d": {
+                                                "9a138f1201918b7808d3b6b789c415405ca99732c835068d98ff6e24a442": 2465627846194003703
+                                            },
+                                            "lovelace": 7500000000000000
+                                        }
+                                    },
+                                    "0706070201030203070702040207020108050306010607000102000200010503#26": {
+                                        "address": "addr_test1zqv93tcmzjgrclrztm3uupx4qf6zywfjse2u6t90vevcxgw7cjuvg04m3v8f80z47ddk0fg32852amnz6mcajfz6r5dqvknwtu",
+                                        "datum": null,
+                                        "inlineDatum": {
+                                            "int": 1
+                                        },
+                                        "inlineDatumRaw": "01",
+                                        "inlineDatumhash": "ee155ace9c40292074cb6aff8c9ccdd273c81648ff1149ef36bcea6ebb8a3e25",
+                                        "referenceScript": null,
+                                        "value": {
+                                            "bdc50d9319cbbf2661531af48220d60a7533a1396a28320f9c4fa755": {
+                                                "13499d0c05bb793e30fbab1e7251": 1
+                                            },
+                                            "lovelace": 1219730
+                                        }
+                                    },
+                                    "0808040107080107040601020404060503010201030105080005060706010206#61": {
+                                        "address": "addr_test1vq22hrgulpwhssgelxf7d3km5cggg3z2n4vk0r90y2dv7uqx27z2u",
+                                        "datum": null,
+                                        "datumhash": "873c8964a87b8e12b323ef4ecd2abc196b5caa353b84295023fdc1a3bead0520",
+                                        "inlineDatum": null,
+                                        "inlineDatumRaw": null,
+                                        "referenceScript": null,
+                                        "value": {
+                                            "e0ade7181f7b185eb80c0248d1158fbfd952e5bc1092fd9d2d06f48a": {
+                                                "28f1e448388bde295c134122d86b4a2c2d542bf0519ee0e8e919b3a7": 1
+                                            },
+                                            "lovelace": 1271450
+                                        }
+                                    }
                                 },
-                                "tag": "ConfirmedSnapshot"
+                                "utxoToDecommit": {
+                                    "0100070600080706070205060304080607040600040706020105060204040805#81": {
+                                        "address": "addr_test1yrcwq3npvqpg0383h6yganw83xaa9j7fgg0aup77dgqmvfwyhkc570cz7n3ry9zvsrnxj5dn882ddd7pfhdjg7kphy9qqvqrd8",
+                                        "datum": null,
+                                        "datumhash": null,
+                                        "inlineDatum": null,
+                                        "inlineDatumRaw": null,
+                                        "referenceScript": null,
+                                        "value": {
+                                            "4a1c412d8e2b3015a7fb7d382808fb7cb721bf93a56e8bb6661cdebe": {
+                                                "8401793bf3b58ac7a1ded52af9be0f": 1
+                                            },
+                                            "lovelace": 1185250
+                                        }
+                                    },
+                                    "0205020407010304030404050603070502030000080402030800080102020806#43": {
+                                        "address": "addr_test1yqqa6py9s0gyww4edeu0n00nvxrl9cwvqypescvdael3cm2wednzlhhau9t0xyjma84se0ajmy4pc4m6g7e3w08dcl4stlcjp6",
+                                        "datum": null,
+                                        "datumhash": "857aca93d85a60eb200a875edde9b8c477cc1a0a89b8f3775d89cd58ac90060c",
+                                        "inlineDatum": null,
+                                        "inlineDatumRaw": null,
+                                        "referenceScript": null,
+                                        "value": {
+                                            "2db8410d969b6ad6b6969703c77ebf6c44061aa51c5d6ceba46557e2": {
+                                                "37": 147629374952025769
+                                            },
+                                            "lovelace": 1305930
+                                        }
+                                    },
+                                    "0307080507080408070603010408040605030308050603040406050000080605#70": {
+                                        "address": "addr_test1zrlulw678jynud5d477z6u3099fyfps8c0mu8qnnteuzdqqdr32e43p3au0jud7c4xy2jz2lgw6dst9ssmjkgk23zcwq75qz76",
+                                        "datum": null,
+                                        "datumhash": null,
+                                        "inlineDatum": null,
+                                        "inlineDatumRaw": null,
+                                        "referenceScript": null,
+                                        "value": {
+                                            "86f893b51136300f83bfe7b8fbaf89720522b26e3d619470d1b04e6d": {
+                                                "78f27d9d4d7d3e9916674b0e4e755fd475ac71aea4154a": 1
+                                            },
+                                            "lovelace": 7500000000000000
+                                        }
+                                    },
+                                    "0403030803080603010800020708030503080507010608070604040800000001#66": {
+                                        "address": "addr_test1xr8f7cqkhrdavj08q36qjdlng8pqxsvdcj0kkv5ay7pumn3zs98nzaw73hzzawau2elwl20h425qlwrqksesekh23y8qklp538",
+                                        "datum": null,
+                                        "datumhash": null,
+                                        "inlineDatum": null,
+                                        "inlineDatumRaw": null,
+                                        "referenceScript": null,
+                                        "value": {
+                                            "245d5a7a06fe18358242e81281cd5ba9e6abe4efc54e7b659f25abae": {
+                                                "05ab6a7d0f2f5f4e39b26be515b6f11a02a7c2f79bd01a2674824db035": 3918270854650455981
+                                            },
+                                            "lovelace": 1284380
+                                        }
+                                    },
+                                    "0405000306040303020604070206010808000805080601070406070707080304#81": {
+                                        "address": "addr_test1yzkn4xeq3sha86737fdezgv65cg9vj5truy6asrqrqvl26aya5zeq0fu7mkxke7jsu8fa6n25n4c7smjren40u58h0cqq5f8dz",
+                                        "datum": null,
+                                        "datumhash": null,
+                                        "inlineDatum": null,
+                                        "inlineDatumRaw": null,
+                                        "referenceScript": null,
+                                        "value": {
+                                            "b57be10f4755a2fcf71f9a090ba735345a40d74c32398d0b26db6666": {
+                                                "36": 1
+                                            },
+                                            "lovelace": 7500000000000000
+                                        }
+                                    },
+                                    "0503010202040707070207050607050201000700020003010000050608050505#67": {
+                                        "address": "addr_test1qq3ulfh6mhf9xpl3hfzmnnzlevr4rpp3h45qc2463u9drfzrkfhcxefcrahqtqde2pvtc2epmnf8v438ngyamjltqydq4zeput",
+                                        "datum": null,
+                                        "datumhash": null,
+                                        "inlineDatum": null,
+                                        "inlineDatumRaw": null,
+                                        "referenceScript": null,
+                                        "value": {
+                                            "lovelace": 969750
+                                        }
+                                    }
+                                },
+                                "version": 0
                             },
                             "status": {
                                 "observedAtSlot": 1,

@@ -10,6 +10,7 @@ import Test.Hydra.Prelude
 
 import Hydra.Chain (ChainEvent, ChainStateHistory, OnChainTx, PostChainTx (..), PostTxError)
 import Hydra.Chain.ChainState (ChainStateType (..), IsChainState)
+import Hydra.Tx.Settlement (SettlementEvidence, settlementEvidence)
 import Test.Cardano.Ledger.Core.Arbitrary ()
 import Test.Hydra.Tx.Gen (ArbitraryIsTx)
 import Test.QuickCheck.Instances.Natural ()
@@ -60,3 +61,6 @@ instance
   Arbitrary (ChainEvent tx)
   where
   arbitrary = genericArbitrary
+
+instance ArbitraryIsTx tx => Arbitrary (SettlementEvidence tx) where
+  arbitrary = settlementEvidence <$> arbitrary

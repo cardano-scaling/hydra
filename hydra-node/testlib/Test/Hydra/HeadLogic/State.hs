@@ -26,6 +26,7 @@ import Hydra.HeadLogic.State (
   tryInsertSettlement,
   unretainedFromMap,
  )
+import Hydra.Tx.Settlement (settlementEvidence)
 import Hydra.Tx.Snapshot qualified as Snapshot
 import Test.Hydra.Tx.Gen (ArbitraryIsTx)
 import Test.QuickCheck (listOf, oneof, resize)
@@ -95,9 +96,10 @@ instance forall tx. ArbitraryIsTx tx => Arbitrary (Settlements tx) where
       pure
         Settlement
           { snapshot =
-              Snapshot.ConfirmedSnapshot
-                (snap{Snapshot.version = version})
-                mempty
+              settlementEvidence $
+                Snapshot.ConfirmedSnapshot
+                  (snap{Snapshot.version = version})
+                  mempty
           , status
           }
 

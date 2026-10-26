@@ -35,8 +35,9 @@ import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime, slotNoToUTCTime)
 import Hydra.Node.Util (checkNonADAAssetsUTxO)
 import Hydra.Options (OfflineChainConfig (..), defaultContestationPeriod, defaultDepositPeriod)
-import Hydra.Tx (HeadId (..), HeadParameters (..), HeadSeed (..), Party, Snapshot (..), confirmedSignatures, getSnapshot, snapshotUTxO)
+import Hydra.Tx (HeadId (..), HeadParameters (..), HeadSeed (..), Party, getSnapshot, snapshotUTxO)
 import Hydra.Tx.DepositPeriod (DepositPeriod (..))
+import Hydra.Tx.Settlement qualified as Settlement
 import Hydra.Utils (readJsonFileThrow)
 
 -- | Derived 'HeadId' of offline head from a 'HeadSeed'.
@@ -106,10 +107,10 @@ withOfflineChain config party otherParties chainStateHistory callback action = d
                 , observedTx =
                     OnIncrementTx
                       { headId
-                      , newVersion = version (getSnapshot incrementingSnapshot) + 1
+                      , newVersion = Settlement.version incrementingSnapshot + 1
                       , depositTxId
-                      , snapshotNumber = number (getSnapshot incrementingSnapshot)
-                      , signatures = confirmedSignatures incrementingSnapshot
+                      , snapshotNumber = Settlement.number incrementingSnapshot
+                      , signatures = Settlement.signatures incrementingSnapshot
                       }
                 }
           _ -> pure ()

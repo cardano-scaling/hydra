@@ -107,6 +107,7 @@ import Hydra.Tx.Crypto (
 import Hydra.Tx.DepositPeriod (DepositPeriod (..))
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.Party (Party (..))
+import Hydra.Tx.Settlement (SettlementEvidence (..), settlementEvidence, snapshotEvidence)
 import Hydra.Tx.Snapshot (
   ConfirmedSnapshot (..),
   Snapshot (..),
@@ -633,8 +634,8 @@ openRetainedDeposits = \case
 -- on-chain version to @newVersion@, if that is the locally confirmed snapshot
 -- (based on the version just below, carrying a commit or decommit). Only that
 -- snapshot can settle again if a rollback erases the settlement, and
--- 'confirmedSnapshot' may move past it. Its confirmed txs are blanked, see
--- 'Settlement'.
+-- 'confirmedSnapshot' may move past it. Retain only the settlement evidence,
+-- see 'Settlement'.
 --
 -- Nothing is retained when the observation came before the snapshot confirmed
 -- locally, because another party collected the last signature and posted
@@ -675,7 +676,7 @@ retainSettlementWith status newVersion confirmedSnapshot settlements =
           -- the chain's for good, which a close cannot express. A settlement
           -- that really landed again is re-stamped by 'landSettlement' instead.
           tryInsertSettlement
-            Settlement{snapshot = ConfirmedSnapshot{snapshot = snapshot{confirmed = []}, signatures}, status}
+            Settlement{snapshot = snapshotEvidence snapshot signatures, status}
             settlements
     _ -> pure settlements
 
@@ -763,12 +764,12 @@ nextErasedSettlement :: Settlements tx -> Maybe (Settlement tx)
 nextErasedSettlement = firstErasedSettlement
 
 -- | Post the increment or decrement of a signed snapshot.
-postSettlement :: IsTx tx => HeadSeed -> HeadId -> HeadParameters -> ConfirmedSnapshot tx -> Outcome tx
+postSettlement :: HeadSeed -> HeadId -> HeadParameters -> SettlementEvidence tx -> Outcome tx
 postSettlement headSeed headId headParameters snapshot =
-  case getSnapshot snapshot of
-    Snapshot{utxoToCommit = Just _, depositTxId = Just depositTxId} ->
+  case snapshot of
+    SettlementEvidence{utxoToCommit = Just _, depositTxId = Just depositTxId} ->
       cause OnChainEffect{postChainTx = IncrementTx{headSeed, headId, headParameters, incrementingSnapshot = snapshot, depositTxId}}
-    Snapshot{utxoToDecommit = Just _} ->
+    SettlementEvidence{utxoToDecommit = Just _} ->
       cause OnChainEffect{postChainTx = DecrementTx{headSeed, headId, headParameters, decrementingSnapshot = snapshot}}
     _ -> noop
 
@@ -805,10 +806,10 @@ repostInFlightSettlement OpenState{headSeed, headId, parameters, coordinatedHead
   repostInFlight = case getSnapshot confirmedSnapshot of
     Snapshot{utxoToCommit = Just _, depositTxId = Just depositTxId}
       | Map.member depositTxId pendingDeposits ->
-          postSettlement headSeed headId parameters confirmedSnapshot
+          postSettlement headSeed headId parameters (settlementEvidence confirmedSnapshot)
     Snapshot{utxoToDecommit = Just _}
       | isJust decommitTx ->
-          postSettlement headSeed headId parameters confirmedSnapshot
+          postSettlement headSeed headId parameters (settlementEvidence confirmedSnapshot)
     _ -> noop
 
 -- | Post, on a tick, the erased settlement due next, while it can land: a
@@ -837,10 +838,10 @@ repostErased :: IsTx tx => SyncedStatus -> OpenState tx -> PendingDeposits tx ->
 repostErased syncStatus OpenState{headSeed, headId, parameters, coordinatedHeadState = CoordinatedHeadState{settlements}} pendingDeposits =
   case (syncStatus, nextErasedSettlement settlements) of
     (InSync, Just Settlement{snapshot})
-      | canLand (getSnapshot snapshot) -> postSettlement headSeed headId parameters snapshot
+      | canLand snapshot -> postSettlement headSeed headId parameters snapshot
     _ -> noop
  where
-  canLand Snapshot{utxoToCommit = Just _, depositTxId = Just depositTxId} = Map.member depositTxId pendingDeposits
+  canLand SettlementEvidence{utxoToCommit = Just _, depositTxId = Just depositTxId} = Map.member depositTxId pendingDeposits
   canLand _ = True
 
 -- | After an increment or decrement was observed: if it landed again (its

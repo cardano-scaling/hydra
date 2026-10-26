@@ -77,6 +77,8 @@ import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.Increment (IncrementObservation (..), observeIncrementTx)
 import Hydra.Tx.IsTx (IsTx (..))
 import Hydra.Tx.Party (Party (..), deriveParty)
+import Hydra.Tx.Settlement (settlementEvidence, snapshotEvidence)
+import Hydra.Tx.Settlement qualified as Evidence
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, SnapshotVersion, getSnapshot)
 import Test.Gen.Cardano.Api.Typed (genBlockHeaderHash)
 import Test.Hydra.API.ClientInput ()
@@ -3433,13 +3435,13 @@ spec =
             isIncrementOf :: SnapshotNumber -> Integer -> Effect SimpleTx -> Bool
             isIncrementOf number' dep = \case
               OnChainEffect{postChainTx = IncrementTx{incrementingSnapshot = snap, depositTxId = dep'}} ->
-                (getSnapshot snap).number == number' && dep' == dep
+                snap.number == number' && dep' == dep
               _ -> False
 
             isDecrementOf :: SnapshotNumber -> Effect SimpleTx -> Bool
             isDecrementOf number' = \case
               OnChainEffect{postChainTx = DecrementTx{decrementingSnapshot = snap}} ->
-                (getSnapshot snap).number == number'
+                snap.number == number'
               _ -> False
 
             settlementStatuses :: NodeState SimpleTx -> [SettlementStatus]
@@ -3465,8 +3467,8 @@ spec =
           outcome <- runHeadLogic soloAliceEnv ledger s (step (rollbackTo 2 now) >> step (tickSlot 3 now))
           outcome `hasEffectSatisfying` \case
             OnChainEffect{postChainTx = IncrementTx{incrementingSnapshot = snap, depositTxId = dep}} ->
-              case getSnapshot snap of
-                Snapshot{number, depositTxId = snapDep} ->
+              case snap of
+                Evidence.SettlementEvidence{number, depositTxId = snapDep} ->
                   number == 1 && snapDep == Just depositTxId' && dep == depositTxId'
             _ -> False
 
@@ -3545,8 +3547,8 @@ spec =
           outcome <- runHeadLogic soloAliceEnv ledger s1 (step (rollbackTo 2 now) >> step (tickSlot 3 now))
           outcome `hasEffectSatisfying` \case
             OnChainEffect{postChainTx = IncrementTx{incrementingSnapshot = snap}} ->
-              case getSnapshot snap of
-                Snapshot{number, utxoToCommit} ->
+              case snap of
+                Evidence.SettlementEvidence{number, utxoToCommit} ->
                   number == 1 && utxoToCommit == Just depositedUTxO
             _ -> False
 
@@ -3616,8 +3618,8 @@ spec =
           outcome <- runHeadLogic soloAliceEnv ledger s1 (step (rollbackTo 4 now) >> step (tickSlot 5 now))
           outcome `hasEffectSatisfying` \case
             OnChainEffect{postChainTx = IncrementTx{incrementingSnapshot = snap, depositTxId = dep}} ->
-              case getSnapshot snap of
-                Snapshot{number} -> number == 1 && dep == depositTxId'
+              case snap of
+                Evidence.SettlementEvidence{number} -> number == 1 && dep == depositTxId'
             _ -> False
 
         it "rejects a ReqSn claiming a deposit whose finalized increment was rolled back" $ do
@@ -3767,8 +3769,8 @@ spec =
           outcome <- runHeadLogic soloAliceEnv ledger s (step (rollbackTo 0 now) >> step (tickSlot 1 now))
           outcome `hasEffectSatisfying` \case
             OnChainEffect{postChainTx = DecrementTx{decrementingSnapshot = snap}} ->
-              case getSnapshot snap of
-                Snapshot{number, utxoToDecommit} ->
+              case snap of
+                Evidence.SettlementEvidence{number, utxoToDecommit} ->
                   number == 1 && utxoToDecommit == Just (utxoRef 3)
             _ -> False
 
@@ -3794,8 +3796,8 @@ spec =
           outcome <- runHeadLogic soloAliceEnv ledger s1 (step (rollbackTo 0 now) >> step (tickSlot 1 now))
           outcome `hasEffectSatisfying` \case
             OnChainEffect{postChainTx = DecrementTx{decrementingSnapshot = snap}} ->
-              case getSnapshot snap of
-                Snapshot{number, utxoToDecommit} ->
+              case snap of
+                Evidence.SettlementEvidence{number, utxoToDecommit} ->
                   number == 1 && utxoToDecommit == Just (utxoRef 3)
             _ -> False
 
@@ -3850,8 +3852,8 @@ spec =
           outcome <- runHeadLogic soloAliceEnv ledger s1 (step (rollbackTo 2 now) >> step (tickSlot 3 now))
           outcome `hasEffectSatisfying` \case
             OnChainEffect{postChainTx = IncrementTx{incrementingSnapshot = snap, depositTxId = dep}} ->
-              case getSnapshot snap of
-                Snapshot{number} -> number == 1 && dep == depositTxId'
+              case snap of
+                Evidence.SettlementEvidence{number} -> number == 1 && dep == depositTxId'
             _ -> False
 
         it "retains a settlement erased inside the race window as erased, and re-posts it" $ do
@@ -3896,8 +3898,8 @@ spec =
           outcome <- runHeadLogic soloAliceEnv ledger s1 (step (rollbackTo 2 now) >> step (tickSlot 3 now))
           outcome `hasEffectSatisfying` \case
             OnChainEffect{postChainTx = DecrementTx{decrementingSnapshot = snap}} ->
-              case getSnapshot snap of
-                Snapshot{number, utxoToDecommit} ->
+              case snap of
+                Evidence.SettlementEvidence{number, utxoToDecommit} ->
                   number == 1 && utxoToDecommit == Just (utxoRef 3)
             _ -> False
 
@@ -3928,7 +3930,7 @@ spec =
           s2 <- runHeadLogic soloAliceEnv ledger s1 $ step (rollbackTo 3 now) >> getState
           let outcome = update soloAliceEnv ledger now s2 (tickSlot 4 now)
           outcome `hasEffectSatisfying` \case
-            OnChainEffect{postChainTx = DecrementTx{decrementingSnapshot}} -> getSnapshot decrementingSnapshot == decrementing
+            OnChainEffect{postChainTx = DecrementTx{decrementingSnapshot}} -> decrementingSnapshot == snapshotEvidence decrementing (Crypto.aggregate [sign aliceSk decrementing])
             _ -> False
           outcome `hasNoEffectSatisfying` \case
             OnChainEffect{postChainTx = IncrementTx{}} -> True
@@ -3959,13 +3961,13 @@ spec =
           outcome <- runHeadLogic soloAliceEnv ledger s1 (step (rollbackTo 4 now) >> step (tickSlot 5 now))
           outcome `hasEffectSatisfying` \case
             OnChainEffect{postChainTx = DecrementTx{decrementingSnapshot = snap}} ->
-              case getSnapshot snap of
-                Snapshot{number} -> number == 2
+              case snap of
+                Evidence.SettlementEvidence{number} -> number == 2
             _ -> False
           outcome `hasNoEffectSatisfying` \case
             OnChainEffect{postChainTx = DecrementTx{decrementingSnapshot = snap}} ->
-              case getSnapshot snap of
-                Snapshot{number} -> number == 1
+              case snap of
+                Evidence.SettlementEvidence{number} -> number == 1
             _ -> False
 
         it "re-posts IncrementTx when the deposit is observed again after deposit and increment were both rolled back" $ do
@@ -3991,8 +3993,8 @@ spec =
             getState
           update soloAliceEnv ledger now s2 (ChainInput Tick{chainTime = now, chainPoint = 2}) `hasEffectSatisfying` \case
             OnChainEffect{postChainTx = IncrementTx{incrementingSnapshot = snap, depositTxId = dep}} ->
-              case getSnapshot snap of
-                Snapshot{number} -> number == 1 && dep == depositTxId'
+              case snap of
+                Evidence.SettlementEvidence{number} -> number == 1 && dep == depositTxId'
             _ -> False
 
         it "does not park the re-landed settling deposit in currentDepositTxId when it activates" $ do
@@ -4076,7 +4078,7 @@ spec =
           rollbackOutcome <- runHeadLogic soloAliceEnv ledger s0 (step (rollbackTo 2 now) >> step (tickSlot 3 now))
           rollbackOutcome `hasEffectSatisfying` \case
             OnChainEffect{postChainTx = IncrementTx{incrementingSnapshot = snap, depositTxId = dep}} ->
-              (getSnapshot snap).number == 1 && dep == depositTxId'
+              snap.number == 1 && dep == depositTxId'
             _ -> False
           s1 <- runHeadLogic soloAliceEnv ledger s0 $ step (rollbackTo 2 now) >> getState
           case headState s1 of
@@ -4231,7 +4233,7 @@ spec =
                   }
           erased <-
             either (failure . show) pure $
-              tryInsertSettlement Settlement{snapshot = landed, status = Erased} emptySettlements
+              tryInsertSettlement Settlement{snapshot = settlementEvidence landed, status = Erased} emptySettlements
           retainSettlement (ChainSlot 9) 1 later erased `shouldBe` Right erased
           -- A first retention is unaffected.
           retained <- either (failure . show) pure $ retainSettlement (ChainSlot 9) 1 later emptySettlements
@@ -4677,7 +4679,7 @@ spec =
           now <- getCurrentTime
           let retained :: SettlementStatus -> Settlements SimpleTx
               retained status =
-                either (Prelude.error . show) id $ tryInsertSettlement Settlement{snapshot = signedIncrementingSnapshot1, status} emptySettlements
+                either (Prelude.error . show) id $ tryInsertSettlement Settlement{snapshot = settlementEvidence signedIncrementingSnapshot1, status} emptySettlements
               -- What this node's chain follower has made of the increment:
               -- not seen, seen landing, or seen and then erased by a rollback.
               chainViews = [(0, emptySettlements), (1, retained (Landed 3)), (1, retained Erased)]
@@ -4757,7 +4759,7 @@ spec =
                     }
               states =
                 [ ("unsettled", withClaim 0 emptySettlements)
-                , ("settled, and this node one version ahead", withClaim 1 (either (Prelude.error . show) id $ tryInsertSettlement Settlement{snapshot = signedIncrementingSnapshot1, status = Landed 3} emptySettlements))
+                , ("settled, and this node one version ahead", withClaim 1 (either (Prelude.error . show) id $ tryInsertSettlement Settlement{snapshot = settlementEvidence signedIncrementingSnapshot1, status = Landed 3} emptySettlements))
                 , ("a decommit rather than a commit, unsettled", withDecommit)
                 ]
               deviations =
@@ -6594,7 +6596,7 @@ spec =
           let finalized = DecommitFinalized{chainState = ChainStateAt{spendableUTxO = mempty, recordedAt = Nothing}, headId = testHeadId, newVersion = 1, distributedUTxO}
           case HeadLogic.aggregateNodeState Fixture.testRollbackHorizon st finalized of
             Right NodeInSync{headState = Open OpenState{coordinatedHeadState = CoordinatedHeadState{settlements}}} ->
-              ((\settlement -> settlement.snapshot) <$> Map.lookup 0 (settlementEntries settlements)) `shouldBe` if matches then Just confirmed else Nothing
+              ((\settlement -> settlement.snapshot) <$> Map.lookup 0 (settlementEntries settlements)) `shouldBe` if matches then Just (settlementEvidence confirmed) else Nothing
             other -> expectationFailure $ "Expected finalized decrement, got: " <> show other
 
       it "rejects a ReqSn whose requested tx produces an output the deposit names" $ do
@@ -7577,7 +7579,7 @@ settlementConflictState currentVersion = do
       original = settlementConflictSnapshot{version = 0}
   settlements <-
     either (failure . show) pure $
-      tryInsertSettlement (Settlement (ConfirmedSnapshot original mempty) Erased) emptySettlements
+      tryInsertSettlement (Settlement (snapshotEvidence original mempty) Erased) emptySettlements
   case inOpenState [alice, bob, carol] of
     currentState@NodeInSync{headState = Open os@OpenState{coordinatedHeadState = chs}} ->
       pure

@@ -91,6 +91,7 @@ import Hydra.Tx.Crypto (
  )
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.Party (Party (..))
+import Hydra.Tx.Settlement (SettlementEvidence (..), snapshotEvidence)
 import Hydra.Tx.Snapshot (
   ConfirmedSnapshot (..),
   Snapshot (..),
@@ -623,7 +624,7 @@ onOpenNetworkReqSn env ledger pendingDeposits ChainPointTime{currentSlot, curren
   -- still the one being settled.
   confirmedCommitSettled =
     case Map.lookup confVersion (settlementEntries settlements) of
-      Just Settlement{snapshot} -> (getSnapshot snapshot).depositTxId == confDepositTxId
+      Just Settlement{snapshot} -> snapshot.depositTxId == confDepositTxId
       Nothing -> False
 
   seenSn = seenSnapshotNumber seenSnapshot
@@ -786,7 +787,7 @@ onOpenNetworkAckSn env@Environment{party} ChainPointTime{currentChainTime} pendi
                         { headSeed
                         , headId
                         , headParameters = parameters
-                        , incrementingSnapshot = ConfirmedSnapshot{snapshot, signatures}
+                        , incrementingSnapshot = snapshotEvidence snapshot signatures
                         , depositTxId
                         }
                   }
@@ -810,7 +811,7 @@ onOpenNetworkAckSn env@Environment{party} ChainPointTime{currentChainTime} pendi
                     { headSeed
                     , headId
                     , headParameters = parameters
-                    , decrementingSnapshot = ConfirmedSnapshot{snapshot, signatures}
+                    , decrementingSnapshot = snapshotEvidence snapshot signatures
                     }
               }
       _ -> outcome

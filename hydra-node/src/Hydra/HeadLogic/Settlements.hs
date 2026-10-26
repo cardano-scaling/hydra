@@ -32,17 +32,17 @@ import Data.Map.Strict qualified as Map
 import Data.Set qualified as Set
 import Hydra.Chain.ChainState (ChainSlot)
 import Hydra.Tx.IsTx (IsTx, TxIdType)
-import Hydra.Tx.Snapshot (ConfirmedSnapshot, Snapshot (..), SnapshotVersion, getSnapshot)
+import Hydra.Tx.Settlement (SettlementEvidence (..))
+import Hydra.Tx.Snapshot (SnapshotVersion)
 
 -- *** Settlements
 
 -- | A signed snapshot whose increment or decrement settled on chain, kept so
 -- it can be re-posted if a rollback erases that settlement. The snapshot's
--- 'confirmed' txs are blanked on retention: they are not signed and no tx
--- builder reads them. Its 'utxo' must stay: the accumulators are rebuilt from
--- it on decode.
+-- evidence keeps pending outputs and signed hashes, without the full head UTxO
+-- or the accumulators used to compute those hashes.
 data Settlement tx = Settlement
-  { snapshot :: ConfirmedSnapshot tx
+  { snapshot :: SettlementEvidence tx
   , status :: SettlementStatus
   }
   deriving stock (Generic)
@@ -78,11 +78,8 @@ instance FromCBOR SettlementStatus where
 --
 -- One entry is retained per increment or decrement that settles, and entries
 -- are dropped once no rollback can reach them anymore, so the map holds as
--- many snapshots as the head settles before their observations become
--- immutable after enough successor blocks. Each entry keeps a whole
--- snapshot UTxO, so a head settling frequently pays for that in memory and in
--- every persisted checkpoint; slimming the retained payload is left to a
--- follow-up.
+-- many entries as the head settles before block-depth finality. Each entry keeps only the
+-- evidence needed to re-post its settlement.
 data Settlements tx = Settlements
   { entries :: Map SnapshotVersion (Settlement tx)
   , deposits :: Set (TxIdType tx)
@@ -136,8 +133,8 @@ settlementEntries ss = ss.entries
 settlementDeposits :: Settlements tx -> Set (TxIdType tx)
 settlementDeposits ss = ss.deposits
 
-settlementDeposit :: IsTx tx => Settlement tx -> Maybe (TxIdType tx)
-settlementDeposit Settlement{snapshot} = (getSnapshot snapshot).depositTxId
+settlementDeposit :: Settlement tx -> Maybe (TxIdType tx)
+settlementDeposit Settlement{snapshot} = snapshot.depositTxId
 
 -- | Keep an existing version unchanged; reject deposits claimed by another version.
 tryInsertSettlement ::
@@ -159,7 +156,7 @@ tryInsertSettlement entry current
           , oldestSettlementSlot = earlierLandedSlot current.oldestSettlementSlot entry.status
           }
  where
-  version = (getSnapshot entry.snapshot).version
+  version = entry.snapshot.version
   overlap =
     Set.intersection
       (settlementDepositIds entry)
@@ -180,7 +177,7 @@ trySettlementsFromMap =
     | otherwise =
         tryInsertSettlement entry current
    where
-    snapshotVersion = (getSnapshot entry.snapshot).version
+    snapshotVersion = entry.snapshot.version
 
 -- | Change an observation without changing the retained deposit claims.
 adjustSettlementStatus :: SnapshotVersion -> SettlementStatus -> Settlements tx -> Settlements tx

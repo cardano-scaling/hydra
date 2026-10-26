@@ -25,6 +25,7 @@ import Hydra.HeadLogic.StateEvent (StateEvent (..), mkCheckpoint)
 import Hydra.Ledger.Cardano (Tx)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Node.State (NodeState (..))
+import Hydra.Tx.Settlement (settlementEvidence)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot, Snapshot (..), getSnapshot)
 import System.Directory (doesFileExist, getFileSize)
 import Test.Hydra.Chain.Direct.State ()
@@ -290,7 +291,7 @@ legacyCheckpoint kind = do
     either (fail . show) pure $
       trySettlementsFromMap $
         Map.fromList
-          [((getSnapshot snapshot).version, Settlement snapshot (Landed slot)) | (snapshot, slot) <- finalized]
+          [((getSnapshot snapshot).version, Settlement (settlementEvidence snapshot) (Landed slot)) | (snapshot, slot) <- finalized]
   let chs = openState.coordinatedHeadState{settlements = retained, unretained = mempty}
       checkpointHead =
         if kind == "partial fanout"

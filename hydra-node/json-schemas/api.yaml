@@ -2348,6 +2348,38 @@ components:
               items:
                 $ref: "api.yaml#/components/schemas/Signature"
 
+    SettlementEvidence:
+      title: SettlementEvidence
+      type: object
+      additionalProperties: false
+      description: Signed evidence for an increment or decrement, without the full head UTxO.
+      required: [headId, version, number, utxoToCommit, utxoToDecommit, depositTxId, accumulatorHash, appliedAccumulatorHash, signatures]
+      properties:
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        version:
+          $ref: "api.yaml#/components/schemas/SnapshotVersion"
+        number:
+          $ref: "api.yaml#/components/schemas/SnapshotNumber"
+        utxoToCommit:
+          oneOf:
+            - $ref: "api.yaml#/components/schemas/UTxO"
+            - type: "null"
+        utxoToDecommit:
+          oneOf:
+            - $ref: "api.yaml#/components/schemas/UTxO"
+            - type: "null"
+        depositTxId:
+          type: [string, "null"]
+        accumulatorHash:
+          type: string
+          pattern: "^[0-9a-f]{64}$"
+        appliedAccumulatorHash:
+          type: string
+          pattern: "^[0-9a-f]{64}$"
+        signatures:
+          $ref: "api.yaml#/components/schemas/MultiSignature"
+
     ConfirmedSnapshot:
       oneOf:
       - title: "InitialSnapshot"
@@ -2679,7 +2711,7 @@ components:
             headParameters:
               $ref: "api.yaml#/components/schemas/HeadParameters"
             incrementingSnapshot:
-              $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
+              $ref: "api.yaml#/components/schemas/SettlementEvidence"
             depositTxId:
               type: string
         - title: DecrementTx
@@ -2704,7 +2736,7 @@ components:
             headParameters:
               $ref: "api.yaml#/components/schemas/HeadParameters"
             decrementingSnapshot:
-              $ref: "api.yaml#/components/schemas/ConfirmedSnapshot"
+              $ref: "api.yaml#/components/schemas/SettlementEvidence"
         - title: CloseTx
           type: object
           additionalProperties: false

@@ -7,7 +7,8 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Cardano.Binary (decodeFull', serialize')
-import Data.Aeson (Result (Error, Success), fromJSON)
+import Data.Aeson (Result (Error, Success), fromJSON, object, (.=))
+import Data.ByteString qualified as BS
 import Data.Map.Strict qualified as Map
 import Data.Set qualified as Set
 import Hydra.Chain.ChainState (ChainSlot (..))
@@ -35,8 +36,11 @@ import Hydra.HeadLogic.State (
   unretainedFromMap,
  )
 import Hydra.Ledger.Cardano (Tx)
+import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.IsTx (TxIdType)
-import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (depositTxId, number, version), SnapshotVersion, getSnapshot)
+import Hydra.Tx.Settlement (settlementEvidence, snapshotEvidence)
+import Hydra.Tx.Settlement qualified as Evidence
+import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotVersion)
 import Test.Hydra.HeadLogic.State ()
 import Test.Hydra.Tx.Gen ()
 import Test.QuickCheck (Property, conjoin, counterexample, elements, forAll, listOf, oneof, property, resize, suchThat, vectorOf, (===))
@@ -58,6 +62,31 @@ data NoteAction
 
 spec :: Spec
 spec = describe "settlement caches" $ do
+  describe "compact evidence" $ do
+    prop "roundtrips compact evidence and reads legacy snapshots" $
+      forAll genSmallSnapshot $ \snapshot ->
+        let confirmed = ConfirmedSnapshot snapshot mempty
+            evidence = settlementEvidence confirmed
+         in conjoin
+              [ decodeFull' (serialize' evidence) === Right evidence
+              , fromJSON (toJSON evidence) === Success evidence
+              , decodeFull' (serialize' confirmed) === Right evidence
+              , fromJSON (toJSON confirmed) === Success evidence
+              , fromJSON (object ["snapshot" .= confirmed, "status" .= Erased])
+                  === Success Settlement{snapshot = evidence, status = Erased}
+              ]
+
+    prop "does not retain the head UTxO or confirmed transactions" $
+      forAll genSmallSnapshot $ \snapshot ->
+        let evidence = snapshotEvidence snapshot mempty
+            trimmed = snapshot{utxo = mempty, confirmed = []}
+         in serialize' evidence === serialize' (snapshotEvidence trimmed mempty)
+
+    prop "checkpoint evidence size is independent of the head UTxO" $
+      forAll genSmallSnapshot $ \snapshot ->
+        let trimmed = snapshot{utxo = mempty, confirmed = [], accumulator = (Accumulator.build []), appliedAccumulator = (Accumulator.build [])}
+         in BS.length (serialize' $ snapshotEvidence snapshot mempty)
+              === BS.length (serialize' $ snapshotEvidence trimmed mempty)
   prop "match a plain map after every retention, re-landing, rollback and prune" $
     forAll (resize 30 genActions) $
       checkActions emptySettlements Map.empty
@@ -133,7 +162,7 @@ spec = describe "settlement caches" $ do
           Right stored ->
             conjoin
               [ settlementEntries stored
-                  === Map.singleton (getSnapshot entry.snapshot).version entry
+                  === Map.singleton (Evidence.version entry.snapshot) entry
               , settlementDeposits stored
                   === Set.fromList (maybeToList $ settlementDeposit entry)
               ]
@@ -192,7 +221,7 @@ spec = describe "settlement caches" $ do
 
     prop "rejects a key that differs from the snapshot version" $
       forAll genSmallSettlement $ \entry ->
-        let snapshotVersion = (getSnapshot entry.snapshot).version
+        let snapshotVersion = (Evidence.version entry.snapshot)
             settlementVersion = snapshotVersion + 1
             entries = Map.singleton settlementVersion entry
          in conjoin
@@ -339,7 +368,7 @@ spec = describe "settlement caches" $ do
         Left (DepositAlreadyClaimed (Set.singleton depositId))
     | otherwise = Right (Map.insert version entry entries)
    where
-    version = (getSnapshot entry.snapshot).version
+    version = (Evidence.version entry.snapshot)
 
 rejectsOnDecode ::
   Map.Map SnapshotVersion (Settlement Tx) ->
@@ -356,7 +385,7 @@ rejectsOnDecode entries =
 
 settlementAt :: Snapshot Tx -> SnapshotVersion -> Maybe (TxIdType Tx) -> SettlementStatus -> Settlement Tx
 settlementAt snap version depositTxId status =
-  Settlement{snapshot = ConfirmedSnapshot (snap{version, depositTxId}) mempty, status}
+  Settlement{snapshot = settlementEvidence $ ConfirmedSnapshot (snap{version, depositTxId}) mempty, status}
 
 genSmallSnapshot :: Gen (Snapshot Tx)
 genSmallSnapshot = resize 2 arbitrary

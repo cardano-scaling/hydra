@@ -72,6 +72,7 @@ import Hydra.Tx.DepositPeriod (DepositPeriod (..))
 import Hydra.Tx.DepositPeriod qualified as DP
 import Hydra.Tx.IsTx (IsTx (..), combinedUTxO)
 import Hydra.Tx.Party (Party (..), deriveParty)
+import Hydra.Tx.Settlement qualified as Evidence
 import Hydra.Tx.Snapshot (ConfirmedSnapshot, Snapshot (..), SnapshotNumber, confirmedSignatures, getSnapshot)
 import Test.Hydra.Ledger (nextChainSlot)
 import Test.Hydra.Ledger.Simple (aValidTx, utxoRef, utxoRefs)
@@ -1735,20 +1736,20 @@ toOnChainTx now = \case
       , newVersion = version + 1
       , depositTxId
       , snapshotNumber = number
-      , signatures = confirmedSignatures incrementingSnapshot
+      , signatures = Evidence.signatures incrementingSnapshot
       }
    where
-    Snapshot{version, number} = getSnapshot incrementingSnapshot
+    Evidence.SettlementEvidence{version, number} = incrementingSnapshot
   DecrementTx{headId, decrementingSnapshot} ->
     OnDecrementTx
       { headId
       , newVersion = version + 1
       , distributedUTxO = fromMaybe mempty utxoToDecommit
       , snapshotNumber = number
-      , signatures = confirmedSignatures decrementingSnapshot
+      , signatures = Evidence.signatures decrementingSnapshot
       }
    where
-    Snapshot{version, number, utxoToDecommit} = getSnapshot decrementingSnapshot
+    Evidence.SettlementEvidence{version, number, utxoToDecommit} = decrementingSnapshot
   CloseTx{closingSnapshot} ->
     OnCloseTx
       { headId = testHeadId
