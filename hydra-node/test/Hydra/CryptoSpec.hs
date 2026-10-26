@@ -87,6 +87,14 @@ specSignature =
          in verify (getVerificationKey sk) sig msg
               & counterexample (show sig)
 
+    prop "verifyBytes accepts signed snapshot bytes and rejects altered bytes" $ \(snapshot :: Snapshot Tx) ->
+      forAll arbitrary $ \(sk :: Secret (SigningKey HydraKey)) ->
+        let sig = sign sk snapshot
+            bytes = getSignableRepresentation snapshot
+            vk = getVerificationKey sk
+         in (verifyBytes vk sig bytes, verifyBytes vk sig (BS.snoc bytes 0))
+              === (True, False)
+
 specMultiSignature :: Spec
 specMultiSignature =
   describe "MultiSignature" $ do
