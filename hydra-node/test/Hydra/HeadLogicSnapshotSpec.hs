@@ -8,7 +8,8 @@ import Test.Hydra.Prelude
 
 import Data.List qualified as List
 import Data.Map.Strict qualified as Map
-import Hydra.HeadLogic (CoordinatedHeadState (..), Effect (..), HeadState (..), OpenState (OpenState), Outcome, SeenSnapshot (..), coordinatedHeadState, emptySettlements, isLeader, mkSeenSnapshot, update)
+import Hydra.HeadLogic (CoordinatedHeadState (..), Effect (..), HeadState (..), OpenState (OpenState), SeenSnapshot (..), coordinatedHeadState, emptySettlements, isLeader, mkSeenSnapshot, update)
+import Hydra.HeadLogic.Outcome (Outcome (Continue), StateChanged (PartySignedSnapshot))
 import Hydra.HeadLogicSpec (StepState, getState, hasEffect, hasEffectSatisfying, hasNoEffectSatisfying, inOpenState, inOpenState', nowFromSlot, receiveMessage, receiveMessageFrom, runHeadLogic, step)
 import Hydra.Ledger.Simple (SimpleTx (..), simpleLedger)
 import Hydra.Network.Message (Message (..))
@@ -144,6 +145,17 @@ spec = do
 
     describe "On AckSn" $ do
       let bobEnv = envFor bobSk
+
+      it "records each snapshot acknowledgement exactly once" $ do
+        outcomes <- runHeadLogic bobEnv simpleLedger (inOpenState threeParties) $ do
+          step (receiveMessage $ ReqSn 0 1 [] Nothing Nothing)
+          traverse step [ackFrom carolSk carol, ackFrom aliceSk alice, ackFrom bobSk bob]
+
+        forM_ (zip outcomes [carol, alice, bob]) $ \(outcome, signer) ->
+          case outcome of
+            Continue stateChanges _ ->
+              [party | PartySignedSnapshot _ party _ <- stateChanges] `shouldBe` [signer]
+            other -> expectationFailure $ "Expected acknowledgement to continue: " <> show other
 
       it "sends ReqSn  when leader and there are seen transactions" $ do
         headState <- runHeadLogic bobEnv simpleLedger (inOpenState threeParties) $ do
