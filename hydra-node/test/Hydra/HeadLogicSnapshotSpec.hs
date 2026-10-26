@@ -17,7 +17,7 @@ import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.State (ChainPointTime (..), NodeState (..))
 import Hydra.Options (defaultContestationPeriod, defaultDepositActivation, defaultDepositPeriod, defaultUnsyncedPeriod)
 import Hydra.Tx.Accumulator qualified as Accumulator
-import Hydra.Tx.Crypto (sign)
+import Hydra.Tx.Crypto (getSignableRepresentation, sign)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.IsTx (IsTx (..), UTxOType, txId)
 import Hydra.Tx.Party (Party, deriveParty)
@@ -145,6 +145,17 @@ spec = do
 
     describe "On AckSn" $ do
       let bobEnv = envFor bobSk
+
+      it "verifies acknowledgements using the cached signable bytes" $ do
+        let poisoned = snapshot1{accumulator = error "snapshot representation recomputed"}
+            seen = SeenSnapshot poisoned mempty (getSignableRepresentation snapshot1)
+            s0 = inOpenState' threeParties coordinatedHeadState{seenSnapshot = seen}
+        now <- nowFromSlot (currentSlot . chainPointTime $ s0)
+
+        case update bobEnv simpleLedger now s0 (ackFrom carolSk carol) of
+          Continue stateChanges _ ->
+            [party | PartySignedSnapshot _ party _ <- stateChanges] `shouldBe` [carol]
+          other -> expectationFailure $ "Expected acknowledgement to continue: " <> show other
 
       it "records each snapshot acknowledgement exactly once" $ do
         outcomes <- runHeadLogic bobEnv simpleLedger (inOpenState threeParties) $ do

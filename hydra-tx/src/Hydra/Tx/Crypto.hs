@@ -349,8 +349,17 @@ verify ::
   Signature a ->
   a ->
   Bool
-verify (HydraVerificationKey vk) (HydraSignature sig) a =
-  case verifyDSIGN ctx vk a sig of
+verify vk sig a = verifyBytes vk sig (getSignableRepresentation a)
+
+-- | Like 'verify' but uses pre-computed signable bytes, avoiding repeated
+-- calls to 'getSignableRepresentation' for the same value.
+verifyBytes ::
+  VerificationKey HydraKey ->
+  Signature a ->
+  ByteString ->
+  Bool
+verifyBytes (HydraVerificationKey vk) (HydraSignature sig) bytes =
+  case verifyDSIGN ctx vk bytes sig of
     Right () -> True
     -- NOTE: Current implementation does not yield multiple Left cases, so no need
     -- to distinguish in our interface

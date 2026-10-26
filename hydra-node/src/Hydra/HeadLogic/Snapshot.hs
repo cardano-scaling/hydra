@@ -85,7 +85,7 @@ import Hydra.Tx.Crypto (
   Verified (..),
   aggregateInOrder,
   sign,
-  verify,
+  verifyBytes,
   verifyMultiSignature,
   verifyMultiSignatureBytes,
  )
@@ -672,7 +672,7 @@ onOpenNetworkAckSn env@Environment{party} ChainPointTime{currentChainTime} pendi
     waitOnSeenSnapshot $ \snapshot sigs snapshotBytes -> do
       -- Spec: require (j,⋅) ∉ ̂Σ
       requireNotSignedYet sigs $ do
-        requireSignatureForThisSnapshot snapshot $ do
+        requireSignatureForThisSnapshot snapshotBytes $ do
           -- Spec: ̂Σ[j] ← σⱼ
           (newState PartySignedSnapshot{snapshotNumber = snapshot.number, party = otherParty, signature = snapshotSignature} <>) $
             --       if ∀k ∈ [1..n] : (k,·) ∈ ̂Σ
@@ -722,8 +722,8 @@ onOpenNetworkAckSn env@Environment{party} ChainPointTime{currentChainTime} pendi
 
   -- Verify before recording the signature so a bad acknowledgement cannot
   -- prevent the same party's valid acknowledgement from being collected later.
-  requireSignatureForThisSnapshot snapshot continue =
-    if verify (vkey otherParty) snapshotSignature snapshot
+  requireSignatureForThisSnapshot snapshotBytes continue =
+    if verifyBytes (vkey otherParty) snapshotSignature snapshotBytes
       then continue
       else Error $ RequireFailed $ AckSnSignatureInvalid{requestedSn = sn, receivedSignature = otherParty}
 
