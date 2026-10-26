@@ -91,8 +91,7 @@ createAndSaveSigningKey path = do
   writeFileLBS path $ textEnvelopeToJSON (Just "Key used to commit funds into a Head") sk
   pure (mkSecret sk)
 
--- | 'try' that lets asynchronous exceptions through, so that an interrupt
--- during a sweep is not traced as a failure and carried on from.
+-- | Catch synchronous failures while allowing cancellation to propagate.
 trySync :: IO a -> IO (Either SomeException a)
 trySync action =
   try action >>= \case
@@ -101,13 +100,8 @@ trySync action =
 
 -- * Ephemeral run credentials
 
--- | Credentials a run generates for itself, none of them derivable from this
--- repository: the head participant's Cardano and Hydra keys, and the wallet key
--- it commits funds from.
---
--- Each is written to 'keyDir' before it is funded, so a run that dies before
--- returning its funds leaves them recoverable -- the Hydra key included, which
--- is what closes or aborts a head left open.
+-- | Fresh Cardano and Hydra credentials for the participant and its commit
+-- wallet, persisted in 'keyDir' before funding.
 data Participant = Participant
   { cardanoVk :: VerificationKey PaymentKey
   , cardanoSk :: Secret (SigningKey PaymentKey)
@@ -166,9 +160,7 @@ participantPaymentKeyFiles = [participantCardanoKeyFile, participantWalletKeyFil
 -- | Generate a fresh 'Participant' under 'participantKeysDir', in a directory
 -- named after the Cardano key's hash so runs cannot clobber each other.
 --
--- NOTE: Every key comes from system entropy. 'genSigningKey' and the
--- 'Arbitrary' instances are seedable test generators, which is the wrong tool
--- for keys holding real funds and a head's signing authority.
+-- Uses system entropy rather than seedable test generators.
 generateParticipant :: FilePath -> IO Participant
 generateParticipant workDir = do
   rawCardanoSk <- generateSigningKey AsPaymentKey
@@ -192,14 +184,8 @@ generateParticipant workDir = do
       , keyDir
       }
 
--- | Write a signing key in 'TextEnvelope' format, readable only by its owner,
--- failing loudly if it cannot be persisted: a key that was funded but never
--- written is unrecoverable.
---
--- Staged and renamed into place, which is atomic: a kill partway through
--- otherwise leaves a truncated key that no run can read or sweep. These sit in
--- the state directory of a shared runner, where the default mode would leave
--- mainnet keys readable by every account on the host.
+-- | Write an owner-only 'TextEnvelope', then rename it atomically into place
+-- so interruption cannot leave a truncated key at the destination.
 writeSigningKey :: HasTextEnvelope (SigningKey k) => FilePath -> SigningKey k -> IO ()
 writeSigningKey path sk = do
   let staging = path <.> "tmp"
@@ -207,13 +193,8 @@ writeSigningKey path sk = do
   either (fail . show) pure (written :: Either (FileError ()) ())
   renameFile staging path
 
--- | The key directories of runs that did not sweep, each with the payment keys
--- to return funds from, or the reason they could not be read.
---
--- A run killed midway through writing its keys leaves a file missing or
--- truncated. A missing one is skipped, and one that will not decode is reported
--- against its own directory alone so it cannot hide every other run's keys.
--- Entries that are not directories are ignored.
+-- | Read payment keys from each pending run directory, skipping missing files
+-- and reporting decode failures per run. Non-directory entries are ignored.
 leftoverParticipantKeys :: FilePath -> IO [(FilePath, Either Text [Secret (SigningKey PaymentKey)])]
 leftoverParticipantKeys workDir = do
   let dir = participantKeysDir workDir
@@ -237,9 +218,8 @@ leftoverParticipantKeys workDir = do
       then Just <$> (decodeSigningKey path =<< BS.readFile path)
       else pure Nothing
 
--- | Move a run's keys aside once its funds are back, reporting why if it could
--- not be done. Moved rather than deleted, so a directory archived on a wrong
--- call is still recoverable by hand.
+-- | Move keys to 'sweptParticipantKeysDir' without overwriting an existing
+-- archive, returning any failure.
 archiveParticipantKeys :: FilePath -> FilePath -> IO (Either Text ())
 archiveParticipantKeys workDir keyDir =
   first (show @Text @SomeException) <$> trySync go
@@ -249,8 +229,6 @@ archiveParticipantKeys workDir keyDir =
         dest = swept </> takeFileName keyDir
     createDirectoryIfMissing True swept
     alreadyThere <- doesDirectoryExist dest
-    -- A name is a key hash, so a clash means this was archived and recreated.
-    -- Keep both rather than write over keys already archived.
     if alreadyThere
       then fail $ "refusing to overwrite already archived keys at " <> dest
       else renameDirectory keyDir dest

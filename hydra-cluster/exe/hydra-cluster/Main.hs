@@ -81,9 +81,7 @@ run options =
             writeFileBS networkFile (encodeUtf8 @Text $ show network)
         withCardanoNodeOnKnownNetwork (contramap FromCardanoNode tracer) workDir network action
 
-  -- A run against a public network keeps the keys holding its funds in the
-  -- state directory, so that a run which cannot return them leaves them for the
-  -- next one. A temporary directory would take them with it.
+  -- Public-network runs need persistent storage for their recovery keys.
   withStateDirectory action = case (stateDirectory, knownNetwork) of
     (Just sd, _) -> action sd
     (Nothing, Just network) ->

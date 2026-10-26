@@ -33,10 +33,6 @@ participantKeySpec = describe "generateParticipant" $ do
   it "persists every key a recovery would need" $
     withTempDir "participant" $ \dir -> do
       Participant{keyDir} <- generateParticipant dir
-      -- The Hydra key among them: the funds of a run killed while its head was
-      -- open are in the head contract, and closing or aborting needs it. The
-      -- copy the node writes lives under state-*, which the smoke-test runner
-      -- wipes before every run.
       forM_ [participantCardanoKeyFile, participantWalletKeyFile, participantHydraKeyFile] $ \keyFile ->
         doesFileExist (keyFile keyDir) `shouldReturn` True
 
@@ -46,18 +42,15 @@ participantKeySpec = describe "generateParticipant" $ do
       killed <- generateParticipant dir
       leftovers <- leftoverParticipantKeys dir
       map fst leftovers `shouldBe` [keyDir killed]
-      -- Has to be the same keys: a sweep queries the addresses derived from them.
       map (fmap (map getVerificationKey) . snd) leftovers
         `shouldBe` [Right [cardanoVk killed, walletVk killed]]
 
       archiveParticipantKeys dir (keyDir killed) `shouldReturn` Right ()
       (map fst <$> leftoverParticipantKeys dir) `shouldReturn` []
-      -- Archived, not deleted.
       listDirectory (sweptParticipantKeysDir dir) `shouldNotReturn` []
 
   it "keeps the persisted keys readable only by their owner" $
     withTempDir "participant" $ \dir -> do
-      -- They outlive the run on a shared runner, holding mainnet funds.
       Participant{keyDir} <- generateParticipant dir
       forM_ [participantCardanoKeyFile, participantWalletKeyFile, participantHydraKeyFile] $ \keyFile -> do
         status <- getFileStatus (keyFile keyDir)

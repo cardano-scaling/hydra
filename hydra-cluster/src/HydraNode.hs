@@ -589,9 +589,7 @@ prepareHydraNode chainConfig workDir hydraNodeId hydraSKey hydraVKeys nodePorts 
   let stateDir = workDir </> "state-" <> show hydraNodeId
   createDirectoryIfMissing True stateDir
   cardanoLedgerProtocolParametersFile <- preparePParams chainConfig stateDir paramsDecorator
-  -- This copy lives for as long as the head does, in a state directory that on
-  -- a shared runner every account can read. It is the key that closes the head,
-  -- so it is written owner-only like the participant's own copy.
+  -- Protect the node's copy of the signing key on shared runners too.
   let hydraSigningKey = stateDir </> "me.sk"
   withSecret hydraSKey $ writeSigningKey hydraSigningKey
   hydraVerificationKeys <- forM (zip [1 ..] hydraVKeys) $ \(i :: Int, vKey) -> do

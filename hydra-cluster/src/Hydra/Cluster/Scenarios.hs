@@ -528,7 +528,6 @@ singlePartyHeadFullLifeCycle ::
   [TxId] ->
   IO ()
 singlePartyHeadFullLifeCycle tracer workDir mkTiming opts hydraScriptsTxId = do
-  -- Recycle what an earlier run could not return, before asking for more.
   returnLeftoverParticipantFunds tracer opts workDir
 
   participant@Participant{cardanoVk, cardanoSk, hydraSk, walletVk, walletSk, keyDir} <-
@@ -576,11 +575,8 @@ singlePartyHeadFullLifeCycle tracer workDir mkTiming opts hydraScriptsTxId = do
             ]
 
     withSoloHydraNode hydraTracer blockTime participantChainConfig workDir 1 hydraSk [] $ \n1 -> do
-      -- Mark before Init: the funds are committed once that transaction is on
-      -- chain, which is before this run hears about it. An Init that never
-      -- lands leaves the marker behind and holds that run's fuel until someone
-      -- deletes it. That is the recoverable way to be wrong; the other is a
-      -- head left open with its keys already archived.
+      -- Mark before Init: it may land before we observe it. If it never lands,
+      -- the stale marker requires manual removal but preserves the fuel.
       markHeadOpen keyDir
       send n1 $ input "Init" []
       headId <- waitMatch (30 * blockTime) n1 $ headIsOpenWith (Set.fromList [participantParty participant])
@@ -643,19 +639,17 @@ singlePartyHeadFullLifeCycle tracer workDir mkTiming opts hydraScriptsTxId = do
  where
   hydraTracer = contramap FromHydraNode tracer
 
-  -- Names this run's key in the log entries that elsewhere carry an 'Actor'
-  -- name. The participant is generated per run, so it has no fixture name.
   participantLabel = "participant"
 
   traceRemainingFunds vk = do
     utxo <- runBackend opts $ queryUTxOFor QueryTip vk
     traceWith tracer RemainingFunds{actor = participantLabel, utxo}
 
--- | Whether the run a set of keys belongs to is over, and so finished with them.
+-- | Whether the run completed or may still have funding in flight.
 data RunOutcome = RunFinished | RunInterrupted
   deriving stock (Eq, Show)
 
--- | Return a run's remaining funds to the faucet and archive its keys.
+-- | Sweep the participant's payment keys under the 'sweepParticipantKeys' policy.
 returnParticipantFunds ::
   Tracer IO EndToEndLog ->
   ChainBackendOptions ->
@@ -666,8 +660,7 @@ returnParticipantFunds ::
 returnParticipantFunds tracer opts workDir Participant{cardanoSk, walletSk, keyDir} =
   sweepParticipantKeys tracer opts workDir keyDir [cardanoSk, walletSk]
 
--- | Return funds left at the keys of runs killed before they could sweep, and
--- archive those keys.
+-- | Retry sweeps for earlier runs under the 'sweepParticipantKeys' policy.
 returnLeftoverParticipantFunds ::
   Tracer IO EndToEndLog ->
   ChainBackendOptions ->
@@ -679,25 +672,16 @@ returnLeftoverParticipantFunds tracer opts workDir =
       traceWith tracer SweepFailed{keyPath = participantKeysDir workDir, reason = show err}
     Right leftovers ->
       forM_ leftovers $ \(keyDir, paymentKeys) -> case paymentKeys of
-        -- Keep the directory: its keys may still hold funds, and this run
-        -- cannot tell.
         Left reason -> traceWith tracer SweepFailed{keyPath = keyDir, reason}
-        -- Whatever run left these behind is long over, so they can be archived.
         Right sks -> sweepParticipantKeys tracer opts workDir keyDir sks RunFinished
 
--- | Return what the given keys hold to the faucet, and archive them once the
--- run they belong to is finished with them.
+-- | Sweep payment keys to the faucet and archive them when their run is finished.
 --
--- A run that left a head open is not swept at all: its fuel is what pays for
--- the abort or close that recovers the head.
---
--- Keys are archived only once their run is over, since an interrupted one can
--- still have a funding transaction in flight, and value landing after they were
--- archived would sit where no later run looks.
---
--- Failures are traced rather than raised, so that one unsweepable key cannot
--- block every later run, and so that a failing run reports what it failed on.
--- Interrupts are left to propagate.
+-- Recovery policy: persist all keys before funding. An open-head marker keeps
+-- both keys and fuel for manual close or abort. Otherwise, sweep both payment
+-- keys; keep interrupted runs pending because funding may still arrive, and
+-- archive completed runs without deleting their keys. Later runs retry pending
+-- directories. Sweep failures are logged per run; cancellation propagates.
 sweepParticipantKeys ::
   Tracer IO EndToEndLog ->
   ChainBackendOptions ->
@@ -716,15 +700,8 @@ sweepParticipantKeys tracer opts workDir keyDir sks outcome =
     False -> do
       results <- forM sks sweep
       case lefts results of
-        -- A sweep that failed leaves the directory alone: it may still hold
-        -- funds, and the next run retries it. Dust too small to cover its own
-        -- fee is not a failure, and 'returnFundsToFaucetBounded' reports it as
-        -- nothing returned rather than an error.
         errs@(_ : _) -> traceWith tracer SweepFailed{keyPath = keyDir, reason = show errs}
         [] -> case outcome of
-          -- An interrupted run can still have a funding transaction in flight,
-          -- and value landing after its keys were archived would sit where no
-          -- later run reads. A finished run's funding landed long ago.
           RunInterrupted -> keep "run was interrupted; the next run sweeps these"
           RunFinished -> archive
  where

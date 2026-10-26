@@ -257,11 +257,8 @@ returnFundsToFaucet' tracer opts senderSk = do
   let faucetAddress = mkVkAddress networkId faucetVk
   let senderVk = getVerificationKey senderSk
   returnAmount <- retryOnExceptions tracer opts $ do
-    -- NOTE: Query inside the retry. An earlier attempt that was interrupted
-    -- after submitting can already be spending these inputs, and a retry built
-    -- from the same stale UTxO is rejected identically every time -- which,
-    -- with no bound on the retries, is a hang rather than a failure. Asking
-    -- again each round lets the run end once that transaction lands.
+    -- Re-query on retry: a previous submission may already have spent the
+    -- inputs, so retrying the same UTxO would fail indefinitely.
     utxo <- runBackend opts $ queryUTxOFor QueryTip senderVk
     if UTxO.null utxo
       then pure 0
@@ -281,25 +278,18 @@ returnFundsToFaucet' tracer opts senderSk = do
       Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
       Right tx -> pure $ getTxBody tx
 
--- | 'returnFundsToFaucet'' for a cleanup path: bounded in time, and reporting
--- nothing returned where there is nothing returnable.
---
--- Resubmission and awaiting a transaction are both unbounded on their own, and
--- a transaction accepted and then dropped is never seen, so a sweep can wait
--- past anything that would rethrow the error the run was failing on.
---
--- A balance too small to pay for returning itself is the ordinary end state of
--- a successful run's wallet key. Which build error the ledger reports for it
--- depends on the amount, so any failure to build the return transaction counts
--- as nothing returnable: retrying cannot help, and treating it as a failure
--- would mean the run's keys were never archived.
+-- | Bound cleanup queries, retries and confirmation waits. Transaction-building
+-- failures are logged as nothing returnable.
 returnFundsToFaucetBounded ::
   Tracer IO FaucetLog ->
   ChainBackendOptions ->
   Secret (SigningKey PaymentKey) ->
   IO Coin
 returnFundsToFaucetBounded tracer opts senderSk = do
-  blockTime <- runBackend opts getBlockTime
+  -- Bound the lookup before its result can determine the sweep timeout.
+  blockTime <-
+    timeout 30 (runBackend opts getBlockTime)
+      >>= maybe (throwIO FaucetSweepTimedOut) pure
   timeout (sweepTimeout blockTime) (returnFundsToFaucet' tracer opts senderSk `catch` nothingReturnable)
     >>= maybe (throwIO FaucetSweepTimedOut) pure
  where
