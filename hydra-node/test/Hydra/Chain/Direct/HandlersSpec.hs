@@ -788,7 +788,7 @@ spec = do
                 -- A wallet UTxO rich enough to pay the fee and the top-up.
                 walletUTxO = UTxO.fromList $ second (modifyTxOutValue (<> lovelaceToValue 20_000_000)) <$> UTxO.toList feeUTxO
                 toLedgerMap = Ledger.unUTxO . UTxO.toShelleyUTxO shelleyBasedEra
-                drafted = depositTx Fixture.testNetworkId Fixture.pparams headId (mkSimpleBlueprintTx utxo) (SlotNo 1) deadline Nothing
+                drafted = either (error . show) id $ depositTx Fixture.testNetworkId Fixture.pparams headId (mkSimpleBlueprintTx utxo) (SlotNo 1) deadline Nothing
                in
                 case coverFee_ Fixture.pparams Fixture.systemStart Fixture.epochInfo (toLedgerMap utxo) (toLedgerMap walletUTxO) (toLedgerTx drafted) of
                   Left err -> property False & counterexample ("coverFee failed: " <> show err)
@@ -797,7 +797,7 @@ spec = do
                       Left DepositTooLow{providedValue, minimumValue} ->
                         let outstanding = minimumValue - providedValue
                             toppedUp = UTxO.fromList $ second (modifyTxOutValue (<> lovelaceToValue outstanding)) <$> UTxO.toList utxo
-                            drafted' = depositTx Fixture.testNetworkId Fixture.pparams headId (mkSimpleBlueprintTx toppedUp) (SlotNo 1) deadline Nothing
+                            drafted' = either (error . show) id $ depositTx Fixture.testNetworkId Fixture.pparams headId (mkSimpleBlueprintTx toppedUp) (SlotNo 1) deadline Nothing
                          in case coverFee_ Fixture.pparams Fixture.systemStart Fixture.epochInfo (toLedgerMap toppedUp) (toLedgerMap walletUTxO) (toLedgerTx drafted') of
                               Left err -> property False & counterexample ("coverFee (topped up) failed: " <> show err)
                               Right finalized' ->
@@ -1034,12 +1034,13 @@ genSequenceOfObservableBlocks = do
             Fixture.slotLength
             (slot + slotsUntilDeadline)
     let tx =
-          depositTx
-            networkId
-            Fixture.pparams
-            headId
-            (mkSimpleBlueprintTx utxoToDeposit)
-            slot
-            deadline
-            Nothing
+          either (error . show) id $
+            depositTx
+              networkId
+              Fixture.pparams
+              headId
+              (mkSimpleBlueprintTx utxoToDeposit)
+              slot
+              deadline
+              Nothing
     putNextBlock tx
