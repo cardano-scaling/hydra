@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="560" height="824" viewBox="0 0 560 824" role="img" aria-labelledby="title description">
+  <title id="title">Hydra head lifecycle</title>
+  <desc id="description">Init opens an empty head. While open, deposits lock funds on L1 and increments make them spendable on L2; decommit requests on L2 lead to decrements returning outputs to L1. Close starts the contestation period, during which parties can contest outdated snapshots. After the deadline, the head is ready to fan out. One transaction can settle the whole head, or repeated partial steps distribute outputs while fanning out. The final transaction returns the remaining outputs and burns the head tokens.</desc>
+  <!-- Maintained directly as SVG: keep the layout and text editable here. -->
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 1 1 L 9 5 L 1 9" fill="none" stroke="#527b76" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <style>
+      text { font-family: Arial, Helvetica, sans-serif; }
+      .heading { font-size: 20px; font-weight: 600; fill: #194d46; }
+      .body { font-size: 16px; fill: #415955; }
+      .label { font-size: 15px; fill: #526761; }
+      .step { font-size: 18px; font-weight: 600; fill: #194d46; }
+      .detail { font-size: 14px; fill: #526761; }
+      .path { fill: none; stroke: #527b76; stroke-width: 1.8; marker-end: url(#arrow); }
+      .card { fill: #f0f7f5; stroke: #b5d0c9; stroke-width: 1.2; }
+    </style>
+  </defs>
+  <rect width="560" height="824" rx="12" fill="#fff"/>
+
+  <!-- The nested flow moves funds while the head remains open. -->
+  <text x="280" y="23" text-anchor="middle" class="label">Init on L1 · empty UTxO</text>
+  <path d="M 280 35 V 55" class="path"/>
+  <rect x="36" y="60" width="488" height="260" rx="12" class="card"/>
+  <text x="280" y="89" text-anchor="middle" class="heading">Open</text>
+  <text x="280" y="115" text-anchor="middle" class="body">L2 transactions and snapshots</text>
+
+  <g fill="#fff" stroke="#b5d0c9" stroke-width="1">
+    <rect x="64" y="146" width="176" height="56" rx="8"/>
+    <rect x="320" y="146" width="176" height="56" rx="8"/>
+    <rect x="64" y="242" width="176" height="56" rx="8"/>
+    <rect x="320" y="242" width="176" height="56" rx="8"/>
+  </g>
+  <text x="152" y="170" text-anchor="middle" class="step">Deposit</text>
+  <text x="152" y="189" text-anchor="middle" class="detail">Locked on L1</text>
+  <text x="408" y="170" text-anchor="middle" class="step">Funds in head</text>
+  <text x="408" y="189" text-anchor="middle" class="detail">Spendable on L2</text>
+  <text x="408" y="266" text-anchor="middle" class="step">Decommit</text>
+  <text x="408" y="285" text-anchor="middle" class="detail">Requested on L2</text>
+  <text x="152" y="276" text-anchor="middle" class="step">Funds on L1</text>
+
+  <path d="M 246 179 H 314" class="path"/>
+  <text x="280" y="165" text-anchor="middle" class="label">Increment</text>
+  <text x="280" y="197" text-anchor="middle" class="detail">on L1</text>
+  <path d="M 408 208 V 236" class="path"/>
+  <path d="M 314 275 H 246" class="path"/>
+  <text x="280" y="261" text-anchor="middle" class="label">Decrement</text>
+  <text x="280" y="293" text-anchor="middle" class="detail">on L1</text>
+  <path d="M 152 236 V 208" class="path"/>
+
+  <path d="M 280 320 V 370" class="path"/>
+  <text x="294" y="351" class="label">Close</text>
+  <rect x="120" y="376" width="320" height="76" rx="12" class="card"/>
+  <text x="280" y="406" text-anchor="middle" class="heading">Closed</text>
+  <text x="280" y="431" text-anchor="middle" class="body">Contest before the deadline</text>
+  <path d="M 440 394 H 454 Q 480 394 480 414 Q 480 434 454 434 H 445" class="path"/>
+
+  <path d="M 280 452 V 502" class="path"/>
+  <text x="294" y="483" class="label">Contestation deadline passes</text>
+  <rect x="120" y="508" width="320" height="54" rx="12" class="card"/>
+  <text x="280" y="541" text-anchor="middle" class="heading">Ready to fan out</text>
+
+  <!-- Fanout may settle in one transaction or continue through partial steps. -->
+  <path d="M 120 535 H 60 V 770 H 114" class="path"/>
+  <text x="77" y="641" class="label">One</text>
+  <text x="77" y="662" class="label">transaction</text>
+  <path d="M 280 562 V 592 H 402 V 628" class="path"/>
+  <text x="298" y="583" class="label">First partial step</text>
+  <rect x="286" y="634" width="232" height="80" rx="12" class="card"/>
+  <text x="402" y="665" text-anchor="middle" class="heading">Fanning out</text>
+  <text x="402" y="691" text-anchor="middle" class="body">Distribute more outputs</text>
+  <path d="M 518 656 H 530 Q 548 656 548 674 V 678 Q 548 696 530 696 H 523" class="path"/>
+  <path d="M 402 714 V 728 H 280 V 742" class="path"/>
+
+  <rect x="120" y="748" width="320" height="64" rx="12" fill="#e0eee9" stroke="#8fb8ac" stroke-width="1.2"/>
+  <text x="280" y="775" text-anchor="middle" class="heading">Settled</text>
+  <text x="280" y="798" text-anchor="middle" class="body">Outputs on L1 · head tokens burned</text>
+</svg>

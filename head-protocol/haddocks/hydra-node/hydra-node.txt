@@ -4,7 +4,7 @@
 
 -- | The Hydra node
 @package hydra-node
-@version 2.4.1
+@version 2.4.2
 
 module Hydra.API.ClientInput
 data ClientInput tx
@@ -32,6 +32,38 @@ PartialFanout :: UTxOType tx -> ClientInput tx
 [$sel:utxoToFanout:Init] :: ClientInput tx -> UTxOType tx
 SideLoadSnapshot :: ConfirmedSnapshot tx -> ClientInput tx
 [$sel:snapshot:Init] :: ClientInput tx -> ConfirmedSnapshot tx
+
+-- | Reject a client input this node must not process, before it is queued.
+--   
+--   SECURITY: <a>SideLoadSnapshot</a> is the one client command carrying a
+--   whole <a>Snapshot</a>, and decoding one rebuilds both of its
+--   accumulators from the client-supplied UTxO sets (<a>FromJSON</a>).
+--   That decode always succeeds regardless of size -- the accumulators'
+--   commitment and hash are lazy thunks -- and the over-capacity
+--   <a>error</a> inside <a>computeG1CommitmentBytes</a> then fires from
+--   wherever one of those thunks is first forced. In the node that is not
+--   a single place:
+--   
+--   <ul>
+--   <li>the tracer's 'ToJSON (Input tx)' in <a>stepHydraNode</a>, whose
+--   encoding runs on the log writer thread and would take logging (and
+--   then, once the log queue fills, the whole node) down with it;</li>
+--   <li>'ToJSON (ClientMessage tx)' when a rejection echoes the offending
+--   input back to WebSocket clients;</li>
+--   <li><tt>getSignableRepresentation</tt> during multisignature
+--   verification, on the node's main loop, which has no handler for
+--   it.</li>
+--   </ul>
+--   
+--   None of these can be guarded individually, so the size is bounded here
+--   instead: an oversized snapshot never enters the input queue, and the
+--   client gets a 400 / <tt>InvalidInput</tt> rather than a dead node.
+--   <a>HeadLogic</a> keeps an independent backstop for the same invariant.
+--   
+--   This must not force the accumulators, so it goes through
+--   <a>checkAccumulatorSize</a> (an element-map fold) and never
+--   <a>toJSON</a> or <a>getAccumulatorHash</a>.
+validateClientInput :: IsTx tx => ClientInput tx -> Either AccumulatorTooLarge (ClientInput tx)
 instance GHC.Generics.Generic (Hydra.API.ClientInput.ClientInput tx)
 instance Hydra.Tx.IsTx.IsTx tx => GHC.Classes.Eq (Hydra.API.ClientInput.ClientInput tx)
 instance Hydra.Tx.IsTx.IsTx tx => GHC.Show.Show (Hydra.API.ClientInput.ClientInput tx)
@@ -166,28 +198,35 @@ ContestTx :: HeadId -> HeadParameters -> SnapshotVersion -> ConfirmedSnapshot tx
 [$sel:headParameters:InitTx] :: PostChainTx tx -> HeadParameters
 [$sel:openVersion:InitTx] :: PostChainTx tx -> SnapshotVersion
 [$sel:contestingSnapshot:InitTx] :: PostChainTx tx -> ConfirmedSnapshot tx
-FanoutTx :: UTxOType tx -> Maybe (UTxOType tx) -> Maybe (UTxOType tx) -> UTxOType tx -> HeadSeed -> UTCTime -> PostChainTx tx
+
+-- | Full fanout of a closed head. The closed datum commits to exactly the
+--   fan-out-able set, i.e. <a>$sel:utxo:InitTx</a> plus whichever of the
+--   pending commit / decommit still applies at the on-chain version, so
+--   that union is both what is distributed and what the membership proof
+--   is built against.
+FanoutTx :: UTxOType tx -> Maybe (UTxOType tx) -> Maybe (UTxOType tx) -> HeadSeed -> UTCTime -> PostChainTx tx
 [$sel:utxo:InitTx] :: PostChainTx tx -> UTxOType tx
 [$sel:utxoToCommit:InitTx] :: PostChainTx tx -> Maybe (UTxOType tx)
 [$sel:utxoToDecommit:InitTx] :: PostChainTx tx -> Maybe (UTxOType tx)
-[$sel:utxoForProof:InitTx] :: PostChainTx tx -> UTxOType tx
 [$sel:headSeed:InitTx] :: PostChainTx tx -> HeadSeed
 [$sel:contestationDeadline:InitTx] :: PostChainTx tx -> UTCTime
 
 -- | Non-final partial fanout of a user-selected subset. Distributes
 --   <a>$sel:utxoToDistribute:InitTx</a> (dynamically chunked to fit) and
 --   leaves the head in the <tt>FanoutProgress</tt> state without burning
---   tokens. <a>$sel:utxoForProof:InitTx</a> is the full accumulator UTxO
---   matching the current on-chain datum (everything still in the head plus
---   any pre-settled elements).
+--   tokens. <a>$sel:utxoForProof:InitTx</a> is the UTxO the current
+--   on-chain datum commits to: everything still in the head.
 PartialFanoutTx :: UTxOType tx -> UTxOType tx -> HeadSeed -> UTCTime -> PostChainTx tx
 [$sel:utxoToDistribute:InitTx] :: PostChainTx tx -> UTxOType tx
 [$sel:utxoForProof:InitTx] :: PostChainTx tx -> UTxOType tx
 [$sel:headSeed:InitTx] :: PostChainTx tx -> HeadSeed
 [$sel:contestationDeadline:InitTx] :: PostChainTx tx -> UTCTime
-FinalPartialFanoutTx :: UTxOType tx -> UTxOType tx -> HeadSeed -> UTCTime -> PostChainTx tx
+
+-- | Final partial fanout: distributes everything still in the head, which
+--   is exactly what the <tt>FanoutProgress</tt> datum commits to, and
+--   burns the tokens.
+FinalPartialFanoutTx :: UTxOType tx -> HeadSeed -> UTCTime -> PostChainTx tx
 [$sel:utxoToDistribute:InitTx] :: PostChainTx tx -> UTxOType tx
-[$sel:presettledUTxO:InitTx] :: PostChainTx tx -> UTxOType tx
 [$sel:headSeed:InitTx] :: PostChainTx tx -> HeadSeed
 [$sel:contestationDeadline:InitTx] :: PostChainTx tx -> UTCTime
 
@@ -209,22 +248,28 @@ OnRecoverTx :: HeadId -> TxIdType tx -> UTxOType tx -> OnChainTx tx
 [$sel:headId:OnInitTx] :: OnChainTx tx -> HeadId
 [$sel:recoveredTxId:OnInitTx] :: OnChainTx tx -> TxIdType tx
 [$sel:recoveredUTxO:OnInitTx] :: OnChainTx tx -> UTxOType tx
-OnIncrementTx :: HeadId -> SnapshotVersion -> TxIdType tx -> OnChainTx tx
+OnIncrementTx :: HeadId -> SnapshotVersion -> TxIdType tx -> SnapshotNumber -> MultiSignature (Snapshot tx) -> OnChainTx tx
 [$sel:headId:OnInitTx] :: OnChainTx tx -> HeadId
 [$sel:newVersion:OnInitTx] :: OnChainTx tx -> SnapshotVersion
 [$sel:depositTxId:OnInitTx] :: OnChainTx tx -> TxIdType tx
-OnDecrementTx :: HeadId -> SnapshotVersion -> UTxOType tx -> OnChainTx tx
+[$sel:snapshotNumber:OnInitTx] :: OnChainTx tx -> SnapshotNumber
+[$sel:signatures:OnInitTx] :: OnChainTx tx -> MultiSignature (Snapshot tx)
+OnDecrementTx :: HeadId -> SnapshotVersion -> UTxOType tx -> SnapshotNumber -> MultiSignature (Snapshot tx) -> OnChainTx tx
 [$sel:headId:OnInitTx] :: OnChainTx tx -> HeadId
 [$sel:newVersion:OnInitTx] :: OnChainTx tx -> SnapshotVersion
 [$sel:distributedUTxO:OnInitTx] :: OnChainTx tx -> UTxOType tx
-OnCloseTx :: HeadId -> SnapshotNumber -> UTCTime -> OnChainTx tx
+[$sel:snapshotNumber:OnInitTx] :: OnChainTx tx -> SnapshotNumber
+[$sel:signatures:OnInitTx] :: OnChainTx tx -> MultiSignature (Snapshot tx)
+OnCloseTx :: HeadId -> SnapshotNumber -> UTCTime -> MultiSignature (Snapshot tx) -> OnChainTx tx
 [$sel:headId:OnInitTx] :: OnChainTx tx -> HeadId
 [$sel:snapshotNumber:OnInitTx] :: OnChainTx tx -> SnapshotNumber
 [$sel:contestationDeadline:OnInitTx] :: OnChainTx tx -> UTCTime
-OnContestTx :: HeadId -> SnapshotNumber -> UTCTime -> OnChainTx tx
+[$sel:signatures:OnInitTx] :: OnChainTx tx -> MultiSignature (Snapshot tx)
+OnContestTx :: HeadId -> SnapshotNumber -> UTCTime -> MultiSignature (Snapshot tx) -> OnChainTx tx
 [$sel:headId:OnInitTx] :: OnChainTx tx -> HeadId
 [$sel:snapshotNumber:OnInitTx] :: OnChainTx tx -> SnapshotNumber
 [$sel:contestationDeadline:OnInitTx] :: OnChainTx tx -> UTCTime
+[$sel:signatures:OnInitTx] :: OnChainTx tx -> MultiSignature (Snapshot tx)
 OnFanoutTx :: HeadId -> UTxOType tx -> OnChainTx tx
 [$sel:headId:OnInitTx] :: OnChainTx tx -> HeadId
 [$sel:fanoutUTxO:OnInitTx] :: OnChainTx tx -> UTxOType tx
@@ -284,8 +329,10 @@ InternalWalletError :: UTxOType tx -> Text -> tx -> PostTxError tx
 FailedToPostTx :: Text -> tx -> PostTxError tx
 [$sel:failureReason:NoSeedInput] :: PostTxError tx -> Text
 [$sel:failingTx:NoSeedInput] :: PostTxError tx -> tx
-FailedToConstructCloseTx :: PostTxError tx
-FailedToConstructContestTx :: PostTxError tx
+FailedToConstructCloseTx :: Text -> PostTxError tx
+[$sel:failureReason:NoSeedInput] :: PostTxError tx -> Text
+FailedToConstructContestTx :: Text -> PostTxError tx
+[$sel:failureReason:NoSeedInput] :: PostTxError tx -> Text
 FailedToConstructDepositTx :: Text -> PostTxError tx
 [$sel:failureReason:NoSeedInput] :: PostTxError tx -> Text
 FailedToConstructRecoverTx :: Text -> PostTxError tx
@@ -303,6 +350,12 @@ StalePartialFanoutTx :: PostTxError tx
 ContestationDeadlineOutsideTimeHorizon :: Text -> PostTxError tx
 [$sel:failureReason:NoSeedInput] :: PostTxError tx -> Text
 InvalidTokenRequest :: [(PolicyId, PolicyAssets)] -> PostTxError tx
+
+-- | An unexpected assertion (a call to <a>error</a>, e.g. from the
+--   underlying ledger libraries) fired while constructing or posting a
+--   transaction. Reported instead of crashing the node.
+UnexpectedPostTxError :: Text -> PostTxError tx
+[$sel:failureReason:NoSeedInput] :: PostTxError tx -> Text
 
 -- | A non empty sequence of chain states that can be rolled back. This is
 --   expected to be constructed by using the smart constructor
@@ -790,20 +843,20 @@ queryUTxOFor :: ChainBackend m => QueryPoint -> VerificationKey PaymentKey -> m 
 submitTransaction :: ChainBackend m => Tx -> m ()
 awaitTransaction :: ChainBackend m => Tx -> VerificationKey PaymentKey -> m UTxO
 getBlockTime :: ChainBackend m => m NominalDiffTime
-buildTransaction :: ChainBackend m => MonadIO m => AddressInEra -> UTxO -> [TxIn] -> [TxOut CtxTx] -> m (Either (TxBodyErrorAutoBalance Era) Tx)
-buildTransactionWithMintingScript :: ChainBackend m => MonadIO m => AddressInEra -> UTxO -> [TxIn] -> [TxOut CtxTx] -> Maybe PlutusScript -> m (Either (TxBodyErrorAutoBalance Era) Tx)
+buildTransaction :: ChainBackend m => MonadIO m => AddressInEra -> UTxO -> [TxOut CtxTx] -> m (Either (TxBodyErrorAutoBalance Era) Tx)
+buildTransactionWithMintingScript :: ChainBackend m => MonadIO m => AddressInEra -> UTxO -> [TxOut CtxTx] -> Maybe (PlutusScript, [TxIn]) -> m (Either (TxBodyErrorAutoBalance Era) Tx)
 
 -- | Construct a simple payment consuming some inputs and producing some
 --   outputs (no certificates or withdrawals involved).
 --   
 --   On success, the returned transaction is fully balanced. On error,
 --   return <a>TxBodyErrorAutoBalance</a>.
-buildTransactionWithPParams :: ChainBackend m => MonadIO m => PParams LedgerEra -> AddressInEra -> UTxO -> [TxIn] -> [TxOut CtxTx] -> Maybe PlutusScript -> m (Either (TxBodyErrorAutoBalance Era) Tx)
+buildTransactionWithPParams :: ChainBackend m => MonadIO m => PParams LedgerEra -> AddressInEra -> UTxO -> [TxOut CtxTx] -> Maybe (PlutusScript, [TxIn]) -> m (Either (TxBodyErrorAutoBalance Era) Tx)
 
--- | NOTE: If there are any non ADA assets present in the output
---   <a>Value</a> and minting scrips is specified this function will mint
---   them using provided script as the script witness.
-buildTransactionWithPParams' :: PParams LedgerEra -> SystemStart -> EraHistory -> Set PoolId -> AddressInEra -> UTxO -> [TxIn] -> [TxOut CtxTx] -> Maybe PlutusScript -> Either (TxBodyErrorAutoBalance Era) Tx
+-- | Mint the non-ADA assets in the outputs when a minting script is
+--   supplied. The script and its collateral are used only when those
+--   assets are non-empty.
+buildTransactionWithPParams' :: PParams LedgerEra -> SystemStart -> EraHistory -> Set PoolId -> AddressInEra -> UTxO -> [TxOut CtxTx] -> Maybe (PlutusScript, [TxIn]) -> Either (TxBodyErrorAutoBalance Era) Tx
 buildTransactionWithBody :: PParams LedgerEra -> SystemStart -> EraHistory -> Set PoolId -> AddressInEra -> TxBodyContent BuildTx -> UTxO -> Either (TxBodyErrorAutoBalance Era) Tx
 
 
@@ -924,6 +977,14 @@ InvalidHeadIdInClose :: HeadId -> CloseTxError
 [$sel:headId:InvalidHeadIdInClose] :: CloseTxError -> HeadId
 CannotFindHeadOutputToClose :: CloseTxError
 BothCommitAndDecommitInClose :: CloseTxError
+
+-- | The snapshot is too old for the open head: no close redeemer accepts
+--   it, or the one that does (<tt>CloseUsed</tt>) would store an
+--   accumulator that does not match the head value, so the head could
+--   never be fanned out.
+StaleSnapshotInClose :: SnapshotVersion -> SnapshotVersion -> CloseTxError
+[$sel:snapshotVersion:InvalidHeadIdInClose] :: CloseTxError -> SnapshotVersion
+[$sel:openVersion:InvalidHeadIdInClose] :: CloseTxError -> SnapshotVersion
 data RecoverTxError
 InvalidHeadIdInRecover :: HeadId -> RecoverTxError
 [$sel:headId:InvalidHeadIdInRecover] :: RecoverTxError -> HeadId
@@ -949,6 +1010,15 @@ MissingHeadRedeemerInContest :: ContestTxError
 WrongDatumInContest :: ContestTxError
 FailedToConvertFromScriptDataInContest :: ContestTxError
 
+-- | The snapshot is too old for the head: like
+--   <a>StaleSnapshotInClose</a>, a <tt>ContestUsed</tt> with it would
+--   store an accumulator that does not match the head value, so the head
+--   could never be fanned out. Not contesting leaves the close, which may
+--   well be fanned out.
+StaleSnapshotInContest :: SnapshotVersion -> SnapshotVersion -> ContestTxError
+[$sel:snapshotVersion:InvalidHeadIdInContest] :: ContestTxError -> SnapshotVersion
+[$sel:openVersion:InvalidHeadIdInContest] :: ContestTxError -> SnapshotVersion
+
 -- | Construct a contest transaction based on the <a>ClosedState</a> and a
 --   confirmed snapshot. The given <a>PointInTime</a> will be used as an
 --   upper validity bound and needs to be before the deadline.
@@ -963,7 +1033,7 @@ FailedToCreateFanoutProof :: Text -> FanoutTxError
 
 -- | Construct a fanout transaction based on the <a>ClosedState</a> and
 --   off-chain agreed <a>UTxO</a> set to fan out.
-fanout :: ChainContext -> UTxO -> TxIn -> UTxO -> Maybe UTxO -> Maybe UTxO -> UTxO -> SlotNo -> Either FanoutTxError Tx
+fanout :: ChainContext -> UTxO -> TxIn -> UTxO -> Maybe UTxO -> Maybe UTxO -> SlotNo -> Either FanoutTxError Tx
 
 -- | Errors that can occur when constructing partial or final-partial
 --   fanout transactions.
@@ -983,18 +1053,47 @@ StaleChainState :: PartialFanoutError
 --   caller.
 CannotCreateProof :: Text -> PartialFanoutError
 
--- | Construct a partial fanout transaction that distributes a subset of
---   UTxOs. Handles both first step (Closed → FanoutProgress) and
---   intermediate steps (FanoutProgress → FanoutProgress) by detecting the
---   current on-chain datum type. The first <tt>chunkSize</tt> UTxOs from
---   <tt>remainingUTxO</tt> are distributed; the rest become the new
---   remaining set.
-partialFanout :: ChainContext -> UTxO -> TxIn -> Int -> UTxO -> UTxO -> SlotNo -> Either PartialFanoutError Tx
+-- | Everything a partial fanout needs that does not depend on the chunk
+--   size. Chunk sizes are searched for by trying candidate transactions,
+--   so this is prepared once per step and reused for each candidate.
+data PartialFanoutPlan
+PartialFanoutPlan :: (TxIn, TxOut CtxUTxO) -> FanoutProgressDatum -> HydraAccumulator -> [(TxIn, TxOut CtxUTxO)] -> PartialFanoutPlan
+[$sel:headUTxO:PartialFanoutPlan] :: PartialFanoutPlan -> (TxIn, TxOut CtxUTxO)
+[$sel:progressDatum:PartialFanoutPlan] :: PartialFanoutPlan -> FanoutProgressDatum
+
+-- | Accumulator over the proof UTxO, already verified against the on-chain
+--   commitment. Pre-settled elements (committed to by the accumulator but
+--   never distributed, e.g. a decommit paid out before close) are in here
+--   and stay in the remaining accumulator, because a step only removes
+--   what it distributes.
+[$sel:fullAccumulator:PartialFanoutPlan] :: PartialFanoutPlan -> HydraAccumulator
+
+-- | <tt>remainingUTxO</tt> in the order chunks are taken from.
+[$sel:orderedRemaining:PartialFanoutPlan] :: PartialFanoutPlan -> [(TxIn, TxOut CtxUTxO)]
+
+-- | Read the head output and verify the on-chain accumulator, yielding a
+--   plan to build partial fanout transactions from.
+--   
+--   Handles both the first step (Closed → FanoutProgress) and intermediate
+--   steps (FanoutProgress → FanoutProgress) by detecting the current datum
+--   type.
+preparePartialFanout :: UTxO -> TxIn -> UTxO -> UTxO -> Either PartialFanoutError PartialFanoutPlan
+
+-- | Construct a partial fanout transaction distributing the first
+--   <tt>chunkSize</tt> UTxOs of the plan's remaining set; the rest become
+--   the new remaining set.
+--   
+--   The remaining accumulator is the plan's verified one minus the outputs
+--   this transaction distributes, rather than rebuilt from scratch.
+--   Removing exactly the distributed outputs is what the on-chain split
+--   identity <tt>A = P_K * A'</tt> checks, so it holds by construction
+--   whenever those outputs are in <tt>A</tt>.
+partialFanoutFromPlan :: ChainContext -> PartialFanoutPlan -> Int -> SlotNo -> Either PartialFanoutError Tx
 
 -- | Construct the final partial fanout transaction that distributes all
 --   remaining UTxOs and burns all head tokens. Reads FanoutProgressDatum
 --   from the head output.
-finalPartialFanout :: ChainContext -> UTxO -> TxIn -> UTxO -> UTxO -> SlotNo -> Either PartialFanoutError Tx
+finalPartialFanout :: ChainContext -> UTxO -> TxIn -> UTxO -> SlotNo -> Either PartialFanoutError Tx
 
 -- | Read and decode the head state from a head script output.
 readHeadState :: (TxIn, TxOut CtxUTxO) -> Either PartialFanoutError State
@@ -1005,6 +1104,15 @@ readHeadState :: (TxIn, TxOut CtxUTxO) -> Either PartialFanoutError State
 --   commitments differ.
 buildAndVerifyAccumulator :: FanoutProgressDatum -> UTxO -> Either PartialFanoutError HydraAccumulator
 utxoOfThisHead :: PolicyId -> UTxO -> UTxO
+isNegative :: Value -> Bool
+
+-- | Take up to <tt>n</tt> outputs, in order, skipping any the head output
+--   cannot cover. A token minted on layer two was never credited to the
+--   head output, so subtracting it would leave the continuing output
+--   negative. Skipping it lets everything else still leave the head.
+--   Quantities are tracked as they are consumed, so this also catches an
+--   asset partly backed on layer one and partly minted on layer two.
+fannable :: Value -> Int -> [(TxIn, TxOut CtxUTxO)] -> [(TxIn, TxOut CtxUTxO)]
 
 -- | Define some <tt>global</tt> context from which generators can pick
 --   values for generation. This allows to write fairly independent
@@ -1143,68 +1251,6 @@ buildScriptPublishingTxs :: MonadThrow m => PParams LedgerEra -> SystemStart -> 
 instance GHC.Show.Show Hydra.Chain.ScriptRegistry.PublishScriptException
 instance GHC.Exception.Type.Exception Hydra.Chain.ScriptRegistry.PublishScriptException
 
-
--- | This module defines the types and functions for creating
---   <a>EventSource</a> and <a>EventSink</a> instances and is intended to
---   be used as an extension point.
---   
---   A single <a>EventSource</a> and zero or more <a>EventSink</a> handles
---   are used by the main <tt>HydraNode</tt> handle to load and send out
---   events.
---   
---   See <a>SQLiteBased</a> for the default implementation and
---   <a>SQLiteBasedSpec</a> for the corresponding test suite.
---   
---   Custom implementations should be located under Hydra.Events to avoid
---   conflicts.
-module Hydra.Events
-type EventId = Word64
-class HasEventId a
-getEventId :: HasEventId a => a -> EventId
-newtype EventSource e m
-EventSource :: (HasEventId e => ConduitT () e (ResourceT m) ()) -> EventSource e m
-
--- | Stream all events from the event source.
-[$sel:sourceEvents:EventSource] :: EventSource e m -> HasEventId e => ConduitT () e (ResourceT m) ()
-
--- | Retrieve all events from the event source as a list.
-getEvents :: (HasEventId e, MonadUnliftIO m) => EventSource e m -> m [e]
-data EventSink e m
-EventSink :: (HasEventId e => e -> m ()) -> (HasEventId e => [e] -> m ()) -> EventSink e m
-
--- | Send a single event to the event sink.
-[$sel:putEvent:EventSink] :: EventSink e m -> HasEventId e => e -> m ()
-
--- | Send a batch of events to the event sink.
-[$sel:putEvents:EventSink] :: EventSink e m -> HasEventId e => [e] -> m ()
-
--- | Create an <a>EventSink</a> from a single-event function, with a
---   default sequential batch implementation.
-mkEventSink :: Monad m => (HasEventId e => e -> m ()) -> EventSink e m
-
--- | Put a list of events to a list of event sinks, batching per sink.
-putEventsToSinks :: (Monad m, HasEventId e) => [EventSink e m] -> [e] -> m ()
-instance Hydra.Events.HasEventId GHC.Word.Word64
-
-module Hydra.Events.Rotation
-newtype RotationConfig
-RotateAfter :: Positive Natural -> RotationConfig
-type LogId = EventId
-
--- | An EventSource and EventSink combined
-data EventStore e m
-EventStore :: EventSource e m -> EventSink e m -> (LogId -> e -> m ()) -> EventStore e m
-[$sel:eventSource:EventStore] :: EventStore e m -> EventSource e m
-[$sel:eventSink:EventStore] :: EventStore e m -> EventSink e m
-
--- | Rotate existing events into a given log id and start a new log from
---   given e.
-[$sel:rotate:EventStore] :: EventStore e m -> LogId -> e -> m ()
-
--- | Creates an event store that rotates according to given config and
---   <tt>StateAggregate</tt>.
-newRotatedEventStore :: (HasEventId e, MonadUnliftIO m, MonadTime m, MonadLabelledSTM m) => RotationConfig -> s -> (s -> e -> s) -> (s -> EventId -> UTCTime -> e) -> EventStore e m -> m (EventStore e m)
-
 module Hydra.HeadLogic.State
 
 -- | The main state of the Hydra protocol state machine. It holds both, the
@@ -1262,7 +1308,7 @@ OpenState :: HeadParameters -> CoordinatedHeadState tx -> ChainStateType tx -> H
 
 -- | Off-chain state of the Coordinated Head protocol.
 data CoordinatedHeadState tx
-CoordinatedHeadState :: UTxOType tx -> Seq tx -> !Map (TxIdType tx) tx -> ConfirmedSnapshot tx -> SeenSnapshot tx -> Maybe (TxIdType tx) -> Maybe tx -> SnapshotVersion -> CoordinatedHeadState tx
+CoordinatedHeadState :: UTxOType tx -> Seq tx -> !Map (TxIdType tx) tx -> ConfirmedSnapshot tx -> SeenSnapshot tx -> Maybe (TxIdType tx) -> Maybe tx -> SnapshotVersion -> Maybe (FinalizedSnapshot tx) -> Maybe (FinalizedSnapshot tx) -> CoordinatedHeadState tx
 
 -- | The latest UTxO resulting from applying
 --   <a>$sel:localTxs:CoordinatedHeadState</a> to
@@ -1293,6 +1339,29 @@ CoordinatedHeadState :: UTxOType tx -> Seq tx -> !Map (TxIdType tx) tx -> Confir
 
 -- | Last open state version as observed on chain. Spec: ̂v
 [$sel:version:CoordinatedHeadState] :: CoordinatedHeadState tx -> SnapshotVersion
+
+-- | The last snapshot whose increment settled on chain, see
+--   <a>FinalizedSnapshot</a>.
+[$sel:finalizedCommit:CoordinatedHeadState] :: CoordinatedHeadState tx -> Maybe (FinalizedSnapshot tx)
+
+-- | The last snapshot whose decrement settled on chain, see
+--   <a>FinalizedSnapshot</a>.
+[$sel:finalizedDecommit:CoordinatedHeadState] :: CoordinatedHeadState tx -> Maybe (FinalizedSnapshot tx)
+
+-- | Tag of the current on-disk/wire layout, which carries
+--   <a>$sel:finalizedCommit:CoordinatedHeadState</a> and
+--   <a>$sel:finalizedDecommit:CoordinatedHeadState</a>. The fields are a
+--   bare concatenation with no length prefix, so a layout change is only
+--   decodable when the tag distinguishes it:
+--   <a>coordinatedHeadStateCBORTagV1</a> names the layout written before
+--   those fields existed and is still accepted, letting a node replay an
+--   event log from an earlier version.
+coordinatedHeadStateCBORTag :: Text
+
+-- | Tag of the layout without
+--   <a>$sel:finalizedCommit:CoordinatedHeadState</a>/<a>$sel:finalizedDecommit:CoordinatedHeadState</a>.
+--   Decoded, never written.
+coordinatedHeadStateCBORTagV1 :: Text
 
 -- | Data structure to help in tracking whether we have seen or requested a
 --   ReqSn already and if seen, the signatures we collected already.
@@ -1326,9 +1395,8 @@ SeenSnapshot :: Snapshot tx -> Map Party (Signature (Snapshot tx)) -> ~ByteStrin
 [$sel:signableBytes:NoSeenSnapshot] :: SeenSnapshot tx -> ~ByteString
 
 -- | Smart constructor for <a>SeenSnapshot</a> that computes and caches
---   <a>$sel:signableBytes:NoSeenSnapshot</a> from
---   <a>$sel:snapshot:NoSeenSnapshot</a>, enforcing the invariant that they
---   stay in sync.
+--   <a>$sel:signableBytes:NoSeenSnapshot</a> from <a>SeenSnapshot</a>,
+--   enforcing the invariant that they stay in sync.
 mkSeenSnapshot :: IsTx tx => Snapshot tx -> Map Party (Signature (Snapshot tx)) -> SeenSnapshot tx
 
 -- | Get the last seen snapshot number given a <a>SeenSnapshot</a>.
@@ -1347,7 +1415,7 @@ isCollectingAcks :: SeenSnapshot tx -> Bool
 --   <a>ConfirmedSnapshot</a>, which may be contested before the
 --   <a>ClosedState</a>.
 data ClosedState tx
-ClosedState :: HeadParameters -> ConfirmedSnapshot tx -> UTCTime -> Bool -> ChainStateType tx -> HeadId -> HeadSeed -> SnapshotVersion -> ClosedState tx
+ClosedState :: HeadParameters -> ConfirmedSnapshot tx -> UTCTime -> Bool -> ChainStateType tx -> HeadId -> HeadSeed -> SnapshotVersion -> Maybe (Snapshot tx) -> ClosedState tx
 [$sel:parameters:ClosedState] :: ClosedState tx -> HeadParameters
 [$sel:confirmedSnapshot:ClosedState] :: ClosedState tx -> ConfirmedSnapshot tx
 [$sel:contestationDeadline:ClosedState] :: ClosedState tx -> UTCTime
@@ -1359,6 +1427,22 @@ ClosedState :: HeadParameters -> ConfirmedSnapshot tx -> UTCTime -> Bool -> Chai
 [$sel:headId:ClosedState] :: ClosedState tx -> HeadId
 [$sel:headSeed:ClosedState] :: ClosedState tx -> HeadSeed
 [$sel:version:ClosedState] :: ClosedState tx -> SnapshotVersion
+
+-- | The snapshot this node signed but had not seen confirmed when the head
+--   closed. A close or contest carrying its full multisignature confirms
+--   it, see <a>onClosedChainContestTx</a>.
+[$sel:unconfirmedSnapshot:ClosedState] :: ClosedState tx -> Maybe (Snapshot tx)
+
+-- | Tag of the current on-disk/wire layout, which carries
+--   <a>$sel:unconfirmedSnapshot:ClosedState</a>. Like
+--   <a>coordinatedHeadStateCBORTag</a>, the fields are a bare
+--   concatenation, so <a>closedStateCBORTagV1</a> names the layout written
+--   before that field existed and is still accepted.
+closedStateCBORTag :: Text
+
+-- | Tag of the layout without <a>$sel:unconfirmedSnapshot:ClosedState</a>,
+--   as written by the generic encoding. Decoded, never written.
+closedStateCBORTagV1 :: Text
 
 -- | How the node decides which UTxOs to distribute in the next fanout step
 --   while the head is in <a>FanoutProgress</a>.
@@ -1399,13 +1483,29 @@ PartialFanoutState :: HeadParameters -> ConfirmedSnapshot tx -> UTCTime -> Chain
 
 -- | Drives the chunk source for the next step (see <a>FanoutMode</a>).
 [$sel:mode:PartialFanoutState] :: PartialFanoutState tx -> FanoutMode tx
+
+-- | A snapshot whose settlement transaction (the increment of its commit,
+--   or the decrement of its decommit) was observed on chain, retained when
+--   the settlement is applied
+--   (<tt>CommitFinalized</tt>/<tt>DecommitFinalized</tt>) so it can be
+--   re-posted if a rollback later erases it. The signed snapshot must be
+--   kept here because <a>CoordinatedHeadState</a> may advance past it, and
+--   only this snapshot can settle its commit/decommit on-chain. Kept until
+--   overwritten by the next settlement of the same kind;
+--   <a>$sel:observedAtSlot:FinalizedSnapshot</a> makes stale entries inert
+--   (re-post only when a rollback reaches strictly before it).
+data FinalizedSnapshot tx
+FinalizedSnapshot :: ConfirmedSnapshot tx -> ChainSlot -> FinalizedSnapshot tx
+[$sel:snapshot:FinalizedSnapshot] :: FinalizedSnapshot tx -> ConfirmedSnapshot tx
+[$sel:observedAtSlot:FinalizedSnapshot] :: FinalizedSnapshot tx -> ChainSlot
 instance GHC.Generics.Generic (Hydra.HeadLogic.State.IdleState tx)
 instance GHC.Generics.Generic (Hydra.HeadLogic.State.SeenSnapshot tx)
-instance GHC.Generics.Generic (Hydra.HeadLogic.State.CoordinatedHeadState tx)
-instance GHC.Generics.Generic (Hydra.HeadLogic.State.OpenState tx)
 instance GHC.Generics.Generic (Hydra.HeadLogic.State.ClosedState tx)
 instance GHC.Generics.Generic (Hydra.HeadLogic.State.FanoutMode tx)
 instance GHC.Generics.Generic (Hydra.HeadLogic.State.PartialFanoutState tx)
+instance GHC.Generics.Generic (Hydra.HeadLogic.State.FinalizedSnapshot tx)
+instance GHC.Generics.Generic (Hydra.HeadLogic.State.CoordinatedHeadState tx)
+instance GHC.Generics.Generic (Hydra.HeadLogic.State.OpenState tx)
 instance GHC.Generics.Generic (Hydra.HeadLogic.State.HeadState tx)
 instance (Hydra.Tx.IsTx.IsTx tx, GHC.Classes.Eq (Hydra.Chain.ChainState.ChainStateType tx)) => GHC.Classes.Eq (Hydra.HeadLogic.State.HeadState tx)
 instance (Hydra.Tx.IsTx.IsTx tx, GHC.Show.Show (Hydra.Chain.ChainState.ChainStateType tx)) => GHC.Show.Show (Hydra.HeadLogic.State.HeadState tx)
@@ -1437,18 +1537,24 @@ instance (Hydra.Tx.IsTx.IsTx tx, GHC.Classes.Eq (Hydra.Chain.ChainState.ChainSta
 instance (Hydra.Tx.IsTx.IsTx tx, GHC.Show.Show (Hydra.Chain.ChainState.ChainStateType tx)) => GHC.Show.Show (Hydra.HeadLogic.State.PartialFanoutState tx)
 instance (Hydra.Tx.IsTx.IsTx tx, Data.Aeson.Types.ToJSON.ToJSON (Hydra.Chain.ChainState.ChainStateType tx)) => Data.Aeson.Types.ToJSON.ToJSON (Hydra.HeadLogic.State.PartialFanoutState tx)
 instance (Hydra.Tx.IsTx.IsTx tx, Data.Aeson.Types.FromJSON.FromJSON (Hydra.Chain.ChainState.ChainStateType tx)) => Data.Aeson.Types.FromJSON.FromJSON (Hydra.HeadLogic.State.PartialFanoutState tx)
+instance Hydra.Tx.IsTx.IsTx tx => GHC.Classes.Eq (Hydra.HeadLogic.State.FinalizedSnapshot tx)
+instance Hydra.Tx.IsTx.IsTx tx => GHC.Show.Show (Hydra.HeadLogic.State.FinalizedSnapshot tx)
+instance Hydra.Tx.IsTx.IsTx tx => Data.Aeson.Types.ToJSON.ToJSON (Hydra.HeadLogic.State.FinalizedSnapshot tx)
+instance Hydra.Tx.IsTx.IsTx tx => Data.Aeson.Types.FromJSON.FromJSON (Hydra.HeadLogic.State.FinalizedSnapshot tx)
 instance Hydra.Chain.ChainState.IsChainState tx => Cardano.Binary.ToCBOR.ToCBOR (Hydra.HeadLogic.State.HeadState tx)
 instance Hydra.Chain.ChainState.IsChainState tx => Cardano.Binary.FromCBOR.FromCBOR (Hydra.HeadLogic.State.HeadState tx)
+instance Hydra.Chain.ChainState.IsChainState tx => Cardano.Binary.ToCBOR.ToCBOR (Hydra.HeadLogic.State.OpenState tx)
+instance Hydra.Chain.ChainState.IsChainState tx => Cardano.Binary.FromCBOR.FromCBOR (Hydra.HeadLogic.State.OpenState tx)
+instance Hydra.Tx.IsTx.IsTx tx => Cardano.Binary.ToCBOR.ToCBOR (Hydra.HeadLogic.State.CoordinatedHeadState tx)
+instance Hydra.Tx.IsTx.IsTx tx => Cardano.Binary.FromCBOR.FromCBOR (Hydra.HeadLogic.State.CoordinatedHeadState tx)
+instance Hydra.Tx.IsTx.IsTx tx => Cardano.Binary.ToCBOR.ToCBOR (Hydra.HeadLogic.State.FinalizedSnapshot tx)
+instance Hydra.Tx.IsTx.IsTx tx => Cardano.Binary.FromCBOR.FromCBOR (Hydra.HeadLogic.State.FinalizedSnapshot tx)
 instance Hydra.Chain.ChainState.IsChainState tx => Cardano.Binary.ToCBOR.ToCBOR (Hydra.HeadLogic.State.PartialFanoutState tx)
 instance Hydra.Chain.ChainState.IsChainState tx => Cardano.Binary.FromCBOR.FromCBOR (Hydra.HeadLogic.State.PartialFanoutState tx)
 instance Hydra.Tx.IsTx.IsTx tx => Cardano.Binary.ToCBOR.ToCBOR (Hydra.HeadLogic.State.FanoutMode tx)
 instance Hydra.Tx.IsTx.IsTx tx => Cardano.Binary.FromCBOR.FromCBOR (Hydra.HeadLogic.State.FanoutMode tx)
 instance Hydra.Chain.ChainState.IsChainState tx => Cardano.Binary.ToCBOR.ToCBOR (Hydra.HeadLogic.State.ClosedState tx)
 instance Hydra.Chain.ChainState.IsChainState tx => Cardano.Binary.FromCBOR.FromCBOR (Hydra.HeadLogic.State.ClosedState tx)
-instance Hydra.Chain.ChainState.IsChainState tx => Cardano.Binary.ToCBOR.ToCBOR (Hydra.HeadLogic.State.OpenState tx)
-instance Hydra.Chain.ChainState.IsChainState tx => Cardano.Binary.FromCBOR.FromCBOR (Hydra.HeadLogic.State.OpenState tx)
-instance Hydra.Tx.IsTx.IsTx tx => Cardano.Binary.ToCBOR.ToCBOR (Hydra.HeadLogic.State.CoordinatedHeadState tx)
-instance Hydra.Tx.IsTx.IsTx tx => Cardano.Binary.FromCBOR.FromCBOR (Hydra.HeadLogic.State.CoordinatedHeadState tx)
 instance Hydra.Tx.IsTx.IsTx tx => Data.Aeson.Types.ToJSON.ToJSON (Hydra.HeadLogic.State.SeenSnapshot tx)
 instance Hydra.Tx.IsTx.IsTx tx => Data.Aeson.Types.FromJSON.FromJSON (Hydra.HeadLogic.State.SeenSnapshot tx)
 instance Hydra.Tx.IsTx.IsTx tx => Cardano.Binary.ToCBOR.ToCBOR (Hydra.HeadLogic.State.SeenSnapshot tx)
@@ -1515,7 +1621,7 @@ mkTransferTx :: MonadFail m => NetworkId -> UTxO -> Secret (SigningKey PaymentKe
 -- | Build a zero-fee payment transaction.
 mkSimpleTx :: (TxIn, TxOut CtxUTxO) -> (AddressInEra, Value) -> Secret (SigningKey PaymentKey) -> Either TxBodyError Tx
 data () => ShelleyGenesis
-ShelleyGenesis :: !UTCTime -> !Word32 -> !Network -> !PositiveUnitInterval -> !NonZero Word64 -> !EpochSize -> !Word64 -> !Word64 -> !NominalDiffTimeMicro -> !Word64 -> !Word64 -> !PParams ShelleyEra -> !Map (KeyHash 'GenesisRole) GenDelegPair -> ListMap Addr Coin -> ShelleyGenesisStaking -> ShelleyGenesis
+ShelleyGenesis :: !UTCTime -> !Word32 -> !Network -> !PositiveUnitInterval -> !NonZero Word64 -> !EpochSize -> !Word64 -> !Word64 -> !NominalDiffTimeMicro -> !Word64 -> !Word64 -> !PParams ShelleyEra -> !Map (KeyHash 'GenesisRole) GenDelegPair -> ListMap Addr Coin -> ShelleyGenesisStaking -> !StrictMaybe ShelleyExtraConfig -> ShelleyGenesis
 [sgSystemStart] :: ShelleyGenesis -> !UTCTime
 [sgNetworkMagic] :: ShelleyGenesis -> !Word32
 [sgNetworkId] :: ShelleyGenesis -> !Network
@@ -1531,350 +1637,10 @@ ShelleyGenesis :: !UTCTime -> !Word32 -> !Network -> !PositiveUnitInterval -> !N
 [sgGenDelegs] :: ShelleyGenesis -> !Map (KeyHash 'GenesisRole) GenDelegPair
 [sgInitialFunds] :: ShelleyGenesis -> ListMap Addr Coin
 [sgStaking] :: ShelleyGenesis -> ShelleyGenesisStaking
+[sgExtraConfig] :: ShelleyGenesis -> !StrictMaybe ShelleyExtraConfig
 data () => Globals
 data () => LedgerEnv era
 type Tx = Tx Era
-
-
--- | A mock implementation of a ledger using very simple UTxO transactions.
---   
---   These transactions have a very simplified representation of unspent
---   transaction outputs being just integers, but already have inputs and
---   outputs. Transactions are validated against the current state of the
---   ledger, so that one transaction could at some point be invalid, then
---   becomes valid because some inputs it consumes are now available.
---   
---   NOTE: There is no notion of time in this ledger, so transactions
---   validation will never depend on the L1 slot.
-module Hydra.Ledger.Simple
-type SimpleId = Integer
-
--- | Simple transaction. A transaction is a <a>SimpleId</a>, a list of
---   inputs and a list of outputs, and it has no time validity.
-data SimpleTx
-SimpleTx :: SimpleId -> UTxOType SimpleTx -> UTxOType SimpleTx -> SimpleTx
-[$sel:txSimpleId:SimpleTx] :: SimpleTx -> SimpleId
-[$sel:txInputs:SimpleTx] :: SimpleTx -> UTxOType SimpleTx
-[$sel:txOutputs:SimpleTx] :: SimpleTx -> UTxOType SimpleTx
-
--- | A single output of a <a>SimpleTx</a> having an integer identity and
---   sole value.
-newtype SimpleTxOut
-SimpleTxOut :: Integer -> SimpleTxOut
-[$sel:unSimpleTxOut:SimpleTxOut] :: SimpleTxOut -> Integer
-newtype SimpleChainState
-SimpleChainState :: ChainSlot -> SimpleChainState
-[$sel:slot:SimpleChainState] :: SimpleChainState -> ChainSlot
-simpleLedger :: Ledger SimpleTx
-instance GHC.Show.Show Hydra.Ledger.Simple.SimpleTx
-instance GHC.Generics.Generic Hydra.Ledger.Simple.SimpleTx
-instance GHC.Classes.Ord Hydra.Ledger.Simple.SimpleTx
-instance GHC.Classes.Eq Hydra.Ledger.Simple.SimpleTx
-instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Ledger.Simple.SimpleTxOut
-instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Ledger.Simple.SimpleTxOut
-instance GHC.Num.Num Hydra.Ledger.Simple.SimpleTxOut
-instance GHC.Show.Show Hydra.Ledger.Simple.SimpleTxOut
-instance GHC.Classes.Ord Hydra.Ledger.Simple.SimpleTxOut
-instance GHC.Classes.Eq Hydra.Ledger.Simple.SimpleTxOut
-instance GHC.Generics.Generic Hydra.Ledger.Simple.SimpleTxOut
-instance GHC.Num.Num Hydra.Ledger.Simple.SimpleChainState
-instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Ledger.Simple.SimpleChainState
-instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Ledger.Simple.SimpleChainState
-instance GHC.Generics.Generic Hydra.Ledger.Simple.SimpleChainState
-instance GHC.Show.Show Hydra.Ledger.Simple.SimpleChainState
-instance GHC.Classes.Eq Hydra.Ledger.Simple.SimpleChainState
-instance Cardano.Binary.ToCBOR.ToCBOR Hydra.Ledger.Simple.SimpleChainState
-instance Cardano.Binary.FromCBOR.FromCBOR Hydra.Ledger.Simple.SimpleChainState
-instance Hydra.Chain.ChainState.IsChainState Hydra.Ledger.Simple.SimpleTx
-instance Cardano.Binary.ToCBOR.ToCBOR Hydra.Ledger.Simple.SimpleTxOut
-instance Cardano.Binary.FromCBOR.FromCBOR Hydra.Ledger.Simple.SimpleTxOut
-instance Hydra.Tx.IsTx.IsTx Hydra.Ledger.Simple.SimpleTx
-instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Ledger.Simple.SimpleTx
-instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Ledger.Simple.SimpleTx
-instance Cardano.Binary.ToCBOR.ToCBOR Hydra.Ledger.Simple.SimpleTx
-instance Cardano.Binary.FromCBOR.FromCBOR Hydra.Ledger.Simple.SimpleTx
-
-
--- | Adapter module to the actual logging framework. All Hydra node
---   components implements <i>Structured logging</i> via
---   <a>contra-tracer</a> generic logging framework. All logs are output in
---   <a>JSON</a>.
-module Hydra.Logging
-newtype () => Tracer (m :: Type -> Type) a
-Tracer :: (a -> m ()) -> Tracer (m :: Type -> Type) a
-[runTracer] :: Tracer (m :: Type -> Type) a -> a -> m ()
-natTracer :: (forall x. () => m x -> n x) -> Tracer m s -> Tracer n s
-nullTracer :: forall (m :: Type -> Type) a. Applicative m => Tracer m a
-traceWith :: Tracer m a -> a -> m ()
-class () => ToObject a
-toObject :: ToObject a => TracingVerbosity -> a -> Object
-textTransformer :: ToObject a => a -> Object -> Text
-data () => TracingVerbosity
-MinimalVerbosity :: TracingVerbosity
-NormalVerbosity :: TracingVerbosity
-MaximalVerbosity :: TracingVerbosity
-data Verbosity
-Quiet :: Verbosity
-Verbose :: Text -> Verbosity
-
--- | Provides logging metadata for entries.
-data Envelope a
-Envelope :: UTCTime -> Int -> Text -> a -> Envelope a
-[$sel:timestamp:Envelope] :: Envelope a -> UTCTime
-[$sel:threadId:Envelope] :: Envelope a -> Int
-[$sel:namespace:Envelope] :: Envelope a -> Text
-[$sel:message:Envelope] :: Envelope a -> a
-
--- | Buffering used for log output. The writer batches whatever the queue
---   holds and flushes each batch, so this bounds the syscalls rather than
---   the latency.
-defaultLogBuffering :: BufferMode
-
--- | Start logging thread and acquire a <a>Tracer</a>. This tracer will
---   dump all messages on <tt>stdout</tt>, one message per line, formatted
---   as JSON. This tracer is wrapping <tt>msg</tt> into an <a>Envelope</a>
---   with metadata.
-withTracer :: forall m msg a. (MonadIO m, MonadFork m, MonadTime m, ToJSON msg) => Verbosity -> (Tracer m msg -> IO a) -> IO a
-
--- | Start logging thread acquiring a <a>Tracer</a>, outputting JSON
---   formatted messages to some <a>Handle</a>. This tracer is wrapping
---   <tt>msg</tt> into an <a>Envelope</a> with metadata.
-withTracerOutputTo :: forall m msg a. (MonadIO m, MonadFork m, MonadTime m, ToJSON msg) => BufferMode -> Handle -> Text -> (Tracer m msg -> IO a) -> IO a
-
--- | Capture logs and output them to stdout when an exception was raised by
---   the given <tt>action</tt>. This tracer is wrapping <tt>msg</tt> into
---   an <a>Envelope</a> with metadata.
-showLogsOnFailure :: (MonadLabelledSTM m, MonadCatch m, MonadFork m, MonadTime m, MonadSay m, ToJSON msg) => Text -> (Tracer m msg -> m a) -> m a
-traceInTVar :: (MonadFork m, MonadTime m, MonadSTM m) => TVar m [Envelope msg] -> Text -> Tracer m msg
-contramap :: Contravariant f => (a' -> a) -> f a -> f a'
-mkEnvelope :: (MonadFork m, MonadTime m) => Text -> msg -> m (Envelope msg)
-defaultQueueSize :: Natural
-instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Logging.Verbosity
-instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Logging.Verbosity
-instance GHC.Generics.Generic Hydra.Logging.Verbosity
-instance GHC.Show.Show Hydra.Logging.Verbosity
-instance GHC.Classes.Eq Hydra.Logging.Verbosity
-instance GHC.Generics.Generic (Hydra.Logging.Envelope a)
-instance GHC.Show.Show a => GHC.Show.Show (Hydra.Logging.Envelope a)
-instance GHC.Classes.Eq a => GHC.Classes.Eq (Hydra.Logging.Envelope a)
-instance Data.Aeson.Types.ToJSON.ToJSON a => Data.Aeson.Types.ToJSON.ToJSON (Hydra.Logging.Envelope a)
-
-
--- | A SQLite-backed event source and sink.
---   
---   This is the recommended persistence backend for new deployments. See
---   <a>withSQLiteEventStore</a> which handles migration from the legacy
---   file-based store automatically.
---   
---   <h2>Architecture</h2>
---   
---   Events are stored in a single <tt>events</tt> table with an integer
---   primary key (<tt>event_id</tt>) and a BLOB column
---   (<tt>event_data</tt>) containing CBOR-encoded event data (via
---   <a>ToCBOR</a> / <a>FromCBOR</a>). The database uses WAL journal mode
---   with <tt>synchronous=NORMAL</tt> to avoid per-write fsyncs while still
---   syncing at WAL checkpoints.
---   
---   <h2>Schema migrations</h2>
---   
---   The schema version is tracked in <tt>PRAGMA user_version</tt> and
---   migrated on open (see <a>applyMigrations</a>). Version 1 stored event
---   data as JSON; opening a version 1 database re-encodes every row to
---   CBOR in one transaction and runs <tt>VACUUM</tt> afterwards to reclaim
---   the freed space. A row that fails to decode aborts the migration (and
---   thereby node startup) with <a>EventDecodingException</a>, rolling back
---   to an intact version 1 database. The legacy file-based store (JSON
---   lines) is migrated by decoding each line as JSON and inserting CBOR.
---   
---   <h2>Async write-behind</h2>
---   
---   To keep persistence off the hot path, writes use an async write-behind
---   strategy. <a>$sel:putEvent:EventSink</a> and
---   <a>$sel:putEvents:EventSink</a> encode events eagerly to strict
---   <a>ByteString</a> and enqueue them into a bounded <a>TBQueue</a>. A
---   background writer thread drains the queue and batch-inserts rows using
---   <a>executeMany</a> inside a single transaction, amortising WAL frame
---   writes across multiple events.
---   
---   The last-seen event id <a>TVar</a> is updated atomically at enqueue
---   time (not write time), so de-duplication and source-of-truth tracking
---   remain correct even though the physical write is deferred.
---   
---   All SQLite writes go through the single writer thread, preventing
---   concurrent access races. Operations that need data flushed (rotation,
---   reads) use a flush marker: a <a>TMVar</a> is enqueued and the caller
---   blocks until the writer thread has processed all preceding items and
---   signalled it. <a>$sel:sourceEvents:EventSource</a> auto-flushes before
---   reading, so callers always see all enqueued events.
---   
---   <h2>Tradeoffs</h2>
---   
---   <ul>
---   <li><b>Writer thread crash surfacing</b>: The background writer is
---   <a>link</a>ed to the calling thread. If it dies (e.g. SQLite I/O
---   error), the exception propagates immediately rather than leaving the
---   node silently stalled. Use <a>withSQLiteEventStore</a> which handles
---   cleanup (flush + cancel) on exit.</li>
---   </ul>
---   
---   <ul>
---   <li><b>Data loss on hard crash</b>: Events in the queue that have not
---   yet been flushed to SQLite are lost on SIGKILL, OOM, or power loss.
---   This is acceptable because the L1 chain is the source of truth — the
---   node replays missed events from chain on restart.</li>
---   <li><b>Rotation ordering</b>: <a>$sel:rotate:EventStore</a> flushes
---   the write queue synchronously, archives the current database to
---   <tt>old-state/hydra-<a>logId</a>.db</tt> via <tt>VACUUM INTO</tt>,
---   then performs DELETE + INSERT. This is safe because rotation is only
---   called from the single-threaded event processing loop
---   (<tt>processStateChanges</tt>), so no concurrent enqueues can occur
---   between the flush and the rotation write. The archive is taken before
---   the DELETE, so a backup failure aborts rotation and leaves the events
---   intact.</li>
---   <li><b>Separate read connection</b>:
---   <a>$sel:sourceEvents:EventSource</a> streams over a dedicated
---   connection. It can run concurrently on API server threads (client
---   history replay), and <tt>VACUUM INTO</tt> fails with "SQL statements
---   in progress" if a streaming statement is open on the same connection
---   as the rotation. WAL mode makes readers on a separate connection
---   safe.</li>
---   </ul>
-module Hydra.Events.SQLiteBased
-
--- | Exception thrown when a persisted event cannot be decoded.
-data EventDecodingException
-EventDecodingException :: Word64 -> String -> EventDecodingException
-[$sel:eventId:EventDecodingException] :: EventDecodingException -> Word64
-[$sel:decodeError:EventDecodingException] :: EventDecodingException -> String
-data SQLiteLog
-MigratingFromFileBased :: FilePath -> SQLiteLog
-[$sel:legacyFile:MigratingFromFileBased] :: SQLiteLog -> FilePath
-MigrationSkipped :: FilePath -> SQLiteLog
-[$sel:legacyFile:MigratingFromFileBased] :: SQLiteLog -> FilePath
-MigrationComplete :: FilePath -> SQLiteLog
-[$sel:legacyFile:MigratingFromFileBased] :: SQLiteLog -> FilePath
-
--- | Items in the write-behind queue: either an event to insert or a flush
---   marker that the writer thread signals after processing all preceding
---   items.
---   
---   Events are queued unencoded and CBOR-encoded on the writer thread: the
---   encoding of e.g. a SnapshotRequested event carrying a large UTxO
---   otherwise sits on the node loop between processing a ReqSn and
---   broadcasting the AckSn. The bounded queue briefly pins event values
---   instead of compact bytes, but the writer drains whole-queue batches so
---   the window is short.
-type WriteItem e = Either (TMVar IO ()) (Word64, e)
-
--- | Bracket-style wrapper around <a>mkSQLiteEventStore</a>. Creates the
---   database, schema, and writer thread, runs the callback, then flushes
---   queued writes and cancels the writer thread on exit. The writer thread
---   is <a>link</a>ed so that crashes surface immediately in the calling
---   thread.
---   
---   If a legacy state file exists at <tt>legacyStateFile</tt>, events are
---   migrated into SQLite automatically before the callback runs.
---   
---   Flushing of the async write queue and reinitialisation of the
---   last-seen event id are handled internally:
---   <a>$sel:sourceEvents:EventSource</a> auto-flushes before reading,
---   <a>$sel:rotate:EventStore</a> flushes before deleting, migration
---   reinitialises the event id TVar, and this bracket flushes on exit.
-withSQLiteEventStore :: forall e a. (ToCBOR e, FromCBOR e, FromJSON e, HasEventId e) => Tracer IO SQLiteLog -> FilePath -> FilePath -> (EventStore e IO -> IO a) -> IO a
-
--- | Create an <a>EventStore</a> backed by a SQLite database at the given
---   file path. The database and schema are created on first use if they do
---   not exist. Returns <tt>(conn, store, flush, reinitLastSeen,
---   cleanup)</tt>. Internal — prefer <a>withSQLiteEventStore</a> which
---   handles cleanup, migration, and flushing automatically.
-mkSQLiteEventStore :: forall e. (ToCBOR e, FromCBOR e, FromJSON e, HasEventId e) => FilePath -> IO (Connection, EventStore e IO, IO (), IO (), IO ())
-
--- | Background writer that drains the queue and batch-inserts into SQLite.
---   Each iteration blocks for at least one item, then flushes everything
---   available. Events are CBOR-encoded here, off the caller's thread, then
---   batch-inserted in a single transaction, and any flush markers in the
---   batch are signalled. Encode errors surface as writer thread crashes,
---   which are <a>link</a>ed to the node.
-writerLoop :: ToCBOR e => Connection -> TBQueue IO (WriteItem e) -> IO ()
-
--- | Block until all items currently in the write queue have been flushed
---   to SQLite. Sends a flush marker through the queue and waits for the
---   writer thread to signal completion.
-flushWriteQueue :: TBQueue IO (WriteItem e) -> IO ()
-
--- | Migrate events from a legacy newline-delimited JSON file into SQLite.
---   Writes directly to the database, bypassing the async write queue
---   (migration runs at startup before the node processes inputs). After
---   inserting, calls <tt>reinitLastSeen</tt> to sync the in-memory event
---   id TVar with the database.
---   
---   Safe to call when the legacy file does not exist (no-op). Not safe to
---   re-run: duplicate event ids will cause a primary key constraint
---   violation.
---   
---   On success the legacy file is renamed to <tt><a>path</a>.migrated</tt>
---   so that subsequent node restarts skip the migration step
---   automatically.
-migrateFromFileBased :: forall e. (FromJSON e, ToCBOR e, HasEventId e) => Proxy e -> Tracer IO SQLiteLog -> FilePath -> Connection -> IO () -> IO ()
-
--- | Current schema version. Bump this and add a migration step to
---   <a>migrateStep</a> whenever the schema changes.
-nextVersion :: Int
-
--- | Re-encode a single event row given its event id and stored bytes, used
---   by the version 1 (JSON) to version 2 (CBOR) migration. Must throw when
---   the row cannot be decoded.
-type ReencodeRow = Word64 -> ByteString -> IO ByteString
-
--- | Initialise connection pragmas, then create or migrate the schema to
---   <a>nextVersion</a> using SQLite's built-in <tt>user_version</tt>
---   pragma.
-initSchema :: Connection -> ReencodeRow -> IO ()
-configurePragmas :: Connection -> IO ()
-
--- | Read the schema version from <tt>PRAGMA user_version</tt> (0 for a
---   fresh DB).
-getSchemaVersion :: Connection -> IO Int
-setSchemaVersion :: Connection -> Int -> IO ()
-
--- | Apply all pending migrations from version <tt>v</tt> up to
---   <a>nextVersion</a>. Each step runs together with its version bump in
---   one transaction (<tt>PRAGMA user_version</tt> is transactional), so a
---   crash or decoding failure mid-migration rolls back to a well-defined
---   version.
-applyMigrations :: Connection -> ReencodeRow -> Int -> IO ()
-
--- | Individual migration steps. Pattern-match on the <i>source</i>
---   version.
-migrateStep :: Connection -> ReencodeRow -> Int -> IO ()
-
--- | Re-encode all event rows using the given <a>ReencodeRow</a> function
---   (the version 1 JSON to version 2 CBOR migration). Rows are processed
---   in batches of ascending event id so memory stays bounded for large
---   databases. Runs inside the caller's transaction.
-reencodeAllEvents :: Connection -> ReencodeRow -> IO ()
-createEventsTable :: Connection -> IO ()
-selectLastEventId :: Connection -> IO [Only Word64]
-getEventsASC :: Connection -> IO Statement
-insertEvent :: Connection -> (Word64, ByteString) -> IO ()
-insertEvents :: Connection -> [(Word64, ByteString)] -> IO ()
-deleteAllEvents :: Connection -> IO ()
-
--- | Archive the current database before rotation removes the events, into
---   an <tt>old-state</tt> subdirectory next to the database, with the log
---   id inserted before the extension (e.g.
---   <tt>old-state/hydra-42.db</tt>). Uses <tt>VACUUM INTO</tt> so the
---   snapshot reflects all committed (WAL) data in a single self-contained
---   file, regardless of WAL checkpoint state. The destination is removed
---   first if present (e.g. a re-rotation at the same log id), since
---   <tt>VACUUM INTO</tt> requires it not to exist.
-backupDatabase :: Connection -> FilePath -> Word64 -> IO ()
-instance GHC.Show.Show Hydra.Events.SQLiteBased.EventDecodingException
-instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Events.SQLiteBased.SQLiteLog
-instance GHC.Generics.Generic Hydra.Events.SQLiteBased.SQLiteLog
-instance GHC.Show.Show Hydra.Events.SQLiteBased.SQLiteLog
-instance GHC.Classes.Eq Hydra.Events.SQLiteBased.SQLiteLog
-instance GHC.Exception.Type.Exception Hydra.Events.SQLiteBased.EventDecodingException
 
 
 -- | Companion tiny-wallet for the direct chain component. This module
@@ -1968,14 +1734,14 @@ ChangeError :: Coin -> Coin -> ChangeError
 --   change back.
 --   
 --   XXX: All call sites of this function use cardano-api types
-coverFee_ :: forall era. (EraPlutusContext era, EraCertState era, AlonzoEraTx era, ScriptsNeeded era ~ AlonzoScriptsNeeded era, EraUTxO era) => PParams era -> SystemStart -> EpochInfo (Either Text) -> Map TxIn (TxOut era) -> Map TxIn (TxOut era) -> Tx TopTx era -> Either ErrCoverFee (Tx TopTx era)
+coverFee_ :: forall era. (EraPlutusContext era, EraCertState era, AlonzoEraTx era, ScriptsNeeded era ~ AlonzoScriptsNeeded era, AlonzoEraUTxO era) => PParams era -> SystemStart -> EpochInfo (Either Text) -> Map TxIn (TxOut era) -> Map TxIn (TxOut era) -> Tx TopTx era -> Either ErrCoverFee (Tx TopTx era)
 findLargestUTxO :: EraTxOut era => Map TxIn (TxOut era) -> Maybe (TxIn, TxOut era)
 
 -- | Estimate cost of script executions on the transaction. This is only an
 --   estimates because the transaction isn't sealed at this point and
 --   adding new elements to it like change outputs or script integrity hash
 --   may increase that cost a little.
-estimateScriptsCost :: forall era. (AlonzoEraTx era, EraPlutusContext era, ScriptsNeeded era ~ AlonzoScriptsNeeded era, EraUTxO era) => PParams era -> SystemStart -> EpochInfo (Either Text) -> Map TxIn (TxOut era) -> Tx TopTx era -> Either ErrCoverFee (Map (PlutusPurpose AsIx era) ExUnits)
+estimateScriptsCost :: forall era. (AlonzoEraTx era, EraPlutusContext era, ScriptsNeeded era ~ AlonzoScriptsNeeded era, AlonzoEraUTxO era) => PParams era -> SystemStart -> EpochInfo (Either Text) -> Map TxIn (TxOut era) -> Tx TopTx era -> Either ErrCoverFee (Map (PlutusPurpose AsIx era) ExUnits)
 data TinyWalletLog
 BeginInitialize :: TinyWalletLog
 EndInitialize :: UTxO -> ChainPoint -> TinyWalletLog
@@ -1993,6 +1759,65 @@ instance GHC.Show.Show Hydra.Chain.Direct.Wallet.TinyWalletLog
 instance GHC.Generics.Generic Hydra.Chain.Direct.Wallet.TinyWalletLog
 instance GHC.Classes.Eq Hydra.Chain.Direct.Wallet.TinyWalletLog
 instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Chain.Direct.Wallet.TinyWalletLog
+
+
+-- | A mock implementation of a ledger using very simple UTxO transactions.
+--   
+--   These transactions have a very simplified representation of unspent
+--   transaction outputs being just integers, but already have inputs and
+--   outputs. Transactions are validated against the current state of the
+--   ledger, so that one transaction could at some point be invalid, then
+--   becomes valid because some inputs it consumes are now available.
+--   
+--   NOTE: There is no notion of time in this ledger, so transactions
+--   validation will never depend on the L1 slot.
+module Hydra.Ledger.Simple
+type SimpleId = Integer
+
+-- | Simple transaction. A transaction is a <a>SimpleId</a>, a list of
+--   inputs and a list of outputs, and it has no time validity.
+data SimpleTx
+SimpleTx :: SimpleId -> UTxOType SimpleTx -> UTxOType SimpleTx -> SimpleTx
+[$sel:txSimpleId:SimpleTx] :: SimpleTx -> SimpleId
+[$sel:txInputs:SimpleTx] :: SimpleTx -> UTxOType SimpleTx
+[$sel:txOutputs:SimpleTx] :: SimpleTx -> UTxOType SimpleTx
+
+-- | A single output of a <a>SimpleTx</a> having an integer identity and
+--   sole value.
+newtype SimpleTxOut
+SimpleTxOut :: Integer -> SimpleTxOut
+[$sel:unSimpleTxOut:SimpleTxOut] :: SimpleTxOut -> Integer
+newtype SimpleChainState
+SimpleChainState :: ChainSlot -> SimpleChainState
+[$sel:slot:SimpleChainState] :: SimpleChainState -> ChainSlot
+simpleLedger :: Ledger SimpleTx
+instance GHC.Show.Show Hydra.Ledger.Simple.SimpleTx
+instance GHC.Generics.Generic Hydra.Ledger.Simple.SimpleTx
+instance GHC.Classes.Ord Hydra.Ledger.Simple.SimpleTx
+instance GHC.Classes.Eq Hydra.Ledger.Simple.SimpleTx
+instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Ledger.Simple.SimpleTxOut
+instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Ledger.Simple.SimpleTxOut
+instance GHC.Num.Num Hydra.Ledger.Simple.SimpleTxOut
+instance GHC.Show.Show Hydra.Ledger.Simple.SimpleTxOut
+instance GHC.Classes.Ord Hydra.Ledger.Simple.SimpleTxOut
+instance GHC.Classes.Eq Hydra.Ledger.Simple.SimpleTxOut
+instance GHC.Generics.Generic Hydra.Ledger.Simple.SimpleTxOut
+instance GHC.Num.Num Hydra.Ledger.Simple.SimpleChainState
+instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Ledger.Simple.SimpleChainState
+instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Ledger.Simple.SimpleChainState
+instance GHC.Generics.Generic Hydra.Ledger.Simple.SimpleChainState
+instance GHC.Show.Show Hydra.Ledger.Simple.SimpleChainState
+instance GHC.Classes.Eq Hydra.Ledger.Simple.SimpleChainState
+instance Cardano.Binary.ToCBOR.ToCBOR Hydra.Ledger.Simple.SimpleChainState
+instance Cardano.Binary.FromCBOR.FromCBOR Hydra.Ledger.Simple.SimpleChainState
+instance Hydra.Chain.ChainState.IsChainState Hydra.Ledger.Simple.SimpleTx
+instance Cardano.Binary.ToCBOR.ToCBOR Hydra.Ledger.Simple.SimpleTxOut
+instance Cardano.Binary.FromCBOR.FromCBOR Hydra.Ledger.Simple.SimpleTxOut
+instance Hydra.Tx.IsTx.IsTx Hydra.Ledger.Simple.SimpleTx
+instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Ledger.Simple.SimpleTx
+instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Ledger.Simple.SimpleTx
+instance Cardano.Binary.ToCBOR.ToCBOR Hydra.Ledger.Simple.SimpleTx
+instance Cardano.Binary.FromCBOR.FromCBOR Hydra.Ledger.Simple.SimpleTx
 
 
 -- | Asynchronous messaging interface to the Hydra Network, e.g to other
@@ -2013,6 +1838,26 @@ Network :: (msg -> m ()) -> Network m msg
 -- | Send a <tt>msg</tt> to the whole configured hydra network including
 --   ourselves.
 [$sel:broadcast:Network] :: Network m msg -> msg -> m ()
+
+-- | Why the node's outbound broadcast hand-off is reporting itself
+--   stalled.
+--   
+--   The two conditions are not interchangeable, and conflating them
+--   misreports a healthy network: <a>NoProgress</a> means nothing is
+--   getting through at all, while <a>BacklogFull</a> also fires on a
+--   producer outrunning a consumer that is still delivering, just not fast
+--   enough. Anything telling a client or an operator about a stall should
+--   say which one it saw rather than blaming reachability.
+data StallReason
+
+-- | Nothing has completed for longer than the allowed period, so the
+--   network cannot currently be reached.
+NoProgress :: StallReason
+
+-- | The hand-off holds more than it would drain within the allowed period
+--   at its recent rate, or its maximum. A fast client can cause this
+--   against a network that is still delivering.
+BacklogFull :: StallReason
 data Host
 Host :: Text -> PortNumber -> Host
 [$sel:hostname:Host] :: Host -> Text
@@ -2069,6 +1914,19 @@ VersionMismatch :: ProtocolVersion -> Maybe ProtocolVersion -> Connectivity
 ClusterIDMismatch :: Text -> Connectivity
 [$sel:clusterPeers:PeerConnected] :: Connectivity -> Text
 
+-- | Outbound messages have backed up and are not being handed to the
+--   cluster. They go out once they can, but are held in memory until then,
+--   so stopping the node while stalled discards whatever it had not handed
+--   over (traced as <a>DiscardedBroadcasts</a>). See <a>StallReason</a>
+--   for which of the two conditions this is: they are not the same, and
+--   only one of them means the network is unreachable.
+BroadcastStalled :: Natural -> StallReason -> Connectivity
+[$sel:pendingBroadcasts:PeerConnected] :: Connectivity -> Natural
+[$sel:stallReason:PeerConnected] :: Connectivity -> StallReason
+
+-- | The outbound queue started draining again.
+BroadcastResumed :: Connectivity
+
 -- | Configuration for a <tt>Node</tt> network layer.
 data NetworkConfiguration
 NetworkConfiguration :: FilePath -> Secret (SigningKey HydraKey) -> [Party] -> Host -> Host -> [Host] -> NodeId -> WhichEtcd -> NetworkConfiguration
@@ -2119,6 +1977,11 @@ instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Network.Host
 instance GHC.Classes.Eq Hydra.Network.Host
 instance GHC.Generics.Generic Hydra.Network.Host
 instance GHC.Classes.Ord Hydra.Network.Host
+instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Network.StallReason
+instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Network.StallReason
+instance GHC.Show.Show Hydra.Network.StallReason
+instance GHC.Classes.Eq Hydra.Network.StallReason
+instance GHC.Generics.Generic Hydra.Network.StallReason
 instance Data.Aeson.Types.FromJSON.FromJSON Hydra.Network.ProtocolVersion
 instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Network.ProtocolVersion
 instance GHC.Classes.Ord Hydra.Network.ProtocolVersion
@@ -2136,6 +1999,8 @@ instance Cardano.Binary.ToCBOR.ToCBOR Hydra.Network.Connectivity
 instance Cardano.Binary.FromCBOR.FromCBOR Hydra.Network.Connectivity
 instance Cardano.Binary.ToCBOR.ToCBOR Hydra.Network.ProtocolVersion
 instance Cardano.Binary.FromCBOR.FromCBOR Hydra.Network.ProtocolVersion
+instance Cardano.Binary.ToCBOR.ToCBOR Hydra.Network.StallReason
+instance Cardano.Binary.FromCBOR.FromCBOR Hydra.Network.StallReason
 instance Cardano.Binary.ToCBOR.ToCBOR Hydra.Network.Host
 instance Cardano.Binary.FromCBOR.FromCBOR Hydra.Network.Host
 instance GHC.Show.Show Hydra.Network.Host
@@ -2146,6 +2011,10 @@ instance Cardano.Binary.ToCBOR.ToCBOR Hydra.Network.NodeId
 instance Cardano.Binary.FromCBOR.FromCBOR Hydra.Network.NodeId
 instance Cardano.Binary.ToCBOR.ToCBOR Hydra.Network.WhichEtcd
 instance Cardano.Binary.FromCBOR.FromCBOR Hydra.Network.WhichEtcd
+instance Data.Aeson.Types.ToJSON.ToJSON Data.IP.Addr.IPv4
+instance Data.Aeson.Types.FromJSON.FromJSON Data.IP.Addr.IPv4
+instance Data.Aeson.Types.ToJSON.ToJSON Data.IP.Addr.IPv6
+instance Data.Aeson.Types.FromJSON.FromJSON Data.IP.Addr.IPv6
 instance Data.Aeson.Types.ToJSON.ToJSON Network.Socket.Types.PortNumber
 instance Data.Aeson.Types.FromJSON.FromJSON Network.Socket.Types.PortNumber
 
@@ -2220,7 +2089,7 @@ Authenticated :: msg -> Party -> Authenticated msg
 --   peers and verify signed messages upon receiving. Only verified
 --   messages are pushed downstream to the internal network for the node to
 --   consume and process. Non-verified messages get discarded.
-withAuthentication :: (SignableRepresentation inbound, ToJSON inbound, SignableRepresentation outbound) => Tracer m AuthLog -> Secret (SigningKey HydraKey) -> [Party] -> NetworkComponent m (Signed inbound) (Signed outbound) a -> NetworkComponent m (Authenticated inbound) outbound a
+withAuthentication :: (SignableRepresentation inbound, ToJSON inbound, SignableRepresentation outbound, Monad m) => Tracer m AuthLog -> Secret (SigningKey HydraKey) -> [Party] -> NetworkComponent m (Signed inbound) (Signed outbound) a -> NetworkComponent m (Authenticated inbound) outbound a
 
 -- | Smart constructor for <a>MessageDropped</a>
 mkAuthLog :: (ToJSON msg, Show signature) => msg -> signature -> Party -> AuthLog
@@ -2363,6 +2232,27 @@ SnapshotDoesNotApply :: SnapshotNumber -> TxIdType tx -> ValidationError -> Requ
 [$sel:txid:ReqSnNumberInvalid] :: RequirementFailure tx -> TxIdType tx
 [$sel:error:ReqSnNumberInvalid] :: RequirementFailure tx -> ValidationError
 NoMatchingDeposit :: RequirementFailure tx
+
+-- | The deposit is claimed by a signed snapshot whose increment settled
+--   on-chain but was rolled back: its funds are already accounted for in
+--   the head, so recovering them on-chain would corrupt the L2 ledger. The
+--   increment is re-posted instead, see #2741.
+RecoverBlockedByFinalizedCommit :: TxIdType tx -> RequirementFailure tx
+[$sel:depositTxId:ReqSnNumberInvalid] :: RequirementFailure tx -> TxIdType tx
+
+-- | The requested deposit is claimed by an already signed snapshot whose
+--   increment settled on-chain but was rolled back (which is the only way
+--   it resurfaces in the pending deposits): signing a second snapshot
+--   claiming it would double claim the deposit. Only re-posting the
+--   increment settles it, see #2741.
+ReqSnDepositBlockedByFinalizedCommit :: TxIdType tx -> RequirementFailure tx
+[$sel:depositTxId:ReqSnNumberInvalid] :: RequirementFailure tx -> TxIdType tx
+
+-- | The requested deposit cannot be accepted: one of the outputs it adds
+--   already exists in the head, or is created by one of the requested
+--   transactions. See <a>absorbable</a>.
+ReqSnDepositOutputsHeld :: TxIdType tx -> RequirementFailure tx
+[$sel:depositTxId:ReqSnNumberInvalid] :: RequirementFailure tx -> TxIdType tx
 RequestedDepositExpired :: TxIdType tx -> RequirementFailure tx
 [$sel:depositTxId:ReqSnNumberInvalid] :: RequirementFailure tx -> TxIdType tx
 RequestedDepositNotFoundLocally :: TxIdType tx -> RequirementFailure tx
@@ -2396,6 +2286,27 @@ SideLoadUTxOToDecommitInvalid :: Maybe (UTxOType tx) -> Maybe (UTxOType tx) -> S
 SideLoadInvalidMultisignature :: Text -> [VerificationKey HydraKey] -> SideLoadRequirementFailure tx
 [$sel:multisig:SideLoadInitialSnapshotMismatch] :: SideLoadRequirementFailure tx -> Text
 [$sel:vkeys:SideLoadInitialSnapshotMismatch] :: SideLoadRequirementFailure tx -> [VerificationKey HydraKey]
+
+-- | The snapshot commits to more outputs than the accumulator's trusted
+--   setup supports, so its commitment could never be computed.
+--   
+--   SECURITY: unlike its siblings, this one is raised at the client API
+--   boundary rather than by the head logic, and it has to be: forcing an
+--   over-capacity accumulator calls <a>RequirementFailure</a> (see
+--   <a>checkAccumulatorSize</a>), and by the time the head logic sees an
+--   input the node has already traced it, which forces it. See
+--   <a>validateClientInput</a>.
+--   
+--   <a>update</a> keeps an independent check for any future producer that
+--   skips the boundary, reported as <a>SideLoadSnapshotFailed</a>. That
+--   route deliberately does not go through <tt>sideLoadFailed</tt>: a
+--   <tt>SideLoadSnapshotRejected</tt> client message echoes the offending
+--   <tt>ClientInput</tt> back, and encoding that echo would force the very
+--   accumulator that cannot be computed. This constructor carries only the
+--   two counts, so it is safe to report either way.
+SideLoadUTxOSetTooLarge :: Int -> Int -> SideLoadRequirementFailure tx
+[$sel:utxoCount:SideLoadInitialSnapshotMismatch] :: SideLoadRequirementFailure tx -> Int
+[$sel:maxAllowed:SideLoadInitialSnapshotMismatch] :: SideLoadRequirementFailure tx -> Int
 instance GHC.Generics.Generic (Hydra.HeadLogic.Error.RequirementFailure tx)
 instance GHC.Generics.Generic (Hydra.HeadLogic.Error.SideLoadRequirementFailure tx)
 instance GHC.Generics.Generic (Hydra.HeadLogic.Error.LogicError tx)
@@ -2439,21 +2350,30 @@ instance GHC.Real.Integral Hydra.Node.ApiTransactionTimeout.ApiTransactionTimeou
 -- | Template haskell expression to embed executables.
 module Hydra.Node.EmbedTH
 
--- | Template haskell expression to find and embed an executable with given
---   name.
-embedExecutable :: String -> Q Exp
+-- | Embed an executable selected by an environment variable, falling back
+--   to PATH for native development builds. Cross builds supply the target
+--   executable explicitly, independently of the tools running on the build
+--   machine.
+embedExecutable :: String -> String -> Q Exp
 
 
 -- | Embedding and installation of <tt>etcd</tt> binary. In a dedicated
---   module as HLS tends to choke on $(embedExecutable "etcd").
+--   module as HLS tends to choke on the executable's Template Haskell
+--   splice.
 module Hydra.Network.EtcdBinary
 
 -- | Return the path of the etcd binary. Will either install it first, or
 --   just assume there is one available on the system path.
 getEtcdBinary :: FilePath -> WhichEtcd -> IO FilePath
+etcdExecutable :: FilePath
 
 -- | Install the embedded <tt>etcd</tt> binary to given file path.
 installEtcd :: FilePath -> IO ()
+
+-- | Write without letting another process retain the writable file
+--   descriptor.
+writeBinaryFile :: FilePath -> ByteString -> IO ()
+makeExecutable :: FilePath -> IO ()
 
 
 -- | Implements a Hydra network component using <a>etcd</a>.
@@ -2547,10 +2467,11 @@ checkVersion :: Tracer IO EtcdLog -> Connection -> ProtocolVersion -> NetworkCal
 broadcastMessages :: Tracer IO EtcdLog -> NetworkConfiguration -> Host -> PersistentQueue IO msg -> IO ()
 
 -- | Query etcd for the current <tt>mod_revision</tt> of this peer's
---   broadcast key. Returns 0 if the key does not yet exist. Used by
---   <a>broadcastMessages</a> to seed its in-memory baseline so subsequent
---   <tt>compare mod_revision</tt> checks match etcd's reality from the
---   very first <a>putMessage</a>.
+--   broadcast key. Returns 0 if the key does not yet exist, which etcd's
+--   compare also treats as absent. Used by <a>broadcastMessages</a> to
+--   seed its in-memory baseline, so that from the very first
+--   <a>putMessage</a> a failed compare can only mean an earlier attempt of
+--   ours committed.
 queryInitialModRev :: Tracer IO EtcdLog -> NetworkConfiguration -> Host -> IO Int64
 
 -- | Broadcast a message to the etcd cluster.
@@ -2592,6 +2513,10 @@ putMessage :: Tracer IO EtcdLog -> Connection -> Host -> TVar IO Int64 -> ByteSt
 --   indefinite-length list format as cardano-binary's list instances, so
 --   the value decodes as <tt>[msg]</tt> on the receiving side.
 batchValue :: [ByteString] -> ByteString
+
+-- | Decode a value assembled by <a>batchValue</a>. Watch catch-up can
+--   replay values written before batching, which hold a single message.
+decodeBatchValue :: forall msg. FromCBOR msg => ByteString -> Either DecoderError [msg]
 
 -- | Fetch and wait for messages from the etcd cluster.
 waitMessages :: forall msg. FromCBOR msg => Tracer IO EtcdLog -> Connection -> FilePath -> NetworkCallback msg IO -> IO ()
@@ -2644,6 +2569,10 @@ pollConnectivity :: Tracer IO EtcdLog -> Connection -> Host -> NetworkCallback m
 --   recreate the lease, not crash the node.
 isTransientGrpcError :: GrpcError -> Bool
 
+-- | Handle transient RPC failures without losing cancellation to an
+--   exception raised by RPC cleanup.
+catchEtcdError :: IO a -> (Text -> IO a) -> IO a
+
 -- | Classify a failure talking to our local etcd, giving a reason to trace
 --   when retrying is the right response.
 --   
@@ -2661,65 +2590,15 @@ retryableEtcdError :: SomeException -> Maybe Text
 --   raised.
 withGrpcContext :: MonadCatch m => Text -> m a -> m a
 
--- | Like <tt>withProcessTerm</tt>, but sends first SIGINT and only SIGTERM
---   if not stopped within 5 seconds.
-withProcessInterrupt :: (MonadIO m, MonadThrow m) => ProcessConfig stdin stdout stderr -> (Process stdin stdout stderr -> m a) -> m a
+-- | Stop the child before joining the action's threads. On Windows, a
+--   reader blocked on the child's stderr or sockets cannot be cancelled
+--   until those resources close. The action can also stop the child before
+--   unwinding its own thread scopes on normal completion.
+withProcessInterrupt :: ProcessConfig stdin stdout stderr -> (Process stdin stdout stderr -> IO () -> IO a) -> IO a
 
--- | Queue elements carry the item's CBOR serialization, produced once on
---   write and reused for both the on-disk file and the etcd value, so
---   broadcasting does not serialize twice.
-data PersistentQueue m a
-PersistentQueue :: TBQueue m (Natural, a, ByteString) -> TVar m Natural -> FilePath -> PersistentQueue m a
-[$sel:queue:PersistentQueue] :: PersistentQueue m a -> TBQueue m (Natural, a, ByteString)
-[$sel:nextIx:PersistentQueue] :: PersistentQueue m a -> TVar m Natural
-[$sel:directory:PersistentQueue] :: PersistentQueue m a -> FilePath
-
--- | Create a new persistent queue at file path and given capacity.
-newPersistentQueue :: (MonadLabelledSTM m, MonadIO m, FromCBOR a, MonadCatch m, MonadFail m) => Tracer IO EtcdLog -> FilePath -> Natural -> m (PersistentQueue m a)
-
--- | Write a value to the queue, blocking if the queue is full.
-writePersistentQueue :: (ToCBOR a, MonadSTM m, MonadIO m) => Tracer IO EtcdLog -> PersistentQueue m a -> a -> m ()
-
--- | Get the next value from the queue without removing it, blocking if the
---   queue is empty.
-peekPersistentQueue :: MonadSTM m => PersistentQueue m a -> m a
-
--- | Like <a>peekPersistentQueue</a>, but returns <a>Nothing</a> instead of
---   blocking when the queue is empty.
-tryPeekPersistentQueue :: MonadSTM m => PersistentQueue m a -> m (Maybe a)
-
--- | Get all pending values and their serializations, up to the given count
---   and total byte limits, blocking until at least one is available.
---   Values are not removed; use <a>popBatchPersistentQueue</a> after they
---   were sent.
-peekBatchPersistentQueue :: MonadSTM m => PersistentQueue m a -> Int -> Int -> m [(a, ByteString)]
-
--- | Get the batch to broadcast next: the batch already in flight if there
---   is one, otherwise a fresh one peeked from the queue (and recorded as
---   in flight). Returns <a>Nothing</a> when nothing is pending. The caller
---   must clear the in-flight var after popping a successfully sent batch.
---   
---   Pinning the in-flight batch across transient retries matters for the
---   compare-fail dedup in <a>putMessage</a>: a put can commit server-side
---   while the client sees e.g. <a>GrpcDeadlineExceeded</a>. The retry must
---   send (and afterwards pop) exactly the content of the committed
---   attempt. Re-peeking on retry could pick up messages enqueued in the
---   meantime; the dedup branch would then declare the grown batch
---   delivered and the never-sent tail would be popped and lost.
-nextPendingBatch :: MonadSTM m => TVar m (Maybe [(a, ByteString)]) -> PersistentQueue m a -> Int -> Int -> m (Maybe [(a, ByteString)])
-
--- | Remove a batch previously returned by <a>peekBatchPersistentQueue</a>.
---   Pops unconditionally, one item per batch entry: this thread is the
---   sole consumer, so the queue head still holds exactly the peeked items
---   (an item-matching guard could only silently no-op and wedge the queue,
---   see #2742).
-popBatchPersistentQueue :: (MonadSTM m, MonadIO m) => Tracer IO EtcdLog -> PersistentQueue m a -> [(a, ByteString)] -> m ()
-
--- | Delete the backing file of a popped queue item. Failing to delete is
---   traced but not fatal: the message was already broadcast, so a leftover
---   file only means it may be re-broadcast after a restart (at-least-once
---   delivery, same as the crash-recovery path).
-removeQueueFile :: MonadIO m => Tracer IO EtcdLog -> FilePath -> Natural -> m ()
+-- | Map the standalone queue's log events onto the node's etcd log, so the
+--   emitted JSON is unchanged by the extraction of <a>PersistentQueue</a>.
+fromPersistentQueueLog :: PersistentQueueLog -> EtcdLog
 data EtcdLog
 EtcdLog :: Value -> EtcdLog
 [$sel:etcd:EtcdLog] :: EtcdLog -> Value
@@ -2889,6 +2768,99 @@ instance GHC.Show.Show Hydra.Node.Network.NetworkLog
 instance GHC.Classes.Eq Hydra.Node.Network.NetworkLog
 
 
+-- | An ordered hand-off for effects that must not block the thread
+--   producing them.
+module Hydra.Node.Outbox
+
+-- | Bounds beyond which an <a>Outbox</a> reports itself stalled.
+data StallBounds
+StallBounds :: DiffTime -> Natural -> StallBounds
+
+-- | How long the outbox may fail to complete anything while it holds work.
+--   Also bounds how long the backlog may take to drain at the rate the
+--   consumer has recently been completing work, which catches a consumer
+--   that is moving but too slowly for what it holds, sooner than waiting
+--   for it to stop outright.
+[$sel:noProgressFor:StallBounds] :: StallBounds -> DiffTime
+
+-- | How much work it may hold, whatever the rate it drains at: the memory
+--   backstop. Note it does not itself bound the queue:
+--   <a>$sel:submit:Outbox</a> never blocks, so only the producer can stop.
+--   
+--   Both backlog limbs also fire on a producer outrunning a consumer that
+--   is still delivering, so a caller reporting them must describe the
+--   backlog rather than blame the consumer for being unreachable.
+[$sel:maxPending:StallBounds] :: StallBounds -> Natural
+
+-- | A single-consumer hand-off for actions that must not block the thread
+--   submitting them.
+--   
+--   The hydra node processes all its inputs on one thread and used to run
+--   every effect inline on it, so an effect that blocked stopped it
+--   dequeuing anything at all - including the chain observation and the
+--   client command it needs to close and contest a head. See
+--   GHSA-3mmr-q43p-g6p2 and <a>withNetworkOutbox</a>.
+--   
+--   <a>$sel:submit:Outbox</a> therefore only appends;
+--   <a>$sel:runOutbox:Outbox</a> is the one thing that performs the
+--   actions, in submission order.
+data Outbox m
+Outbox :: (m () -> m ()) -> m (Maybe (StallReason, Natural)) -> STM m Natural -> m (Natural, DiffTime) -> m () -> m () -> StallBounds -> Outbox m
+
+-- | Append an action. Never blocks.
+[$sel:submit:Outbox] :: Outbox m -> m () -> m ()
+
+-- | The cause, and the amount of queued work, once it exceeds the
+--   <a>StallBounds</a>.
+--   
+--   Progress-based first, on purpose: depth alone is a normal condition
+--   for a consumer that batches or rate-limits, and "non-empty for a
+--   while" would misfire on a busy producer whose queue simply never
+--   happens to be observed empty. What actually means "this is not getting
+--   through" is that nothing has completed - reported as <a>NoProgress</a>
+--   even when the backlog also happens to be at
+--   <a>$sel:maxPending:StallBounds</a>.
+--   
+--   The backlog itself is judged by how long it would take to drain at the
+--   recent completion rate, so a burst that a fast consumer clears within
+--   <a>$sel:noProgressFor:StallBounds</a> is not a stall however deep it
+--   gets, short of <a>$sel:maxPending:StallBounds</a>. Both are reported
+--   as <a>BacklogFull</a>.
+[$sel:outboxStalled:Outbox] :: Outbox m -> m (Maybe (StallReason, Natural))
+
+-- | Submitted but not yet completed, including any action in flight.
+[$sel:pendingActions:Outbox] :: Outbox m -> STM m Natural
+
+-- | The same count, plus how long since the outbox last completed anything
+--   - zero while it holds nothing. Where <a>$sel:outboxStalled:Outbox</a>
+--   answers "should we cut the flow off", this is for reporting: it is the
+--   pair an operator needs to tell a backlog that is draining from one
+--   that is not, and to see which of the two <a>StallBounds</a> limbs is
+--   being approached.
+[$sel:outboxBacklog:Outbox] :: Outbox m -> m (Natural, DiffTime)
+
+-- | Perform submitted actions forever, in submission order. Must run
+--   concurrently with the producer, or nothing is ever performed.
+[$sel:runOutbox:Outbox] :: Outbox m -> m ()
+
+-- | Perform everything queued right now and return. For producers driven
+--   step by step instead of alongside <a>$sel:runOutbox:Outbox</a>. Must
+--   not run concurrently with it: two consumers would interleave the
+--   actions.
+[$sel:drainOutbox:Outbox] :: Outbox m -> m ()
+
+-- | What this outbox was created with, so a watcher can pick a polling
+--   interval that matches.
+[$sel:stallBounds:Outbox] :: Outbox m -> StallBounds
+newOutbox :: (MonadLabelledSTM m, MonadMonotonicTime m) => StallBounds -> String -> m (Outbox m)
+
+-- | How much busy time the service time estimate averages over. Long
+--   enough that a pause of a few hundred milliseconds barely moves it,
+--   short against any <a>$sel:noProgressFor:StallBounds</a> worth
+--   configuring.
+serviceWindow :: DiffTime
+
+
 -- | Structured errors related to configuration mismatch.
 --   
 --   When we start a <a>Node</a> we need to do sanity checks between what's
@@ -2921,6 +2893,71 @@ instance GHC.Classes.Eq Hydra.Node.ParameterMismatch.ParameterMismatch
 
 module Hydra.Node.State
 type PendingDeposits tx = Map (TxIdType tx) (Deposit tx)
+
+-- | A deposit with its L1 lifecycle slots. Deposits are L1-derived state,
+--   so a rollback must rewind the view (<a>rollbackDeposits</a>): a
+--   deposit recorded after the rolled-back slot vanishes (its deposit
+--   transaction was erased), and a consumption after it is undone (the
+--   erased increment or recover resurfaces the deposit). Forward
+--   re-observation of the new chain then converges the view again. Only
+--   L1-derived state may rewind like this; L2 state (snapshots,
+--   signatures) never rolls back.
+data TrackedDeposit tx
+TrackedDeposit :: Deposit tx -> ChainSlot -> Maybe ChainSlot -> TrackedDeposit tx
+[$sel:deposit:TrackedDeposit] :: TrackedDeposit tx -> Deposit tx
+
+-- | Slot at which the deposit transaction was observed.
+[$sel:recordedAt:TrackedDeposit] :: TrackedDeposit tx -> ChainSlot
+
+-- | Slot at which a consuming transaction (increment or recover) was
+--   observed, if any. A consumed deposit is no longer pending, but is
+--   retained for <a>depositRetentionHorizon</a> so a rollback can
+--   resurface it.
+[$sel:consumedAt:TrackedDeposit] :: TrackedDeposit tx -> Maybe ChainSlot
+type TrackedDeposits tx = Map (TxIdType tx) (TrackedDeposit tx)
+
+-- | Track the given deposits with a fresh lifecycle (recorded at slot 0,
+--   unconsumed). Used to lift state serialized before lifecycle tracking
+--   existed, reproducing the old (rollback unaware) behavior for those
+--   deposits.
+trackedFromPending :: PendingDeposits tx -> TrackedDeposits tx
+
+-- | Deposits pending as observed on chain: the tracked deposits not
+--   consumed yet.
+pendingDeposits :: NodeState tx -> PendingDeposits tx
+
+-- | Record a newly observed deposit at the given slot. Re-recording an id
+--   (its deposit transaction re-landed after a rollback) starts a fresh
+--   lifecycle.
+recordDeposit :: IsTx tx => ChainSlot -> TxIdType tx -> Deposit tx -> NodeState tx -> NodeState tx
+
+-- | Update a tracked deposit (e.g. on status changes); its lifecycle slots
+--   are unaffected. Unknown ids are ignored.
+updateDeposit :: IsTx tx => TxIdType tx -> Deposit tx -> NodeState tx -> NodeState tx
+
+-- | Mark a deposit consumed at the given slot: its increment or recover
+--   was observed on chain. Re-consuming (the consuming transaction
+--   re-landed after a rollback) re-stamps the slot, so a rollback of the
+--   re-landed transaction still resurfaces the deposit.
+consumeDeposit :: IsTx tx => ChainSlot -> TxIdType tx -> NodeState tx -> NodeState tx
+
+-- | Rewind the deposit view to the given (rolled back) slot, see
+--   <a>TrackedDeposit</a>.
+rollbackDeposits :: ChainSlot -> NodeState tx -> NodeState tx
+
+-- | Drop consumed deposits beyond <a>depositRetentionHorizon</a>: no
+--   rollback can resurface them anymore, so retaining them would only grow
+--   persisted state with every deposit ever settled. Called on the deposit
+--   write paths, which is enough because only deposit churn creates
+--   consumed entries. Unconsumed deposits are never pruned — an expired
+--   deposit stays recoverable indefinitely.
+pruneConsumedDeposits :: ChainSlot -> TrackedDeposits tx -> TrackedDeposits tx
+
+-- | How long consumed deposits are retained for rollbacks: sized to cover
+--   the deepest rollback Cardano can produce (the security parameter k =
+--   2160 blocks, roughly 12 hours at one block per 20 slots) with a
+--   three-fold margin.
+depositRetentionHorizon :: ChainSlot
 data ChainPointTime
 ChainPointTime :: ChainSlot -> UTCTime -> NominalDiffTime -> ChainPointTime
 
@@ -2936,23 +2973,51 @@ data NodeState tx
 
 -- | Normal operation of the node where it is connected and has a recent
 --   view of the chain.
-NodeInSync :: HeadState tx -> PendingDeposits tx -> ChainPointTime -> NodeState tx
+NodeInSync :: HeadState tx -> TrackedDeposits tx -> ChainPointTime -> NodeState tx
 [$sel:headState:NodeInSync] :: NodeState tx -> HeadState tx
 
--- | Pending deposits as observed on chain. TODO: could even move the chain
---   state here (also see todo below) , chainState :: ChainStateType tx
-[$sel:pendingDeposits:NodeInSync] :: NodeState tx -> PendingDeposits tx
+-- | Deposits as observed on chain, with their L1 lifecycle (see
+--   <a>TrackedDeposit</a>); read the pending view via
+--   <a>pendingDeposits</a>. TODO: could even move the chain state here
+--   (also see todo below) , chainState :: ChainStateType tx
+[$sel:deposits:NodeInSync] :: NodeState tx -> TrackedDeposits tx
 [$sel:chainPointTime:NodeInSync] :: NodeState tx -> ChainPointTime
 
 -- | Node is catching up on its view of the chain and should behave
 --   differently.
-NodeCatchingUp :: HeadState tx -> PendingDeposits tx -> ChainPointTime -> NodeState tx
+NodeCatchingUp :: HeadState tx -> TrackedDeposits tx -> ChainPointTime -> NodeState tx
 [$sel:headState:NodeInSync] :: NodeState tx -> HeadState tx
 
--- | Pending deposits as observed on chain. TODO: could even move the chain
---   state here (also see todo below) , chainState :: ChainStateType tx
-[$sel:pendingDeposits:NodeInSync] :: NodeState tx -> PendingDeposits tx
+-- | Deposits as observed on chain, with their L1 lifecycle (see
+--   <a>TrackedDeposit</a>); read the pending view via
+--   <a>pendingDeposits</a>. TODO: could even move the chain state here
+--   (also see todo below) , chainState :: ChainStateType tx
+[$sel:deposits:NodeInSync] :: NodeState tx -> TrackedDeposits tx
 [$sel:chainPointTime:NodeInSync] :: NodeState tx -> ChainPointTime
+
+-- | Tags of the current on-disk/wire layout, which tracks deposit
+--   lifecycles (<a>TrackedDeposits</a>). The fields are a bare
+--   concatenation with no length prefix, so a layout change is only
+--   decodable when the tag distinguishes it: the V1 tags name the layout
+--   with a plain pending deposit map written before lifecycle tracking
+--   existed and are still accepted, lifted via <a>trackedFromPending</a>
+--   like the <a>FromJSON</a> instance above.
+nodeInSyncCBORTag :: Text
+
+-- | Tags of the current on-disk/wire layout, which tracks deposit
+--   lifecycles (<a>TrackedDeposits</a>). The fields are a bare
+--   concatenation with no length prefix, so a layout change is only
+--   decodable when the tag distinguishes it: the V1 tags name the layout
+--   with a plain pending deposit map written before lifecycle tracking
+--   existed and are still accepted, lifted via <a>trackedFromPending</a>
+--   like the <a>FromJSON</a> instance above.
+nodeCatchingUpCBORTag :: Text
+
+-- | Tags of the layout without deposit lifecycles. Decoded, never written.
+nodeInSyncCBORTagV1 :: Text
+
+-- | Tags of the layout without deposit lifecycles. Decoded, never written.
+nodeCatchingUpCBORTagV1 :: Text
 initNodeState :: IsChainState tx => ChainStateType tx -> NodeState tx
 initialChainPointTime :: IsChainState tx => ChainStateType tx -> ChainPointTime
 initialChainTime :: UTCTime
@@ -2991,17 +3056,25 @@ instance GHC.Show.Show Hydra.Node.State.DepositStatus
 instance GHC.Classes.Eq Hydra.Node.State.DepositStatus
 instance GHC.Generics.Generic Hydra.Node.State.DepositStatus
 instance GHC.Generics.Generic (Hydra.Node.State.Deposit tx)
+instance GHC.Generics.Generic (Hydra.Node.State.TrackedDeposit tx)
 instance GHC.Generics.Generic (Hydra.Node.State.NodeState tx)
+instance Hydra.Tx.IsTx.IsTx tx => GHC.Classes.Eq (Hydra.Node.State.TrackedDeposit tx)
+instance Hydra.Tx.IsTx.IsTx tx => GHC.Show.Show (Hydra.Node.State.TrackedDeposit tx)
+instance Hydra.Tx.IsTx.IsTx tx => Data.Aeson.Types.ToJSON.ToJSON (Hydra.Node.State.TrackedDeposit tx)
+instance Hydra.Tx.IsTx.IsTx tx => Data.Aeson.Types.FromJSON.FromJSON (Hydra.Node.State.TrackedDeposit tx)
 instance (Hydra.Tx.IsTx.IsTx tx, GHC.Classes.Eq (Hydra.Chain.ChainState.ChainStateType tx)) => GHC.Classes.Eq (Hydra.Node.State.NodeState tx)
 instance (Hydra.Tx.IsTx.IsTx tx, GHC.Show.Show (Hydra.Chain.ChainState.ChainStateType tx)) => GHC.Show.Show (Hydra.Node.State.NodeState tx)
 instance (Hydra.Tx.IsTx.IsTx tx, Data.Aeson.Types.ToJSON.ToJSON (Hydra.Chain.ChainState.ChainStateType tx)) => Data.Aeson.Types.ToJSON.ToJSON (Hydra.Node.State.NodeState tx)
-instance (Hydra.Tx.IsTx.IsTx tx, Data.Aeson.Types.FromJSON.FromJSON (Hydra.Chain.ChainState.ChainStateType tx)) => Data.Aeson.Types.FromJSON.FromJSON (Hydra.Node.State.NodeState tx)
 instance Hydra.Tx.IsTx.IsTx tx => GHC.Classes.Eq (Hydra.Node.State.Deposit tx)
 instance Hydra.Tx.IsTx.IsTx tx => GHC.Show.Show (Hydra.Node.State.Deposit tx)
 instance Hydra.Tx.IsTx.IsTx tx => Data.Aeson.Types.ToJSON.ToJSON (Hydra.Node.State.Deposit tx)
 instance Hydra.Tx.IsTx.IsTx tx => Data.Aeson.Types.FromJSON.FromJSON (Hydra.Node.State.Deposit tx)
+instance (view GHC.Types.~ Hydra.Node.State.PendingDeposits tx) => GHC.Records.HasField "pendingDeposits" (Hydra.Node.State.NodeState tx) view
+instance (Hydra.Tx.IsTx.IsTx tx, Data.Aeson.Types.FromJSON.FromJSON (Hydra.Chain.ChainState.ChainStateType tx)) => Data.Aeson.Types.FromJSON.FromJSON (Hydra.Node.State.NodeState tx)
 instance Hydra.Chain.ChainState.IsChainState tx => Cardano.Binary.ToCBOR.ToCBOR (Hydra.Node.State.NodeState tx)
 instance Hydra.Chain.ChainState.IsChainState tx => Cardano.Binary.FromCBOR.FromCBOR (Hydra.Node.State.NodeState tx)
+instance Hydra.Tx.IsTx.IsTx tx => Cardano.Binary.ToCBOR.ToCBOR (Hydra.Node.State.TrackedDeposit tx)
+instance Hydra.Tx.IsTx.IsTx tx => Cardano.Binary.FromCBOR.FromCBOR (Hydra.Node.State.TrackedDeposit tx)
 instance Hydra.Tx.IsTx.IsTx tx => Cardano.Binary.ToCBOR.ToCBOR (Hydra.Node.State.Deposit tx)
 instance Hydra.Tx.IsTx.IsTx tx => Cardano.Binary.FromCBOR.FromCBOR (Hydra.Node.State.Deposit tx)
 instance Cardano.Binary.ToCBOR.ToCBOR Hydra.Node.State.DepositStatus
@@ -3086,6 +3159,23 @@ NetworkDisconnected :: ServerOutput tx
 NetworkVersionMismatch :: ProtocolVersion -> Maybe ProtocolVersion -> ServerOutput tx
 [$sel:ourVersion:NetworkConnected] :: ServerOutput tx -> ProtocolVersion
 [$sel:theirVersion:NetworkConnected] :: ServerOutput tx -> Maybe ProtocolVersion
+
+-- | The node's outbound messages have been queued and undeliverable for a
+--   while: it cannot hand them to the hydra network. They go out once it
+--   can, but are held in memory until then, so stopping the node while
+--   stalled discards whatever it had not handed over. <tt>NewTx</tt> and
+--   <tt>Decommit</tt> are refused with
+--   <a>RejectedInputBecauseBroadcastStalled</a> meanwhile. Closing,
+--   contesting and fanning out are unaffected <i>by this condition</i> -
+--   they go to layer one, so they still depend on the chain backend.
+--   <a>ClientMessage</a> says which of the two conditions this is: only
+--   <tt>NoProgress</tt> means the network is unreachable.
+NetworkBroadcastStalled :: Natural -> StallReason -> ServerOutput tx
+[$sel:pendingBroadcasts:NetworkConnected] :: ServerOutput tx -> Natural
+[$sel:stallReason:NetworkConnected] :: ServerOutput tx -> StallReason
+
+-- | The node's outbound queue started draining again.
+NetworkBroadcastResumed :: ServerOutput tx
 NetworkClusterIDMismatch :: Text -> Text -> ServerOutput tx
 [$sel:clusterPeers:NetworkConnected] :: ServerOutput tx -> Text
 [$sel:misconfiguredPeers:NetworkConnected] :: ServerOutput tx -> Text
@@ -3231,6 +3321,21 @@ PostTxOnChainFailed :: PostChainTx tx -> PostTxError tx -> ClientMessage tx
 RejectedInputBecauseUnsynced :: ClientInput tx -> NominalDiffTime -> ClientMessage tx
 [$sel:clientInput:CommandFailed] :: ClientMessage tx -> ClientInput tx
 [$sel:drift:CommandFailed] :: ClientMessage tx -> NominalDiffTime
+
+-- | A <tt>NewTx</tt> or <tt>Decommit</tt> was refused because the node's
+--   outbound broadcast queue has been backed up for a while: the message
+--   it would produce cannot be handed to the network. Chain and protocol
+--   processing are unaffected, and <tt>Close</tt>, <tt>Contest</tt> and
+--   <tt>Fanout</tt> always work. Retry once the network recovers.
+--   
+--   <a>ClientMessage</a> tells apart the two causes <a>ClientMessage</a>
+--   alone cannot: <tt>NoProgress</tt> means the network really is
+--   unreachable, while <tt>BacklogFull</tt> can mean a healthy network
+--   simply being outrun by a fast client.
+RejectedInputBecauseBroadcastStalled :: ClientInput tx -> Natural -> StallReason -> ClientMessage tx
+[$sel:clientInput:CommandFailed] :: ClientMessage tx -> ClientInput tx
+[$sel:pendingBroadcasts:CommandFailed] :: ClientMessage tx -> Natural
+[$sel:stallReason:CommandFailed] :: ClientMessage tx -> StallReason
 SideLoadSnapshotRejected :: ClientInput tx -> SideLoadRequirementFailure tx -> ClientMessage tx
 [$sel:clientInput:CommandFailed] :: ClientMessage tx -> ClientInput tx
 [$sel:requirementFailure:CommandFailed] :: ClientMessage tx -> SideLoadRequirementFailure tx
@@ -3252,8 +3357,18 @@ TimedServerOutput :: Natural -> UTCTime -> ServerOutput tx -> TimedServerOutput 
 
 -- | L2 Hydra network status information.
 data NetworkInfo
-NetworkInfo :: Bool -> Map Host Bool -> NetworkInfo
+NetworkInfo :: Bool -> Maybe StallReason -> Map Host Bool -> NetworkInfo
 [$sel:networkConnected:NetworkInfo] :: NetworkInfo -> Bool
+
+-- | Why the node's outbound messages are currently backing up, if they
+--   are, see <a>NetworkBroadcastStalled</a>. <a>Nothing</a> means they are
+--   flowing. Note that only <tt>NoProgress</tt> means the network cannot
+--   be reached; <tt>BacklogFull</tt> can be a client outrunning a network
+--   that is keeping up, so this is deliberately not a bare "unreachable"
+--   flag. Carried here as well as in that output because <a>Greetings</a>
+--   is what a client gets on connecting, and past outputs are only
+--   replayed on request.
+[$sel:broadcastStall:NetworkInfo] :: NetworkInfo -> Maybe StallReason
 [$sel:peersInfo:NetworkInfo] :: NetworkInfo -> Map Host Bool
 
 -- | A friendly welcome message which tells a client something about the
@@ -3431,6 +3546,8 @@ instance GHC.Generics.Generic (Hydra.API.ServerOutput.ServerOutput tx)
 instance GHC.Generics.Generic (Hydra.API.ServerOutput.TimedServerOutput tx)
 instance Hydra.Chain.ChainState.IsChainState tx => GHC.Show.Show (Hydra.API.ServerOutput.TimedServerOutput tx)
 instance Hydra.Chain.ChainState.IsChainState tx => GHC.Classes.Eq (Hydra.API.ServerOutput.TimedServerOutput tx)
+instance GHC.Show.Show Hydra.API.ServerOutput.CommitInfo
+instance GHC.Classes.Eq Hydra.API.ServerOutput.CommitInfo
 instance Data.Aeson.Types.FromJSON.FromJSON Hydra.API.ServerOutput.NetworkInfo
 instance Data.Aeson.Types.ToJSON.ToJSON Hydra.API.ServerOutput.NetworkInfo
 instance GHC.Generics.Generic Hydra.API.ServerOutput.NetworkInfo
@@ -3519,6 +3636,10 @@ NetworkVersionMismatch :: ProtocolVersion -> Maybe ProtocolVersion -> StateChang
 NetworkClusterIDMismatch :: Text -> Text -> StateChanged tx
 [$sel:clusterPeers:NetworkConnected] :: StateChanged tx -> Text
 [$sel:misconfiguredPeers:NetworkConnected] :: StateChanged tx -> Text
+NetworkBroadcastStalled :: Natural -> StallReason -> StateChanged tx
+[$sel:pendingBroadcasts:NetworkConnected] :: StateChanged tx -> Natural
+[$sel:stallReason:NetworkConnected] :: StateChanged tx -> StallReason
+NetworkBroadcastResumed :: StateChanged tx
 HeadOpened :: HeadParameters -> ChainStateType tx -> HeadId -> HeadSeed -> [Party] -> StateChanged tx
 [$sel:parameters:NetworkConnected] :: StateChanged tx -> HeadParameters
 [$sel:chainState:NetworkConnected] :: StateChanged tx -> ChainStateType tx
@@ -3757,7 +3878,7 @@ instance Hydra.Chain.ChainState.IsChainState tx => GHC.Show.Show (Hydra.HeadLogi
 instance Hydra.Chain.ChainState.IsChainState tx => GHC.Classes.Eq (Hydra.HeadLogic.StateEvent.StateEvent tx)
 instance Hydra.Chain.ChainState.IsChainState tx => Data.Aeson.Types.ToJSON.ToJSON (Hydra.HeadLogic.StateEvent.StateEvent tx)
 instance Hydra.Chain.ChainState.IsChainState tx => Data.Aeson.Types.FromJSON.FromJSON (Hydra.HeadLogic.StateEvent.StateEvent tx)
-instance Hydra.Events.HasEventId (Hydra.HeadLogic.StateEvent.StateEvent tx)
+instance Data.EventSource.HasEventId (Hydra.HeadLogic.StateEvent.StateEvent tx)
 instance Hydra.Chain.ChainState.IsChainState tx => Cardano.Binary.ToCBOR.ToCBOR (Hydra.HeadLogic.StateEvent.StateEvent tx)
 instance Hydra.Chain.ChainState.IsChainState tx => Cardano.Binary.FromCBOR.FromCBOR (Hydra.HeadLogic.StateEvent.StateEvent tx)
 
@@ -3766,6 +3887,14 @@ newtype ServerOutputFilter tx
 ServerOutputFilter :: (TimedServerOutput tx -> Text -> Bool) -> ServerOutputFilter tx
 [$sel:txContainsAddr:ServerOutputFilter] :: ServerOutputFilter tx -> TimedServerOutput tx -> Text -> Bool
 serverOutputFilter :: ServerOutputFilter Tx
+
+-- | Whether a transaction involves the given address, by paying to it or
+--   by spending from it.
+--   
+--   Both directions matter to a client watching its own address: the
+--   snapshot in which its funds leave the head is the one it most needs,
+--   and a transaction that spends a UTxO in full leaves no output behind
+--   to match on.
 matchingAddr :: Text -> Tx -> Bool
 
 module Hydra.API.HTTPServer
@@ -3822,6 +3951,12 @@ OperationTimedOut :: Text -> Text -> OperationTimedOut
 [$sel:timeoutMessage:OperationTimedOut] :: OperationTimedOut -> Text
 operationTimedOut :: Text -> ApiTransactionTimeout -> OperationTimedOut
 
+-- | How a stalled outbound queue is described to an HTTP client,
+--   distinguishing <a>NoProgress</a> (the network really is unreachable)
+--   from <a>BacklogFull</a> (a healthy network being outrun by a fast
+--   producer).
+describeStallReason :: StallReason -> Text
+
 -- | Which encoding the client wants for the response, negotiated via the
 --   <tt>Accept</tt> header. Anything but <tt>application/cbor</tt>
 --   (including no header) yields JSON.
@@ -3851,7 +3986,7 @@ handleRecoverCommitUtxo :: forall tx. IsChainState tx => (ClientInput tx -> IO (
 
 -- | Handle request to submit a cardano transaction.
 handleSubmitUserTx :: forall tx. (FromJSON tx, FromCBOR tx) => Chain tx IO -> ApiEncoding -> ApiEncoding -> ByteString -> IO Response
-handleDecommit :: forall tx. (FromJSON tx, FromCBOR tx) => (ClientInput tx -> IO ()) -> ApiTransactionTimeout -> TChan (Either (TimedServerOutput tx) (ClientMessage tx)) -> ApiEncoding -> ApiEncoding -> ByteString -> IO Response
+handleDecommit :: forall tx. IsTx tx => (ClientInput tx -> IO ()) -> ApiTransactionTimeout -> TChan (Either (TimedServerOutput tx) (ClientMessage tx)) -> ApiEncoding -> ApiEncoding -> ByteString -> IO Response
 
 -- | Handle request to side load confirmed snapshot.
 handleSideLoadSnapshot :: forall tx. IsChainState tx => (ClientInput tx -> IO ()) -> ApiTransactionTimeout -> TChan (Either (TimedServerOutput tx) (ClientMessage tx)) -> ApiEncoding -> ApiEncoding -> ByteString -> IO Response
@@ -3933,6 +4068,42 @@ instance Hydra.Tx.IsTx.IsTx tx => Cardano.Binary.FromCBOR.FromCBOR (Hydra.API.HT
 --   <a>applyEvent</a> branch.
 module Hydra.HeadLogic
 
+-- | What a leader puts in its next <a>ReqSn</a>, see
+--   <a>nextSnapshotRequest</a>.
+data SnapshotRequest tx
+SnapshotRequest :: [tx] -> Maybe tx -> Maybe (TxIdType tx) -> SnapshotRequest tx
+[$sel:requestTxs:SnapshotRequest] :: SnapshotRequest tx -> [tx]
+[$sel:requestDecommitTx:SnapshotRequest] :: SnapshotRequest tx -> Maybe tx
+[$sel:requestDepositTxId:SnapshotRequest] :: SnapshotRequest tx -> Maybe (TxIdType tx)
+
+-- | Which transaction the next fanout step has to be, carrying the sets
+--   that transaction needs. Decided once by <a>nextFanoutStep</a> so that
+--   callers deciding what else to record and <a>emitFanoutStep</a>
+--   deciding what to post cannot disagree, and so that no caller can pair
+--   a step with sets it does not go with.
+data NextFanoutStep tx
+
+-- | The target is the whole remainder and the head is already in
+--   <tt>FanoutProgress</tt> on chain: the final step, distributing the
+--   rest and burning the head tokens.
+FinalStep :: UTxOType tx -> NextFanoutStep tx
+[$sel:stepDistribute:FinalStep] :: NextFanoutStep tx -> UTxOType tx
+
+-- | The target is the whole remainder but the head output still carries
+--   the <tt>Closed</tt> datum, which the final step is not valid against.
+--   Posted as a non-final step it would empty the head, which
+--   <tt>mustNotBeLastBatch</tt> rejects, so the chunk search settles for
+--   one output less and the head needs a second transaction to finish —
+--   and cannot be drained at all when a single output is left. Covering
+--   everything is a full fanout, so post that (#2855).
+FullFanoutStep :: NextFanoutStep tx
+
+-- | The target is a strict subset: a non-final chunk distributing it,
+--   proved against the set the head's current datum commits to.
+PartialStep :: UTxOType tx -> UTxOType tx -> NextFanoutStep tx
+[$sel:stepDistribute:FinalStep] :: NextFanoutStep tx -> UTxOType tx
+[$sel:stepProof:FinalStep] :: NextFanoutStep tx -> UTxOType tx
+
 -- | Which on-chain head datum the next fanout step will be posted against:
 --   still <tt>Closed</tt> (no partial fanout has landed yet) or already
 --   <tt>FanoutProgress</tt>. A <a>FinalPartialFanoutTx</a> (which burns
@@ -3941,6 +4112,20 @@ module Hydra.HeadLogic
 data OnChainFanoutDatum
 DatumClosed :: OnChainFanoutDatum
 DatumFanoutProgress :: OnChainFanoutDatum
+
+-- | What the next request does with a commit the confirmed snapshot claims
+--   but whose increment has not landed. Leaders and followers decide it
+--   the same way.
+data SettlingCommit tx
+
+-- | The increment may still land: every request must carry the commit.
+ContinueCommit :: (TxIdType tx, Deposit tx) -> SettlingCommit tx
+
+-- | The increment can no longer land: the deposit was recovered, or its
+--   deadline passed by more than <a>Environment</a> (a margin for
+--   rollbacks). <a>Expired</a> is not enough: it is set before the
+--   deadline.
+DropCommit :: SettlingCommit tx
 
 -- | Handles inputs and converts them into <a>StateChanged</a> events along
 --   with <a>Effect</a>s, in case it is processed successfully. Later, the
@@ -3961,15 +4146,38 @@ aggregateNodeState :: IsChainState tx => NodeState tx -> StateChanged tx -> Node
 --   requesting snapshots as a leader; followers accept larger requests, so
 --   this can change without a coordinated upgrade.
 --   
---   1000 was chosen from a sweep against 100/250 on sustained-load
---   benchmarks (see hydra-cluster<i>bench</i>BASELINES.md): per-round
---   costs that scale with the backlog dominate at small caps (4.6-5.7x
---   lower throughput at 100 with a deep backlog), while peak node memory
---   was flat across the sweep.
+--   4000 was chosen from backlog-drain sweeps at caps 1000 to 8000 (see
+--   hydra-cluster<i>bench</i>BASELINES.md): per-round costs scale with the
+--   backlog, so under sustained overload larger caps drain strictly faster
+--   (2.7x at 4000 vs 1000 on a 24k-tx backlog) with lower confirmation
+--   latency and lower peak memory, while the cap never binds under light
+--   load. Gains taper beyond 4000 and worst-case round size keeps growing
+--   (ReqSn bytes, failed round rework, follower reapply stall), so we stop
+--   at roughly 10x below etcd's 1.5MiB request limit, which a too-large
+--   ReqSn would wedge on.
 maxTxsPerSnapshot :: Int
 aggregateChainStateHistory :: IsChainState tx => ChainStateHistory tx -> StateChanged tx -> ChainStateHistory tx
 aggregateState :: IsChainState tx => NodeState tx -> Outcome tx -> NodeState tx
 isLeader :: HeadParameters -> Party -> SnapshotNumber -> Bool
+
+-- | Observe a contest transaction. If the contested snapshot number is
+--   smaller than our last confirmed snapshot, we post a contest
+--   transaction.
+--   
+--   A peer that withheld its <a>AckSn</a> can close with an older snapshot
+--   and then contest with the one we are still collecting signatures for.
+--   The contest carries its full multisignature, so adopt it as confirmed,
+--   like <a>onOpenChainCloseTx</a> does for a close.
+--   
+--   <b>Transition</b>: <a>ClosedState</a> → <a>ClosedState</a>
+onClosedChainContestTx :: IsTx tx => ClosedState tx -> ChainStateType tx -> SnapshotNumber -> UTCTime -> MultiSignature (Snapshot tx) -> Outcome tx
+
+-- | Whether a request applying these txs to this UTxO can absorb the
+--   deposit: it must name no output the UTxO holds or the txs create.
+--   Deposit datums are not authenticated, so anyone can name existing
+--   outputs, and absorbing such a deposit would count value the ledger
+--   does not have.
+absorbable :: IsTx tx => UTxOType tx -> [tx] -> UTxOType tx -> Bool
 
 -- | Client request to init the head. This leads to an init transaction on
 --   chain, containing the head parameters.
@@ -3997,20 +4205,29 @@ onOpenClientNewTx :: tx -> Outcome tx
 --   including this transaction if needed.
 --   
 --   <b>Transition</b>: <a>OpenState</a> → <a>OpenState</a>
-onOpenNetworkReqTx :: IsTx tx => Environment -> Ledger tx -> ChainSlot -> OpenState tx -> TTL -> PendingDeposits tx -> tx -> Outcome tx
+onOpenNetworkReqTx :: forall tx. IsTx tx => Environment -> Ledger tx -> ChainPointTime -> OpenState tx -> TTL -> PendingDeposits tx -> tx -> Outcome tx
 
--- | The incremental action to put in the next <a>ReqSn</a>: a commit or a
---   decommit, never both. A snapshot carrying both cannot be closed, since
---   close and fanout express a single incremental action
---   (<tt>setIncrementalActionMaybe</tt>).
---   
---   A commit wins: its deposit expires on-chain, while a decommit only
---   waits. This cannot starve the decommit, because
---   <a>selectNextDeposit</a> refuses to start a *new* commit while a
---   decommit is pending — only one already in flight can win, and that one
---   stops being selected once it settles and leaves
---   <a>$sel:pendingDeposits:NodeInSync</a>.
-selectNextIncrementalAction :: IsTx tx => PendingDeposits tx -> Maybe (TxIdType tx) -> Maybe tx -> Maybe (UTxOType tx) -> (Maybe tx, Maybe (TxIdType tx))
+-- | Apply txs, refusing one that creates an output the UTxO already holds.
+--   Impossible on L1, possible on L2: a deposit can name a tx's outputs
+--   before that tx is submitted.
+applyTransactionsWithoutCollision :: IsTx tx => Ledger tx -> ChainSlot -> UTxOType tx -> [tx] -> Either (tx, ValidationError) (UTxOType tx)
+
+-- | Whether a deposit of the given outputs names none of the output
+--   references the given UTxO holds.
+namesNoneOf :: IsTx tx => UTxOType tx -> UTxOType tx -> Bool
+
+-- | <a>nextSnapshotRequest</a>, if worth sending right away: it carries a
+--   tx or a new deposit, or it prunes a pending tx no node accepts. A
+--   request carrying only a settling commit or a decommit is not: it would
+--   be re-requested forever at the same version.
+chainedSnapshotRequest :: IsTx tx => UTxOType tx -> Seq tx -> PendingDeposits tx -> Maybe (TxIdType tx) -> Maybe tx -> Maybe (SettlingCommit tx) -> Maybe (SnapshotRequest tx)
+
+-- | The spendable UTxO of a snapshot, given the head's current
+--   <a>SnapshotVersion</a>. A pending commit only becomes spendable once
+--   its increment has landed on chain, which bumps the version past the
+--   snapshot's.
+settledUTxO :: IsTx tx => SnapshotVersion -> Snapshot tx -> UTxOType tx
+settlingCommitAt :: IsTx tx => Environment -> SnapshotVersion -> UTCTime -> PendingDeposits tx -> Snapshot tx -> Maybe (SettlingCommit tx)
 
 -- | Process a snapshot request (<a>ReqSn</a>) from party.
 --   
@@ -4024,7 +4241,16 @@ selectNextIncrementalAction :: IsTx tx => PendingDeposits tx -> Maybe (TxIdType 
 --   pruned to only contain still applicable transactions.
 --   
 --   <b>Transition</b>: <a>OpenState</a> → <a>OpenState</a>
-onOpenNetworkReqSn :: IsTx tx => Environment -> Ledger tx -> PendingDeposits tx -> ChainSlot -> OpenState tx -> Party -> SnapshotVersion -> SnapshotNumber -> [TxIdType tx] -> Maybe tx -> Maybe (TxIdType tx) -> Outcome tx
+onOpenNetworkReqSn :: forall tx. IsTx tx => Environment -> Ledger tx -> PendingDeposits tx -> ChainPointTime -> OpenState tx -> TTL -> Party -> SnapshotVersion -> SnapshotNumber -> [TxIdType tx] -> Maybe tx -> Maybe (TxIdType tx) -> Outcome tx
+
+-- | The deposit claimed by a retained finalized increment
+--   (<a>$sel:finalizedCommit:CoordinatedHeadState</a>), if any. Such a
+--   deposit only resurfaces in <tt>pendingDeposits</tt> when a rollback
+--   erased its increment, and it is settled solely by re-posting that
+--   increment (<a>maybeRepostIncrementTx</a>): it must never be proposed
+--   for a snapshot again (the deposited funds are already counted in the
+--   head) nor recovered (that would corrupt the L2 ledger). See #2741.
+finalizedDepositTxId :: IsTx tx => Maybe (FinalizedSnapshot tx) -> Maybe (TxIdType tx)
 
 -- | Process a snapshot acknowledgement (<a>AckSn</a>) from a party.
 --   
@@ -4038,21 +4264,21 @@ onOpenNetworkReqSn :: IsTx tx => Environment -> Ledger tx -> PendingDeposits tx 
 --   the next snapshot and craft a corresponding <a>ReqSn</a> if needed.
 --   
 --   <b>Transition</b>: <a>OpenState</a> → <a>OpenState</a>
-onOpenNetworkAckSn :: IsTx tx => Environment -> PendingDeposits tx -> OpenState tx -> Party -> Signature (Snapshot tx) -> SnapshotNumber -> Outcome tx
+onOpenNetworkAckSn :: IsTx tx => Environment -> ChainPointTime -> PendingDeposits tx -> OpenState tx -> Party -> Signature (Snapshot tx) -> SnapshotNumber -> Outcome tx
 
 -- | Client request to recover deposited UTxO.
 --   
 --   <b>Transition</b>: <a>OpenState</a> → <a>OpenState</a> Client request
 --   to recover a deposit by posting a recover transaction on-chain. Works
 --   in any head state (Open, Closed, or Idle after fanout). Deposits from
---   a previous head are never cleared from
---   <a>$sel:pendingDeposits:NodeInSync</a> on fanout, so recovery remains
---   available after a head closes. A new head only sees its own deposits
---   via <a>depositsForHead</a>, so old deposits are never accidentally
---   ingested into L2. On-chain, the deposit validator only enforces that
---   the deadline has passed and that the recovered outputs match the
---   originals — it does not require the head to still be active.
-onClientRecover :: IsTx tx => ChainSlot -> PendingDeposits tx -> TxIdType tx -> Outcome tx
+--   a previous head are never cleared from <tt>pendingDeposits</tt> on
+--   fanout, so recovery remains available after a head closes. A new head
+--   only sees its own deposits via <a>depositsForHead</a>, so old deposits
+--   are never accidentally ingested into L2. On-chain, the deposit
+--   validator only enforces that the deadline has passed and that the
+--   recovered outputs match the originals — it does not require the head
+--   to still be active.
+onClientRecover :: IsTx tx => ChainSlot -> PendingDeposits tx -> Maybe (TxIdType tx) -> TxIdType tx -> Outcome tx
 
 -- | Client request to decommit UTxO from the head.
 --   
@@ -4083,26 +4309,26 @@ requireDecommitOutputs :: IsTx tx => HeadId -> UTxOType tx -> tx -> Outcome tx -
 --   with the relevant utxo - Issue a <a>ReqSn</a> since all parties need
 --   to agree in order for decommit to be taken out of a Head. - Check if
 --   we are the leader
-onOpenNetworkReqDec :: IsTx tx => Environment -> Ledger tx -> TTL -> ChainSlot -> PendingDeposits tx -> OpenState tx -> tx -> Outcome tx
+onOpenNetworkReqDec :: IsTx tx => Environment -> Ledger tx -> TTL -> ChainPointTime -> PendingDeposits tx -> OpenState tx -> tx -> Outcome tx
 
--- | The pending deposit that a local
---   <a>$sel:currentDepositTxId:CoordinatedHeadState</a> still refers to,
---   if any: the deposit must be registered in
---   <a>$sel:pendingDeposits:NodeInSync</a> and not <a>Expired</a>.
+-- | The content of a leader's next <a>ReqSn</a>: the transactions to carry
+--   and the incremental action, a commit or a decommit, never both. A
+--   snapshot carrying both cannot be closed, since close and fanout
+--   express a single incremental action
+--   (<tt>setIncrementalActionMaybe</tt>).
 --   
---   Being registered and unexpired is what makes a recorded deposit id
---   something the head may still act on, and nothing else should be
---   treated as a commit in flight. Neither of the two ways a deposit stops
---   being pending clears
---   <a>$sel:currentDepositTxId:CoordinatedHeadState</a>:
---   <a>DepositExpired</a> deliberately keeps the deposit in the map so it
---   can still be recovered, and <a>DepositRecovered</a> only deletes the
---   map entry. So a caller that reads
---   <a>$sel:currentDepositTxId:CoordinatedHeadState</a> on its own can end
---   up waiting on a deposit that is unclaimable, or already gone, and that
---   wait never resolves.
-existingDeposit :: IsTx tx => PendingDeposits tx -> Maybe (TxIdType tx) -> Maybe (TxIdType tx, Deposit tx)
-determineNextDepositStatus :: Ord (TxIdType tx) => Environment -> PendingDeposits tx -> UTCTime -> PendingDeposits tx
+--   A commit wins: its deposit expires on-chain, while a decommit only
+--   waits. This cannot starve the decommit, because
+--   <a>selectNextDeposit</a> refuses to start a *new* commit while a
+--   decommit is pending — only one already in flight can win, and that one
+--   stops being selected once it settles and leaves
+--   <tt>pendingDeposits</tt>.
+--   
+--   Leaders never build a request followers reject: a leader's own
+--   rejection would stall the head. A settling commit is always carried;
+--   txs colliding with it are held back.
+nextSnapshotRequest :: IsTx tx => UTxOType tx -> Seq tx -> PendingDeposits tx -> Maybe (TxIdType tx) -> Maybe tx -> Maybe (SettlingCommit tx) -> SnapshotRequest tx
+determineNextDepositStatus :: Environment -> PendingDeposits tx -> UTCTime -> PendingDeposits tx
 
 -- | Process the chain (and time) advancing in any head state.
 --   
@@ -4117,17 +4343,21 @@ onChainTick :: IsTx tx => Environment -> PendingDeposits tx -> UTCTime -> Outcom
 --   
 --   This is primarily used to track deposits and either drop them or
 --   request snapshots for inclusion.
-onOpenChainTick :: IsTx tx => Environment -> UTCTime -> PendingDeposits tx -> OpenState tx -> Outcome tx
+onOpenChainTick :: forall tx. IsTx tx => Environment -> UTCTime -> PendingDeposits tx -> OpenState tx -> Outcome tx
 
 -- | If this node is the snapshot leader and there are pending local
 --   transactions, request the next snapshot with the bumped version after
 --   a commit or decommit finalises on-chain.
 --   
---   Guards: * Only fires when 'version /= newVersion' to avoid duplicate
+--   Guards: * Only fires when <a>StateChanged</a> is ahead of the local
+--   <a>CoordinatedHeadState</a>: this avoids duplicate
 --   <a>SnapshotRequestDecided</a> events when multiple parties post the
 --   same on-chain tx and each posting produces a separate finalisation
---   observation. * Skips when AckSns are already being collected
---   (<a>SeenSnapshot</a>): the in-flight snapshot will complete and
+--   observation, and it keeps a finalization re-landing after a rollback
+--   (its <a>StateChanged</a> is at or behind the local version, which
+--   never rolls back) from requesting a snapshot with a stale version. *
+--   Skips when AckSns are already being collected (<a>SeenSnapshot</a>):
+--   the in-flight snapshot will complete and
 --   <tt>maybeRequestNextSnapshot</tt> will chain the next one with the
 --   bumped version. Firing here would use stale
 --   <a>$sel:localTxs:CoordinatedHeadState</a> and cause
@@ -4141,18 +4371,18 @@ onOpenChainTick :: IsTx tx => Environment -> UTCTime -> PendingDeposits tx -> Op
 --   <a>ReqSn</a>: commit finalisation passes <a>Nothing</a> (deposit
 --   already included), while decommit finalisation passes the next queued
 --   deposit if one is pending.
-maybeRequestSnapshotAfterVersionBump :: IsTx tx => HeadParameters -> Party -> SnapshotNumber -> Seq tx -> SnapshotVersion -> SnapshotVersion -> SeenSnapshot tx -> Maybe (TxIdType tx) -> Outcome tx
+maybeRequestSnapshotAfterVersionBump :: IsTx tx => HeadParameters -> Party -> SnapshotNumber -> Maybe (SnapshotRequest tx) -> SnapshotVersion -> SnapshotVersion -> SeenSnapshot tx -> Outcome tx
 
 -- | Observe a increment transaction. If the outputs match the ones of the
 --   pending commit UTxO, then we consider the deposit/increment finalized,
---   and remove the increment UTxO from
---   <a>$sel:pendingDeposits:NodeInSync</a> from the local state.
+--   and remove the increment UTxO from <tt>pendingDeposits</tt> from the
+--   local state.
 --   
 --   Finally, if the client observing happens to be the leader, then a new
 --   ReqSn is broadcasted.
 --   
 --   <b>Transition</b>: <a>OpenState</a> → <a>OpenState</a>
-onOpenChainIncrementTx :: IsTx tx => Environment -> OpenState tx -> ChainStateType tx -> SnapshotVersion -> TxIdType tx -> Outcome tx
+onOpenChainIncrementTx :: IsTx tx => Environment -> PendingDeposits tx -> OpenState tx -> ChainStateType tx -> SnapshotVersion -> TxIdType tx -> SnapshotNumber -> MultiSignature (Snapshot tx) -> Outcome tx
 
 -- | Observe a decrement transaction. If the outputs match the ones of the
 --   pending decommit tx, then we consider the decommit finalized, and
@@ -4162,41 +4392,33 @@ onOpenChainIncrementTx :: IsTx tx => Environment -> OpenState tx -> ChainStateTy
 --   ReqSn is broadcasted.
 --   
 --   <b>Transition</b>: <a>OpenState</a> → <a>OpenState</a>
-onOpenChainDecrementTx :: IsTx tx => Environment -> PendingDeposits tx -> OpenState tx -> ChainStateType tx -> SnapshotVersion -> UTxOType tx -> Outcome tx
-
--- | Validate whether a current deposit in the local state actually exists
---   in the map of pending deposits.
---   
---   <ul>
---   <li>If <tt>currentDeposit</tt> is <a>Nothing</a>, returns
---   <a>Nothing</a>.</li>
---   <li>If <tt>currentDeposit</tt> is <tt><a>Just</a> txId</tt> and
---   <tt>txId</tt> is present in <a>$sel:pendingDeposits:NodeInSync</a> and
---   not <a>Expired</a>, returns the original <tt>currentDeposit</tt>.</li>
---   <li>Otherwise, returns <a>Nothing</a>.</li>
---   </ul>
---   
---   This is typically used to confirm that a local deposit that is to be
---   requested in <a>ReqSn</a> is indeed still pending and has not been
---   processed or removed.
---   
---   Expired deposits are dropped rather than carried: requesting one makes
---   every receiving party hard-error with <a>RequestedDepositExpired</a>,
---   so a deposit that somehow became unclaimable would stall snapshots for
---   the whole head instead of just being abandoned by its depositor.
-setExistingDeposit :: IsTx tx => PendingDeposits tx -> Maybe (TxIdType tx) -> Maybe (TxIdType tx)
+onOpenChainDecrementTx :: IsTx tx => Environment -> PendingDeposits tx -> OpenState tx -> ChainStateType tx -> SnapshotVersion -> UTxOType tx -> SnapshotNumber -> MultiSignature (Snapshot tx) -> Outcome tx
 
 -- | On rollback, re-post the IncrementTx if there is a pending deposit
 --   whose confirmed snapshot contains a matching utxoToCommit. The
 --   rollback may have erased the original on-chain IncrementTx
 --   observation.
-maybeRepostIncrementTx :: IsTx tx => HeadSeed -> HeadId -> HeadParameters -> PendingDeposits tx -> ConfirmedSnapshot tx -> Outcome tx
+--   
+--   If the increment was already finalized (<a>CommitFinalized</a>
+--   consumed the deposit and <a>CoordinatedHeadState</a> may have advanced
+--   past the incrementing snapshot), fall back to the retained
+--   <a>$sel:finalizedCommit:CoordinatedHeadState</a> — but only when the
+--   rollback reaches strictly before its observation slot; otherwise the
+--   increment is still on chain and re-posting would only produce noise.
+--   See #2741.
+maybeRepostIncrementTx :: IsTx tx => HeadSeed -> HeadId -> HeadParameters -> PendingDeposits tx -> ConfirmedSnapshot tx -> Maybe (FinalizedSnapshot tx) -> ChainSlot -> Outcome tx
 
 -- | On rollback, re-post the DecrementTx if there is a pending decommit
 --   whose confirmed snapshot contains a matching utxoToDecommit. The
 --   rollback may have erased the original on-chain DecrementTx
 --   observation.
-maybeRepostDecrementTx :: HeadSeed -> HeadId -> HeadParameters -> Maybe tx -> ConfirmedSnapshot tx -> Outcome tx
+--   
+--   If the decrement was already finalized (<a>DecommitFinalized</a>
+--   cleared <a>StateChanged</a> and <a>CoordinatedHeadState</a> may have
+--   advanced past the decrementing snapshot), fall back to the retained
+--   <a>$sel:finalizedDecommit:CoordinatedHeadState</a> — but only when the
+--   rollback reaches strictly before its observation slot. See #2741.
+maybeRepostDecrementTx :: HeadSeed -> HeadId -> HeadParameters -> Maybe tx -> ConfirmedSnapshot tx -> Maybe (FinalizedSnapshot tx) -> ChainSlot -> Outcome tx
 
 -- | Client request to close the head. This leads to a close transaction on
 --   chain using the latest confirmed snaphshot of the <a>OpenState</a>.
@@ -4208,8 +4430,13 @@ onOpenClientClose :: OpenState tx -> Outcome tx
 --   than our last confirmed, we post a contest transaction. Also, we do
 --   schedule a notification for clients to fanout at the deadline.
 --   
+--   A peer that withheld its <a>AckSn</a> can close with the snapshot we
+--   are still collecting signatures for. The close carries its full
+--   multisignature, so adopt it as confirmed; otherwise we could not fan
+--   out the closed head.
+--   
 --   <b>Transition</b>: <a>OpenState</a> → <a>ClosedState</a>
-onOpenChainCloseTx :: IsTx tx => OpenState tx -> ChainStateType tx -> SnapshotNumber -> UTCTime -> Outcome tx
+onOpenChainCloseTx :: IsTx tx => OpenState tx -> ChainStateType tx -> SnapshotNumber -> UTCTime -> MultiSignature (Snapshot tx) -> Outcome tx
 
 -- | Client request to side load confirmed snapshot.
 --   
@@ -4226,13 +4453,6 @@ onOpenChainCloseTx :: IsTx tx => OpenState tx -> ChainStateType tx -> SnapshotNu
 --   
 --   <b>Transition</b>: <a>OpenState</a> → <a>OpenState</a>
 onOpenClientSideLoadSnapshot :: IsTx tx => OpenState tx -> ConfirmedSnapshot tx -> Outcome tx
-
--- | Observe a contest transaction. If the contested snapshot number is
---   smaller than our last confirmed snapshot, we post a contest
---   transaction.
---   
---   <b>Transition</b>: <a>ClosedState</a> → <a>ClosedState</a>
-onClosedChainContestTx :: IsTx tx => ClosedState tx -> ChainStateType tx -> SnapshotNumber -> UTCTime -> Outcome tx
 
 -- | Client request to fanout the whole closed head automatically. Emits a
 --   <a>FanoutTx</a>; the chain layer either lands a single full fanout (→
@@ -4251,15 +4471,45 @@ onClosedChainContestTx :: IsTx tx => ClosedState tx -> ChainStateType tx -> Snap
 --   (then → <a>IdleState</a> once the final fanout is observed).
 onClosedClientFanout :: IsTx tx => ClosedState tx -> Outcome tx
 
+-- | The state change that goes with a fanout step, for the callers that
+--   own the head state: taking the driver role, or recording the selection
+--   being distributed. Decided here once rather than in each handler.
+--   
+--   The selection comes from the step rather than the caller, so a step
+--   can only ever be recorded against the set it actually distributes.
+fanoutStepStateChange :: HeadId -> NextFanoutStep tx -> UTxOType tx -> Outcome tx
+
+-- | Post the transaction a decided <a>NextFanoutStep</a> calls for. The
+--   chain layer chunks a full fanout, and sizes a partial one,
+--   dynamically.
+--   
+--   Transactions only: any accompanying state change belongs to the caller
+--   that owns the head state, via <a>fanoutStepStateChange</a>. That keeps
+--   this safe to call where effects can be applied but state changes
+--   cannot, as in the startup re-post in <a>runHydraNode</a>.
+emitFanoutStep :: IsTx tx => NextFanoutStep tx -> ConfirmedSnapshot tx -> SnapshotVersion -> HeadSeed -> UTCTime -> Outcome tx
+
 -- | Compute the full UTxO set to be fanned out, combining snapshot utxo
 --   with utxoToCommit/utxoToDecommit based on version.
 computeFullFanoutUTxO :: IsTx tx => ClosedState tx -> UTxOType tx
 
--- | Build the full automatic <a>FanoutTx</a> from a confirmed snapshot at
---   the given on-chain version. Shared by <a>onClosedClientFanout</a> and
---   the rollback re-post in <a>FanoutProgress</a>
---   (<a>repostFanoutStep</a>).
-mkFullFanoutTx :: IsTx tx => ConfirmedSnapshot tx -> SnapshotVersion -> HeadSeed -> UTCTime -> PostChainTx tx
+-- | Decide the next fanout step. The multiset comparison here is the only
+--   one needed: callers pass the result on rather than re-deriving it.
+nextFanoutStep :: IsTx tx => ConfirmedSnapshot tx -> SnapshotVersion -> UTxOType tx -> UTxOType tx -> OnChainFanoutDatum -> NextFanoutStep tx
+
+-- | Whether two UTxO sets have the same outputs (by content, as a
+--   multiset). The <tt>a == b</tt> short-circuit avoids the O(n²) multiset
+--   comparison in the common case where both arguments are the same
+--   tracked set (e.g. the auto-drain <tt>sameOutputs remaining
+--   remaining</tt> check on every observed chunk), which is exactly the
+--   large-UTxO heads partial fanout targets.
+sameOutputs :: IsTx tx => UTxOType tx -> UTxOType tx -> Bool
+
+-- | The fan-out-able UTxO of a confirmed snapshot at the given on-chain
+--   version: the snapshot UTxO plus a pending commit (if the increment
+--   landed on chain) or a pending decommit (if the decrement has not
+--   landed yet).
+fanoutUTxOFromSnapshot :: IsTx tx => ConfirmedSnapshot tx -> SnapshotVersion -> UTxOType tx
 
 -- | Given the on-chain <tt>version</tt> and a snapshot's own version,
 --   decide which of a pending commit / decommit is still to be distributed
@@ -4270,11 +4520,19 @@ mkFullFanoutTx :: IsTx tx => ConfirmedSnapshot tx -> SnapshotVersion -> HeadSeed
 --   <a>mkFullFanoutTx</a> and <a>fanoutUTxOFromSnapshot</a>.
 effectiveCommitDecommit :: SnapshotVersion -> SnapshotVersion -> Maybe (UTxOType tx) -> Maybe (UTxOType tx) -> (Maybe (UTxOType tx), Maybe (UTxOType tx))
 
+-- | Build the full automatic <a>FanoutTx</a> from a confirmed snapshot at
+--   the given on-chain version. Shared by <a>onClosedClientFanout</a> and
+--   the rollback re-post in <a>FanoutProgress</a>
+--   (<a>repostFanoutStep</a>).
+mkFullFanoutTx :: IsTx tx => ConfirmedSnapshot tx -> SnapshotVersion -> HeadSeed -> UTCTime -> PostChainTx tx
+
 -- | Client request to fan out a user-selected subset of a freshly closed
 --   head. Validates the selection is a non-empty sub-multiset (by content)
---   of the fan-out-able UTxO, transitions the head into
---   <a>PartialFanout</a> (in <a>DistributingSelection</a> mode) and emits
---   the first <a>PartialFanoutTx</a>.
+--   of the fan-out-able UTxO, then transitions the head into
+--   <a>PartialFanout</a> and posts whichever step <a>nextFanoutStep</a>
+--   decides on: a strict subset records the selection and posts a
+--   <a>PartialFanoutTx</a>, while a selection covering the whole head is a
+--   full fanout and drains it automatically instead.
 --   
 --   <b>Transition</b>: <a>ClosedState</a> → <a>PartialFanoutState</a>
 onClosedClientPartialFanout :: IsTx tx => ClosedState tx -> UTxOType tx -> Outcome tx
@@ -4288,30 +4546,12 @@ nullOutputs :: IsTx tx => UTxOType tx -> Bool
 --   is validated against what is actually still in the head.
 isSubMultisetOf :: IsTx tx => UTxOType tx -> UTxOType tx -> Bool
 
--- | Whether two UTxO sets have the same outputs (by content, as a
---   multiset). The <tt>a == b</tt> short-circuit avoids the O(n²) multiset
---   comparison in the common case where both arguments are the same
---   tracked set (e.g. the auto-drain <tt>sameOutputs remaining
---   remaining</tt> check on every observed chunk), which is exactly the
---   large-UTxO heads partial fanout targets.
-sameOutputs :: IsTx tx => UTxOType tx -> UTxOType tx -> Bool
-
--- | Emit the next partial fanout on-chain effect.
---   
---   <ul>
---   <li>When the chunk source <tt>target</tt> covers the entire remaining
---   set and the head is already in <tt>FanoutProgress</tt> on chain, emit
---   the final <a>FinalPartialFanoutTx</a> that distributes the rest and
---   burns the head tokens.</li>
---   <li>Otherwise emit a non-final <a>PartialFanoutTx</a> drawing from
---   <tt>target</tt>. The chain layer sizes the actual on-chain chunk
---   dynamically.</li>
---   </ul>
-emitPartialFanoutStep :: IsTx tx => UTxOType tx -> UTxOType tx -> OnChainFanoutDatum -> ConfirmedSnapshot tx -> SnapshotVersion -> HeadSeed -> UTCTime -> Outcome tx
-
 -- | Client request to continue a selective partial fanout. Validates the
---   selection against the current <a>StateChanged</a>, records it as the
---   active selection and emits the next step.
+--   selection against the current <a>StateChanged</a> and emits whichever
+--   step <a>nextFanoutStep</a> decides on, which is not always a recorded
+--   selection: one covering the whole remainder finalizes the head, or, if
+--   nothing has been distributed yet, becomes a full fanout that drains it
+--   automatically.
 --   
 --   <b>Transition</b>: <a>PartialFanoutState</a> →
 --   <a>PartialFanoutState</a>
@@ -4359,12 +4599,6 @@ onPartialFanoutChainPartialFanoutTx :: IsTx tx => PartialFanoutState tx -> Chain
 --   <b>Transition</b>: <a>PartialFanoutState</a> → <a>IdleState</a>
 onPartialFanoutChainFanoutTx :: IsTx tx => PartialFanoutState tx -> ChainStateType tx -> UTxOType tx -> Outcome tx
 
--- | The fan-out-able UTxO of a confirmed snapshot at the given on-chain
---   version: the snapshot UTxO plus a pending commit (if the increment
---   landed on chain) or a pending decommit (if the decrement has not
---   landed yet).
-fanoutUTxOFromSnapshot :: IsTx tx => ConfirmedSnapshot tx -> SnapshotVersion -> UTxOType tx
-
 -- | Build the <a>PartialFanout</a> (<a>FanoutProgress</a>) head state from
 --   a closed head, carrying over the snapshot/parameters and using the
 --   given chain state, remaining and distributed UTxO and fanout
@@ -4377,13 +4611,39 @@ closedToFanoutProgress :: ClosedState tx -> ChainStateType tx -> UTxOType tx -> 
 --   transition (see <a>HeadFanoutReverted</a>).
 --   <a>$sel:readyToFanoutSent:ClosedState</a> is restored to <a>True</a>
 --   because a fanout is only reachable after the head was announced
---   <tt>ReadyToFanout</tt>.
+--   <tt>ReadyToFanout</tt>. The contestation period is over by then, so no
+--   contest can confirm an <a>$sel:unconfirmedSnapshot:ClosedState</a>
+--   anymore.
 fanoutProgressToClosed :: PartialFanoutState tx -> ClosedState tx
 
--- | Whether a <a>PostChainTx</a> is one of the fanout-posting transactions
---   (used to scope the optimistic-fanout revert to genuine fanout post
---   failures).
-isFanoutPostChainTx :: PostChainTx tx -> Bool
+-- | The step this node is currently driving. <a>Nothing</a> while a manual
+--   fanout waits on the next selection, where nothing is pending.
+currentFanoutStep :: IsTx tx => PartialFanoutState tx -> Maybe (NextFanoutStep tx)
+
+-- | Whether a posted transaction is the one a given step posts, telling a
+--   failure of the step this node is driving from one it has already moved
+--   past.
+--   
+--   Compares the distributed set, not just the transaction shape, since
+--   two selections can both be non-final steps. By content, because naming
+--   the same outputs under other inputs is a valid way to ask for the same
+--   set.
+matchesFanoutStep :: IsTx tx => NextFanoutStep tx -> PostChainTx tx -> Bool
+
+-- | The mode a recorded selection leaves the driver in. A selection
+--   covering the whole remainder with nothing distributed yet is not
+--   distributed as a selection at all: <a>nextFanoutStep</a> routes it to
+--   a full fanout and the driver auto-drains the rest, so that is the mode
+--   it has to be recorded under.
+--   
+--   <a>fanoutStepStateChange</a> never pairs the two - such a step is a
+--   <a>FullFanoutStep</a>, recorded as <a>HeadFanoutInitiated</a> - so
+--   this only normalises a selection recorded before that routing existed
+--   and replayed here. Without it the re-posts (<a>repostFanoutStep</a>)
+--   would post the full fanout that <a>nextFanoutStep</a> decides on while
+--   the mode kept claiming a selection is being distributed, which is what
+--   every <tt>HeadPartiallyFannedOut</tt> then reports.
+recordedSelectionMode :: IsTx tx => UTxOType tx -> UTxOType tx -> UTxOType tx -> FanoutMode tx
 
 -- | Re-post the next fanout step after a chain rollback while in
 --   <a>FanoutProgress</a>, so the fanout resumes instead of stalling with
@@ -4395,32 +4655,100 @@ isFanoutPostChainTx :: PostChainTx tx -> Bool
 --   to reconstruct fanout progress across a divergent rollback (the same
 --   limitation the general rollback handling has).
 --   
---   <tt>distributedOutputs</tt> being empty means no partial fanout has
---   landed on chain yet (the head datum is still <tt>Closed</tt>);
---   otherwise the datum is <tt>FanoutProgress</tt> and a
---   <a>FinalPartialFanoutTx</a> is possible.
+--   Which step that is comes from <a>currentFanoutStep</a>, the same
+--   derivation the revert guard uses to tell this step's failure from a
+--   superseded one's.
 repostFanoutStep :: IsTx tx => PartialFanoutState tx -> Outcome tx
 
 -- | Detect our view of the chain going out of sync and issue a
 --   <a>NodeUnsynced</a> event when this is the case.
 handleOutOfSync :: IsChainState tx => Environment -> UTCTime -> ChainPointType tx -> UTCTime -> SyncedStatus -> Outcome tx
 
--- | Find the oldest non-empty active deposit, if any. Deposits are
---   selected in FIFO order by their <a>StateChanged</a> timestamp. This
---   mirrors the selection logic in <tt>withNextActive</tt> used by
---   <a>onOpenChainTick</a>.
-nextActiveDepositId :: IsTx tx => PendingDeposits tx -> Maybe (TxIdType tx)
+-- | The pending deposit that a local
+--   <a>$sel:currentDepositTxId:CoordinatedHeadState</a> still refers to,
+--   if any: the deposit must be registered in <tt>pendingDeposits</tt> and
+--   not <a>Expired</a>.
+--   
+--   Being registered and unexpired is what makes a recorded deposit id
+--   something the head may still act on, and nothing else should be
+--   treated as a commit in flight. Neither of the two ways a deposit stops
+--   being pending clears
+--   <a>$sel:currentDepositTxId:CoordinatedHeadState</a>:
+--   <a>DepositExpired</a> deliberately keeps the deposit in the map so it
+--   can still be recovered, and <a>DepositRecovered</a> only deletes the
+--   map entry. So a caller that reads
+--   <a>$sel:currentDepositTxId:CoordinatedHeadState</a> on its own can end
+--   up waiting on a deposit that is unclaimable, or already gone, and that
+--   wait never resolves.
+existingDeposit :: IsTx tx => PendingDeposits tx -> Maybe (TxIdType tx) -> Maybe (TxIdType tx, Deposit tx)
+
+-- | Find the oldest non-empty active deposit the request being built can
+--   absorb (<a>absorbable</a>), if any. Deposits are selected in FIFO
+--   order by their <a>StateChanged</a> timestamp.
+nextActiveDepositId :: IsTx tx => (UTxOType tx -> Bool) -> PendingDeposits tx -> Maybe (TxIdType tx)
 
 -- | Select the deposit to include in the next snapshot.
 --   
 --   Prefers a deposit already tracked in
 --   <a>$sel:currentDepositTxId:CoordinatedHeadState</a> (if still
 --   pending). Falls back to the oldest active deposit from
---   <a>$sel:pendingDeposits:NodeInSync</a>, but only when neither a
---   decommit is pending nor the last confirmed snapshot already included a
---   deposit (to avoid double-posting <a>IncrementTx</a> before
---   <a>CommitFinalized</a> removes the deposit).
-selectNextDeposit :: IsTx tx => PendingDeposits tx -> Maybe (TxIdType tx) -> Maybe tx -> Maybe (UTxOType tx) -> Maybe (TxIdType tx)
+--   <tt>pendingDeposits</tt> the request can absorb (<a>absorbable</a>),
+--   but only when neither a decommit is pending nor the last confirmed
+--   snapshot's commit is still settling (to avoid double-posting
+--   <a>IncrementTx</a> before <a>CommitFinalized</a> removes the deposit).
+selectNextDeposit :: IsTx tx => (UTxOType tx -> Bool) -> PendingDeposits tx -> Maybe (TxIdType tx) -> Maybe tx -> Maybe (TxIdType tx)
+
+-- | The request and whether it is worth chaining, see
+--   <a>chainedSnapshotRequest</a>.
+buildSnapshotRequest :: forall tx. IsTx tx => UTxOType tx -> Seq tx -> PendingDeposits tx -> Maybe (TxIdType tx) -> Maybe tx -> Maybe (SettlingCommit tx) -> (SnapshotRequest tx, Bool)
+
+-- | The deposits the handlers of an open head may act on: scoped to the
+--   head, excluding the deposit claimed by the retained finalized
+--   increment (see <a>finalizedDepositTxId</a>).
+scopedDeposits :: IsTx tx => OpenState tx -> PendingDeposits tx -> PendingDeposits tx
+
+-- | The UTxO the next request is validated against: the snapshot in
+--   flight, if any, else the confirmed one.
+nextRequestUTxO :: IsTx tx => CoordinatedHeadState tx -> UTxOType tx
+
+-- | The deposit blocked by a retained finalized increment of an open head,
+--   if any.
+--   
+--   Deliberately <a>Nothing</a> for any other head state: an increment can
+--   only settle into an open head, so once the head closes the retained
+--   snapshot can never claim the deposit on-chain anymore. The resurfaced
+--   deposit's escape hatch is then to recover it (after its deadline) and
+--   exclude the deposited outputs from the fanout via <a>PartialFanout</a>
+--   — so <a>Recover</a> must not stay blocked after close.
+openFinalizedDeposit :: IsTx tx => HeadState tx -> Maybe (TxIdType tx)
+
+-- | Update the retained <a>$sel:finalizedCommit:CoordinatedHeadState</a>
+--   on (re-)observation of an increment claiming <tt>depositTxId</tt>:
+--   
+--   <ul>
+--   <li>the locally confirmed snapshot claims it: retain that snapshot —
+--   only it can re-claim the deposit if a rollback erases the increment,
+--   and <a>CoordinatedHeadState</a> may advance past it;</li>
+--   <li>the already retained snapshot claims it: the increment re-landed
+--   (e.g. re-posted after a rollback) — re-stamp the observation slot, so
+--   a rollback of the re-landed increment still triggers a re-post;</li>
+--   <li>neither: the observation raced local snapshot confirmation
+--   (another party collected the last AckSn and posted first) — retention
+--   happens once the snapshot confirms, see the <a>SnapshotConfirmed</a>
+--   branch of <a>applyEvent</a>.</li>
+--   </ul>
+--   
+--   See #2741.
+retainFinalizedCommit :: IsTx tx => ChainSlot -> TxIdType tx -> ConfirmedSnapshot tx -> Maybe (FinalizedSnapshot tx) -> Maybe (FinalizedSnapshot tx)
+
+-- | Update the retained <a>$sel:finalizedDecommit:CoordinatedHeadState</a>
+--   on (re-)observation of a decrement bumping to <tt>newVersion</tt>; the
+--   counterpart of <a>retainFinalizedCommit</a>. A snapshot is tied to the
+--   decrement by identity, not by merely carrying a decommit: only the
+--   decrement of that very snapshot bumps the version to exactly one past
+--   the snapshot's (with a second decommit racing, the locally confirmed
+--   snapshot may still be the previous, already settled one).
+retainFinalizedDecommit :: IsTx tx => ChainSlot -> SnapshotVersion -> ConfirmedSnapshot tx -> Maybe (FinalizedSnapshot tx) -> Maybe (FinalizedSnapshot tx)
 updateCatchingUpHead :: IsChainState tx => Environment -> Ledger tx -> UTCTime -> ChainPointTime -> PendingDeposits tx -> HeadState tx -> Input tx -> SyncedStatus -> Outcome tx
 updateInSyncHead :: IsChainState tx => Environment -> Ledger tx -> UTCTime -> ChainPointTime -> PendingDeposits tx -> HeadState tx -> Input tx -> SyncedStatus -> Outcome tx
 handleChainInput :: IsChainState tx => Environment -> Ledger tx -> UTCTime -> ChainPointTime -> PendingDeposits tx -> HeadState tx -> Input tx -> SyncedStatus -> Outcome tx
@@ -4436,6 +4764,16 @@ headIdOf :: HeadState tx -> Maybe HeadId
 --   pass through <a>aggregateNodeState</a> unchanged.
 eventHeadId :: StateChanged tx -> Maybe HeadId
 applyEvent :: IsChainState tx => HeadState tx -> StateChanged tx -> HeadState tx
+
+-- | Whether a finalized increment or decrement at <a>StateChanged</a> was
+--   applied before and re-landed after a rollback. The local version never
+--   rolls back.
+isReobservation :: SnapshotVersion -> CoordinatedHeadState tx -> Bool
+
+-- | The <a>SeenSnapshot</a> after a version bump. A snapshot already in
+--   flight is kept: every party has processed its <a>ReqSn</a>, so it can
+--   still complete and chain the next one with the bumped version.
+seenSnapshotAfterVersionBump :: IsTx tx => ConfirmedSnapshot tx -> SeenSnapshot tx -> SeenSnapshot tx
 
 -- | Inputs that are processed by the head logic (the "core").
 --   Corresponding to each of the "shell" layers, we distinguish between
@@ -4487,6 +4825,27 @@ SideLoadUTxOToDecommitInvalid :: Maybe (UTxOType tx) -> Maybe (UTxOType tx) -> S
 SideLoadInvalidMultisignature :: Text -> [VerificationKey HydraKey] -> SideLoadRequirementFailure tx
 [$sel:multisig:SideLoadInitialSnapshotMismatch] :: SideLoadRequirementFailure tx -> Text
 [$sel:vkeys:SideLoadInitialSnapshotMismatch] :: SideLoadRequirementFailure tx -> [VerificationKey HydraKey]
+
+-- | The snapshot commits to more outputs than the accumulator's trusted
+--   setup supports, so its commitment could never be computed.
+--   
+--   SECURITY: unlike its siblings, this one is raised at the client API
+--   boundary rather than by the head logic, and it has to be: forcing an
+--   over-capacity accumulator calls <a>RequirementFailure</a> (see
+--   <a>checkAccumulatorSize</a>), and by the time the head logic sees an
+--   input the node has already traced it, which forces it. See
+--   <a>validateClientInput</a>.
+--   
+--   <a>update</a> keeps an independent check for any future producer that
+--   skips the boundary, reported as <a>SideLoadSnapshotFailed</a>. That
+--   route deliberately does not go through <tt>sideLoadFailed</tt>: a
+--   <tt>SideLoadSnapshotRejected</tt> client message echoes the offending
+--   <tt>ClientInput</tt> back, and encoding that echo would force the very
+--   accumulator that cannot be computed. This constructor carries only the
+--   two counts, so it is safe to report either way.
+SideLoadUTxOSetTooLarge :: Int -> Int -> SideLoadRequirementFailure tx
+[$sel:utxoCount:SideLoadInitialSnapshotMismatch] :: SideLoadRequirementFailure tx -> Int
+[$sel:maxAllowed:SideLoadInitialSnapshotMismatch] :: SideLoadRequirementFailure tx -> Int
 data LogicError tx
 UnhandledInput :: Input tx -> HeadState tx -> LogicError tx
 [$sel:input:UnhandledInput] :: LogicError tx -> Input tx
@@ -4538,6 +4897,27 @@ SnapshotDoesNotApply :: SnapshotNumber -> TxIdType tx -> ValidationError -> Requ
 [$sel:txid:ReqSnNumberInvalid] :: RequirementFailure tx -> TxIdType tx
 [$sel:error:ReqSnNumberInvalid] :: RequirementFailure tx -> ValidationError
 NoMatchingDeposit :: RequirementFailure tx
+
+-- | The deposit is claimed by a signed snapshot whose increment settled
+--   on-chain but was rolled back: its funds are already accounted for in
+--   the head, so recovering them on-chain would corrupt the L2 ledger. The
+--   increment is re-posted instead, see #2741.
+RecoverBlockedByFinalizedCommit :: TxIdType tx -> RequirementFailure tx
+[$sel:depositTxId:ReqSnNumberInvalid] :: RequirementFailure tx -> TxIdType tx
+
+-- | The requested deposit is claimed by an already signed snapshot whose
+--   increment settled on-chain but was rolled back (which is the only way
+--   it resurfaces in the pending deposits): signing a second snapshot
+--   claiming it would double claim the deposit. Only re-posting the
+--   increment settles it, see #2741.
+ReqSnDepositBlockedByFinalizedCommit :: TxIdType tx -> RequirementFailure tx
+[$sel:depositTxId:ReqSnNumberInvalid] :: RequirementFailure tx -> TxIdType tx
+
+-- | The requested deposit cannot be accepted: one of the outputs it adds
+--   already exists in the head, or is created by one of the requested
+--   transactions. See <a>absorbable</a>.
+ReqSnDepositOutputsHeld :: TxIdType tx -> RequirementFailure tx
+[$sel:depositTxId:ReqSnNumberInvalid] :: RequirementFailure tx -> TxIdType tx
 RequestedDepositExpired :: TxIdType tx -> RequirementFailure tx
 [$sel:depositTxId:ReqSnNumberInvalid] :: RequirementFailure tx -> TxIdType tx
 RequestedDepositNotFoundLocally :: TxIdType tx -> RequirementFailure tx
@@ -4548,7 +4928,7 @@ ReqSnUTxOSetTooLarge :: Int -> Int -> RequirementFailure tx
 
 -- | Off-chain state of the Coordinated Head protocol.
 data CoordinatedHeadState tx
-CoordinatedHeadState :: UTxOType tx -> Seq tx -> !Map (TxIdType tx) tx -> ConfirmedSnapshot tx -> SeenSnapshot tx -> Maybe (TxIdType tx) -> Maybe tx -> SnapshotVersion -> CoordinatedHeadState tx
+CoordinatedHeadState :: UTxOType tx -> Seq tx -> !Map (TxIdType tx) tx -> ConfirmedSnapshot tx -> SeenSnapshot tx -> Maybe (TxIdType tx) -> Maybe tx -> SnapshotVersion -> Maybe (FinalizedSnapshot tx) -> Maybe (FinalizedSnapshot tx) -> CoordinatedHeadState tx
 
 -- | The latest UTxO resulting from applying
 --   <a>$sel:localTxs:CoordinatedHeadState</a> to
@@ -4579,6 +4959,14 @@ CoordinatedHeadState :: UTxOType tx -> Seq tx -> !Map (TxIdType tx) tx -> Confir
 
 -- | Last open state version as observed on chain. Spec: ̂v
 [$sel:version:CoordinatedHeadState] :: CoordinatedHeadState tx -> SnapshotVersion
+
+-- | The last snapshot whose increment settled on chain, see
+--   <a>FinalizedSnapshot</a>.
+[$sel:finalizedCommit:CoordinatedHeadState] :: CoordinatedHeadState tx -> Maybe (FinalizedSnapshot tx)
+
+-- | The last snapshot whose decrement settled on chain, see
+--   <a>FinalizedSnapshot</a>.
+[$sel:finalizedDecommit:CoordinatedHeadState] :: CoordinatedHeadState tx -> Maybe (FinalizedSnapshot tx)
 
 -- | The main state of the Hydra protocol state machine. It holds both, the
 --   overall protocol state, but also the off-chain
@@ -4650,7 +5038,7 @@ SeenSnapshot :: Snapshot tx -> Map Party (Signature (Snapshot tx)) -> ~ByteStrin
 --   <a>ConfirmedSnapshot</a>, which may be contested before the
 --   <a>ClosedState</a>.
 data ClosedState tx
-ClosedState :: HeadParameters -> ConfirmedSnapshot tx -> UTCTime -> Bool -> ChainStateType tx -> HeadId -> HeadSeed -> SnapshotVersion -> ClosedState tx
+ClosedState :: HeadParameters -> ConfirmedSnapshot tx -> UTCTime -> Bool -> ChainStateType tx -> HeadId -> HeadSeed -> SnapshotVersion -> Maybe (Snapshot tx) -> ClosedState tx
 [$sel:parameters:ClosedState] :: ClosedState tx -> HeadParameters
 [$sel:confirmedSnapshot:ClosedState] :: ClosedState tx -> ConfirmedSnapshot tx
 [$sel:contestationDeadline:ClosedState] :: ClosedState tx -> UTCTime
@@ -4662,6 +5050,11 @@ ClosedState :: HeadParameters -> ConfirmedSnapshot tx -> UTCTime -> Bool -> Chai
 [$sel:headId:ClosedState] :: ClosedState tx -> HeadId
 [$sel:headSeed:ClosedState] :: ClosedState tx -> HeadSeed
 [$sel:version:ClosedState] :: ClosedState tx -> SnapshotVersion
+
+-- | The snapshot this node signed but had not seen confirmed when the head
+--   closed. A close or contest carrying its full multisignature confirms
+--   it, see <a>onClosedChainContestTx</a>.
+[$sel:unconfirmedSnapshot:ClosedState] :: ClosedState tx -> Maybe (Snapshot tx)
 
 -- | How the node decides which UTxOs to distribute in the next fanout step
 --   while the head is in <a>FanoutProgress</a>.
@@ -4703,6 +5096,21 @@ PartialFanoutState :: HeadParameters -> ConfirmedSnapshot tx -> UTCTime -> Chain
 -- | Drives the chunk source for the next step (see <a>FanoutMode</a>).
 [$sel:mode:PartialFanoutState] :: PartialFanoutState tx -> FanoutMode tx
 
+-- | A snapshot whose settlement transaction (the increment of its commit,
+--   or the decrement of its decommit) was observed on chain, retained when
+--   the settlement is applied
+--   (<tt>CommitFinalized</tt>/<tt>DecommitFinalized</tt>) so it can be
+--   re-posted if a rollback later erases it. The signed snapshot must be
+--   kept here because <a>CoordinatedHeadState</a> may advance past it, and
+--   only this snapshot can settle its commit/decommit on-chain. Kept until
+--   overwritten by the next settlement of the same kind;
+--   <a>$sel:observedAtSlot:FinalizedSnapshot</a> makes stale entries inert
+--   (re-post only when a rollback reaches strictly before it).
+data FinalizedSnapshot tx
+FinalizedSnapshot :: ConfirmedSnapshot tx -> ChainSlot -> FinalizedSnapshot tx
+[$sel:snapshot:FinalizedSnapshot] :: FinalizedSnapshot tx -> ConfirmedSnapshot tx
+[$sel:observedAtSlot:FinalizedSnapshot] :: FinalizedSnapshot tx -> ChainSlot
+
 -- | An <a>Idle</a> head only having a chain state with things seen on
 --   chain so far.
 newtype IdleState tx
@@ -4719,9 +5127,8 @@ getChainState :: HeadState tx -> ChainStateType tx
 isCollectingAcks :: SeenSnapshot tx -> Bool
 
 -- | Smart constructor for <a>SeenSnapshot</a> that computes and caches
---   <a>$sel:signableBytes:NoSeenSnapshot</a> from
---   <a>$sel:snapshot:NoSeenSnapshot</a>, enforcing the invariant that they
---   stay in sync.
+--   <a>$sel:signableBytes:NoSeenSnapshot</a> from <a>SeenSnapshot</a>,
+--   enforcing the invariant that they stay in sync.
 mkSeenSnapshot :: IsTx tx => Snapshot tx -> Map Party (Signature (Snapshot tx)) -> SeenSnapshot tx
 
 -- | Get the last seen snapshot number given a <a>SeenSnapshot</a>.
@@ -4784,6 +5191,10 @@ NetworkVersionMismatch :: ProtocolVersion -> Maybe ProtocolVersion -> StateChang
 NetworkClusterIDMismatch :: Text -> Text -> StateChanged tx
 [$sel:clusterPeers:NetworkConnected] :: StateChanged tx -> Text
 [$sel:misconfiguredPeers:NetworkConnected] :: StateChanged tx -> Text
+NetworkBroadcastStalled :: Natural -> StallReason -> StateChanged tx
+[$sel:pendingBroadcasts:NetworkConnected] :: StateChanged tx -> Natural
+[$sel:stallReason:NetworkConnected] :: StateChanged tx -> StallReason
+NetworkBroadcastResumed :: StateChanged tx
 HeadOpened :: HeadParameters -> ChainStateType tx -> HeadId -> HeadSeed -> [Party] -> StateChanged tx
 [$sel:parameters:NetworkConnected] :: StateChanged tx -> HeadParameters
 [$sel:chainState:NetworkConnected] :: StateChanged tx -> ChainStateType tx
@@ -4971,7 +5382,6 @@ changes :: [StateChanged tx] -> Outcome tx
 newState :: StateChanged tx -> Outcome tx
 noop :: Outcome tx
 wait :: WaitReason tx -> Outcome tx
-instance GHC.Classes.Eq Hydra.HeadLogic.OnChainFanoutDatum
 
 module Hydra.Node.Util
 
@@ -5048,7 +5458,18 @@ type GetTimeHandle m = m TimeHandle
 --   NOTE: Given the constraints on <tt>m</tt> this function should work
 --   within <tt>IOSim</tt> and does not require any actual <a>IO</a> to
 --   happen which makes it highly suitable for simulations and testing.
-mkChain :: (MonadSTM m, MonadThrow (STM m)) => Tracer m CardanoChainLog -> GetTimeHandle m -> TinyWallet m -> ChainContext -> DepositPeriod -> LocalChainState m Tx -> SubmitTx m -> Chain Tx m
+mkChain :: (MonadSTM m, MonadThrow (STM m), MonadCatch m) => Tracer m CardanoChainLog -> GetTimeHandle m -> TinyWallet m -> ChainContext -> DepositPeriod -> LocalChainState m Tx -> SubmitTx m -> Chain Tx m
+
+-- | Reject a drafted deposit the node would never observe on chain.
+--   
+--   <a>observeDepositTx</a> requires the deposit output's value to equal
+--   the value recorded in its datum. Balancing tops every output up to its
+--   minimum ADA, and the deposit output needs more than the deposited
+--   outputs themselves because its inline datum embeds them. The datum
+--   keeps the original value, so the finalized transaction would be
+--   ignored by every node, never reach L2 and only be recoverable by hand.
+--   Report how much ADA is missing instead.
+rejectUnobservableDeposit :: NetworkId -> Tx -> Either (PostTxError Tx) ()
 rejectLowDeposits :: PParams LedgerEra -> UTxO -> Either (PostTxError Tx) ()
 
 -- | Reject any UTxO containing a Byron address, which cannot be
@@ -5112,13 +5533,23 @@ chainSyncHandler :: forall m. (MonadSTM m, MonadThrow m) => Tracer m CardanoChai
 convertObservation :: TimeHandle -> HeadObservation -> Maybe (OnChainTx Tx)
 prepareTxToPost :: forall m. (MonadSTM m, MonadThrow (STM m)) => TimeHandle -> ChainContext -> UTxOType Tx -> PostChainTx Tx -> STM m Tx
 
+-- | Whether a fanout distributing this many outputs can be verified on
+--   chain at all, and so is worth building.
+--   
+--   Above <a>deployedFanoutBatchSize</a> the head validator rejects the
+--   membership proof however cheap the transaction is, and building the
+--   transaction means computing that proof over the whole set — discarded
+--   on every fanout step. Callers guard on this rather than passing the
+--   built transaction and discarding it, so the expensive call is
+--   unreachable rather than merely unforced.
+canBeVerifiedOnChain :: Int -> Bool
+
 -- | Binary search for the largest chunk size in <tt>[1..maxChunk]</tt> for
 --   which <tt>tryTx</tt> returns <a>Just</a>. Assumes the predicate is
 --   monotone: if size <tt>n</tt> fits, all sizes <tt>&lt; n</tt> also fit.
 --   Uses upper-mid so the search terminates correctly when <tt>hi = lo +
---   1</tt>. Returns 'Left ()' if no size fits. <tt>tryTx</tt> may throw to
---   abort the search early.
-findLargestFitting :: Monad m => (Int -> m (Maybe tx)) -> Int -> m (Either () tx)
+--   1</tt>. <tt>tryTx</tt> may throw to abort the search early.
+findLargestFitting :: Monad m => (Int -> m (Maybe tx)) -> Int -> m (Maybe tx)
 
 -- | Check whether a transaction fits within protocol size and script
 --   execution limits. Size check is cheap so it short-circuits before the
@@ -5127,20 +5558,35 @@ findLargestFitting :: Monad m => (Int -> m (Maybe tx)) -> Int -> m (Either () tx
 --   tracer; transient misses (size exceeded, budget overrun) are silent.
 fitsTx :: Monad m => Tracer m CardanoChainLog -> (Tx -> m Bool) -> (Tx -> UTxO -> m (Either EvaluationError EvaluationReport)) -> UTxO -> Tx -> m Bool
 
+-- | Where the chunks searched by <a>findFittingFanoutTx</a> are drawn
+--   from.
+data FanoutChunkSource
+
+-- | The head's whole remaining UTxO. Only the preferred transaction, if
+--   any, may distribute all of it; a partial fanout must leave an output
+--   behind (<tt>mustNotBeLastBatch</tt>).
+RemainingUTxO :: Maybe Tx -> FanoutChunkSource
+
+-- | A strict subset of the remaining UTxO, so a chunk may cover all of it;
+--   <a>nextFanoutStep</a> keeps it strict. <a>FanoutChunkSource</a> is the
+--   set the on-chain datum commits to.
+SelectedUTxO :: UTxO -> FanoutChunkSource
+[$sel:utxoForProof:RemainingUTxO] :: FanoutChunkSource -> UTxO
+
 -- | Try the preferred transaction first; if it doesn't fit within the
 --   script execution budget or exceeds the maximum transaction size, fall
 --   back to a binary search over partial fanout chunk sizes. Returns the
 --   largest chunk that fits, minimising the number of fanout steps.
 --   
---   Error mapping: * <a>StaleChainState</a> from <a>partialFanout</a> →
---   <a>StalePartialFanoutTx</a> (race condition; HeadLogic silently
---   ignores it and the chain observation loop triggers the correct next
---   step). * Any other <a>PartialFanoutError</a> →
---   <a>FailedToConstructPartialFanoutTx</a> (structural mismatch that will
---   not resolve on retry). * No chunk fits within budget →
---   <a>FailedToConstructPartialFanoutTx</a> (budget exhaustion; also not a
---   race condition).
-findFittingFanoutTx :: forall m. MonadThrow m => Tracer m CardanoChainLog -> TinyWallet m -> ChainContext -> UTxO -> TxIn -> Maybe Tx -> UTxO -> UTxO -> Int -> SlotNo -> m Tx
+--   Error mapping: * <a>StaleChainState</a> from
+--   <a>preparePartialFanout</a> → <a>StalePartialFanoutTx</a> (race
+--   condition; HeadLogic silently ignores it and the chain observation
+--   loop triggers the correct next step). * Any other
+--   <a>PartialFanoutError</a> → <a>FailedToConstructPartialFanoutTx</a>
+--   (structural mismatch that will not resolve on retry). * No chunk fits
+--   within budget → <a>FailedToConstructPartialFanoutTx</a> (budget
+--   exhaustion; also not a race condition).
+findFittingFanoutTx :: forall m. MonadThrow m => Tracer m CardanoChainLog -> TinyWallet m -> ChainContext -> UTxO -> TxIn -> FanoutChunkSource -> UTxO -> SlotNo -> m Tx
 
 -- | Maximum delay we put on the upper bound of transactions to fit into a
 --   block. NOTE: This is highly depending on the network. If the security
@@ -5178,6 +5624,13 @@ BlockfrostTransientError :: Text -> Int -> CardanoChainLog
 [$sel:retryDelay:ToPost] :: CardanoChainLog -> Int
 PartialFanoutFailed :: Text -> CardanoChainLog
 [$sel:reason:ToPost] :: CardanoChainLog -> Text
+
+-- | A transaction minted a head's tokens but carries a datum this node
+--   cannot use, so it was not observed as an init. The head minting policy
+--   constrains none of the datum fields involved.
+ObservedMalformedInitTx :: TxId -> NotAnInitReason -> CardanoChainLog
+[$sel:txId:ToPost] :: CardanoChainLog -> TxId
+[$sel:notAnInitReason:ToPost] :: CardanoChainLog -> NotAnInitReason
 instance GHC.Exception.Type.Exception Hydra.Chain.Direct.Handlers.TimeConversionException
 instance GHC.Show.Show Hydra.Chain.Direct.Handlers.TimeConversionException
 instance GHC.Classes.Eq Hydra.Chain.Direct.Handlers.TimeConversionException
@@ -5313,6 +5766,11 @@ defaultDepositActivation :: DepositPeriod
 -- | Default options as they should also be provided by
 --   <a>runOptionsParser</a>.
 defaultRunOptions :: RunOptions
+
+-- | Unlike <a>fromNominalDiffTime</a>, any precision is accepted: the
+--   activation is only compared against the chain time and never recorded
+--   in a datum on its own, so only a negative one is rejected.
+depositActivationFromNominalDiffTime :: MonadFail m => NominalDiffTime -> m DepositPeriod
 
 -- | Validate cmd line arguments for hydra-node and check if they make
 --   sense before actually running the node. Rules we apply: - Check if
@@ -5708,8 +6166,8 @@ WsCodec :: (TimedServerOutput tx -> IO ()) -> (ClientMessage tx -> IO ()) -> (Gr
 --   NOTE: Inputs are decoded per the negotiated encoding, never the frame
 --   type: some JSON clients (e.g. the TUI) send binary frames containing
 --   JSON.
-mkWsCodec :: IsChainState tx => ServerOutputConfig -> Connection -> WsCodec tx
-wsApp :: forall tx. IsChainState tx => Environment -> Party -> Tracer IO APIServerLog -> Chain tx IO -> ConduitT () (TimedServerOutput tx) (ResourceT IO) () -> (ClientInput tx -> IO ()) -> Projection STM (StateChanged tx) (NodeState tx) -> Projection STM (StateChanged tx) NetworkInfo -> TChan (Either (TimedServerOutput tx) (ClientMessage tx)) -> ServerOutputFilter tx -> PendingConnection -> IO ()
+mkWsCodec :: forall tx. IsChainState tx => ServerOutputConfig -> Connection -> WsCodec tx
+wsApp :: forall tx. IsChainState tx => Environment -> Party -> Tracer IO APIServerLog -> Chain tx IO -> ConduitT () (TimedServerOutput tx) (ResourceT IO) () -> (ClientInput tx -> IO ()) -> Projection STM (StateChanged tx) (NodeState tx) -> Projection STM (StateChanged tx) NetworkInfo -> IO (Maybe StallReason) -> TChan (Either (TimedServerOutput tx) (ClientMessage tx)) -> ServerOutputFilter tx -> PendingConnection -> IO ()
 
 -- | The query parameters of a websocket connection request path.
 --   
@@ -5735,13 +6193,21 @@ Server :: (ClientMessage tx -> m ()) -> Server tx m
 -- | Send some output to all connected clients.
 [$sel:sendMessage:Server] :: Server tx m -> ClientMessage tx -> m ()
 data APIServerConfig
-APIServerConfig :: IP -> PortNumber -> Maybe FilePath -> Maybe FilePath -> ApiTransactionTimeout -> APIServerConfig
+APIServerConfig :: IP -> PortNumber -> Maybe FilePath -> Maybe FilePath -> ApiTransactionTimeout -> Maybe Socket -> APIServerConfig
 [$sel:host:APIServerConfig] :: APIServerConfig -> IP
 [$sel:port:APIServerConfig] :: APIServerConfig -> PortNumber
 [$sel:tlsCertPath:APIServerConfig] :: APIServerConfig -> Maybe FilePath
 [$sel:tlsKeyPath:APIServerConfig] :: APIServerConfig -> Maybe FilePath
 [$sel:apiTransactionTimeout:APIServerConfig] :: APIServerConfig -> ApiTransactionTimeout
-withAPIServer :: forall tx. IsChainState tx => APIServerConfig -> RunOptions -> Environment -> Party -> EventSource (StateEvent tx) IO -> Tracer IO APIServerLog -> ChainStateType tx -> Chain tx IO -> PParams LedgerEra -> ServerOutputFilter tx -> (ClientInput tx -> IO ()) -> ((EventSink (StateEvent tx) IO, Server tx IO) -> IO ()) -> IO ()
+
+-- | Serve on this already-bound socket instead of binding
+--   <a>APIServerConfig</a>. The node binds its own (see <a>Run</a>); tests
+--   pass a socket they allocated so that the port cannot be taken in the
+--   gap between picking it and binding it. <a>APIServerConfig</a> and
+--   <a>APIServerConfig</a> are still used for logging and for the
+--   <a>RunServerException</a> context.
+[$sel:listenSocket:APIServerConfig] :: APIServerConfig -> Maybe Socket
+withAPIServer :: forall tx. IsChainState tx => APIServerConfig -> RunOptions -> Environment -> Party -> EventSource (StateEvent tx) IO -> Tracer IO APIServerLog -> ChainStateType tx -> Chain tx IO -> PParams LedgerEra -> ServerOutputFilter tx -> IO (Maybe StallReason) -> (ClientInput tx -> IO ()) -> ((EventSink (StateEvent tx) IO, Server tx IO) -> IO ()) -> IO ()
 
 -- | An <a>IOException</a> with more <a>IP</a> and <a>PortNumber</a> added
 --   as context.
@@ -5771,9 +6237,6 @@ updateSeenSnapshot :: Maybe (Snapshot tx) -> StateChanged tx -> Maybe (Snapshot 
 -- | Extract the snapshot currently in <a>SeenSnapshot</a> from a
 --   <a>NodeState</a>, if any.
 seenSnapshotOf :: NodeState tx -> Maybe (Snapshot tx)
-
--- | Projection to obtain the list of pending deposits.
-projectPendingDeposits :: IsTx tx => [TxIdType tx] -> StateChanged tx -> [TxIdType tx]
 
 -- | Projection to obtain <a>CommitInfo</a> needed to draft commit
 --   transactions. NOTE: We only project <tt>HeadId</tt> when the Head is
@@ -5805,7 +6268,7 @@ checkHeadState :: MonadThrow m => Tracer m (HydraNodeLog tx) -> Environment -> H
 --   yet connected (see <a>connect</a>). This is commonly created by the
 --   <a>hydrate</a> smart constructor.
 data DraftHydraNode tx m
-DraftHydraNode :: Tracer m (HydraNodeLog tx) -> Environment -> Ledger tx -> NodeStateHandler tx m -> InputQueue m (Input tx) -> EventSource (StateEvent tx) m -> [EventSink (StateEvent tx) m] -> ChainStateHistory tx -> DraftHydraNode tx m
+DraftHydraNode :: Tracer m (HydraNodeLog tx) -> Environment -> Ledger tx -> NodeStateHandler tx m -> InputQueue m (Input tx) -> EventSource (StateEvent tx) m -> [EventSink (StateEvent tx) m] -> Outbox m -> ChainStateHistory tx -> DraftHydraNode tx m
 [$sel:tracer:DraftHydraNode] :: DraftHydraNode tx m -> Tracer m (HydraNodeLog tx)
 [$sel:env:DraftHydraNode] :: DraftHydraNode tx m -> Environment
 [$sel:ledger:DraftHydraNode] :: DraftHydraNode tx m -> Ledger tx
@@ -5813,6 +6276,11 @@ DraftHydraNode :: Tracer m (HydraNodeLog tx) -> Environment -> Ledger tx -> Node
 [$sel:inputQueue:DraftHydraNode] :: DraftHydraNode tx m -> InputQueue m (Input tx)
 [$sel:eventSource:DraftHydraNode] :: DraftHydraNode tx m -> EventSource (StateEvent tx) m
 [$sel:eventSinks:DraftHydraNode] :: DraftHydraNode tx m -> [EventSink (StateEvent tx) m]
+
+-- | Hand-off for <a>NetworkEffect</a>s, see <a>Outbox</a>. Created here
+--   rather than in <a>connect</a> so that the API server, which starts
+--   first, can report the live broadcast status in its <a>Greetings</a>.
+[$sel:networkOutbox:DraftHydraNode] :: DraftHydraNode tx m -> Outbox m
 [$sel:chainStateHistory:DraftHydraNode] :: DraftHydraNode tx m -> ChainStateHistory tx
 
 -- | Hydrate a <a>DraftHydraNode</a> by loading events from source,
@@ -5832,7 +6300,7 @@ connect :: Monad m => Chain tx m -> Network m (Message tx) -> Server tx m -> Dra
 
 -- | Fully connected hydra node with everything wired in.
 data HydraNode tx m
-HydraNode :: Tracer m (HydraNodeLog tx) -> Environment -> Ledger tx -> NodeStateHandler tx m -> InputQueue m (Input tx) -> EventSource (StateEvent tx) m -> [EventSink (StateEvent tx) m] -> Chain tx m -> Network m (Message tx) -> Server tx m -> HydraNode tx m
+HydraNode :: Tracer m (HydraNodeLog tx) -> Environment -> Ledger tx -> NodeStateHandler tx m -> InputQueue m (Input tx) -> EventSource (StateEvent tx) m -> [EventSink (StateEvent tx) m] -> Chain tx m -> Network m (Message tx) -> Server tx m -> Outbox m -> HydraNode tx m
 [$sel:tracer:HydraNode] :: HydraNode tx m -> Tracer m (HydraNodeLog tx)
 [$sel:env:HydraNode] :: HydraNode tx m -> Environment
 [$sel:ledger:HydraNode] :: HydraNode tx m -> Ledger tx
@@ -5843,8 +6311,92 @@ HydraNode :: Tracer m (HydraNodeLog tx) -> Environment -> Ledger tx -> NodeState
 [$sel:oc:HydraNode] :: HydraNode tx m -> Chain tx m
 [$sel:hn:HydraNode] :: HydraNode tx m -> Network m (Message tx)
 [$sel:server:HydraNode] :: HydraNode tx m -> Server tx m
-runHydraNode :: (MonadCatch m, MonadAsync m, MonadTime m, IsChainState tx) => HydraNode tx m -> m ()
+
+-- | Hand-off for <a>NetworkEffect</a>s, see <a>Outbox</a>.
+[$sel:networkOutbox:HydraNode] :: HydraNode tx m -> Outbox m
+
+-- | Run the network hand-off and its stall monitor concurrently with the
+--   given action, stopping when any of them does. An effect throwing
+--   therefore still takes the node down, as it did when effects ran on the
+--   main loop.
+--   
+--   NOTE: it takes it down asynchronously, though, where running inline
+--   threw synchronously from between two effects. The main loop is now
+--   cancelled wherever it happens to be, which can be
+--   mid-<a>processStateChanges</a>. That is the same class of interruption
+--   the surrounding <tt>withChain</tt>/<tt>withNetwork</tt> brackets could
+--   already deliver, but this is a new source of it.
+withNetworkOutbox :: (MonadAsync m, MonadDelay m) => HydraNode tx m -> m () -> m ()
+
+-- | Report the network hand-off stalling and recovering as
+--   <tt>Connectivity</tt> events, which reach the event log and from there
+--   clients already listening. A client connecting mid-stall is told
+--   instead by <a>NetworkInfo</a>, which reads the outbox live rather than
+--   replaying these - past outputs are only replayed on request, and a
+--   replayed stall may long since have ended.
+--   
+--   These reports travel as network inputs, so while the node is catching
+--   up <tt>updateCatchingUpHead</tt> parks them and a stalled/resumed pair
+--   only reaches clients once it is in sync, by which time the stall it
+--   describes may be over. <tt>NetworkInfo</tt> is unaffected, being read
+--   live.
+--   
+--   Only a status seen on two consecutive polls is reported, so clients
+--   are not flooded (as with the sync status, see #2749). Without that, a
+--   network completing something every so often but less often than the
+--   stall period flaps between the two reports forever: with completions
+--   15s apart and a 10s poll, the observed gaps cycle 9s, 4s, 14s, giving
+--   a report every ~30s indefinitely.
+monitorBroadcast :: (MonadDelay m, MonadSTM m) => HydraNode tx m -> m ()
+
+-- | When the node starts refusing the client transactions that grow the
+--   outbound backlog, and when it reports the backlog to clients. Ten
+--   seconds of no progress, or of backlog at the recent drain rate, is
+--   comfortably above the etcd broadcast loop's one second retry and far
+--   below any contestation period. The cap on queued messages is the
+--   memory backstop: each holds at most a maximum size transaction, so
+--   ~160MB at the cap, and it sits well above the bursts a client can fire
+--   at a node whose network is keeping up.
+--   
+--   Deliberately not operator-configurable: the useful range is narrow,
+--   nothing observable would tell an operator which value to pick, and the
+--   natural guess for "off" (zero) is the most aggressive setting rather
+--   than the least.
+--   
+--   NOTE: this measures the hand-off, and the shipped
+--   <a>$sel:broadcast:Network</a> completes as soon as the message is in
+--   the network component's own 100-slot pending-broadcast queue. So
+--   during an outage the first ~100 messages still complete promptly and
+--   nothing is reported; the stall only becomes visible once both queues
+--   are saturated, which also puts the real in-flight bound around
+--   <a>$sel:maxPending:StallBounds</a> plus that queue rather than at
+--   <a>$sel:maxPending:StallBounds</a>.
+broadcastStallBounds :: StallBounds
+runHydraNode :: (MonadCatch m, MonadAsync m, MonadDelay m, MonadTime m, IsChainState tx) => HydraNode tx m -> m ()
 stepHydraNode :: (MonadCatch m, MonadAsync m, MonadTime m, IsChainState tx) => UTCTime -> HydraNode tx m -> m ()
+
+-- | Client inputs that turn into a broadcast directly, and so are the ones
+--   worth refusing: the protocol's own messages cannot pile up while the
+--   network is down, because <a>$sel:broadcast:Network</a> is
+--   self-delivering, so our own <a>AckSn</a> never comes back, the
+--   confirmed snapshot number freezes and <tt>snapshotInFlight</tt> caps
+--   both <a>ReqSn</a> and <a>AckSn</a> at one apiece.
+--   
+--   NOTE: that cap is not airtight, and this is not a complete bound.
+--   <tt>onOpenChainTick</tt> emits a <a>ReqSn</a> on a chain tick with no
+--   network input at all, and <a>SideLoadSnapshot</a> - which broadcasts
+--   nothing itself, so is not listed here - clears exactly the state that
+--   cap reads. A client looping <a>SideLoadSnapshot</a> can therefore draw
+--   one further <a>ReqSn</a> per tick. Left ungated on purpose:
+--   side-loading is the documented recovery for a <a>ReqSn</a> or
+--   <a>AckSn</a> lost from the hand-off, so refusing it while stalled
+--   would block the way out. The leak is one small message per chain tick.
+growsBroadcastBacklog :: ClientInput tx -> Bool
+
+-- | Whether <a>growsBroadcastBacklog</a> inputs would reach the code that
+--   broadcasts, rather than being answered by the sync or head-state
+--   checks.
+inOpenHeadAndSynced :: NodeState tx -> Bool
 
 -- | The maximum number of times to re-enqueue a network messages upon
 --   <a>Wait</a>. outcome.
@@ -5903,6 +6455,20 @@ LoadedChainState :: ChainPointType tx -> HydraNodeLog tx
 ReplayingState :: HydraNodeLog tx
 Misconfiguration :: [ParamMismatch] -> HydraNodeLog tx
 [$sel:misconfigurationErrors:BeginInput] :: HydraNodeLog tx -> [ParamMismatch]
+
+-- | Outbound messages accepted from the head logic but never handed to the
+--   network, dropped because the node is stopping.
+DiscardedBroadcasts :: Natural -> HydraNodeLog tx
+[$sel:discarded:BeginInput] :: HydraNodeLog tx -> Natural
+
+-- | How much the outbound hand-off is holding, and for how long it has
+--   completed nothing. Emitted by <a>monitorBroadcast</a> only while there
+--   is a backlog, plus once when one clears, so a node whose network is
+--   fine says nothing. Drives the broadcast metrics; see
+--   <a>Monitoring</a>.
+BroadcastBacklog :: Natural -> DiffTime -> HydraNodeLog tx
+[$sel:pendingBroadcasts:BeginInput] :: HydraNodeLog tx -> Natural
+[$sel:noProgressSeconds:BeginInput] :: HydraNodeLog tx -> DiffTime
 instance GHC.Generics.Generic (Hydra.Node.HydraNodeLog tx)
 instance Hydra.Chain.ChainState.IsChainState tx => GHC.Classes.Eq (Hydra.Node.HydraNodeLog tx)
 instance Hydra.Chain.ChainState.IsChainState tx => GHC.Show.Show (Hydra.Node.HydraNodeLog tx)

@@ -1,0 +1,1246 @@
+<?xml version="1.0" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg version="1.1" width="1200" height="453" onload="init(evt)" viewBox="0 0 1200 453" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<!-- Flame graph stack visualization. See https://github.com/brendangregg/FlameGraph for latest version, and http://www.brendangregg.com/flamegraphs.html for examples. -->
+<!-- NOTES: Hydra ff531feba9; GHC 9.6.7; Plutus 1.68.0.0; protocol version 11; profile-all; conservative-optimisation; fixture cost model. Generated from a successful evaluation; widths show traced Plutus memory units, not RAM usage. -->
+<defs>
+	<linearGradient id="background" y1="0" y2="1" x1="0" x2="0" >
+		<stop stop-color="#ffffff" offset="5%" />
+		<stop stop-color="#ffffff" offset="95%" />
+	</linearGradient>
+</defs>
+<style type="text/css">
+	text { font-family:Arial, Helvetica, sans-serif; font-size:13px; fill:rgb(0,0,0); }
+	#search, #ignorecase { opacity:0.1; cursor:pointer; }
+	#search:hover, #search.show, #ignorecase:hover, #ignorecase.show { opacity:1; }
+	#subtitle { text-anchor:middle; font-color:rgb(160,160,160); }
+	#title { text-anchor:middle; font-size:18px}
+	#unzoom { cursor:pointer; }
+	#frames > *:hover { stroke:black; stroke-width:0.5; cursor:pointer; }
+	.hide { display:none; }
+	.parent { opacity:0.5; }
+</style>
+<script type="text/ecmascript">
+<![CDATA[
+	"use strict";
+	var details, searchbtn, unzoombtn, matchedtxt, svg, searching, currentSearchTerm, ignorecase, ignorecaseBtn;
+	function init(evt) {
+		details = document.getElementById("details").firstChild;
+		searchbtn = document.getElementById("search");
+		ignorecaseBtn = document.getElementById("ignorecase");
+		unzoombtn = document.getElementById("unzoom");
+		matchedtxt = document.getElementById("matched");
+		svg = document.getElementsByTagName("svg")[0];
+		searching = 0;
+		currentSearchTerm = null;
+
+		// use GET parameters to restore a flamegraphs state.
+		var params = get_params();
+		if (params.x && params.y)
+			zoom(find_group(document.querySelector('[x="' + params.x + '"][y="' + params.y + '"]')));
+                if (params.s) search(params.s);
+	}
+
+	// event listeners
+	window.addEventListener("click", function(e) {
+		var target = find_group(e.target);
+		if (target) {
+			if (target.nodeName == "a") {
+				if (e.ctrlKey === false) return;
+				e.preventDefault();
+			}
+			if (target.classList.contains("parent")) unzoom(true);
+			zoom(target);
+			if (!document.querySelector('.parent')) {
+				// we have basically done a clearzoom so clear the url
+				var params = get_params();
+				if (params.x) delete params.x;
+				if (params.y) delete params.y;
+				history.replaceState(null, null, parse_params(params));
+				unzoombtn.classList.add("hide");
+				return;
+			}
+
+			// set parameters for zoom state
+			var el = target.querySelector("rect");
+			if (el && el.attributes && el.attributes.y && el.attributes._orig_x) {
+				var params = get_params()
+				params.x = el.attributes._orig_x.value;
+				params.y = el.attributes.y.value;
+				history.replaceState(null, null, parse_params(params));
+			}
+		}
+		else if (e.target.id == "unzoom") clearzoom();
+		else if (e.target.id == "search") search_prompt();
+		else if (e.target.id == "ignorecase") toggle_ignorecase();
+	}, false)
+
+	// mouse-over for info
+	// show
+	window.addEventListener("mouseover", function(e) {
+		var target = find_group(e.target);
+		if (target) details.nodeValue = "Function: " + g_to_text(target);
+	}, false)
+
+	// clear
+	window.addEventListener("mouseout", function(e) {
+		var target = find_group(e.target);
+		if (target) details.nodeValue = ' ';
+	}, false)
+
+	// ctrl-F for search
+	// ctrl-I to toggle case-sensitive search
+	window.addEventListener("keydown",function (e) {
+		if (e.keyCode === 114 || (e.ctrlKey && e.keyCode === 70)) {
+			e.preventDefault();
+			search_prompt();
+		}
+		else if (e.ctrlKey && e.keyCode === 73) {
+			e.preventDefault();
+			toggle_ignorecase();
+		}
+	}, false)
+
+	// functions
+	function get_params() {
+		var params = {};
+		var paramsarr = window.location.search.substr(1).split('&');
+		for (var i = 0; i < paramsarr.length; ++i) {
+			var tmp = paramsarr[i].split("=");
+			if (!tmp[0] || !tmp[1]) continue;
+			params[tmp[0]]  = decodeURIComponent(tmp[1]);
+		}
+		return params;
+	}
+	function parse_params(params) {
+		var uri = "?";
+		for (var key in params) {
+			uri += key + '=' + encodeURIComponent(params[key]) + '&';
+		}
+		if (uri.slice(-1) == "&")
+			uri = uri.substring(0, uri.length - 1);
+		if (uri == '?')
+			uri = window.location.href.split('?')[0];
+		return uri;
+	}
+	function find_child(node, selector) {
+		var children = node.querySelectorAll(selector);
+		if (children.length) return children[0];
+	}
+	function find_group(node) {
+		var parent = node.parentElement;
+		if (!parent) return;
+		if (parent.id == "frames") return node;
+		return find_group(parent);
+	}
+	function orig_save(e, attr, val) {
+		if (e.attributes["_orig_" + attr] != undefined) return;
+		if (e.attributes[attr] == undefined) return;
+		if (val == undefined) val = e.attributes[attr].value;
+		e.setAttribute("_orig_" + attr, val);
+	}
+	function orig_load(e, attr) {
+		if (e.attributes["_orig_"+attr] == undefined) return;
+		e.attributes[attr].value = e.attributes["_orig_" + attr].value;
+		e.removeAttribute("_orig_"+attr);
+	}
+	function g_to_text(e) {
+		var text = find_child(e, "title").firstChild.nodeValue;
+		return (text)
+	}
+	function g_to_func(e) {
+		var func = g_to_text(e);
+		// if there's any manipulation we want to do to the function
+		// name before it's searched, do it here before returning.
+		return (func);
+	}
+	function update_text(e) {
+		var r = find_child(e, "rect");
+		var t = find_child(e, "text");
+		var w = parseFloat(r.attributes.width.value) -3;
+		var txt = find_child(e, "title").textContent.replace(/\([^(]*\)$/,"");
+		t.attributes.x.value = parseFloat(r.attributes.x.value) + 3;
+
+		// Smaller than this size won't fit anything
+		if (w < 2 * 13 * 0.59) {
+			t.textContent = "";
+			return;
+		}
+
+		t.textContent = txt;
+		var sl = t.getSubStringLength(0, txt.length);
+		// check if only whitespace or if we can fit the entire string into width w
+		if (/^ *$/.test(txt) || sl < w)
+			return;
+
+		// this isn't perfect, but gives a good starting point
+		// and avoids calling getSubStringLength too often
+		var start = Math.floor((w/sl) * txt.length);
+		for (var x = start; x > 0; x = x-2) {
+			if (t.getSubStringLength(0, x + 2) <= w) {
+				t.textContent = txt.substring(0, x) + "..";
+				return;
+			}
+		}
+		t.textContent = "";
+	}
+
+	// zoom
+	function zoom_reset(e) {
+		if (e.attributes != undefined) {
+			orig_load(e, "x");
+			orig_load(e, "width");
+		}
+		if (e.childNodes == undefined) return;
+		for (var i = 0, c = e.childNodes; i < c.length; i++) {
+			zoom_reset(c[i]);
+		}
+	}
+	function zoom_child(e, x, ratio) {
+		if (e.attributes != undefined) {
+			if (e.attributes.x != undefined) {
+				orig_save(e, "x");
+				e.attributes.x.value = (parseFloat(e.attributes.x.value) - x - 10) * ratio + 10;
+				if (e.tagName == "text")
+					e.attributes.x.value = find_child(e.parentNode, "rect[x]").attributes.x.value + 3;
+			}
+			if (e.attributes.width != undefined) {
+				orig_save(e, "width");
+				e.attributes.width.value = parseFloat(e.attributes.width.value) * ratio;
+			}
+		}
+
+		if (e.childNodes == undefined) return;
+		for (var i = 0, c = e.childNodes; i < c.length; i++) {
+			zoom_child(c[i], x - 10, ratio);
+		}
+	}
+	function zoom_parent(e) {
+		if (e.attributes) {
+			if (e.attributes.x != undefined) {
+				orig_save(e, "x");
+				e.attributes.x.value = 10;
+			}
+			if (e.attributes.width != undefined) {
+				orig_save(e, "width");
+				e.attributes.width.value = parseInt(svg.width.baseVal.value) - (10 * 2);
+			}
+		}
+		if (e.childNodes == undefined) return;
+		for (var i = 0, c = e.childNodes; i < c.length; i++) {
+			zoom_parent(c[i]);
+		}
+	}
+	function zoom(node) {
+		var attr = find_child(node, "rect").attributes;
+		var width = parseFloat(attr.width.value);
+		var xmin = parseFloat(attr.x.value);
+		var xmax = parseFloat(xmin + width);
+		var ymin = parseFloat(attr.y.value);
+		var ratio = (svg.width.baseVal.value - 2 * 10) / width;
+
+		// XXX: Workaround for JavaScript float issues (fix me)
+		var fudge = 0.0001;
+
+		unzoombtn.classList.remove("hide");
+
+		var el = document.getElementById("frames").children;
+		for (var i = 0; i < el.length; i++) {
+			var e = el[i];
+			var a = find_child(e, "rect").attributes;
+			var ex = parseFloat(a.x.value);
+			var ew = parseFloat(a.width.value);
+			var upstack;
+			// Is it an ancestor
+			if (0 == 0) {
+				upstack = parseFloat(a.y.value) > ymin;
+			} else {
+				upstack = parseFloat(a.y.value) < ymin;
+			}
+			if (upstack) {
+				// Direct ancestor
+				if (ex <= xmin && (ex+ew+fudge) >= xmax) {
+					e.classList.add("parent");
+					zoom_parent(e);
+					update_text(e);
+				}
+				// not in current path
+				else
+					e.classList.add("hide");
+			}
+			// Children maybe
+			else {
+				// no common path
+				if (ex < xmin || ex + fudge >= xmax) {
+					e.classList.add("hide");
+				}
+				else {
+					zoom_child(e, xmin, ratio);
+					update_text(e);
+				}
+			}
+		}
+		search();
+	}
+	function unzoom(dont_update_text) {
+		unzoombtn.classList.add("hide");
+		var el = document.getElementById("frames").children;
+		for(var i = 0; i < el.length; i++) {
+			el[i].classList.remove("parent");
+			el[i].classList.remove("hide");
+			zoom_reset(el[i]);
+			if(!dont_update_text) update_text(el[i]);
+		}
+		search();
+	}
+	function clearzoom() {
+		unzoom();
+
+		// remove zoom state
+		var params = get_params();
+		if (params.x) delete params.x;
+		if (params.y) delete params.y;
+		history.replaceState(null, null, parse_params(params));
+	}
+
+	// search
+	function toggle_ignorecase() {
+		ignorecase = !ignorecase;
+		if (ignorecase) {
+			ignorecaseBtn.classList.add("show");
+		} else {
+			ignorecaseBtn.classList.remove("show");
+		}
+		reset_search();
+		search();
+	}
+	function reset_search() {
+		var el = document.querySelectorAll("#frames rect");
+		for (var i = 0; i < el.length; i++) {
+			orig_load(el[i], "fill")
+		}
+		var params = get_params();
+		delete params.s;
+		history.replaceState(null, null, parse_params(params));
+	}
+	function search_prompt() {
+		if (!searching) {
+			var term = prompt("Enter a search term (regexp " +
+			    "allowed, eg: ^ext4_)"
+			    + (ignorecase ? ", ignoring case" : "")
+			    + "\nPress Ctrl-i to toggle case sensitivity", "");
+			if (term != null) search(term);
+		} else {
+			reset_search();
+			searching = 0;
+			currentSearchTerm = null;
+			searchbtn.classList.remove("show");
+			searchbtn.firstChild.nodeValue = "Search"
+			matchedtxt.classList.add("hide");
+			matchedtxt.firstChild.nodeValue = ""
+		}
+	}
+	function search(term) {
+		if (term) currentSearchTerm = term;
+
+		var re = new RegExp(currentSearchTerm, ignorecase ? 'i' : '');
+		var el = document.getElementById("frames").children;
+		var matches = new Object();
+		var maxwidth = 0;
+		for (var i = 0; i < el.length; i++) {
+			var e = el[i];
+			var func = g_to_func(e);
+			var rect = find_child(e, "rect");
+			if (func == null || rect == null)
+				continue;
+
+			// Save max width. Only works as we have a root frame
+			var w = parseFloat(rect.attributes.width.value);
+			if (w > maxwidth)
+				maxwidth = w;
+
+			if (func.match(re)) {
+				// highlight
+				var x = parseFloat(rect.attributes.x.value);
+				orig_save(rect, "fill");
+				rect.attributes.fill.value = "rgb(230,0,230)";
+
+				// remember matches
+				if (matches[x] == undefined) {
+					matches[x] = w;
+				} else {
+					if (w > matches[x]) {
+						// overwrite with parent
+						matches[x] = w;
+					}
+				}
+				searching = 1;
+			}
+		}
+		if (!searching)
+			return;
+		var params = get_params();
+		params.s = currentSearchTerm;
+		history.replaceState(null, null, parse_params(params));
+
+		searchbtn.classList.add("show");
+		searchbtn.firstChild.nodeValue = "Reset Search";
+
+		// calculate percent matched, excluding vertical overlap
+		var count = 0;
+		var lastx = -1;
+		var lastw = 0;
+		var keys = Array();
+		for (k in matches) {
+			if (matches.hasOwnProperty(k))
+				keys.push(k);
+		}
+		// sort the matched frames by their x location
+		// ascending, then width descending
+		keys.sort(function(a, b){
+			return a - b;
+		});
+		// Step through frames saving only the biggest bottom-up frames
+		// thanks to the sort order. This relies on the tree property
+		// where children are always smaller than their parents.
+		var fudge = 0.0001;	// JavaScript floating point
+		for (var k in keys) {
+			var x = parseFloat(keys[k]);
+			var w = matches[keys[k]];
+			if (x >= lastx + lastw - fudge) {
+				count += w;
+				lastx = x;
+				lastw = w;
+			}
+		}
+		// display matched percent
+		matchedtxt.classList.remove("hide");
+		var pct = 100 * count / maxwidth;
+		if (pct != 100) pct = pct.toFixed(1)
+		matchedtxt.firstChild.nodeValue = "Matched: " + pct + "%";
+	}
+]]>
+</script>
+<rect x="0.0" y="0" width="1200.0" height="453.0" fill="url(#background)"  />
+<text id="title" x="600.00" y="26" >Increment: Head validator memory budget</text>
+<text id="subtitle" x="600.00" y="52" >5 parties | 1 live output + 1 deposited output | seed 42</text>
+<text id="details" x="10.00" y="435" > </text>
+<text id="unzoom" x="10.00" y="26" class="hide">Reset Zoom</text>
+<text id="search" x="1090.00" y="26" >Search</text>
+<text id="ignorecase" x="1174.00" y="26" >ic</text>
+<text id="matched" x="1090.00" y="435" > </text>
+<g id="frames">
+<g >
+<title> go1 (20,546 memory units, 0.65%)</title><rect x="387.7" y="242" width="7.7" height="21.0" fill="rgb(207,13,3)" rx="2" ry="2" />
+<text  x="390.74" y="255.5" ></text>
+</g>
+<g >
+<title> go (20,098 memory units, 0.63%)</title><rect x="1090.4" y="220" width="7.5" height="21.0" fill="rgb(224,89,21)" rx="2" ry="2" />
+<text  x="1093.41" y="233.5" ></text>
+</g>
+<g >
+<title> go8 (416 memory units, 0.01%)</title><rect x="364.8" y="154" width="0.1" height="21.0" fill="rgb(212,35,8)" rx="2" ry="2" />
+<text  x="367.76" y="167.5" ></text>
+</g>
+<g >
+<title> $fUnsafeFromDataTxOut_$cunsafeFromBuiltinData (309,984 memory units, 9.77%)</title><rect x="102.8" y="264" width="115.3" height="21.0" fill="rgb(208,18,4)" rx="2" ry="2" />
+<text  x="105.79" y="277.5" > $fUnsafeFrom..</text>
+</g>
+<g >
+<title> $j (20,292 memory units, 0.64%)</title><rect x="1044.6" y="132" width="7.6" height="21.0" fill="rgb(239,158,37)" rx="2" ry="2" />
+<text  x="1047.61" y="145.5" ></text>
+</g>
+<g >
+<title> $fUnsafeFromDataInterval_$cunsafeFromBuiltinData1 (20,704 memory units, 0.65%)</title><rect x="63.7" y="286" width="7.7" height="21.0" fill="rgb(218,63,15)" rx="2" ry="2" />
+<text  x="66.72" y="299.5" ></text>
+</g>
+<g >
+<title> $fEqAddress0_$c== (61,449 memory units, 1.94%)</title><rect x="862.1" y="264" width="22.9" height="21.0" fill="rgb(219,65,15)" rx="2" ry="2" />
+<text  x="865.12" y="277.5" ></text>
+</g>
+<g >
+<title> go4 (20,097 memory units, 0.63%)</title><rect x="1098.0" y="88" width="7.5" height="21.0" fill="rgb(238,154,36)" rx="2" ry="2" />
+<text  x="1101.04" y="101.5" ></text>
+</g>
+<g >
+<title> $fUnsafeFromDataMap_$cunsafeFromBuiltinData (62,304 memory units, 1.96%)</title><rect x="233.7" y="242" width="23.2" height="21.0" fill="rgb(244,182,43)" rx="2" ry="2" />
+<text  x="236.67" y="255.5" > ..</text>
+</g>
+<g >
+<title> go7 (20,928 memory units, 0.66%)</title><rect x="357.1" y="242" width="7.8" height="21.0" fill="rgb(219,64,15)" rx="2" ry="2" />
+<text  x="360.13" y="255.5" ></text>
+</g>
+<g >
+<title> $fFromDataDepositPeriod_$cfromBuiltinData(src/Hydra/Data/DepositPeriod.hs:18:1-18:43) (62,601 memory units, 1.97%)</title><rect x="608.3" y="198" width="23.3" height="21.0" fill="rgb(208,14,3)" rx="2" ry="2" />
+<text  x="611.30" y="211.5" > ..</text>
+</g>
+<g >
+<title> matchData' (102,025 memory units, 3.22%)</title><rect x="570.3" y="176" width="38.0" height="21.0" fill="rgb(221,76,18)" rx="2" ry="2" />
+<text  x="573.34" y="189.5" > m..</text>
+</g>
+<g >
+<title> filter (20,289 memory units, 0.64%)</title><rect x="365.0" y="220" width="7.5" height="21.0" fill="rgb(233,132,31)" rx="2" ry="2" />
+<text  x="367.97" y="233.5" ></text>
+</g>
+<g >
+<title> $fUnsafeFromDataMap_$cunsafeFromBuiltinData (103,328 memory units, 3.26%)</title><rect x="149.3" y="220" width="38.4" height="21.0" fill="rgb(244,182,43)" rx="2" ry="2" />
+<text  x="152.29" y="233.5" > $f..</text>
+</g>
+<g >
+<title> $fFunctorMap_$cfmap (290 memory units, 0.01%)</title><rect x="341.5" y="264" width="0.2" height="21.0" fill="rgb(207,13,3)" rx="2" ry="2" />
+<text  x="344.55" y="277.5" ></text>
+</g>
+<g >
+<title> zip (20,416 memory units, 0.64%)</title><rect x="1182.4" y="286" width="7.6" height="21.0" fill="rgb(216,54,13)" rx="2" ry="2" />
+<text  x="1185.40" y="299.5" ></text>
+</g>
+<g >
+<title> $fUnsafeFromDataMap_$cunsafeFromBuiltinData (83,072 memory units, 2.62%)</title><rect x="272.2" y="308" width="30.9" height="21.0" fill="rgb(244,182,43)" rx="2" ry="2" />
+<text  x="275.21" y="321.5" > $..</text>
+</g>
+<g >
+<title> go4 (328 memory units, 0.01%)</title><rect x="1182.3" y="198" width="0.1" height="21.0" fill="rgb(238,154,36)" rx="2" ry="2" />
+<text  x="1185.28" y="211.5" ></text>
+</g>
+<g >
+<title> go4 (20,357 memory units, 0.64%)</title><rect x="1097.9" y="176" width="7.6" height="21.0" fill="rgb(238,154,36)" rx="2" ry="2" />
+<text  x="1100.94" y="189.5" ></text>
+</g>
+<g >
+<title> $fFromDataCommit_$cfromBuiltinData(src/Hydra/Contract/Commit.hs:32:1-32:36) (20,738 memory units, 0.65%)</title><rect x="403.1" y="264" width="7.7" height="21.0" fill="rgb(205,0,0)" rx="2" ry="2" />
+<text  x="406.10" y="277.5" ></text>
+</g>
+<g >
+<title> goBoth (102,096 memory units, 3.22%)</title><rect x="953.5" y="264" width="38.0" height="21.0" fill="rgb(209,22,5)" rx="2" ry="2" />
+<text  x="956.52" y="277.5" > g..</text>
+</g>
+<g >
+<title> getTxOutDatum(src/Hydra/Contract/Head.hs:941:1-941:13) (288 memory units, 0.01%)</title><rect x="953.4" y="264" width="0.1" height="21.0" fill="rgb(240,161,38)" rx="2" ry="2" />
+<text  x="956.36" y="277.5" ></text>
+</g>
+<g >
+<title> go2 (20,161 memory units, 0.64%)</title><rect x="372.6" y="198" width="7.5" height="21.0" fill="rgb(251,213,51)" rx="2" ry="2" />
+<text  x="375.58" y="211.5" ></text>
+</g>
+<g >
+<title> $fAdditiveGroupValue2 (165,043 memory units, 5.20%)</title><rect x="334.0" y="308" width="61.4" height="21.0" fill="rgb(230,116,27)" rx="2" ry="2" />
+<text  x="337.03" y="321.5" > $fAdd..</text>
+</g>
+<g >
+<title> go1 (20,289 memory units, 0.64%)</title><rect x="387.8" y="220" width="7.5" height="21.0" fill="rgb(207,13,3)" rx="2" ry="2" />
+<text  x="390.77" y="233.5" ></text>
+</g>
+<g >
+<title> unordEqWith (102,160 memory units, 3.22%)</title><rect x="953.5" y="286" width="38.0" height="21.0" fill="rgb(253,224,53)" rx="2" ry="2" />
+<text  x="956.49" y="299.5" > u..</text>
+</g>
+<g >
+<title> goBoth (61,260 memory units, 1.93%)</title><rect x="968.6" y="198" width="22.8" height="21.0" fill="rgb(209,22,5)" rx="2" ry="2" />
+<text  x="971.58" y="211.5" ></text>
+</g>
+<g >
+<title> $fUnsafeFromDataAddress_$cunsafeFromBuiltinData (20,704 memory units, 0.65%)</title><rect x="218.3" y="264" width="7.7" height="21.0" fill="rgb(205,3,0)" rx="2" ry="2" />
+<text  x="221.31" y="277.5" ></text>
+</g>
+<g >
+<title> $fUnsafeFromDataCredential_$cunsafeFromBuiltinData (20,256 memory units, 0.64%)</title><rect x="218.4" y="242" width="7.6" height="21.0" fill="rgb(209,21,5)" rx="2" ry="2" />
+<text  x="221.43" y="255.5" ></text>
+</g>
+<g >
+<title> loop(src/Hydra/Contract/Head.hs:913:3-913:6) (61,577 memory units, 1.94%)</title><rect x="1090.2" y="286" width="22.9" height="21.0" fill="rgb(207,12,2)" rx="2" ry="2" />
+<text  x="1093.21" y="299.5" ></text>
+</g>
+<g >
+<title> go (40,832 memory units, 1.29%)</title><rect x="172.5" y="198" width="15.2" height="21.0" fill="rgb(224,89,21)" rx="2" ry="2" />
+<text  x="175.54" y="211.5" ></text>
+</g>
+<g >
+<title> $fUnsafeFromDataList_$cunsafeFromBuiltinData (20,928 memory units, 0.66%)</title><rect x="303.5" y="308" width="7.8" height="21.0" fill="rgb(230,118,28)" rx="2" ry="2" />
+<text  x="306.51" y="321.5" ></text>
+</g>
+<g >
+<title> unionVal (103,173 memory units, 3.25%)</title><rect x="357.1" y="286" width="38.3" height="21.0" fill="rgb(254,228,54)" rx="2" ry="2" />
+<text  x="360.05" y="299.5" > un..</text>
+</g>
+<g >
+<title> go3 (20,357 memory units, 0.64%)</title><rect x="1021.8" y="176" width="7.6" height="21.0" fill="rgb(244,183,43)" rx="2" ry="2" />
+<text  x="1024.83" y="189.5" ></text>
+</g>
+<g >
+<title> $fUnsafeFromDataMap_$cunsafeFromBuiltinData (145,120 memory units, 4.58%)</title><rect x="141.3" y="242" width="54.0" height="21.0" fill="rgb(244,182,43)" rx="2" ry="2" />
+<text  x="144.35" y="255.5" > $fUn..</text>
+</g>
+<g >
+<title> $fUnsafeFromDataTxOutRef_$cunsafeFromBuiltinData (960 memory units, 0.03%)</title><rect x="102.4" y="264" width="0.4" height="21.0" fill="rgb(217,59,14)" rx="2" ry="2" />
+<text  x="105.43" y="277.5" ></text>
+</g>
+<g >
+<title> go4 (288 memory units, 0.01%)</title><rect x="1113.0" y="198" width="0.1" height="21.0" fill="rgb(238,154,36)" rx="2" ry="2" />
+<text  x="1116.00" y="211.5" ></text>
+</g>
+<g >
+<title> $fUnsafeFromDataMaybe_$cunsafeFromBuiltinData (384 memory units, 0.01%)</title><rect x="141.2" y="220" width="0.1" height="21.0" fill="rgb(251,211,50)" rx="2" ry="2" />
+<text  x="144.21" y="233.5" ></text>
+</g>
+<g >
+<title> go3 (20,357 memory units, 0.64%)</title><rect x="1044.6" y="154" width="7.6" height="21.0" fill="rgb(244,183,43)" rx="2" ry="2" />
+<text  x="1047.59" y="167.5" ></text>
+</g>
+<g >
+<title> hashPreSerializedCommits(src/Hydra/Contract/Util.hs:89:1-89:24) (20,429 memory units, 0.64%)</title><rect x="1060.0" y="308" width="7.6" height="21.0" fill="rgb(210,23,5)" rx="2" ry="2" />
+<text  x="1062.95" y="321.5" ></text>
+</g>
+<g >
+<title> mustNotMintOrBurn(src/Hydra/Contract/Util.hs:66:1-66:17) (20,672 memory units, 0.65%)</title><rect x="1128.4" y="308" width="7.6" height="21.0" fill="rgb(217,58,14)" rx="2" ry="2" />
+<text  x="1131.35" y="321.5" ></text>
+</g>
+<g >
+<title> $fUnsafeFromDataInterval_$cunsafeFromBuiltinData (41,600 memory units, 1.31%)</title><rect x="63.6" y="308" width="15.5" height="21.0" fill="rgb(235,139,33)" rx="2" ry="2" />
+<text  x="66.60" y="321.5" ></text>
+</g>
+<g >
+<title> go4 (20,550 memory units, 0.65%)</title><rect x="1021.8" y="242" width="7.6" height="21.0" fill="rgb(238,154,36)" rx="2" ry="2" />
+<text  x="1024.76" y="255.5" ></text>
+</g>
+<g >
+<title> go8 (20,800 memory units, 0.66%)</title><rect x="357.2" y="220" width="7.7" height="21.0" fill="rgb(212,35,8)" rx="2" ry="2" />
+<text  x="360.17" y="233.5" ></text>
+</g>
+<g >
+<title> go (20,192 memory units, 0.64%)</title><rect x="256.9" y="242" width="7.5" height="21.0" fill="rgb(224,89,21)" rx="2" ry="2" />
+<text  x="259.85" y="255.5" ></text>
+</g>
+<g >
+<title> f1 (20,098 memory units, 0.63%)</title><rect x="341.7" y="198" width="7.5" height="21.0" fill="rgb(231,121,29)" rx="2" ry="2" />
+<text  x="344.75" y="211.5" ></text>
+</g>
+<g >
+<title> $fFromDataInteger_$cfromBuiltinData (40,864 memory units, 1.29%)</title><rect x="816.7" y="154" width="15.2" height="21.0" fill="rgb(235,138,33)" rx="2" ry="2" />
+<text  x="819.72" y="167.5" ></text>
+</g>
+<g >
+<title> equalsInteger (40,297 memory units, 1.27%)</title><rect x="938.4" y="176" width="15.0" height="21.0" fill="rgb(213,37,9)" rx="2" ry="2" />
+<text  x="941.37" y="189.5" ></text>
+</g>
+<g >
+<title> $fUnsafeFromDataTxOutRef_$cunsafeFromBuiltinData (20,160 memory units, 0.64%)</title><rect x="311.3" y="308" width="7.5" height="21.0" fill="rgb(217,59,14)" rx="2" ry="2" />
+<text  x="314.30" y="321.5" ></text>
+</g>
+<g >
+<title> goBoth (20,484 memory units, 0.65%)</title><rect x="983.8" y="110" width="7.6" height="21.0" fill="rgb(209,22,5)" rx="2" ry="2" />
+<text  x="986.75" y="123.5" ></text>
+</g>
+<g >
+<title> $fUnsafeFromDataIncrementRedeemer_$cunsafeFromBuiltinData(src/Hydra/Contract/HeadState.hs:268:1-268:47) (41,024 memory units, 1.29%)</title><rect x="10.1" y="330" width="15.3" height="21.0" fill="rgb(213,37,8)" rx="2" ry="2" />
+<text  x="13.13" y="343.5" ></text>
+</g>
+<g >
+<title> equalsByteString (297 memory units, 0.01%)</title><rect x="938.3" y="176" width="0.1" height="21.0" fill="rgb(215,48,11)" rx="2" ry="2" />
+<text  x="941.26" y="189.5" ></text>
+</g>
+<g >
+<title> go7 (41,388 memory units, 1.31%)</title><rect x="341.7" y="264" width="15.4" height="21.0" fill="rgb(219,64,15)" rx="2" ry="2" />
+<text  x="344.65" y="277.5" ></text>
+</g>
+<g >
+<title> $fUnsafeFromDataTxOutRef_$cunsafeFromBuiltinData (320 memory units, 0.01%)</title><rect x="40.6" y="308" width="0.2" height="21.0" fill="rgb(217,59,14)" rx="2" ry="2" />
+<text  x="43.63" y="321.5" ></text>
+</g>
+<g >
+<title> go4 (20,226 memory units, 0.64%)</title><rect x="1075.1" y="286" width="7.5" height="21.0" fill="rgb(238,154,36)" rx="2" ry="2" />
+<text  x="1078.10" y="299.5" ></text>
+</g>
+<g >
+<title> $fFromDataInteger_$cfromBuiltinData (41,728 memory units, 1.32%)</title><rect x="631.6" y="198" width="15.5" height="21.0" fill="rgb(235,138,33)" rx="2" ry="2" />
+<text  x="634.59" y="211.5" ></text>
+</g>
+<g >
+<title> go4 (83,487 memory units, 2.63%)</title><rect x="1143.6" y="286" width="31.0" height="21.0" fill="rgb(238,154,36)" rx="2" ry="2" />
+<text  x="1146.58" y="299.5" > go4</text>
+</g>
+<g >
+<title> go3 (20,357 memory units, 0.64%)</title><rect x="1052.3" y="220" width="7.6" height="21.0" fill="rgb(244,183,43)" rx="2" ry="2" />
+<text  x="1055.28" y="233.5" ></text>
+</g>
+<g >
+<title> go4 (592 memory units, 0.02%)</title><rect x="1182.2" y="242" width="0.2" height="21.0" fill="rgb(238,154,36)" rx="2" ry="2" />
+<text  x="1185.18" y="255.5" ></text>
+</g>
+<g >
+<title> $fUnsafeFromDataCredential_$cunsafeFromBuiltinData (768 memory units, 0.02%)</title><rect x="140.9" y="220" width="0.3" height="21.0" fill="rgb(209,21,5)" rx="2" ry="2" />
+<text  x="143.92" y="233.5" ></text>
+</g>
+<g >
+<title> getHeadInput(src/Hydra/Contract/Head.hs:868:1-868:12) (183,771 memory units, 5.79%)</title><rect x="885.0" y="264" width="68.4" height="21.0" fill="rgb(250,210,50)" rx="2" ry="2" />
+<text  x="887.99" y="277.5" > getHe..</text>
+</g>
+<g >
+<title> $fEqList_$c== (419 memory units, 0.01%)</title><rect x="1128.1" y="242" width="0.2" height="21.0" fill="rgb(254,226,54)" rx="2" ry="2" />
+<text  x="1131.14" y="255.5" ></text>
+</g>
+<g >
+<title> $fFromDataTxOutRef_$cfromBuiltinData (20,417 memory units, 0.64%)</title><rect x="403.2" y="220" width="7.6" height="21.0" fill="rgb(248,201,48)" rx="2" ry="2" />
+<text  x="406.22" y="233.5" ></text>
+</g>
+<g >
+<title> $fEqList_$c== (290 memory units, 0.01%)</title><rect x="1128.2" y="220" width="0.1" height="21.0" fill="rgb(254,226,54)" rx="2" ry="2" />
+<text  x="1131.17" y="233.5" ></text>
+</g>
+<g >
+<title> go (20,808 memory units, 0.66%)</title><rect x="349.3" y="176" width="7.7" height="21.0" fill="rgb(224,89,21)" rx="2" ry="2" />
+<text  x="352.30" y="189.5" ></text>
+</g>
+<g >
+<title> go (21,728 memory units, 0.69%)</title><rect x="777.8" y="176" width="8.1" height="21.0" fill="rgb(224,89,21)" rx="2" ry="2" />
+<text  x="780.80" y="189.5" ></text>
+</g>
+<g >
+<title> go3 (20,098 memory units, 0.63%)</title><rect x="1044.7" y="66" width="7.5" height="21.0" fill="rgb(244,183,43)" rx="2" ry="2" />
+<text  x="1047.68" y="79.5" ></text>
+</g>
+<g >
+<title> go3 (20,228 memory units, 0.64%)</title><rect x="1021.9" y="132" width="7.5" height="21.0" fill="rgb(244,183,43)" rx="2" ry="2" />
+<text  x="1024.88" y="145.5" ></text>
+</g>
+<g >
+<title> $fFromDataInteger_$cfromBuiltinData (20,864 memory units, 0.66%)</title><rect x="623.8" y="154" width="7.8" height="21.0" fill="rgb(235,138,33)" rx="2" ry="2" />
+<text  x="626.83" y="167.5" ></text>
+</g>
+<g >
+<title> go (20,032 memory units, 0.63%)</title><rect x="380.3" y="242" width="7.4" height="21.0" fill="rgb(224,89,21)" rx="2" ry="2" />
+<text  x="383.28" y="255.5" ></text>
+</g>
+<g >
+<title> go (20,614 memory units, 0.65%)</title><rect x="349.4" y="154" width="7.6" height="21.0" fill="rgb(224,89,21)" rx="2" ry="2" />
+<text  x="352.37" y="167.5" ></text>
+</g>
+<g >
+<title> union (41,187 memory units, 1.30%)</title><rect x="380.1" y="264" width="15.3" height="21.0" fill="rgb(234,135,32)" rx="2" ry="2" />
+<text  x="383.12" y="277.5" ></text>
+</g>
+<g >
+<title> $fFromDataList_$cfromBuiltinData (372,960 memory units, 11.76%)</title><rect x="647.1" y="198" width="138.8" height="21.0" fill="rgb(211,31,7)" rx="2" ry="2" />
+<text  x="650.12" y="211.5" > $fFromDataList_..</text>
+</g>
+<g >
+<title> go4 (42,105 memory units, 1.33%)</title><rect x="1159.0" y="242" width="15.6" height="21.0" fill="rgb(238,154,36)" rx="2" ry="2" />
+<text  x="1161.96" y="255.5" ></text>
+</g>
+<g >
+<title> go3 (20,228 memory units, 0.64%)</title><rect x="1044.6" y="110" width="7.6" height="21.0" fill="rgb(244,183,43)" rx="2" ry="2" />
+<text  x="1047.64" y="123.5" ></text>
+</g>
+<g >
+<title> matchData' (1,090,285 memory units, 34.38%)</title><rect x="426.3" y="264" width="405.6" height="21.0" fill="rgb(221,76,18)" rx="2" ry="2" />
+<text  x="429.27" y="277.5" > matchData'</text>
+</g>
+<g >
+<title> $fFromDataBuiltinBLS12_381_G1_Element_$cfromBuiltinData1 (84,320 memory units, 2.66%)</title><rect x="746.4" y="154" width="31.4" height="21.0" fill="rgb(231,119,28)" rx="2" ry="2" />
+<text  x="749.43" y="167.5" > $..</text>
+</g>
+<g >
+<title> go13 (102,619 memory units, 3.24%)</title><rect x="915.2" y="220" width="38.2" height="21.0" fill="rgb(228,107,25)" rx="2" ry="2" />
+<text  x="918.18" y="233.5" > g..</text>
+</g>
+<g >
+<title> $fUnsafeFromDataScriptContext_$cunsafeFromBuiltinData5 (21,152 memory units, 0.67%)</title><rect x="287.6" y="286" width="7.9" height="21.0" fill="rgb(249,206,49)" rx="2" ry="2" />
+<text  x="290.64" y="299.5" ></text>
+</g>
+<g >
+<title> go4 (20,227 memory units, 0.64%)</title><rect x="1098.0" y="132" width="7.5" height="21.0" fill="rgb(238,154,36)" rx="2" ry="2" />
+<text  x="1100.99" y="145.5" ></text>
+</g>
+<g >
+<title> goBoth (61,066 memory units, 1.93%)</title><rect x="968.7" y="176" width="22.7" height="21.0" fill="rgb(209,22,5)" rx="2" ry="2" />
+<text  x="971.65" y="189.5" ></text>
+</g>
+<g >
+<title> matchData' (20,353 memory units, 0.64%)</title><rect x="403.2" y="198" width="7.6" height="21.0" fill="rgb(221,76,18)" rx="2" ry="2" />
+<text  x="406.24" y="211.5" ></text>
+</g>
+<g >
+<title> hasST(src/Hydra/Contract/Util.hs:44:1-44:5) (20,486 memory units, 0.65%)</title><rect x="1052.2" y="264" width="7.7" height="21.0" fill="rgb(212,35,8)" rx="2" ry="2" />
+<text  x="1055.23" y="277.5" ></text>
+</g>
+<g >
+<title> $fUnsafeFromDataTxOut_$cunsafeFromBuiltinData (124,672 memory units, 3.93%)</title><rect x="218.1" y="286" width="46.4" height="21.0" fill="rgb(208,18,4)" rx="2" ry="2" />
+<text  x="221.12" y="299.5" > $fU..</text>
+</g>
+<g >
+<title> go (20,576 memory units, 0.65%)</title><rect x="249.2" y="220" width="7.7" height="21.0" fill="rgb(224,89,21)" rx="2" ry="2" />
+<text  x="252.20" y="233.5" ></text>
+</g>
+<g >
+<title> findOwnInput (143,195 memory units, 4.52%)</title><rect x="900.1" y="242" width="53.3" height="21.0" fill="rgb(212,34,8)" rx="2" ry="2" />
+<text  x="903.08" y="255.5" > fin..</text>
+</g>
+<g >
+<title> mustBeSignedByParticipant(src/Hydra/Contract/Head.hs:902:1-902:25) (122,475 memory units, 3.86%)</title><rect x="1067.6" y="308" width="45.5" height="21.0" fill="rgb(222,78,18)" rx="2" ry="2" />
+<text  x="1070.55" y="321.5" > mu..</text>
+</g>
+<g >
+<title> go4 (724 memory units, 0.02%)</title><rect x="1182.1" y="264" width="0.3" height="21.0" fill="rgb(238,154,36)" rx="2" ry="2" />
+<text  x="1185.13" y="277.5" ></text>
+</g>
+<g >
+<title> go4 (20,416 memory units, 0.64%)</title><rect x="1105.5" y="242" width="7.6" height="21.0" fill="rgb(238,154,36)" rx="2" ry="2" />
+<text  x="1108.51" y="255.5" ></text>
+</g>
+<g >
+<title> matchData' (20,674 memory units, 0.65%)</title><rect x="403.1" y="242" width="7.7" height="21.0" fill="rgb(221,76,18)" rx="2" ry="2" />
+<text  x="406.12" y="255.5" ></text>
+</g>
+<g >
+<title> $fUnsafeFromDataScriptContext_$cunsafeFromBuiltinData4 (705,472 memory units, 22.24%)</title><rect x="40.8" y="330" width="262.4" height="21.0" fill="rgb(206,5,1)" rx="2" ry="2" />
+<text  x="43.75" y="343.5" > $fUnsafeFromDataScriptContext_$..</text>
+</g>
+<g >
+<title> f1 (41,001 memory units, 1.29%)</title><rect x="1037.0" y="264" width="15.2" height="21.0" fill="rgb(231,121,29)" rx="2" ry="2" />
+<text  x="1039.97" y="277.5" ></text>
+</g>
+<g >
+<title> go4 (183,776 memory units, 5.79%)</title><rect x="991.5" y="308" width="68.4" height="21.0" fill="rgb(238,154,36)" rx="2" ry="2" />
+<text  x="994.54" y="321.5" > go4</text>
+</g>
+<g >
+<title> f1 (20,098 memory units, 0.63%)</title><rect x="349.4" y="132" width="7.5" height="21.0" fill="rgb(231,121,29)" rx="2" ry="2" />
+<text  x="352.41" y="145.5" ></text>
+</g>
+<g >
+<title> length (20,852 memory units, 0.66%)</title><rect x="1174.6" y="286" width="7.8" height="21.0" fill="rgb(209,21,5)" rx="2" ry="2" />
+<text  x="1177.65" y="299.5" ></text>
+</g>
+<g >
+<title> go (41,196 memory units, 1.30%)</title><rect x="341.7" y="220" width="15.3" height="21.0" fill="rgb(224,89,21)" rx="2" ry="2" />
+<text  x="344.71" y="233.5" ></text>
+</g>
+<g >
+<title> go3 (20,163 memory units, 0.64%)</title><rect x="1052.4" y="154" width="7.5" height="21.0" fill="rgb(244,183,43)" rx="2" ry="2" />
+<text  x="1055.35" y="167.5" ></text>
+</g>
+<g >
+<title> matchData' (103,177 memory units, 3.25%)</title><rect x="793.5" y="176" width="38.4" height="21.0" fill="rgb(221,76,18)" rx="2" ry="2" />
+<text  x="796.54" y="189.5" > ma..</text>
+</g>
+<g >
+<title> goBoth (20,290 memory units, 0.64%)</title><rect x="983.8" y="88" width="7.6" height="21.0" fill="rgb(209,22,5)" rx="2" ry="2" />
+<text  x="986.82" y="101.5" ></text>
+</g>
+<g >
+<title> $fUnsafeFromDataTxOutRef_$cunsafeFromBuiltinData (20,640 memory units, 0.65%)</title><rect x="287.8" y="264" width="7.7" height="21.0" fill="rgb(217,59,14)" rx="2" ry="2" />
+<text  x="290.83" y="277.5" ></text>
+</g>
+<g >
+<title> matchData' (988,548 memory units, 31.17%)</title><rect x="464.1" y="220" width="367.8" height="21.0" fill="rgb(221,76,18)" rx="2" ry="2" />
+<text  x="467.12" y="233.5" > matchData'</text>
+</g>
+<g >
+<title> goBoth (40,872 memory units, 1.29%)</title><rect x="976.2" y="154" width="15.2" height="21.0" fill="rgb(209,22,5)" rx="2" ry="2" />
+<text  x="979.16" y="167.5" ></text>
+</g>
+<g >
+<title> $fFromDataState_$cfromBuiltinData(src/Hydra/Contract/HeadState.hs:111:1-117:3) (1,110,861 memory units, 35.03%)</title><rect x="418.6" y="286" width="413.3" height="21.0" fill="rgb(224,88,21)" rx="2" ry="2" />
+<text  x="421.61" y="299.5" > $fFromDataState_$cfromBuiltinData(src/Hydra/Contra..</text>
+</g>
+<g >
+<title> verifySnapshotSignature(src/Hydra/Contract/Head.hs:953:1-953:23) (144,916 memory units, 4.57%)</title><rect x="1136.1" y="308" width="53.9" height="21.0" fill="rgb(211,30,7)" rx="2" ry="2" />
+<text  x="1139.08" y="321.5" > veri..</text>
+</g>
+<g >
+<title> headValidator(src/Hydra/Contract/Head.hs:100:1-100:13) (2,341,500 memory units, 73.83%)</title><rect x="318.8" y="352" width="871.2" height="21.0" fill="rgb(253,222,53)" rx="2" ry="2" />
+<text  x="321.80" y="365.5" > headValidator(src/Hydra/Contract/Head.hs:100:1-100:13)</text>
+</g>
+<g >
+<title> $fFromDataList_$cfromBuiltinData (20,994 memory units, 0.66%)</title><rect x="403.0" y="286" width="7.8" height="21.0" fill="rgb(211,31,7)" rx="2" ry="2" />
+<text  x="406.03" y="299.5" ></text>
+</g>
+<g >
+<title> $fFromDataBuiltinBLS12_381_G1_Element_$cfromBuiltinData1 (20,864 memory units, 0.66%)</title><rect x="809.0" y="154" width="7.7" height="21.0" fill="rgb(231,119,28)" rx="2" ry="2" />
+<text  x="811.96" y="167.5" ></text>
+</g>
+<g >
+<title> headOutputDatum(src/Hydra/Contract/Head.hs:929:1-929:15) (326,660 memory units, 10.30%)</title><rect x="831.9" y="286" width="121.6" height="21.0" fill="rgb(209,19,4)" rx="2" ry="2" />
+<text  x="834.93" y="299.5" > headOutputDa..</text>
+</g>
+<g >
+<title> $fUnsafeFromDataValue2 (20,192 memory units, 0.64%)</title><rect x="210.6" y="242" width="7.5" height="21.0" fill="rgb(212,32,7)" rx="2" ry="2" />
+<text  x="213.61" y="255.5" ></text>
+</g>
+<g >
+<title> equalsByteString (297 memory units, 0.01%)</title><rect x="922.9" y="198" width="0.2" height="21.0" fill="rgb(215,48,11)" rx="2" ry="2" />
+<text  x="925.94" y="211.5" ></text>
+</g>
+<g >
+<title> equalsByteString (20,297 memory units, 0.64%)</title><rect x="877.4" y="220" width="7.6" height="21.0" fill="rgb(215,48,11)" rx="2" ry="2" />
+<text  x="880.43" y="233.5" ></text>
+</g>
+<g >
+<title> go4 (40,550 memory units, 1.28%)</title><rect x="1037.1" y="220" width="15.1" height="21.0" fill="rgb(238,154,36)" rx="2" ry="2" />
+<text  x="1040.08" y="233.5" ></text>
+</g>
+<g >
+<title> go (420 memory units, 0.01%)</title><rect x="356.9" y="132" width="0.1" height="21.0" fill="rgb(224,89,21)" rx="2" ry="2" />
+<text  x="359.89" y="145.5" ></text>
+</g>
+<g >
+<title> $fFromDataInteger_$cfromBuiltinData (20,096 memory units, 0.63%)</title><rect x="395.5" y="286" width="7.5" height="21.0" fill="rgb(235,138,33)" rx="2" ry="2" />
+<text  x="398.55" y="299.5" ></text>
+</g>
+<g >
+<title> equalsInteger (20,033 memory units, 0.63%)</title><rect x="976.3" y="110" width="7.5" height="21.0" fill="rgb(213,37,9)" rx="2" ry="2" />
+<text  x="979.30" y="123.5" ></text>
+</g>
+<g >
+<title> mintValueMinted (20,160 memory units, 0.64%)</title><rect x="1128.5" y="286" width="7.5" height="21.0" fill="rgb(242,171,41)" rx="2" ry="2" />
+<text  x="1131.54" y="299.5" ></text>
+</g>
+<g >
+<title> go7 (61,890 memory units, 1.95%)</title><rect x="357.1" y="264" width="23.0" height="21.0" fill="rgb(219,64,15)" rx="2" ry="2" />
+<text  x="360.09" y="277.5" > ..</text>
+</g>
+<g >
+<title> $fFromDataInteger_$cfromBuiltinData (864 memory units, 0.03%)</title><rect x="608.0" y="154" width="0.3" height="21.0" fill="rgb(235,138,33)" rx="2" ry="2" />
+<text  x="610.98" y="167.5" ></text>
+</g>
+<g >
+<title> go8 (20,672 memory units, 0.65%)</title><rect x="357.2" y="198" width="7.7" height="21.0" fill="rgb(212,35,8)" rx="2" ry="2" />
+<text  x="360.22" y="211.5" ></text>
+</g>
+<g >
+<title> $fUnsafeFromDataOutputDatum_$cunsafeFromBuiltinData (20,512 memory units, 0.65%)</title><rect x="203.0" y="242" width="7.6" height="21.0" fill="rgb(222,82,19)" rx="2" ry="2" />
+<text  x="205.98" y="255.5" ></text>
+</g>
+<g >
+<title> goBoth (40,678 memory units, 1.28%)</title><rect x="976.2" y="132" width="15.2" height="21.0" fill="rgb(209,22,5)" rx="2" ry="2" />
+<text  x="979.24" y="145.5" ></text>
+</g>
+<g >
+<title> $fUnsafeFromDataAddress_$cunsafeFromBuiltinData (62,112 memory units, 1.96%)</title><rect x="118.2" y="242" width="23.1" height="21.0" fill="rgb(205,3,0)" rx="2" ry="2" />
+<text  x="121.24" y="255.5" > ..</text>
+</g>
+<g >
+<title> $fFromDataOpenDatum_$cfromBuiltinData(src/Hydra/Contract/HeadState.hs:50:1-50:39) (1,029,124 memory units, 32.45%)</title><rect x="449.0" y="242" width="382.9" height="21.0" fill="rgb(231,119,28)" rx="2" ry="2" />
+<text  x="452.02" y="255.5" > $fFromDataOpenDatum_$cfromBuiltinData(src/Hydr..</text>
+</g>
+<g >
+<title> $fFromDataTxOutRef_$cfromBuiltinData (123,753 memory units, 3.90%)</title><rect x="785.9" y="198" width="46.0" height="21.0" fill="rgb(248,201,48)" rx="2" ry="2" />
+<text  x="788.88" y="211.5" > $fF..</text>
+</g>
+<g >
+<title> f1 (61,390 memory units, 1.94%)</title><rect x="1014.1" y="286" width="22.8" height="21.0" fill="rgb(231,121,29)" rx="2" ry="2" />
+<text  x="1017.07" y="299.5" ></text>
+</g>
+<g >
+<title> $fFromDataContestationPeriod_$cfromBuiltinData(src/Hydra/Data/ContestationPeriod.hs:19:1-19:48) (122,601 memory units, 3.87%)</title><rect x="562.7" y="198" width="45.6" height="21.0" fill="rgb(245,187,44)" rx="2" ry="2" />
+<text  x="565.68" y="211.5" > $f..</text>
+</g>
+<g >
+<title> go4 (20,352 memory units, 0.64%)</title><rect x="1182.4" y="264" width="7.6" height="21.0" fill="rgb(238,154,36)" rx="2" ry="2" />
+<text  x="1185.43" y="277.5" ></text>
+</g>
+<g >
+<title> $j (20,292 memory units, 0.64%)</title><rect x="1021.9" y="154" width="7.5" height="21.0" fill="rgb(239,158,37)" rx="2" ry="2" />
+<text  x="1024.86" y="167.5" ></text>
+</g>
+<g >
+<title> go3 (20,422 memory units, 0.64%)</title><rect x="1021.8" y="198" width="7.6" height="21.0" fill="rgb(244,183,43)" rx="2" ry="2" />
+<text  x="1024.81" y="211.5" ></text>
+</g>
+<g >
+<title> go (20,384 memory units, 0.64%)</title><rect x="1082.6" y="286" width="7.6" height="21.0" fill="rgb(224,89,21)" rx="2" ry="2" />
+<text  x="1085.63" y="299.5" ></text>
+</g>
+<g >
+<title> $fUnsafeFromDataList_$cunsafeFromBuiltinData (608 memory units, 0.02%)</title><rect x="17.7" y="308" width="0.2" height="21.0" fill="rgb(230,118,28)" rx="2" ry="2" />
+<text  x="20.67" y="321.5" ></text>
+</g>
+<g >
+<title> $fUnsafeFromDataState_$cunsafeFromBuiltinData(src/Hydra/Contract/HeadState.hs:111:1-117:3) (41,824 memory units, 1.32%)</title><rect x="303.2" y="352" width="15.6" height="21.0" fill="rgb(243,175,42)" rx="2" ry="2" />
+<text  x="306.24" y="365.5" ></text>
+</g>
+<g >
+<title> go4 (20,352 memory units, 0.64%)</title><rect x="1105.5" y="220" width="7.6" height="21.0" fill="rgb(238,154,36)" rx="2" ry="2" />
+<text  x="1108.54" y="233.5" ></text>
+</g>
+<g >
+<title> go (20,448 memory units, 0.64%)</title><rect x="295.5" y="286" width="7.6" height="21.0" fill="rgb(224,89,21)" rx="2" ry="2" />
+<text  x="298.51" y="299.5" ></text>
+</g>
+<g >
+<title> go4 (62,796 memory units, 1.98%)</title><rect x="1151.3" y="264" width="23.3" height="21.0" fill="rgb(238,154,36)" rx="2" ry="2" />
+<text  x="1154.27" y="277.5" > ..</text>
+</g>
+<g >
+<title> go4 (460 memory units, 0.01%)</title><rect x="1182.2" y="220" width="0.2" height="21.0" fill="rgb(238,154,36)" rx="2" ry="2" />
+<text  x="1185.23" y="233.5" ></text>
+</g>
+<g >
+<title> $fFunctorMap_$cfmap (41,260 memory units, 1.30%)</title><rect x="341.7" y="242" width="15.3" height="21.0" fill="rgb(207,13,3)" rx="2" ry="2" />
+<text  x="344.69" y="255.5" ></text>
+</g>
+<g >
+<title> go3 (20,422 memory units, 0.64%)</title><rect x="1052.3" y="242" width="7.6" height="21.0" fill="rgb(244,183,43)" rx="2" ry="2" />
+<text  x="1055.26" y="255.5" ></text>
+</g>
+<g >
+<title> unordEqWith (61,324 memory units, 1.93%)</title><rect x="968.6" y="220" width="22.8" height="21.0" fill="rgb(253,224,53)" rx="2" ry="2" />
+<text  x="971.56" y="233.5" ></text>
+</g>
+<g >
+<title> go8 (288 memory units, 0.01%)</title><rect x="364.8" y="132" width="0.1" height="21.0" fill="rgb(212,35,8)" rx="2" ry="2" />
+<text  x="367.80" y="145.5" ></text>
+</g>
+<g >
+<title> go3 (20,228 memory units, 0.64%)</title><rect x="1052.3" y="176" width="7.6" height="21.0" fill="rgb(244,183,43)" rx="2" ry="2" />
+<text  x="1055.33" y="189.5" ></text>
+</g>
+<g >
+<title> go4 (288 memory units, 0.01%)</title><rect x="1189.9" y="242" width="0.1" height="21.0" fill="rgb(238,154,36)" rx="2" ry="2" />
+<text  x="1192.89" y="255.5" ></text>
+</g>
+<g >
+<title> $fUnsafeFromDataMaybe_$cunsafeFromBuiltinData (20,512 memory units, 0.65%)</title><rect x="195.3" y="242" width="7.7" height="21.0" fill="rgb(251,211,50)" rx="2" ry="2" />
+<text  x="198.34" y="255.5" ></text>
+</g>
+<g >
+<title> go4 (20,162 memory units, 0.64%)</title><rect x="1098.0" y="110" width="7.5" height="21.0" fill="rgb(238,154,36)" rx="2" ry="2" />
+<text  x="1101.01" y="123.5" ></text>
+</g>
+<g >
+<title> go4 (41,414 memory units, 1.31%)</title><rect x="1159.2" y="220" width="15.4" height="21.0" fill="rgb(238,154,36)" rx="2" ry="2" />
+<text  x="1162.20" y="233.5" ></text>
+</g>
+<g >
+<title> eq (102,224 memory units, 3.22%)</title><rect x="953.5" y="308" width="38.0" height="21.0" fill="rgb(224,89,21)" rx="2" ry="2" />
+<text  x="956.47" y="321.5" > eq</text>
+</g>
+<g >
+<title> filter (289 memory units, 0.01%)</title><rect x="380.2" y="242" width="0.1" height="21.0" fill="rgb(233,132,31)" rx="2" ry="2" />
+<text  x="383.18" y="255.5" ></text>
+</g>
+<g >
+<title> go (20,704 memory units, 0.65%)</title><rect x="264.5" y="286" width="7.7" height="21.0" fill="rgb(224,89,21)" rx="2" ry="2" />
+<text  x="267.51" y="299.5" ></text>
+</g>
+<g >
+<title> go4 (40,807 memory units, 1.29%)</title><rect x="1037.0" y="242" width="15.2" height="21.0" fill="rgb(238,154,36)" rx="2" ry="2" />
+<text  x="1040.04" y="255.5" ></text>
+</g>
+<g >
+<title> $fEqList_$c== (20,677 memory units, 0.65%)</title><rect x="1120.6" y="286" width="7.7" height="21.0" fill="rgb(254,226,54)" rx="2" ry="2" />
+<text  x="1123.62" y="299.5" ></text>
+</g>
+<g >
+<title> go4 (20,723 memory units, 0.65%)</title><rect x="1166.9" y="198" width="7.7" height="21.0" fill="rgb(238,154,36)" rx="2" ry="2" />
+<text  x="1169.89" y="211.5" ></text>
+</g>
+<g >
+<title> $fEqList_$c== (20,548 memory units, 0.65%)</title><rect x="1120.7" y="264" width="7.6" height="21.0" fill="rgb(254,226,54)" rx="2" ry="2" />
+<text  x="1123.66" y="277.5" ></text>
+</g>
+<g >
+<title> hasST(src/Hydra/Contract/Util.hs:44:1-44:5) (20,161 memory units, 0.64%)</title><rect x="1029.4" y="242" width="7.5" height="21.0" fill="rgb(212,35,8)" rx="2" ry="2" />
+<text  x="1032.41" y="255.5" ></text>
+</g>
+<g >
+<title> $fUnsafeFromDataMap_$cunsafeFromBuiltinData (103,072 memory units, 3.25%)</title><rect x="226.0" y="264" width="38.4" height="21.0" fill="rgb(244,182,43)" rx="2" ry="2" />
+<text  x="229.01" y="277.5" > $..</text>
+</g>
+<g >
+<title> mapMaybe (20,486 memory units, 0.65%)</title><rect x="1097.9" y="220" width="7.6" height="21.0" fill="rgb(211,29,7)" rx="2" ry="2" />
+<text  x="1100.89" y="233.5" ></text>
+</g>
+<g >
+<title> $fFromData(,,)_$cfromBuiltinData (41,379 memory units, 1.30%)</title><rect x="395.4" y="308" width="15.4" height="21.0" fill="rgb(231,122,29)" rx="2" ry="2" />
+<text  x="398.44" y="321.5" ></text>
+</g>
+<g >
+<title> $fFromDataParty_$cfromBuiltinData(src/Hydra/Data/Party.hs:27:3-27:17) (147,200 memory units, 4.64%)</title><rect x="723.0" y="176" width="54.8" height="21.0" fill="rgb(216,53,12)" rx="2" ry="2" />
+<text  x="726.03" y="189.5" > $fFr..</text>
+</g>
+<g >
+<title> go4 (40,807 memory units, 1.29%)</title><rect x="1021.7" y="264" width="15.2" height="21.0" fill="rgb(238,154,36)" rx="2" ry="2" />
+<text  x="1024.72" y="277.5" ></text>
+</g>
+<g >
+<title> goBoth (81,581 memory units, 2.57%)</title><rect x="961.0" y="242" width="30.4" height="21.0" fill="rgb(209,22,5)" rx="2" ry="2" />
+<text  x="964.02" y="255.5" > ..</text>
+</g>
+<g >
+<title> go (20,384 memory units, 0.64%)</title><rect x="1082.6" y="264" width="7.6" height="21.0" fill="rgb(224,89,21)" rx="2" ry="2" />
+<text  x="1085.63" y="277.5" ></text>
+</g>
+<g >
+<title> go4 (20,097 memory units, 0.63%)</title><rect x="1075.2" y="264" width="7.4" height="21.0" fill="rgb(238,154,36)" rx="2" ry="2" />
+<text  x="1078.15" y="277.5" ></text>
+</g>
+<g >
+<title> hasST(src/Hydra/Contract/Util.hs:44:1-44:5) (20,486 memory units, 0.65%)</title><rect x="1021.8" y="220" width="7.6" height="21.0" fill="rgb(212,35,8)" rx="2" ry="2" />
+<text  x="1024.78" y="233.5" ></text>
+</g>
+<g >
+<title> $fUnsafeFromDataList_$cunsafeFromBuiltinData (519,072 memory units, 16.37%)</title><rect x="79.1" y="308" width="193.1" height="21.0" fill="rgb(230,118,28)" rx="2" ry="2" />
+<text  x="82.08" y="321.5" > $fUnsafeFromDataList_$..</text>
+</g>
+<g >
+<title> go4 (20,292 memory units, 0.64%)</title><rect x="1098.0" y="154" width="7.5" height="21.0" fill="rgb(238,154,36)" rx="2" ry="2" />
+<text  x="1100.96" y="167.5" ></text>
+</g>
+<g >
+<title> go7 (61,774 memory units, 1.95%)</title><rect x="334.1" y="286" width="23.0" height="21.0" fill="rgb(219,64,15)" rx="2" ry="2" />
+<text  x="337.07" y="299.5" ></text>
+</g>
+<g >
+<title> $fUnsafeFromDataInterval_$cunsafeFromBuiltinData2 (20,576 memory units, 0.65%)</title><rect x="71.4" y="286" width="7.7" height="21.0" fill="rgb(212,33,8)" rx="2" ry="2" />
+<text  x="74.42" y="299.5" ></text>
+</g>
+<g >
+<title> $fUnsafeFromDataOpenDatum_$cunsafeFromBuiltinData(src/Hydra/Contract/HeadState.hs:50:1-50:39) (41,696 memory units, 1.31%)</title><rect x="303.3" y="330" width="15.5" height="21.0" fill="rgb(249,206,49)" rx="2" ry="2" />
+<text  x="306.29" y="343.5" ></text>
+</g>
+<g >
+<title> $fUnsafeFromDataParty1 (20,320 memory units, 0.64%)</title><rect x="303.7" y="286" width="7.5" height="21.0" fill="rgb(245,187,44)" rx="2" ry="2" />
+<text  x="306.67" y="299.5" ></text>
+</g>
+<g >
+<title> matchData' (42,025 memory units, 1.33%)</title><rect x="616.0" y="176" width="15.6" height="21.0" fill="rgb(221,76,18)" rx="2" ry="2" />
+<text  x="618.96" y="189.5" ></text>
+</g>
+<g >
+<title> $fUnsafeFromDataTxOutRef_$cunsafeFromBuiltinData (20,160 memory units, 0.64%)</title><rect x="17.9" y="308" width="7.5" height="21.0" fill="rgb(217,59,14)" rx="2" ry="2" />
+<text  x="20.89" y="321.5" ></text>
+</g>
+<g >
+<title> go (288 memory units, 0.01%)</title><rect x="1090.1" y="242" width="0.1" height="21.0" fill="rgb(224,89,21)" rx="2" ry="2" />
+<text  x="1093.10" y="255.5" ></text>
+</g>
+<g >
+<title> union (40,866 memory units, 1.29%)</title><rect x="364.9" y="242" width="15.2" height="21.0" fill="rgb(234,135,32)" rx="2" ry="2" />
+<text  x="367.91" y="255.5" ></text>
+</g>
+<g >
+<title> go2 (20,161 memory units, 0.64%)</title><rect x="387.8" y="198" width="7.5" height="21.0" fill="rgb(251,213,51)" rx="2" ry="2" />
+<text  x="390.82" y="211.5" ></text>
+</g>
+<g >
+<title> unordEqWith (354 memory units, 0.01%)</title><rect x="991.4" y="242" width="0.1" height="21.0" fill="rgb(253,224,53)" rx="2" ry="2" />
+<text  x="994.37" y="255.5" ></text>
+</g>
+<g >
+<title> go8 (20,544 memory units, 0.65%)</title><rect x="357.3" y="176" width="7.6" height="21.0" fill="rgb(212,35,8)" rx="2" ry="2" />
+<text  x="360.27" y="189.5" ></text>
+</g>
+<g >
+<title> go1 (20,289 memory units, 0.64%)</title><rect x="372.5" y="220" width="7.6" height="21.0" fill="rgb(207,13,3)" rx="2" ry="2" />
+<text  x="375.53" y="233.5" ></text>
+</g>
+<g >
+<title> $fFromDataBuiltinBLS12_381_G1_Element_$cfromBuiltinData1 (41,728 memory units, 1.32%)</title><rect x="547.2" y="198" width="15.5" height="21.0" fill="rgb(231,119,28)" rx="2" ry="2" />
+<text  x="550.16" y="211.5" ></text>
+</g>
+<g >
+<title> go (21,002 memory units, 0.66%)</title><rect x="349.2" y="198" width="7.8" height="21.0" fill="rgb(224,89,21)" rx="2" ry="2" />
+<text  x="352.23" y="211.5" ></text>
+</g>
+<g >
+<title> checkIncrement(src/Hydra/Contract/Head.hs:128:1-128:14) (2,341,436 memory units, 73.83%)</title><rect x="318.8" y="330" width="871.2" height="21.0" fill="rgb(226,98,23)" rx="2" ry="2" />
+<text  x="321.82" y="343.5" > checkIncrement(src/Hydra/Contract/Head.hs:128:1-128:14)</text>
+</g>
+<g >
+<title> $fUnsafeFromDataMaybe_$cunsafeFromBuiltinData (20,320 memory units, 0.64%)</title><rect x="33.1" y="308" width="7.5" height="21.0" fill="rgb(251,211,50)" rx="2" ry="2" />
+<text  x="36.07" y="321.5" ></text>
+</g>
+<g >
+<title> go3 (20,422 memory units, 0.64%)</title><rect x="1044.6" y="176" width="7.6" height="21.0" fill="rgb(244,183,43)" rx="2" ry="2" />
+<text  x="1047.56" y="189.5" ></text>
+</g>
+<g >
+<title>wrapValidator (3,171,420 memory units, 100.00%)</title><rect x="10.0" y="374" width="1180.0" height="21.0" fill="rgb(224,90,21)" rx="2" ry="2" />
+<text  x="13.01" y="387.5" >wrapValidator</text>
+</g>
+<g >
+<title> findParticipationTokens(src/Hydra/Contract/Head.hs:920:1-920:23) (40,680 memory units, 1.28%)</title><rect x="1090.4" y="242" width="15.1" height="21.0" fill="rgb(216,54,13)" rx="2" ry="2" />
+<text  x="1093.38" y="255.5" ></text>
+</g>
+<g >
+<title> go (20,448 memory units, 0.64%)</title><rect x="187.7" y="220" width="7.6" height="21.0" fill="rgb(224,89,21)" rx="2" ry="2" />
+<text  x="190.74" y="233.5" ></text>
+</g>
+<g >
+<title> go3 (20,097 memory units, 0.63%)</title><rect x="1029.4" y="220" width="7.5" height="21.0" fill="rgb(244,183,43)" rx="2" ry="2" />
+<text  x="1032.43" y="233.5" ></text>
+</g>
+<g >
+<title> go4 (20,422 memory units, 0.64%)</title><rect x="1097.9" y="198" width="7.6" height="21.0" fill="rgb(238,154,36)" rx="2" ry="2" />
+<text  x="1100.92" y="211.5" ></text>
+</g>
+<g >
+<title> $fUnsafeFromDataScriptContext_$cunsafeFromBuiltinData6 (311,904 memory units, 9.83%)</title><rect x="102.1" y="286" width="116.0" height="21.0" fill="rgb(243,176,42)" rx="2" ry="2" />
+<text  x="105.07" y="299.5" > $fUnsafeFrom..</text>
+</g>
+<g >
+<title> hasST(src/Hydra/Contract/Util.hs:44:1-44:5) (20,486 memory units, 0.65%)</title><rect x="1044.5" y="198" width="7.7" height="21.0" fill="rgb(212,35,8)" rx="2" ry="2" />
+<text  x="1047.54" y="211.5" ></text>
+</g>
+<g >
+<title>all (3,171,452 memory units, 100%)</title><rect x="10.0" y="396" width="1180.0" height="21.0" fill="rgb(213,39,9)" rx="2" ry="2" />
+<text  x="13.00" y="409.5" ></text>
+</g>
+<g >
+<title> $fEqCredential0_$c== (40,873 memory units, 1.29%)</title><rect x="869.8" y="242" width="15.2" height="21.0" fill="rgb(223,83,19)" rx="2" ry="2" />
+<text  x="872.78" y="255.5" ></text>
+</g>
+<g >
+<title> go13 (81,458 memory units, 2.57%)</title><rect x="923.1" y="198" width="30.3" height="21.0" fill="rgb(228,107,25)" rx="2" ry="2" />
+<text  x="926.05" y="211.5" > ..</text>
+</g>
+<g >
+<title> go4 (61,679 memory units, 1.94%)</title><rect x="1036.9" y="286" width="23.0" height="21.0" fill="rgb(238,154,36)" rx="2" ry="2" />
+<text  x="1039.91" y="299.5" ></text>
+</g>
+<g >
+<title> $fEqTxOutRef0_$c== (20,162 memory units, 0.64%)</title><rect x="1006.6" y="286" width="7.5" height="21.0" fill="rgb(231,121,28)" rx="2" ry="2" />
+<text  x="1009.56" y="299.5" ></text>
+</g>
+<g >
+<title> $fUnsafeFromDataInput_$cunsafeFromBuiltinData(src/Hydra/Contract/HeadState.hs:317:1-326:3) (41,152 memory units, 1.30%)</title><rect x="10.1" y="352" width="15.3" height="21.0" fill="rgb(231,123,29)" rx="2" ry="2" />
+<text  x="13.08" y="365.5" ></text>
+</g>
+<g >
+<title> $fUnsafeFromDataScriptContext_$cunsafeFromBuiltinData (746,752 memory units, 23.55%)</title><rect x="25.4" y="352" width="277.8" height="21.0" fill="rgb(242,171,40)" rx="2" ry="2" />
+<text  x="28.39" y="365.5" > $fUnsafeFromDataScriptContext_$cu..</text>
+</g>
+<g >
+<title> decodeHeadOutputOpenDatum(src/Hydra/Contract/Head.hs:1016:1-1016:25) (1,458,385 memory units, 45.98%)</title><rect x="410.8" y="308" width="542.7" height="21.0" fill="rgb(244,179,42)" rx="2" ry="2" />
+<text  x="413.85" y="321.5" > decodeHeadOutputOpenDatum(src/Hydra/Contract/Head.hs:1016:1-1016:25)</text>
+</g>
+<g >
+<title> $j (20,292 memory units, 0.64%)</title><rect x="1052.3" y="198" width="7.6" height="21.0" fill="rgb(239,158,37)" rx="2" ry="2" />
+<text  x="1055.31" y="211.5" ></text>
+</g>
+<g >
+<title> go3 (20,163 memory units, 0.64%)</title><rect x="1044.7" y="88" width="7.5" height="21.0" fill="rgb(244,183,43)" rx="2" ry="2" />
+<text  x="1047.66" y="101.5" ></text>
+</g>
+<g >
+<title> loop(src/Hydra/Contract/Head.hs:913:3-913:6) (61,256 memory units, 1.93%)</title><rect x="1090.3" y="264" width="22.8" height="21.0" fill="rgb(207,12,2)" rx="2" ry="2" />
+<text  x="1093.33" y="277.5" ></text>
+</g>
+<g >
+<title> $fUnsafeFromDataScriptContext_$cunsafeFromBuiltinData1 (40,960 memory units, 1.29%)</title><rect x="25.5" y="330" width="15.3" height="21.0" fill="rgb(225,94,22)" rx="2" ry="2" />
+<text  x="28.51" y="343.5" ></text>
+</g>
+<g >
+<title> goBoth (290 memory units, 0.01%)</title><rect x="991.4" y="220" width="0.1" height="21.0" fill="rgb(209,22,5)" rx="2" ry="2" />
+<text  x="994.40" y="233.5" ></text>
+</g>
+<g >
+<title> $fUnsafeFromDataExtended_$cunsafeFromBuiltinData (20,256 memory units, 0.64%)</title><rect x="63.9" y="264" width="7.5" height="21.0" fill="rgb(214,43,10)" rx="2" ry="2" />
+<text  x="66.89" y="277.5" ></text>
+</g>
+<g >
+<title> mustNotChangeParameters(src/Hydra/Contract/Head.hs:883:1-883:23) (40,936 memory units, 1.29%)</title><rect x="1113.1" y="308" width="15.3" height="21.0" fill="rgb(218,62,14)" rx="2" ry="2" />
+<text  x="1116.12" y="321.5" ></text>
+</g>
+</g>
+</svg>

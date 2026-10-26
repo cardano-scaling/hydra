@@ -1,0 +1,774 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE DuplicateRecordFields #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE OverloadedRecordDot #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE TypeApplications #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# OPTIONS_GHC -Wno-deprecations #-}</span><span>
+</span><span id="line-5"></span><span>
+</span><span id="line-6"></span><span class="hs-comment">-- | Regressions for equal-value output substitution during fanout.</span><span>
+</span><span id="line-7"></span><span class="hs-comment">--</span><span>
+</span><span id="line-8"></span><span class="hs-comment">-- Every attack pays an output which has exactly the value of a live output but</span><span>
+</span><span id="line-9"></span><span class="hs-comment">-- a different identity. Consequently value conservation and token burning are</span><span>
+</span><span id="line-10"></span><span class="hs-comment">-- valid; only the accumulator membership check can reject it.</span><span>
+</span><span id="line-11"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.Tx.Contract.FanoutSnapshotIdentity</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-12"></span><span>
+</span><span id="line-13"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Prelude</span></span><span>
+</span><span id="line-14"></span><span>
+</span><span id="line-15"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Api.UTxO</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">UTxO</span></span><span>
+</span><span id="line-16"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.List.html"><span class="hs-identifier">Data.List</span></a></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">List</span></span><span>
+</span><span id="line-17"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Cardano.Api</span></span><span>
+</span><span id="line-18"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Contract.HeadState</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Head</span></span><span>
+</span><span id="line-19"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Contract.HeadTokens</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">mkHeadTokenScript</span></span><span class="hs-special">)</span><span>
+</span><span id="line-20"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">ConfirmedSnapshot</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">Snapshot</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">accumulatorInHead</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">mkHeadId</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">registryUTxO</span></span><span class="hs-special">)</span><span>
+</span><span id="line-21"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx.Accumulator</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Accumulator</span></span><span>
+</span><span id="line-22"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx.Close</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">OpenThreadOutput</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">closeTx</span></span><span class="hs-special">)</span><span>
+</span><span id="line-23"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Tx.Contract.PartialFanout.html"><span class="hs-identifier">Hydra.Tx.Contract.PartialFanout</span></a></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Partial</span></span><span>
+</span><span id="line-24"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx.Crypto</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">aggregate</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">sign</span></span><span class="hs-special">)</span><span>
+</span><span id="line-25"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx.Fanout</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">fanoutTx</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">finalPartialFanoutTx</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">partialFanoutTx</span></span><span class="hs-special">)</span><span>
+</span><span id="line-26"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx.Utils</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">IncrementalAction</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-27"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">PlutusLedgerApi.V3</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">toBuiltin</span></span><span class="hs-special">)</span><span>
+</span><span id="line-28"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.Hydra.Tx.Fixture</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">testPolicyId</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">testSeedInput</span></span><span class="hs-special">)</span><span>
+</span><span id="line-29"></span><span>
+</span><span id="line-30"></span><span class="hs-keyword">data</span><span> </span><span id="FanoutIdentityScenario"><span class="annot"><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#FanoutIdentityScenario"><span class="hs-identifier hs-var">FanoutIdentityScenario</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="FanoutIdentityScenario"><span class="annot"><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#FanoutIdentityScenario"><span class="hs-identifier hs-var">FanoutIdentityScenario</span></a></span></span><span>
+</span><span id="line-31"></span><span>  </span><span class="hs-special">{</span><span> </span><span id="%24sel%3AscenarioName%3AFanoutIdentityScenario"><span class="annot"><span class="annottext">FanoutIdentityScenario -&gt; String
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#%24sel%3AscenarioName%3AFanoutIdentityScenario"><span class="hs-identifier hs-var hs-var">scenarioName</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#String"><span class="hs-identifier hs-type">String</span></a></span><span>
+</span><span id="line-32"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AvalidClose%3AFanoutIdentityScenario"><span class="annot"><span class="annottext">FanoutIdentityScenario -&gt; (Tx, UTxO)
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#%24sel%3AvalidClose%3AFanoutIdentityScenario"><span class="hs-identifier hs-var hs-var">validClose</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span><span class="hs-special">)</span><span>
+</span><span id="line-33"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AvalidFullFanout%3AFanoutIdentityScenario"><span class="annot"><span class="annottext">FanoutIdentityScenario -&gt; (Tx, UTxO)
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#%24sel%3AvalidFullFanout%3AFanoutIdentityScenario"><span class="hs-identifier hs-var hs-var">validFullFanout</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span><span class="hs-special">)</span><span>
+</span><span id="line-34"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AsubstitutedFullFanout%3AFanoutIdentityScenario"><span class="annot"><span class="annottext">FanoutIdentityScenario -&gt; (Tx, UTxO)
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#%24sel%3AsubstitutedFullFanout%3AFanoutIdentityScenario"><span class="hs-identifier hs-var hs-var">substitutedFullFanout</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span><span class="hs-special">)</span><span>
+</span><span id="line-35"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AvalidPartialFromClosed%3AFanoutIdentityScenario"><span class="annot"><span class="annottext">FanoutIdentityScenario -&gt; (Tx, UTxO)
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#%24sel%3AvalidPartialFromClosed%3AFanoutIdentityScenario"><span class="hs-identifier hs-var hs-var">validPartialFromClosed</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span><span class="hs-special">)</span><span>
+</span><span id="line-36"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AsubstitutedPartialFromClosed%3AFanoutIdentityScenario"><span class="annot"><span class="annottext">FanoutIdentityScenario -&gt; (Tx, UTxO)
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#%24sel%3AsubstitutedPartialFromClosed%3AFanoutIdentityScenario"><span class="hs-identifier hs-var hs-var">substitutedPartialFromClosed</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span><span class="hs-special">)</span><span>
+</span><span id="line-37"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AvalidPartialFromProgress%3AFanoutIdentityScenario"><span class="annot"><span class="annottext">FanoutIdentityScenario -&gt; (Tx, UTxO)
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#%24sel%3AvalidPartialFromProgress%3AFanoutIdentityScenario"><span class="hs-identifier hs-var hs-var">validPartialFromProgress</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span><span class="hs-special">)</span><span>
+</span><span id="line-38"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AsubstitutedPartialFromProgress%3AFanoutIdentityScenario"><span class="annot"><span class="annottext">FanoutIdentityScenario -&gt; (Tx, UTxO)
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#%24sel%3AsubstitutedPartialFromProgress%3AFanoutIdentityScenario"><span class="hs-identifier hs-var hs-var">substitutedPartialFromProgress</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span><span class="hs-special">)</span><span>
+</span><span id="line-39"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AvalidFinalPartialFanout%3AFanoutIdentityScenario"><span class="annot"><span class="annottext">FanoutIdentityScenario -&gt; (Tx, UTxO)
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#%24sel%3AvalidFinalPartialFanout%3AFanoutIdentityScenario"><span class="hs-identifier hs-var hs-var">validFinalPartialFanout</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span><span class="hs-special">)</span><span>
+</span><span id="line-40"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AsubstitutedFinalPartialFanout%3AFanoutIdentityScenario"><span class="annot"><span class="annottext">FanoutIdentityScenario -&gt; (Tx, UTxO)
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#%24sel%3AsubstitutedFinalPartialFanout%3AFanoutIdentityScenario"><span class="hs-identifier hs-var hs-var">substitutedFinalPartialFanout</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span><span class="hs-special">)</span><span>
+</span><span id="line-41"></span><span>  </span><span class="hs-special">}</span><span>
+</span><span id="line-42"></span><span>
+</span><span id="line-43"></span><span class="hs-keyword">data</span><span> </span><span id="Settlement"><span class="annot"><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#Settlement"><span class="hs-identifier hs-var">Settlement</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="UnabsorbedCommit"><span class="annot"><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#UnabsorbedCommit"><span class="hs-identifier hs-var">UnabsorbedCommit</span></a></span></span><span> </span><span class="hs-glyph">|</span><span> </span><span id="SettledDecommit"><span class="annot"><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#SettledDecommit"><span class="hs-identifier hs-var">SettledDecommit</span></a></span></span><span>
+</span><span id="line-44"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679506751"><span id="local-6989586621679506753"><span class="annot"><span class="annottext">Settlement -&gt; Settlement -&gt; Bool
+(Settlement -&gt; Settlement -&gt; Bool)
+-&gt; (Settlement -&gt; Settlement -&gt; Bool) -&gt; Eq Settlement
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+$c== :: Settlement -&gt; Settlement -&gt; Bool
+== :: Settlement -&gt; Settlement -&gt; Bool
+$c/= :: Settlement -&gt; Settlement -&gt; Bool
+/= :: Settlement -&gt; Settlement -&gt; Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-45"></span><span>
+</span><span id="line-46"></span><span class="annot"><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#fanoutIdentityScenarios"><span class="hs-identifier hs-type">fanoutIdentityScenarios</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#FanoutIdentityScenario"><span class="hs-identifier hs-type">FanoutIdentityScenario</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-47"></span><span id="fanoutIdentityScenarios"><span class="annot"><span class="annottext">fanoutIdentityScenarios :: [FanoutIdentityScenario]
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#fanoutIdentityScenarios"><span class="hs-identifier hs-var hs-var">fanoutIdentityScenarios</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-48"></span><span>  </span><span class="hs-special">[</span><span> </span><span class="annot"><span class="annottext">Settlement -&gt; FanoutIdentityScenario
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#scenarioFor"><span class="hs-identifier hs-var">scenarioFor</span></a></span><span> </span><span class="annot"><span class="annottext">Settlement
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#UnabsorbedCommit"><span class="hs-identifier hs-var">UnabsorbedCommit</span></a></span><span>
+</span><span id="line-49"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Settlement -&gt; FanoutIdentityScenario
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#scenarioFor"><span class="hs-identifier hs-var">scenarioFor</span></a></span><span> </span><span class="annot"><span class="annottext">Settlement
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#SettledDecommit"><span class="hs-identifier hs-var">SettledDecommit</span></a></span><span>
+</span><span id="line-50"></span><span>  </span><span class="hs-special">]</span><span>
+</span><span id="line-51"></span><span>
+</span><span id="line-52"></span><span class="hs-comment">-- | Three live outputs let us exercise both partial-fanout transitions before</span><span>
+</span><span id="line-53"></span><span class="hs-comment">-- the final step. The first output is the victim replaced by 'excludedUTxO'.</span><span>
+</span><span id="line-54"></span><span class="annot"><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#liveUTxO"><span class="hs-identifier hs-type">liveUTxO</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span><span>
+</span><span id="line-55"></span><span id="liveUTxO"><span class="annot"><span class="annottext">liveUTxO :: UTxO
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#liveUTxO"><span class="hs-identifier hs-var hs-var">liveUTxO</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[(TxIn, TxOut CtxUTxO Era)] -&gt; UTxO
+forall era. [(TxIn, TxOut CtxUTxO era)] -&gt; UTxO era
+</span><span class="hs-identifier hs-var">UTxO.fromList</span></span><span> </span><span class="annot"><span class="annottext">([(TxIn, TxOut CtxUTxO Era)] -&gt; UTxO)
+-&gt; [(TxIn, TxOut CtxUTxO Era)] -&gt; UTxO
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; [(TxIn, TxOut CtxUTxO Era)] -&gt; [(TxIn, TxOut CtxUTxO Era)]
+forall a. Int -&gt; [a] -&gt; [a]
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.List.html#take"><span class="hs-identifier hs-var">take</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">3</span></span><span> </span><span class="annot"><span class="annottext">([(TxIn, TxOut CtxUTxO Era)] -&gt; [(TxIn, TxOut CtxUTxO Era)])
+-&gt; [(TxIn, TxOut CtxUTxO Era)] -&gt; [(TxIn, TxOut CtxUTxO Era)]
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO -&gt; [(TxIn, TxOut CtxUTxO Era)]
+forall era. UTxO era -&gt; [(TxIn, TxOut CtxUTxO era)]
+</span><span class="hs-identifier hs-var">UTxO.toList</span></span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="Hydra.Tx.Contract.PartialFanout.html#healthyFullUTxO"><span class="hs-identifier hs-var">Partial.healthyFullUTxO</span></a></span><span>
+</span><span id="line-56"></span><span>
+</span><span id="line-57"></span><span class="annot"><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#victimUTxO"><span class="hs-identifier hs-type">victimUTxO</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span><span>
+</span><span id="line-58"></span><span id="victimUTxO"><span class="annot"><span class="annottext">victimUTxO :: UTxO
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#victimUTxO"><span class="hs-identifier hs-var hs-var">victimUTxO</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[(TxIn, TxOut CtxUTxO Era)] -&gt; UTxO
+forall era. [(TxIn, TxOut CtxUTxO era)] -&gt; UTxO era
+</span><span class="hs-identifier hs-var">UTxO.fromList</span></span><span> </span><span class="annot"><span class="annottext">([(TxIn, TxOut CtxUTxO Era)] -&gt; UTxO)
+-&gt; [(TxIn, TxOut CtxUTxO Era)] -&gt; UTxO
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; [(TxIn, TxOut CtxUTxO Era)] -&gt; [(TxIn, TxOut CtxUTxO Era)]
+forall a. Int -&gt; [a] -&gt; [a]
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.List.html#take"><span class="hs-identifier hs-var">take</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">1</span></span><span> </span><span class="annot"><span class="annottext">([(TxIn, TxOut CtxUTxO Era)] -&gt; [(TxIn, TxOut CtxUTxO Era)])
+-&gt; [(TxIn, TxOut CtxUTxO Era)] -&gt; [(TxIn, TxOut CtxUTxO Era)]
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO -&gt; [(TxIn, TxOut CtxUTxO Era)]
+forall era. UTxO era -&gt; [(TxIn, TxOut CtxUTxO era)]
+</span><span class="hs-identifier hs-var">UTxO.toList</span></span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#liveUTxO"><span class="hs-identifier hs-var">liveUTxO</span></a></span><span>
+</span><span id="line-59"></span><span>
+</span><span id="line-60"></span><span class="annot"><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#firstBatchUTxO"><span class="hs-identifier hs-type">firstBatchUTxO</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span><span>
+</span><span id="line-61"></span><span id="firstBatchUTxO"><span class="annot"><span class="annottext">firstBatchUTxO :: UTxO
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#firstBatchUTxO"><span class="hs-identifier hs-var hs-var">firstBatchUTxO</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[(TxIn, TxOut CtxUTxO Era)] -&gt; UTxO
+forall era. [(TxIn, TxOut CtxUTxO era)] -&gt; UTxO era
+</span><span class="hs-identifier hs-var">UTxO.fromList</span></span><span> </span><span class="annot"><span class="annottext">([(TxIn, TxOut CtxUTxO Era)] -&gt; UTxO)
+-&gt; [(TxIn, TxOut CtxUTxO Era)] -&gt; UTxO
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; [(TxIn, TxOut CtxUTxO Era)] -&gt; [(TxIn, TxOut CtxUTxO Era)]
+forall a. Int -&gt; [a] -&gt; [a]
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.List.html#take"><span class="hs-identifier hs-var">take</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">1</span></span><span> </span><span class="annot"><span class="annottext">([(TxIn, TxOut CtxUTxO Era)] -&gt; [(TxIn, TxOut CtxUTxO Era)])
+-&gt; [(TxIn, TxOut CtxUTxO Era)] -&gt; [(TxIn, TxOut CtxUTxO Era)]
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; [(TxIn, TxOut CtxUTxO Era)] -&gt; [(TxIn, TxOut CtxUTxO Era)]
+forall a. Int -&gt; [a] -&gt; [a]
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.List.html#drop"><span class="hs-identifier hs-var">drop</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">1</span></span><span> </span><span class="annot"><span class="annottext">([(TxIn, TxOut CtxUTxO Era)] -&gt; [(TxIn, TxOut CtxUTxO Era)])
+-&gt; [(TxIn, TxOut CtxUTxO Era)] -&gt; [(TxIn, TxOut CtxUTxO Era)]
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO -&gt; [(TxIn, TxOut CtxUTxO Era)]
+forall era. UTxO era -&gt; [(TxIn, TxOut CtxUTxO era)]
+</span><span class="hs-identifier hs-var">UTxO.toList</span></span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#liveUTxO"><span class="hs-identifier hs-var">liveUTxO</span></a></span><span>
+</span><span id="line-62"></span><span>
+</span><span id="line-63"></span><span class="annot"><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#lastBatchUTxO"><span class="hs-identifier hs-type">lastBatchUTxO</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span><span>
+</span><span id="line-64"></span><span id="lastBatchUTxO"><span class="annot"><span class="annottext">lastBatchUTxO :: UTxO
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#lastBatchUTxO"><span class="hs-identifier hs-var hs-var">lastBatchUTxO</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[(TxIn, TxOut CtxUTxO Era)] -&gt; UTxO
+forall era. [(TxIn, TxOut CtxUTxO era)] -&gt; UTxO era
+</span><span class="hs-identifier hs-var">UTxO.fromList</span></span><span> </span><span class="annot"><span class="annottext">([(TxIn, TxOut CtxUTxO Era)] -&gt; UTxO)
+-&gt; [(TxIn, TxOut CtxUTxO Era)] -&gt; UTxO
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; [(TxIn, TxOut CtxUTxO Era)] -&gt; [(TxIn, TxOut CtxUTxO Era)]
+forall a. Int -&gt; [a] -&gt; [a]
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.List.html#take"><span class="hs-identifier hs-var">take</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">1</span></span><span> </span><span class="annot"><span class="annottext">([(TxIn, TxOut CtxUTxO Era)] -&gt; [(TxIn, TxOut CtxUTxO Era)])
+-&gt; [(TxIn, TxOut CtxUTxO Era)] -&gt; [(TxIn, TxOut CtxUTxO Era)]
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; [(TxIn, TxOut CtxUTxO Era)] -&gt; [(TxIn, TxOut CtxUTxO Era)]
+forall a. Int -&gt; [a] -&gt; [a]
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.List.html#drop"><span class="hs-identifier hs-var">drop</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">2</span></span><span> </span><span class="annot"><span class="annottext">([(TxIn, TxOut CtxUTxO Era)] -&gt; [(TxIn, TxOut CtxUTxO Era)])
+-&gt; [(TxIn, TxOut CtxUTxO Era)] -&gt; [(TxIn, TxOut CtxUTxO Era)]
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO -&gt; [(TxIn, TxOut CtxUTxO Era)]
+forall era. UTxO era -&gt; [(TxIn, TxOut CtxUTxO era)]
+</span><span class="hs-identifier hs-var">UTxO.toList</span></span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#liveUTxO"><span class="hs-identifier hs-var">liveUTxO</span></a></span><span>
+</span><span id="line-65"></span><span>
+</span><span id="line-66"></span><span class="annot"><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#nonVictimUTxO"><span class="hs-identifier hs-type">nonVictimUTxO</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span><span>
+</span><span id="line-67"></span><span id="nonVictimUTxO"><span class="annot"><span class="annottext">nonVictimUTxO :: UTxO
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#nonVictimUTxO"><span class="hs-identifier hs-var hs-var">nonVictimUTxO</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#liveUTxO"><span class="hs-identifier hs-var">liveUTxO</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO -&gt; UTxO -&gt; UTxO
+forall era. UTxO era -&gt; UTxO era -&gt; UTxO era
+</span><span class="hs-operator hs-var">`UTxO.difference`</span></span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#victimUTxO"><span class="hs-identifier hs-var">victimUTxO</span></a></span><span>
+</span><span id="line-68"></span><span>
+</span><span id="line-69"></span><span class="hs-comment">-- | An output excluded from the amount the head owes. Its value is changed to</span><span>
+</span><span id="line-70"></span><span class="hs-comment">-- exactly equal the victim, while its address and TxIn remain different.</span><span>
+</span><span id="line-71"></span><span class="annot"><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#excludedUTxO"><span class="hs-identifier hs-type">excludedUTxO</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span><span>
+</span><span id="line-72"></span><span id="excludedUTxO"><span class="annot"><span class="annottext">excludedUTxO :: UTxO
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#excludedUTxO"><span class="hs-identifier hs-var hs-var">excludedUTxO</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-73"></span><span>  </span><span class="annot"><span class="annottext">(TxOut CtxUTxO Era -&gt; TxOut CtxUTxO Era) -&gt; UTxO -&gt; UTxO
+forall era.
+(TxOut CtxUTxO era -&gt; TxOut CtxUTxO era) -&gt; UTxO era -&gt; UTxO era
+</span><span class="hs-identifier hs-var">UTxO.map</span></span><span>
+</span><span id="line-74"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(Value -&gt; Value) -&gt; TxOut CtxUTxO Era -&gt; TxOut CtxUTxO Era
+forall era ctx.
+IsMaryBasedEra era =&gt;
+(Value -&gt; Value) -&gt; TxOut ctx era -&gt; TxOut ctx era
+</span><span class="hs-identifier hs-var">modifyTxOutValue</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Value -&gt; Value -&gt; Value
+forall a b. a -&gt; b -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#const"><span class="hs-identifier hs-var">const</span></a></span><span> </span><span class="annot"><span class="annottext">(Value -&gt; Value -&gt; Value) -&gt; Value -&gt; Value -&gt; Value
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO -&gt; Value
+forall era. UTxO era -&gt; Value
+</span><span class="hs-identifier hs-var">UTxO.totalValue</span></span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#victimUTxO"><span class="hs-identifier hs-var">victimUTxO</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-75"></span><span>    </span><span class="annot"><span class="annottext">UTxO
+</span><a href="Hydra.Tx.Contract.PartialFanout.html#presettledUTxO"><span class="hs-identifier hs-var">Partial.presettledUTxO</span></a></span><span>
+</span><span id="line-76"></span><span>
+</span><span id="line-77"></span><span class="annot"><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#substitutedFullUTxO"><span class="hs-identifier hs-type">substitutedFullUTxO</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span><span>
+</span><span id="line-78"></span><span id="substitutedFullUTxO"><span class="annot"><span class="annottext">substitutedFullUTxO :: UTxO
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#substitutedFullUTxO"><span class="hs-identifier hs-var hs-var">substitutedFullUTxO</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#nonVictimUTxO"><span class="hs-identifier hs-var">nonVictimUTxO</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO -&gt; UTxO -&gt; UTxO
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#excludedUTxO"><span class="hs-identifier hs-var">excludedUTxO</span></a></span><span>
+</span><span id="line-79"></span><span>
+</span><span id="line-80"></span><span class="annot"><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#scenarioFor"><span class="hs-identifier hs-type">scenarioFor</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#Settlement"><span class="hs-identifier hs-type">Settlement</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#FanoutIdentityScenario"><span class="hs-identifier hs-type">FanoutIdentityScenario</span></a></span><span>
+</span><span id="line-81"></span><span id="scenarioFor"><span class="annot"><span class="annottext">scenarioFor :: Settlement -&gt; FanoutIdentityScenario
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#scenarioFor"><span class="hs-identifier hs-var hs-var">scenarioFor</span></a></span></span><span> </span><span id="local-6989586621679506776"><span class="annot"><span class="annottext">Settlement
+</span><a href="#local-6989586621679506776"><span class="hs-identifier hs-var">settlement</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-82"></span><span>  </span><span class="annot"><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#FanoutIdentityScenario"><span class="hs-identifier hs-type">FanoutIdentityScenario</span></a></span><span>
+</span><span id="line-83"></span><span>    </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">$sel:scenarioName:FanoutIdentityScenario :: String
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#%24sel%3AscenarioName%3AFanoutIdentityScenario"><span class="hs-identifier hs-var">scenarioName</span></a></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-84"></span><span>        </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Settlement
+</span><a href="#local-6989586621679506776"><span class="hs-identifier hs-var">settlement</span></a></span><span> </span><span class="annot"><span class="annottext">Settlement -&gt; Settlement -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3D%3D"><span class="hs-operator hs-var">==</span></a></span><span> </span><span class="annot"><span class="annottext">Settlement
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#SettledDecommit"><span class="hs-identifier hs-var">SettledDecommit</span></a></span><span>
+</span><span id="line-85"></span><span>          </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;settled decommit / CloseUsed&quot;</span></span><span>
+</span><span id="line-86"></span><span>          </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;unabsorbed deposit / CloseUnused&quot;</span></span><span>
+</span><span id="line-87"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:validClose:FanoutIdentityScenario :: (Tx, UTxO)
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#%24sel%3AvalidClose%3AFanoutIdentityScenario"><span class="hs-identifier hs-var">validClose</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Tx, UTxO)
+</span><a href="#local-6989586621679506777"><span class="hs-identifier hs-var">closed</span></a></span><span>
+</span><span id="line-88"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:validFullFanout:FanoutIdentityScenario :: (Tx, UTxO)
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#%24sel%3AvalidFullFanout%3AFanoutIdentityScenario"><span class="hs-identifier hs-var">validFullFanout</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UTxO -&gt; (Tx, UTxO)
+</span><a href="#local-6989586621679506778"><span class="hs-identifier hs-var">full</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#liveUTxO"><span class="hs-identifier hs-var">liveUTxO</span></a></span><span>
+</span><span id="line-89"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:substitutedFullFanout:FanoutIdentityScenario :: (Tx, UTxO)
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#%24sel%3AsubstitutedFullFanout%3AFanoutIdentityScenario"><span class="hs-identifier hs-var">substitutedFullFanout</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UTxO -&gt; (Tx, UTxO)
+</span><a href="#local-6989586621679506778"><span class="hs-identifier hs-var">full</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#substitutedFullUTxO"><span class="hs-identifier hs-var">substitutedFullUTxO</span></a></span><span>
+</span><span id="line-90"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:validPartialFromClosed:FanoutIdentityScenario :: (Tx, UTxO)
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#%24sel%3AvalidPartialFromClosed%3AFanoutIdentityScenario"><span class="hs-identifier hs-var">validPartialFromClosed</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UTxO -&gt; UTxO -&gt; (Tx, UTxO)
+</span><a href="#local-6989586621679506779"><span class="hs-identifier hs-var">firstPartial</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#firstBatchUTxO"><span class="hs-identifier hs-var">firstBatchUTxO</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">UTxO
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#victimUTxO"><span class="hs-identifier hs-var">victimUTxO</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO -&gt; UTxO -&gt; UTxO
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#lastBatchUTxO"><span class="hs-identifier hs-var">lastBatchUTxO</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-91"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:substitutedPartialFromClosed:FanoutIdentityScenario :: (Tx, UTxO)
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#%24sel%3AsubstitutedPartialFromClosed%3AFanoutIdentityScenario"><span class="hs-identifier hs-var">substitutedPartialFromClosed</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UTxO -&gt; UTxO -&gt; (Tx, UTxO)
+</span><a href="#local-6989586621679506779"><span class="hs-identifier hs-var">firstPartial</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#excludedUTxO"><span class="hs-identifier hs-var">excludedUTxO</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#nonVictimUTxO"><span class="hs-identifier hs-var">nonVictimUTxO</span></a></span><span>
+</span><span id="line-92"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:validPartialFromProgress:FanoutIdentityScenario :: (Tx, UTxO)
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#%24sel%3AvalidPartialFromProgress%3AFanoutIdentityScenario"><span class="hs-identifier hs-var">validPartialFromProgress</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UTxO -&gt; UTxO -&gt; (Tx, UTxO)
+</span><a href="#local-6989586621679506780"><span class="hs-identifier hs-var">secondPartial</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#lastBatchUTxO"><span class="hs-identifier hs-var">lastBatchUTxO</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#victimUTxO"><span class="hs-identifier hs-var">victimUTxO</span></a></span><span>
+</span><span id="line-93"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:substitutedPartialFromProgress:FanoutIdentityScenario :: (Tx, UTxO)
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#%24sel%3AsubstitutedPartialFromProgress%3AFanoutIdentityScenario"><span class="hs-identifier hs-var">substitutedPartialFromProgress</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UTxO -&gt; UTxO -&gt; (Tx, UTxO)
+</span><a href="#local-6989586621679506780"><span class="hs-identifier hs-var">secondPartial</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#excludedUTxO"><span class="hs-identifier hs-var">excludedUTxO</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#lastBatchUTxO"><span class="hs-identifier hs-var">lastBatchUTxO</span></a></span><span>
+</span><span id="line-94"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:validFinalPartialFanout:FanoutIdentityScenario :: (Tx, UTxO)
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#%24sel%3AvalidFinalPartialFanout%3AFanoutIdentityScenario"><span class="hs-identifier hs-var">validFinalPartialFanout</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UTxO -&gt; (Tx, UTxO)
+</span><a href="#local-6989586621679506781"><span class="hs-identifier hs-var">finalPartial</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#victimUTxO"><span class="hs-identifier hs-var">victimUTxO</span></a></span><span>
+</span><span id="line-95"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:substitutedFinalPartialFanout:FanoutIdentityScenario :: (Tx, UTxO)
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#%24sel%3AsubstitutedFinalPartialFanout%3AFanoutIdentityScenario"><span class="hs-identifier hs-var">substitutedFinalPartialFanout</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UTxO -&gt; (Tx, UTxO)
+</span><a href="#local-6989586621679506781"><span class="hs-identifier hs-var">finalPartial</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#excludedUTxO"><span class="hs-identifier hs-var">excludedUTxO</span></a></span><span>
+</span><span id="line-96"></span><span>    </span><span class="hs-special">}</span><span>
+</span><span id="line-97"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-98"></span><span>  </span><span id="local-6989586621679506782"><span class="annot"><span class="annottext">snapshot :: Snapshot Tx
+</span><a href="#local-6989586621679506782"><span class="hs-identifier hs-var hs-var">snapshot</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Settlement -&gt; Snapshot Tx
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#snapshotFor"><span class="hs-identifier hs-var">snapshotFor</span></a></span><span> </span><span class="annot"><span class="annottext">Settlement
+</span><a href="#local-6989586621679506776"><span class="hs-identifier hs-var">settlement</span></a></span><span>
+</span><span id="line-99"></span><span>  </span><span id="local-6989586621679506777"><span class="annot"><span class="annottext">closed :: (Tx, UTxO)
+</span><a href="#local-6989586621679506777"><span class="hs-identifier hs-var hs-var">closed</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Settlement -&gt; Snapshot Tx -&gt; (Tx, UTxO)
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#closeFor"><span class="hs-identifier hs-var">closeFor</span></a></span><span> </span><span class="annot"><span class="annottext">Settlement
+</span><a href="#local-6989586621679506776"><span class="hs-identifier hs-var">settlement</span></a></span><span> </span><span class="annot"><span class="annottext">Snapshot Tx
+</span><a href="#local-6989586621679506782"><span class="hs-identifier hs-var">snapshot</span></a></span><span>
+</span><span id="line-100"></span><span>
+</span><span id="line-101"></span><span>  </span><span id="local-6989586621679506778"><span class="annot"><span class="annottext">full :: UTxO -&gt; (Tx, UTxO)
+</span><a href="#local-6989586621679506778"><span class="hs-identifier hs-var hs-var">full</span></a></span></span><span> </span><span id="local-6989586621679506785"><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621679506785"><span class="hs-identifier hs-var">distributed</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-102"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679506786"><span class="annot"><span class="annottext">headInput :: (TxIn, TxOut CtxUTxO Era)
+</span><a href="#local-6989586621679506786"><span class="hs-identifier hs-var hs-var">headInput</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Tx -&gt; (TxIn, TxOut CtxUTxO Era)
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#outputOf"><span class="hs-identifier hs-var">outputOf</span></a></span><span> </span><span class="annot"><span class="annottext">(Tx -&gt; (TxIn, TxOut CtxUTxO Era))
+-&gt; Tx -&gt; (TxIn, TxOut CtxUTxO Era)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">(Tx, UTxO) -&gt; Tx
+forall a b. (a, b) -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Tuple.html#fst"><span class="hs-identifier hs-var">fst</span></a></span><span> </span><span class="annot"><span class="annottext">(Tx, UTxO)
+</span><a href="#local-6989586621679506777"><span class="hs-identifier hs-var">closed</span></a></span><span>
+</span><span id="line-103"></span><span>        </span><span id="local-6989586621679506789"><span class="annot"><span class="annottext">tx :: Tx
+</span><a href="#local-6989586621679506789"><span class="hs-identifier hs-var hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-104"></span><span>          </span><span class="annot"><span class="annottext">Tx -&gt; Either Text Tx -&gt; Tx
+forall b a. b -&gt; Either a b -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#fromRight"><span class="hs-identifier hs-var">fromRight</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; Tx
+forall a t. (HasCallStack, IsText t) =&gt; t -&gt; a
+</span><span class="hs-identifier hs-var">error</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;fanout identity fixture: cannot build full fanout proof&quot;</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Either Text Tx -&gt; Tx) -&gt; Either Text Tx -&gt; Tx
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-105"></span><span>            </span><span class="annot"><span class="annottext">ScriptRegistry
+-&gt; UTxO
+-&gt; Maybe UTxO
+-&gt; Maybe UTxO
+-&gt; (TxIn, TxOut CtxUTxO Era)
+-&gt; SlotNo
+-&gt; PlutusScript
+-&gt; Either Text Tx
+</span><span class="hs-identifier hs-var">fanoutTx</span></span><span>
+</span><span id="line-106"></span><span>              </span><span class="annot"><span class="annottext">ScriptRegistry
+</span><a href="Hydra.Tx.Contract.PartialFanout.html#scriptRegistry"><span class="hs-identifier hs-var">Partial.scriptRegistry</span></a></span><span>
+</span><span id="line-107"></span><span>              </span><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621679506785"><span class="hs-identifier hs-var">distributed</span></a></span><span>
+</span><span id="line-108"></span><span>              </span><span class="annot"><span class="annottext">Maybe UTxO
+forall a. Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span>
+</span><span id="line-109"></span><span>              </span><span class="annot"><span class="annottext">Maybe UTxO
+forall a. Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span>
+</span><span id="line-110"></span><span>              </span><span class="annot"><span class="annottext">(TxIn, TxOut CtxUTxO Era)
+</span><a href="#local-6989586621679506786"><span class="hs-identifier hs-var">headInput</span></a></span><span>
+</span><span id="line-111"></span><span>              </span><span class="annot"><span class="annottext">SlotNo
+</span><a href="Hydra.Tx.Contract.PartialFanout.html#healthySlotNo"><span class="hs-identifier hs-var">Partial.healthySlotNo</span></a></span><span>
+</span><span id="line-112"></span><span>              </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TxIn -&gt; PlutusScript
+</span><span class="hs-identifier hs-var">mkHeadTokenScript</span></span><span> </span><span class="annot"><span class="annottext">TxIn
+</span><span class="hs-identifier hs-var">testSeedInput</span></span><span class="hs-special">)</span><span>
+</span><span id="line-113"></span><span>     </span><span class="hs-keyword">in</span><span> </span><span class="annot"><span class="annottext">Tx -&gt; (TxIn, TxOut CtxUTxO Era) -&gt; (Tx, UTxO)
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#withLookup"><span class="hs-identifier hs-var">withLookup</span></a></span><span> </span><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621679506789"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="annot"><span class="annottext">(TxIn, TxOut CtxUTxO Era)
+</span><a href="#local-6989586621679506786"><span class="hs-identifier hs-var">headInput</span></a></span><span>
+</span><span id="line-114"></span><span>
+</span><span id="line-115"></span><span>  </span><span id="local-6989586621679506796"><span class="annot"><span class="annottext">partial :: (TxIn, TxOut CtxUTxO Era) -&gt; UTxO -&gt; UTxO -&gt; (Tx, UTxO)
+</span><a href="#local-6989586621679506796"><span class="hs-identifier hs-var hs-var">partial</span></a></span></span><span> </span><span id="local-6989586621679506797"><span class="annot"><span class="annottext">headInput :: (TxIn, TxOut CtxUTxO Era)
+</span><a href="#local-6989586621679506797"><span class="hs-identifier hs-var">headInput</span></a></span></span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><span class="annottext">TxIn
+</span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679506798"><span class="annot"><span class="annottext">TxOut CtxUTxO Era
+</span><a href="#local-6989586621679506798"><span class="hs-identifier hs-var">headOutput</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621679506799"><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621679506799"><span class="hs-identifier hs-var">distributed</span></a></span></span><span> </span><span id="local-6989586621679506800"><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621679506800"><span class="hs-identifier hs-var">remaining</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-116"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679506801"><span class="annot"><span class="annottext">tx :: Tx
+</span><a href="#local-6989586621679506801"><span class="hs-identifier hs-var hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-117"></span><span>          </span><span class="annot"><span class="annottext">ScriptRegistry
+-&gt; UTxO
+-&gt; (TxIn, TxOut CtxUTxO Era)
+-&gt; SlotNo
+-&gt; FanoutProgressDatum
+-&gt; HydraAccumulator
+-&gt; Tx
+</span><span class="hs-identifier hs-var">partialFanoutTx</span></span><span>
+</span><span id="line-118"></span><span>            </span><span class="annot"><span class="annottext">ScriptRegistry
+</span><a href="Hydra.Tx.Contract.PartialFanout.html#scriptRegistry"><span class="hs-identifier hs-var">Partial.scriptRegistry</span></a></span><span>
+</span><span id="line-119"></span><span>            </span><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621679506799"><span class="hs-identifier hs-var">distributed</span></a></span><span>
+</span><span id="line-120"></span><span>            </span><span class="annot"><span class="annottext">(TxIn, TxOut CtxUTxO Era)
+</span><a href="#local-6989586621679506797"><span class="hs-identifier hs-var">headInput</span></a></span><span>
+</span><span id="line-121"></span><span>            </span><span class="annot"><span class="annottext">SlotNo
+</span><a href="Hydra.Tx.Contract.PartialFanout.html#healthySlotNo"><span class="hs-identifier hs-var">Partial.healthySlotNo</span></a></span><span>
+</span><span id="line-122"></span><span>            </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TxOut CtxUTxO Era -&gt; FanoutProgressDatum
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#progressDatum"><span class="hs-identifier hs-var">progressDatum</span></a></span><span> </span><span class="annot"><span class="annottext">TxOut CtxUTxO Era
+</span><a href="#local-6989586621679506798"><span class="hs-identifier hs-var">headOutput</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-123"></span><span>            </span><span class="hs-special">(</span><span class="annot"><span class="annottext">forall tx. IsTx tx =&gt; UTxOType tx -&gt; HydraAccumulator
+</span><span class="hs-identifier hs-var">Accumulator.buildFromUTxO</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="annot"><span class="annottext">UTxO
+UTxOType Tx
+</span><a href="#local-6989586621679506800"><span class="hs-identifier hs-var">remaining</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-124"></span><span>     </span><span class="hs-keyword">in</span><span> </span><span class="annot"><span class="annottext">Tx -&gt; (TxIn, TxOut CtxUTxO Era) -&gt; (Tx, UTxO)
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#withLookup"><span class="hs-identifier hs-var">withLookup</span></a></span><span> </span><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621679506801"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="annot"><span class="annottext">(TxIn, TxOut CtxUTxO Era)
+</span><a href="#local-6989586621679506797"><span class="hs-identifier hs-var">headInput</span></a></span><span>
+</span><span id="line-125"></span><span>
+</span><span id="line-126"></span><span>  </span><span id="local-6989586621679506779"><span class="annot"><span class="annottext">firstPartial :: UTxO -&gt; UTxO -&gt; (Tx, UTxO)
+</span><a href="#local-6989586621679506779"><span class="hs-identifier hs-var hs-var">firstPartial</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(TxIn, TxOut CtxUTxO Era) -&gt; UTxO -&gt; UTxO -&gt; (Tx, UTxO)
+</span><a href="#local-6989586621679506796"><span class="hs-identifier hs-var">partial</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Tx -&gt; (TxIn, TxOut CtxUTxO Era)
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#outputOf"><span class="hs-identifier hs-var">outputOf</span></a></span><span> </span><span class="annot"><span class="annottext">(Tx -&gt; (TxIn, TxOut CtxUTxO Era))
+-&gt; Tx -&gt; (TxIn, TxOut CtxUTxO Era)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">(Tx, UTxO) -&gt; Tx
+forall a b. (a, b) -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Tuple.html#fst"><span class="hs-identifier hs-var">fst</span></a></span><span> </span><span class="annot"><span class="annottext">(Tx, UTxO)
+</span><a href="#local-6989586621679506777"><span class="hs-identifier hs-var">closed</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-127"></span><span>
+</span><span id="line-128"></span><span>  </span><span class="hs-comment">-- Use the output of the valid first step so this is a reachable</span><span>
+</span><span id="line-129"></span><span>  </span><span class="hs-comment">-- FanoutProgress -&gt; FanoutProgress transition.</span><span>
+</span><span id="line-130"></span><span>  </span><span id="local-6989586621679506780"><span class="annot"><span class="annottext">secondPartial :: UTxO -&gt; UTxO -&gt; (Tx, UTxO)
+</span><a href="#local-6989586621679506780"><span class="hs-identifier hs-var hs-var">secondPartial</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(TxIn, TxOut CtxUTxO Era) -&gt; UTxO -&gt; UTxO -&gt; (Tx, UTxO)
+</span><a href="#local-6989586621679506796"><span class="hs-identifier hs-var">partial</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Tx -&gt; (TxIn, TxOut CtxUTxO Era)
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#outputOf"><span class="hs-identifier hs-var">outputOf</span></a></span><span> </span><span class="annot"><span class="annottext">(Tx -&gt; (TxIn, TxOut CtxUTxO Era))
+-&gt; Tx -&gt; (TxIn, TxOut CtxUTxO Era)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">(Tx, UTxO) -&gt; Tx
+forall a b. (a, b) -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Tuple.html#fst"><span class="hs-identifier hs-var">fst</span></a></span><span> </span><span class="annot"><span class="annottext">((Tx, UTxO) -&gt; Tx) -&gt; (Tx, UTxO) -&gt; Tx
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO -&gt; UTxO -&gt; (Tx, UTxO)
+</span><a href="#local-6989586621679506779"><span class="hs-identifier hs-var">firstPartial</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#firstBatchUTxO"><span class="hs-identifier hs-var">firstBatchUTxO</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">UTxO
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#victimUTxO"><span class="hs-identifier hs-var">victimUTxO</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO -&gt; UTxO -&gt; UTxO
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#lastBatchUTxO"><span class="hs-identifier hs-var">lastBatchUTxO</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-131"></span><span>
+</span><span id="line-132"></span><span>  </span><span class="hs-comment">-- Use the output of both valid partial steps. The attack proof is complete</span><span>
+</span><span id="line-133"></span><span>  </span><span class="hs-comment">-- for the excluded output itself, so completeness and value conservation</span><span>
+</span><span id="line-134"></span><span>  </span><span class="hs-comment">-- pass; membership against the live victim is the rejecting condition.</span><span>
+</span><span id="line-135"></span><span>  </span><span id="local-6989586621679506781"><span class="annot"><span class="annottext">finalPartial :: UTxO -&gt; (Tx, UTxO)
+</span><a href="#local-6989586621679506781"><span class="hs-identifier hs-var hs-var">finalPartial</span></a></span></span><span> </span><span id="local-6989586621679506804"><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621679506804"><span class="hs-identifier hs-var">distributed</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-136"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679506805"><span class="annot"><span class="annottext">headInput :: (TxIn, TxOut CtxUTxO Era)
+</span><a href="#local-6989586621679506805"><span class="hs-identifier hs-var hs-var">headInput</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-137"></span><span>          </span><span class="annot"><span class="annottext">Tx -&gt; (TxIn, TxOut CtxUTxO Era)
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#outputOf"><span class="hs-identifier hs-var">outputOf</span></a></span><span> </span><span class="annot"><span class="annottext">(Tx -&gt; (TxIn, TxOut CtxUTxO Era))
+-&gt; ((Tx, UTxO) -&gt; Tx) -&gt; (Tx, UTxO) -&gt; (TxIn, TxOut CtxUTxO Era)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">(Tx, UTxO) -&gt; Tx
+forall a b. (a, b) -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Tuple.html#fst"><span class="hs-identifier hs-var">fst</span></a></span><span> </span><span class="annot"><span class="annottext">((Tx, UTxO) -&gt; (TxIn, TxOut CtxUTxO Era))
+-&gt; (Tx, UTxO) -&gt; (TxIn, TxOut CtxUTxO Era)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-138"></span><span>            </span><span class="annot"><span class="annottext">UTxO -&gt; UTxO -&gt; (Tx, UTxO)
+</span><a href="#local-6989586621679506780"><span class="hs-identifier hs-var">secondPartial</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#lastBatchUTxO"><span class="hs-identifier hs-var">lastBatchUTxO</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#victimUTxO"><span class="hs-identifier hs-var">victimUTxO</span></a></span><span>
+</span><span id="line-139"></span><span>        </span><span id="local-6989586621679506807"><span class="annot"><span class="annottext">tx :: Tx
+</span><a href="#local-6989586621679506807"><span class="hs-identifier hs-var hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-140"></span><span>          </span><span class="annot"><span class="annottext">Tx -&gt; Either Text Tx -&gt; Tx
+forall b a. b -&gt; Either a b -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#fromRight"><span class="hs-identifier hs-var">fromRight</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; Tx
+forall a t. (HasCallStack, IsText t) =&gt; t -&gt; a
+</span><span class="hs-identifier hs-var">error</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;fanout identity fixture: cannot build final fanout proof&quot;</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Either Text Tx -&gt; Tx) -&gt; Either Text Tx -&gt; Tx
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-141"></span><span>            </span><span class="annot"><span class="annottext">ScriptRegistry
+-&gt; UTxO
+-&gt; HydraAccumulator
+-&gt; (TxIn, TxOut CtxUTxO Era)
+-&gt; SlotNo
+-&gt; PlutusScript
+-&gt; Either Text Tx
+</span><span class="hs-identifier hs-var">finalPartialFanoutTx</span></span><span>
+</span><span id="line-142"></span><span>              </span><span class="annot"><span class="annottext">ScriptRegistry
+</span><a href="Hydra.Tx.Contract.PartialFanout.html#scriptRegistry"><span class="hs-identifier hs-var">Partial.scriptRegistry</span></a></span><span>
+</span><span id="line-143"></span><span>              </span><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621679506804"><span class="hs-identifier hs-var">distributed</span></a></span><span>
+</span><span id="line-144"></span><span>              </span><span class="hs-special">(</span><span class="annot"><span class="annottext">forall tx. IsTx tx =&gt; UTxOType tx -&gt; HydraAccumulator
+</span><span class="hs-identifier hs-var">Accumulator.buildFromUTxO</span></span><span> </span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="annot"><span class="annottext">UTxO
+UTxOType Tx
+</span><a href="#local-6989586621679506804"><span class="hs-identifier hs-var">distributed</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-145"></span><span>              </span><span class="annot"><span class="annottext">(TxIn, TxOut CtxUTxO Era)
+</span><a href="#local-6989586621679506805"><span class="hs-identifier hs-var">headInput</span></a></span><span>
+</span><span id="line-146"></span><span>              </span><span class="annot"><span class="annottext">SlotNo
+</span><a href="Hydra.Tx.Contract.PartialFanout.html#healthySlotNo"><span class="hs-identifier hs-var">Partial.healthySlotNo</span></a></span><span>
+</span><span id="line-147"></span><span>              </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TxIn -&gt; PlutusScript
+</span><span class="hs-identifier hs-var">mkHeadTokenScript</span></span><span> </span><span class="annot"><span class="annottext">TxIn
+</span><span class="hs-identifier hs-var">testSeedInput</span></span><span class="hs-special">)</span><span>
+</span><span id="line-148"></span><span>     </span><span class="hs-keyword">in</span><span> </span><span class="annot"><span class="annottext">Tx -&gt; (TxIn, TxOut CtxUTxO Era) -&gt; (Tx, UTxO)
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#withLookup"><span class="hs-identifier hs-var">withLookup</span></a></span><span> </span><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621679506807"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="annot"><span class="annottext">(TxIn, TxOut CtxUTxO Era)
+</span><a href="#local-6989586621679506805"><span class="hs-identifier hs-var">headInput</span></a></span><span>
+</span><span id="line-149"></span><span>
+</span><span id="line-150"></span><span class="annot"><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#snapshotFor"><span class="hs-identifier hs-type">snapshotFor</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#Settlement"><span class="hs-identifier hs-type">Settlement</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Snapshot</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span>
+</span><span id="line-151"></span><span id="snapshotFor"><span class="annot"><span class="annottext">snapshotFor :: Settlement -&gt; Snapshot Tx
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#snapshotFor"><span class="hs-identifier hs-var hs-var">snapshotFor</span></a></span></span><span> </span><span id="local-6989586621679506808"><span class="annot"><span class="annottext">Settlement
+</span><a href="#local-6989586621679506808"><span class="hs-identifier hs-var">settlement</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-152"></span><span>  </span><span class="annot"><span class="annottext">Snapshot Tx
+</span><a href="Hydra.Tx.Contract.PartialFanout.html#presettledSnapshot"><span class="hs-identifier hs-var">Partial.presettledSnapshot</span></a></span><span>
+</span><span id="line-153"></span><span>    </span><span class="hs-special">{</span><span> </span><span class="hs-identifier">utxo</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#liveUTxO"><span class="hs-identifier hs-type">liveUTxO</span></a></span><span>
+</span><span id="line-154"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-var">utxoToCommit</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="#local-6989586621679506811"><span class="hs-identifier hs-type">pendingCommit</span></a></span><span>
+</span><span id="line-155"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-var">utxoToDecommit</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="#local-6989586621679506813"><span class="hs-identifier hs-type">pendingDecommit</span></a></span><span>
+</span><span id="line-156"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-var">depositTxId</span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-157"></span><span>        </span><span class="hs-keyword">if</span><span> </span><span class="annot"><a href="#local-6989586621679506815"><span class="hs-identifier hs-type">settledDecommit</span></a></span><span>
+</span><span id="line-158"></span><span>          </span><span class="hs-keyword">then</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-type">Nothing</span></a></span><span>
+</span><span id="line-159"></span><span>          </span><span class="hs-keyword">else</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679506816"><span class="hs-identifier hs-type">depositId</span></a></span><span>
+</span><span id="line-160"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621679506817"><span class="hs-identifier hs-type hs-var">accumulator</span></a></span><span>
+</span><span id="line-161"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621679506819"><span class="hs-identifier hs-type hs-var">appliedAccumulator</span></a></span><span>
+</span><span id="line-162"></span><span>    </span><span class="hs-special">}</span><span>
+</span><span id="line-163"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-164"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">TxIn</span></span><span> </span><span id="local-6989586621679506816"><span class="annot"><span class="annottext">TxId
+</span><a href="#local-6989586621679506816"><span class="hs-identifier hs-var">depositId</span></a></span></span><span> </span><span class="annot"><span class="annottext">TxIx
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TxIn
+</span><a href="Hydra.Tx.Contract.PartialFanout.html#presettledOpenHeadInput"><span class="hs-identifier hs-var">Partial.presettledOpenHeadInput</span></a></span><span>
+</span><span id="line-165"></span><span>  </span><span id="local-6989586621679506815"><span class="annot"><span class="annottext">settledDecommit :: Bool
+</span><a href="#local-6989586621679506815"><span class="hs-identifier hs-var hs-var">settledDecommit</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Settlement
+</span><a href="#local-6989586621679506808"><span class="hs-identifier hs-var">settlement</span></a></span><span> </span><span class="annot"><span class="annottext">Settlement -&gt; Settlement -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3D%3D"><span class="hs-operator hs-var">==</span></a></span><span> </span><span class="annot"><span class="annottext">Settlement
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#SettledDecommit"><span class="hs-identifier hs-var">SettledDecommit</span></a></span><span>
+</span><span id="line-166"></span><span>  </span><span id="local-6989586621679506811"><span class="annot"><span class="annottext">pendingCommit :: Maybe UTxO
+</span><a href="#local-6989586621679506811"><span class="hs-identifier hs-var hs-var">pendingCommit</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679506815"><span class="hs-identifier hs-var">settledDecommit</span></a></span><span> </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">Maybe UTxO
+forall a. Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span> </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">UTxO -&gt; Maybe UTxO
+forall a. a -&gt; Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#excludedUTxO"><span class="hs-identifier hs-var">excludedUTxO</span></a></span><span>
+</span><span id="line-167"></span><span>  </span><span id="local-6989586621679506813"><span class="annot"><span class="annottext">pendingDecommit :: Maybe UTxO
+</span><a href="#local-6989586621679506813"><span class="hs-identifier hs-var hs-var">pendingDecommit</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679506815"><span class="hs-identifier hs-var">settledDecommit</span></a></span><span> </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">UTxO -&gt; Maybe UTxO
+forall a. a -&gt; Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#excludedUTxO"><span class="hs-identifier hs-var">excludedUTxO</span></a></span><span> </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">Maybe UTxO
+forall a. Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span>
+</span><span id="line-168"></span><span>  </span><span class="hs-special">(</span><span id="local-6989586621679506817"><span class="annot"><span class="annottext">HydraAccumulator
+</span><a href="#local-6989586621679506817"><span class="hs-identifier hs-var">accumulator</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679506819"><span class="annot"><span class="annottext">HydraAccumulator
+</span><a href="#local-6989586621679506819"><span class="hs-identifier hs-var">appliedAccumulator</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-169"></span><span>    </span><span class="annot"><span class="annottext">UTxOType Tx
+-&gt; Maybe (UTxOType Tx)
+-&gt; Maybe (UTxOType Tx)
+-&gt; (HydraAccumulator, HydraAccumulator)
+forall tx.
+IsTx tx =&gt;
+UTxOType tx
+-&gt; Maybe (UTxOType tx)
+-&gt; Maybe (UTxOType tx)
+-&gt; (HydraAccumulator, HydraAccumulator)
+</span><span class="hs-identifier hs-var">Accumulator.buildFromSnapshotUTxOs</span></span><span> </span><span class="annot"><span class="annottext">UTxO
+UTxOType Tx
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#liveUTxO"><span class="hs-identifier hs-var">liveUTxO</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe UTxO
+Maybe (UTxOType Tx)
+</span><a href="#local-6989586621679506811"><span class="hs-identifier hs-var">pendingCommit</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe UTxO
+Maybe (UTxOType Tx)
+</span><a href="#local-6989586621679506813"><span class="hs-identifier hs-var">pendingDecommit</span></a></span><span>
+</span><span id="line-170"></span><span>
+</span><span id="line-171"></span><span class="annot"><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#closeFor"><span class="hs-identifier hs-type">closeFor</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#Settlement"><span class="hs-identifier hs-type">Settlement</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Snapshot</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span><span class="hs-special">)</span><span>
+</span><span id="line-172"></span><span id="closeFor"><span class="annot"><span class="annottext">closeFor :: Settlement -&gt; Snapshot Tx -&gt; (Tx, UTxO)
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#closeFor"><span class="hs-identifier hs-var hs-var">closeFor</span></a></span></span><span> </span><span id="local-6989586621679506824"><span class="annot"><span class="annottext">Settlement
+</span><a href="#local-6989586621679506824"><span class="hs-identifier hs-var">settlement</span></a></span></span><span> </span><span id="local-6989586621679506825"><span class="annot"><span class="annottext">Snapshot Tx
+</span><a href="#local-6989586621679506825"><span class="hs-identifier hs-var">snapshot</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621679506826"><span class="hs-identifier hs-var">tx</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621679506827"><span class="hs-identifier hs-var">lookupUTxO</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-173"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-174"></span><span>  </span><span id="local-6989586621679506828"><span class="annot"><span class="annottext">settledDecommit :: Bool
+</span><a href="#local-6989586621679506828"><span class="hs-identifier hs-var hs-var">settledDecommit</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Settlement
+</span><a href="#local-6989586621679506824"><span class="hs-identifier hs-var">settlement</span></a></span><span> </span><span class="annot"><span class="annottext">Settlement -&gt; Settlement -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3D%3D"><span class="hs-operator hs-var">==</span></a></span><span> </span><span class="annot"><span class="annottext">Settlement
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#SettledDecommit"><span class="hs-identifier hs-var">SettledDecommit</span></a></span><span>
+</span><span id="line-175"></span><span>  </span><span id="local-6989586621679506829"><span class="annot"><span class="annottext">openVersion :: SnapshotVersion
+</span><a href="#local-6989586621679506829"><span class="hs-identifier hs-var hs-var">openVersion</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679506828"><span class="hs-identifier hs-var">settledDecommit</span></a></span><span> </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">SnapshotVersion
+</span><span class="hs-number">1</span></span><span> </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">SnapshotVersion
+</span><span class="hs-number">0</span></span><span>
+</span><span id="line-176"></span><span>  </span><span id="local-6989586621679506830"><span class="annot"><span class="annottext">signedSnapshot :: ConfirmedSnapshot Tx
+</span><a href="#local-6989586621679506830"><span class="hs-identifier hs-var hs-var">signedSnapshot</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-177"></span><span>    </span><span class="annot"><span class="annottext">Snapshot Tx -&gt; MultiSignature (Snapshot Tx) -&gt; ConfirmedSnapshot Tx
+forall tx.
+Snapshot tx -&gt; MultiSignature (Snapshot tx) -&gt; ConfirmedSnapshot tx
+</span><span class="hs-identifier hs-var">ConfirmedSnapshot</span></span><span>
+</span><span id="line-178"></span><span>      </span><span class="annot"><span class="annottext">Snapshot Tx
+</span><a href="#local-6989586621679506825"><span class="hs-identifier hs-var">snapshot</span></a></span><span>
+</span><span id="line-179"></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Signature (Snapshot Tx)] -&gt; MultiSignature (Snapshot Tx)
+forall a. [Signature a] -&gt; MultiSignature a
+</span><span class="hs-identifier hs-var">aggregate</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Secret (SigningKey HydraKey)
+-&gt; Snapshot Tx -&gt; Signature (Snapshot Tx)
+forall a.
+SignableRepresentation a =&gt;
+Secret (SigningKey HydraKey) -&gt; a -&gt; Signature a
+</span><span class="hs-identifier hs-var">sign</span></span><span> </span><span class="annot"><span class="annottext">Secret (SigningKey HydraKey)
+</span><a href="#local-6989586621679506832"><span class="hs-identifier hs-var">sk</span></a></span><span> </span><span class="annot"><span class="annottext">Snapshot Tx
+</span><a href="#local-6989586621679506825"><span class="hs-identifier hs-var">snapshot</span></a></span><span> </span><span class="hs-glyph">|</span><span> </span><span id="local-6989586621679506832"><span class="annot"><span class="annottext">Secret (SigningKey HydraKey)
+</span><a href="#local-6989586621679506832"><span class="hs-identifier hs-var">sk</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[Secret (SigningKey HydraKey)]
+</span><a href="Hydra.Tx.Contract.PartialFanout.html#healthySigningKeys"><span class="hs-identifier hs-var">Partial.healthySigningKeys</span></a></span><span class="hs-special">]</span><span class="hs-special">)</span><span>
+</span><span id="line-180"></span><span>
+</span><span id="line-181"></span><span>  </span><span id="local-6989586621679506834"><span class="annot"><span class="annottext">openOutput :: TxOut CtxUTxO Era
+</span><a href="#local-6989586621679506834"><span class="hs-identifier hs-var hs-var">openOutput</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-182"></span><span>    </span><span class="annot"><span class="annottext">TxOut CtxUTxO Era
+</span><a href="Hydra.Tx.Contract.PartialFanout.html#presettledOpenHeadOutput"><span class="hs-identifier hs-var">Partial.presettledOpenHeadOutput</span></a></span><span>
+</span><span id="line-183"></span><span>      </span><span class="annot"><span class="annottext">TxOut CtxUTxO Era
+-&gt; (TxOut CtxUTxO Era -&gt; TxOut CtxUTxO Era) -&gt; TxOut CtxUTxO Era
+forall a b. a -&gt; (a -&gt; b) -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">(TxOutDatum CtxUTxO Era -&gt; TxOutDatum CtxUTxO Era)
+-&gt; TxOut CtxUTxO Era -&gt; TxOut CtxUTxO Era
+forall ctx0 era ctx1.
+(TxOutDatum ctx0 era -&gt; TxOutDatum ctx1 era)
+-&gt; TxOut ctx0 era -&gt; TxOut ctx1 era
+</span><span class="hs-identifier hs-var">modifyTxOutDatum</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TxOutDatum CtxUTxO Era
+-&gt; TxOutDatum CtxUTxO Era -&gt; TxOutDatum CtxUTxO Era
+forall a b. a -&gt; b -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#const"><span class="hs-identifier hs-var">const</span></a></span><span> </span><span class="annot"><span class="annottext">(TxOutDatum CtxUTxO Era
+ -&gt; TxOutDatum CtxUTxO Era -&gt; TxOutDatum CtxUTxO Era)
+-&gt; TxOutDatum CtxUTxO Era
+-&gt; TxOutDatum CtxUTxO Era
+-&gt; TxOutDatum CtxUTxO Era
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">State -&gt; TxOutDatum CtxUTxO Era
+forall era a ctx.
+(ToScriptData a, IsBabbageBasedEra era) =&gt;
+a -&gt; TxOutDatum ctx era
+</span><span class="hs-identifier hs-var">mkTxOutDatumInline</span></span><span> </span><span class="annot"><span class="annottext">(State -&gt; TxOutDatum CtxUTxO Era)
+-&gt; State -&gt; TxOutDatum CtxUTxO Era
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">OpenDatum -&gt; State
+</span><span class="hs-identifier hs-var">Head.Open</span></span><span> </span><span class="annot"><span class="annottext">OpenDatum
+</span><a href="#local-6989586621679506840"><span class="hs-identifier hs-var">openDatum</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-184"></span><span>      </span><span class="annot"><span class="annottext">TxOut CtxUTxO Era
+-&gt; (TxOut CtxUTxO Era -&gt; TxOut CtxUTxO Era) -&gt; TxOut CtxUTxO Era
+forall a b. a -&gt; (a -&gt; b) -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Function.html#%26"><span class="hs-operator hs-var">&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">(Value -&gt; Value) -&gt; TxOut CtxUTxO Era -&gt; TxOut CtxUTxO Era
+forall era ctx.
+IsMaryBasedEra era =&gt;
+(Value -&gt; Value) -&gt; TxOut ctx era -&gt; TxOut ctx era
+</span><span class="hs-identifier hs-var">modifyTxOutValue</span></span><span>
+</span><span id="line-185"></span><span>        </span><span class="hs-special">(</span><span> </span><span class="annot"><span class="annottext">Value -&gt; Value -&gt; Value
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span>
+</span><span id="line-186"></span><span>            </span><span class="annot"><span class="annottext">Value -&gt; Value
+</span><span class="hs-identifier hs-var">negateValue</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">UTxO -&gt; Value
+forall era. UTxO era -&gt; Value
+</span><span class="hs-identifier hs-var">UTxO.totalValue</span></span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="Hydra.Tx.Contract.PartialFanout.html#healthyFullUTxO"><span class="hs-identifier hs-var">Partial.healthyFullUTxO</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-187"></span><span>              </span><span class="annot"><span class="annottext">Value -&gt; Value -&gt; Value
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO -&gt; Value
+forall era. UTxO era -&gt; Value
+</span><span class="hs-identifier hs-var">UTxO.totalValue</span></span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#liveUTxO"><span class="hs-identifier hs-var">liveUTxO</span></a></span><span>
+</span><span id="line-188"></span><span>        </span><span class="hs-special">)</span><span>
+</span><span id="line-189"></span><span>
+</span><span id="line-190"></span><span>  </span><span id="local-6989586621679506840"><span class="annot"><span class="annottext">openDatum :: OpenDatum
+</span><a href="#local-6989586621679506840"><span class="hs-identifier hs-var hs-var">openDatum</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-191"></span><span>    </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">TxOut CtxUTxO Era -&gt; TxOutDatum CtxUTxO Era
+forall ctx. TxOut ctx -&gt; TxOutDatum ctx
+</span><span class="hs-identifier hs-var">txOutDatum</span></span><span> </span><span class="annot"><span class="annottext">TxOut CtxUTxO Era
+</span><a href="Hydra.Tx.Contract.PartialFanout.html#presettledOpenHeadOutput"><span class="hs-identifier hs-var">Partial.presettledOpenHeadOutput</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-192"></span><span>      </span><span class="annot"><span class="hs-identifier hs-type">TxOutDatumInline</span></span><span> </span><span id="local-6989586621679506844"><span class="annot"><span class="annottext">HashableScriptData
+</span><a href="#local-6989586621679506844"><span class="hs-identifier hs-var">scriptData</span></a></span></span><span>
+</span><span id="line-193"></span><span>        </span><span class="hs-glyph">|</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Head.Open</span></span><span> </span><span id="local-6989586621679506845"><span class="annot"><span class="annottext">OpenDatum
+</span><a href="#local-6989586621679506845"><span class="hs-identifier hs-var">datum</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">HashableScriptData -&gt; Maybe State
+forall a. FromScriptData a =&gt; HashableScriptData -&gt; Maybe a
+</span><span class="hs-identifier hs-var">fromScriptData</span></span><span> </span><span class="annot"><span class="annottext">HashableScriptData
+</span><a href="#local-6989586621679506844"><span class="hs-identifier hs-var">scriptData</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-194"></span><span>            </span><span class="annot"><span class="annottext">OpenDatum
+</span><a href="#local-6989586621679506845"><span class="hs-identifier hs-var">datum</span></a></span><span>
+</span><span id="line-195"></span><span>              </span><span class="hs-special">{</span><span> </span><span class="hs-identifier">Head.version</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#toInteger"><span class="hs-identifier hs-type">toInteger</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679506829"><span class="hs-identifier hs-type">openVersion</span></a></span><span>
+</span><span id="line-196"></span><span>              </span><span class="hs-special">,</span><span> </span><span class="hs-identifier">Head.accumulatorHash</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-197"></span><span>                  </span><span class="annot"><span class="hs-identifier hs-type">toBuiltin</span></span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-type">.</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Accumulator.getAccumulatorHash</span></span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-type">$</span></a></span><span>
+</span><span id="line-198"></span><span>                    </span><span class="annot"><span class="hs-identifier hs-type">accumulatorInHead</span></span><span> </span><span class="annot"><a href="#local-6989586621679506829"><span class="hs-identifier hs-type">openVersion</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679506825"><span class="hs-identifier hs-type">snapshot</span></a></span><span>
+</span><span id="line-199"></span><span>              </span><span class="hs-special">}</span><span>
+</span><span id="line-200"></span><span>      </span><span class="annot"><span class="annottext">TxOutDatum CtxUTxO Era
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text -&gt; OpenDatum
+forall a t. (HasCallStack, IsText t) =&gt; t -&gt; a
+</span><span class="hs-identifier hs-var">error</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;fanout identity fixture: missing Open datum&quot;</span></span><span>
+</span><span id="line-201"></span><span>
+</span><span id="line-202"></span><span>  </span><span id="local-6989586621679506826"><span class="annot"><span class="annottext">tx :: Tx
+</span><a href="#local-6989586621679506826"><span class="hs-identifier hs-var hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-203"></span><span>    </span><span class="annot"><span class="annottext">ScriptRegistry
+-&gt; VerificationKey PaymentKey
+-&gt; HeadId
+-&gt; SnapshotVersion
+-&gt; ConfirmedSnapshot Tx
+-&gt; SlotNo
+-&gt; PointInTime
+-&gt; OpenThreadOutput
+-&gt; IncrementalAction
+-&gt; Tx
+</span><span class="hs-identifier hs-var">closeTx</span></span><span>
+</span><span id="line-204"></span><span>      </span><span class="annot"><span class="annottext">ScriptRegistry
+</span><a href="Hydra.Tx.Contract.PartialFanout.html#scriptRegistry"><span class="hs-identifier hs-var">Partial.scriptRegistry</span></a></span><span>
+</span><span id="line-205"></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[VerificationKey PaymentKey] -&gt; VerificationKey PaymentKey
+forall a. HasCallStack =&gt; [a] -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.List.html#head"><span class="hs-identifier hs-var">List.head</span></a></span><span> </span><span class="annot"><span class="annottext">[VerificationKey PaymentKey]
+</span><a href="Hydra.Tx.Contract.PartialFanout.html#healthyParticipants"><span class="hs-identifier hs-var">Partial.healthyParticipants</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-206"></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="annottext">PolicyId -&gt; HeadId
+</span><span class="hs-identifier hs-var">mkHeadId</span></span><span> </span><span class="annot"><span class="annottext">PolicyId
+</span><span class="hs-identifier hs-var">testPolicyId</span></span><span class="hs-special">)</span><span>
+</span><span id="line-207"></span><span>      </span><span class="annot"><span class="annottext">SnapshotVersion
+</span><a href="#local-6989586621679506829"><span class="hs-identifier hs-var">openVersion</span></a></span><span>
+</span><span id="line-208"></span><span>      </span><span class="annot"><span class="annottext">ConfirmedSnapshot Tx
+</span><a href="#local-6989586621679506830"><span class="hs-identifier hs-var">signedSnapshot</span></a></span><span>
+</span><span id="line-209"></span><span>      </span><span class="annot"><span class="annottext">SlotNo
+</span><a href="Hydra.Tx.Contract.PartialFanout.html#presettledCloseLowerBoundSlot"><span class="hs-identifier hs-var">Partial.presettledCloseLowerBoundSlot</span></a></span><span>
+</span><span id="line-210"></span><span>      </span><span class="annot"><span class="annottext">PointInTime
+</span><a href="Hydra.Tx.Contract.PartialFanout.html#presettledCloseUpperBound"><span class="hs-identifier hs-var">Partial.presettledCloseUpperBound</span></a></span><span>
+</span><span id="line-211"></span><span>      </span><span class="annot"><span class="hs-identifier hs-type">OpenThreadOutput</span></span><span>
+</span><span id="line-212"></span><span>        </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">$sel:openThreadUTxO:OpenThreadOutput :: (TxIn, TxOut CtxUTxO Era)
+</span><span class="hs-identifier hs-var">openThreadUTxO</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TxIn
+</span><a href="Hydra.Tx.Contract.PartialFanout.html#presettledOpenHeadInput"><span class="hs-identifier hs-var">Partial.presettledOpenHeadInput</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TxOut CtxUTxO Era
+</span><a href="#local-6989586621679506834"><span class="hs-identifier hs-var">openOutput</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-213"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:openContestationPeriod:OpenThreadOutput :: ContestationPeriod
+</span><span class="hs-identifier hs-var">openContestationPeriod</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ContestationPeriod
+</span><a href="Hydra.Tx.Contract.PartialFanout.html#healthyContestationPeriod"><span class="hs-identifier hs-var">Partial.healthyContestationPeriod</span></a></span><span>
+</span><span id="line-214"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:openDepositPeriod:OpenThreadOutput :: DepositPeriod
+</span><a href="#local-6989586621679506856"><span class="hs-identifier hs-var">openDepositPeriod</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">OpenDatum
+</span><a href="#local-6989586621679506840"><span class="hs-identifier hs-var">openDatum</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">depositPeriod</span><span>
+</span><span id="line-215"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:openParties:OpenThreadOutput :: [Party]
+</span><a href="#local-6989586621679506857"><span class="hs-identifier hs-var">openParties</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">OpenDatum
+</span><a href="#local-6989586621679506840"><span class="hs-identifier hs-var">openDatum</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">parties</span><span>
+</span><span id="line-216"></span><span>        </span><span class="hs-special">}</span><span>
+</span><span id="line-217"></span><span>      </span><span class="hs-special">(</span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679506828"><span class="hs-identifier hs-var">settledDecommit</span></a></span><span> </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">IncrementalAction
+</span><span class="hs-identifier hs-var">ToDecommit</span></span><span> </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">IncrementalAction
+</span><span class="hs-identifier hs-var">ToCommit</span></span><span class="hs-special">)</span><span>
+</span><span id="line-218"></span><span>
+</span><span id="line-219"></span><span>  </span><span id="local-6989586621679506827"><span class="annot"><span class="annottext">lookupUTxO :: UTxO
+</span><a href="#local-6989586621679506827"><span class="hs-identifier hs-var hs-var">lookupUTxO</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-220"></span><span>    </span><span class="annot"><span class="annottext">TxIn -&gt; TxOut CtxUTxO Era -&gt; UTxO
+forall era. TxIn -&gt; TxOut CtxUTxO era -&gt; UTxO era
+</span><span class="hs-identifier hs-var">UTxO.singleton</span></span><span> </span><span class="annot"><span class="annottext">TxIn
+</span><a href="Hydra.Tx.Contract.PartialFanout.html#presettledOpenHeadInput"><span class="hs-identifier hs-var">Partial.presettledOpenHeadInput</span></a></span><span> </span><span class="annot"><span class="annottext">TxOut CtxUTxO Era
+</span><a href="#local-6989586621679506834"><span class="hs-identifier hs-var">openOutput</span></a></span><span>
+</span><span id="line-221"></span><span>      </span><span class="annot"><span class="annottext">UTxO -&gt; UTxO -&gt; UTxO
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">ScriptRegistry -&gt; UTxO
+</span><span class="hs-identifier hs-var">registryUTxO</span></span><span> </span><span class="annot"><span class="annottext">ScriptRegistry
+</span><a href="Hydra.Tx.Contract.PartialFanout.html#scriptRegistry"><span class="hs-identifier hs-var">Partial.scriptRegistry</span></a></span><span>
+</span><span id="line-222"></span><span>
+</span><span id="line-223"></span><span class="annot"><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#outputOf"><span class="hs-identifier hs-type">outputOf</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TxIn</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxOut</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CtxUTxO</span></span><span class="hs-special">)</span><span>
+</span><span id="line-224"></span><span id="outputOf"><span class="annot"><span class="annottext">outputOf :: Tx -&gt; (TxIn, TxOut CtxUTxO Era)
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#outputOf"><span class="hs-identifier hs-var hs-var">outputOf</span></a></span></span><span> </span><span id="local-6989586621679506861"><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621679506861"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-225"></span><span>  </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Tx -&gt; [TxOut CtxTx Era]
+forall era. Tx era -&gt; [TxOut CtxTx era]
+</span><span class="hs-identifier hs-var">txOuts'</span></span><span> </span><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621679506861"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-226"></span><span>    </span><span id="local-6989586621679506863"><span class="annot"><span class="annottext">TxOut CtxTx Era
+</span><a href="#local-6989586621679506863"><span class="hs-identifier hs-var">headOutput</span></a></span></span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#%3A"><span class="hs-glyph hs-type">:</span></a></span><span> </span><span class="annot"><span class="annottext">[TxOut CtxTx Era]
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Tx -&gt; Word -&gt; TxIn
+forall era. Tx era -&gt; Word -&gt; TxIn
+</span><span class="hs-identifier hs-var">mkTxIn</span></span><span> </span><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621679506861"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="annot"><span class="annottext">Word
+</span><span class="hs-number">0</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx Era -&gt; TxOut CtxUTxO Era
+forall era. TxOut CtxTx era -&gt; TxOut CtxUTxO era
+</span><span class="hs-identifier hs-var">toCtxUTxOTxOut</span></span><span> </span><span class="annot"><span class="annottext">TxOut CtxTx Era
+</span><a href="#local-6989586621679506863"><span class="hs-identifier hs-var">headOutput</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-227"></span><span>    </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text -&gt; (TxIn, TxOut CtxUTxO Era)
+forall a t. (HasCallStack, IsText t) =&gt; t -&gt; a
+</span><span class="hs-identifier hs-var">error</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;fanout identity fixture: transaction has no head output&quot;</span></span><span>
+</span><span id="line-228"></span><span>
+</span><span id="line-229"></span><span class="annot"><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#progressDatum"><span class="hs-identifier hs-type">progressDatum</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxOut</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CtxUTxO</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Head.FanoutProgressDatum</span></span><span>
+</span><span id="line-230"></span><span id="progressDatum"><span class="annot"><span class="annottext">progressDatum :: TxOut CtxUTxO Era -&gt; FanoutProgressDatum
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#progressDatum"><span class="hs-identifier hs-var hs-var">progressDatum</span></a></span></span><span> </span><span id="local-6989586621679506866"><span class="annot"><span class="annottext">TxOut CtxUTxO Era
+</span><a href="#local-6989586621679506866"><span class="hs-identifier hs-var">output</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-231"></span><span>  </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">TxOut CtxUTxO Era -&gt; TxOutDatum CtxUTxO Era
+forall ctx. TxOut ctx -&gt; TxOutDatum ctx
+</span><span class="hs-identifier hs-var">txOutDatum</span></span><span> </span><span class="annot"><span class="annottext">TxOut CtxUTxO Era
+</span><a href="#local-6989586621679506866"><span class="hs-identifier hs-var">output</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-232"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">TxOutDatumInline</span></span><span> </span><span id="local-6989586621679506867"><span class="annot"><span class="annottext">HashableScriptData
+</span><a href="#local-6989586621679506867"><span class="hs-identifier hs-var">scriptData</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-233"></span><span>      </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">HashableScriptData -&gt; Maybe State
+forall a. FromScriptData a =&gt; HashableScriptData -&gt; Maybe a
+</span><span class="hs-identifier hs-var">fromScriptData</span></span><span> </span><span class="annot"><span class="annottext">HashableScriptData
+</span><a href="#local-6989586621679506867"><span class="hs-identifier hs-var">scriptData</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-234"></span><span>        </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Head.Closed</span></span><span> </span><span id="local-6989586621679506869"><span class="annot"><span class="annottext">ClosedDatum
+</span><a href="#local-6989586621679506869"><span class="hs-identifier hs-var">datum</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ClosedDatum -&gt; FanoutProgressDatum
+</span><span class="hs-identifier hs-var">Head.progressFromClosed</span></span><span> </span><span class="annot"><span class="annottext">ClosedDatum
+</span><a href="#local-6989586621679506869"><span class="hs-identifier hs-var">datum</span></a></span><span>
+</span><span id="line-235"></span><span>        </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Head.FanoutProgress</span></span><span> </span><span id="local-6989586621679506872"><span class="annot"><span class="annottext">FanoutProgressDatum
+</span><a href="#local-6989586621679506872"><span class="hs-identifier hs-var">datum</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">FanoutProgressDatum
+</span><a href="#local-6989586621679506872"><span class="hs-identifier hs-var">datum</span></a></span><span>
+</span><span id="line-236"></span><span>        </span><span class="annot"><span class="annottext">Maybe State
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text -&gt; FanoutProgressDatum
+forall a t. (HasCallStack, IsText t) =&gt; t -&gt; a
+</span><span class="hs-identifier hs-var">error</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;fanout identity fixture: wrong head state&quot;</span></span><span>
+</span><span id="line-237"></span><span>    </span><span class="annot"><span class="annottext">TxOutDatum CtxUTxO Era
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text -&gt; FanoutProgressDatum
+forall a t. (HasCallStack, IsText t) =&gt; t -&gt; a
+</span><span class="hs-identifier hs-var">error</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;fanout identity fixture: missing head datum&quot;</span></span><span>
+</span><span id="line-238"></span><span>
+</span><span id="line-239"></span><span class="annot"><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#withLookup"><span class="hs-identifier hs-type">withLookup</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TxIn</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">TxOut</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">CtxUTxO</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Tx</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span><span class="hs-special">)</span><span>
+</span><span id="line-240"></span><span id="withLookup"><span class="annot"><span class="annottext">withLookup :: Tx -&gt; (TxIn, TxOut CtxUTxO Era) -&gt; (Tx, UTxO)
+</span><a href="Hydra.Tx.Contract.FanoutSnapshotIdentity.html#withLookup"><span class="hs-identifier hs-var hs-var">withLookup</span></a></span></span><span> </span><span id="local-6989586621679506873"><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621679506873"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679506874"><span class="annot"><span class="annottext">TxIn
+</span><a href="#local-6989586621679506874"><span class="hs-identifier hs-var">headInput</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679506875"><span class="annot"><span class="annottext">TxOut CtxUTxO Era
+</span><a href="#local-6989586621679506875"><span class="hs-identifier hs-var">headOutput</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-241"></span><span>  </span><span class="hs-special">(</span><span> </span><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621679506873"><span class="hs-identifier hs-var">tx</span></a></span><span>
+</span><span id="line-242"></span><span>  </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TxIn -&gt; TxOut CtxUTxO Era -&gt; UTxO
+forall era. TxIn -&gt; TxOut CtxUTxO era -&gt; UTxO era
+</span><span class="hs-identifier hs-var">UTxO.singleton</span></span><span> </span><span class="annot"><span class="annottext">TxIn
+</span><a href="#local-6989586621679506874"><span class="hs-identifier hs-var">headInput</span></a></span><span> </span><span class="annot"><span class="annottext">TxOut CtxUTxO Era
+</span><a href="#local-6989586621679506875"><span class="hs-identifier hs-var">headOutput</span></a></span><span>
+</span><span id="line-243"></span><span>      </span><span class="annot"><span class="annottext">UTxO -&gt; UTxO -&gt; UTxO
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">ScriptRegistry -&gt; UTxO
+</span><span class="hs-identifier hs-var">registryUTxO</span></span><span> </span><span class="annot"><span class="annottext">ScriptRegistry
+</span><a href="Hydra.Tx.Contract.PartialFanout.html#scriptRegistry"><span class="hs-identifier hs-var">Partial.scriptRegistry</span></a></span><span>
+</span><span id="line-244"></span><span>  </span><span class="hs-special">)</span><span>
+</span><span id="line-245"></span></pre></body></html>

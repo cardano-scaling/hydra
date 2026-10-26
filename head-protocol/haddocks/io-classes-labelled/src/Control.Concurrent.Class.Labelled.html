@@ -1,0 +1,379 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-comment">-- | Thin wrappers over @io-classes@ that attach a label to the STM</span><span>
+</span><span id="line-2"></span><span class="hs-comment">-- primitive or thread they create.</span><span>
+</span><span id="line-3"></span><span class="hs-comment">--</span><span>
+</span><span id="line-4"></span><span class="hs-comment">-- The labels surface in @io-sim@ traces and as GHC thread labels, which</span><span>
+</span><span id="line-5"></span><span class="hs-comment">-- makes deadlock and liveness diagnosis tractable. Applying them everywhere</span><span>
+</span><span id="line-6"></span><span class="hs-comment">-- a 'TVar'\/'TMVar'\/'TQueue'\/'TBQueue' is allocated or a thread is spawned</span><span>
+</span><span id="line-7"></span><span class="hs-comment">-- is a discipline worth keeping; these helpers make it the path of least</span><span>
+</span><span id="line-8"></span><span class="hs-comment">-- resistance.</span><span>
+</span><span id="line-9"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Control.Concurrent.Class.Labelled</span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-10"></span><span>  </span><span class="annot"><span class="hs-comment">-- * Labelling STM variables</span></span><span>
+</span><span id="line-11"></span><span>  </span><span class="annot"><a href="Control.Concurrent.Class.Labelled.html#newLabelledTVar"><span class="hs-identifier">newLabelledTVar</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-12"></span><span>  </span><span class="annot"><a href="Control.Concurrent.Class.Labelled.html#newLabelledTVarIO"><span class="hs-identifier">newLabelledTVarIO</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-13"></span><span>  </span><span class="annot"><a href="Control.Concurrent.Class.Labelled.html#newLabelledEmptyTMVar"><span class="hs-identifier">newLabelledEmptyTMVar</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-14"></span><span>  </span><span class="annot"><a href="Control.Concurrent.Class.Labelled.html#newLabelledEmptyTMVarIO"><span class="hs-identifier">newLabelledEmptyTMVarIO</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-15"></span><span>  </span><span class="annot"><a href="Control.Concurrent.Class.Labelled.html#newLabelledTQueue"><span class="hs-identifier">newLabelledTQueue</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-16"></span><span>  </span><span class="annot"><a href="Control.Concurrent.Class.Labelled.html#newLabelledTQueueIO"><span class="hs-identifier">newLabelledTQueueIO</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-17"></span><span>  </span><span class="annot"><a href="Control.Concurrent.Class.Labelled.html#newLabelledTBQueue"><span class="hs-identifier">newLabelledTBQueue</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-18"></span><span>  </span><span class="annot"><a href="Control.Concurrent.Class.Labelled.html#newLabelledTBQueueIO"><span class="hs-identifier">newLabelledTBQueueIO</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-19"></span><span>
+</span><span id="line-20"></span><span>  </span><span class="annot"><span class="hs-comment">-- * Labelling threads</span></span><span>
+</span><span id="line-21"></span><span>  </span><span class="annot"><a href="Control.Concurrent.Class.Labelled.html#asyncLabelled"><span class="hs-identifier">asyncLabelled</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-22"></span><span>  </span><span class="annot"><a href="Control.Concurrent.Class.Labelled.html#raceLabelled"><span class="hs-identifier">raceLabelled</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-23"></span><span>  </span><span class="annot"><a href="Control.Concurrent.Class.Labelled.html#raceLabelled_"><span class="hs-identifier">raceLabelled_</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-24"></span><span>  </span><span class="annot"><a href="Control.Concurrent.Class.Labelled.html#withAsyncLabelled"><span class="hs-identifier">withAsyncLabelled</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-25"></span><span>  </span><span class="annot"><a href="Control.Concurrent.Class.Labelled.html#concurrentlyLabelled"><span class="hs-identifier">concurrentlyLabelled</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-26"></span><span>  </span><span class="annot"><a href="Control.Concurrent.Class.Labelled.html#concurrentlyLabelled_"><span class="hs-identifier">concurrentlyLabelled_</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-27"></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-28"></span><span>
+</span><span id="line-29"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Concurrent.Class.MonadSTM</span></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-30"></span><span>  </span><span class="annot"><span class="hs-identifier">MonadLabelledSTM</span></span><span class="hs-special">,</span><span>
+</span><span id="line-31"></span><span>  </span><span class="annot"><span class="hs-identifier">STM</span></span><span class="hs-special">,</span><span>
+</span><span id="line-32"></span><span>  </span><span class="annot"><span class="hs-identifier">TBQueue</span></span><span class="hs-special">,</span><span>
+</span><span id="line-33"></span><span>  </span><span class="annot"><span class="hs-identifier">TMVar</span></span><span class="hs-special">,</span><span>
+</span><span id="line-34"></span><span>  </span><span class="annot"><span class="hs-identifier">TQueue</span></span><span class="hs-special">,</span><span>
+</span><span id="line-35"></span><span>  </span><span class="annot"><span class="hs-identifier">TVar</span></span><span class="hs-special">,</span><span>
+</span><span id="line-36"></span><span>  </span><span class="annot"><span class="hs-identifier">atomically</span></span><span class="hs-special">,</span><span>
+</span><span id="line-37"></span><span>  </span><span class="annot"><span class="hs-identifier">labelTBQueue</span></span><span class="hs-special">,</span><span>
+</span><span id="line-38"></span><span>  </span><span class="annot"><span class="hs-identifier">labelTMVar</span></span><span class="hs-special">,</span><span>
+</span><span id="line-39"></span><span>  </span><span class="annot"><span class="hs-identifier">labelTQueue</span></span><span class="hs-special">,</span><span>
+</span><span id="line-40"></span><span>  </span><span class="annot"><span class="hs-identifier">labelTVar</span></span><span class="hs-special">,</span><span>
+</span><span id="line-41"></span><span>  </span><span class="annot"><span class="hs-identifier">newEmptyTMVar</span></span><span class="hs-special">,</span><span>
+</span><span id="line-42"></span><span>  </span><span class="annot"><span class="hs-identifier">newTBQueue</span></span><span class="hs-special">,</span><span>
+</span><span id="line-43"></span><span>  </span><span class="annot"><span class="hs-identifier">newTQueue</span></span><span class="hs-special">,</span><span>
+</span><span id="line-44"></span><span>  </span><span class="annot"><span class="hs-identifier">newTVar</span></span><span class="hs-special">,</span><span>
+</span><span id="line-45"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-46"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.html"><span class="hs-identifier">Control.Monad</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#void"><span class="hs-identifier">void</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-47"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Class.MonadAsync</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Async</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">MonadAsync</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">async</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">concurrently</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">race</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">withAsync</span></span><span class="hs-special">)</span><span>
+</span><span id="line-48"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Control.Monad.Class.MonadFork</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">labelThisThread</span></span><span class="hs-special">)</span><span>
+</span><span id="line-49"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Numeric.Natural.html"><span class="hs-identifier">Numeric.Natural</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-bignum-1.3/src/GHC.Num.Natural.html#Natural"><span class="hs-identifier">Natural</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-50"></span><span>
+</span><span id="line-51"></span><span class="annot"><span class="hs-comment">-- * Helpers for labeling TVar</span></span><span>
+</span><span id="line-52"></span><span>
+</span><span id="line-53"></span><span id="local-6989586621679031727"><span id="local-6989586621679031729"><span class="annot"><a href="Control.Concurrent.Class.Labelled.html#newLabelledTVar"><span class="hs-identifier hs-type">newLabelledTVar</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadLabelledSTM</span></span><span> </span><span class="annot"><a href="#local-6989586621679031727"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#String"><span class="hs-identifier hs-type">String</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679031729"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">STM</span></span><span> </span><span class="annot"><a href="#local-6989586621679031727"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TVar</span></span><span> </span><span class="annot"><a href="#local-6989586621679031727"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679031729"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-54"></span><span id="newLabelledTVar"><span class="annot"><span class="annottext">newLabelledTVar :: forall (m :: * -&gt; *) a.
+MonadLabelledSTM m =&gt;
+String -&gt; a -&gt; STM m (TVar m a)
+</span><a href="Control.Concurrent.Class.Labelled.html#newLabelledTVar"><span class="hs-identifier hs-var hs-var">newLabelledTVar</span></a></span></span><span> </span><span id="local-6989586621679031875"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679031875"><span class="hs-identifier hs-var">lbl</span></a></span></span><span> </span><span id="local-6989586621679031876"><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679031876"><span class="hs-identifier hs-var">val</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-55"></span><span>  </span><span id="local-6989586621679031877"><span class="annot"><span class="annottext">TVar m a
+</span><a href="#local-6989586621679031877"><span class="hs-identifier hs-var">tv</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">a -&gt; STM m (TVar m a)
+forall a. a -&gt; STM m (TVar m a)
+forall (m :: * -&gt; *) a. MonadSTM m =&gt; a -&gt; STM m (TVar m a)
+</span><span class="hs-identifier hs-var">newTVar</span></span><span> </span><span class="annot"><span class="annottext">a
+</span><a href="#local-6989586621679031876"><span class="hs-identifier hs-var">val</span></a></span><span>
+</span><span id="line-56"></span><span>  </span><span class="annot"><span class="annottext">TVar m a -&gt; String -&gt; STM m ()
+forall a. TVar m a -&gt; String -&gt; STM m ()
+forall (m :: * -&gt; *) a.
+MonadLabelledSTM m =&gt;
+TVar m a -&gt; String -&gt; STM m ()
+</span><span class="hs-identifier hs-var">labelTVar</span></span><span> </span><span class="annot"><span class="annottext">TVar m a
+</span><a href="#local-6989586621679031877"><span class="hs-identifier hs-var">tv</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679031875"><span class="hs-identifier hs-var">lbl</span></a></span><span>
+</span><span id="line-57"></span><span>  </span><span class="annot"><span class="annottext">TVar m a -&gt; STM m (TVar m a)
+forall a. a -&gt; STM m a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">TVar m a
+</span><a href="#local-6989586621679031877"><span class="hs-identifier hs-var">tv</span></a></span><span>
+</span><span id="line-58"></span><span>
+</span><span id="line-59"></span><span id="local-6989586621679031742"><span id="local-6989586621679031743"><span class="annot"><a href="Control.Concurrent.Class.Labelled.html#newLabelledTVarIO"><span class="hs-identifier hs-type">newLabelledTVarIO</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadLabelledSTM</span></span><span> </span><span class="annot"><a href="#local-6989586621679031742"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#String"><span class="hs-identifier hs-type">String</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679031743"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679031742"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TVar</span></span><span> </span><span class="annot"><a href="#local-6989586621679031742"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679031743"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-60"></span><span id="newLabelledTVarIO"><span class="annot"><span class="annottext">newLabelledTVarIO :: forall (m :: * -&gt; *) a.
+MonadLabelledSTM m =&gt;
+String -&gt; a -&gt; m (TVar m a)
+</span><a href="Control.Concurrent.Class.Labelled.html#newLabelledTVarIO"><span class="hs-identifier hs-var hs-var">newLabelledTVarIO</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">STM m (TVar m a) -&gt; m (TVar m a)
+forall a. HasCallStack =&gt; STM m a -&gt; m a
+forall (m :: * -&gt; *) a.
+(MonadSTM m, HasCallStack) =&gt;
+STM m a -&gt; m a
+</span><span class="hs-identifier hs-var">atomically</span></span><span> </span><span class="hs-operator">.</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">((a -&gt; STM m (TVar m a)) -&gt; a -&gt; m (TVar m a))
+-&gt; (String -&gt; a -&gt; STM m (TVar m a)) -&gt; String -&gt; a -&gt; m (TVar m a)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; a -&gt; STM m (TVar m a)
+forall (m :: * -&gt; *) a.
+MonadLabelledSTM m =&gt;
+String -&gt; a -&gt; STM m (TVar m a)
+</span><a href="Control.Concurrent.Class.Labelled.html#newLabelledTVar"><span class="hs-identifier hs-var">newLabelledTVar</span></a></span><span>
+</span><span id="line-61"></span><span>
+</span><span id="line-62"></span><span class="annot"><span class="hs-comment">-- * Helpers for labeling TMVar</span></span><span>
+</span><span id="line-63"></span><span>
+</span><span id="line-64"></span><span id="local-6989586621679031751"><span id="local-6989586621679031752"><span class="annot"><a href="Control.Concurrent.Class.Labelled.html#newLabelledEmptyTMVar"><span class="hs-identifier hs-type">newLabelledEmptyTMVar</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadLabelledSTM</span></span><span> </span><span class="annot"><a href="#local-6989586621679031751"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#String"><span class="hs-identifier hs-type">String</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">STM</span></span><span> </span><span class="annot"><a href="#local-6989586621679031751"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TMVar</span></span><span> </span><span class="annot"><a href="#local-6989586621679031751"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679031752"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-65"></span><span id="newLabelledEmptyTMVar"><span class="annot"><span class="annottext">newLabelledEmptyTMVar :: forall (m :: * -&gt; *) a.
+MonadLabelledSTM m =&gt;
+String -&gt; STM m (TMVar m a)
+</span><a href="Control.Concurrent.Class.Labelled.html#newLabelledEmptyTMVar"><span class="hs-identifier hs-var hs-var">newLabelledEmptyTMVar</span></a></span></span><span> </span><span id="local-6989586621679031894"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679031894"><span class="hs-identifier hs-var">lbl</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-66"></span><span>  </span><span id="local-6989586621679031895"><span class="annot"><span class="annottext">TMVar m a
+</span><a href="#local-6989586621679031895"><span class="hs-identifier hs-var">tmv</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">STM m (TMVar m a)
+forall a. STM m (TMVar m a)
+forall (m :: * -&gt; *) a. MonadSTM m =&gt; STM m (TMVar m a)
+</span><span class="hs-identifier hs-var">newEmptyTMVar</span></span><span>
+</span><span id="line-67"></span><span>  </span><span class="annot"><span class="annottext">TMVar m a -&gt; String -&gt; STM m ()
+forall a. TMVar m a -&gt; String -&gt; STM m ()
+forall (m :: * -&gt; *) a.
+MonadLabelledSTM m =&gt;
+TMVar m a -&gt; String -&gt; STM m ()
+</span><span class="hs-identifier hs-var">labelTMVar</span></span><span> </span><span class="annot"><span class="annottext">TMVar m a
+</span><a href="#local-6989586621679031895"><span class="hs-identifier hs-var">tmv</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679031894"><span class="hs-identifier hs-var">lbl</span></a></span><span>
+</span><span id="line-68"></span><span>  </span><span class="annot"><span class="annottext">TMVar m a -&gt; STM m (TMVar m a)
+forall a. a -&gt; STM m a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">TMVar m a
+</span><a href="#local-6989586621679031895"><span class="hs-identifier hs-var">tmv</span></a></span><span>
+</span><span id="line-69"></span><span>
+</span><span id="line-70"></span><span id="local-6989586621679031758"><span id="local-6989586621679031759"><span class="annot"><a href="Control.Concurrent.Class.Labelled.html#newLabelledEmptyTMVarIO"><span class="hs-identifier hs-type">newLabelledEmptyTMVarIO</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadLabelledSTM</span></span><span> </span><span class="annot"><a href="#local-6989586621679031758"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#String"><span class="hs-identifier hs-type">String</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679031758"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TMVar</span></span><span> </span><span class="annot"><a href="#local-6989586621679031758"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679031759"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-71"></span><span id="newLabelledEmptyTMVarIO"><span class="annot"><span class="annottext">newLabelledEmptyTMVarIO :: forall (m :: * -&gt; *) a.
+MonadLabelledSTM m =&gt;
+String -&gt; m (TMVar m a)
+</span><a href="Control.Concurrent.Class.Labelled.html#newLabelledEmptyTMVarIO"><span class="hs-identifier hs-var hs-var">newLabelledEmptyTMVarIO</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">STM m (TMVar m a) -&gt; m (TMVar m a)
+forall a. HasCallStack =&gt; STM m a -&gt; m a
+forall (m :: * -&gt; *) a.
+(MonadSTM m, HasCallStack) =&gt;
+STM m a -&gt; m a
+</span><span class="hs-identifier hs-var">atomically</span></span><span> </span><span class="annot"><span class="annottext">(STM m (TMVar m a) -&gt; m (TMVar m a))
+-&gt; (String -&gt; STM m (TMVar m a)) -&gt; String -&gt; m (TMVar m a)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; STM m (TMVar m a)
+forall (m :: * -&gt; *) a.
+MonadLabelledSTM m =&gt;
+String -&gt; STM m (TMVar m a)
+</span><a href="Control.Concurrent.Class.Labelled.html#newLabelledEmptyTMVar"><span class="hs-identifier hs-var">newLabelledEmptyTMVar</span></a></span><span>
+</span><span id="line-72"></span><span>
+</span><span id="line-73"></span><span class="annot"><span class="hs-comment">-- * Helpers for labeling TQueue</span></span><span>
+</span><span id="line-74"></span><span>
+</span><span id="line-75"></span><span id="local-6989586621679031762"><span id="local-6989586621679031763"><span class="annot"><a href="Control.Concurrent.Class.Labelled.html#newLabelledTQueue"><span class="hs-identifier hs-type">newLabelledTQueue</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadLabelledSTM</span></span><span> </span><span class="annot"><a href="#local-6989586621679031762"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#String"><span class="hs-identifier hs-type">String</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">STM</span></span><span> </span><span class="annot"><a href="#local-6989586621679031762"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TQueue</span></span><span> </span><span class="annot"><a href="#local-6989586621679031762"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679031763"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-76"></span><span id="newLabelledTQueue"><span class="annot"><span class="annottext">newLabelledTQueue :: forall (m :: * -&gt; *) a.
+MonadLabelledSTM m =&gt;
+String -&gt; STM m (TQueue m a)
+</span><a href="Control.Concurrent.Class.Labelled.html#newLabelledTQueue"><span class="hs-identifier hs-var hs-var">newLabelledTQueue</span></a></span></span><span> </span><span id="local-6989586621679031911"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679031911"><span class="hs-identifier hs-var">lbl</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-77"></span><span>  </span><span id="local-6989586621679031912"><span class="annot"><span class="annottext">TQueue m a
+</span><a href="#local-6989586621679031912"><span class="hs-identifier hs-var">q</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">STM m (TQueue m a)
+forall a. STM m (TQueue m a)
+forall (m :: * -&gt; *) a. MonadSTM m =&gt; STM m (TQueue m a)
+</span><span class="hs-identifier hs-var">newTQueue</span></span><span>
+</span><span id="line-78"></span><span>  </span><span class="annot"><span class="annottext">TQueue m a -&gt; String -&gt; STM m ()
+forall a. TQueue m a -&gt; String -&gt; STM m ()
+forall (m :: * -&gt; *) a.
+MonadLabelledSTM m =&gt;
+TQueue m a -&gt; String -&gt; STM m ()
+</span><span class="hs-identifier hs-var">labelTQueue</span></span><span> </span><span class="annot"><span class="annottext">TQueue m a
+</span><a href="#local-6989586621679031912"><span class="hs-identifier hs-var">q</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679031911"><span class="hs-identifier hs-var">lbl</span></a></span><span>
+</span><span id="line-79"></span><span>  </span><span class="annot"><span class="annottext">TQueue m a -&gt; STM m (TQueue m a)
+forall a. a -&gt; STM m a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">TQueue m a
+</span><a href="#local-6989586621679031912"><span class="hs-identifier hs-var">q</span></a></span><span>
+</span><span id="line-80"></span><span>
+</span><span id="line-81"></span><span id="local-6989586621679031769"><span id="local-6989586621679031770"><span class="annot"><a href="Control.Concurrent.Class.Labelled.html#newLabelledTQueueIO"><span class="hs-identifier hs-type">newLabelledTQueueIO</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadLabelledSTM</span></span><span> </span><span class="annot"><a href="#local-6989586621679031769"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#String"><span class="hs-identifier hs-type">String</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679031769"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TQueue</span></span><span> </span><span class="annot"><a href="#local-6989586621679031769"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679031770"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-82"></span><span id="newLabelledTQueueIO"><span class="annot"><span class="annottext">newLabelledTQueueIO :: forall (m :: * -&gt; *) a.
+MonadLabelledSTM m =&gt;
+String -&gt; m (TQueue m a)
+</span><a href="Control.Concurrent.Class.Labelled.html#newLabelledTQueueIO"><span class="hs-identifier hs-var hs-var">newLabelledTQueueIO</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">STM m (TQueue m a) -&gt; m (TQueue m a)
+forall a. HasCallStack =&gt; STM m a -&gt; m a
+forall (m :: * -&gt; *) a.
+(MonadSTM m, HasCallStack) =&gt;
+STM m a -&gt; m a
+</span><span class="hs-identifier hs-var">atomically</span></span><span> </span><span class="annot"><span class="annottext">(STM m (TQueue m a) -&gt; m (TQueue m a))
+-&gt; (String -&gt; STM m (TQueue m a)) -&gt; String -&gt; m (TQueue m a)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; STM m (TQueue m a)
+forall (m :: * -&gt; *) a.
+MonadLabelledSTM m =&gt;
+String -&gt; STM m (TQueue m a)
+</span><a href="Control.Concurrent.Class.Labelled.html#newLabelledTQueue"><span class="hs-identifier hs-var">newLabelledTQueue</span></a></span><span>
+</span><span id="line-83"></span><span>
+</span><span id="line-84"></span><span class="annot"><span class="hs-comment">-- * Helpers for labeling TBQueue</span></span><span>
+</span><span id="line-85"></span><span>
+</span><span id="line-86"></span><span id="local-6989586621679031773"><span id="local-6989586621679031774"><span class="annot"><a href="Control.Concurrent.Class.Labelled.html#newLabelledTBQueue"><span class="hs-identifier hs-type">newLabelledTBQueue</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadLabelledSTM</span></span><span> </span><span class="annot"><a href="#local-6989586621679031773"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#String"><span class="hs-identifier hs-type">String</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-bignum-1.3/src/GHC.Num.Natural.html#Natural"><span class="hs-identifier hs-type">Natural</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">STM</span></span><span> </span><span class="annot"><a href="#local-6989586621679031773"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TBQueue</span></span><span> </span><span class="annot"><a href="#local-6989586621679031773"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679031774"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-87"></span><span id="newLabelledTBQueue"><span class="annot"><span class="annottext">newLabelledTBQueue :: forall (m :: * -&gt; *) a.
+MonadLabelledSTM m =&gt;
+String -&gt; Natural -&gt; STM m (TBQueue m a)
+</span><a href="Control.Concurrent.Class.Labelled.html#newLabelledTBQueue"><span class="hs-identifier hs-var hs-var">newLabelledTBQueue</span></a></span></span><span> </span><span id="local-6989586621679031928"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679031928"><span class="hs-identifier hs-var">lbl</span></a></span></span><span> </span><span id="local-6989586621679031929"><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621679031929"><span class="hs-identifier hs-var">capacity</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-88"></span><span>  </span><span id="local-6989586621679031930"><span class="annot"><span class="annottext">TBQueue m a
+</span><a href="#local-6989586621679031930"><span class="hs-identifier hs-var">bq</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Natural -&gt; STM m (TBQueue m a)
+forall a. Natural -&gt; STM m (TBQueue m a)
+forall (m :: * -&gt; *) a.
+MonadSTM m =&gt;
+Natural -&gt; STM m (TBQueue m a)
+</span><span class="hs-identifier hs-var">newTBQueue</span></span><span> </span><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621679031929"><span class="hs-identifier hs-var">capacity</span></a></span><span>
+</span><span id="line-89"></span><span>  </span><span class="annot"><span class="annottext">TBQueue m a -&gt; String -&gt; STM m ()
+forall a. TBQueue m a -&gt; String -&gt; STM m ()
+forall (m :: * -&gt; *) a.
+MonadLabelledSTM m =&gt;
+TBQueue m a -&gt; String -&gt; STM m ()
+</span><span class="hs-identifier hs-var">labelTBQueue</span></span><span> </span><span class="annot"><span class="annottext">TBQueue m a
+</span><a href="#local-6989586621679031930"><span class="hs-identifier hs-var">bq</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679031928"><span class="hs-identifier hs-var">lbl</span></a></span><span>
+</span><span id="line-90"></span><span>  </span><span class="annot"><span class="annottext">TBQueue m a -&gt; STM m (TBQueue m a)
+forall a. a -&gt; STM m a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">TBQueue m a
+</span><a href="#local-6989586621679031930"><span class="hs-identifier hs-var">bq</span></a></span><span>
+</span><span id="line-91"></span><span>
+</span><span id="line-92"></span><span id="local-6989586621679031780"><span id="local-6989586621679031781"><span class="annot"><a href="Control.Concurrent.Class.Labelled.html#newLabelledTBQueueIO"><span class="hs-identifier hs-type">newLabelledTBQueueIO</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadLabelledSTM</span></span><span> </span><span class="annot"><a href="#local-6989586621679031780"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#String"><span class="hs-identifier hs-type">String</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-bignum-1.3/src/GHC.Num.Natural.html#Natural"><span class="hs-identifier hs-type">Natural</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679031780"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TBQueue</span></span><span> </span><span class="annot"><a href="#local-6989586621679031780"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679031781"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-93"></span><span id="newLabelledTBQueueIO"><span class="annot"><span class="annottext">newLabelledTBQueueIO :: forall (m :: * -&gt; *) a.
+MonadLabelledSTM m =&gt;
+String -&gt; Natural -&gt; m (TBQueue m a)
+</span><a href="Control.Concurrent.Class.Labelled.html#newLabelledTBQueueIO"><span class="hs-identifier hs-var hs-var">newLabelledTBQueueIO</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">STM m (TBQueue m a) -&gt; m (TBQueue m a)
+forall a. HasCallStack =&gt; STM m a -&gt; m a
+forall (m :: * -&gt; *) a.
+(MonadSTM m, HasCallStack) =&gt;
+STM m a -&gt; m a
+</span><span class="hs-identifier hs-var">atomically</span></span><span> </span><span class="hs-operator">.</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">((Natural -&gt; STM m (TBQueue m a)) -&gt; Natural -&gt; m (TBQueue m a))
+-&gt; (String -&gt; Natural -&gt; STM m (TBQueue m a))
+-&gt; String
+-&gt; Natural
+-&gt; m (TBQueue m a)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; Natural -&gt; STM m (TBQueue m a)
+forall (m :: * -&gt; *) a.
+MonadLabelledSTM m =&gt;
+String -&gt; Natural -&gt; STM m (TBQueue m a)
+</span><a href="Control.Concurrent.Class.Labelled.html#newLabelledTBQueue"><span class="hs-identifier hs-var">newLabelledTBQueue</span></a></span><span>
+</span><span id="line-94"></span><span>
+</span><span id="line-95"></span><span class="annot"><span class="hs-comment">-- * Helpers for labeling Threads</span></span><span>
+</span><span id="line-96"></span><span>
+</span><span id="line-97"></span><span id="local-6989586621679031784"><span id="local-6989586621679031786"><span id="local-6989586621679031787"><span class="annot"><a href="Control.Concurrent.Class.Labelled.html#raceLabelled"><span class="hs-identifier hs-type">raceLabelled</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadAsync</span></span><span> </span><span class="annot"><a href="#local-6989586621679031784"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#String"><span class="hs-identifier hs-type">String</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621679031784"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679031786"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#String"><span class="hs-identifier hs-type">String</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621679031784"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679031787"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679031784"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Either"><span class="hs-identifier hs-type">Either</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679031786"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679031787"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span></span></span></span><span>
+</span><span id="line-98"></span><span id="raceLabelled"><span class="annot"><span class="annottext">raceLabelled :: forall (m :: * -&gt; *) a b.
+MonadAsync m =&gt;
+(String, m a) -&gt; (String, m b) -&gt; m (Either a b)
+</span><a href="Control.Concurrent.Class.Labelled.html#raceLabelled"><span class="hs-identifier hs-var hs-var">raceLabelled</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679031949"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679031949"><span class="hs-identifier hs-var">lblA</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679031950"><span class="annot"><span class="annottext">m a
+</span><a href="#local-6989586621679031950"><span class="hs-identifier hs-var">mA</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679031951"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679031951"><span class="hs-identifier hs-var">lblB</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679031952"><span class="annot"><span class="annottext">m b
+</span><a href="#local-6989586621679031952"><span class="hs-identifier hs-var">mB</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-99"></span><span>  </span><span class="annot"><span class="annottext">m a -&gt; m b -&gt; m (Either a b)
+forall a b. m a -&gt; m b -&gt; m (Either a b)
+forall (m :: * -&gt; *) a b.
+MonadAsync m =&gt;
+m a -&gt; m b -&gt; m (Either a b)
+</span><span class="hs-identifier hs-var">race</span></span><span>
+</span><span id="line-100"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String -&gt; m ()
+forall (m :: * -&gt; *). MonadThread m =&gt; String -&gt; m ()
+</span><span class="hs-identifier hs-var">labelThisThread</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679031949"><span class="hs-identifier hs-var">lblA</span></a></span><span> </span><span class="annot"><span class="annottext">m () -&gt; m a -&gt; m a
+forall a b. m a -&gt; m b -&gt; m b
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; m b -&gt; m b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3E%3E"><span class="hs-operator hs-var">&gt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">m a
+</span><a href="#local-6989586621679031950"><span class="hs-identifier hs-var">mA</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-101"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String -&gt; m ()
+forall (m :: * -&gt; *). MonadThread m =&gt; String -&gt; m ()
+</span><span class="hs-identifier hs-var">labelThisThread</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679031951"><span class="hs-identifier hs-var">lblB</span></a></span><span> </span><span class="annot"><span class="annottext">m () -&gt; m b -&gt; m b
+forall a b. m a -&gt; m b -&gt; m b
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; m b -&gt; m b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3E%3E"><span class="hs-operator hs-var">&gt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">m b
+</span><a href="#local-6989586621679031952"><span class="hs-identifier hs-var">mB</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-102"></span><span>
+</span><span id="line-103"></span><span id="local-6989586621679031798"><span id="local-6989586621679031799"><span id="local-6989586621679031800"><span class="annot"><a href="Control.Concurrent.Class.Labelled.html#raceLabelled_"><span class="hs-identifier hs-type">raceLabelled_</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadAsync</span></span><span> </span><span class="annot"><a href="#local-6989586621679031798"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#String"><span class="hs-identifier hs-type">String</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621679031798"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679031799"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#String"><span class="hs-identifier hs-type">String</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621679031798"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679031800"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679031798"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span></span></span><span>
+</span><span id="line-104"></span><span id="raceLabelled_"><span class="annot"><span class="annottext">raceLabelled_ :: forall (m :: * -&gt; *) a b.
+MonadAsync m =&gt;
+(String, m a) -&gt; (String, m b) -&gt; m ()
+</span><a href="Control.Concurrent.Class.Labelled.html#raceLabelled_"><span class="hs-identifier hs-var hs-var">raceLabelled_</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">m (Either a b) -&gt; m ()
+forall (f :: * -&gt; *) a. Functor f =&gt; f a -&gt; f ()
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#void"><span class="hs-identifier hs-var">void</span></a></span><span> </span><span class="hs-operator">.</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(((String, m b) -&gt; m (Either a b)) -&gt; (String, m b) -&gt; m ())
+-&gt; ((String, m a) -&gt; (String, m b) -&gt; m (Either a b))
+-&gt; (String, m a)
+-&gt; (String, m b)
+-&gt; m ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">(String, m a) -&gt; (String, m b) -&gt; m (Either a b)
+forall (m :: * -&gt; *) a b.
+MonadAsync m =&gt;
+(String, m a) -&gt; (String, m b) -&gt; m (Either a b)
+</span><a href="Control.Concurrent.Class.Labelled.html#raceLabelled"><span class="hs-identifier hs-var">raceLabelled</span></a></span><span>
+</span><span id="line-105"></span><span>
+</span><span id="line-106"></span><span id="local-6989586621679031806"><span id="local-6989586621679031807"><span id="local-6989586621679031809"><span class="annot"><a href="Control.Concurrent.Class.Labelled.html#withAsyncLabelled"><span class="hs-identifier hs-type">withAsyncLabelled</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadAsync</span></span><span> </span><span class="annot"><a href="#local-6989586621679031806"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#String"><span class="hs-identifier hs-type">String</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621679031806"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679031807"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Async</span></span><span> </span><span class="annot"><a href="#local-6989586621679031806"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679031807"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679031806"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679031809"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679031806"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679031809"><span class="hs-identifier hs-type">b</span></a></span></span></span></span><span>
+</span><span id="line-107"></span><span id="withAsyncLabelled"><span class="annot"><span class="annottext">withAsyncLabelled :: forall (m :: * -&gt; *) a b.
+MonadAsync m =&gt;
+(String, m a) -&gt; (Async m a -&gt; m b) -&gt; m b
+</span><a href="Control.Concurrent.Class.Labelled.html#withAsyncLabelled"><span class="hs-identifier hs-var hs-var">withAsyncLabelled</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679031968"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679031968"><span class="hs-identifier hs-var">lbl</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679031969"><span class="annot"><span class="annottext">m a
+</span><a href="#local-6989586621679031969"><span class="hs-identifier hs-var">ma</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">m a -&gt; (Async m a -&gt; m b) -&gt; m b
+forall a b. m a -&gt; (Async m a -&gt; m b) -&gt; m b
+forall (m :: * -&gt; *) a b.
+MonadAsync m =&gt;
+m a -&gt; (Async m a -&gt; m b) -&gt; m b
+</span><span class="hs-identifier hs-var">withAsync</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String -&gt; m ()
+forall (m :: * -&gt; *). MonadThread m =&gt; String -&gt; m ()
+</span><span class="hs-identifier hs-var">labelThisThread</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679031968"><span class="hs-identifier hs-var">lbl</span></a></span><span> </span><span class="annot"><span class="annottext">m () -&gt; m a -&gt; m a
+forall a b. m a -&gt; m b -&gt; m b
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; m b -&gt; m b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3E%3E"><span class="hs-operator hs-var">&gt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">m a
+</span><a href="#local-6989586621679031969"><span class="hs-identifier hs-var">ma</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-108"></span><span>
+</span><span id="line-109"></span><span id="local-6989586621679031815"><span id="local-6989586621679031816"><span id="local-6989586621679031817"><span class="annot"><a href="Control.Concurrent.Class.Labelled.html#concurrentlyLabelled"><span class="hs-identifier hs-type">concurrentlyLabelled</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadAsync</span></span><span> </span><span class="annot"><a href="#local-6989586621679031815"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#String"><span class="hs-identifier hs-type">String</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621679031815"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679031816"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#String"><span class="hs-identifier hs-type">String</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621679031815"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679031817"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679031815"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621679031816"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621679031817"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span></span></span></span><span>
+</span><span id="line-110"></span><span id="concurrentlyLabelled"><span class="annot"><span class="annottext">concurrentlyLabelled :: forall (m :: * -&gt; *) a b.
+MonadAsync m =&gt;
+(String, m a) -&gt; (String, m b) -&gt; m (a, b)
+</span><a href="Control.Concurrent.Class.Labelled.html#concurrentlyLabelled"><span class="hs-identifier hs-var hs-var">concurrentlyLabelled</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679031979"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679031979"><span class="hs-identifier hs-var">lblA</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679031980"><span class="annot"><span class="annottext">m a
+</span><a href="#local-6989586621679031980"><span class="hs-identifier hs-var">mA</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679031981"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679031981"><span class="hs-identifier hs-var">lblB</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679031982"><span class="annot"><span class="annottext">m b
+</span><a href="#local-6989586621679031982"><span class="hs-identifier hs-var">mB</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-111"></span><span>  </span><span class="annot"><span class="annottext">m a -&gt; m b -&gt; m (a, b)
+forall a b. m a -&gt; m b -&gt; m (a, b)
+forall (m :: * -&gt; *) a b. MonadAsync m =&gt; m a -&gt; m b -&gt; m (a, b)
+</span><span class="hs-identifier hs-var">concurrently</span></span><span>
+</span><span id="line-112"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String -&gt; m ()
+forall (m :: * -&gt; *). MonadThread m =&gt; String -&gt; m ()
+</span><span class="hs-identifier hs-var">labelThisThread</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679031979"><span class="hs-identifier hs-var">lblA</span></a></span><span> </span><span class="annot"><span class="annottext">m () -&gt; m a -&gt; m a
+forall a b. m a -&gt; m b -&gt; m b
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; m b -&gt; m b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3E%3E"><span class="hs-operator hs-var">&gt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">m a
+</span><a href="#local-6989586621679031980"><span class="hs-identifier hs-var">mA</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-113"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String -&gt; m ()
+forall (m :: * -&gt; *). MonadThread m =&gt; String -&gt; m ()
+</span><span class="hs-identifier hs-var">labelThisThread</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679031981"><span class="hs-identifier hs-var">lblB</span></a></span><span> </span><span class="annot"><span class="annottext">m () -&gt; m b -&gt; m b
+forall a b. m a -&gt; m b -&gt; m b
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; m b -&gt; m b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3E%3E"><span class="hs-operator hs-var">&gt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">m b
+</span><a href="#local-6989586621679031982"><span class="hs-identifier hs-var">mB</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-114"></span><span>
+</span><span id="line-115"></span><span id="local-6989586621679031983"><span id="local-6989586621679031984"><span id="local-6989586621679031985"><span class="annot"><a href="Control.Concurrent.Class.Labelled.html#concurrentlyLabelled_"><span class="hs-identifier hs-type">concurrentlyLabelled_</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadAsync</span></span><span> </span><span class="annot"><a href="#local-6989586621679031983"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#String"><span class="hs-identifier hs-type">String</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621679031983"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679031984"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#String"><span class="hs-identifier hs-type">String</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="#local-6989586621679031983"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679031985"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679031983"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span></span></span><span>
+</span><span id="line-116"></span><span id="concurrentlyLabelled_"><span class="annot"><span class="annottext">concurrentlyLabelled_ :: forall (m :: * -&gt; *) a b.
+MonadAsync m =&gt;
+(String, m a) -&gt; (String, m b) -&gt; m ()
+</span><a href="Control.Concurrent.Class.Labelled.html#concurrentlyLabelled_"><span class="hs-identifier hs-var hs-var">concurrentlyLabelled_</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">m (a, b) -&gt; m ()
+forall (f :: * -&gt; *) a. Functor f =&gt; f a -&gt; f ()
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#void"><span class="hs-identifier hs-var">void</span></a></span><span> </span><span class="hs-operator">.</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(((String, m b) -&gt; m (a, b)) -&gt; (String, m b) -&gt; m ())
+-&gt; ((String, m a) -&gt; (String, m b) -&gt; m (a, b))
+-&gt; (String, m a)
+-&gt; (String, m b)
+-&gt; m ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">(String, m a) -&gt; (String, m b) -&gt; m (a, b)
+forall (m :: * -&gt; *) a b.
+MonadAsync m =&gt;
+(String, m a) -&gt; (String, m b) -&gt; m (a, b)
+</span><a href="Control.Concurrent.Class.Labelled.html#concurrentlyLabelled"><span class="hs-identifier hs-var">concurrentlyLabelled</span></a></span><span>
+</span><span id="line-117"></span><span>
+</span><span id="line-118"></span><span id="local-6989586621679031826"><span id="local-6989586621679031827"><span class="annot"><a href="Control.Concurrent.Class.Labelled.html#asyncLabelled"><span class="hs-identifier hs-type">asyncLabelled</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MonadAsync</span></span><span> </span><span class="annot"><a href="#local-6989586621679031826"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#String"><span class="hs-identifier hs-type">String</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679031826"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679031827"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679031826"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Async</span></span><span> </span><span class="annot"><a href="#local-6989586621679031826"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679031827"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-119"></span><span id="asyncLabelled"><span class="annot"><span class="annottext">asyncLabelled :: forall (m :: * -&gt; *) a.
+MonadAsync m =&gt;
+String -&gt; m a -&gt; m (Async m a)
+</span><a href="Control.Concurrent.Class.Labelled.html#asyncLabelled"><span class="hs-identifier hs-var hs-var">asyncLabelled</span></a></span></span><span> </span><span id="local-6989586621679032000"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679032000"><span class="hs-identifier hs-var">lbl</span></a></span></span><span> </span><span id="local-6989586621679032001"><span class="annot"><span class="annottext">m a
+</span><a href="#local-6989586621679032001"><span class="hs-identifier hs-var">mA</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">m a -&gt; m (Async m a)
+forall a. m a -&gt; m (Async m a)
+forall (m :: * -&gt; *) a. MonadAsync m =&gt; m a -&gt; m (Async m a)
+</span><span class="hs-identifier hs-var">async</span></span><span> </span><span class="annot"><span class="annottext">(m a -&gt; m (Async m a)) -&gt; m a -&gt; m (Async m a)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; m ()
+forall (m :: * -&gt; *). MonadThread m =&gt; String -&gt; m ()
+</span><span class="hs-identifier hs-var">labelThisThread</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679032000"><span class="hs-identifier hs-var">lbl</span></a></span><span> </span><span class="annot"><span class="annottext">m () -&gt; m a -&gt; m a
+forall a b. m a -&gt; m b -&gt; m b
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; m b -&gt; m b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3E%3E"><span class="hs-operator hs-var">&gt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">m a
+</span><a href="#local-6989586621679032001"><span class="hs-identifier hs-var">mA</span></a></span><span>
+</span><span id="line-120"></span></pre></body></html>

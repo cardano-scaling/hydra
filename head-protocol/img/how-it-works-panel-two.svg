@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="0 0 600 400" role="img" aria-labelledby="title desc">
+<title id="title">Move funds in and out</title>
+<desc id="desc">Deposits add funds to an open head; decommits return funds to Cardano.</desc>
+<defs>
+  <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+    <path d="M 1 1 L 9 5 L 1 9" fill="none" stroke="#527b76" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+  </marker>
+</defs>
+<rect width="600" height="400" rx="12" fill="#f0f7f5"/>
+<text x="300" y="62" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="30" fill="#194d46" font-weight="600">Move funds in and out</text>
+<rect x="200" y="125" width="200" height="75" rx="12" fill="#e0eee9" stroke="#b5d0c9" stroke-width="1.2"/>
+<text x="300.0" y="169.5" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="22" fill="#415955" font-weight="normal">Open head</text>
+<rect x="200" y="280" width="200" height="60" rx="12" fill="#FFFFFF" stroke="#b5d0c9" stroke-width="1.2"/>
+<text x="300.0" y="317.0" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="22" fill="#415955" font-weight="normal">Cardano L1</text>
+<path d="M170,280 V160 H195" fill="none" stroke="#527b76" stroke-width="1.8" marker-end="url(#arrow)"/>
+<path d="M430,160 V310 H405" fill="none" stroke="#527b76" stroke-width="1.8" marker-end="url(#arrow)"/>
+<text x="97" y="220" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="19" fill="#415955" font-weight="normal">Deposit</text>
+<text x="507" y="220" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="19" fill="#415955" font-weight="normal">Decommit</text>
+<text x="300" y="242" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="18" fill="#415955" font-weight="normal">Wait for settlement</text>
+</svg>

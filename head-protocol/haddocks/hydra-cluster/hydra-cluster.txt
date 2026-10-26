@@ -5,7 +5,7 @@
 -- | Integration test suite using a local cluster of cardano and hydra
 --   nodes
 @package hydra-cluster
-@version 2.4.1
+@version 2.4.2
 
 
 -- | A cardano-node client used in end-to-end tests and benchmarks.
@@ -541,8 +541,9 @@ getShelleyGenesisBlockTime :: Value -> NominalDiffTime
 --   a while!
 waitForFullySynchronized :: Tracer IO NodeLog -> ChainBackendOptions -> IO ()
 
--- | Wait for the node socket file to become available.
-waitForSocket :: SocketPath -> IO ()
+-- | Wait until the node answers a query. A bound socket may not be
+--   listening yet.
+waitForNodeReady :: DirectOptions -> IO ()
 
 -- | Generate command-line arguments for launching <tt>cardano-node</tt>.
 cardanoNodeProcess :: Maybe FilePath -> CardanoNodeArgs -> CreateProcess
@@ -767,12 +768,6 @@ scaleWaitTime :: NominalDiffTime -> IO NominalDiffTime
 --   several messages to be waited for and received in <i>any order</i>.
 waitForAll :: HasCallStack => Tracer IO HydraNodeLog -> NominalDiffTime -> [HydraClient] -> [Value] -> IO ()
 
--- | Wait up to some time and succeed if no API server output matches the
---   given predicate. The window is deliberately NOT scaled by
---   <a>scaleWaitTime</a>: the timeout here is the success path, so scaling
---   it would slow every passing run.
-waitNoMatch :: HasCallStack => NominalDiffTime -> HydraClient -> (Value -> Maybe a) -> IO ()
-
 -- | Like <a>waitMatch</a> but with the given wall-clock budget, unscaled.
 waitMatchWith :: HasCallStack => NominalDiffTime -> HydraClient -> (Value -> Maybe a) -> IO a
 getMetrics :: HasCallStack => HydraClient -> IO ByteString
@@ -883,15 +878,35 @@ singlePartyUsesScriptOnL2 :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOp
 --   languages.
 recomputeIntegrityHash :: (AlonzoEraPParams ppera, AlonzoEraTxWits txera, AlonzoEraTxBody txera, EraTx txera) => PParams ppera -> [Language] -> Tx TopTx txera -> Tx TopTx txera
 
+-- | Open a head, mint tokens on L2 using a dummy minting policy and
+--   observe what happens on fanout: the minted tokens exist on L2 but
+--   never entered the head output on L1, so no fanout transaction can
+--   distribute them and the head cannot be finalized (see
+--   <a>https://github.com/cardano-scaling/hydra/issues/2334)</a>. The node
+--   reports this as a <tt>PostTxOnChainFailed</tt> and keeps running.
+singlePartyMintsTokensOnL2 :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
+
+-- | Mint tokens on L1 using a dummy minting policy, deposit them into an
+--   open head and fan out. Tokens which entered the head output on L1 are
+--   distributed by the fanout transaction like any other value.
+singlePartyFansOutTokensMintedOnL1 :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
+
 -- | Open a head and run a script using <tt>Rewarding</tt> script purpose
 --   and a zero lovelace withdrawal.
 singlePartyUsesWithdrawZeroTrick :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
 canDepositScriptBlueprint :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
 persistenceCanLoadWithNothingCommitted :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
 
--- | Initialize open and close a head on a real network and ensure
---   contestation period longer than the time horizon is possible. For this
---   it is enough that we can close a head and not wait for the deadline.
+-- | Close a head whose contestation period is a week, on a real node
+--   started from the chain tip.
+--   
+--   Not reducible to a unit test: the point is that
+--   <tt>calculateTxUpperBoundFromContestationPeriod</tt> caps the close
+--   transaction's upper validity bound at <tt>maxGraceTime</tt>, keeping
+--   it inside the ledger's forecast horizon. StateSpec's close properties
+--   pass their validity bounds in directly and never reach that code, and
+--   the io-sim tests install an era history without a horizon, so only a
+--   real node exercises it.
 canCloseWithLongContestationPeriod :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
 canSubmitTransactionThroughAPI :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
 expectErrorStatus :: Int -> Maybe ByteString -> HttpException -> Bool
@@ -923,7 +938,6 @@ startWithWrongPeers :: FilePath -> Tracer IO EndToEndLog -> ChainBackendOptions 
 -- | Open a a two participant head, deposit funds to it and distribute them
 --   on fanout.
 canDepositConcurrently :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
-rejectDeposit :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
 
 -- | Open a single participant head and deposit part of a UTxO, with the
 --   remainder returned to a change address. This exercises the
@@ -937,11 +951,6 @@ canRecoverDeposit :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions ->
 --   the head and recover deposit #1 2. Fanout the head and recover deposit
 --   #2 3. Open a new head and recover deposit #3
 canRecoverDepositInAnyState :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
-
--- | Open a two-participant head, stop one node so deposits stay pending,
---   then verify that GET /commits lists them. Recovery is covered by
---   canRecoverDeposit.
-canSeePendingDeposits :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
 
 -- | Open a a single participant head with some UTxO and incrementally
 --   decommit it.

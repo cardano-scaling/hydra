@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="560" height="1054" viewBox="0 0 560 1054" role="img" aria-labelledby="title description">
+  <title id="title">Deposit settlement and rollback</title>
+  <desc id="description">A client submits a deposit at output zero. The Hydra parties observe it and emit CommitRecorded. Once the upper validity bound plus activation delay passes, and while chain time is at most deadline minus deposit period, DepositActivated is emitted. Parties sign a snapshot binding the deposit transaction ID and UTxO, emit CommitApproved, and submit an increment. Observing it emits CommitFinalized and makes the funds spendable on L2. If the increment rolls back, retain signed L2 state and the authorizing snapshot and attempt to re-post the increment before the deadline.</desc>
+  <!-- Maintained directly as SVG; see docs/README.md for the shared diagram style. -->
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 1 1 L 9 5 L 1 9" fill="none" stroke="#527b76" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <style>
+      text { font-family: Arial, Helvetica, sans-serif; }
+      .heading { font-size: 20px; font-weight: 600; fill: #194d46; }
+      .step { font-size: 18px; font-weight: 600; fill: #194d46; }
+      .body { font-size: 16px; fill: #415955; }
+      .label { font-size: 15px; fill: #526761; }
+      .detail { font-size: 14px; fill: #526761; }
+      .message { font-size: 16px; fill: #415955; paint-order: stroke; stroke: #fff; stroke-width: 5px; stroke-linejoin: round; }
+      .path { fill: none; stroke: #527b76; stroke-width: 1.8; marker-end: url(#arrow); }
+      .line { fill: none; stroke: #527b76; stroke-width: 1.8; }
+      .guide { fill: none; stroke: #b5d0c9; stroke-width: 1.2; stroke-dasharray: 5 6; }
+      .card { fill: #f0f7f5; stroke: #b5d0c9; stroke-width: 1.2; }
+      .group { fill: #fff; stroke: #b5d0c9; stroke-width: 1.2; }
+      .accent { fill: #e0eee9; stroke: #8fb8ac; stroke-width: 1.2; }
+    </style>
+  </defs>
+  <rect width="560" height="1054" rx="12" fill="#fff"/>
+  <path d="M 88 80 V 780" class="guide"/>
+  <rect x="16.0" y="16" width="144" height="64" rx="12" class="card"/>
+  <text x="88.0" y="54.0" text-anchor="middle" class="step">Client</text>
+  <path d="M 280 80 V 780" class="guide"/>
+  <rect x="208.0" y="16" width="144" height="64" rx="12" class="card"/>
+  <text x="280.0" y="54.0" text-anchor="middle" class="step">Hydra parties</text>
+  <path d="M 472 80 V 780" class="guide"/>
+  <rect x="400.0" y="16" width="144" height="64" rx="12" class="card"/>
+  <text x="472.0" y="54.0" text-anchor="middle" class="step">Cardano L1</text>
+  <path d="M 88 132 H 472" class="path"/>
+  <text x="280.0" y="120" text-anchor="middle" class="message">Submit deposit transaction (output 0)</text>
+  <path d="M 472 196 H 280" class="path"/>
+  <text x="376.0" y="184" text-anchor="middle" class="message">Observe deposit</text>
+  <path d="M 280 250 H 88" class="path"/>
+  <text x="184.0" y="238" text-anchor="middle" class="message">CommitRecorded</text>
+  <rect x="24" y="280" width="512" height="64" rx="12" class="card"/>
+  <text x="280" y="306.5" text-anchor="middle" class="body">Wait until upper validity bound + DA has passed,</text>
+  <text x="280" y="327.5" text-anchor="middle" class="body">while chain time ≤ deadline − DP.</text>
+  <path d="M 280 386 H 88" class="path"/>
+  <text x="184.0" y="374" text-anchor="middle" class="message">DepositActivated</text>
+  <rect x="192" y="412" width="176" height="82" rx="12" class="card"/>
+  <text x="280.0" y="448.5" text-anchor="middle" class="step">Sign snapshot</text>
+  <text x="280.0" y="474.5" text-anchor="middle" class="body">Deposit ID + UTxO</text>
+  <path d="M 280 538 H 88" class="path"/>
+  <text x="184.0" y="526" text-anchor="middle" class="message">CommitApproved</text>
+  <path d="M 280 590 H 472" class="path"/>
+  <text x="376.0" y="578" text-anchor="middle" class="message">Submit increment</text>
+  <path d="M 472 642 H 280" class="path"/>
+  <text x="376.0" y="630" text-anchor="middle" class="message">Observe increment</text>
+  <path d="M 280 694 H 88" class="path"/>
+  <text x="184.0" y="682" text-anchor="middle" class="message">CommitFinalized</text>
+  <rect x="24" y="722" width="512" height="52" rx="12" class="card"/>
+  <text x="280" y="753.0" text-anchor="middle" class="body">Deposited outputs are spendable on L2.</text>
+  <rect x="24" y="804" width="512" height="234" rx="12" class="group"/>
+  <text x="40" y="833" text-anchor="start" class="step">If the increment rolls back</text>
+  <path d="M 280 846 V 1024" class="guide"/>
+  <path d="M 472 846 V 1024" class="guide"/>
+  <path d="M 472 890 H 280" class="path"/>
+  <text x="376.0" y="857" text-anchor="middle" class="message">Roll back before</text>
+  <text x="376.0" y="878" text-anchor="middle" class="message">the increment</text>
+  <rect x="24" y="916" width="512" height="54" rx="12" class="card"/>
+  <text x="280" y="948.0" text-anchor="middle" class="body">Keep signed L2 state and the authorizing snapshot.</text>
+  <path d="M 280 1018 H 472" class="path"/>
+  <text x="376.0" y="1006" text-anchor="middle" class="message">Try to re-post before deadline</text>
+</svg>
