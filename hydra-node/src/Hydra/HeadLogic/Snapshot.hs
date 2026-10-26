@@ -676,7 +676,7 @@ onOpenNetworkAckSn env@Environment{party} ChainPointTime{currentChainTime} pendi
           -- Spec: ̂Σ[j] ← σⱼ
           (newState PartySignedSnapshot{snapshotNumber = snapshot.number, party = otherParty, signature = snapshotSignature} <>) $
             --       if ∀k ∈ [1..n] : (k,·) ∈ ̂Σ
-            ifAllMembersHaveSigned snapshot sigs $ \sigs' -> do
+            ifAllMembersHaveSigned sigs $ \sigs' -> do
               -- Spec: σ̃ ← MS-ASig(kₕˢᵉᵗᵘᵖ,̂Σ)
               let multisig = aggregateInOrder sigs' parties
               -- Spec: η ← combine(𝑈ˆ)
@@ -727,17 +727,11 @@ onOpenNetworkAckSn env@Environment{party} ChainPointTime{currentChainTime} pendi
       then continue
       else Error $ RequireFailed $ AckSnSignatureInvalid{requestedSn = sn, receivedSignature = otherParty}
 
-  ifAllMembersHaveSigned snapshot sigs cont =
+  ifAllMembersHaveSigned sigs cont =
     let sigs' = Map.insert otherParty snapshotSignature sigs
      in if Map.keysSet sigs' == Set.fromList parties
           then cont sigs'
-          else
-            newState
-              PartySignedSnapshot
-                { snapshotNumber = snapshot.number
-                , party = otherParty
-                , signature = snapshotSignature
-                }
+          else noop
 
   requireVerifiedMultisignature multisig msg cont =
     case verifyMultiSignatureBytes vkeys multisig msg of
