@@ -463,7 +463,7 @@ instance Arbitrary DepositPeriod where
 genValidityBoundsFromContestationPeriod :: ContestationPeriod -> Gen (SlotNo, (SlotNo, UTCTime))
 genValidityBoundsFromContestationPeriod cpSeconds = do
   startSlot@(SlotNo start) <- SlotNo <$> arbitrary
-  let end = start + fromIntegral cpSeconds
+  let end = start + floor (toNominalDiffTime cpSeconds)
   endSlot <- SlotNo <$> chooseWord64 (start, end)
   let time = slotNoToUTCTime systemStart slotLength endSlot
   pure (startSlot, (endSlot, time))
