@@ -9,7 +9,6 @@ import Hydra.Contract.HeadState qualified as Head
 import Hydra.Ledger.Cardano.Builder (
   unsafeBuildTransaction,
  )
-import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.ContestationPeriod qualified as ContestationPeriod
 import Hydra.Tx.Crypto (MultiSignature (..), observedSignatures, toPlutusSignatures)
 import Hydra.Tx.DepositPeriod qualified as DepositPeriod
@@ -17,8 +16,8 @@ import Hydra.Tx.HeadId (HeadId, headIdToCurrencySymbol)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.Party (partyToChain)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry, headReference)
+import Hydra.Tx.Settlement (SettlementEvidence (..), commitOutputsHash, snapshotEvidence)
 import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion, fromChainSnapshotNumber, fromChainSnapshotVersion)
-import Hydra.Tx.Snapshot qualified as Snapshot
 import Hydra.Tx.Utils (findStateToken, mkHydraHeadV2TxName)
 import PlutusLedgerApi.V3 (toBuiltin)
 
@@ -41,7 +40,12 @@ decrementTx ::
   Snapshot Tx ->
   MultiSignature (Snapshot Tx) ->
   Tx
-decrementTx scriptRegistry vk (seedTxIn, headId) headParameters (headInput, headOutput) snapshot signatures =
+decrementTx scriptRegistry vk seed headParameters headOutput snapshot signatures =
+  decrementTxWithEvidence scriptRegistry vk seed headParameters headOutput (snapshotEvidence snapshot signatures)
+
+-- | Build the same transaction from retained settlement evidence.
+decrementTxWithEvidence :: ScriptRegistry -> VerificationKey PaymentKey -> (TxIn, HeadId) -> HeadParameters -> (TxIn, TxOut CtxUTxO) -> SettlementEvidence Tx -> Tx
+decrementTxWithEvidence scriptRegistry vk (seedTxIn, headId) headParameters (headInput, headOutput) evidence =
   unsafeBuildTransaction $
     defaultTxBodyContent
       & addTxIns [(headInput, headWitness)]
@@ -58,11 +62,11 @@ decrementTx scriptRegistry vk (seedTxIn, headId) headParameters (headInput, head
           , snapshotNumber = fromIntegral number
           , numberOfDecommitOutputs =
               fromIntegral $ maybe 0 UTxO.size utxoToDecommit
-          , appliedAccumulatorHash = toBuiltin $ Accumulator.getAccumulatorHash appliedAccumulator
-          , commitOutputsHash = toBuiltin $ Snapshot.commitOutputsHash snapshot
+          , appliedAccumulatorHash = toBuiltin $ appliedAccumulatorHash
+          , commitOutputsHash = toBuiltin $ commitOutputsHash evidence
           }
 
-  decrementAccumulatorHash = Accumulator.getAccumulatorHash accumulator
+  decrementAccumulatorHash = accumulatorHash
 
   HeadParameters{parties, contestationPeriod, depositPeriod} = headParameters
 
@@ -101,7 +105,7 @@ decrementTx scriptRegistry vk (seedTxIn, headId) headParameters (headInput, head
           , headAdaOverhead = prevHeadAdaOverhead
           }
 
-  Snapshot{utxoToDecommit, number, version, accumulator, appliedAccumulator} = snapshot
+  SettlementEvidence{utxoToDecommit, number, version, accumulatorHash, appliedAccumulatorHash, signatures} = evidence
 
 -- * Observation
 

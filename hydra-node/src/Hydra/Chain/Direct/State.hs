@@ -71,15 +71,16 @@ import Hydra.Tx.Contest (ClosedThreadOutput (..), contestTx)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Hydra.Tx.ContestationPeriod qualified as ContestationPeriod
 import Hydra.Tx.Crypto (HydraKey, aggregate, generateSigningKey, sign)
-import Hydra.Tx.Decrement (decrementTx)
+import Hydra.Tx.Decrement (decrementTxWithEvidence)
 import Hydra.Tx.Deposit (DepositObservation (..), observeDepositTx, observeDepositTxOut)
 import Hydra.Tx.DepositPeriod (DepositPeriod)
 import Hydra.Tx.DepositPeriod qualified as DepositPeriod
 import Hydra.Tx.Fanout (fanoutTx, finalPartialFanoutTx, partialFanoutTx)
-import Hydra.Tx.Increment (incrementTx)
+import Hydra.Tx.Increment (incrementTxWithEvidence)
 import Hydra.Tx.Init (initTx)
 import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Recover (recoverTx)
+import Hydra.Tx.Settlement (SettlementEvidence (..), settlementEvidence)
 import Hydra.Tx.Utils (setIncrementalActionMaybe)
 
 -- | A class for accessing the known 'UTxO' set in a type. This is useful to get
@@ -228,7 +229,11 @@ increment ::
   -- | Valid until, must be before deadline.
   SlotNo ->
   Either IncrementTxError Tx
-increment ctx spendableUTxO (headSeed, headId) headParameters incrementingSnapshot upperValiditySlot = do
+increment ctx spendableUTxO seed headParameters snapshot =
+  incrementWithEvidence ctx spendableUTxO seed headParameters (settlementEvidence snapshot)
+
+incrementWithEvidence :: ChainContext -> UTxO -> (HeadSeed, HeadId) -> HeadParameters -> SettlementEvidence Tx -> SlotNo -> Either IncrementTxError Tx
+incrementWithEvidence ctx spendableUTxO (headSeed, headId) headParameters evidence upperValiditySlot = do
   seedTxIn <- headSeedToTxIn headSeed ?> InvalidHeadSeedInIncrement{headSeed}
   pid <- headIdToPolicyId headId ?> InvalidHeadIdInIncrement{headId}
   let utxoOfThisHead' = utxoOfThisHead pid spendableUTxO
@@ -258,23 +263,17 @@ increment ctx spendableUTxO (headSeed, headId) headParameters incrementingSnapsh
           Left SnapshotIncrementUTxOIsNull
       | otherwise ->
           Right $
-            incrementTx
+            incrementTxWithEvidence
               scriptRegistry
               ownVerificationKey
               (seedTxIn, headId)
               headParameters
               headUTxO
-              sn
+              evidence
               (UTxO.singleton depositedIn depositedOut)
               upperValiditySlot
-              sigs
  where
-  Snapshot{utxoToCommit, depositTxId = snapshotDepositTxId} = sn
-
-  (sn, sigs) =
-    case incrementingSnapshot of
-      ConfirmedSnapshot{snapshot, signatures} -> (snapshot, signatures)
-      _ -> (getSnapshot incrementingSnapshot, mempty)
+  SettlementEvidence{utxoToCommit, depositTxId = snapshotDepositTxId} = evidence
 
   ChainContext{ownVerificationKey, scriptRegistry} = ctx
 
@@ -389,7 +388,11 @@ decrement ::
   -- | Snapshot to decrement with.
   ConfirmedSnapshot Tx ->
   Either DecrementTxError Tx
-decrement ctx spendableUTxO (headSeed, headId) headParameters decrementingSnapshot = do
+decrement ctx spendableUTxO seed headParameters snapshot =
+  decrementWithEvidence ctx spendableUTxO seed headParameters (settlementEvidence snapshot)
+
+decrementWithEvidence :: ChainContext -> UTxO -> (HeadSeed, HeadId) -> HeadParameters -> SettlementEvidence Tx -> Either DecrementTxError Tx
+decrementWithEvidence ctx spendableUTxO (headSeed, headId) headParameters evidence = do
   seedTxIn <- headSeedToTxIn headSeed ?> InvalidHeadSeedInDecrement{headSeed}
   pid <- headIdToPolicyId headId ?> InvalidHeadIdInDecrement{headId}
   let utxoOfThisHead' = utxoOfThisHead pid spendableUTxO
@@ -398,24 +401,16 @@ decrement ctx spendableUTxO (headSeed, headId) headParameters decrementingSnapsh
   when (isNegative balance) $
     Left DecrementValueNegative
   Right $
-    decrementTx
+    decrementTxWithEvidence
       scriptRegistry
       ownVerificationKey
       (seedTxIn, headId)
       headParameters
       headUTxO
-      sn
-      sigs
+      evidence
  where
-  decommitValue = UTxO.totalValue $ fromMaybe mempty $ utxoToDecommit sn
-
-  (sn, sigs) =
-    case decrementingSnapshot of
-      ConfirmedSnapshot{snapshot, signatures} -> (snapshot, signatures)
-      -- XXX: This way of retrofitting an 'InitialSnapshot' into a Snapshot +
-      -- Signatures indicates we might want to simplify 'ConfirmedSnapshot' into
-      -- a product directly.
-      _ -> (getSnapshot decrementingSnapshot, mempty)
+  decommitValue = UTxO.totalValue $ fromMaybe mempty toDecommit
+  SettlementEvidence{utxoToDecommit = toDecommit} = evidence
 
   ChainContext{ownVerificationKey, scriptRegistry} = ctx
 

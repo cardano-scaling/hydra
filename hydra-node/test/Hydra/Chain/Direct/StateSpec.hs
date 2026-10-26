@@ -12,6 +12,7 @@ import Test.Hydra.Prelude hiding (HydraTestnet (..))
 
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Binary (serialize)
+import Cardano.Binary qualified as CBOR
 import Data.ByteString.Lazy qualified as LBS
 import Data.Map.Strict qualified as Map
 import GHC.IsList qualified as IsList
@@ -54,9 +55,11 @@ import Hydra.Chain.Direct.State (
   RecoverTxError (..),
   close,
   contest,
+  decrementWithEvidence,
   finalPartialFanout,
   getKnownUTxO,
   increment,
+  incrementWithEvidence,
   initialChainState,
   initialize,
   recover,
@@ -94,6 +97,7 @@ import Hydra.Tx.Observe (
   observePartialFanoutTx,
  )
 import Hydra.Tx.Recover (RecoverObservation (..), observeRecoverTx)
+import Hydra.Tx.Settlement (settlementEvidence)
 import PlutusLedgerApi.V1.Time (DiffMilliSeconds (..))
 import PlutusLedgerApi.V3 qualified as Plutus
 import PlutusTx.Builtins (BuiltinBLS12_381_G1_Element)
@@ -277,6 +281,17 @@ spec = parallel $ do
     it "recover requires the deposit to be its transaction's first output" prop_recoverRequiresFirstDepositOutput
 
   describe "increment" $ do
+    modifyMaxSuccess (const 10) $
+      prop "restored settlement evidence builds the same increment" $
+        forAllBlind (genIncrementTxWithSnapshot $ genDepositTx maximumNumberOfParties) $ \(ctx, OpenState{headId, seedTxIn}, _, spendable, _, snapshot) ->
+          forAllBlind (pickChainContext ctx) $ \cctx ->
+            let evidence = settlementEvidence snapshot
+                build = incrementWithEvidence cctx spendable (txInToHeadSeed seedTxIn, headId) (ctxHeadParameters ctx)
+             in case CBOR.decodeFull' (CBOR.serialize' evidence) of
+                  Left err -> counterexample (show err) False
+                  Right restored -> case (increment cctx spendable (txInToHeadSeed seedTxIn, headId) (ctxHeadParameters ctx) snapshot 100, build restored 100) of
+                    (Right original, Right rebuilt) -> original === rebuilt
+                    other -> counterexample (show other) False
     propBelowSizeLimit maxTxSize forAllIncrement
     propIsValid forAllIncrement
     it "increment observation observes correct utxo" prop_incrementObservesCorrectUTxO
@@ -320,6 +335,14 @@ spec = parallel $ do
                         .&&. (property (all (valueFits . txOutValue) (txOuts' txIncrement)) & counterexample "Output value size beyond mainnet maxValSize")
 
   describe "decrement" $ do
+    modifyMaxSuccess (const 10) $
+      prop "restored settlement evidence builds the same decrement" $
+        forAllBlind (genDecrementTxWithSnapshot maximumNumberOfParties) $ \(ctx, cctx, _, OpenState{headId, seedTxIn}, spendable, original, snapshot) ->
+          case CBOR.decodeFull' (CBOR.serialize' $ settlementEvidence snapshot) of
+            Left err -> counterexample (show err) False
+            Right restored -> case decrementWithEvidence cctx spendable (txInToHeadSeed seedTxIn, headId) (ctxHeadParameters ctx) restored of
+              Left err -> counterexample (show err) False
+              Right rebuilt -> original === rebuilt
     propBelowSizeLimit maxTxSize forAllDecrement
     propIsValid forAllDecrement
     modifyMaxSuccess (const 10) $

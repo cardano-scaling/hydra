@@ -70,6 +70,7 @@ library
     Hydra.Tx.Recover
     Hydra.Tx.ScriptRegistry
     Hydra.Tx.Snapshot
+    Hydra.Tx.Settlement
     Hydra.Tx.Utils
 
   other-modules:   Paths_hydra_tx

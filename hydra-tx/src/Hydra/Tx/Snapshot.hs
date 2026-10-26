@@ -160,7 +160,10 @@ instance IsTx tx => SignableRepresentation (Snapshot tx) where
 -- deposit) and carry it in their redeemer instead, where it only feeds signature
 -- verification.
 commitOutputsHash :: forall tx. IsTx tx => Snapshot tx -> ByteString
-commitOutputsHash Snapshot{utxoToCommit, depositTxId} =
+commitOutputsHash Snapshot{utxoToCommit, depositTxId} = hashCommitOutputs @tx utxoToCommit depositTxId
+
+hashCommitOutputs :: forall tx. IsTx tx => Maybe (UTxOType tx) -> Maybe (TxIdType tx) -> ByteString
+hashCommitOutputs utxoToCommit depositTxId =
   fromBuiltin . sha2_256 . toBuiltin $
     hashUTxO @tx (fromMaybe mempty utxoToCommit)
       <> foldMap (txIdBytes @tx) depositTxId

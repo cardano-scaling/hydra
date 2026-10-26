@@ -13,15 +13,16 @@ import Hydra.Ledger.Cardano.Builder (
   unsafeBuildTransaction,
  )
 import Hydra.Plutus (depositValidatorScript)
-import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.ContestationPeriod qualified as ContestationPeriod
 import Hydra.Tx.Crypto (MultiSignature (..), observedSignatures, toPlutusSignatures)
 import Hydra.Tx.DepositPeriod qualified as DepositPeriod
 import Hydra.Tx.HeadId (HeadId, headIdToCurrencySymbol)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
+import Hydra.Tx.IsTx (hashUTxO)
 import Hydra.Tx.Party (partyToChain)
 import Hydra.Tx.ScriptRegistry (ScriptRegistry, headReference)
-import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion, decommitOutputsHash, fromChainSnapshotNumber, fromChainSnapshotVersion)
+import Hydra.Tx.Settlement (SettlementEvidence (..), snapshotEvidence)
+import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion, fromChainSnapshotNumber, fromChainSnapshotVersion)
 import Hydra.Tx.Utils (findStateToken, mkHydraHeadV2TxName)
 import PlutusLedgerApi.V3 (toBuiltin)
 
@@ -47,7 +48,12 @@ incrementTx ::
   SlotNo ->
   MultiSignature (Snapshot Tx) ->
   Tx
-incrementTx scriptRegistry vk (seedTxIn, headId) headParameters (headInput, headOutput) snapshot depositScriptUTxO upperValiditySlot sigs =
+incrementTx scriptRegistry vk seed headParameters headOutput snapshot depositScriptUTxO upperValiditySlot sigs =
+  incrementTxWithEvidence scriptRegistry vk seed headParameters headOutput (snapshotEvidence snapshot sigs) depositScriptUTxO upperValiditySlot
+
+-- | Build the same transaction from retained settlement evidence.
+incrementTxWithEvidence :: ScriptRegistry -> VerificationKey PaymentKey -> (TxIn, HeadId) -> HeadParameters -> (TxIn, TxOut CtxUTxO) -> SettlementEvidence Tx -> UTxO -> SlotNo -> Tx
+incrementTxWithEvidence scriptRegistry vk (seedTxIn, headId) headParameters (headInput, headOutput) evidence depositScriptUTxO upperValiditySlot =
   unsafeBuildTransaction $
     defaultTxBodyContent
       & addTxIns [(headInput, headWitness), (depositIn, depositWitness)]
@@ -64,8 +70,8 @@ incrementTx scriptRegistry vk (seedTxIn, headId) headParameters (headInput, head
           { signature = toPlutusSignatures sigs
           , snapshotNumber = fromIntegral number
           , increment = toPlutusTxOutRef depositIn
-          , appliedAccumulatorHash = toBuiltin $ Accumulator.getAccumulatorHash appliedAccumulator
-          , decommitOutputsHash = toBuiltin $ decommitOutputsHash snapshot
+          , appliedAccumulatorHash = toBuiltin $ appliedAccumulatorHash
+          , decommitOutputsHash = toBuiltin $ hashUTxO @Tx (fromMaybe mempty utxoToDecommit)
           }
 
   HeadParameters{parties, contestationPeriod, depositPeriod} = headParameters
@@ -82,7 +88,7 @@ incrementTx scriptRegistry vk (seedTxIn, headId) headParameters (headInput, head
       ScriptWitness scriptWitnessInCtx $
         mkScriptReference headScriptRef Head.validatorScript InlineScriptDatum headRedeemer
 
-  incrementAccumulatorHash = Accumulator.getAccumulatorHash accumulator
+  incrementAccumulatorHash = accumulatorHash
 
   prevHeadAdaOverhead =
     case fromScriptData =<< txOutScriptData (fromCtxUTxOTxOut headOutput) of
@@ -115,7 +121,7 @@ incrementTx scriptRegistry vk (seedTxIn, headId) headParameters (headInput, head
       ScriptWitness scriptWitnessInCtx $
         mkScriptWitness depositValidatorScript InlineScriptDatum depositRedeemer
 
-  Snapshot{utxoToCommit, version, number, accumulator, appliedAccumulator} = snapshot
+  SettlementEvidence{utxoToCommit, utxoToDecommit, version, number, accumulatorHash, appliedAccumulatorHash, signatures = sigs} = evidence
 
 -- * Observation
 
