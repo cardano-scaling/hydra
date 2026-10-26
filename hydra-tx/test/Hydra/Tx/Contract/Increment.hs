@@ -99,6 +99,7 @@ healthyIncrementTx =
   depositUTxO =
     UTxO.singleton healthyDepositInput depositOutput
 
+  depositOutput :: TxOut CtxUTxO
   depositOutput =
     mkDepositOutput testNetworkId (mkHeadId testPolicyId) healthyDeposited healthyDeadline
 
