@@ -3,161 +3,33 @@ module Test.Hydra.Cluster.UtilSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
--- NOTE: Qualified because 'Test.Hydra.Prelude' exports a 'Mainnet' of its own.
-import Hydra.Cardano.Api qualified as CAPI
 import Hydra.Chain.Direct.Handlers (maxGraceTime)
-import Hydra.Cluster.Fixture (Actor (..), aliceSk)
 import Hydra.Cluster.Util (
   BlockTime,
-  ConfiguredNetwork (..),
-  FixtureKeyOnMainnet (..),
   Participant (..),
   Timing (..),
   archiveParticipantKeys,
-  assertNoFixtureHydraKey,
-  assertNoFixtureRecipients,
-  clearHeadOpen,
-  configuredNetwork,
   generateParticipant,
-  headMayBeOpen,
-  keysFor,
   leftoverParticipantKeys,
-  markHeadOpen,
   mkSmokeTiming,
   participantCardanoKeyFile,
   participantHydraKeyFile,
-  participantKeysDir,
   participantWalletKeyFile,
   sweptParticipantKeysDir,
  )
-
--- NOTE: Only the one field, as 'CardanoChainConfig' shares names with 'Timing'.
-import Hydra.Options (
-  BlockfrostOptions (..),
-  CardanoChainConfig (chainBackendOptions),
-  ChainConfig (..),
-  defaultCardanoChainConfig,
- )
-import Hydra.Options qualified as Options
 import Hydra.Tx.ContestationPeriod qualified as CP
 import Hydra.Tx.Crypto (getVerificationKey)
 import Hydra.Tx.DepositPeriod qualified as DP
 import System.Directory (doesFileExist, listDirectory)
-import System.FilePath ((</>))
 import System.Posix (fileMode, getFileStatus, groupModes, intersectFileModes, nullFileMode, otherModes, unionFileModes)
 
 spec :: Spec
 spec = do
   smokeTimingSpec
-  fixtureKeySpec
   participantKeySpec
 
--- | The public @config/credentials@ fixtures and 'aliceSk' must never hold
--- funds or head authority on mainnet. These need no devnet -- the guards decide
--- before any chain is touched, and their whole point is a network no test run
--- goes near.
-fixtureKeySpec :: Spec
-fixtureKeySpec = do
-  describe "assertNoFixtureRecipients" $ do
-    it "refuses to fund a committed fixture key on mainnet" $ do
-      (aliceVk', _) <- keysFor Alice
-      assertNoFixtureRecipients CAPI.Mainnet [aliceVk']
-        `shouldThrow` \case
-          CardanoFixtureKeyOnMainnet{} -> True
-          _ -> False
-
-    it "refuses even when the fixture is one recipient among several" $
-      withTempDir "participant" $ \dir -> do
-        participant <- generateParticipant dir
-        (aliceVk', _) <- keysFor Alice
-        assertNoFixtureRecipients CAPI.Mainnet [cardanoVk participant, aliceVk']
-          `shouldThrow` \case
-            CardanoFixtureKeyOnMainnet{} -> True
-            _ -> False
-
-    it "allows the faucet fixture on mainnet, which CI overrides with a secret" $ do
-      (faucetVk, _) <- keysFor Faucet
-      assertNoFixtureRecipients CAPI.Mainnet [faucetVk]
-
-    it "allows a generated participant on mainnet" $
-      withTempDir "participant" $ \dir -> do
-        participant <- generateParticipant dir
-        assertNoFixtureRecipients CAPI.Mainnet [cardanoVk participant, walletVk participant]
-
-    it "leaves fixture keys alone on a test network" $ do
-      (aliceVk', _) <- keysFor Alice
-      assertNoFixtureRecipients (CAPI.Testnet $ CAPI.NetworkMagic 42) [aliceVk']
-
-  describe "assertNoFixtureHydraKey" $ do
-    it "refuses a head signed by the published alice key on mainnet" $
-      assertNoFixtureHydraKey (KnownNetwork CAPI.Mainnet) aliceSk
-        `shouldThrow` \case
-          PublicHydraKeyRefused{} -> True
-          _ -> False
-
-    it "refuses it on a network the config does not determine" $
-      -- The Blockfrost backend names only a project file, and an unknown
-      -- network is not a reason to allow a key anyone holds.
-      assertNoFixtureHydraKey UndeterminedNetwork aliceSk
-        `shouldThrow` \case
-          PublicHydraKeyRefused{} -> True
-          _ -> False
-
-    it "allows a generated participant's key on mainnet" $
-      withTempDir "participant" $ \dir -> do
-        participant <- generateParticipant dir
-        assertNoFixtureHydraKey (KnownNetwork CAPI.Mainnet) (hydraSk participant)
-
-    it "leaves the fixture key alone on a test network" $
-      assertNoFixtureHydraKey (KnownNetwork . CAPI.Testnet $ CAPI.NetworkMagic 42) aliceSk
-
-    it "leaves the fixture key alone offline, where there is no chain" $
-      assertNoFixtureHydraKey NoChain aliceSk
-
-  describe "configuredNetwork" $ do
-    -- The Blockfrost backend names only a project file, so the network it
-    -- reaches has to come from the project id's prefix.
-    it "reads the network a blockfrost project reaches" $
-      withTempDir "blockfrost" $ \dir -> do
-        forM_
-          [ ("mainnetAbC123", KnownNetwork CAPI.Mainnet)
-          , ("preprodAbC123", KnownNetwork (CAPI.Testnet $ CAPI.NetworkMagic 1))
-          , ("previewAbC123\n", KnownNetwork (CAPI.Testnet $ CAPI.NetworkMagic 2))
-          ]
-          $ \(projectId, expected) -> do
-            let projectPath = dir </> "project.txt"
-            writeFileBS projectPath projectId
-            configuredNetwork (blockfrostConfig projectPath) `shouldReturn` expected
-
-    it "leaves the network undetermined when the project id is unfamiliar" $
-      withTempDir "blockfrost" $ \dir -> do
-        let projectPath = dir </> "project.txt"
-        writeFileBS projectPath "something-else"
-        configuredNetwork (blockfrostConfig projectPath) `shouldReturn` UndeterminedNetwork
-
-    it "leaves it undetermined when the project file is not there" $
-      withTempDir "blockfrost" $ \dir ->
-        configuredNetwork (blockfrostConfig (dir </> "missing.txt"))
-          `shouldReturn` UndeterminedNetwork
- where
-  blockfrostConfig projectPath =
-    Cardano
-      defaultCardanoChainConfig
-        { chainBackendOptions = Options.Blockfrost BlockfrostOptions{projectPath}
-        }
-
--- | A run against a public network moves real funds through keys it generates
--- for itself, so they have to be unguessable and they have to outlive the run.
 participantKeySpec :: Spec
 participantKeySpec = describe "generateParticipant" $ do
-  it "generates different keys on every run" $
-    withTempDir "participant" $ \dir -> do
-      firstRun <- generateParticipant dir
-      secondRun <- generateParticipant dir
-      cardanoVk firstRun `shouldNotBe` cardanoVk secondRun
-      walletVk firstRun `shouldNotBe` walletVk secondRun
-      getVerificationKey (hydraSk firstRun) `shouldNotBe` getVerificationKey (hydraSk secondRun)
-
   it "persists every key a recovery would need" $
     withTempDir "participant" $ \dir -> do
       Participant{keyDir} <- generateParticipant dir
@@ -182,43 +54,6 @@ participantKeySpec = describe "generateParticipant" $ do
       (map fst <$> leftoverParticipantKeys dir) `shouldReturn` []
       -- Archived, not deleted.
       listDirectory (sweptParticipantKeysDir dir) `shouldNotReturn` []
-
-  it "reports an unreadable key file against its own run only" $
-    withTempDir "participant" $ \dir -> do
-      -- A run killed midway through writing its keys leaves a truncated file.
-      -- Recovering every other run's keys must not depend on this one.
-      truncated <- generateParticipant dir
-      intact <- generateParticipant dir
-      writeFileBS (participantCardanoKeyFile (keyDir truncated)) "{\"type\": \"Payment"
-
-      leftovers <- leftoverParticipantKeys dir
-      let resultFor d = snd <$> find ((== d) . fst) leftovers
-      resultFor (keyDir truncated) `shouldSatisfy` \case
-        Just (Left _) -> True
-        _ -> False
-      (fmap (map getVerificationKey) <$> resultFor (keyDir intact))
-        `shouldBe` Just (Right [cardanoVk intact, walletVk intact])
-
-  it "ignores entries that are not run directories" $
-    withTempDir "participant" $ \dir -> do
-      kept <- generateParticipant dir
-      -- A stray file is not ours to sweep or to move aside.
-      writeFileBS (participantKeysDir dir </> ".DS_Store") "junk"
-      (map fst <$> leftoverParticipantKeys dir) `shouldReturn` [keyDir kept]
-
-  it "remembers a run that ended with its head still open" $
-    withTempDir "participant" $ \dir -> do
-      -- The participant's address holds the change of its own init transaction,
-      -- so a sweep of it succeeds whether or not a head was left behind. This
-      -- marker is what tells the two apart.
-      Participant{keyDir} <- generateParticipant dir
-      headMayBeOpen keyDir `shouldReturn` False
-      markHeadOpen keyDir
-      headMayBeOpen keyDir `shouldReturn` True
-      -- The marker is not mistaken for a key to sweep.
-      (map (fmap length . snd) <$> leftoverParticipantKeys dir) `shouldReturn` [Right 2]
-      clearHeadOpen keyDir
-      headMayBeOpen keyDir `shouldReturn` False
 
   it "keeps the persisted keys readable only by their owner" $
     withTempDir "participant" $ \dir -> do

@@ -86,11 +86,6 @@ That means two things:
   closed or aborted by hand, delete the `head-open` file and the next run
   returns the remaining funds and archives the keys.
 
-On mainnet neither is left to convention. `assertNoFixtureRecipients` refuses to
-pay faucet funds to a committed key, and `assertNoFixtureHydraKey` refuses to
-start a node under a published Hydra key -- a head whose signing key is public
-can be closed by anyone with a forged snapshot.
-
 To run the smoke test against the official cardano testnet using a
 local `state-testnet` directory (to re-use the synchronized chain db):
 

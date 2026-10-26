@@ -51,11 +51,7 @@ data Actor
   | Carol
   | CarolFunds
   | Faucet
-  deriving stock (Bounded, Enum, Eq, Show)
-
--- | Every known actor.
-allActors :: [Actor]
-allActors = [minBound .. maxBound]
+  deriving stock (Eq, Show)
 
 actorName :: Actor -> String
 actorName = \case

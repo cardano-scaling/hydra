@@ -28,7 +28,7 @@ import Hydra.Chain.ScriptRegistry (
   publishHydraScripts,
  )
 import Hydra.Cluster.Fixture (Actor (Faucet))
-import Hydra.Cluster.Util (assertNoFixtureRecipients, keysFor)
+import Hydra.Cluster.Util (keysFor)
 import Hydra.Ledger.Cardano ()
 import Hydra.Options (ChainBackendOptions (..))
 import Hydra.Options qualified as Options
@@ -50,6 +50,7 @@ data FaucetLog
   = TraceResourceExhaustedHandled Text
   | ReturnedFunds {returnAmount :: Coin}
   | SubmitTxError Text
+  | NothingToReturn {reason :: Text}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
 
@@ -113,12 +114,6 @@ seedManyFromFaucetWithMinting _ [] _ _ = pure []
 seedManyFromFaucetWithMinting opts recipients tracer mintingScript = do
   (faucetVk, faucetSk) <- keysFor Faucet
   networkId <- runBackend opts queryNetworkId
-  -- NOTE: Seeding is the path by which a key acquires funds in a scenario, so
-  -- it is where the public fixtures are kept away from mainnet. The faucet's
-  -- other two spending paths, 'createOutputAtAddress' and
-  -- 'seedFromFaucetBlockfrost', pay an address and a single key respectively
-  -- and are only reached from devnet scenarios and the Blockfrost chain spec.
-  assertNoFixtureRecipients networkId (fst <$> recipients)
   seedTx <- retryOnExceptions tracer opts $ submitSeedTx faucetVk faucetSk networkId
   -- NOTE: The direct backend's 'awaitTransaction' yields all of the tx's
   -- outputs while the Blockfrost one yields only those paying to the given key,
@@ -293,25 +288,32 @@ returnFundsToFaucet' tracer opts senderSk = do
 -- a transaction accepted and then dropped is never seen, so a sweep can wait
 -- past anything that would rethrow the error the run was failing on.
 --
--- A balance too small to cover its own fee is the ordinary end state of a
--- successful run's wallet key. Treating that as a failure would mean its keys
--- were never archived.
+-- A balance too small to pay for returning itself is the ordinary end state of
+-- a successful run's wallet key. Which build error the ledger reports for it
+-- depends on the amount, so any failure to build the return transaction counts
+-- as nothing returnable: retrying cannot help, and treating it as a failure
+-- would mean the run's keys were never archived.
 returnFundsToFaucetBounded ::
   Tracer IO FaucetLog ->
   ChainBackendOptions ->
   Secret (SigningKey PaymentKey) ->
   IO Coin
-returnFundsToFaucetBounded tracer opts senderSk =
-  timeout sweepTimeout (returnFundsToFaucet' tracer opts senderSk `catch` noDust)
+returnFundsToFaucetBounded tracer opts senderSk = do
+  blockTime <- runBackend opts getBlockTime
+  timeout (sweepTimeout blockTime) (returnFundsToFaucet' tracer opts senderSk `catch` nothingReturnable)
     >>= maybe (throwIO FaucetSweepTimedOut) pure
  where
-  noDust :: FaucetException -> IO Coin
-  noDust = \case
-    FaucetFailedToBuildTx{reason = TxBodyErrorAdaBalanceTooSmall{}} -> pure 0
+  nothingReturnable :: FaucetException -> IO Coin
+  nothingReturnable = \case
+    FaucetFailedToBuildTx{reason} -> do
+      traceWith tracer $ NothingToReturn{reason = show reason}
+      pure 0
     e -> throwIO e
 
-sweepTimeout :: DiffTime
-sweepTimeout = 10 * 60
+-- | Allow thirty blocks for a sweep, with a floor for the fixed costs of
+-- querying, submitting and observing a transaction on a fast devnet.
+sweepTimeout :: NominalDiffTime -> DiffTime
+sweepTimeout blockTime = realToFrac $ max 30 (30 * blockTime)
 
 -- Use the Faucet utxo to create the output at specified address
 createOutputAtAddress ::

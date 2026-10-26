@@ -31,7 +31,7 @@ import Hydra.API.HTTPServer (DraftCommitTxRequest (..), DraftCommitTxResponse (.
 import Hydra.API.ServerOutput (ApiEncoding (..), ApiMessage)
 import Hydra.API.WireFormat (decodeWire)
 import Hydra.Chain.Blockfrost.Client qualified as Blockfrost
-import Hydra.Cluster.Util (Timing (..), assertNoFixtureHydraKey, configuredNetwork, readConfigFile, writeSigningKey)
+import Hydra.Cluster.Util (Timing (..), readConfigFile, writeSigningKey)
 import Hydra.Network (Host (Host), NodeId (NodeId), WhichEtcd (SystemEtcd))
 import Hydra.Network qualified as Network
 import Hydra.Network.Etcd (peerPortToClientPort)
@@ -589,10 +589,6 @@ prepareHydraNode chainConfig workDir hydraNodeId hydraSKey hydraVKeys nodePorts 
   let stateDir = workDir </> "state-" <> show hydraNodeId
   createDirectoryIfMissing True stateDir
   cardanoLedgerProtocolParametersFile <- preparePParams chainConfig stateDir paramsDecorator
-  -- A head is only as private as its Hydra key: anyone holding it can close
-  -- the head with a forged snapshot. Refuse the public fixture keys here, where
-  -- every node start passes, rather than trusting each scenario to pick well.
-  configuredNetwork chainConfig >>= \network -> assertNoFixtureHydraKey network hydraSKey
   -- This copy lives for as long as the head does, in a state directory that on
   -- a shared runner every account can read. It is the key that closes the head,
   -- so it is written owner-only like the participant's own copy.

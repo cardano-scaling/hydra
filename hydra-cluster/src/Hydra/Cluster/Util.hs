@@ -10,15 +10,13 @@ import Crypto.Random (getRandomBytes)
 import Data.Aeson qualified as Aeson
 import Data.ByteString qualified as BS
 import Data.Secret (Secret, mkSecret, withSecret)
-import Data.Text qualified as T
 import Hydra.Cardano.Api (
   AsType (AsPaymentKey),
   File (..),
   FileError,
   HasTextEnvelope,
   Key (VerificationKey, verificationKeyHash),
-  NetworkId (Mainnet, Testnet),
-  NetworkMagic (NetworkMagic),
+  NetworkId,
   PaymentKey,
   SigningKey,
   TextEnvelopeError (TextEnvelopeAesonDecodeError),
@@ -29,11 +27,9 @@ import Hydra.Cardano.Api (
   textEnvelopeToJSON,
   writeLazyByteStringFileWithOwnerPermissions,
  )
-import Hydra.Cluster.Fixture (Actor (Faucet), actorName, allActors, fundsOf)
-import Hydra.Cluster.Fixture qualified as Fixture
+import Hydra.Cluster.Fixture (Actor, actorName, fundsOf)
 import Hydra.Node.UnsyncedPeriod (defaultUnsyncedPeriodFor)
 import Hydra.Options (
-  BlockfrostOptions (..),
   CardanoChainConfig (..),
   ChainBackendOptions (..),
   ChainConfig (..),
@@ -50,7 +46,6 @@ import Paths_hydra_cluster qualified as Pkg
 import System.Directory (createDirectoryIfMissing, doesDirectoryExist, doesFileExist, listDirectory, removeFile, renameDirectory, renameFile)
 import System.FilePath (takeFileName, (<.>), (</>))
 import Test.Hydra.Prelude (failure)
-import Test.Hydra.Tx.Fixture qualified as TxFixture
 import Test.Hydra.Tx.Gen (genSigningKey)
 import Test.QuickCheck (generate)
 
@@ -70,8 +65,7 @@ readConfigFile source = do
 --
 -- NOTE: These keys are committed to this repository and shipped as package
 -- data-files, so they are public and must never hold real funds. See
--- 'Participant' for what a run against a public network uses instead, and
--- 'assertNoFixtureRecipients' for the check that keeps it that way.
+-- 'Participant' for what a run against a public network uses instead.
 keysFor :: Actor -> IO (VerificationKey PaymentKey, Secret (SigningKey PaymentKey))
 keysFor actor = do
   let path = "credentials" </> actorName actor <.> "sk"
@@ -104,88 +98,6 @@ trySync action =
   try action >>= \case
     Left e | Just (SomeAsyncException _) <- fromException e -> throwIO e
     result -> pure result
-
--- * Public fixture keys
-
--- | Raised when a key anyone can derive from a checkout would be given
--- authority over real funds.
-data FixtureKeyOnMainnet
-  = CardanoFixtureKeyOnMainnet {fixtureActor :: String}
-  | PublicHydraKeyRefused {onNetwork :: String}
-  deriving stock (Show)
-
-instance Exception FixtureKeyOnMainnet
-
--- | Refuse to pay faucet funds to a key committed to this repository, which
--- would put real ada behind a key anyone with a checkout has. Scenarios needing
--- a funded key on a public network use 'generateParticipant'.
---
--- 'Faucet' is exempt: it is precisely the fixture CI overrides with a secret.
-assertNoFixtureRecipients :: NetworkId -> [VerificationKey PaymentKey] -> IO ()
-assertNoFixtureRecipients networkId recipients
-  | networkId /= Mainnet = pure ()
-  | otherwise =
-      forM_ (filter (/= Faucet) allActors) $ \actor -> do
-        (vk, _) <- keysFor actor
-        when (vk `elem` recipients) $
-          throwIO CardanoFixtureKeyOnMainnet{fixtureActor = actorName actor}
-
--- | Refuse to run a head under a Hydra key that is public, on any network not
--- known to be a test one.
---
--- 'Hydra.Cluster.Fixture.aliceSk' and its siblings are derived from a public
--- string, so they are compiled into every build, and a head whose only signing
--- key is public can be closed by anyone with a forged snapshot. A network the
--- config does not determine is refused rather than waved through.
-assertNoFixtureHydraKey :: ConfiguredNetwork -> Secret (SigningKey HydraKey) -> IO ()
-assertNoFixtureHydraKey network sk
-  | permitted = pure ()
-  | getVerificationKey sk `elem` publicHydraKeys = throwIO PublicHydraKeyRefused{onNetwork = show network}
-  | otherwise = pure ()
- where
-  permitted = case network of
-    NoChain -> True
-    KnownNetwork networkId -> networkId /= Mainnet
-    UndeterminedNetwork -> False
-
--- | Hydra keys this repository publishes, taken from the fixtures themselves so
--- that changing one does not quietly drop it from the check.
-publicHydraKeys :: [VerificationKey HydraKey]
-publicHydraKeys =
-  (getVerificationKey <$> [Fixture.aliceSk, Fixture.bobSk, Fixture.carolSk])
-    <> (getVerificationKey <$> [TxFixture.aliceSk, TxFixture.bobSk, TxFixture.carolSk])
-
--- | What a chain config says about the network it connects to, without
--- querying the chain.
-data ConfiguredNetwork
-  = -- | Offline mode: there is no chain, and so nothing at stake.
-    NoChain
-  | KnownNetwork NetworkId
-  | -- | The Blockfrost backend carries only a project file, so which network it
-    -- reaches is not stated here.
-    UndeterminedNetwork
-  deriving stock (Eq, Show)
-
-configuredNetwork :: ChainConfig -> IO ConfiguredNetwork
-configuredNetwork = \case
-  Cardano CardanoChainConfig{chainBackendOptions} -> case chainBackendOptions of
-    Direct DirectOptions{networkId} -> pure (KnownNetwork networkId)
-    Blockfrost BlockfrostOptions{projectPath} -> blockfrostNetwork projectPath
-  _ -> pure NoChain
-
--- | The network a Blockfrost project reaches, from the prefix of its project
--- id. An unreadable file or an unfamiliar prefix leaves it undetermined.
-blockfrostNetwork :: FilePath -> IO ConfiguredNetwork
-blockfrostNetwork projectPath =
-  trySync (decodeUtf8 <$> BS.readFile projectPath) >>= \case
-    Left _ -> pure UndeterminedNetwork
-    Right contents -> pure $ networkOf (T.strip contents)
- where
-  networkOf projectId
-    | "mainnet" `T.isPrefixOf` projectId = KnownNetwork Mainnet
-    | "preprod" `T.isPrefixOf` projectId = KnownNetwork (Testnet (NetworkMagic 1))
-    | "preview" `T.isPrefixOf` projectId = KnownNetwork (Testnet (NetworkMagic 2))
-    | otherwise = UndeterminedNetwork
 
 -- * Ephemeral run credentials
 

@@ -637,7 +637,9 @@ singlePartyHeadFullLifeCycle tracer workDir mkTiming opts hydraScriptsTxId = do
       waitForAllMatch (50 * blockTime) [n1] $ headIsFinalizedWith headId mempty
       clearHeadOpen keyDir
     traceRemainingFunds cardanoVk
-    returnParticipantFunds tracer opts workDir participant RunFinished
+  -- Outside the handler above: a failure in this sweep must not start a second
+  -- one on the way out.
+  returnParticipantFunds tracer opts workDir participant RunFinished
  where
   hydraTracer = contramap FromHydraNode tracer
 
