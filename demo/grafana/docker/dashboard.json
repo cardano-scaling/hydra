@@ -558,7 +558,7 @@
     {
       "id": 10,
       "title": "Outstanding round age",
-      "description": "Round age is zero when restored from disk with unknown start; the inflight and missing-signature signals still apply.",
+      "description": "Age is derived from the outstanding round start timestamp. No age is shown when absent or restored with an unknown start; inflight and missing-signature signals still identify outstanding work.",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
@@ -583,7 +583,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "hydra_head_snapshot_inflight_age_seconds{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}",
+          "expr": "clamp_min(time() - hydra_head_snapshot_started_timestamp_seconds{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}, 0) and (hydra_head_snapshot_started_timestamp_seconds{job=\"hydra_nodes\",instance=~\"${instance:regex}\"} > 0)",
           "legendFormat": "{{instance}} seconds",
           "datasource": {
             "type": "prometheus",
@@ -1602,7 +1602,7 @@
     },
     {
       "id": 29,
-      "title": "Persistence / logging queues",
+      "title": "Persistence queue",
       "description": "",
       "type": "timeseries",
       "datasource": {
@@ -1637,18 +1637,6 @@
           "instant": false,
           "range": true,
           "editorMode": "code"
-        },
-        {
-          "refId": "B",
-          "expr": "hydra_logging_queue_depth{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}",
-          "legendFormat": "{{instance}} logging",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "instant": false,
-          "range": true,
-          "editorMode": "code"
         }
       ],
       "options": {
@@ -1663,7 +1651,7 @@
     },
     {
       "id": 30,
-      "title": "Persistence / logging completion latency",
+      "title": "Persistence completion latency",
       "description": "",
       "type": "timeseries",
       "datasource": {
@@ -1703,18 +1691,6 @@
           "refId": "B",
           "expr": "rate(hydra_persistence_oldest_event_seconds_sum{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}[$__rate_interval]) / rate(hydra_persistence_oldest_event_seconds_count{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}[$__rate_interval])",
           "legendFormat": "{{instance}} oldest queued event",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "instant": false,
-          "range": true,
-          "editorMode": "code"
-        },
-        {
-          "refId": "C",
-          "expr": "rate(hydra_logging_write_seconds_sum{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}[$__rate_interval]) / rate(hydra_logging_write_seconds_count{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}[$__rate_interval])",
-          "legendFormat": "{{instance}} log write",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -1858,7 +1834,7 @@
     },
     {
       "id": 33,
-      "title": "Instrumentation / logging losses",
+      "title": "Transaction timing evictions",
       "description": "",
       "type": "timeseries",
       "datasource": {
@@ -1893,30 +1869,6 @@
           "instant": false,
           "range": true,
           "editorMode": "code"
-        },
-        {
-          "refId": "B",
-          "expr": "rate(hydra_logging_unconfirmed_entries_total{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}[$__rate_interval])",
-          "legendFormat": "{{instance}} unconfirmed log entries",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "instant": false,
-          "range": true,
-          "editorMode": "code"
-        },
-        {
-          "refId": "C",
-          "expr": "rate(hydra_logging_encoding_failures_total{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}[$__rate_interval])",
-          "legendFormat": "{{instance}} encoding failures",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "instant": false,
-          "range": true,
-          "editorMode": "code"
         }
       ],
       "options": {
@@ -1932,7 +1884,7 @@
     {
       "id": 34,
       "title": "Completed snapshot batch size",
-      "description": "",
+      "description": "Mean transactions per newly confirmed or adopted snapshot, derived from counters. Windows with no completed snapshots are empty.",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
@@ -1957,7 +1909,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "rate(hydra_head_snapshot_transactions_sum{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}[$__rate_interval]) / rate(hydra_head_snapshot_transactions_count{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}[$__rate_interval])",
+          "expr": "rate(hydra_head_confirmed_tx_total{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}[$__rate_interval]) / (sum without (source) (rate(hydra_head_snapshots_total{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}[$__rate_interval])) > 0)",
           "legendFormat": "{{instance}}",
           "datasource": {
             "type": "prometheus",

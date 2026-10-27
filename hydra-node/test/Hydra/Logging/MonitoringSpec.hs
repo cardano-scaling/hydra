@@ -64,14 +64,13 @@ spec = do
     rows `shouldContain` ["hydra_head_requested_tx  1"]
     rows `shouldContain` ["hydra_node_input_attempts_total{source=\"network\"} 2"]
 
-  it "counts client commands once while recording all their processing attempts" $ do
+  it "records all client input processing attempts" $ do
     (record, registry, _) <- prepareRegistry @SimpleTx "direct"
     let input = ClientInput $ NewTx $ aValidTx 42
     record $ Node $ BeginInput alice 7 input
     record $ Node $ BeginInput alice 7 input
     record $ Node $ BeginInput alice 8 input
     rows <- Text.lines . decodeUtf8 . toStrict <$> Registry.sample registry
-    rows `shouldContain` ["hydra_node_commands_total{command=\"new_tx\"} 2"]
     rows `shouldContain` ["hydra_node_input_attempts_total{source=\"client\"} 3"]
 
   it "records failed chain posts before their error input is processed" $ do
@@ -80,7 +79,6 @@ spec = do
     record $ Node $ ChainPostFinished "partial_fanout" False 2
     rows <- Text.lines . decodeUtf8 . toStrict <$> Registry.sample registry
     rows `shouldContain` ["hydra_chain_operation_failures_total{backend=\"direct\",operation=\"partial_fanout\"} 1"]
-    rows `shouldContain` ["hydra_head_fanout_failures_total  1"]
     rows `shouldContain` ["hydra_chain_operations_inflight{backend=\"direct\"} 0.0"]
 
   it "does not recount a repeated snapshot adoption" $ do
@@ -89,6 +87,7 @@ spec = do
     replicateM_ 3 $ record $ Node $ LogicOutcome alice (Continue [SnapshotConfirmed testHeadId (Just snapshot) mempty] [])
     rows <- Text.lines . decodeUtf8 . toStrict <$> Registry.sample registry
     rows `shouldContain` ["hydra_head_confirmed_tx_total  1"]
+    rows `shouldContain` ["hydra_head_snapshots_total{source=\"adopted\"} 1"]
     rows `shouldContain` ["hydra_head_snapshot_confirmation_seconds_count  0"]
 
   it "restores an in-flight snapshot's contents without fabricating its latency" $ do
@@ -100,6 +99,8 @@ spec = do
             initial{NodeState.headState = Head.Open open{Head.coordinatedHeadState = coordinated{Head.seenSnapshot = Head.mkSeenSnapshot snapshot mempty}}}
           _ -> initial
     record $ Node $ LoadedState mempty restored
+    restoredRows <- Text.lines . decodeUtf8 . toStrict <$> Registry.sample registry
+    restoredRows `shouldContain` ["hydra_head_snapshot_started_timestamp_seconds  0.0"]
     record $ Node $ LogicOutcome alice (Continue [SnapshotConfirmed testHeadId Nothing mempty] [])
     rows <- Text.lines . decodeUtf8 . toStrict <$> Registry.sample registry
     rows `shouldContain` ["hydra_head_confirmed_tx_total  1"]
@@ -107,18 +108,20 @@ spec = do
     rows `shouldContain` ["hydra_head_tx_confirmation_seconds_count  0"]
 
   it "clears timing entries on a dropped request and local-state reset" $ do
-    (record, registry, refresh) <- prepareRegistry @SimpleTx "direct"
     let input = receiveMessage (ReqTx $ aValidTx 42)
-        count = do
-          refresh
-          Text.lines . decodeUtf8 . toStrict <$> Registry.sample registry
-    record $ Node $ BeginInput alice 1 input
-    count >>= (`shouldContain` ["hydra_monitoring_tracked_transactions  1.0"])
-    record $ Node $ DroppedFromQueue 1 input
-    count >>= (`shouldContain` ["hydra_monitoring_tracked_transactions  0.0"])
-    record $ Node $ BeginInput alice 2 input
-    record $ Node $ LogicOutcome alice (Continue [LocalStateCleared testHeadId 0] [])
-    count >>= (`shouldContain` ["hydra_monitoring_tracked_transactions  0.0"])
+        snapshot = testSnapshot 1 0 [aValidTx 42] (utxoRefs [1])
+    forM_
+      [ Node $ DroppedFromQueue 1 input
+      , Node $ LogicOutcome alice (Continue [LocalStateCleared testHeadId 0] [])
+      ]
+      $ \discard -> do
+        (record, registry, _) <- prepareRegistry @SimpleTx "direct"
+        record $ Node $ BeginInput alice 1 input
+        record discard
+        record $ Node $ LogicOutcome alice (Continue [SnapshotConfirmed testHeadId (Just snapshot) mempty] [])
+        rows <- Text.lines . decodeUtf8 . toStrict <$> Registry.sample registry
+        rows `shouldContain` ["hydra_head_confirmed_tx_total  1"]
+        rows `shouldContain` ["hydra_head_tx_confirmation_seconds_count  0"]
 
   it "records snapshot round and tx confirmation times on the normal signing path" $ do
     failAfter 3 $ do
@@ -136,6 +139,7 @@ spec = do
         metrics <- Text.lines <$> scrapeMetrics p
 
         metrics `shouldContain` ["hydra_head_confirmed_tx  1"]
+        metrics `shouldContain` ["hydra_head_snapshot_started_timestamp_seconds  0.0"]
         metrics `shouldContain` ["hydra_head_snapshot_confirmation_time_ms_bucket{le=\"1000.0\"} 1.0"]
         metrics `shouldContain` ["hydra_head_tx_confirmation_time_ms_bucket{le=\"1000.0\"} 1.0"]
 

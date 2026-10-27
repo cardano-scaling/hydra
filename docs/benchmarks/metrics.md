@@ -115,15 +115,18 @@ and application readiness (`hydra_node_ready`) are separate signals.
 
 Every family has `HELP` and `TYPE` metadata. New counters use `_total`, durations
 use seconds, and sizes use bytes. Histograms expose `_bucket`, `_sum` and
-`_count`. Duration buckets are 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 2.5, 5,
-10, 30, 60, 120 and 300 seconds, plus infinity. Quantiles are bucket estimates;
-observations above the largest finite bucket cannot yield an accurate quantile.
+`_count`. HTTP and L1 operation durations use eight finite buckets: 0.01, 0.1,
+0.5, 1, 5, 30, 60 and 300 seconds, covering fast responses through the default
+300-second API operation timeout. Other durations retain buckets at 0.001, 0.005,
+0.01, 0.05, 0.1, 0.5, 1, 2.5, 5, 10, 30, 60, 120 and 300 seconds. Every histogram
+also has an infinity bucket. Quantiles are bucket estimates; observations above
+the largest finite bucket cannot yield an accurate quantile.
 
 Counters describe work observed by **one process** and reset on restart. Use
 `rate()` or `increase()` over a window. Peers in the same Head observe the same
 transactions: summing their confirmation rates does not measure unique Head
-throughput. On-chain observations and lifecycle counters include re-observation
-after rollback; current-state gauges rewind with state instead.
+throughput. On-chain observation counters include re-observation after rollback;
+current-state gauges rewind with state instead.
 
 ### Accounting and timing boundaries
 
@@ -151,14 +154,14 @@ its first queue wait and the client's network latency. Snapshot confirmation tim
 starts after validating and accepting `SnapshotRequested`, excluding request
 validation. Input queue and processing durations, API response duration, and the
 outstanding-round start timestamp expose the adjacent phases. A restored round
-has an unknown start (timestamp and age zero); its inflight and missing-signature
-gauges still identify outstanding work.
+has an unknown start (timestamp zero); its inflight and missing-signature gauges
+still identify outstanding work. Derive round age only for nonzero timestamps.
 
 State and queue gauges are sampled every second; outbox gauges use its stall
 poll period (normally ten seconds). These samples bypass the logging queue and
 the input queue. Timing histograms and counters are updated at their actual
-producer, including successful etcd acknowledgement, SQLite transaction completion
-and log flush. An L1 submission acceptance is distinct from observing its
+producer, including successful etcd acknowledgement and SQLite transaction
+completion. An L1 submission acceptance is distinct from observing its
 transaction on chain. SQLite uses `synchronous=NORMAL`: commit completion is not
 a guarantee against power-loss data loss.
 
@@ -176,11 +179,8 @@ include the configured backend (`direct`, `blockfrost` or `offline`).
 | `hydra_head_requested_tx_total` | counter | ReqTx network messages first processed by this node; retries excluded and external duplicate messages included. |
 | `hydra_head_confirmed_tx_total` | counter | Transactions in newly confirmed or adopted snapshot numbers observed in this process; repeated adoption excluded. |
 | `hydra_head_tx_confirmation_seconds` | histogram | Time from first local processing of ReqTx to confirmation; excludes queue admission and unavailable timings. |
-| `hydra_head_snapshot_request_processing_seconds` | histogram | BeginInput ReqSn to its accepted SnapshotRequested outcome; excludes queue wait and subsequent effects. |
 | `hydra_head_snapshot_confirmation_seconds` | histogram | Time from accepted SnapshotRequested after validation to confirmation of the same head, version and number. |
 | `hydra_head_snapshots_total` | counter | New snapshot numbers observed, split by signed confirmation or adoption. |
-| `hydra_head_snapshot_transactions` | histogram | Transaction count in each newly confirmed or adopted snapshot. |
-| `hydra_monitoring_tracked_transactions` | gauge | Transaction timing entries retained by monitoring, capped at 100000 and expired after one hour. |
 | `hydra_monitoring_timing_evictions_total` | counter | Transaction timings discarded due to age or capacity; confirmation counters are unaffected. |
 | `hydra_head_peers_connected` | gauge | Distinct connected peers observed by the processing loop. |
 | `hydra_chain_drift_seconds` | gauge | Wall clock minus chain time at the latest processed tick; may be negative with clock skew. |
@@ -209,19 +209,13 @@ include the configured backend (`direct`, `blockfrost` or `offline`).
 | `hydra_head_confirmed_snapshot_version` | gauge | Version of the current confirmed snapshot; zero with no head. |
 | `hydra_head_snapshot_inflight` | gauge | One while a snapshot request is outstanding or signatures are being collected. |
 | `hydra_head_snapshot_started_timestamp_seconds` | gauge | Wall-clock start of the outstanding round observed in this process; zero when absent or restored with unknown start. |
-| `hydra_head_snapshot_inflight_age_seconds` | gauge | Age of the outstanding round observed in this process; zero when its start is unknown. |
 | `hydra_head_snapshot_missing_signatures` | gauge | Participants whose signatures are still missing from the outstanding snapshot. |
 | `hydra_head_outstanding_transactions` | gauge | Current allTxs entries awaiting inclusion in a snapshot. |
-| `hydra_head_last_snapshot_timestamp_seconds` | gauge | Wall-clock time of the last newly confirmed or adopted snapshot in this process. |
 | `hydra_head_transaction_outcomes_total` | counter | Transaction and command outcomes observed by this node, with bounded reason labels. |
-| `hydra_node_commands_total` | counter | Client commands first processed by the main loop, by command type. |
 | `hydra_network_persistent_queue_depth` | gauge | Messages awaiting successful etcd broadcast, including the pinned in-flight batch. |
 | `hydra_network_persistent_queue_oldest_age_seconds` | gauge | Age of the oldest persisted queued message, using its file timestamp across restart. |
-| `hydra_network_last_put_timestamp_seconds` | gauge | Wall-clock time of the last successful etcd put or deduplicated retry. |
-| `hydra_network_last_watch_timestamp_seconds` | gauge | Wall-clock time of the last watch response, including empty responses; idle traffic may leave it unchanged. |
 | `hydra_network_put_seconds` | histogram | Duration of successful etcd put attempts, including deduplicated retries. |
 | `hydra_network_broadcast_messages_total` | counter | Messages in batches acknowledged by etcd, including deduplicated retries once. |
-| `hydra_network_broadcast_batch_messages` | histogram | Messages per acknowledged network batch. |
 | `hydra_network_events_total` | counter | Network failures, retries and recovery events by bounded category. |
 | `hydra_chain_operations_total` | counter | L1 protocol posts, API deposit drafts and user transaction submissions attempted. |
 | `hydra_chain_operation_failures_total` | counter | Failed L1 protocol posts, API deposit drafts and user transaction submissions. |
@@ -238,13 +232,9 @@ include the configured backend (`direct`, `blockfrost` or `offline`).
 | `hydra_head_next_deposit_deadline_timestamp_seconds` | gauge | Earliest deadline of unconsumed deposits, including expired recoverable deposits; zero if none. |
 | `hydra_head_decommit_state` | gauge | Current decommit state as a one-hot set. |
 | `hydra_head_decommit_started_timestamp_seconds` | gauge | Time this process observed a new decommit; zero if restored or absent. |
-| `hydra_head_incremental_events_total` | counter | Deposit and decommit lifecycle observations in this process; re-observation after rollback counts again. |
 | `hydra_head_fanout_remaining_outputs` | gauge | Outputs still awaiting distribution in the current partial fanout state. |
 | `hydra_head_fanout_mode` | gauge | Current fanout mode as a one-hot set; deferred work is intentionally waiting for selection. |
 | `hydra_head_fanout_chunks_total` | counter | Observed partial and final fanout transactions; re-observation after rollback counts again. |
-| `hydra_head_fanout_evaluation_failures_total` | counter | Failed fanout candidate evaluations; the builder may recover by selecting a smaller chunk. |
-| `hydra_head_fanout_failures_total` | counter | Failed fanout protocol operation attempts. |
-| `hydra_head_last_fanout_timestamp_seconds` | gauge | Wall-clock time of the last observed fanout chunk in this process. |
 | `hydra_head_contestation_deadline_timestamp_seconds` | gauge | Current contestation deadline; zero for idle or open heads. |
 | `hydra_api_http_inflight` | gauge | HTTP requests whose handler and response callback have not finished. |
 | `hydra_api_http_responses_total` | counter | Completed HTTP responses by normalized route and status class. |
@@ -259,19 +249,8 @@ include the configured backend (`direct`, `blockfrost` or `offline`).
 | `hydra_persistence_write_failures_total` | counter | Failed SQLite event batches. |
 | `hydra_persistence_write_seconds` | histogram | SQLite batch encoding and transaction completion duration. |
 | `hydra_persistence_oldest_event_seconds` | histogram | Enqueue-call-to-commit latency of the oldest event in each SQLite batch, including blocked admission. |
-| `hydra_persistence_batch_events` | histogram | Events per completed SQLite batch. |
-| `hydra_persistence_rotation_seconds` | histogram | Completed archive and checkpoint rotation duration, including queue flush. |
-| `hydra_persistence_replay_seconds` | histogram | Lifetime of SQLite event stream reads, including consumer processing until closure. |
 | `hydra_persistence_database_bytes` | gauge | Current SQLite database file size. |
 | `hydra_persistence_wal_bytes` | gauge | Current SQLite WAL file size; zero if no WAL file exists. |
-| `hydra_logging_queue_depth` | gauge | Log envelopes awaiting the writer. |
-| `hydra_logging_written_entries_total` | counter | Log lines in batches whose output flush completed. |
-| `hydra_logging_unconfirmed_entries_total` | counter | Entries in batches with a write failure; some lines may have been partially written. |
-| `hydra_logging_encoding_failures_total` | counter | Log entries replaced by an unencodable-entry diagnostic. |
-| `hydra_logging_write_failures_total` | counter | Log batches with an output write or flush failure. |
-| `hydra_logging_write_seconds` | histogram | Log batch encoding, write and flush duration. |
-| `hydra_logging_enqueue_seconds` | histogram | Time spent admitting a log envelope to its bounded queue. |
-| `hydra_logging_batch_entries` | histogram | Entries per successfully flushed log batch. |
 
 Additional runtime families:
 
@@ -331,6 +310,25 @@ histogram_quantile(0.95,
   sum by (job, instance, le) (rate(hydra_head_tx_confirmation_seconds_bucket[5m])))
 ```
 
+Mean snapshot size and outstanding round age, without separate batch or age metrics:
+
+```promql
+rate(hydra_head_confirmed_tx_total[5m])
+  / (sum without (source) (rate(hydra_head_snapshots_total[5m])) > 0)
+clamp_min(time() - hydra_head_snapshot_started_timestamp_seconds, 0)
+  and (hydra_head_snapshot_started_timestamp_seconds > 0)
+```
+
+The snapshot mean is absent when no snapshots complete. Round age is absent when
+there is no outstanding round or its start is unknown. For other batch averages,
+divide `rate(hydra_network_broadcast_messages_total[5m])` by
+`rate(hydra_network_put_seconds_count[5m])`, or
+`rate(hydra_persistence_written_events_total[5m])` by
+`rate(hydra_persistence_write_seconds_count[5m])`; filter zero denominators.
+Fanout operation failures are available by summing
+`hydra_chain_operation_failures_total{operation=~"fanout|partial_fanout|final_fanout"}`
+without the `operation` label.
+
 Keep no-traffic windows empty instead of presenting them as zero latency. The
 demo dashboards use these windowed queries and instant scrapeable-node counts,
 plus separate configured/unavailable-target counts. Both provisioning variants
@@ -338,7 +336,7 @@ use the explicit datasource UID `prometheus`.
 
 `demo/prometheus/hydra.rules.yml` supplies alerts for absent/down targets, missing
 metric instrumentation, readiness, queue pressure, snapshot/fanout progress,
-backend silence and logging loss. Both demo Prometheus configurations load it.
+and backend silence. Both demo Prometheus configurations load it.
 Adjust thresholds for the deployment and configure Alertmanager destinations to
 receive notifications. A removed individual target cannot be detected from `up`
 alone: compare service discovery against your expected target inventory. No
@@ -357,15 +355,9 @@ Check `hydra_network_persistent_queue_depth` and its oldest age as well: those
 include the first 100 messages waiting for etcd and the pinned in-flight batch,
 so an outage is visible before the outer hand-off fills. Oldest age comes from
 the queued file timestamp and survives restart; a concurrent removal may produce
-one zero-age sample. A successful put includes a deduplicated retry, and watch
-response age is diagnostic only: a healthy idle watch need not receive traffic.
+one zero-age sample. A successful put includes a deduplicated retry.
 
 `hydra_chain_backend_last_block_timestamp_seconds` measures raw backend progress;
 `hydra_chain_last_block_timestamp_seconds` measures ticks processed by the main
 loop. Both start at zero. A changing backend timestamp with a frozen processed
 timestamp suggests the main loop is blocked, rather than a silent backend.
-
-Logging write errors count batches and **unconfirmed** entries: a partial write
-cannot identify exactly which lines reached the reader. Encoding failures count
-entries replaced with a diagnostic. These observations use a direct callback to
-monitoring, so observing a broken logger does not enqueue another log message.

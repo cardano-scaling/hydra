@@ -8,7 +8,7 @@ import Cardano.Slotting.EpochInfo (fixedEpochInfo, hoistEpochInfo)
 import Cardano.Slotting.Time (mkSlotLength)
 import Control.Monad.Trans.Except (runExcept)
 import Control.Tracer (emit)
-import Control.Tracer.JSON (Tracer (..), nullTracer, traceWith, withTracerWithObserver)
+import Control.Tracer.JSON (Tracer (..), nullTracer, traceWith, withTracer)
 import Data.EventSource (EventSink)
 import Data.EventSource.Rotation (EventStore (..), RotationConfig (..), newRotatedEventStore)
 import Data.EventSource.SQLite (withSQLiteEventStore)
@@ -85,7 +85,7 @@ run :: RunOptions -> IO ()
 run opts = do
   either (throwIO . InvalidOptionException) pure $ validateRunOptions opts
   withMonitoringForBackend backend monitoringPort nullTracer $ \metricTracer ->
-    withTracerWithObserver (traceWith metricTracer . Logging) verbosity $ \logTracer -> do
+    withTracer verbosity $ \logTracer -> do
       let tracer = Tracer . emit $ \message -> do
             traceWith metricTracer message
             unless (isMetricSample message) $ traceWith logTracer message

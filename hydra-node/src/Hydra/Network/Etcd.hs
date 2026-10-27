@@ -662,7 +662,6 @@ waitMessages tracer conn directory NetworkCallback{deliver} =
             -- Gracefully close watch stream
             send NoNextElem
           else do
-            traceWith tracer WatchResponseReceived
             let revision = res ^. #header . #revision
             putLastKnownRevision directory . fromIntegral $ revision `max` 0
             forM_ (res ^. #events) process
@@ -930,7 +929,6 @@ data EtcdLog
   = EtcdLog {etcd :: Value}
   | PersistentQueueStats {depth :: Natural, oldestAgeSeconds :: Double}
   | BroadcastCompleted {messages :: Int, duration :: DiffTime}
-  | WatchResponseReceived
   | NetworkConnectivity {connected :: Bool}
   | PersistentQueueStatFailed {reason :: Text}
   | PersistentQueueWriteFailed {reason :: Text}

@@ -19,16 +19,12 @@ module Control.Tracer.JSON (
   defaultLogBuffering,
   withTracer,
   withTracerOutputTo,
-  withTracerWithObserver,
-  withTracerOutputToWithObserver,
-  LogEvent (..),
   showLogsOnFailure,
   traceInTVar,
   mkEnvelope,
   defaultQueueSize,
 ) where
 
-import Control.Concurrent (threadDelay)
 import Control.Concurrent.Class.Labelled (newLabelledTBQueueIO, newLabelledTVarIO, withAsyncLabelled)
 import Control.Concurrent.Class.MonadSTM (
   MonadLabelledSTM,
@@ -36,7 +32,6 @@ import Control.Concurrent.Class.MonadSTM (
   TVar,
   atomically,
   flushTBQueue,
-  lengthTBQueue,
   modifyTVar,
   readTVar,
   readTVarIO,
@@ -45,7 +40,7 @@ import Control.Concurrent.Class.MonadSTM (
   writeTVar,
  )
 import Control.Exception (AsyncException (HeapOverflow, StackOverflow), IOException, SomeAsyncException, SomeException, displayException, evaluate, fromException, throwIO)
-import Control.Monad (forM_, forever, unless, void, when, (>=>))
+import Control.Monad (forM_, unless, void, when, (>=>))
 import Control.Monad.Class.MonadAsync (waitCatch)
 import Control.Monad.Class.MonadFork (MonadFork, myThreadId)
 import Control.Monad.Class.MonadSay (MonadSay, say)
@@ -63,21 +58,10 @@ import Data.Text (Text)
 import Data.Text qualified as Text
 import Data.Text.Encoding (decodeUtf8)
 import Data.Time.Clock (DiffTime, UTCTime)
-import GHC.Clock (getMonotonicTimeNSec)
 import GHC.Generics (Generic)
 import Numeric.Natural (Natural)
 import System.IO (BufferMode (BlockBuffering), Handle, hFlush, hSetBuffering, stdout)
 import Text.Read (readMaybe)
-
--- | Sent directly to an observer, never through the logging queue itself.
-data LogEvent
-  = LogQueueDepth {depth :: Int}
-  | LogBatchWritten {entries :: Int, seconds :: Double}
-  | LogWriteFailed {unconfirmedEntries :: Int}
-  | LogUnencodable
-  | LogEnqueueWait {seconds :: Double}
-  deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON)
 
 data Verbosity = Quiet | Verbose Text
   deriving stock (Eq, Show, Generic)
@@ -119,16 +103,8 @@ withTracer ::
   Verbosity ->
   (Tracer m msg -> IO a) ->
   IO a
-withTracer = withTracerWithObserver (const $ pure ())
-
-withTracerWithObserver ::
-  (MonadIO m, MonadFork m, MonadTime m, ToJSON msg) =>
-  (LogEvent -> IO ()) ->
-  Verbosity ->
-  (Tracer m msg -> IO a) ->
-  IO a
-withTracerWithObserver _ Quiet = ($ nullTracer)
-withTracerWithObserver observe (Verbose namespace) = withTracerOutputToWithObserver observe defaultLogBuffering stdout namespace
+withTracer Quiet = ($ nullTracer)
+withTracer (Verbose namespace) = withTracerOutputTo defaultLogBuffering stdout namespace
 
 -- | Start logging thread acquiring a 'Tracer', outputting JSON formatted
 -- messages to some 'Handle'. This tracer is wrapping 'msg' into an 'Envelope'
@@ -141,43 +117,18 @@ withTracerOutputTo ::
   Text ->
   (Tracer m msg -> IO a) ->
   IO a
-withTracerOutputTo = withTracerOutputToWithObserver (const $ pure ())
-
-withTracerOutputToWithObserver ::
-  forall m msg a.
-  (MonadIO m, MonadFork m, MonadTime m, ToJSON msg) =>
-  (LogEvent -> IO ()) ->
-  BufferMode ->
-  Handle ->
-  Text ->
-  (Tracer m msg -> IO a) ->
-  IO a
-withTracerOutputToWithObserver observe bufferingMode hdl namespace action = do
+withTracerOutputTo bufferingMode hdl namespace action = do
   hSetBuffering hdl bufferingMode
   msgQueue <- newLabelledTBQueueIO @_ @(Envelope msg) "logging-msg-queue" defaultQueueSize
   closed <- newLabelledTVarIO "logging-closed" False
-  withAsyncLabelled
-    ( "logging-health"
-    , forever $ do
-        depth <- fromIntegral <$> atomically (lengthTBQueue msgQueue)
-        observe $ LogQueueDepth depth
-        threadDelay 1000000
-    )
-    $ \_ ->
-      withAsyncLabelled ("logging-writeLogs", writeLogs msgQueue closed) $ \writer ->
-        action (tracer msgQueue) `finally` drainLogs closed writer
+  withAsyncLabelled ("logging-writeLogs", writeLogs msgQueue closed) $ \writer ->
+    action (tracer msgQueue) `finally` drainLogs closed writer
  where
   tracer queue =
     Tracer $
       emit $
         mkEnvelope namespace >=> \entry ->
-          liftIO
-            ( do
-                started <- getMonotonicTimeNSec
-                atomically $ writeTBQueue queue entry
-                finished <- getMonotonicTimeNSec
-                observe $ LogEnqueueWait (fromIntegral (finished - started) / 1.0e9)
-            )
+          liftIO $ atomically $ writeTBQueue queue entry
 
   writeLogs queue closed = do
     entries <- atomically $ do
@@ -197,15 +148,12 @@ withTracerOutputToWithObserver observe bufferingMode hdl namespace action = do
       -- and this thread is not linked to its parent. Dying here would go
       -- unnoticed until the queue filled, at which point every 'traceWith' in
       -- the node blocks forever on a queue nobody drains.
-      liftIO $ do
-        started <- getMonotonicTimeNSec
+      liftIO $
         ( do
             forM_ entries (encodeEntry >=> write)
             hFlush hdl
-            finished <- getMonotonicTimeNSec
-            observe $ LogBatchWritten (length entries) (fromIntegral (finished - started) / 1.0e9)
-          )
-          `catch` \(_ :: IOException) -> observe $ LogWriteFailed (length entries)
+        )
+          `catch` \(_ :: IOException) -> pure ()
       writeLogs queue closed
 
   -- The writer thread claims queued entries before writing them, so shutdown
@@ -278,8 +226,7 @@ withTracerOutputToWithObserver observe bufferingMode hdl namespace action = do
   -- stop this thread.
   encodeEntry :: Envelope msg -> IO LBS.ByteString
   encodeEntry envelope =
-    forceEncoded envelope `orSubstitute` \e -> do
-      observe LogUnencodable
+    forceEncoded envelope `orSubstitute` \e ->
       -- The substitute is forced here too. Returning it lazily would leave it to
       -- be encoded by 'write', outside this handler, and it can fail in turn:
       -- 'displayException' on an exception whose 'show' is partial throws, which

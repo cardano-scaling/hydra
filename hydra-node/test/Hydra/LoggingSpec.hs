@@ -4,7 +4,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Control.Exception (AsyncException (StackOverflow), IOException, throw)
-import Control.Tracer.JSON (LogEvent (..), defaultLogBuffering, defaultQueueSize, traceWith, withTracerOutputTo, withTracerOutputToWithObserver)
+import Control.Tracer.JSON (defaultLogBuffering, defaultQueueSize, traceWith, withTracerOutputTo)
 import Data.Aeson (object, (.=))
 import Data.Text.IO qualified as Text.IO
 import System.FilePath ((</>))
@@ -13,19 +13,6 @@ import System.Process (createPipe)
 
 spec :: Spec
 spec = do
-  it "observes completed writes and encoding failures outside the logging queue" $
-    withTempDir "logging-observer" $ \dir -> do
-      events <- newIORef []
-      let observe event = atomicModifyIORef' events $ \xs -> (event : xs, ())
-      withFile (dir </> "log.jsonl") WriteMode $ \hdl ->
-        withTracerOutputToWithObserver observe defaultLogBuffering hdl "test" $ \tracer -> do
-          traceWith tracer (Encodable 1)
-          traceWith tracer Unencodable
-      samples <- readIORef events
-      length (filter (== LogUnencodable) samples) `shouldBe` 1
-      sum [entries | LogBatchWritten{entries} <- samples] `shouldBe` 2
-      sum [unconfirmedEntries | LogWriteFailed{unconfirmedEntries} <- samples] `shouldBe` 0
-
   it "dumps logs to the given handle in JSON" $ do
     -- Write to a file handle instead of capturing the process-global stdout:
     -- capturing swaps the stdout file descriptor under every concurrently

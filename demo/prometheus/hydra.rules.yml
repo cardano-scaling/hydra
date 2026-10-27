@@ -73,12 +73,6 @@ groups:
           severity: warning
         annotations:
           summary: "SQLite write queue is near capacity on {{ $labels.instance }}"
-      - alert: HydraLoggingLoss
-        expr: increase(hydra_logging_write_failures_total{job="hydra_nodes"}[5m]) > 0 or increase(hydra_logging_encoding_failures_total{job="hydra_nodes"}[5m]) > 0
-        labels:
-          severity: warning
-        annotations:
-          summary: "Hydra could not write complete log entries on {{ $labels.instance }}"
       - alert: HydraFanoutStalled
         expr: hydra_head_fanout_remaining_outputs{job="hydra_nodes"} > 0 and on (job, instance) (hydra_head_fanout_mode{mode=~"automatic|selected"} == 1) and on (job, instance) (changes(hydra_head_fanout_remaining_outputs[10m]) == 0)
         for: 10m

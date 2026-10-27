@@ -125,8 +125,6 @@ data SQLiteLog
   | SQLiteWriteStarted
   | SQLiteWriteCompleted {eventsWritten :: Int, writeSeconds :: Double, oldestEventSeconds :: Double}
   | SQLiteWriteFailed
-  | SQLiteRotationCompleted {durationSeconds :: Double}
-  | SQLiteReplayCompleted {durationSeconds :: Double}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
 
@@ -225,14 +223,7 @@ mkSQLiteEventStore tracer dbFile = do
     sourceEvents = do
       -- Flush queued writes so reads see all enqueued events.
       liftIO $ flushWriteQueue writeQueue
-      bracketP
-        ((,) <$> getMonotonicTimeNSec <*> openStmt)
-        ( \(started, stmt) -> do
-            closeStatement stmt
-            finished <- getMonotonicTimeNSec
-            traceWith tracer $ SQLiteReplayCompleted (secondsBetween finished started)
-        )
-        (yieldRows . snd)
+      bracketP openStmt closeStatement yieldRows
      where
       openStmt :: IO Statement
       openStmt = getEventsASC readConn
@@ -274,7 +265,6 @@ mkSQLiteEventStore tracer dbFile = do
             Nothing -> pure ()
 
     rotate logId checkpointEvent = do
-      started <- getMonotonicTimeNSec
       flushWriteQueue writeQueue
       -- Archive the current database before removing events, so the
       -- pre-rotation log is retained (mirrors the old file-based backup).
@@ -284,8 +274,6 @@ mkSQLiteEventStore tracer dbFile = do
         deleteAllEvents conn
         insertEvent conn (getEventId checkpointEvent, evData)
       atomically $ setLastSeenEventId checkpointEvent
-      finished <- getMonotonicTimeNSec
-      traceWith tracer $ SQLiteRotationCompleted (secondsBetween finished started)
 
   let reinitLastSeen = do
         latestRows <- selectLastEventId conn
