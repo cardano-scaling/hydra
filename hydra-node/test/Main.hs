@@ -17,6 +17,7 @@ import Hydra.Chain.Direct.TimeHandleSpec qualified
 import Hydra.Chain.Direct.TxSpec qualified
 import Hydra.Chain.Direct.TxTraceSpec qualified
 import Hydra.Chain.Direct.WalletSpec qualified
+import Hydra.Chain.FinalitySpec qualified
 import Hydra.Chain.ScriptRegistrySpec qualified
 import Hydra.ConfigSpec qualified
 import Hydra.CryptoSpec qualified
@@ -65,6 +66,7 @@ main =
     , testSpec "API.Server" Hydra.API.ServerSpec.spec
     , testSpec "Behavior" Hydra.BehaviorSpec.spec
     , testSpec "CBOR" Hydra.CBORSpec.spec
+    , testSpec "Chain.Finality" Hydra.Chain.FinalitySpec.spec
     , testSpec "Chain.Blockfrost" Hydra.Chain.BlockfrostSpec.spec
     , testSpec "Chain.Direct.Handlers" Hydra.Chain.Direct.HandlersSpec.spec
     , testSpec "Chain.Direct.ScriptRegistry" Hydra.Chain.Direct.ScriptRegistrySpec.spec

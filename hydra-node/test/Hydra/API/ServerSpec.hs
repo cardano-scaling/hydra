@@ -782,6 +782,7 @@ surfacedOutputs =
   , ("SnapshotRequestDecided", Nothing)
   , ("PartySignedSnapshot", Nothing)
   , ("ChainRolledBack", Nothing)
+  , ("ChainFinalized", Nothing)
   , ("TickObserved", Nothing)
   , ("LocalStateCleared", Just "SnapshotSideLoaded")
   , ("Checkpoint", Just "EventLogRotated")

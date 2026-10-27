@@ -12,6 +12,7 @@
 -- 'Hydra.BehaviorSpec'.
 module Hydra.HeadLogicSpec where
 
+import Cardano.Binary (decodeFull', serialize')
 import Data.Secret (Secret, mkSecret)
 import Hydra.Prelude
 import Test.Hydra.Prelude
@@ -4221,30 +4222,41 @@ spec =
             NetworkEffect ReqSn{depositTxId} -> depositTxId == Just depositTxId'
             _ -> False
 
+        it "retains decrement replay evidence across a sparse-chain slot gap and restart" $ do
+          s0 <- afterDecommitFinalized
+          now <- nowFromSlot s0.chainPointTime.currentSlot
+          s1 <- runHeadLogic soloAliceEnv ledger s0 $ do
+            step . receiveMessage $ ReqSn 1 2 [] Nothing Nothing
+            step . receiveMessage $ AckSn (sign aliceSk postDecrementSnapshot) 2
+            step (ChainInput Tick{chainTime = now, chainPoint = 100 + depositRetentionHorizon})
+            getState
+          settlementStatuses s1 `shouldBe` settlementStatuses s0
+          restarted <- either (fail . show) pure $ decodeFull' (serialize' s1)
+          outcome <-
+            runHeadLogic soloAliceEnv ledger restarted $
+              step (rollbackTo 0 now)
+          outcome `hasEffectSatisfying` \case
+            OnChainEffect{postChainTx = DecrementTx{}} -> True
+            _ -> False
+
         it "prunes retained settlements no rollback can reach anymore, but never erased ones" $ do
           now <- getCurrentTime
           s0 <- afterCommitFinalized now
-          let tickAt slot =
-                ChainInput
-                  Tick
-                    { chainTime = addUTCTime (2 + toNominalDiffTime soloAliceEnv.depositActivation) now
-                    , chainPoint = slot
-                    }
           -- The increment was observed at slot 3: retained while a rollback
           -- can still reach it ...
           s1 <- runHeadLogic soloAliceEnv ledger s0 $ do
-            step (tickAt (2 + depositRetentionHorizon))
+            step (ChainInput Finalized{finalizedChainPoint = 2})
             getState
           settlementStatuses s1 `shouldBe` [Landed 3]
           -- ... and dropped once none can
           s2 <- runHeadLogic soloAliceEnv ledger s0 $ do
-            step (tickAt (3 + depositRetentionHorizon))
+            step (ChainInput Finalized{finalizedChainPoint = 3})
             getState
           settlementStatuses s2 `shouldBe` []
           -- An erased settlement is due for re-posting and kept regardless
           s3 <- runHeadLogic soloAliceEnv ledger s0 $ do
             step (rollbackTo 2 now)
-            step (tickAt (3 + depositRetentionHorizon))
+            step (ChainInput Finalized{finalizedChainPoint = 3})
             getState
           settlementStatuses s3 `shouldBe` [Erased]
 

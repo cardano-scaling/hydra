@@ -1,0 +1,9 @@
+{
+    "samples": [
+        {
+            "finalizedSlot": 0,
+            "tag": "ChainFinalized"
+        }
+    ],
+    "seed": -1013751915
+}

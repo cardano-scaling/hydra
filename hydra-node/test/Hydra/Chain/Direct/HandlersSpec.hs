@@ -224,6 +224,7 @@ spec = do
       let tag :: ChainEvent Tx -> String
           tag = \case
             Observation{} -> "obs"
+            Finalized{} -> "finalized"
             Tick{} -> "tick"
             Rollback{} -> "roll"
             PostTxError{} -> "err"
@@ -246,6 +247,7 @@ spec = do
       let callback = \case
             Rollback{} -> failure "rolled back but expected roll forward."
             PostTxError{} -> failure "Unexpected PostTxError event"
+            Finalized{} -> failure "Unexpected Finalized event without finality tracking"
             Tick{} -> pure ()
             Observation{observedTx} -> do
               case observedTx of
@@ -289,6 +291,7 @@ spec = do
       let callback = \case
             Rollback{} -> failure "rolled back but expected roll forward."
             PostTxError{} -> failure "Unexpected PostTxError event"
+            Finalized{} -> failure "Unexpected Finalized event without finality tracking"
             Tick{} -> pure ()
             Observation{observedTx} -> failure $ "Unexpected observation: " <> show observedTx
 

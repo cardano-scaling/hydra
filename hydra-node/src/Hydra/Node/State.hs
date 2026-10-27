@@ -73,7 +73,7 @@ recordDeposit slot depositTxId deposit nodeState =
   nodeState
     { deposits =
         Map.insert depositTxId TrackedDeposit{deposit, recordedAt = slot, consumedAt = Nothing} $
-          pruneConsumedDeposits slot (deposits nodeState)
+          deposits nodeState
     }
 
 -- | Update a tracked deposit (e.g. on status changes); its lifecycle slots are
@@ -91,7 +91,7 @@ consumeDeposit slot depositTxId nodeState =
   nodeState
     { deposits =
         Map.adjust (\tracked -> tracked{consumedAt = Just slot}) depositTxId $
-          pruneConsumedDeposits slot (deposits nodeState)
+          deposits nodeState
     }
 
 -- | Rewind the deposit view to the given (rolled back) slot, see
@@ -104,28 +104,14 @@ rollbackDeposits slot nodeState =
     | recordedAt > slot = Nothing
     | otherwise = Just tracked{consumedAt = mfilter (<= slot) consumedAt}
 
--- | Drop consumed deposits beyond 'depositRetentionHorizon': no rollback can
--- resurface them anymore, so retaining them would only grow persisted state
--- with every deposit ever settled. Called on the deposit write paths, which is
--- enough because only deposit churn creates consumed entries. Unconsumed
--- deposits are never pruned — an expired deposit stays recoverable
--- indefinitely.
+-- | Drop consumed deposits only after their consuming block is immutable.
+-- Keeping these until the same boundary as settlement evidence ensures a
+-- rolled-back increment can still find its resurfaced deposit for replay.
 pruneConsumedDeposits :: ChainSlot -> TrackedDeposits tx -> TrackedDeposits tx
-pruneConsumedDeposits slot =
-  Map.filter (\TrackedDeposit{consumedAt} -> maybe True (> retentionCutoff slot) consumedAt)
+pruneConsumedDeposits immutableSlot =
+  Map.filter (\TrackedDeposit{consumedAt} -> maybe True (> immutableSlot) consumedAt)
 
--- | The slot before which no rollback can reach anymore, given the current
--- slot: anything observed at or before it is settled for good, see
--- 'depositRetentionHorizon'.
-retentionCutoff :: ChainSlot -> ChainSlot
-retentionCutoff (ChainSlot slot) =
-  case depositRetentionHorizon of
-    ChainSlot horizon -> ChainSlot (if slot > horizon then slot - horizon else 0)
-
--- | How long consumed deposits and retained settlements are kept for
--- rollbacks: sized to cover the deepest rollback Cardano can produce (the
--- security parameter k = 2160 blocks, roughly 12 hours at one block per 20
--- slots) with a three-fold margin.
+-- | Legacy slot estimate, retained only for regression tests.
 depositRetentionHorizon :: ChainSlot
 depositRetentionHorizon = ChainSlot 129600
 

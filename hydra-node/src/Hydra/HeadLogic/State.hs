@@ -170,6 +170,7 @@ data CoordinatedHeadState tx = CoordinatedHeadState
 deriving stock instance IsTx tx => Eq (CoordinatedHeadState tx)
 deriving stock instance IsTx tx => Show (CoordinatedHeadState tx)
 deriving anyclass instance IsTx tx => ToJSON (CoordinatedHeadState tx)
+
 -- JSON checkpoints predate the CBOR event store and are still migrated at startup.
 instance IsTx tx => FromJSON (CoordinatedHeadState tx) where
   parseJSON = withObject "CoordinatedHeadState" $ \fields -> do
@@ -183,7 +184,6 @@ instance IsTx tx => FromJSON (CoordinatedHeadState tx) where
     genericParseJSON defaultOptions $
       Object $
         KeyMap.insert "settlements" (toJSON (settlements :: Settlements tx)) fields
-
 
 -- | Tag of the layout carrying the retained settlement map. Fields are a bare
 -- concatenation, so each layout needs its own tag. Older layouts remain readable.

@@ -91,7 +91,7 @@ import Hydra.Ledger (Ledger (..), ValidationError (..), applyTransactions)
 import Hydra.Network qualified as Network
 import Hydra.Network.Message (Message (..), NetworkEvent (..))
 import Hydra.Node.Environment (Environment (..), mkHeadParameters)
-import Hydra.Node.State (ChainPointTime (..), Deposit (..), DepositStatus (..), NodeState (..), PendingDeposits, SyncedStatus (..), consumeDeposit, depositsForHead, recordDeposit, retentionCutoff, rollbackDeposits, syncedStatus, updateDeposit)
+import Hydra.Node.State (ChainPointTime (..), Deposit (..), DepositStatus (..), NodeState (..), PendingDeposits, SyncedStatus (..), consumeDeposit, depositsForHead, pruneConsumedDeposits, recordDeposit, rollbackDeposits, syncedStatus, updateDeposit)
 import Hydra.Node.UnsyncedPeriod (UnsyncedPeriod (..))
 import Hydra.Tx (
   HeadId,
@@ -2468,14 +2468,14 @@ markErased rolledBackSlot = mapSettlementStatuses $ \case
   status -> status
 
 -- | Drop the retained settlements no rollback can reach anymore, see
--- 'retentionCutoff'. This is what bounds the map: without it, an open head
+-- the immutable point reported by the chain. Without it, an open head
 -- would retain one snapshot per settlement forever.
 --
 -- Erased settlements are never dropped: they are due for re-posting, and the
 -- lowest one gates every later re-post ('nextErasedSettlement').
 pruneSettlements :: IsTx tx => ChainSlot -> Settlements tx -> Settlements tx
 pruneSettlements slot = filterSettlements $ \case
-  Landed{observedAtSlot} -> observedAtSlot > retentionCutoff slot
+  Landed{observedAtSlot} -> observedAtSlot > slot
   Erased -> True
 
 -- | Update the retained settlements of an open head; any other head state is
@@ -2799,6 +2799,8 @@ handleChainInput env _ledger now _chainPointTime pendingDeposits st ev syncStatu
   (_, ChainInput Rollback{rolledBackChainState, chainTime}) ->
     newState ChainRolledBack{chainState = rolledBackChainState}
       <> handleOutOfSync env now (chainStatePoint rolledBackChainState) chainTime syncStatus
+  (_, ChainInput Finalized{finalizedChainPoint}) ->
+    newState ChainFinalized{finalizedSlot = chainPointSlot finalizedChainPoint}
   (_, ChainInput Tick{chainTime, chainPoint}) ->
     newState TickObserved{chainPoint, chainTime}
       <> handleOutOfSync env now chainPoint chainTime syncStatus
@@ -3033,8 +3035,9 @@ aggregateNodeState nodeState sc =
           matchesIncrement snapshot = snapshot.depositTxId == Just depositTxId && isJust snapshot.utxoToCommit
         TickObserved{chainPoint, chainTime} ->
           pure $
-            -- Retained settlements no rollback can reach anymore are dropped.
-            nodeState{headState = onSettlements (pruneSettlements (chainPointSlot chainPoint)) st, chainPointTime = chainPointTimeState{currentSlot = chainPointSlot chainPoint, currentChainTime = chainTime}}
+            nodeState{headState = st, chainPointTime = chainPointTimeState{currentSlot = chainPointSlot chainPoint, currentChainTime = chainTime}}
+        ChainFinalized{finalizedSlot} ->
+          pure nodeState{headState = onSettlements (pruneSettlements finalizedSlot) st, deposits = pruneConsumedDeposits finalizedSlot (deposits nodeState)}
         ChainRolledBack{chainState} ->
           pure $
             -- Deposits are L1-derived: restore the view at the rolled-back
@@ -3119,6 +3122,7 @@ eventHeadId = \case
   DepositActivated{} -> Nothing
   DepositExpired{} -> Nothing
   ChainRolledBack{} -> Nothing
+  ChainFinalized{} -> Nothing
   TickObserved{} -> Nothing
   NetworkDisconnected -> Nothing
   NetworkConnected -> Nothing
@@ -3540,6 +3544,7 @@ applyEvent st = \case
       _otherState -> pure st
   ChainRolledBack{chainState} ->
     pure $ setChainState chainState st
+  ChainFinalized{} -> pure st
   TickObserved{} -> pure st
   IgnoredHeadInitializing{} -> pure st
   TxInvalid{transaction} -> case st of
@@ -3597,6 +3602,7 @@ aggregateChainStateHistory history = \case
   HeadPartialFanoutSelected{} -> history
   HeadFanoutReverted{} -> history
   ChainRolledBack{chainState} -> rollbackHistory (chainStateSlot chainState) history
+  ChainFinalized{} -> history
   TickObserved{chainPoint} -> setLastKnown chainPoint history
   CommitApproved{} -> history
   DecommitApproved{} -> history

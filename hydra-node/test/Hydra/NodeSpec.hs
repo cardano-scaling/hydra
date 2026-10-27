@@ -44,7 +44,7 @@ import Hydra.Node.Environment as Environment
 import Hydra.Node.InputQueue (InputQueue (..))
 import Hydra.Node.Outbox (Outbox (..), StallBounds (..), newOutbox)
 import Hydra.Node.ParameterMismatch (ParameterMismatch (..))
-import Hydra.Node.State (ChainPointTime (..), Deposit (..), DepositStatus (..), NodeState (..), consumeDeposit, depositRetentionHorizon, initNodeState, initialChainTime, pendingDeposits, recordDeposit, rollbackDeposits)
+import Hydra.Node.State (ChainPointTime (..), Deposit (..), DepositStatus (..), NodeState (..), consumeDeposit, depositRetentionHorizon, initNodeState, initialChainTime, pendingDeposits, pruneConsumedDeposits, recordDeposit, rollbackDeposits)
 import Hydra.Node.UnsyncedPeriod (defaultUnsyncedPeriodFor)
 import Hydra.Options (defaultContestationPeriod, defaultDepositActivation, defaultDepositPeriod, defaultUnsyncedPeriod)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
@@ -97,32 +97,15 @@ spec = parallel $ do
       -- A consumption AT the rolled back slot is still on chain.
       pendingDeposits (rollbackDeposits (ChainSlot 10) s1) `shouldBe` mempty
 
-    -- Consumed deposits beyond 'depositRetentionHorizon' can never be
-    -- resurfaced by a rollback (no real chain rolls back that deep), so they
-    -- are pruned to bound the persisted state; unconsumed deposits stay
-    -- recoverable indefinitely.
-    it "prunes consumed deposits beyond the retention horizon, keeping unconsumed ones" $ do
-      let ChainSlot horizon = depositRetentionHorizon
-          s1 =
-            record (horizon + 100) 3
-              . consumeDeposit (ChainSlot 2) 1
-              . record 1 2
-              . record 1 1
-              $ s0
-      Map.keys (deposits s1) `shouldBe` [2, 3]
+    it "prunes only immutable consumed deposits, keeping unconsumed ones" $ do
+      let s1 = consumeDeposit 2 1 $ record 1 2 $ record 1 1 s0
+      Map.keys (pruneConsumedDeposits 1 (deposits s1)) `shouldBe` [1, 2]
+      Map.keys (pruneConsumedDeposits 2 (deposits s1)) `shouldBe` [2]
 
-    it "a rollback deeper than the horizon cannot resurface a pruned deposit" $ do
+    it "a slot gap and later deposit do not discard a still-volatile consumption" $ do
       let ChainSlot horizon = depositRetentionHorizon
-          s1 =
-            record (horizon + 100) 2
-              . consumeDeposit (ChainSlot 3) 1
-              . record 1 1
-              $ s0
-      -- Deposit 1's consumption is beyond the horizon by the time deposit 2 is
-      -- recorded, so it was pruned: a rollback reaching before its consumption
-      -- slot yields a missing deposit (which converges by re-observing its
-      -- deposit transaction), never a stale one.
-      pendingDeposits (rollbackDeposits (ChainSlot 2) s1) `shouldBe` mempty
+          s1 = record (horizon + 100) 2 . consumeDeposit 3 1 . record 1 1 $ s0
+      pendingDeposits (rollbackDeposits 2 s1) `shouldBe` Map.singleton 1 (testDeposit 1)
   -- Set up a hydrate function with fixtures curried
   let setupHydrate ::
         ( ( EventStore (StateEvent SimpleTx) IO ->

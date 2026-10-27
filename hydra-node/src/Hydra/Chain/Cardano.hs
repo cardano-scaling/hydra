@@ -5,9 +5,11 @@ module Hydra.Chain.Cardano where
 import Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Ledger.BaseTypes (unNonZero)
 import Cardano.Ledger.Shelley.API qualified as Ledger
 import Control.Tracer.JSON (Tracer)
 import Hydra.Cardano.Api (
+  GenesisParameters (..),
   Tx,
   shelleyBasedEra,
   toLedgerEpochInfo,
@@ -29,6 +31,7 @@ import Hydra.Chain.Direct.Wallet (
   WalletInfoOnChain (..),
   newTinyWallet,
  )
+import Hydra.Chain.Finality (withFinalityTracking)
 import Hydra.Node.Util (readKeyPair)
 import Hydra.Options (CardanoChainConfig (..), ChainBackendOptions (..))
 import Hydra.Tx (Party)
@@ -46,12 +49,16 @@ withCardanoChain tracer cfg party chainStateHistory callback action =
     Direct directOptions -> do
       wallet <- mkTinyWallet @DirectBackend (runDirectBackend directOptions) tracer cfg
       ctx <- runDirectBackend directOptions $ loadChainContext cfg party
-      withDirectChain directOptions tracer cfg ctx wallet chainStateHistory callback action
+      genesis <- runDirectBackend directOptions queryGenesisParameters
+      finalizedCallback <- withFinalityTracking (fromIntegral $ unNonZero $ protocolParamSecurity genesis) callback
+      withDirectChain directOptions tracer cfg ctx wallet chainStateHistory finalizedCallback action
     Blockfrost blockfrostOptions -> do
       env <- newBlockfrostEnv blockfrostOptions
       wallet <- mkTinyWallet @BlockfrostBackend (runBlockfrostBackendWith env) tracer cfg
       ctx <- runBlockfrostBackendWith env $ loadChainContext cfg party
-      withBlockfrostChain env tracer cfg ctx wallet chainStateHistory callback action
+      genesis <- runBlockfrostBackendWith env queryGenesisParameters
+      finalizedCallback <- withFinalityTracking (fromIntegral $ unNonZero $ protocolParamSecurity genesis) callback
+      withBlockfrostChain env tracer cfg ctx wallet chainStateHistory finalizedCallback action
  where
   CardanoChainConfig{chainBackendOptions} = cfg
 

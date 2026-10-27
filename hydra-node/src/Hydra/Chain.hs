@@ -384,6 +384,8 @@ data ChainEvent tx
       { chainTime :: UTCTime
       , chainPoint :: ChainPointType tx
       }
+  | -- | A block followed by at least the network security parameter in blocks.
+    Finalized {finalizedChainPoint :: ChainPointType tx}
   | -- | Event to re-ingest errors from 'postTx' for further processing.
     PostTxError {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx, failingTx :: Maybe tx}
   deriving stock (Generic)

@@ -70,6 +70,7 @@ library
     Hydra.Chain.Direct.State
     Hydra.Chain.Direct.TimeHandle
     Hydra.Chain.Direct.Wallet
+    Hydra.Chain.Finality
     Hydra.Chain.Offline
     Hydra.Chain.ScriptRegistry
     Hydra.Config
@@ -391,6 +392,7 @@ test-suite tests
     Hydra.Chain.Direct.TxSpec
     Hydra.Chain.Direct.TxTraceSpec
     Hydra.Chain.Direct.WalletSpec
+    Hydra.Chain.FinalitySpec
     Hydra.Chain.ScriptRegistrySpec
     Hydra.ConfigSpec
     Hydra.CryptoSpec
