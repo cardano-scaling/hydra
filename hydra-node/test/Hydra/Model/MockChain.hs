@@ -64,7 +64,7 @@ import Hydra.HeadLogic (
   Input (..),
   OpenState (..),
  )
-import Hydra.Ledger (Ledger (..), ValidationError (..))
+import Hydra.Ledger (Ledger (..), ValidationError (..), PolicyViolation (..))
 import Hydra.Ledger.Cardano (adjustUTxO, fromChainSlot)
 import Hydra.Ledger.Cardano.Evaluate (renderEvaluationReport)
 import Hydra.Model.Payment (CardanoSigningKey (..))
@@ -549,8 +549,10 @@ timeHandleAt currentSlotNo =
 scriptLedger ::
   Ledger Tx
 scriptLedger =
-  Ledger{applyTransactions}
+  Ledger{applyTransactions, validateUserTransaction}
  where
+  validateUserTransaction :: Maybe (tx -> Either PolicyViolation ())
+  validateUserTransaction = Nothing
   -- XXX: We could easily add 'slot' validation here and this would already
   -- emulate the dropping of outdated transactions from the cardano-node
   -- mempool.

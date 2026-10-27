@@ -7,11 +7,17 @@ import Hydra.Prelude
 
 import Hydra.Chain.ChainState (ChainSlot (..))
 import Hydra.Tx.IsTx (IsTx (..))
+import Hydra.Cardano.Api (PolicyId)
+
+
+data PolicyViolation =
+  PolicyMintingViolation { invalidPolicyIds :: Set PolicyId, allowedPolicyIds :: Set PolicyId }
+  deriving (Eq, Show)
 
 -- | An abstract interface for a 'Ledger'. Allows to define mock / simpler
 -- implementation for testing as well as limiting feature-envy from the business
 -- logic by forcing a closed interface.
-newtype Ledger tx = Ledger
+data Ledger tx = Ledger
   { applyTransactions ::
       ChainSlot ->
       UTxOType tx ->
@@ -21,6 +27,8 @@ newtype Ledger tx = Ledger
   -- validation failures returned from the ledger.
   -- TODO: 'ValidationError' should also include the UTxO, which is not
   -- necessarily the same as the given UTxO after some transactions
+  , validateUserTransaction :: Maybe (tx -> Either PolicyViolation ())
+    -- ^ potential user policy validation if set on start
   }
 
 -- | Either valid or an error which we get from the ledger-specs tx validation.

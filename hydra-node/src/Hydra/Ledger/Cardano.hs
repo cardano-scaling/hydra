@@ -42,7 +42,7 @@ import Data.Default (def)
 import Data.Map.Strict qualified as Map
 import Data.Set qualified as Set
 import Hydra.Chain.ChainState (ChainSlot (..))
-import Hydra.Ledger (Ledger (..), ValidationError (..))
+import Hydra.Ledger (Ledger (..), ValidationError (..), PolicyViolation (..))
 import Hydra.Tx (IsTx (..))
 
 -- * Ledger
@@ -50,8 +50,10 @@ import Hydra.Tx (IsTx (..))
 -- | Use the cardano-ledger as an in-hydra 'Ledger'.
 cardanoLedger :: Ledger.Globals -> Ledger.LedgerEnv LedgerEra -> Ledger Tx
 cardanoLedger globals ledgerEnv =
-  Ledger{applyTransactions}
+  Ledger{applyTransactions, validateUserTransaction}
  where
+  validateUserTransaction :: Maybe (tx -> Either PolicyViolation ())
+  validateUserTransaction = Nothing
   -- NOTE(SN): See full note on 'applyTx' why we only have a single transaction
   -- application here.
   applyTransactions slot = go

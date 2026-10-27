@@ -21,7 +21,7 @@ import Data.Aeson (
  )
 import Data.Set qualified as Set
 import Hydra.Chain.ChainState (ChainSlot, ChainStateType, IsChainState (..))
-import Hydra.Ledger (Ledger (..), ValidationError (ValidationError))
+import Hydra.Ledger (Ledger (..), ValidationError (ValidationError), PolicyViolation)
 import Hydra.Tx (IsTx (..))
 
 -- * Simple transactions
@@ -122,8 +122,10 @@ instance IsChainState SimpleTx where
 
 simpleLedger :: Ledger SimpleTx
 simpleLedger =
-  Ledger{applyTransactions}
+  Ledger{applyTransactions, validateUserTransaction}
  where
+  validateUserTransaction :: Maybe (tx -> Either PolicyViolation ())
+  validateUserTransaction = Nothing
   -- NOTE: _slot is unused as SimpleTx transactions don't have a notion of time.
   applyTransactions :: Foldable t => p -> Set SimpleTxOut -> t SimpleTx -> Either (SimpleTx, ValidationError) (Set SimpleTxOut)
   applyTransactions _slot =
