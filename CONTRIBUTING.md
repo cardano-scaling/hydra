@@ -210,17 +210,58 @@ To perform a release of the next `<version>`:
    hashes can be obtained with `hydra-node --hydra-script-catalogue`.
 4. Update CHANGELOG.md by replacing `UNRELEASED` with a date in
    [ISO8601](https://en.wikipedia.org/wiki/ISO_8601) and prepare contents.
-5. Run `./release.sh <version>`.
+5. Commit the changelog, network, and script-hash updates. Start with a clean
+   working tree and run `nix develop --command ./release.sh prepare <version>`
+   (the existing `./release.sh <version>` spelling also works inside the Nix
+   environment). The script fetches `origin`,
+   validates the release metadata and branch ancestry, then creates the version
+   changes, release commit, and signed tag locally.
 6. Check if all the bumped versions are correct. In particular, whether the demo
-   and tutorial would still work given the changelog. If everything is fine,
-   push the branches `master`, `release` and the `<version>` tag.
-7. Create a GitHub release page containing:
+   and tutorial would still work given the changelog. If everything is fine, run
+   `nix develop --command ./release.sh publish <version>` from the tagged release
+   commit. This pushes
+   the current branch and tag in one atomic operation. When releasing from
+   `master`, it also advances remote `release` to that same commit; the local
+   `release` branch can be absent or outdated. If any update is rejected, none
+   are pushed. Fix the reported problem and retry the same command without
+   force-pushing.
+7. Create a draft GitHub release for the existing `<version>` tag containing:
    * The released changes (formatted) and giving credit where credit is due
    * Built Hydra (and `cardano-node`) binaries to the release using the naming scheme:
      `hydra-<platform>-<version>.zip` where `platform` is `x86_64-linux`,
      `aarch64-linux` or `aarch64-darwin` (the same for `cardano-node` instead
      of `hydra`)
    * The just published `hydra-scripts-tx-id` from step 2.
+8. Check the tagged Binaries and Docker workflow results and the attached
+   artifacts, then publish the GitHub release. Publishing the latest stable
+   release starts **Publish Docs**. Its jobs select the exact tagged commit,
+   build and upload the documentation, then deploy and verify the public version
+   and commit at <https://hydra.family/head-protocol/deployment.json>. Check the
+   **Deploy and Verify Documentation** job summary to confirm publication
+   completed. Prereleases and older releases do not replace the current stable
+   documentation.
+
+To retry stable docs independently, run **Publish Docs** using **Run workflow**
+on `master`, supplying the published release tag as the `version` input. For
+example:
+
+```sh
+gh workflow run publish-docs.yaml --ref master -f version=2.4.2
+```
+
+Only the latest published stable release is eligible. A manual run for an older
+release is skipped with an explanation in the workflow summary. Pushing the
+`release` branch alone no longer publishes docs. Unstable docs are built from the
+exact commit of a successful `master` CI run.
+
+If the build succeeds but deployment fails, use GitHub's **Re-run failed jobs**
+to retry deployment with the existing documentation artifact. Artifacts are
+retained for seven days; after that, start a new run with the release version.
+Stable and unstable deployments share a queue because both update `gh-pages`.
+
+If release publication is automated later, call the docs workflow explicitly:
+publishing a release with a workflow's `GITHUB_TOKEN` does not trigger another
+workflow through the `release` event.
 
 [smoke-test]: https://github.com/cardano-scaling/hydra/actions/workflows/smoke-test.yaml
 
