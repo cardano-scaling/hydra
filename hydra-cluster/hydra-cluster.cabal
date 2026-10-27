@@ -98,6 +98,7 @@ library
     , containers
     , contra-tracer
     , contra-tracer-json
+    , crypton
     , directory
     , filepath
     , http-conduit
@@ -199,6 +200,7 @@ test-suite tests
     , tasty
     , text
     , time
+    , unix
 
   build-tool-depends:
     , hydra-chain-observer:hydra-chain-observer

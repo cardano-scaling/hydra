@@ -31,7 +31,7 @@ import Hydra.API.HTTPServer (DraftCommitTxRequest (..), DraftCommitTxResponse (.
 import Hydra.API.ServerOutput (ApiEncoding (..), ApiMessage)
 import Hydra.API.WireFormat (decodeWire)
 import Hydra.Chain.Blockfrost.Client qualified as Blockfrost
-import Hydra.Cluster.Util (Timing (..), readConfigFile)
+import Hydra.Cluster.Util (Timing (..), readConfigFile, writeSigningKey)
 import Hydra.Network (Host (Host), NodeId (NodeId), WhichEtcd (SystemEtcd))
 import Hydra.Network qualified as Network
 import Hydra.Network.Etcd (peerPortToClientPort)
@@ -589,8 +589,9 @@ prepareHydraNode chainConfig workDir hydraNodeId hydraSKey hydraVKeys nodePorts 
   let stateDir = workDir </> "state-" <> show hydraNodeId
   createDirectoryIfMissing True stateDir
   cardanoLedgerProtocolParametersFile <- preparePParams chainConfig stateDir paramsDecorator
+  -- Protect the node's copy of the signing key on shared runners too.
   let hydraSigningKey = stateDir </> "me.sk"
-  void $ withSecret hydraSKey $ writeFileTextEnvelope (File hydraSigningKey) Nothing
+  withSecret hydraSKey $ writeSigningKey hydraSigningKey
   hydraVerificationKeys <- forM (zip [1 ..] hydraVKeys) $ \(i :: Int, vKey) -> do
     let filepath = stateDir </> ("other-" <> show i <> ".vk")
     filepath <$ writeFileTextEnvelope (File filepath) Nothing vKey

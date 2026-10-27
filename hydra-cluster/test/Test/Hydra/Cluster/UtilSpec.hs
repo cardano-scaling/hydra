@@ -4,16 +4,65 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Hydra.Chain.Direct.Handlers (maxGraceTime)
-import Hydra.Cluster.Util (BlockTime, Timing (..), mkSmokeTiming)
+import Hydra.Cluster.Util (
+  BlockTime,
+  Participant (..),
+  Timing (..),
+  archiveParticipantKeys,
+  generateParticipant,
+  leftoverParticipantKeys,
+  mkSmokeTiming,
+  participantCardanoKeyFile,
+  participantHydraKeyFile,
+  participantWalletKeyFile,
+  sweptParticipantKeysDir,
+ )
 import Hydra.Tx.ContestationPeriod qualified as CP
+import Hydra.Tx.Crypto (getVerificationKey)
 import Hydra.Tx.DepositPeriod qualified as DP
+import System.Directory (doesFileExist, listDirectory)
+import System.Posix (fileMode, getFileStatus, groupModes, intersectFileModes, nullFileMode, otherModes, unionFileModes)
+
+spec :: Spec
+spec = do
+  smokeTimingSpec
+  participantKeySpec
+
+participantKeySpec :: Spec
+participantKeySpec = describe "generateParticipant" $ do
+  it "persists every key a recovery would need" $
+    withTempDir "participant" $ \dir -> do
+      Participant{keyDir} <- generateParticipant dir
+      forM_ [participantCardanoKeyFile, participantWalletKeyFile, participantHydraKeyFile] $ \keyFile ->
+        doesFileExist (keyFile keyDir) `shouldReturn` True
+
+  it "recovers and archives the keys a killed run left behind" $
+    withTempDir "participant" $ \dir -> do
+      (map fst <$> leftoverParticipantKeys dir) `shouldReturn` []
+      killed <- generateParticipant dir
+      leftovers <- leftoverParticipantKeys dir
+      map fst leftovers `shouldBe` [keyDir killed]
+      map (fmap (map getVerificationKey) . snd) leftovers
+        `shouldBe` [Right [cardanoVk killed, walletVk killed]]
+
+      archiveParticipantKeys dir (keyDir killed) `shouldReturn` Right ()
+      (map fst <$> leftoverParticipantKeys dir) `shouldReturn` []
+      listDirectory (sweptParticipantKeysDir dir) `shouldNotReturn` []
+
+  it "keeps the persisted keys readable only by their owner" $
+    withTempDir "participant" $ \dir -> do
+      Participant{keyDir} <- generateParticipant dir
+      forM_ [participantCardanoKeyFile, participantWalletKeyFile, participantHydraKeyFile] $ \keyFile -> do
+        status <- getFileStatus (keyFile keyDir)
+        intersectFileModes (fileMode status) (groupModes `unionFileModes` otherModes)
+          `shouldBe` nullFileMode
 
 -- | The periods 'mkSmokeTiming' produces are cut close enough to the bounds
 -- 'Hydra.Chain.Direct.Handlers' puts on transactions that the failures are not
 -- local: too short and the smoke test hangs on a public network for its full
 -- timeout, half an hour after anyone was watching.
-spec :: Spec
-spec = describe "mkSmokeTiming" $ do
+smokeTimingSpec :: Spec
+smokeTimingSpec = describe "mkSmokeTiming" $ do
   it "leaves the increment a window after the deposit activates" $ do
     -- A deposit is dated 'graceTime' ahead of the chain tip, becomes active
     -- 'depositActivation' after that date and expires one 'depositPeriod'

@@ -81,9 +81,16 @@ run options =
             writeFileBS networkFile (encodeUtf8 @Text $ show network)
         withCardanoNodeOnKnownNetwork (contramap FromCardanoNode tracer) workDir network action
 
-  withStateDirectory action = case stateDirectory of
-    Nothing -> withTempDir ("hydra-cluster-" <> show knownNetwork) action
-    Just sd -> action sd
+  -- Public-network runs need persistent storage for their recovery keys.
+  withStateDirectory action = case (stateDirectory, knownNetwork) of
+    (Just sd, _) -> action sd
+    (Nothing, Just network) ->
+      die $
+        "--state-directory is required when running against "
+          <> show network
+          <> ": its participant-keys/ holds the keys to this run's funds, and a "
+          <> "temporary directory is removed with them still in it."
+    (Nothing, Nothing) -> withTempDir "hydra-cluster-devnet" action
 
   publishOrReuseHydraScripts :: Tracer IO EndToEndLog -> ChainBackendOptions -> IO [TxId]
   publishOrReuseHydraScripts tracer opts =
