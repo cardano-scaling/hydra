@@ -149,11 +149,91 @@ readConfigFile :: FilePath -> IO ByteString
 -- | Get the "well-known" keys for given actor. The signing key is
 --   <a>Secret</a>-wrapped so callers cannot accidentally log or serialise
 --   it.
+--   
+--   NOTE: These keys are committed to this repository and shipped as
+--   package data-files, so they are public and must never hold real funds.
+--   See <a>Participant</a> for what a run against a public network uses
+--   instead.
 keysFor :: Actor -> IO (VerificationKey PaymentKey, Secret (SigningKey PaymentKey))
+
+-- | Decode a <tt>TextEnvelope</tt>-encoded payment signing key,
+--   <a>Secret</a>-wrapped.
+--   
+--   NOTE: The failure names the file but never quotes it. A partly written
+--   key still holds key material, and this error reaches the logs.
+decodeSigningKey :: FilePath -> ByteString -> IO (Secret (SigningKey PaymentKey))
 
 -- | Create and save new signing key at the provided path, returning the
 --   key <a>Secret</a>-wrapped. NOTE: Uses <tt>TextEnvelope</tt> format.
 createAndSaveSigningKey :: FilePath -> IO (Secret (SigningKey PaymentKey))
+
+-- | Catch synchronous failures while allowing cancellation to propagate.
+trySync :: IO a -> IO (Either SomeException a)
+
+-- | Fresh Cardano and Hydra credentials for the participant and its commit
+--   wallet, persisted in <a>$sel:keyDir:Participant</a> before funding.
+data Participant
+Participant :: VerificationKey PaymentKey -> Secret (SigningKey PaymentKey) -> Secret (SigningKey HydraKey) -> VerificationKey PaymentKey -> Secret (SigningKey PaymentKey) -> FilePath -> Participant
+[$sel:cardanoVk:Participant] :: Participant -> VerificationKey PaymentKey
+[$sel:cardanoSk:Participant] :: Participant -> Secret (SigningKey PaymentKey)
+[$sel:hydraSk:Participant] :: Participant -> Secret (SigningKey HydraKey)
+[$sel:walletVk:Participant] :: Participant -> VerificationKey PaymentKey
+[$sel:walletSk:Participant] :: Participant -> Secret (SigningKey PaymentKey)
+
+-- | Directory holding this run's key files.
+[$sel:keyDir:Participant] :: Participant -> FilePath
+
+-- | The <a>Party</a> a <a>Participant</a> appears as in a head.
+participantParty :: Participant -> Party
+
+-- | Directory holding the keys of runs against this working directory.
+--   
+--   Deliberately not named <tt>state-</tt> anything: the runner wipes
+--   <tt>state-*</tt> before every run, and these keys have to outlive
+--   that.
+participantKeysDir :: FilePath -> FilePath
+
+-- | Where <a>archiveParticipantKeys</a> moves the keys of a run whose
+--   funds are back.
+sweptParticipantKeysDir :: FilePath -> FilePath
+
+-- | Path a hydra-node is pointed at with <tt>--cardano-signing-key</tt>.
+participantCardanoKeyFile :: FilePath -> FilePath
+participantHydraKeyFile :: FilePath -> FilePath
+participantWalletKeyFile :: FilePath -> FilePath
+
+-- | Marker a run leaves while it has a head open on chain.
+--   
+--   The address cannot tell: the node returns its own init change there,
+--   so a sweep of it succeeds whether or not a head was left behind.
+participantHeadOpenFile :: FilePath -> FilePath
+markHeadOpen :: FilePath -> IO ()
+clearHeadOpen :: FilePath -> IO ()
+headMayBeOpen :: FilePath -> IO Bool
+
+-- | Every key of a run that can hold funds, and so has to be swept.
+participantPaymentKeyFiles :: [FilePath -> FilePath]
+
+-- | Generate a fresh <a>Participant</a> under <a>participantKeysDir</a>,
+--   in a directory named after the Cardano key's hash so runs cannot
+--   clobber each other.
+--   
+--   Uses system entropy rather than seedable test generators.
+generateParticipant :: FilePath -> IO Participant
+
+-- | Write an owner-only <tt>TextEnvelope</tt>, then rename it atomically
+--   into place so interruption cannot leave a truncated key at the
+--   destination.
+writeSigningKey :: HasTextEnvelope (SigningKey k) => FilePath -> SigningKey k -> IO ()
+
+-- | Read payment keys from each pending run directory, skipping missing
+--   files and reporting decode failures per run. Non-directory entries are
+--   ignored.
+leftoverParticipantKeys :: FilePath -> IO [(FilePath, Either Text [Secret (SigningKey PaymentKey)])]
+
+-- | Move keys to <a>sweptParticipantKeysDir</a> without overwriting an
+--   existing archive, returning any failure.
+archiveParticipantKeys :: FilePath -> FilePath -> IO (Either Text ())
 
 -- | Expected time between blocks (on average)
 type BlockTime = NominalDiffTime
@@ -249,6 +329,18 @@ nodeStartupBudget :: NominalDiffTime
 -- | Create a (test) chain config for a given actor.
 chainConfigFor :: HasCallStack => Actor -> FilePath -> ChainBackendOptions -> [TxId] -> [Actor] -> Timing -> IO ChainConfig
 chainConfigFor' :: HasCallStack => Actor -> FilePath -> ChainBackendOptions -> [TxId] -> [Actor] -> ContestationPeriod -> DepositPeriod -> DepositPeriod -> IO ChainConfig
+
+-- | Chain config for a head run by a generated <a>Participant</a>, as the
+--   solo scenarios that move real funds on public networks do.
+--   
+--   Unlike <a>chainConfigFor</a> this copies nothing out of
+--   <tt>config/credentials</tt>: the node is pointed at the participant's
+--   own key, so no public fixture signing key is written into the state
+--   directory at all.
+chainConfigForParticipant :: Participant -> ChainBackendOptions -> [TxId] -> Timing -> ChainConfig
+
+-- | Assemble a chain config from key files that are already on disk.
+cardanoChainConfig :: ChainBackendOptions -> [TxId] -> FilePath -> [FilePath] -> ContestationPeriod -> DepositPeriod -> DepositPeriod -> ChainConfig
 modifyConfig :: (CardanoChainConfig -> CardanoChainConfig) -> ChainConfig -> ChainConfig
 setNetworkId :: NetworkId -> ChainConfig -> ChainConfig
 instance GHC.Show.Show Hydra.Cluster.Util.Timing
@@ -261,11 +353,14 @@ FaucetFailedToBuildTx :: TxBodyErrorAutoBalance Era -> FaucetException
 [$sel:reason:FaucetHasNotEnoughFunds] :: FaucetException -> TxBodyErrorAutoBalance Era
 FaucetBlockfrostError :: Text -> FaucetException
 [$sel:blockFrostError:FaucetHasNotEnoughFunds] :: FaucetException -> Text
+FaucetSweepTimedOut :: FaucetException
 data FaucetLog
 TraceResourceExhaustedHandled :: Text -> FaucetLog
 ReturnedFunds :: Coin -> FaucetLog
 [$sel:returnAmount:TraceResourceExhaustedHandled] :: FaucetLog -> Coin
 SubmitTxError :: Text -> FaucetLog
+NothingToReturn :: Text -> FaucetLog
+[$sel:reason:TraceResourceExhaustedHandled] :: FaucetLog -> Text
 delayBF :: MonadDelay m => ChainBackendOptions -> m ()
 seedFromFaucet :: ChainBackendOptions -> VerificationKey PaymentKey -> Value -> Tracer IO FaucetLog -> IO UTxO
 
@@ -302,6 +397,14 @@ seedFromFaucet_ :: ChainBackendOptions -> VerificationKey PaymentKey -> Coin -> 
 -- | Return the remaining funds to the faucet
 returnFundsToFaucet :: Tracer IO FaucetLog -> ChainBackendOptions -> Actor -> IO ()
 returnFundsToFaucet' :: Tracer IO FaucetLog -> ChainBackendOptions -> Secret (SigningKey PaymentKey) -> IO Coin
+
+-- | Bound cleanup queries, retries and confirmation waits.
+--   Transaction-building failures are logged as nothing returnable.
+returnFundsToFaucetBounded :: Tracer IO FaucetLog -> ChainBackendOptions -> Secret (SigningKey PaymentKey) -> IO Coin
+
+-- | Allow thirty blocks for a sweep, with a floor for the fixed costs of
+--   querying, submitting and observing a transaction on a fast devnet.
+sweepTimeout :: NominalDiffTime -> DiffTime
 createOutputAtAddress :: NetworkId -> ChainBackendOptions -> AddressInEra -> TxOutDatum CtxTx -> Value -> IO (TxIn, TxOut CtxUTxO)
 
 -- | Try to submit tx and retry when some caught exception/s take place.
@@ -449,6 +552,12 @@ UsingHydraScriptsAt :: [TxId] -> EndToEndLog
 [$sel:hydraScriptsTxId:ClusterOptions] :: EndToEndLog -> [TxId]
 CreatedKey :: FilePath -> EndToEndLog
 [$sel:keyPath:ClusterOptions] :: EndToEndLog -> FilePath
+SweepFailed :: FilePath -> Text -> EndToEndLog
+[$sel:keyPath:ClusterOptions] :: EndToEndLog -> FilePath
+[$sel:reason:ClusterOptions] :: EndToEndLog -> Text
+ParticipantKeysKept :: FilePath -> Text -> EndToEndLog
+[$sel:keyPath:ClusterOptions] :: EndToEndLog -> FilePath
+[$sel:reason:ClusterOptions] :: EndToEndLog -> Text
 data NodeLog
 MsgNodeCmdSpec :: Text -> NodeLog
 [$sel:cmd:MsgNodeCmdSpec] :: NodeLog -> Text
@@ -828,6 +937,11 @@ instance GHC.Classes.Eq HydraNode.HydraNodePorts
 instance GHC.Show.Show HydraNode.HydraNodePorts
 
 module Hydra.Cluster.Scenarios
+
+-- | Whether the run completed or may still have funding in flight.
+data RunOutcome
+RunFinished :: RunOutcome
+RunInterrupted :: RunOutcome
 oneOfThreeNodesStopsForAWhile :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
 headIsOpenWith :: Set Party -> Value -> Maybe HeadId
 
@@ -855,16 +969,33 @@ headIsFinalizedWith :: HeadId -> UTxO -> Value -> Maybe ()
 --   dominate.
 singlePartyHeadFullLifeCycle :: Tracer IO EndToEndLog -> FilePath -> (BlockTime -> Timing) -> ChainBackendOptions -> [TxId] -> IO ()
 
--- | Like <a>refuelIfNeeded</a>, but seeds further keys from the same
---   faucet transaction and returns their UTxO. Each faucet transaction
---   costs an on-chain confirmation, a block time on a public network, so a
---   scenario needing several funded keys is better off asking for them
---   together.
-refuelAndSeed :: Tracer IO EndToEndLog -> ChainBackendOptions -> Actor -> Coin -> [(VerificationKey PaymentKey, Value)] -> IO [UTxO]
+-- | Retry sweeps for earlier runs under the <a>sweepParticipantKeys</a>
+--   policy.
+returnLeftoverParticipantFunds :: Tracer IO EndToEndLog -> ChainBackendOptions -> FilePath -> IO ()
+
+-- | Sweep the participant's payment keys under the
+--   <a>sweepParticipantKeys</a> policy.
+returnParticipantFunds :: Tracer IO EndToEndLog -> ChainBackendOptions -> FilePath -> Participant -> RunOutcome -> IO ()
+
+-- | Like <a>refuelAndSeed</a>, but for a key with no <a>Actor</a> behind
+--   it -- a generated <a>Participant</a>, say -- with a label used only in
+--   the log entries.
+refuelAndSeedFor :: Tracer IO EndToEndLog -> ChainBackendOptions -> String -> VerificationKey PaymentKey -> Coin -> [(VerificationKey PaymentKey, Value)] -> IO [UTxO]
 
 -- | An <a>Option</a> carrying a hydra-node's actual API port. Use to set
 --   the port in a <a>req</a> call.
 hydraApiPort :: HydraClient -> Option scheme
+
+-- | Sweep payment keys to the faucet and archive them when their run is
+--   finished.
+--   
+--   Recovery policy: persist all keys before funding. An open-head marker
+--   keeps both keys and fuel for manual close or abort. Otherwise, sweep
+--   both payment keys; keep interrupted runs pending because funding may
+--   still arrive, and archive completed runs without deleting their keys.
+--   Later runs retry pending directories. Sweep failures are logged per
+--   run; cancellation propagates.
+sweepParticipantKeys :: Tracer IO EndToEndLog -> ChainBackendOptions -> FilePath -> FilePath -> [Secret (SigningKey PaymentKey)] -> RunOutcome -> IO ()
 
 -- | Open a Hydra Head with only a single participant but some arbitrary
 --   UTxO committed.
@@ -972,6 +1103,13 @@ threeNodesWithMirrorParty :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOp
 -- | Respend all outputs owned by a given key in the head every
 --   <tt>delay</tt> seconds, for <tt>numTimes</tt> times.
 respendNTimes :: HasCallStack => HydraClient -> Secret (SigningKey PaymentKey) -> DiffTime -> Int -> IO ()
+
+-- | Like <a>refuelIfNeeded</a>, but seeds further keys from the same
+--   faucet transaction and returns their UTxO. Each faucet transaction
+--   costs an on-chain confirmation, a block time on a public network, so a
+--   scenario needing several funded keys is better off asking for them
+--   together.
+refuelAndSeed :: Tracer IO EndToEndLog -> ChainBackendOptions -> Actor -> Coin -> [(VerificationKey PaymentKey, Value)] -> IO [UTxO]
 data EndToEndLog
 ClusterOptions :: Options -> EndToEndLog
 [$sel:options:ClusterOptions] :: EndToEndLog -> Options
@@ -995,6 +1133,14 @@ UsingHydraScriptsAt :: [TxId] -> EndToEndLog
 [$sel:hydraScriptsTxId:ClusterOptions] :: EndToEndLog -> [TxId]
 CreatedKey :: FilePath -> EndToEndLog
 [$sel:keyPath:ClusterOptions] :: EndToEndLog -> FilePath
+SweepFailed :: FilePath -> Text -> EndToEndLog
+[$sel:keyPath:ClusterOptions] :: EndToEndLog -> FilePath
+[$sel:reason:ClusterOptions] :: EndToEndLog -> Text
+ParticipantKeysKept :: FilePath -> Text -> EndToEndLog
+[$sel:keyPath:ClusterOptions] :: EndToEndLog -> FilePath
+[$sel:reason:ClusterOptions] :: EndToEndLog -> Text
+instance GHC.Show.Show Hydra.Cluster.Scenarios.RunOutcome
+instance GHC.Classes.Eq Hydra.Cluster.Scenarios.RunOutcome
 
 
 -- | End-to-end regression tests for the deposit-stealing class of bugs.
