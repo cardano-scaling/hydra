@@ -109,7 +109,7 @@ same workflow through HTTP and WebSocket, follow the
 We provide a minimal monitoring setup using Prometheus and Grafana to give you insight into the node's activity, including snapshot processing and peer connectivity.
 
 :::info Note
-This setup focuses solely on the metrics exposed by the Hydra nodes and does not cover system-level metrics like CPU, memory, disk, or network usage.
+This setup covers Hydra activity, queues, API requests, persistence, process CPU and Linux resident memory. Use host exporters for machine-wide disk, memory and network utilization.
 :::
 
 Hydra nodes expose [Prometheus](https://prometheus.io/)-compliant _metrics_ through an HTTP server, available on the standard `/metrics` endpoint.
@@ -128,15 +128,15 @@ docker compose up -d prometheus grafana
 
 Prometheus will scrape the `/metrics` endpoint of each Hydra node automatically.
 
-Grafana is preconfigured with a minimal dashboard visualizing key metrics from each node:
+Grafana is preconfigured with per-node readiness, transaction rates, windowed
+mean and p95 latency, chain and network health, input queues, deposits, decommit,
+fanout, API, persistence and process resource panels. The instance dropdown
+selects nodes; peer counts keep complete instance names. Confirmation rates are
+per replica and must not be summed as unique Head throughput.
 
-| Panel                                    | Metric                               | Description                                                                              |
-| ---------------------------------------- | ------------------------------------ | ---------------------------------------------------------------------------------------- |
-| **Hydra Head Confirmed Tx**              | `hydra_head_confirmed_tx`            | Number of transactions confirmed by the Hydra head                                          |
-| **Hydra Head Inputs**                    | `hydra_head_inputs`                  | Number of inputs processed by the head                                                   |
-| **Hydra Head Tx Confirmation Time (ms)** | `hydra_head_tx_confirmation_time_ms` | Time from transaction request to confirmation |
-| **Peer Connected**                       | `hydra_head_peers_connected`         | Number of peers each node is currently connected to                                      |
-| **Hydra Head Requested**                 | `hydra_head_requested_tx`            | Number of requested transactions received by the node (incoming ReqTx messages)          |
+Prometheus also loads the example rules in `demo/prometheus/hydra.rules.yml`.
+Tune the thresholds and configure Alertmanager destinations for notifications.
+
 
 ### Using Grafana
 
@@ -146,6 +146,3 @@ Grafana is preconfigured with a minimal dashboard visualizing key metrics from e
 4. Use the top-left `instance` dropdown to inspect metrics per Hydra node.
 5. Hover on any graph or stat panel to see per-node values in real time.
 
-### Dashboard Preview
-
-![Grafana dashboard showing Hydra transaction, input, confirmation-time, and peer metrics.](./monitoring.png)

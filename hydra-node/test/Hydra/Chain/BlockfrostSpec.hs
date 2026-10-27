@@ -3,6 +3,7 @@ module Hydra.Chain.BlockfrostSpec where
 import Hydra.Prelude
 import Test.Hspec
 
+import Blockfrost.Client qualified as Client
 import Control.Concurrent.Class.MonadSTM (newTVarIO, takeTMVar, writeTQueue)
 import Control.Retry (RetryPolicyM, limitRetries)
 import Control.Tracer (nullTracer)
@@ -11,6 +12,7 @@ import Data.Text qualified as T
 import Hydra.Cardano.Api (serialiseToRawBytesHexText)
 import Hydra.Chain.Blockfrost (blockfrostSubmissionClient, memoizeIO, retryOnBlockfrostError)
 import Hydra.Chain.Blockfrost.Client (APIBlockfrostError (..), BlockfrostException (..), TxHash (..), isRetryable, toCardanoAssetName)
+import Hydra.Chain.Blockfrost.Client qualified as Blockfrost
 import Hydra.Chain.Direct.Handlers (CardanoChainLog)
 import Test.Hydra.Prelude (failAfter)
 import Test.Hydra.Tx.Gen ()
@@ -54,6 +56,29 @@ spec = do
           toCardanoAssetName (Just nameHex) `shouldThrow` \case
             BlockfrostClientError DeserialiseError{} -> True
             _ -> False
+
+  describe "rate-limit monitoring" $ do
+    it "counts every HTTP 429 including the response that exhausts retries" $ do
+      responses <- newIORef (0 :: Int)
+      let onRateLimit = modifyIORef' responses (+ 1)
+          action :: Client.BlockfrostClientT IO ()
+          action = Client.BlockfrostClientT $ ExceptT $ pure $ Left Client.BlockfrostUsageLimitReached
+      Blockfrost.runBlockfrostMWithObserver onRateLimit retry (Client.Project Client.Localhost "unused") action
+        `shouldThrow` \case
+          BlockfrostRateLimited -> True
+          _ -> False
+      readIORef responses `shouldReturn` 4
+
+    it "counts rate limits without counting the eventual successful response" $ do
+      responses <- newIORef (0 :: Int)
+      attempts <- newIORef (0 :: Int)
+      let onRateLimit = modifyIORef' responses (+ 1)
+          action = Client.BlockfrostClientT $ ExceptT $ liftIO $ do
+            n <- atomicModifyIORef' attempts $ \previous -> (previous + 1, previous)
+            pure $ if n < 2 then Left Client.BlockfrostUsageLimitReached else Right ()
+      Blockfrost.runBlockfrostMWithObserver onRateLimit retry (Client.Project Client.Localhost "unused") action
+      readIORef responses `shouldReturn` 2
+      readIORef attempts `shouldReturn` 3
 
   describe "isRetryable" $ do
     it "treats DecodeError as non-retryable" $ do

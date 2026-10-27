@@ -12,7 +12,7 @@ import Control.Exception (IOException)
 import Control.Monad.Catch (Handler (Handler))
 import Control.Monad.Catch qualified as Catch
 import Control.Retry (RetryPolicyM, RetryStatus (..), constantDelay, recovering, retrying)
-import Control.Tracer.JSON (Tracer, traceWith)
+import Control.Tracer.JSON (Tracer, nullTracer, traceWith)
 import Data.ByteString.Base16 qualified as Base16
 import Data.Text qualified as T
 import Hydra.Cardano.Api (
@@ -58,14 +58,21 @@ newtype BlockfrostBackend a = BlockfrostBackend (ReaderT BlockfrostEnv IO a)
 data BlockfrostEnv = BlockfrostEnv
   { project :: Blockfrost.Project
   , genesisVar :: TVar IO (Maybe Blockfrost.Genesis)
+  , onRateLimit :: IO ()
   }
 
 newBlockfrostEnv :: BlockfrostOptions -> IO BlockfrostEnv
-newBlockfrostEnv BlockfrostOptions{projectPath} =
-  BlockfrostEnv <$> Blockfrost.projectFromFile projectPath <*> newLabelledTVarIO "blockfrost-genesis-cache" Nothing
+newBlockfrostEnv = newBlockfrostEnvWithObserver (pure ())
+
+newBlockfrostEnvWithObserver :: IO () -> BlockfrostOptions -> IO BlockfrostEnv
+newBlockfrostEnvWithObserver onRateLimit BlockfrostOptions{projectPath} =
+  BlockfrostEnv <$> Blockfrost.projectFromFile projectPath <*> newLabelledTVarIO "blockfrost-genesis-cache" Nothing <*> pure onRateLimit
 
 runBlockfrostBackend :: BlockfrostOptions -> BlockfrostBackend a -> IO a
-runBlockfrostBackend opts action = newBlockfrostEnv opts >>= (`runBlockfrostBackendWith` action)
+runBlockfrostBackend = runBlockfrostBackendWithObserver (pure ())
+
+runBlockfrostBackendWithObserver :: IO () -> BlockfrostOptions -> BlockfrostBackend a -> IO a
+runBlockfrostBackendWithObserver onRateLimit opts action = newBlockfrostEnvWithObserver onRateLimit opts >>= (`runBlockfrostBackendWith` action)
 
 runBlockfrostBackendWith :: BlockfrostEnv -> BlockfrostBackend a -> IO a
 runBlockfrostBackendWith env (BlockfrostBackend m) = runReaderT m env
@@ -85,8 +92,8 @@ memoizeIO var action = do
 
 cachedGenesis :: BlockfrostBackend Blockfrost.Genesis
 cachedGenesis = BlockfrostBackend $ do
-  BlockfrostEnv{project, genesisVar} <- ask
-  liftIO $ memoizeIO genesisVar $ Blockfrost.runBlockfrostM project Blockfrost.queryGenesisParameters
+  BlockfrostEnv{project, genesisVar, onRateLimit} <- ask
+  liftIO $ memoizeIO genesisVar $ Blockfrost.runBlockfrostMWithObserver onRateLimit blockfrostRetryPolicy project Blockfrost.queryGenesisParameters
 
 instance ChainBackend BlockfrostBackend where
   queryGenesisParameters = Blockfrost.toCardanoGenesisParameters <$> cachedGenesis
@@ -127,8 +134,8 @@ instance ChainBackend BlockfrostBackend where
 -- | Run a Blockfrost client action with the backend's project.
 runQuery :: Blockfrost.BlockfrostClientT IO a -> BlockfrostBackend a
 runQuery action = BlockfrostBackend $ do
-  BlockfrostEnv{project} <- ask
-  liftIO $ Blockfrost.runBlockfrostM project action
+  BlockfrostEnv{project, onRateLimit} <- ask
+  liftIO $ Blockfrost.runBlockfrostMWithObserver onRateLimit blockfrostRetryPolicy project action
 
 -- | Run a Blockfrost client action that needs the (cached) network id.
 withNetworkId :: (NetworkId -> Blockfrost.BlockfrostClientT IO a) -> BlockfrostBackend a
@@ -145,7 +152,7 @@ withBlockfrostChain ::
   -- | Chain state loaded from persistence.
   ChainStateHistory Tx ->
   ChainComponent Tx IO a
-withBlockfrostChain env tracer config ctx wallet chainStateHistory callback action = do
+withBlockfrostChain initialEnv tracer config ctx wallet chainStateHistory callback action = do
   -- Known points on chain as loaded from persistence.
   let persistedPoints = prefixOf chainStateHistory
 
@@ -191,6 +198,7 @@ withBlockfrostChain env tracer config ctx wallet chainStateHistory callback acti
     Left () -> error "'connectTo' cannot terminate but did?"
     Right a -> pure a
  where
+  env = initialEnv{onRateLimit = traceWith tracer BlockfrostRateLimit}
   BlockfrostEnv{project} = env
   CardanoChainConfig{startChainFrom, depositPeriod} = config
 
@@ -231,7 +239,7 @@ blockfrostChain tracer queue prj getGenesis prefix handler wallet = do
   forever $
     raceLabelled_
       ("blockfrost-chain-follow", blockfrostChainFollow tracer prj getGenesis prefix handler wallet)
-      ("blockfrost-submission", blockfrostSubmissionClient tracer (submitViaBlockfrost prj) queue)
+      ("blockfrost-submission", blockfrostSubmissionClient tracer (submitViaBlockfrostObserved tracer prj) queue)
 
 blockfrostChainFollow ::
   forall m.
@@ -267,7 +275,9 @@ blockfrostChainFollow tracer prj getGenesis prefix handler wallet = do
   shouldRetry :: x -> Either APIBlockfrostError a -> m Bool
   shouldRetry _ = \case
     Right{} -> pure False
-    Left err -> pure $ isRetryable err
+    Left err -> do
+      when (isRetryable err) $ traceWith tracer $ BlockfrostTransientError{reason = show err, retryDelay = 0}
+      pure $ isRetryable err
 
   retryPolicy :: Double -> RetryPolicyM m
   retryPolicy blockTime' = constantDelay (truncate blockTime' * 1000 * 1000)
@@ -279,7 +289,7 @@ blockfrostChainFollow tracer prj getGenesis prefix handler wallet = do
   pollForNewBlocks blockTime' stateTVar = do
     current <- readTVarIO stateTVar
     blocks <-
-      Blockfrost.runBlockfrostM prj $
+      Blockfrost.runBlockfrostMWithObserver (traceWith tracer BlockfrostRateLimit) blockfrostRetryPolicy prj $
         BlockfrostAPI.getNextBlocks' (Right current) (BlockfrostAPI.paged maxBlockBatch 1)
     let confirmed = filter ((>= 1) . Blockfrost._blockConfirmations) blocks
     forM_ confirmed $ \block -> do
@@ -300,7 +310,7 @@ blockfrostChainFollow tracer prj getGenesis prefix handler wallet = do
 
   resolveTip :: m Blockfrost.BlockHash
   resolveTip = do
-    (ChainPoint _ headerHash) <- Blockfrost.runBlockfrostM prj Blockfrost.queryTip
+    (ChainPoint _ headerHash) <- Blockfrost.runBlockfrostMWithObserver (traceWith tracer BlockfrostRateLimit) blockfrostRetryPolicy prj Blockfrost.queryTip
     pure $ Blockfrost.BlockHash (decodeUtf8 . Base16.encode . serialiseToRawBytes $ headerHash)
 
   resolveChainPoint :: ChainPoint -> m Blockfrost.BlockHash
@@ -312,7 +322,7 @@ blockfrostChainFollow tracer prj getGenesis prefix handler wallet = do
           pure $ Blockfrost.BlockHash genesisBlockHash
         _ -> do
           Blockfrost.Block{_blockHash = Blockfrost.BlockHash block1Hash} <-
-            Blockfrost.runBlockfrostM prj (Blockfrost.getBlock (Left 1))
+            Blockfrost.runBlockfrostMWithObserver (traceWith tracer BlockfrostRateLimit) blockfrostRetryPolicy prj (Blockfrost.getBlock (Left 1))
           pure $ Blockfrost.BlockHash block1Hash
     ChainPoint _ headerHash ->
       pure $ Blockfrost.BlockHash (decodeUtf8 . Base16.encode . serialiseToRawBytes $ headerHash)
@@ -333,7 +343,7 @@ processBlock tracer prj handler wallet block@Blockfrost.Block{_blockHash, _block
       then pure []
       else do
         txHashesCBOR <-
-          Blockfrost.runBlockfrostM prj . Blockfrost.allPages $ \p ->
+          Blockfrost.runBlockfrostMWithObserver (traceWith tracer BlockfrostRateLimit) blockfrostRetryPolicy prj . Blockfrost.allPages $ \p ->
             Blockfrost.getBlockTxsCBOR' (Right _blockHash) p Blockfrost.def
         mapM (toTx . (\(Blockfrost.TxHashCBOR (_txHash, cbor)) -> cbor)) txHashesCBOR
   let receivedTxIds = getTxId . getTxBody <$> receivedTxs
@@ -376,11 +386,13 @@ blockfrostSubmissionClient tracer submit queue = bfClient
 -- | Submit a transaction via Blockfrost, rendering both transport and API
 -- level failures into a reason.
 submitViaBlockfrost :: MonadIO m => Blockfrost.Project -> Tx -> m (Either Text Blockfrost.TxHash)
-submitViaBlockfrost prj tx =
-  liftIO $
-    (Right <$> Blockfrost.runBlockfrostMWith submissionRetryPolicy prj (Blockfrost.submitTransaction tx))
-      `catch` (\(e :: APIBlockfrostError) -> pure . Left $ show e)
-      `catch` (\(e :: IOException) -> pure . Left $ show e)
+submitViaBlockfrost prj tx = liftIO $ submitViaBlockfrostObserved nullTracer prj tx
+
+submitViaBlockfrostObserved :: (MonadIO m, MonadCatch m) => Tracer m CardanoChainLog -> Blockfrost.Project -> Tx -> m (Either Text Blockfrost.TxHash)
+submitViaBlockfrostObserved tracer prj tx =
+  (Right <$> Blockfrost.runBlockfrostMWithObserver (traceWith tracer BlockfrostRateLimit) submissionRetryPolicy prj (Blockfrost.submitTransaction tx))
+    `catch` (\(e :: APIBlockfrostError) -> pure . Left $ show e)
+    `catch` (\(e :: IOException) -> pure . Left $ show e)
 
 toChainPoint :: Blockfrost.Block -> ChainPoint
 toChainPoint Blockfrost.Block{_blockSlot, _blockHash} =

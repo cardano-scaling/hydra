@@ -46,3 +46,4 @@ library
     , io-classes
     , io-classes-labelled
     , text
+    , time

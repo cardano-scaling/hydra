@@ -16,6 +16,7 @@ module Control.Concurrent.PersistentQueue (
   peekBatchPersistentQueue,
   popBatchPersistentQueue,
   nextPendingBatch,
+  persistentQueueStats,
 ) where
 
 import Cardano.Binary (FromCBOR, ToCBOR, decodeFull', serialize')
@@ -27,6 +28,7 @@ import Control.Concurrent.Class.MonadSTM (
   TVar,
   atomically,
   isFullTBQueue,
+  lengthTBQueue,
   modifyTVar',
   peekTBQueue,
   readTBQueue,
@@ -38,7 +40,7 @@ import Control.Concurrent.Class.MonadSTM (
   writeTBQueue,
   writeTVar,
  )
-import Control.Exception (IOException, catch)
+import Control.Exception (IOException, catch, throwIO)
 import Control.Monad (forM, forM_, unless, when)
 import Control.Monad.Class.MonadThrow (MonadCatch, try)
 import Control.Monad.IO.Class (MonadIO, liftIO)
@@ -49,8 +51,9 @@ import Data.List (isSuffixOf, sort)
 import Data.Maybe (mapMaybe)
 import Data.Text (Text)
 import Data.Text qualified as Text
+import Data.Time.Clock (diffUTCTime, getCurrentTime)
 import Numeric.Natural (Natural)
-import System.Directory (createDirectoryIfMissing, listDirectory, removeFile, renameFile)
+import System.Directory (createDirectoryIfMissing, getModificationTime, listDirectory, removeFile, renameFile)
 import System.FilePath ((</>))
 import System.IO.Error (isDoesNotExistError)
 import Text.Read (readMaybe)
@@ -58,6 +61,8 @@ import Text.Read (readMaybe)
 -- | Events emitted while operating the queue.
 data PersistentQueueLog
   = PersistentQueueLoadFailed {reason :: Text}
+  | PersistentQueueStatFailed {reason :: Text}
+  | PersistentQueueWriteFailed {reason :: Text}
   | PersistentQueueFull
   | PersistentQueueDeleteFailed {index :: Natural, reason :: Text}
   deriving stock (Eq, Show)
@@ -73,9 +78,6 @@ data PersistentQueue m a = PersistentQueue
 
 readFileBS :: MonadIO m => FilePath -> m ByteString
 readFileBS = liftIO . BS.readFile
-
-writeFileBS :: MonadIO m => FilePath -> ByteString -> m ()
-writeFileBS path = liftIO . BS.writeFile path
 
 -- | Create a new persistent queue at file path and given capacity.
 newPersistentQueue ::
@@ -144,7 +146,10 @@ writePersistentQueue tracer PersistentQueue{queue, nextIx, directory} item = do
     modifyTVar' nextIx (+ 1)
     pure next
   let !bytes = serialize' item
-  writeFileBS (directory </> show next) bytes
+  liftIO $
+    BS.writeFile (directory </> show next) bytes `catch` \(e :: IOException) -> do
+      traceWith tracer $ PersistentQueueWriteFailed{reason = Text.pack (show e)}
+      throwIO e
   full <- atomically $ isFullTBQueue queue
   when full $ liftIO $ traceWith tracer PersistentQueueFull
   atomically $ writeTBQueue queue (next, item, bytes)
@@ -235,3 +240,19 @@ removeQueueFile tracer directory ix =
     removeFile (directory </> show ix) `catch` \e ->
       unless (isDoesNotExistError e) $
         traceWith tracer PersistentQueueDeleteFailed{index = ix, reason = Text.pack (show e)}
+
+-- | Includes the pinned in-flight batch. The oldest file timestamp survives
+-- restart. A concurrent pop may remove that file; in that case age is unknown
+-- for this sample (zero), and the next sample reads the new head.
+persistentQueueStats :: Tracer IO PersistentQueueLog -> PersistentQueue IO a -> IO (Natural, Double)
+persistentQueueStats tracer PersistentQueue{queue, directory} = do
+  (depth, oldest) <- atomically $ (,) <$> lengthTBQueue queue <*> tryPeekTBQueue queue
+  age <- case oldest of
+    Nothing -> pure 0
+    Just (ix, _, _) -> do
+      now <- getCurrentTime
+      (max 0 . realToFrac . diffUTCTime now <$> getModificationTime (directory </> show ix))
+        `catch` \(e :: IOException) -> do
+          unless (isDoesNotExistError e) $ traceWith tracer $ PersistentQueueStatFailed{reason = Text.pack (show e)}
+          pure 0
+  pure (depth, age)

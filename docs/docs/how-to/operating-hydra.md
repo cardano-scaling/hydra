@@ -32,43 +32,36 @@ For instance, if a `hydra-node` is initiated with `--monitoring-port 6001`, the 
 </TerminalWindow>
 ```
 
-will output:
+will return Prometheus text with `HELP` and `TYPE` metadata. For example:
 
-```
-# TYPE hydra_chain_drift_seconds gauge
-hydra_chain_drift_seconds  0.0
-# TYPE hydra_chain_last_block_timestamp_seconds gauge
-hydra_chain_last_block_timestamp_seconds  0.0
-# TYPE hydra_head_confirmed_tx counter
-hydra_head_confirmed_tx  0
-# TYPE hydra_head_inputs counter
-hydra_head_inputs  50467
-# TYPE hydra_head_peers_connected gauge
-hydra_head_peers_connected  0.0
-# TYPE hydra_head_requested_tx counter
-hydra_head_requested_tx  0
-# TYPE hydra_head_tx_confirmation_time_ms histogram
-hydra_head_tx_confirmation_time_ms_bucket{le="5.0"} 0.0
-hydra_head_tx_confirmation_time_ms_bucket{le="10.0"} 0.0
-hydra_head_tx_confirmation_time_ms_bucket{le="50.0"} 0.0
-hydra_head_tx_confirmation_time_ms_bucket{le="100.0"} 0.0
-hydra_head_tx_confirmation_time_ms_bucket{le="1000.0"} 0.0
-hydra_head_tx_confirmation_time_ms_bucket{le="+Inf"} 0.0
-hydra_head_tx_confirmation_time_ms_sum  0.0
-hydra_head_tx_confirmation_time_ms_count  0
+```text
+# HELP hydra_head_confirmed_tx_total Transactions in newly confirmed or adopted snapshot numbers observed in this process; repeated adoption excluded.
+# TYPE hydra_head_confirmed_tx_total counter
+hydra_head_confirmed_tx_total  0
+# HELP hydra_node_ready One when the main loop has started, the node is synced, the network is connected and the outbox is not stalled.
+# TYPE hydra_node_ready gauge
+hydra_node_ready  0.0
 ```
 
-> [!NOTE]
-> Note that `hydra_head_peers_connected` will count down if the number of
-> online peers is greater than `total_peers/2`. After that, if another peer
-> goes offline, it will drop to `0`, to indicate that etcd consensus is
-> broken.
+The endpoint is available during initialization. A successful scrape means the
+process is reachable; `hydra_node_ready` reports application readiness. An
+occupied monitoring port fails startup instead of silently disabling metrics.
 
-> [!NOTE]
-> `hydra_chain_last_block_timestamp_seconds` is the wall-clock time when the node
-> last observed a block. Alert on `time() - hydra_chain_last_block_timestamp_seconds`
-> to detect a stalled chain backend: this keeps growing during a stall, whereas
-> `hydra_chain_drift_seconds` (only updated per observed block) freezes.
+See the [metrics reference](/benchmarks/metrics#runtime-metrics-prometheus) for
+all families, units, bounded labels, timing boundaries and compatibility aliases.
+The demo Grafana dashboards and Prometheus alert rules use canonical counters
+ending in `_total` and latency histograms in seconds. Existing names continue to
+work, including the millisecond histograms used by older consumers.
+
+Peer count is based on distinct processed connectivity reports and becomes zero
+when network disconnection is processed. Zero peers can be healthy in a
+single-party deployment. `hydra_network_connected` and the broadcast health
+gauges read live producers independently of the processing queue.
+
+To distinguish a blocked main loop from a silent chain backend, compare
+`hydra_chain_last_block_timestamp_seconds` (last processed tick) with
+`hydra_chain_backend_last_block_timestamp_seconds` (last raw roll-forward).
+Ignore their initial zero values when computing heartbeat ages.
 
 ## Common issues
 

@@ -6,7 +6,7 @@ import Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Shelley.API qualified as Ledger
-import Control.Tracer.JSON (Tracer)
+import Control.Tracer.JSON (Tracer, traceWith)
 import Hydra.Cardano.Api (
   Tx,
   shelleyBasedEra,
@@ -15,7 +15,7 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Chain (ChainComponent, ChainStateHistory)
 import Hydra.Chain.Backend (ChainBackend (..))
-import Hydra.Chain.Blockfrost (BlockfrostBackend, newBlockfrostEnv, runBlockfrostBackendWith, withBlockfrostChain)
+import Hydra.Chain.Blockfrost (BlockfrostBackend, newBlockfrostEnvWithObserver, runBlockfrostBackendWith, withBlockfrostChain)
 import Hydra.Chain.CardanoClient (
   QueryPoint (..),
  )
@@ -48,7 +48,7 @@ withCardanoChain tracer cfg party chainStateHistory callback action =
       ctx <- runDirectBackend directOptions $ loadChainContext cfg party
       withDirectChain directOptions tracer cfg ctx wallet chainStateHistory callback action
     Blockfrost blockfrostOptions -> do
-      env <- newBlockfrostEnv blockfrostOptions
+      env <- newBlockfrostEnvWithObserver (traceWith tracer BlockfrostRateLimit) blockfrostOptions
       wallet <- mkTinyWallet @BlockfrostBackend (runBlockfrostBackendWith env) tracer cfg
       ctx <- runBlockfrostBackendWith env $ loadChainContext cfg party
       withBlockfrostChain env tracer cfg ctx wallet chainStateHistory callback action

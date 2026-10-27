@@ -7,7 +7,7 @@ import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
 import Conduit (MonadUnliftIO, yieldMany)
-import Control.Concurrent.Class.MonadSTM (modifyTVar, newEmptyTMVarIO, newTVarIO, putTMVar, readTMVar, readTVarIO, writeTVar)
+import Control.Concurrent.Class.MonadSTM (check, modifyTVar, newEmptyTMVarIO, newTVarIO, putTMVar, readTMVar, readTVarIO, writeTVar)
 import Control.Concurrent.PersistentQueue (newPersistentQueue, writePersistentQueue)
 import Control.Tracer.JSON (Tracer, nullTracer, showLogsOnFailure, traceInTVar)
 import Control.Tracer.JSON qualified as Logging
@@ -25,7 +25,8 @@ import Hydra.HeadLogic (Input (..), StateChanged (..), TTL)
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.HeadLogicSpec (inOpenState, receiveMessage, receiveMessageFrom, testSnapshot)
 import Hydra.Ledger.Simple (SimpleTx (..), simpleLedger)
-import Hydra.Network (Network (..))
+import Hydra.Network (Network (..), StallReason (..))
+import Hydra.Network qualified as Network
 import Hydra.Network.Message (Message (..), NetworkEvent (..))
 import Hydra.Node (
   DraftHydraNode,
@@ -36,14 +37,16 @@ import Hydra.Node (
   checkHeadState,
   connect,
   hydrate,
+  monitorBroadcast,
   stepHydraNode,
   withNetworkOutbox,
  )
 import Hydra.Node.Environment as Environment
-import Hydra.Node.InputQueue (InputQueue (..))
+import Hydra.Node.InputQueue (InputQueue (..), Queued (queuedItem))
 import Hydra.Node.Outbox (Outbox (..), StallBounds (..), newOutbox)
 import Hydra.Node.ParameterMismatch (ParameterMismatch (..))
 import Hydra.Node.State (ChainPointTime (..), Deposit (..), DepositStatus (..), NodeState (..), consumeDeposit, depositRetentionHorizon, initNodeState, initialChainTime, pendingDeposits, recordDeposit, rollbackDeposits)
+import Hydra.Node.Stats qualified as Stats
 import Hydra.Node.UnsyncedPeriod (defaultUnsyncedPeriodFor)
 import Hydra.Options (defaultContestationPeriod, defaultDepositActivation, defaultDepositPeriod, defaultUnsyncedPeriod)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
@@ -74,9 +77,52 @@ import Test.Util (isStrictlyMonotonic)
 
 spec :: Spec
 spec = parallel $ do
+  describe "live broadcast monitoring" $ do
+    it "reports a change of stall cause even while continuously stalled" $ failAfter 8 $ do
+      cause <- newTVarIO NoProgress
+      node <- hydrate nullTracer testEnvironment simpleLedger 0 (mockEventStore []) [] >>= notConnect
+      let outbox =
+            (networkOutbox node)
+              { outboxStalled = Just . (,7) <$> readTVarIO cause
+              , stallBounds = StallBounds 1 100
+              }
+          readReport = queuedItem <$> dequeue (inputQueue node)
+      withAsyncLabelled ("test-monitor", monitorBroadcast node{networkOutbox = outbox}) $ \_ -> do
+        readReport `shouldReturn` NetworkInput 1 (ConnectivityEvent $ Network.BroadcastStalled 7 NoProgress)
+        atomically $ writeTVar cause BacklogFull
+        readReport `shouldReturn` NetworkInput 1 (ConnectivityEvent $ Network.BroadcastStalled 7 BacklogFull)
+
+    it "keeps sampling live health when the advisory input queue is full" $ failAfter 8 $ do
+      logs <- newTVarIO []
+      let tracer :: Tracer IO (HydraNodeLog SimpleTx)
+          tracer = traceInTVar logs "broadcast-health"
+      node <- hydrate tracer testEnvironment simpleLedger 0 (mockEventStore []) [] >>= notConnect
+      forM_ [1 .. 100 :: Int] $ \_ -> enqueue (inputQueue node) (ClientInput Init)
+      let outbox =
+            (networkOutbox node)
+              { outboxStalled = pure $ Just (NoProgress, 7)
+              , stallBounds = StallBounds 1 100
+              }
+      withAsyncLabelled ("test-monitor-full", monitorBroadcast node{networkOutbox = outbox}) $ \_ ->
+        atomically $ do
+          entries <- readTVar logs
+          -- The third poll must still run after the second poll attempted
+          -- to notify a full queue. A blocking enqueue cannot reach it.
+          check $ length [() | Logging.Envelope{message = BroadcastHealth{}} <- entries] >= 3
+
   describe "deposit lifecycle tracking" $ do
     let s0 = initNodeState 0 :: NodeState SimpleTx
         record slot i = recordDeposit (ChainSlot slot) i (testDeposit i)
+
+    it "derives pending deposit gauges from rollback-corrected state" $ do
+      let observed = record 1 1 s0
+          consumed = consumeDeposit (ChainSlot 2) 1 observed
+          restored = rollbackDeposits (ChainSlot 1) consumed
+          count :: NodeState SimpleTx -> Int
+          count ns =
+            let gauges = Stats.nodeStats 0 0 0 ns
+             in Stats.inactiveDeposits gauges + Stats.activeDeposits gauges + Stats.expiredDeposits gauges
+      map count [observed, consumed, restored] `shouldBe` [1, 0, 1]
 
     it "a consumed deposit is no longer pending" $ do
       let s1 = record 1 1 s0
@@ -370,17 +416,17 @@ spec = parallel $ do
                      , NetworkInput testTTL $ ReceivedMessage{sender = carol, msg = ReqTx{transaction = tx3}}
                      , -- Alice's ledger decides whether tx2 or tx3 wins
                        NetworkInput testTTL $
-                        ReceivedMessage
-                          { sender = alice
-                          , msg =
-                              ReqSn
-                                { snapshotVersion = 0
-                                , snapshotNumber = 1
-                                , transactionIds = [1, 2]
-                                , decommitTx = Nothing
-                                , depositTxId = Nothing
-                                }
-                          }
+                         ReceivedMessage
+                           { sender = alice
+                           , msg =
+                               ReqSn
+                                 { snapshotVersion = 0
+                                 , snapshotNumber = 1
+                                 , transactionIds = [1, 2]
+                                 , decommitTx = Nothing
+                                 , depositTxId = Nothing
+                                 }
+                           }
                      ]
           (node, getNetworkEvents) <-
             testHydraNode tracer bobSk [alice, carol] cperiod inputs
@@ -388,9 +434,9 @@ spec = parallel $ do
           runToCompletion node
           getNetworkEvents
             `shouldReturn` [ AckSn
-                              { signed = sign bobSk $ testSnapshot 1 0 [tx2] (utxoRefs [4])
-                              , snapshotNumber = 1
-                              }
+                               { signed = sign bobSk $ testSnapshot 1 0 [tx2] (utxoRefs [4])
+                               , snapshotNumber = 1
+                               }
                            ]
 
     it "keeps processing chain and client inputs while broadcast blocks" $

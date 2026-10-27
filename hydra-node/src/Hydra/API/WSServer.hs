@@ -150,7 +150,7 @@ wsApp ::
   ServerOutputFilter tx ->
   PendingConnection ->
   IO ()
-wsApp env party tracer chain history callback nodeStateP networkInfoP queryBroadcastStall responseChannel ServerOutputFilter{txContainsAddr} pending = do
+wsApp env party tracer chain history callback nodeStateP networkInfoP queryBroadcastStall responseChannel ServerOutputFilter{txContainsAddr} pending = flip finally (traceWith tracer APIConnectionClosed) $ do
   traceWith tracer NewAPIConnection
   let queryParams = queryParamsOf . requestPath $ pendingRequest pending
   con <- acceptRequest pending

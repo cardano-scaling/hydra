@@ -56,6 +56,7 @@ import Control.Concurrent.PersistentQueue (
   newPersistentQueue,
   nextPendingBatch,
   peekPersistentQueue,
+  persistentQueueStats,
   popBatchPersistentQueue,
   writePersistentQueue,
  )
@@ -141,7 +142,7 @@ withEtcdNetwork ::
   -- TODO: check if all of these needed?
   NetworkConfiguration ->
   NetworkComponent IO msg msg ()
-withEtcdNetwork tracer protocolVersion config callback action = do
+withEtcdNetwork tracer protocolVersion config originalCallback action = do
   etcdBinPath <- getEtcdBinary persistenceDir whichEtcd
   -- TODO: fail if cluster config / members do not match --peer
   -- configuration? That would be similar to the 'acks' persistence
@@ -187,7 +188,16 @@ withEtcdNetwork tracer protocolVersion config callback action = do
                         , do
                             queue <- newPersistentQueue (contramap fromPersistentQueueLog tracer) (persistenceDir </> "pending-broadcast") 100
                             raceLabelled_
-                              ("etcd-broadcastMessages", broadcastMessages tracer config advertise queue)
+                              ( "etcd-broadcastMessages"
+                              , raceLabelled_
+                                  ( "etcd-queue-health"
+                                  , forever $ do
+                                      (depth, oldestAgeSeconds) <- persistentQueueStats (contramap fromPersistentQueueLog tracer) queue
+                                      traceWith tracer $ PersistentQueueStats{depth, oldestAgeSeconds}
+                                      threadDelay 1
+                                  )
+                                  ("etcd-send", broadcastMessages tracer config advertise queue)
+                              )
                               ( "etcd-network-component-action"
                               , do
                                   action
@@ -201,6 +211,15 @@ withEtcdNetwork tracer protocolVersion config callback action = do
           )
       )
  where
+  callback =
+    originalCallback
+      { onConnectivity = \event -> do
+          case event of
+            NetworkConnected -> traceWith tracer $ NetworkConnectivity True
+            NetworkDisconnected -> traceWith tracer $ NetworkConnectivity False
+            _ -> pure ()
+          onConnectivity originalCallback event
+      }
   clientHost = Host{hostname = "127.0.0.1", port = getClientPort config}
   traceStderr recentStderr p NetworkCallback{onConnectivity} =
     let loop = do
@@ -383,8 +402,8 @@ checkVersion tracer conn ourVersion NetworkCallback{onConnectivity} = do
     defMessage
       & #requestPut
         .~ ( defMessage
-              & #key .~ versionKey
-              & #value .~ serialize' ourVersion
+               & #key .~ versionKey
+               & #value .~ serialize' ourVersion
            )
 
 -- | Broadcast messages from a queue to the etcd cluster.
@@ -436,7 +455,10 @@ broadcastMessages tracer config ourHost queue = do
                   -- Unreachable: we are the only consumer and just peeked.
                   Nothing -> go n
                   Just batch -> do
+                    started <- getMonotonicTime
                     putMessage tracer conn ourHost lastModRevVar (batchValue $ snd <$> batch)
+                    finished <- getMonotonicTime
+                    traceWith tracer $ BroadcastCompleted{messages = length batch, duration = diffTime finished started}
                     popBatchPersistentQueue (contramap fromPersistentQueueLog tracer) queue batch
                     atomically $ writeTVar inFlightVar Nothing
                     go (n - 1)
@@ -561,8 +583,8 @@ putMessage tracer conn ourHost lastModRevVar value = do
     defMessage
       & #requestPut
         .~ ( defMessage
-              & #key .~ key
-              & #value .~ value
+               & #key .~ key
+               & #value .~ value
            )
 
   rangeReqOp =
@@ -640,6 +662,7 @@ waitMessages tracer conn directory NetworkCallback{deliver} =
             -- Gracefully close watch stream
             send NoNextElem
           else do
+            traceWith tracer WatchResponseReceived
             let revision = res ^. #header . #revision
             putLastKnownRevision directory . fromIntegral $ revision `max` 0
             forM_ (res ^. #events) process
@@ -898,11 +921,19 @@ withProcessInterrupt config action =
 fromPersistentQueueLog :: Queue.PersistentQueueLog -> EtcdLog
 fromPersistentQueueLog = \case
   Queue.PersistentQueueLoadFailed r -> PersistentQueueLoadFailed{reason = r}
+  Queue.PersistentQueueStatFailed{reason} -> PersistentQueueStatFailed{reason}
+  Queue.PersistentQueueWriteFailed{reason} -> PersistentQueueWriteFailed{reason}
   Queue.PersistentQueueFull -> PersistentQueueFull
   Queue.PersistentQueueDeleteFailed i r -> PersistentQueueDeleteFailed{index = i, reason = r}
 
 data EtcdLog
   = EtcdLog {etcd :: Value}
+  | PersistentQueueStats {depth :: Natural, oldestAgeSeconds :: Double}
+  | BroadcastCompleted {messages :: Int, duration :: DiffTime}
+  | WatchResponseReceived
+  | NetworkConnectivity {connected :: Bool}
+  | PersistentQueueStatFailed {reason :: Text}
+  | PersistentQueueWriteFailed {reason :: Text}
   | Reconnecting
   | BroadcastFailed {reason :: Text}
   | FailedToDecodeLog {log :: Text, reason :: Text}

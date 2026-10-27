@@ -10,6 +10,7 @@ module Hydra.Logging.Messages where
 
 import Hydra.Prelude
 
+import Control.Tracer.JSON (LogEvent)
 import Data.EventSource.SQLite (SQLiteLog)
 import Hydra.API.APIServerLog (APIServerLog)
 import Hydra.Chain.Direct.Handlers (CardanoChainLog)
@@ -24,6 +25,7 @@ data HydraLog tx
   | Node {node :: HydraNodeLog tx}
   | NodeOptions {runOptions :: RunOptions}
   | SQLite {sqlite :: SQLiteLog}
+  | Logging {logging :: LogEvent}
   | EnteringMainloop
   | NodeHydrated
   | ChainBackendStarted

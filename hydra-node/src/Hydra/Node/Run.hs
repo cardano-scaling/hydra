@@ -7,7 +7,8 @@ import Cardano.Ledger.Shelley.API (computeRandomnessStabilisationWindow, compute
 import Cardano.Slotting.EpochInfo (fixedEpochInfo, hoistEpochInfo)
 import Cardano.Slotting.Time (mkSlotLength)
 import Control.Monad.Trans.Except (runExcept)
-import Control.Tracer.JSON (Tracer, traceWith, withTracer)
+import Control.Tracer (emit)
+import Control.Tracer.JSON (Tracer (..), nullTracer, traceWith, withTracerWithObserver)
 import Data.EventSource (EventSink)
 import Data.EventSource.Rotation (EventStore (..), RotationConfig (..), newRotatedEventStore)
 import Data.EventSource.SQLite (withSQLiteEventStore)
@@ -16,11 +17,12 @@ import Hydra.API.ServerOutputFilter (serverOutputFilter)
 import Hydra.Cardano.Api (EraHistory (EraHistory), GenesisParameters (..), LedgerEra, PParams, ProtocolParametersConversionError, ShelleyEra, SystemStart (..), Tx, toShelleyNetwork)
 import Hydra.Chain (ChainComponent, ChainStateHistory, maximumNumberOfParties)
 import Hydra.Chain.Backend (ChainBackend (queryEraHistory, queryGenesisParameters))
-import Hydra.Chain.Blockfrost (runBlockfrostBackend)
+import Hydra.Chain.Blockfrost (runBlockfrostBackendWithObserver)
 import Hydra.Chain.Cardano (withCardanoChain)
 import Hydra.Chain.CardanoClient (QueryPoint (..))
 import Hydra.Chain.ChainState (IsChainState (..))
 import Hydra.Chain.Direct (runDirectBackend)
+import Hydra.Chain.Direct.Handlers (CardanoChainLog (BlockfrostRateLimit))
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Chain.Offline (loadGenesisFile, withOfflineChain)
 import Hydra.Contract.KZGTrustedSetup qualified as KZG
@@ -29,7 +31,7 @@ import Hydra.HeadLogic.StateEvent (StateEvent (StateEvent, stateChanged), mkChec
 import Hydra.Ledger (Ledger)
 import Hydra.Ledger.Cardano (cardanoLedger, newLedgerEnv)
 import Hydra.Logging.Messages (HydraLog (..))
-import Hydra.Logging.Monitoring (withMonitoring)
+import Hydra.Logging.Monitoring (isMetricSample, withMonitoringForBackend)
 import Hydra.Node (
   DraftHydraNode (networkOutbox),
   HydraNode (eventSinks),
@@ -82,34 +84,35 @@ instance Exception ConfigurationException where
 run :: RunOptions -> IO ()
 run opts = do
   either (throwIO . InvalidOptionException) pure $ validateRunOptions opts
-  withTracer verbosity $ \tracer' -> do
-    traceWith tracer' (NodeOptions opts)
-    -- Force the KZG trusted setup before opening any socket, so that the API
-    -- server only starts once it is in memory and clients cannot connect and
-    -- time out waiting for HeadIsOpen mid warm-up (see 'KZG.warmup'). Traced
-    -- because it is the one startup step with no bound on how long it takes.
-    traceWith tracer' LoadingTrustedSetup
-    numG1Points <- either (throwIO . TrustedSetupException) pure KZG.warmup
-    traceWith tracer' TrustedSetupLoaded{numG1Points}
-    withMonitoring monitoringPort tracer' $ \tracer -> do
+  withMonitoringForBackend backend monitoringPort nullTracer $ \metricTracer ->
+    withTracerWithObserver (traceWith metricTracer . Logging) verbosity $ \logTracer -> do
+      let tracer = Tracer . emit $ \message -> do
+            traceWith metricTracer message
+            unless (isMetricSample message) $ traceWith logTracer message
+      traceWith tracer (NodeOptions opts)
+      -- Monitoring is available during warm-up; the client API starts only
+      -- after the trusted setup is in memory.
+      traceWith tracer LoadingTrustedSetup
+      numG1Points <- either (throwIO . TrustedSetupException) pure KZG.warmup
+      traceWith tracer TrustedSetupLoaded{numG1Points}
       env@Environment{party, otherParties, signingKey} <- initEnvironment opts
       -- Ledger
       pparams <- readJsonFileThrow parseJSON (cardanoLedgerProtocolParametersFile ledgerConfig)
-      globals <- getGlobalsForChain chainConfig
+      globals <- getGlobalsForChainWithTracer (contramap DirectChain tracer) chainConfig
       withCardanoLedger pparams globals $ \ledger -> do
         -- Hydrate with event source and sinks
         let stateFile = persistenceDir </> "state"
             dbFile = persistenceDir </> "hydra.db"
-        withSQLiteEventStore (contramap SQLite tracer') dbFile stateFile $ \store -> do
+        withSQLiteEventStore (contramap SQLite tracer) dbFile stateFile $ \store -> do
           eventStore@EventStore{eventSource} <- prepareEventStore store
           -- NOTE: Add any custom sinks here
           let eventSinks :: [EventSink (StateEvent Tx) IO] = []
           wetHydraNode <- hydrate (contramap Node tracer) env ledger initialChainState eventStore eventSinks
-          traceWith tracer' NodeHydrated
+          traceWith tracer NodeHydrated
           -- Chain
           withChain <- prepareChainComponent tracer env chainConfig
           withChain (chainStateHistory wetHydraNode) (wireChainInput wetHydraNode) $ \chain -> do
-            traceWith tracer' ChainBackendStarted
+            traceWith tracer ChainBackendStarted
             -- API
             let apiServerConfig = APIServerConfig{host = apiHost, port = apiPort, tlsCertPath, tlsKeyPath, apiTransactionTimeout, listenSocket = Nothing}
             let broadcastStall = fmap fst <$> outboxStalled (networkOutbox wetHydraNode)
@@ -131,14 +134,19 @@ run opts = do
                 networkConfiguration
                 (wireNetworkInput wetHydraNode)
                 $ \network -> do
-                  traceWith tracer' NetworkStarted
+                  traceWith tracer NetworkStarted
                   -- Main loop
                   node <-
                     connect chain network server wetHydraNode
                       <&> addEventSink apiSink
-                  traceWith tracer' EnteringMainloop
+                  traceWith tracer EnteringMainloop
                   runHydraNode node
  where
+  backend = case chainConfig of
+    Offline{} -> "offline"
+    Cardano CardanoChainConfig{chainBackendOptions = Direct{}} -> "direct"
+    Cardano CardanoChainConfig{chainBackendOptions = Blockfrost{}} -> "blockfrost"
+
   addEventSink :: EventSink (StateEvent tx) m -> HydraNode tx m -> HydraNode tx m
   addEventSink sink node = node{eventSinks = sink : eventSinks node}
 
@@ -187,7 +195,10 @@ run opts = do
     } = opts
 
 getGlobalsForChain :: ChainConfig -> IO Globals
-getGlobalsForChain = \case
+getGlobalsForChain = getGlobalsForChainWithTracer nullTracer
+
+getGlobalsForChainWithTracer :: Tracer IO CardanoChainLog -> ChainConfig -> IO Globals
+getGlobalsForChainWithTracer tracer = \case
   Offline OfflineChainConfig{ledgerGenesisFile} ->
     -- Offline/devnet: single era, fixedEpochInfo is correct
     loadGenesisFile ledgerGenesisFile
@@ -197,7 +208,7 @@ getGlobalsForChain = \case
     -- slot-to-time conversions in Plutus script evaluation.
     case chainBackendOptions of
       Direct directOptions -> runDirectBackend directOptions globalsFromBackend
-      Blockfrost blockfrostOptions -> runBlockfrostBackend blockfrostOptions globalsFromBackend
+      Blockfrost blockfrostOptions -> runBlockfrostBackendWithObserver (traceWith tracer BlockfrostRateLimit) blockfrostOptions globalsFromBackend
  where
   globalsFromBackend :: (ChainBackend m, MonadThrow m) => m Globals
   globalsFromBackend = do

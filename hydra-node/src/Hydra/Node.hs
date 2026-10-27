@@ -27,7 +27,7 @@ import Hydra.API.ServerOutput qualified as ServerOutput
 import Hydra.Cardano.Api (
   getCardanoPaymentVerificationKey,
  )
-import Hydra.Chain (Chain (..), ChainEvent (..), ChainStateHistory (lastKnown), PostTxError, initHistory)
+import Hydra.Chain (Chain (..), ChainEvent (..), ChainStateHistory (lastKnown), PostTxError, initHistory, postChainTxName)
 import Hydra.Chain.ChainState (IsChainState (..))
 import Hydra.HeadLogic (
   Effect (..),
@@ -53,6 +53,7 @@ import Hydra.Node.InputQueue (InputQueue (..), Queued (..), createInputQueue)
 import Hydra.Node.Outbox (Outbox (..), StallBounds (..), newOutbox)
 import Hydra.Node.ParameterMismatch (ParamMismatch (..), ParameterMismatch (..))
 import Hydra.Node.State (NodeState (..), initNodeState)
+import Hydra.Node.Stats (NodeStats, nodeStats)
 import Hydra.Node.UnsyncedPeriod (UnsyncedPeriod (..))
 import Hydra.Node.Util (readFileTextEnvelopeThrow, readSigningKey, readVerificationKey)
 import Hydra.Options (CardanoChainConfig (..), ChainConfig (..), RunOptions (..), defaultContestationPeriod, defaultDepositActivation, defaultDepositPeriod)
@@ -338,11 +339,11 @@ withNetworkOutbox node action =
 -- poll, the observed gaps cycle 9s, 4s, 14s, giving a report every ~30s
 -- indefinitely.
 monitorBroadcast :: (MonadDelay m, MonadSTM m) => HydraNode tx m -> m ()
-monitorBroadcast HydraNode{tracer, networkOutbox, inputQueue = InputQueue{enqueue}} =
+monitorBroadcast HydraNode{tracer, networkOutbox, inputQueue = InputQueue{tryEnqueue}} =
   -- Starting from "not stalled" rather than "unknown" keeps a healthy node
   -- silent: there is nothing to correct, because 'Greetings' reads the status
   -- live rather than replaying these.
-  go (Just False) Nothing False
+  go (Just Nothing) Nothing False
  where
   -- Polling at the outbox's own stall period bounds how late a report can be
   -- at three times that period, which is ample for something an operator
@@ -356,13 +357,14 @@ monitorBroadcast HydraNode{tracer, networkOutbox, inputQueue = InputQueue{enqueu
     threadDelay period
     stalled <- outboxStalled networkOutbox
     hasBacklog <- traceBacklog hadBacklog
-    let seen = isJust stalled
+    traceWith tracer $ BroadcastHealth{stalledReason = fst <$> stalled}
+    let seen = fst <$> stalled
     if lastSeen == Just seen && reported /= Just seen
       then do
-        report $ case stalled of
+        delivered <- report $ case stalled of
           Just (stallReason, pendingBroadcasts) -> Network.BroadcastStalled{pendingBroadcasts, stallReason}
           Nothing -> Network.BroadcastResumed
-        go (Just seen) (Just seen) hasBacklog
+        go (if delivered then Just seen else reported) (Just seen) hasBacklog
       else go reported (Just seen) hasBacklog
 
   -- Report what the hand-off holds while it holds anything, and once more when
@@ -379,13 +381,9 @@ monitorBroadcast HydraNode{tracer, networkOutbox, inputQueue = InputQueue{enqueu
       BroadcastBacklog{pendingBroadcasts, noProgressSeconds}
     pure hasBacklog
 
-  -- NOTE: 'enqueue' blocks when the input queue is full, so this loop can
-  -- stop polling - most likely when the main loop is itself wedged on the
-  -- inline 'postTx', which is exactly when monitoring goes quiet. It cannot
-  -- hold up the main loop or the outbox, and both the refusal gate and
-  -- 'Greetings' read 'outboxStalled' live rather than through this, so only
-  -- the reports and the metrics lag.
-  report = enqueue . NetworkInput 1 . ConnectivityEvent
+  -- Advisory transitions are retried on the next poll if the input queue is
+  -- full. Live measurements continue even when the main loop cannot drain it.
+  report = tryEnqueue . NetworkInput 1 . ConnectivityEvent
 
 -- | When the node starts refusing the client transactions that grow the
 -- outbound backlog, and when it reports the backlog to clients. Ten seconds
@@ -418,7 +416,7 @@ runHydraNode ::
   ) =>
   HydraNode tx m ->
   m ()
-runHydraNode node@HydraNode{tracer, networkOutbox, nodeStateHandler = NodeStateHandler{queryNodeState}} = flip finally reportDiscarded . withNetworkOutbox node $ do
+runHydraNode node@HydraNode{tracer, networkOutbox, nodeStateHandler = NodeStateHandler{queryNodeState}} = flip finally reportDiscarded . withNetworkOutbox node . raceLabelled_ ("node-health", monitorNodeHealth node) . ("node-loop",) $ do
   -- On startup, resume an interrupted fanout: if the node is mid-fanout
   -- ('FanoutProgress'), re-emit the next fanout step so an auto-drain whose
   -- driver crashed after its last observed chunk continues instead of stalling
@@ -454,17 +452,29 @@ runHydraNode node@HydraNode{tracer, networkOutbox, nodeStateHandler = NodeStateH
     discarded <- atomically $ pendingActions networkOutbox
     when (discarded > 0) . traceWith tracer $ DiscardedBroadcasts{discarded}
 
+-- | Read current state outside the processing loop, including during a blocked
+-- chain submission. Production routes these samples directly to monitoring.
+monitorNodeHealth :: (MonadDelay m, MonadSTM m, IsChainState tx) => HydraNode tx m -> m ()
+monitorNodeHealth HydraNode{tracer, inputQueue = InputQueue{queueStats}, nodeStateHandler = NodeStateHandler{queryNodeState}} = forever $ do
+  currentState <- atomically queryNodeState
+  (queued, parked, delayed) <- queueStats
+  traceWith tracer $ NodeHealth $ nodeStats queued parked delayed currentState
+  threadDelay 1
+
 stepHydraNode ::
   ( MonadCatch m
   , MonadAsync m
   , MonadTime m
+  , MonadMonotonicTime m
   , IsChainState tx
   ) =>
   UTCTime ->
   HydraNode tx m ->
   m ()
 stepHydraNode now node = do
-  i@Queued{queuedId, queuedItem} <- dequeue
+  i@Queued{queuedId, queuedItem, queuedAt} <- dequeue
+  dequeuedAt <- getMonotonicTime
+  traceWith tracer $ InputDequeued{queueWait = diffTime dequeuedAt queuedAt}
   traceWith tracer $ BeginInput{by = party, inputId = queuedId, input = queuedItem}
   outcome <-
     refuseWhenStalled queuedItem >>= \case
@@ -619,6 +629,7 @@ processStateChanges node stateChanges = do
 processEffects ::
   ( MonadAsync m
   , MonadCatch m
+  , MonadMonotonicTime m
   , IsChainState tx
   ) =>
   HydraNode tx m ->
@@ -647,9 +658,16 @@ processEffects node tracer inputId effects = do
       -- 'Contest' are 'OnChainEffect's too, so they would queue behind the
       -- same stall, and the transaction would then be built against a later
       -- chain state than the input was decided on.
-      OnChainEffect{postChainTx} ->
-        postTx postChainTx
-          `catch` \(postTxError :: PostTxError tx) ->
+      OnChainEffect{postChainTx} -> do
+        started <- getMonotonicTime
+        let operation = postChainTxName postChainTx
+        traceWith tracer $ ChainPostStarted{operation}
+        let completed accepted = do
+              finished <- getMonotonicTime
+              traceWith tracer $ ChainPostFinished{operation, accepted, duration = diffTime finished started}
+        (postTx postChainTx >> completed True)
+          `catch` \(postTxError :: PostTxError tx) -> do
+            completed False
             enqueue . ChainInput $ PostTxError{postChainTx, postTxError, failingTx = Nothing}
     traceWith tracer $ EndEffect party inputId effectId
 
@@ -700,6 +718,11 @@ data HydraNodeLog tx
   | EndEffect {by :: Party, inputId :: Word64, effectId :: Word32}
   | LogicOutcome {by :: Party, outcome :: Outcome tx}
   | DroppedFromQueue {inputId :: Word64, input :: Input tx}
+  | ChainPostStarted {operation :: Text}
+  | ChainPostFinished {operation :: Text, accepted :: Bool, duration :: DiffTime}
+  | InputDequeued {queueWait :: DiffTime}
+  | NodeHealth {stats :: NodeStats}
+  | BroadcastHealth {stalledReason :: Maybe Network.StallReason}
   | LoadingState
   | LoadedState {lastEventId :: Last EventId, nodeState :: NodeState tx}
   | LoadedChainState {lastKnownChainPoint :: ChainPointType tx}

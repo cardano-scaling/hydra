@@ -7,12 +7,14 @@ import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Binary (decodeFull', serialize')
 import Control.Concurrent.STM (newTChanIO, writeTChan)
 import Control.Lens ((^?))
+import Control.Tracer (Tracer (..), emit)
 import Control.Tracer.JSON (nullTracer)
 import Data.Aeson (Result (Error, Success), eitherDecode, encode, fromJSON, object, (.=))
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (key, nth)
 import Data.ByteString.Lazy qualified as LBS
 import Data.Text qualified as Text
+import Hydra.API.APIServerLog qualified as APILog
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.HTTPServer (
   DraftCommitTxRequest (..),
@@ -24,6 +26,7 @@ import Hydra.API.HTTPServer (
   SubmitTxRequest (..),
   TransactionSubmitted (..),
   httpApp,
+  metricRoute,
  )
 import Hydra.API.ServerOutput (ClientMessage (..), CommitInfo (..), DecommitInvalidReason (..), ServerOutput (..), TimedServerOutput (..), getConfirmedSnapshot, getSeenSnapshot, getSnapshotUtxo)
 import Hydra.API.ServerSpec (dummyChainHandle)
@@ -82,6 +85,62 @@ import Test.QuickCheck (
 
 spec :: Spec
 spec = do
+  it "normalizes recover IDs and unknown paths into bounded metric routes" $ do
+    metricRoute ["commits", "a-user-supplied-id"] `shouldBe` "/commits/:id"
+    metricRoute ["unknown", "a-user-supplied-id"] `shouldBe` "unknown"
+    metricRoute ["snapshot", "last-seen"] `shouldBe` "/snapshot/last-seen"
+
+  it "records an HTTP 202 wait timeout separately from accepted submission" $ do
+    responseChannel <- newTChanIO
+    observations <- newIORef []
+    let tracer = Tracer . emit $ \event -> atomicModifyIORef' observations $ \events -> (event : events, ())
+    withApplication
+      ( httpApp @SimpleTx
+          tracer
+          Aeson.Null
+          dummyChainHandle
+          testEnvironment
+          defaultPParams
+          (pure inIdleState)
+          (pure CannotCommit)
+          (pure [])
+          (const $ pure ())
+          0
+          responseChannel
+      )
+      $ post "/transaction" (encode $ SubmitL2TxRequest $ SimpleTx 42 mempty mempty) `shouldRespondWith` 202
+    samples <- readIORef observations
+    samples `shouldSatisfy` elem (APILog.APIOperationTimedOut "transaction")
+    [(route, status) | APILog.APIHTTPCompleted{route, status} <- samples] `shouldBe` [("/transaction", 202)]
+    length [() | APILog.APIHTTPStarted{} <- samples] `shouldBe` 1
+    length [() | APILog.APIHTTPFinished <- samples] `shouldBe` 1
+
+  it "does not count an accepted HTTP 202 submission as a wait timeout" $ do
+    responseChannel <- newTChanIO
+    observations <- newIORef []
+    now <- getCurrentTime
+    let tracer = Tracer . emit $ \event -> atomicModifyIORef' observations $ \events -> (event : events, ())
+        tx = SimpleTx 42 mempty mempty
+        accepted = TimedServerOutput{output = TxValid{headId = generateWith arbitrary 42, transactionId = txId tx}, seq = 0, time = now}
+    withApplication
+      ( httpApp @SimpleTx
+          tracer
+          Aeson.Null
+          dummyChainHandle
+          testEnvironment
+          defaultPParams
+          (pure inIdleState)
+          (pure CannotCommit)
+          (pure [])
+          (const $ atomically $ writeTChan responseChannel (Left accepted))
+          10
+          responseChannel
+      )
+      $ post "/transaction" (encode $ SubmitL2TxRequest tx) `shouldRespondWith` 202
+    samples <- readIORef observations
+    samples `shouldSatisfy` notElem (APILog.APIOperationTimedOut "transaction")
+    [(route, status) | APILog.APIHTTPCompleted{route, status} <- samples] `shouldBe` [("/transaction", 202)]
+
   parallel $ do
     roundtripAndGoldenSpecs (Proxy @(ReasonablySized (DraftCommitTxResponse Tx)))
     roundtripAndGoldenSpecs (Proxy @(ReasonablySized (DraftCommitTxRequest Tx)))
