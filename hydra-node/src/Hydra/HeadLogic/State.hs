@@ -10,7 +10,8 @@ module Hydra.HeadLogic.State (
 import Hydra.Prelude
 
 import Cardano.Binary (Decoder)
-import Data.Aeson (object, withObject, (.:), (.=))
+import Data.Aeson (Value (Object), defaultOptions, genericParseJSON, object, withObject, (.:), (.:?), (.=))
+import Data.Aeson.KeyMap qualified as KeyMap
 import Data.Map.Strict qualified as Map
 import Hydra.Chain.ChainState (ChainSlot, IsChainState (..))
 import Hydra.HeadLogic.Settlements
@@ -169,7 +170,20 @@ data CoordinatedHeadState tx = CoordinatedHeadState
 deriving stock instance IsTx tx => Eq (CoordinatedHeadState tx)
 deriving stock instance IsTx tx => Show (CoordinatedHeadState tx)
 deriving anyclass instance IsTx tx => ToJSON (CoordinatedHeadState tx)
-deriving anyclass instance IsTx tx => FromJSON (CoordinatedHeadState tx)
+-- JSON checkpoints predate the CBOR event store and are still migrated at startup.
+instance IsTx tx => FromJSON (CoordinatedHeadState tx) where
+  parseJSON = withObject "CoordinatedHeadState" $ \fields -> do
+    settlements <-
+      if KeyMap.member "settlements" fields
+        then fields .: "settlements"
+        else do
+          commit <- fields .:? "finalizedCommit"
+          decommit <- fields .:? "finalizedDecommit"
+          migrateFinalizedSnapshots (catMaybes [commit, decommit])
+    genericParseJSON defaultOptions $
+      Object $
+        KeyMap.insert "settlements" (toJSON (settlements :: Settlements tx)) fields
+
 
 -- | Tag of the layout carrying the retained settlement map. Fields are a bare
 -- concatenation, so each layout needs its own tag. Older layouts remain readable.
@@ -224,25 +238,32 @@ instance IsTx tx => FromCBOR (CoordinatedHeadState tx) where
     decodeV2Settlements = do
       finalizedCommit <- fromCBOR
       finalizedDecommit <- fromCBOR
-      foldlM retain emptySettlements (catMaybes [finalizedCommit, finalizedDecommit])
-     where
-      retain :: Settlements tx -> FinalizedSnapshot tx -> Decoder s (Settlements tx)
-      retain retained (FinalizedSnapshot snapshot observedAtSlot) = do
-        let Snapshot{version = snapshotVersion} = getSnapshot snapshot
-            -- V2 records observation slots, but no explicit rollback status.
-            status = Landed observedAtSlot
-        case Map.lookup snapshotVersion (settlementEntries retained) of
-          Just Settlement{snapshot = previousSnapshot, status = previousStatus}
-            | previousSnapshot /= snapshot -> fail "Conflicting V2 finalized snapshots at the same version"
-            | Landed previousSlot <- previousStatus ->
-                pure $ adjustSettlementStatus snapshotVersion (Landed $ max previousSlot observedAtSlot) retained
-            | otherwise -> pure retained
-          Nothing -> either (fail . show) pure $ tryInsertSettlement Settlement{snapshot, status} retained
+      migrateFinalizedSnapshots (catMaybes [finalizedCommit, finalizedDecommit])
+
+-- | Share the lossless legacy conversion between JSON and CBOR migrations.
+migrateFinalizedSnapshots :: (IsTx tx, MonadFail m) => [FinalizedSnapshot tx] -> m (Settlements tx)
+migrateFinalizedSnapshots = foldlM retain emptySettlements
+ where
+  retain :: (IsTx tx, MonadFail m) => Settlements tx -> FinalizedSnapshot tx -> m (Settlements tx)
+  retain retained (FinalizedSnapshot snapshot observedAtSlot) = do
+    let Snapshot{version = snapshotVersion} = getSnapshot snapshot
+        status = Landed observedAtSlot
+    case Map.lookup snapshotVersion (settlementEntries retained) of
+      Just Settlement{snapshot = previousSnapshot, status = previousStatus}
+        | previousSnapshot /= snapshot -> fail "Conflicting V2 finalized snapshots at the same version"
+        | Landed previousSlot <- previousStatus ->
+            pure $ adjustSettlementStatus snapshotVersion (Landed $ max previousSlot observedAtSlot) retained
+        | otherwise -> pure retained
+      Nothing -> either (fail . show) pure $ tryInsertSettlement Settlement{snapshot, status} retained
 
 -- | Decode-only record for the V2 layout. Its constructor name and field order
 -- are part of the legacy CBOR format.
 data FinalizedSnapshot tx = FinalizedSnapshot (ConfirmedSnapshot tx) ChainSlot
   deriving stock (Generic)
+
+instance IsTx tx => FromJSON (FinalizedSnapshot tx) where
+  parseJSON = withObject "FinalizedSnapshot" $ \fields ->
+    FinalizedSnapshot <$> fields .: "snapshot" <*> fields .: "observedAtSlot"
 
 instance IsTx tx => FromCBOR (FinalizedSnapshot tx) where
   fromCBOR = genericFromCBOR

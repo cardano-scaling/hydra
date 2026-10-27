@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedRecordDot #-}
+
 -- | Tests for the 'EventSource' and 'EventSink' implementation in 'Data.EventSource.SQLite'.
 module Hydra.Events.SQLiteBasedSpec where
 
@@ -7,22 +9,30 @@ import Test.Hydra.Prelude
 import Cardano.Binary (decodeFull')
 import Control.Tracer.JSON (Envelope (..), nullTracer)
 import Data.Aeson qualified as Aeson
+import Data.Aeson.KeyMap qualified as KeyMap
 import Data.ByteString qualified as BS
 import Data.EventSource (EventSink (..), EventSource (..), getEvents, putEvent)
 import Data.EventSource.Rotation (EventStore (..))
 import Data.EventSource.SQLite (EventDecodingException, SQLiteLog (..), getSchemaVersion, nextVersion, withSQLiteEventStore)
 import Data.List (zipWith3)
 import Data.List qualified as List
+import Data.Map.Strict qualified as Map
 import Database.SQLite.Simple (Only (..), close, execute, execute_, open, query)
+import Hydra.Chain.ChainState (ChainSlot)
 import Hydra.HeadLogic.Outcome (StateChanged)
-import Hydra.HeadLogic.StateEvent (StateEvent (..))
+import Hydra.HeadLogic.State
+import Hydra.HeadLogic.StateEvent (StateEvent (..), mkCheckpoint)
 import Hydra.Ledger.Cardano (Tx)
 import Hydra.Ledger.Simple (SimpleTx)
+import Hydra.Node.State (NodeState (..))
+import Hydra.Tx.Snapshot (ConfirmedSnapshot, Snapshot (..), getSnapshot)
 import System.Directory (doesFileExist, getFileSize)
 import Test.Hydra.Chain.Direct.State ()
 import Test.Hydra.HeadLogic.StateEvent ()
 import Test.Hydra.Ledger.Simple ()
-import Test.QuickCheck (forAllShrink, generate, ioProperty, sublistOf, suchThat, vectorOf, (===))
+import Test.Hydra.Tx.Fixture (aliceSk, bobSk)
+import Test.Hydra.Tx.Gen (genConfirmedSnapshot)
+import Test.QuickCheck (forAllShrink, generate, ioProperty, resize, sublistOf, suchThat, vectorOf, (===))
 import Test.QuickCheck.Gen (listOf)
 import Test.Util (captureTracer)
 
@@ -117,6 +127,27 @@ spec = do
 
     it "migrates a v1 JSON database to v2 CBOR" $
       migratesV1JsonToV2CBOR 50
+
+    describe "legacy Head checkpoints" $ do
+      forM_ [False, True] $ \fromFile ->
+        forM_ ["empty open", "settled open", "partial fanout"] $ \kind ->
+          it ("migrates " <> kind <> " from " <> if fromFile then "state file" else "v1 database") $ do
+            (legacy, expected) <- legacyCheckpoint kind
+            withTempDir "hydra-legacy-checkpoint" $ \tmpDir -> do
+              let dbFile = tmpDir <> "/hydra.db"
+                  stateFile = tmpDir <> "/state"
+                  bytes = toStrict (Aeson.encode legacy)
+              if fromFile
+                then writeFileBS stateFile (bytes <> "\n")
+                else bracket (open dbFile) close $ \conn -> do
+                  execute_ conn "CREATE TABLE events (event_id INTEGER NOT NULL PRIMARY KEY, event_data BLOB NOT NULL)"
+                  execute_ conn "PRAGMA user_version = 1"
+                  execute conn "INSERT INTO events (event_id, event_data) VALUES (?, ?)" (expected.eventId, bytes)
+              withSQLiteEventStore @(StateEvent Tx) nullTracer dbFile stateFile $ \store ->
+                getEvents (eventSource store) `shouldReturn` [expected]
+              -- Also exercise the persisted CBOR on the next startup.
+              withSQLiteEventStore @(StateEvent Tx) nullTracer dbFile stateFile $ \store ->
+                getEvents (eventSource store) `shouldReturn` [expected]
 
     it "aborts migration and keeps v1 intact on a corrupt row" $ do
       withTempDir "hydra-sqlite-persistence" $ \tmpDir -> do
@@ -238,3 +269,45 @@ withEventSourceAndSink action =
         stateFile = tmpDir <> "/state"
     withSQLiteEventStore nullTracer dbFile stateFile $ \EventStore{eventSource, eventSink} ->
       action eventSource eventSink
+
+-- Construct the historical JSON record layout explicitly, including nonempty
+-- finalized evidence. Expected state is independent of the compatibility parser.
+legacyCheckpoint :: String -> IO (Aeson.Value, StateEvent Tx)
+legacyCheckpoint kind = do
+  node <- generate $ resize 0 arbitrary
+  openState <- generate $ resize 0 arbitrary
+  partial <- generate $ resize 0 arbitrary
+  let headId = generateWith arbitrary 1
+      deposited = generateWith (resize 2 arbitrary) 2
+      distributed = generateWith (resize 2 arbitrary) 3
+      depositId = generateWith arbitrary 4
+      commit = generateWith (genConfirmedSnapshot headId 2 1 mempty (Just deposited) (Just depositId) Nothing [aliceSk, bobSk]) 5
+      decommit = generateWith (genConfirmedSnapshot headId 3 2 mempty Nothing Nothing (Just distributed) [aliceSk, bobSk]) 6
+      finalized = if kind == "settled open" then [(commit, 40), (decommit, 60)] else []
+      legacyRecord :: (ConfirmedSnapshot Tx, ChainSlot) -> Aeson.Value
+      legacyRecord (snapshot, slot) = Aeson.object ["snapshot" Aeson..= snapshot, "observedAtSlot" Aeson..= (slot :: ChainSlot)]
+  retained <-
+    either (fail . show) pure $
+      trySettlementsFromMap $
+        Map.fromList
+          [((getSnapshot snapshot).version, Settlement snapshot (Landed slot)) | (snapshot, slot) <- finalized]
+  let chs = openState.coordinatedHeadState{settlements = retained}
+      checkpointHead =
+        if kind == "partial fanout"
+          then FanoutProgress partial
+          else Open openState{coordinatedHeadState = chs}
+      checkpoint = mkCheckpoint node{headState = checkpointHead} 1 (generateWith arbitrary 42)
+      toLegacy = \case
+        Aeson.Object fields
+          | KeyMap.member "settlements" fields ->
+              Aeson.Object $
+                KeyMap.insert "finalizedCommit" (maybe Aeson.Null legacyRecord $ listToMaybe finalized) $
+                  KeyMap.insert "finalizedDecommit" (maybe Aeson.Null legacyRecord $ listToMaybe $ drop 1 finalized) $
+                    KeyMap.delete "settlements" $
+                      KeyMap.delete "unretained" fields
+          | KeyMap.member "stepsLanded" fields ->
+              Aeson.Object $ KeyMap.delete "stepsLanded" $ KeyMap.delete "everLanded" fields
+          | otherwise -> Aeson.Object $ fmap toLegacy fields
+        Aeson.Array values -> Aeson.Array $ fmap toLegacy values
+        value -> value
+  pure (toLegacy $ toJSON checkpoint, checkpoint)
