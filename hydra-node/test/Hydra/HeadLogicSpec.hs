@@ -24,6 +24,7 @@ import Control.Lens ((.~))
 import Control.Monad (foldM)
 import Data.Aeson (Result (Success), Value (..), fromJSON)
 import Data.Aeson.KeyMap qualified as KeyMap
+import Data.ByteString qualified as BS
 import Data.List qualified as List
 import Data.Map.Strict (notMember)
 import Data.Map.Strict qualified as Map
@@ -45,7 +46,7 @@ import Hydra.Chain.Direct.State qualified as Direct
 import Hydra.Chain.Direct.TimeHandle (TimeHandle, mkTimeHandle, slotToUTCTime)
 import Hydra.HeadLogic (ClosedState (..), CoordinatedHeadState (..), Effect (..), FanoutMode (..), HeadState (..), Input (..), LogicError (..), OpenState (..), Outcome (..), PartialFanoutState (..), RequirementFailure (..), SettlingCommit (..), SideLoadRequirementFailure (..), SnapshotRequest (..), StateChanged (..), TTL, WaitReason (..), absorbable, applyTransactionsWithoutCollision, cause, chainedSnapshotRequest, existingDeposit, maxTxsPerSnapshot, namesNoneOf, newState, nextSnapshotRequest, noop, retainSettlement, settlingCommitAt, update)
 import Hydra.HeadLogic qualified as HeadLogic
-import Hydra.HeadLogic.State (IdleState (..), SeenSnapshot (..), Settlement (..), SettlementConflict (..), SettlementStatus (..), emptySettlements, getHeadParameters, mkSeenSnapshot, settlementEntries, tryInsertSettlement)
+import Hydra.HeadLogic.State (IdleState (..), SeenSnapshot (..), Settlement (..), SettlementConflict (..), SettlementStatus (..), emptySettlements, getHeadParameters, mkSeenSnapshot, selectedOutputsInStep, settlementEntries, tryInsertSettlement)
 import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano (cardanoLedger, mkSimpleTx)
 import Hydra.Ledger.Cardano.Evaluate (renderEvaluationReport)
@@ -4789,6 +4790,38 @@ spec =
             distributedOutputs `shouldBe` mempty
           other -> failure $ "Expected FanoutProgress, got: " <> show other
 
+      it "rollback does not add another driver's outputs to our selection" $ do
+        let allItems = Set.fromList [SimpleTxOut i | i <- [1 .. 6]]
+            selection = Set.singleton (SimpleTxOut 1)
+            otherSelection = Set.singleton (SimpleTxOut 2)
+            s0 = inFanoutProgressDistributed threeParties allItems mempty (DistributingSelection selection)
+        now <- nowFromSlot s0.chainPointTime.currentSlot
+        s1 <- runHeadLogic bobEnv ledger s0 $ step (observeTxAtSlot 5 OnPartialFanoutTx{headId = testHeadId, distributedOutputs = otherSelection}) >> getState
+        s2 <- runHeadLogic bobEnv ledger s1 $ step (ChainInput Rollback{rolledBackChainState = SimpleChainState 4, chainTime = now}) >> getState
+        case headState s2 of
+          FanoutProgress PartialFanoutState{mode} -> mode `shouldBe` DistributingSelection selection
+          other -> failure $ "Expected FanoutProgress, got: " <> show other
+
+      it "fanout history retains only a linear number of selected outputs" $ do
+        sizes <- forM [100, 200] $ \count -> do
+          let allItems = Set.fromList [SimpleTxOut i | i <- [1 .. count + 1]]
+              selection = Set.delete (SimpleTxOut (count + 1)) allItems
+              s0 = inFanoutProgressDistributed threeParties allItems mempty (DistributingSelection selection)
+          s1 <- runHeadLogic bobEnv ledger s0 $ do
+            forM_ [1 .. count] $ \i ->
+              step (observeTxAtSlot 5 OnPartialFanoutTx{headId = testHeadId, distributedOutputs = Set.singleton (SimpleTxOut i)})
+            getState
+          case headState s1 of
+            FanoutProgress PartialFanoutState{stepsLanded} -> do
+              sum [Set.size selected | HeadLogic.FanoutStepLanded{selectedOutputs = selected} <- stepsLanded]
+                `shouldBe` fromIntegral count
+              pure $ BS.length (serialize' stepsLanded)
+            other -> failure $ "Expected FanoutProgress, got: " <> show other
+        -- Doubling outputs used to quadruple the saved selection payload.
+        case sizes of
+          [small, large] -> large `shouldSatisfy` (< 3 * small)
+          _ -> failure "Expected both fanout history sizes"
+
       it "an observer keeps waiting after a fork erases a step it only observed" $ do
         -- Only the driver advances a fanout. A passive observer's progress is
         -- rewound like everyone's, but it must not start posting steps.
@@ -5884,6 +5917,22 @@ spec =
             hydraContext
             chainContext
             (utxoFromTx decrementTx)
+
+      it "retains only the consumed selection references for duplicate fanout outputs" $ do
+        (vk, _) <- generate genKeyPair
+        output <- generate (genOutputFor vk)
+        TxIn txId' _ <- generate genTxIn
+        let ref = TxIn txId' . TxIx
+            selection = forceUTxO $ UTxO.fromList [(ref 0, output), (ref 1, output)]
+            observed = forceUTxO $ UTxO.singleton (ref 9) output
+            remaining = removeOneOutputFromUTxO output selection
+            selected = selectedOutputsInStep observed (DistributingSelection selection)
+            landed = HeadLogic.FanoutStepLanded 5 observed selected
+        UTxO.txOutputs selected `shouldBe` [output]
+        selected <> remaining `shouldBe` selection
+        -- Reloading the rollback delta must preserve this exact disjointness.
+        decodeFull' (serialize' landed) `shouldBe` Right landed
+        fromJSON (toJSON landed) `shouldBe` Success landed
 
       it "matches a finalized decrement by output content and multiplicity" $ do
         (vk, _) <- generate genKeyPair

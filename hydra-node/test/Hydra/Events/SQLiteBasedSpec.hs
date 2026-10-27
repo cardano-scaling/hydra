@@ -294,7 +294,7 @@ legacyCheckpoint kind = do
   let chs = openState.coordinatedHeadState{settlements = retained}
       checkpointHead =
         if kind == "partial fanout"
-          then FanoutProgress partial
+          then FanoutProgress partial{stepsLanded = []}
           else Open openState{coordinatedHeadState = chs}
       checkpoint = mkCheckpoint node{headState = checkpointHead} 1 (generateWith arbitrary 42)
       toLegacy = \case

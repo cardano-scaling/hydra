@@ -82,6 +82,7 @@ import Hydra.HeadLogic.State (
   mapSettlementStatuses,
   mkSeenSnapshot,
   seenSnapshotNumber,
+  selectedOutputsInStep,
   setChainState,
   settlementDeposits,
   settlementEntries,
@@ -2128,7 +2129,7 @@ rewindFanoutProgress rolledBackSlot pfs@PartialFanoutState{confirmedSnapshot, ve
   -- job again. A driver draining automatically covers them anyway, and an
   -- observer, whose steps replaced no selection, must not start driving.
   erasedSelected =
-    foldMap (\FanoutStepLanded{stepOutputs} -> stepOutputs) [s | s@FanoutStepLanded{modeBefore = DistributingSelection{}} <- erased]
+    foldMap (\FanoutStepLanded{selectedOutputs} -> selectedOutputs) erased
 
   rewoundMode = case mode of
     AutoDrain -> AutoDrain
@@ -3588,7 +3589,7 @@ applyEvent st = \case
               }
       _otherState -> pure st
    where
-    landed modeBefore = FanoutStepLanded{landedAt = chainStateSlot chainState, stepOutputs = newlyDistributed, modeBefore}
+    landed priorMode = FanoutStepLanded{landedAt = chainStateSlot chainState, stepOutputs = newlyDistributed, selectedOutputs = selectedOutputsInStep newlyDistributed priorMode}
   HeadIsReadyToFanout{} ->
     case st of
       Closed cst -> pure $ Closed cst{readyToFanoutSent = True}

@@ -10,7 +10,7 @@ module Hydra.HeadLogic.State (
 import Hydra.Prelude
 
 import Cardano.Binary (Decoder)
-import Data.Aeson (Value (Object), defaultOptions, genericParseJSON, object, withObject, (.:), (.:?), (.=))
+import Data.Aeson (Value (Object), defaultOptions, genericParseJSON, object, withObject, (.!=), (.:), (.:?), (.=))
 import Data.Aeson.KeyMap qualified as KeyMap
 import Data.Map.Strict qualified as Map
 import Hydra.Chain.ChainState (ChainSlot, IsChainState (..))
@@ -504,30 +504,54 @@ instance IsTx tx => ToCBOR (FanoutMode tx) where
 instance IsTx tx => FromCBOR (FanoutMode tx) where
   fromCBOR = genericFromCBOR
 
--- | A partial fanout step observed on the chain this node follows: what it
--- distributed, the slot it landed at, and the 'FanoutMode' it replaced. Kept
--- so that a rollback can rewind the fanout's progress to the steps still on
--- chain ('Hydra.HeadLogic.rewindFanoutProgress'): the erased steps' outputs go
--- back into the head, and the driver's mode goes back to what it was before
--- them. An erased selection is then this node's to distribute again, while an
--- observer whose step was erased keeps waiting as before.
+-- | One observed step and the part of this node's selection it consumed.
+-- Storing only that delta keeps rollback history linear in distributed outputs
+-- and prevents a different driver's disjoint step from expanding our selection.
 data FanoutStepLanded tx = FanoutStepLanded
   { landedAt :: ChainSlot
   , stepOutputs :: UTxOType tx
-  , modeBefore :: FanoutMode tx
+  , selectedOutputs :: UTxOType tx
   }
   deriving stock (Generic)
 
 deriving stock instance IsTx tx => Eq (FanoutStepLanded tx)
 deriving stock instance IsTx tx => Show (FanoutStepLanded tx)
 deriving anyclass instance IsTx tx => ToJSON (FanoutStepLanded tx)
-deriving anyclass instance IsTx tx => FromJSON (FanoutStepLanded tx)
+
+instance IsTx tx => FromJSON (FanoutStepLanded tx) where
+  parseJSON = withObject "FanoutStepLanded" $ \fields -> do
+    landedAt <- fields .: "landedAt"
+    stepOutputs <- fields .: "stepOutputs"
+    selectedOutputs <-
+      if KeyMap.member "selectedOutputs" fields
+        then fields .: "selectedOutputs"
+        else selectedOutputsInStep stepOutputs <$> fields .: "modeBefore"
+    pure FanoutStepLanded{landedAt, stepOutputs, selectedOutputs}
 
 instance IsTx tx => ToCBOR (FanoutStepLanded tx) where
-  toCBOR = genericToCBOR
+  toCBOR FanoutStepLanded{landedAt, stepOutputs, selectedOutputs} =
+    toCBOR ("FanoutStepLanded2" :: Text) <> toCBOR landedAt <> toCBOR stepOutputs <> toCBOR selectedOutputs
 
 instance IsTx tx => FromCBOR (FanoutStepLanded tx) where
-  fromCBOR = genericFromCBOR
+  fromCBOR = do
+    tag <- fromCBOR
+    case (tag :: Text) of
+      "FanoutStepLanded2" -> FanoutStepLanded <$> fromCBOR <*> fromCBOR <*> fromCBOR
+      "FanoutStepLanded" -> do
+        landedAt <- fromCBOR
+        stepOutputs <- fromCBOR
+        selectedOutputs <- selectedOutputsInStep stepOutputs <$> fromCBOR
+        pure FanoutStepLanded{landedAt, stepOutputs, selectedOutputs}
+      _ -> fail "Invalid FanoutStepLanded tag"
+
+-- | Match by output content and multiplicity, retaining the selection's own
+-- references. A step on L1 names its outputs differently from the L2 selection.
+selectedOutputsInStep :: IsTx tx => UTxOType tx -> FanoutMode tx -> UTxOType tx
+selectedOutputsInStep stepOutputs = \case
+  DistributingSelection selection ->
+    let remaining = foldl' (flip removeOneOutputFromUTxO) selection (outputsOfUTxO stepOutputs)
+     in selection `withoutUTxO` remaining
+  _ -> mempty
 
 -- | A closed head whose UTxO is being distributed across multiple fanout
 -- transactions (on-chain @FanoutProgress@). Holds the partial-fanout bookkeeping
@@ -556,7 +580,12 @@ data PartialFanoutState tx = PartialFanoutState
 deriving stock instance (IsTx tx, Eq (ChainStateType tx)) => Eq (PartialFanoutState tx)
 deriving stock instance (IsTx tx, Show (ChainStateType tx)) => Show (PartialFanoutState tx)
 deriving anyclass instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (PartialFanoutState tx)
-deriving anyclass instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (PartialFanoutState tx)
+instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (PartialFanoutState tx) where
+  parseJSON = withObject "PartialFanoutState" $ \fields -> do
+    stepsLanded <- fields .:? "stepsLanded" .!= []
+    genericParseJSON defaultOptions $
+      Object $
+        KeyMap.insert "stepsLanded" (toJSON (stepsLanded :: [FanoutStepLanded tx])) fields
 
 -- | CBOR tag of the current 'PartialFanoutState' layout.
 partialFanoutStateCBORTag :: Text

@@ -27,6 +27,7 @@ import Test.Hydra.Prelude
 
 import Cardano.Binary (decodeFull', serialize')
 import Codec.CBOR.Write (toStrictByteString)
+import Data.Aeson (Result (Success), fromJSON, object, (.=))
 import Data.ByteString qualified as BS
 import Data.Map.Strict qualified as Map
 import Hydra.API.ClientInput (ClientInput)
@@ -59,7 +60,7 @@ import Hydra.Chain.ChainState (ChainSlot)
 import Hydra.Chain.Direct.State (ChainStateAt)
 import Hydra.HeadLogic.Error (RequirementFailure, SideLoadRequirementFailure)
 import Hydra.HeadLogic.Outcome (StateChanged)
-import Hydra.HeadLogic.State (ClosedState (..), CoordinatedHeadState (..), FanoutMode, HeadState, PartialFanoutState (..), SeenSnapshot, Settlement (..), SettlementStatus (..), closedStateCBORTag, closedStateCBORTagV1, coordinatedHeadStateCBORTagV1, emptySettlements, partialFanoutStateCBORTag, partialFanoutStateCBORTagV1, settlementEntries, trySettlementsFromMap)
+import Hydra.HeadLogic.State (ClosedState (..), CoordinatedHeadState (..), FanoutMode (..), FanoutStepLanded (..), HeadState, PartialFanoutState (..), SeenSnapshot, Settlement (..), SettlementStatus (..), closedStateCBORTag, closedStateCBORTagV1, coordinatedHeadStateCBORTagV1, emptySettlements, partialFanoutStateCBORTag, partialFanoutStateCBORTagV1, selectedOutputsInStep, settlementEntries, trySettlementsFromMap)
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.Ledger (ValidationError)
 import Hydra.Ledger.Cardano (Tx)
@@ -300,6 +301,16 @@ spec = parallel $ do
     it "rejects V2 snapshots claiming the same deposit at different versions" $ do
       let conflicting = generateWith (genConfirmedSnapshot headId 3 2 mempty (Just deposited) (Just depositId) Nothing [aliceSk, bobSk]) 8
       decodeFull' @(CoordinatedHeadState Tx) (legacyV2 version (Just $ LegacyFinalizedSnapshot commit 40) (Just $ LegacyFinalizedSnapshot conflicting 60)) `shouldSatisfy` isLeft
+
+  describe "fanout selection delta migration" $ do
+    let outputs = generateWith (resize 5 arbitrary `suchThat` (/= mempty)) 18
+    forM_ [("automatic", AutoDrain), ("passive", AwaitingSelection), ("selected", DistributingSelection outputs)] $ \(description, priorMode) ->
+      it ("reads a legacy " <> description <> " step") $ do
+        let expected = FanoutStepLanded @Tx 5 outputs (selectedOutputsInStep outputs priorMode)
+            legacyCBOR = toStrictByteString $ toCBOR ("FanoutStepLanded" :: Text) <> toCBOR (5 :: ChainSlot) <> toCBOR outputs <> toCBOR priorMode
+            legacyJSON = object ["landedAt" .= (5 :: ChainSlot), "stepOutputs" .= outputs, "modeBefore" .= priorMode]
+        decodeFull' legacyCBOR `shouldBe` Right expected
+        fromJSON legacyJSON `shouldBe` Success expected
 
   -- 'PartialFanoutState' gained 'stepsLanded' between two released layouts.
   -- The legacy layout is what 'genericToCBOR' wrote: the constructor name as

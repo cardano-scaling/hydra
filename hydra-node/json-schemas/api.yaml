@@ -3960,19 +3960,19 @@ components:
       type: object
       description: |
         A partial fanout step observed on chain: what it distributed, the slot
-        it landed at, and the fanout mode its observation replaced.
+        it landed at, and the outputs consumed from the local selection.
       additionalProperties: false
       required:
         - landedAt
         - stepOutputs
-        - modeBefore
+        - selectedOutputs
       properties:
         landedAt:
           $ref: "api.yaml#/components/schemas/ChainSlot"
         stepOutputs:
           $ref: "api.yaml#/components/schemas/UTxO"
-        modeBefore:
-          $ref: "api.yaml#/components/schemas/FanoutMode"
+        selectedOutputs:
+          $ref: "api.yaml#/components/schemas/UTxO"
 
     FanoutMode:
       oneOf:
