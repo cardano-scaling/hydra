@@ -416,17 +416,17 @@ spec = parallel $ do
                      , NetworkInput testTTL $ ReceivedMessage{sender = carol, msg = ReqTx{transaction = tx3}}
                      , -- Alice's ledger decides whether tx2 or tx3 wins
                        NetworkInput testTTL $
-                         ReceivedMessage
-                           { sender = alice
-                           , msg =
-                               ReqSn
-                                 { snapshotVersion = 0
-                                 , snapshotNumber = 1
-                                 , transactionIds = [1, 2]
-                                 , decommitTx = Nothing
-                                 , depositTxId = Nothing
-                                 }
-                           }
+                        ReceivedMessage
+                          { sender = alice
+                          , msg =
+                              ReqSn
+                                { snapshotVersion = 0
+                                , snapshotNumber = 1
+                                , transactionIds = [1, 2]
+                                , decommitTx = Nothing
+                                , depositTxId = Nothing
+                                }
+                          }
                      ]
           (node, getNetworkEvents) <-
             testHydraNode tracer bobSk [alice, carol] cperiod inputs
@@ -434,9 +434,9 @@ spec = parallel $ do
           runToCompletion node
           getNetworkEvents
             `shouldReturn` [ AckSn
-                               { signed = sign bobSk $ testSnapshot 1 0 [tx2] (utxoRefs [4])
-                               , snapshotNumber = 1
-                               }
+                              { signed = sign bobSk $ testSnapshot 1 0 [tx2] (utxoRefs [4])
+                              , snapshotNumber = 1
+                              }
                            ]
 
     it "keeps processing chain and client inputs while broadcast blocks" $

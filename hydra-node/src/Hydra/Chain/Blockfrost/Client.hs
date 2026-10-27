@@ -150,7 +150,11 @@ runBlockfrostMWith = runBlockfrostMWithObserver (pure ())
 -- are exhausted. The callback does not change the retry policy.
 runBlockfrostMWithObserver ::
   (MonadIO m, MonadThrow m) =>
-  m () -> RetryPolicyM m -> Blockfrost.Project -> BlockfrostClientT IO a -> m a
+  m () ->
+  RetryPolicyM m ->
+  Blockfrost.Project ->
+  BlockfrostClientT IO a ->
+  m a
 runBlockfrostMWithObserver onRateLimit policy prj action = do
   res <-
     retrying
@@ -547,15 +551,15 @@ queryUTxO networkId addresses = do
 
   foldMapM
     ( \Blockfrost.AddressUtxo
-         { Blockfrost._addressUtxoAddress
-         , Blockfrost._addressUtxoTxHash = Blockfrost.TxHash{unTxHash}
-         , Blockfrost._addressUtxoOutputIndex
-         , Blockfrost._addressUtxoAmount
-         , Blockfrost._addressUtxoBlock
-         , Blockfrost._addressUtxoDataHash
-         , Blockfrost._addressUtxoInlineDatum
-         , Blockfrost._addressUtxoReferenceScriptHash
-         } ->
+        { Blockfrost._addressUtxoAddress
+        , Blockfrost._addressUtxoTxHash = Blockfrost.TxHash{unTxHash}
+        , Blockfrost._addressUtxoOutputIndex
+        , Blockfrost._addressUtxoAmount
+        , Blockfrost._addressUtxoBlock
+        , Blockfrost._addressUtxoDataHash
+        , Blockfrost._addressUtxoInlineDatum
+        , Blockfrost._addressUtxoReferenceScriptHash
+        } ->
           let txin = toCardanoTxIn unTxHash _addressUtxoOutputIndex
            in toCardanoUTxO networkId txin _addressUtxoAddress _addressUtxoReferenceScriptHash _addressUtxoDataHash _addressUtxoAmount _addressUtxoInlineDatum
     )

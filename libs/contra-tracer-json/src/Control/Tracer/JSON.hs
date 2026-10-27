@@ -123,7 +123,10 @@ withTracer = withTracerWithObserver (const $ pure ())
 
 withTracerWithObserver ::
   (MonadIO m, MonadFork m, MonadTime m, ToJSON msg) =>
-  (LogEvent -> IO ()) -> Verbosity -> (Tracer m msg -> IO a) -> IO a
+  (LogEvent -> IO ()) ->
+  Verbosity ->
+  (Tracer m msg -> IO a) ->
+  IO a
 withTracerWithObserver _ Quiet = ($ nullTracer)
 withTracerWithObserver observe (Verbose namespace) = withTracerOutputToWithObserver observe defaultLogBuffering stdout namespace
 
@@ -143,7 +146,12 @@ withTracerOutputTo = withTracerOutputToWithObserver (const $ pure ())
 withTracerOutputToWithObserver ::
   forall m msg a.
   (MonadIO m, MonadFork m, MonadTime m, ToJSON msg) =>
-  (LogEvent -> IO ()) -> BufferMode -> Handle -> Text -> (Tracer m msg -> IO a) -> IO a
+  (LogEvent -> IO ()) ->
+  BufferMode ->
+  Handle ->
+  Text ->
+  (Tracer m msg -> IO a) ->
+  IO a
 withTracerOutputToWithObserver observe bufferingMode hdl namespace action = do
   hSetBuffering hdl bufferingMode
   msgQueue <- newLabelledTBQueueIO @_ @(Envelope msg) "logging-msg-queue" defaultQueueSize
