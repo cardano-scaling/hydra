@@ -8,7 +8,7 @@ import Cardano.Ledger.Binary (encCBOR, toPlainEncoding)
 import Cardano.Ledger.Core (PParams)
 import Codec.CBOR.Write qualified as CBOR
 import Control.Concurrent.STM (TChan, dupTChan, readTChan)
-import Control.Tracer.JSON (Tracer, nullTracer, traceWith)
+import Control.Tracer.JSON (Tracer, traceWith)
 import Data.Aeson (KeyValue ((.=)), object, withObject, (.:), (.:?))
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Types (Parser, parseEither)
@@ -390,7 +390,7 @@ httpAppUninstrumented tracer configDoc directChain env pparams getNodeState getC
       respond . respondApi respEnc status200 $ getSeenSnapshot hs
     ("POST", ["snapshot"]) ->
       consumeRequestBodyStrict request
-        >>= handleSideLoadSnapshotWithTracer tracer putClientInput apiTransactionTimeout responseChannel reqEnc respEnc
+        >>= handleSideLoadSnapshot tracer putClientInput apiTransactionTimeout responseChannel reqEnc respEnc
         >>= respond
     ("POST", ["commit"]) ->
       consumeRequestBodyStrict request
@@ -398,23 +398,23 @@ httpAppUninstrumented tracer configDoc directChain env pparams getNodeState getC
         >>= respond
     ("DELETE", ["commits", _]) ->
       consumeRequestBodyStrict request
-        >>= handleRecoverCommitUtxoWithTracer tracer putClientInput apiTransactionTimeout responseChannel (last . fromList $ pathInfo request) respEnc
+        >>= handleRecoverCommitUtxo tracer putClientInput apiTransactionTimeout responseChannel (last . fromList $ pathInfo request) respEnc
         >>= respond
     ("GET", ["commits"]) ->
       getPendingDeposits >>= respond . respondApi respEnc status200
     ("POST", ["decommit"]) ->
       consumeRequestBodyStrict request
-        >>= handleDecommitWithTracer tracer putClientInput apiTransactionTimeout responseChannel reqEnc respEnc
+        >>= handleDecommit tracer putClientInput apiTransactionTimeout responseChannel reqEnc respEnc
         >>= respond
     ("GET", ["protocol-parameters"]) ->
       respond $ respondPParams respEnc pparams
     ("POST", ["cardano-transaction"]) ->
       consumeRequestBodyStrict request
-        >>= handleSubmitUserTxWithTracer tracer directChain reqEnc respEnc
+        >>= handleSubmitUserTx tracer directChain reqEnc respEnc
         >>= respond
     ("POST", ["transaction"]) ->
       consumeRequestBodyStrict request
-        >>= handleSubmitL2TxWithTracer tracer putClientInput apiTransactionTimeout responseChannel reqEnc respEnc
+        >>= handleSubmitL2Tx tracer putClientInput apiTransactionTimeout responseChannel reqEnc respEnc
         >>= respond
     _ ->
       respond $ respondApi respEnc status400 ("Resource not found" :: Text)
@@ -522,18 +522,6 @@ handleDraftCommitUtxo tracer env pparams directChain getNodeState getCommitInfo 
 handleRecoverCommitUtxo ::
   forall tx.
   IsChainState tx =>
-  (ClientInput tx -> IO ()) ->
-  ApiTransactionTimeout ->
-  TChan (Either (TimedServerOutput tx) (ClientMessage tx)) ->
-  Text ->
-  ApiEncoding ->
-  LBS.ByteString ->
-  IO Response
-handleRecoverCommitUtxo = handleRecoverCommitUtxoWithTracer nullTracer
-
-handleRecoverCommitUtxoWithTracer ::
-  forall tx.
-  IsChainState tx =>
   Tracer IO APIServerLog ->
   (ClientInput tx -> IO ()) ->
   ApiTransactionTimeout ->
@@ -542,7 +530,7 @@ handleRecoverCommitUtxoWithTracer ::
   ApiEncoding ->
   LBS.ByteString ->
   IO Response
-handleRecoverCommitUtxoWithTracer tracer putClientInput apiTransactionTimeout responseChannel recoverPath respEnc _body = do
+handleRecoverCommitUtxo tracer putClientInput apiTransactionTimeout responseChannel recoverPath respEnc _body = do
   case parseTxIdFromPath recoverPath of
     Left err -> pure err
     Right recoverTxId -> do
@@ -577,19 +565,6 @@ handleRecoverCommitUtxoWithTracer tracer putClientInput apiTransactionTimeout re
 handleSubmitUserTx ::
   forall tx.
   (FromJSON tx, FromCBOR tx) =>
-  Chain tx IO ->
-  -- | Request body encoding.
-  ApiEncoding ->
-  -- | Response encoding.
-  ApiEncoding ->
-  -- | Request body.
-  LBS.ByteString ->
-  IO Response
-handleSubmitUserTx = handleSubmitUserTxWithTracer nullTracer
-
-handleSubmitUserTxWithTracer ::
-  forall tx.
-  (FromJSON tx, FromCBOR tx) =>
   Tracer IO APIServerLog ->
   Chain tx IO ->
   -- | Request body encoding.
@@ -599,7 +574,7 @@ handleSubmitUserTxWithTracer ::
   -- | Request body.
   LBS.ByteString ->
   IO Response
-handleSubmitUserTxWithTracer tracer directChain reqEnc respEnc body = do
+handleSubmitUserTx tracer directChain reqEnc respEnc body = do
   case decodeWire reqEnc body of
     Left err ->
       pure $ respondApi respEnc status400 (pack err)
@@ -614,18 +589,6 @@ handleSubmitUserTxWithTracer tracer directChain reqEnc respEnc body = do
 handleDecommit ::
   forall tx.
   IsTx tx =>
-  (ClientInput tx -> IO ()) ->
-  ApiTransactionTimeout ->
-  TChan (Either (TimedServerOutput tx) (ClientMessage tx)) ->
-  ApiEncoding ->
-  ApiEncoding ->
-  LBS.ByteString ->
-  IO Response
-handleDecommit = handleDecommitWithTracer nullTracer
-
-handleDecommitWithTracer ::
-  forall tx.
-  IsTx tx =>
   Tracer IO APIServerLog ->
   (ClientInput tx -> IO ()) ->
   ApiTransactionTimeout ->
@@ -634,7 +597,7 @@ handleDecommitWithTracer ::
   ApiEncoding ->
   LBS.ByteString ->
   IO Response
-handleDecommitWithTracer tracer putClientInput apiTransactionTimeout responseChannel reqEnc respEnc body =
+handleDecommit tracer putClientInput apiTransactionTimeout responseChannel reqEnc respEnc body =
   case decodeWire reqEnc body :: Either String tx of
     Left err ->
       pure $ respondApi respEnc status400 (pack err)
@@ -669,18 +632,6 @@ handleDecommitWithTracer tracer putClientInput apiTransactionTimeout responseCha
 handleSideLoadSnapshot ::
   forall tx.
   IsChainState tx =>
-  (ClientInput tx -> IO ()) ->
-  ApiTransactionTimeout ->
-  TChan (Either (TimedServerOutput tx) (ClientMessage tx)) ->
-  ApiEncoding ->
-  ApiEncoding ->
-  LBS.ByteString ->
-  IO Response
-handleSideLoadSnapshot = handleSideLoadSnapshotWithTracer nullTracer
-
-handleSideLoadSnapshotWithTracer ::
-  forall tx.
-  IsChainState tx =>
   Tracer IO APIServerLog ->
   (ClientInput tx -> IO ()) ->
   ApiTransactionTimeout ->
@@ -689,7 +640,7 @@ handleSideLoadSnapshotWithTracer ::
   ApiEncoding ->
   LBS.ByteString ->
   IO Response
-handleSideLoadSnapshotWithTracer tracer putClientInput apiTransactionTimeout responseChannel reqEnc respEnc body = do
+handleSideLoadSnapshot tracer putClientInput apiTransactionTimeout responseChannel reqEnc respEnc body = do
   -- SECURITY: validate before queueing. An oversized snapshot decodes fine but
   -- detonates the moment its accumulator is forced -- in the tracer, in the
   -- rejection that echoes it back, or in multisignature verification. See
@@ -725,18 +676,6 @@ handleSideLoadSnapshotWithTracer tracer putClientInput apiTransactionTimeout res
 handleSubmitL2Tx ::
   forall tx.
   IsChainState tx =>
-  (ClientInput tx -> IO ()) ->
-  ApiTransactionTimeout ->
-  TChan (Either (TimedServerOutput tx) (ClientMessage tx)) ->
-  ApiEncoding ->
-  ApiEncoding ->
-  LBS.ByteString ->
-  IO Response
-handleSubmitL2Tx = handleSubmitL2TxWithTracer nullTracer
-
-handleSubmitL2TxWithTracer ::
-  forall tx.
-  IsChainState tx =>
   Tracer IO APIServerLog ->
   (ClientInput tx -> IO ()) ->
   ApiTransactionTimeout ->
@@ -745,7 +684,7 @@ handleSubmitL2TxWithTracer ::
   ApiEncoding ->
   LBS.ByteString ->
   IO Response
-handleSubmitL2TxWithTracer tracer putClientInput apiTransactionTimeout responseChannel reqEnc respEnc body = do
+handleSubmitL2Tx tracer putClientInput apiTransactionTimeout responseChannel reqEnc respEnc body = do
   case decodeWire @(SubmitL2TxRequest tx) reqEnc body of
     Left err ->
       pure $ respondApi respEnc status400 (pack err)

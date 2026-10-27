@@ -85,7 +85,7 @@ import Control.Exception (Exception, IOException, catch, finally, onException, t
 import Control.Monad (forM, forM_, forever, unless, when)
 import Control.Monad.Class.MonadAsync (async, cancel, link)
 import Control.Monad.IO.Class (liftIO)
-import Control.Tracer (Tracer, nullTracer, traceWith)
+import Control.Tracer (Tracer, traceWith)
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Aeson qualified as Aeson
 import Data.ByteString (ByteString)
@@ -155,7 +155,7 @@ withSQLiteEventStore ::
   (EventStore e IO -> IO a) ->
   IO a
 withSQLiteEventStore tracer dbFile legacyStateFile callback = do
-  (conn, store, flush, reinitLastSeen, cleanup) <- mkSQLiteEventStoreWithTracer tracer dbFile
+  (conn, store, flush, reinitLastSeen, cleanup) <- mkSQLiteEventStore tracer dbFile
   migrateFromFileBased (Proxy @e) tracer legacyStateFile conn reinitLastSeen
   callback store
     `finally` (flush >> cleanup >> close conn)
@@ -168,17 +168,10 @@ withSQLiteEventStore tracer dbFile legacyStateFile callback = do
 mkSQLiteEventStore ::
   forall e.
   (ToCBOR e, FromCBOR e, FromJSON e, HasEventId e) =>
-  FilePath ->
-  IO (Connection, EventStore e IO, IO (), IO (), IO ())
-mkSQLiteEventStore = mkSQLiteEventStoreWithTracer nullTracer
-
-mkSQLiteEventStoreWithTracer ::
-  forall e.
-  (ToCBOR e, FromCBOR e, FromJSON e, HasEventId e) =>
   Tracer IO SQLiteLog ->
   FilePath ->
   IO (Connection, EventStore e IO, IO (), IO (), IO ())
-mkSQLiteEventStoreWithTracer tracer dbFile = do
+mkSQLiteEventStore tracer dbFile = do
   createDirectoryIfMissing True (takeDirectory dbFile)
   conn <- open dbFile
   -- Rows of a version 1 database are JSON-encoded and get re-encoded to CBOR
@@ -202,7 +195,7 @@ mkSQLiteEventStoreWithTracer tracer dbFile = do
     _ -> pure ()
 
   writeQueue <- newTBQueueIO 1000
-  writerThread <- async $ writerLoopWithTracer tracer conn writeQueue
+  writerThread <- async $ writerLoop tracer conn writeQueue
   statsThread <- async $ forever $ do
     ( do
         queueDepth <- fromIntegral <$> atomically (lengthTBQueue writeQueue)
@@ -318,11 +311,8 @@ mkSQLiteEventStoreWithTracer tracer dbFile = do
 -- batch-inserted in a single transaction, and any flush markers in the batch
 -- are signalled. Encode errors surface as writer thread crashes, which are
 -- 'link'ed to the caller.
-writerLoop :: ToCBOR e => Connection -> TBQueue IO (WriteItem e) -> IO ()
-writerLoop = writerLoopWithTracer nullTracer
-
-writerLoopWithTracer :: ToCBOR e => Tracer IO SQLiteLog -> Connection -> TBQueue IO (WriteItem e) -> IO ()
-writerLoopWithTracer tracer conn queue = forever $ do
+writerLoop :: ToCBOR e => Tracer IO SQLiteLog -> Connection -> TBQueue IO (WriteItem e) -> IO ()
+writerLoop tracer conn queue = forever $ do
   first' <- atomically $ readTBQueue queue
   rest <- atomically $ flushTBQueue queue
   let allItems = first' : rest

@@ -98,7 +98,7 @@ run opts = do
       env@Environment{party, otherParties, signingKey} <- initEnvironment opts
       -- Ledger
       pparams <- readJsonFileThrow parseJSON (cardanoLedgerProtocolParametersFile ledgerConfig)
-      globals <- getGlobalsForChainWithTracer (contramap DirectChain tracer) chainConfig
+      globals <- getGlobalsForChain (contramap DirectChain tracer) chainConfig
       withCardanoLedger pparams globals $ \ledger -> do
         -- Hydrate with event source and sinks
         let stateFile = persistenceDir </> "state"
@@ -194,11 +194,8 @@ run opts = do
     , apiTransactionTimeout
     } = opts
 
-getGlobalsForChain :: ChainConfig -> IO Globals
-getGlobalsForChain = getGlobalsForChainWithTracer nullTracer
-
-getGlobalsForChainWithTracer :: Tracer IO CardanoChainLog -> ChainConfig -> IO Globals
-getGlobalsForChainWithTracer tracer = \case
+getGlobalsForChain :: Tracer IO CardanoChainLog -> ChainConfig -> IO Globals
+getGlobalsForChain tracer = \case
   Offline OfflineChainConfig{ledgerGenesisFile} ->
     -- Offline/devnet: single era, fixedEpochInfo is correct
     loadGenesisFile ledgerGenesisFile

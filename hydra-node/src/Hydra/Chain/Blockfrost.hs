@@ -12,7 +12,7 @@ import Control.Exception (IOException)
 import Control.Monad.Catch (Handler (Handler))
 import Control.Monad.Catch qualified as Catch
 import Control.Retry (RetryPolicyM, RetryStatus (..), constantDelay, recovering, retrying)
-import Control.Tracer.JSON (Tracer, nullTracer, traceWith)
+import Control.Tracer.JSON (Tracer, traceWith)
 import Data.ByteString.Base16 qualified as Base16
 import Data.Text qualified as T
 import Hydra.Cardano.Api (
@@ -239,7 +239,7 @@ blockfrostChain tracer queue prj getGenesis prefix handler wallet = do
   forever $
     raceLabelled_
       ("blockfrost-chain-follow", blockfrostChainFollow tracer prj getGenesis prefix handler wallet)
-      ("blockfrost-submission", blockfrostSubmissionClient tracer (submitViaBlockfrostObserved tracer prj) queue)
+      ("blockfrost-submission", blockfrostSubmissionClient tracer (submitViaBlockfrost tracer prj) queue)
 
 blockfrostChainFollow ::
   forall m.
@@ -385,11 +385,8 @@ blockfrostSubmissionClient tracer submit queue = bfClient
 
 -- | Submit a transaction via Blockfrost, rendering both transport and API
 -- level failures into a reason.
-submitViaBlockfrost :: MonadIO m => Blockfrost.Project -> Tx -> m (Either Text Blockfrost.TxHash)
-submitViaBlockfrost prj tx = liftIO $ submitViaBlockfrostObserved nullTracer prj tx
-
-submitViaBlockfrostObserved :: (MonadIO m, MonadCatch m) => Tracer m CardanoChainLog -> Blockfrost.Project -> Tx -> m (Either Text Blockfrost.TxHash)
-submitViaBlockfrostObserved tracer prj tx =
+submitViaBlockfrost :: (MonadIO m, MonadCatch m) => Tracer m CardanoChainLog -> Blockfrost.Project -> Tx -> m (Either Text Blockfrost.TxHash)
+submitViaBlockfrost tracer prj tx =
   (Right <$> Blockfrost.runBlockfrostMWithObserver (traceWith tracer BlockfrostRateLimit) submissionRetryPolicy prj (Blockfrost.submitTransaction tx))
     `catch` (\(e :: APIBlockfrostError) -> pure . Left $ show e)
     `catch` (\(e :: IOException) -> pure . Left $ show e)
