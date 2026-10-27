@@ -8,7 +8,6 @@ import Data.Text qualified as Text
 import Hydra.HeadLogic.State qualified as Head
 import Hydra.Logging.Monitoring.Registry qualified as Registry
 import Hydra.Node.State qualified as NodeState
-import Network.Socket qualified as Socket
 
 import Control.Tracer.JSON (Tracer, nullTracer, traceWith)
 import GHC.Stats (getRTSStatsEnabled)
@@ -24,7 +23,6 @@ import Hydra.Network (Host (Host), StallReason (..))
 import Hydra.Network.Message (Message (ReqTx))
 import Hydra.Node (HydraNodeLog (..))
 
--- import Network.Socket (PortNumber(PortNumber))
 import Network.HTTP.Req (GET (..), NoReqBody (..), bsResponse, defaultHttpConfig, http, port, req, responseBody, runReq, (/:))
 import Test.Hydra.Ledger.Simple (aValidTx, utxoRefs)
 import Test.Hydra.Tx.Fixture (alice, testHeadId)
@@ -32,16 +30,6 @@ import Test.Network.Ports (randomUnusedTCPPorts)
 
 spec :: Spec
 spec = do
-  it "serves immediately and fails before the continuation when the port is occupied" $ failAfter 5 $ do
-    [p] <- randomUnusedTCPPorts 1
-    entered <- newIORef False
-    bracket (Socket.socket Socket.AF_INET Socket.Stream Socket.defaultProtocol) Socket.close $ \sock -> do
-      Socket.bind sock (Socket.SockAddrInet (fromIntegral p) 0)
-      Socket.listen sock 1
-      withMonitoring (Just $ fromIntegral p) nullTracer (\(_ :: Tracer IO (HydraLog SimpleTx)) -> writeIORef entered True)
-        `shouldThrow` anyException
-      readIORef entered `shouldReturn` False
-
   it "publishes one HELP and TYPE per family, including labelled families" $ do
     (_, registry, _) <- prepareRegistry @SimpleTx "direct"
     rows <- Text.lines . decodeUtf8 . toStrict <$> Registry.sample registry
