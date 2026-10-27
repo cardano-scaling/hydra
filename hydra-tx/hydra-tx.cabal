@@ -69,8 +69,8 @@ library
     Hydra.Tx.Party
     Hydra.Tx.Recover
     Hydra.Tx.ScriptRegistry
-    Hydra.Tx.Snapshot
     Hydra.Tx.Settlement
+    Hydra.Tx.Snapshot
     Hydra.Tx.Utils
 
   other-modules:   Paths_hydra_tx

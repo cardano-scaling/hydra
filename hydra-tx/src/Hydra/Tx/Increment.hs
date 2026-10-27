@@ -70,7 +70,7 @@ incrementTxWithEvidence scriptRegistry vk (seedTxIn, headId) headParameters (hea
           { signature = toPlutusSignatures sigs
           , snapshotNumber = fromIntegral number
           , increment = toPlutusTxOutRef depositIn
-          , appliedAccumulatorHash = toBuiltin $ appliedAccumulatorHash
+          , appliedAccumulatorHash = toBuiltin appliedAccumulatorHash
           , decommitOutputsHash = toBuiltin $ hashUTxO @Tx (fromMaybe mempty utxoToDecommit)
           }
 

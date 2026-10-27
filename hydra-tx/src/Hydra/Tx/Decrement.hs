@@ -62,7 +62,7 @@ decrementTxWithEvidence scriptRegistry vk (seedTxIn, headId) headParameters (hea
           , snapshotNumber = fromIntegral number
           , numberOfDecommitOutputs =
               fromIntegral $ maybe 0 UTxO.size utxoToDecommit
-          , appliedAccumulatorHash = toBuiltin $ appliedAccumulatorHash
+          , appliedAccumulatorHash = toBuiltin appliedAccumulatorHash
           , commitOutputsHash = toBuiltin $ commitOutputsHash evidence
           }
 

@@ -84,7 +84,7 @@ spec = describe "settlement caches" $ do
 
     prop "checkpoint evidence size is independent of the head UTxO" $
       forAll genSmallSnapshot $ \snapshot ->
-        let trimmed = snapshot{utxo = mempty, confirmed = [], accumulator = (Accumulator.build []), appliedAccumulator = (Accumulator.build [])}
+        let trimmed = snapshot{utxo = mempty, confirmed = [], accumulator = Accumulator.build [], appliedAccumulator = Accumulator.build []}
          in BS.length (serialize' $ snapshotEvidence snapshot mempty)
               === BS.length (serialize' $ snapshotEvidence trimmed mempty)
   prop "match a plain map after every retention, re-landing, rollback and prune" $
@@ -221,7 +221,7 @@ spec = describe "settlement caches" $ do
 
     prop "rejects a key that differs from the snapshot version" $
       forAll genSmallSettlement $ \entry ->
-        let snapshotVersion = (Evidence.version entry.snapshot)
+        let snapshotVersion = Evidence.version entry.snapshot
             settlementVersion = snapshotVersion + 1
             entries = Map.singleton settlementVersion entry
          in conjoin
@@ -368,7 +368,7 @@ spec = describe "settlement caches" $ do
         Left (DepositAlreadyClaimed (Set.singleton depositId))
     | otherwise = Right (Map.insert version entry entries)
    where
-    version = (Evidence.version entry.snapshot)
+    version = Evidence.version entry.snapshot
 
 rejectsOnDecode ::
   Map.Map SnapshotVersion (Settlement Tx) ->
