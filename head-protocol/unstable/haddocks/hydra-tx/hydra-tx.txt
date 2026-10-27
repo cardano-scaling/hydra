@@ -1241,7 +1241,7 @@ module Hydra.Tx.Increment
 
 -- | Construct a _increment_ transaction which takes as input some
 --   <a>UTxO</a> locked at v_deposit and make it available on L2.
-incrementTx :: ScriptRegistry -> VerificationKey PaymentKey -> (TxIn, HeadId) -> HeadParameters -> (TxIn, TxOut CtxUTxO) -> Snapshot Tx -> UTxO -> SlotNo -> MultiSignature (Snapshot Tx) -> Tx
+incrementTx :: ScriptRegistry -> VerificationKey PaymentKey -> (TxIn, HeadId) -> HeadParameters -> (TxIn, TxOut CtxUTxO) -> Snapshot Tx -> (TxIn, TxOut CtxUTxO) -> SlotNo -> MultiSignature (Snapshot Tx) -> Tx
 data IncrementObservation
 IncrementObservation :: HeadId -> SnapshotVersion -> TxId -> UTxO -> SnapshotNumber -> MultiSignature (Snapshot Tx) -> IncrementObservation
 [$sel:headId:IncrementObservation] :: IncrementObservation -> HeadId
