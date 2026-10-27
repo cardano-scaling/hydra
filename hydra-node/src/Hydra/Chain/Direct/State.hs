@@ -265,7 +265,7 @@ increment ctx spendableUTxO (headSeed, headId) headParameters incrementingSnapsh
               headParameters
               headUTxO
               sn
-              (UTxO.singleton depositedIn depositedOut)
+              (depositedIn, depositedOut)
               upperValiditySlot
               sigs
  where
