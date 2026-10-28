@@ -7,8 +7,10 @@ import Control.Concurrent.Class.MonadSTM (newTVarIO, takeTMVar, writeTQueue)
 import Control.Retry (RetryPolicyM, limitRetries)
 import Control.Tracer (nullTracer)
 import Control.Tracer.JSON (Tracer)
+import Data.Text qualified as T
+import Hydra.Cardano.Api (serialiseToRawBytesHexText)
 import Hydra.Chain.Blockfrost (blockfrostSubmissionClient, memoizeIO, retryOnBlockfrostError)
-import Hydra.Chain.Blockfrost.Client (APIBlockfrostError (..), BlockfrostException (..), TxHash (..), isRetryable)
+import Hydra.Chain.Blockfrost.Client (APIBlockfrostError (..), BlockfrostException (..), TxHash (..), isRetryable, toCardanoAssetName)
 import Hydra.Chain.Direct.Handlers (CardanoChainLog)
 import Test.Hydra.Prelude (failAfter)
 import Test.Hydra.Tx.Gen ()
@@ -19,6 +21,40 @@ retry = limitRetries 3
 
 spec :: Spec
 spec = do
+  describe "toCardanoAssetName" $ do
+    -- Regression for #2923: getAssetDetails decodes asset_name: null as Nothing.
+    it "decodes a null asset name as empty" $ do
+      assetName <- toCardanoAssetName Nothing
+      serialiseToRawBytesHexText assetName `shouldBe` ""
+
+    it "decodes an explicitly empty asset name" $ do
+      assetName <- toCardanoAssetName (Just "")
+      serialiseToRawBytesHexText assetName `shouldBe` ""
+
+    it "decodes a nonempty asset name" $ do
+      assetName <- toCardanoAssetName (Just "6e7574636f696e")
+      serialiseToRawBytesHexText assetName `shouldBe` "6e7574636f696e"
+
+    it "decodes binary asset names without treating them as text" $ do
+      assetName <- toCardanoAssetName (Just "00ff80")
+      serialiseToRawBytesHexText assetName `shouldBe` "00ff80"
+
+    it "decodes a 32-byte asset name" $ do
+      let nameHex = T.replicate 64 "f"
+      assetName <- toCardanoAssetName (Just nameHex)
+      serialiseToRawBytesHexText assetName `shouldBe` nameHex
+
+    forM_
+      [ ("odd-length asset hex", "a")
+      , ("invalid asset hex", "zz")
+      , ("asset name longer than 32 bytes", T.replicate 66 "f")
+      ]
+      $ \(caseName, nameHex) ->
+        it ("rejects " <> caseName) $
+          toCardanoAssetName (Just nameHex) `shouldThrow` \case
+            BlockfrostClientError DeserialiseError{} -> True
+            _ -> False
+
   describe "isRetryable" $ do
     it "treats DecodeError as non-retryable" $ do
       isRetryable (DecodeError "some decode error") `shouldBe` False
