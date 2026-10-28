@@ -32,14 +32,14 @@ nodeStats :: IsTx tx => Natural -> Int -> NodeState tx -> NodeStats
 nodeStats queuedInputs parkedInputs ns =
   case headState ns of
     Idle{} -> base
-    Open OpenState{parameters = HeadParameters{parties}, coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot, seenSnapshot, allTxs, decommitTx}} ->
-      let snap = getSnapshot confirmedSnapshot
+    Open OpenState{parameters = HeadParameters{parties}, coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot, seenSnapshot, allTxs, decommitTx, version = coordinatedVersion}} ->
+      let snap@Snapshot{version = snapshotVersion} = getSnapshot confirmedSnapshot
           missing = case seenSnapshot of
             SeenSnapshot{signatories} -> max 0 (length parties - Map.size signatories)
             RequestedSnapshot{} -> length parties
             _ -> 0
           dc
-            | isJust (utxoToDecommit snap) = "approved"
+            | snapshotVersion == coordinatedVersion && isJust (utxoToDecommit snap) = "approved"
             | isJust decommitTx = "requested"
             | otherwise = "none"
        in (withSnapshot snap base)

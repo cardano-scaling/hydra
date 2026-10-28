@@ -10,17 +10,25 @@ import Hydra.Logging.Monitoring.Registry qualified as Registry
 import Hydra.Node.State qualified as NodeState
 import Hydra.Node.Stats qualified as Stats
 
-import Control.Tracer.JSON (Tracer, nullTracer, traceWith)
+import Control.Concurrent qualified as Concurrent
+import Control.Concurrent.Class.MonadSTM (putTMVar, takeTMVar)
+import Control.Exception qualified as Exception
+import Control.Monad.Class.MonadAsync (cancel, waitCatch)
+import Control.Tracer (emit)
+import Control.Tracer.JSON (Tracer (..), nullTracer, traceWith)
+import GHC.Conc (BlockReason (BlockedOnException), ThreadStatus (..), threadStatus)
 import GHC.Stats (getRTSStatsEnabled)
+import Hydra.API.APIServerLog qualified as API
 import Hydra.API.ClientInput (ClientInput (NewTx))
 import Hydra.API.ClientInput qualified as Client
+import Hydra.API.HTTPServer (observeL1)
 import Hydra.API.ServerOutput (ClientMessage (RejectedInputBecauseBroadcastStalled))
 import Hydra.API.ServerOutput qualified as Output
 import Hydra.HeadLogic (Input (ClientInput))
 import Hydra.HeadLogic.Outcome (Effect (ClientEffect), Outcome (..), StateChanged (..))
 import Hydra.HeadLogicSpec (inIdleState, inOpenState, receiveMessage, testSnapshot)
 import Hydra.Ledger.Simple (SimpleTx)
-import Hydra.Logging.Messages (HydraLog (Network, Node))
+import Hydra.Logging.Messages (HydraLog (APIServer, Network, Node))
 import Hydra.Logging.Monitoring
 import Hydra.Network (Host (Host), StallReason (..))
 import Hydra.Network.Etcd qualified as Etcd
@@ -120,7 +128,81 @@ spec = do
     record $ Node $ ChainPostFinished "partial_fanout" False 2
     rows <- Text.lines . decodeUtf8 . toStrict <$> Registry.sample registry
     rows `shouldContain` ["hydra_chain_operation_failures_total{backend=\"direct\",operation=\"partial_fanout\"} 1"]
-    rows `shouldContain` ["hydra_chain_operations_inflight{backend=\"direct\"} 0.0"]
+    rows `shouldContain` ["hydra_chain_operations_inflight{backend=\"direct\",operation=\"partial_fanout\"} 0.0"]
+
+  it "keeps a blocked protocol post active while API drafts complete or fail" $ do
+    (record, registry, _) <- prepareRegistry @SimpleTx "direct"
+    record $ Node $ ChainPostStarted "increment"
+    forM_ [True, False, True, False] $ \successful -> do
+      record $ APIServer $ API.APIL1Started "draft_deposit"
+      record $ APIServer $ API.APIL1Finished "draft_deposit" successful 1
+    rows <- Text.lines . decodeUtf8 . toStrict <$> Registry.sample registry
+    rows `shouldContain` ["hydra_chain_operations_inflight{backend=\"direct\",operation=\"increment\"} 1.0"]
+    rows `shouldContain` ["hydra_chain_operation_seconds_count{backend=\"direct\",operation=\"increment\"} 0"]
+    rows `shouldContain` ["hydra_chain_operations_inflight{backend=\"direct\",operation=\"draft_deposit\"} 0.0"]
+    rows `shouldContain` ["hydra_chain_operation_seconds_count{backend=\"direct\",operation=\"draft_deposit\"} 4"]
+
+  forM_ [("start", True, "1"), ("completion", False, "0")] $ \(boundary, pauseOnStart, failures) ->
+    it ("balances API L1 accounting when cancelled at " <> boundary) $ failAfter 3 $ do
+      (record, registry, _) <- prepareRegistry @SimpleTx "direct"
+      reached <- newLabelledEmptyTMVarIO "accounting-boundary-reached"
+      release <- newLabelledEmptyTMVarIO "release-accounting-boundary"
+      thread <- newLabelledEmptyTMVarIO "operation-thread"
+      let pause = uninterruptibleMask_ $ do
+            atomically $ putTMVar reached ()
+            atomically $ takeTMVar release
+          tracer = Tracer . emit $ \message -> case message of
+            API.APIL1Started{} -> do
+              record $ APIServer message
+              when pauseOnStart pause
+            API.APIL1Finished{} -> do
+              unless pauseOnStart pause
+              record $ APIServer message
+            _ -> pure ()
+      withAsyncLabelled
+        ( "observed-api-operation"
+        , do
+            Concurrent.myThreadId >>= atomically . putTMVar thread
+            observeL1 tracer "submit" id (pure True)
+        )
+        $ \worker -> do
+          ( do
+              atomically $ takeTMVar reached
+              workerThread <- atomically $ takeTMVar thread
+              sender <- Concurrent.forkIO $ Concurrent.throwTo workerThread Exception.ThreadKilled
+              -- Queue cancellation while the callback holds the boundary,
+              -- then release it without relying on scheduling or a delay.
+              let awaitCancellation =
+                    threadStatus sender >>= \case
+                      ThreadBlocked BlockedOnException -> pure ()
+                      ThreadFinished -> expectationFailure "Cancellation was not queued"
+                      ThreadDied -> expectationFailure "Cancellation sender died"
+                      _ -> Concurrent.yield >> awaitCancellation
+              awaitCancellation
+            )
+            `finally` atomically (putTMVar release ())
+          result <- waitCatch worker
+          -- Completion may win the cancellation as the async worker returns;
+          -- either outcome must leave exactly one completed operation.
+          when pauseOnStart $ result `shouldSatisfy` isLeft
+      rows <- Text.lines . decodeUtf8 . toStrict <$> Registry.sample registry
+      rows `shouldContain` ["hydra_chain_operations_inflight{backend=\"direct\",operation=\"submit\"} 0.0"]
+      rows `shouldContain` ["hydra_chain_operation_seconds_count{backend=\"direct\",operation=\"submit\"} 1"]
+      rows `shouldContain` ["hydra_chain_operation_failures_total{backend=\"direct\",operation=\"submit\"} " <> failures]
+
+  it "balances API L1 accounting when cancelled during the operation" $ failAfter 3 $ do
+    (record, registry, _) <- prepareRegistry @SimpleTx "direct"
+    entered <- newLabelledEmptyTMVarIO "operation-entered"
+    blocked <- newLabelledEmptyTMVarIO "blocked-operation"
+    let tracer = Tracer . emit $ record . APIServer
+        action = atomically (putTMVar entered ()) >> atomically (takeTMVar blocked)
+    withAsyncLabelled ("blocked-api-operation", observeL1 tracer "submit" id action) $ \worker -> do
+      atomically $ takeTMVar entered
+      cancel worker
+    rows <- Text.lines . decodeUtf8 . toStrict <$> Registry.sample registry
+    rows `shouldContain` ["hydra_chain_operations_inflight{backend=\"direct\",operation=\"submit\"} 0.0"]
+    rows `shouldContain` ["hydra_chain_operation_seconds_count{backend=\"direct\",operation=\"submit\"} 1"]
+    rows `shouldContain` ["hydra_chain_operation_failures_total{backend=\"direct\",operation=\"submit\"} 1"]
 
   it "does not recount a repeated snapshot adoption" $ do
     (record, registry, _) <- prepareRegistry @SimpleTx "direct"

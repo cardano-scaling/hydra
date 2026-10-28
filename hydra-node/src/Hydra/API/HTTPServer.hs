@@ -728,12 +728,12 @@ notFound :: ApiEncoding -> Response
 notFound apiEncoding = respondApi apiEncoding status404 ("" :: Text)
 
 observeL1 :: Tracer IO APIServerLog -> Text -> (a -> Bool) -> IO a -> IO a
-observeL1 tracer operation succeeded action = do
+observeL1 tracer operation succeeded action = mask $ \restore -> do
   started <- getMonotonicTime
   traceWith tracer APIL1Started{operation}
   let finish successful = do
         finished <- getMonotonicTime
         traceWith tracer APIL1Finished{operation, successful, duration = diffTime finished started}
-  result <- action `onException` finish False
+  result <- restore action `onException` finish False
   finish (succeeded result)
   pure result

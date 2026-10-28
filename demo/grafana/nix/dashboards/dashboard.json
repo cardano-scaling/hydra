@@ -1914,7 +1914,7 @@
     {
       "id": 27,
       "title": "L1 operations in flight",
-      "description": "Includes L1 protocol posts, deposit drafts and user transaction submissions.",
+      "description": "L1 protocol posts, deposit drafts and user transaction submissions, separated by operation so API activity cannot hide a stalled protocol post.",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
@@ -1940,7 +1940,7 @@
         {
           "refId": "A",
           "expr": "hydra_chain_operations_inflight{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}",
-          "legendFormat": "{{instance}} {{backend}} inflight",
+          "legendFormat": "{{instance}} {{backend}} {{operation}} inflight",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"

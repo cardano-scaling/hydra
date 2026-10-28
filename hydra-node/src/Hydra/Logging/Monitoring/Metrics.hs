@@ -48,7 +48,7 @@ data Metrics = Metrics
   , networkEvents :: Map Text Counter
   , chainFailures :: Map Text Counter
   , chainDuration :: Map Text Histogram
-  , chainInflight :: Gauge
+  , chainInflight :: Map Text Gauge
   , rollbackDepth :: Histogram
   , blockfrostRetries :: Counter
   , blockfrostRateLimits :: Counter
@@ -100,7 +100,7 @@ registerMetrics registry backend = do
   networkEvents <- vector networkEventsValues $ \value -> Registry.counter registry "hydra_network_events_total" "Operational network failures, reconnects and lease warnings; routine deduplication and compaction recovery excluded." [("event", value)]
   chainFailures <- vector chainOperationsValues $ \value -> Registry.counter registry "hydra_chain_operation_failures_total" "Failed L1 protocol posts, API deposit drafts and user transaction submissions." [("operation", value), ("backend", backend)]
   chainDuration <- vector chainOperationsValues $ \value -> Registry.histogram registry "hydra_chain_operation_seconds" "L1 operation construction and backend submission duration; successful return does not imply on-chain inclusion." operationLatencyBuckets [("operation", value), ("backend", backend)]
-  chainInflight <- Registry.gauge registry "hydra_chain_operations_inflight" "L1 protocol posts, API deposit drafts and user transaction submissions currently executing." [("backend", backend)]
+  chainInflight <- vector chainOperationsValues $ \value -> Registry.gauge registry "hydra_chain_operations_inflight" "L1 protocol posts, API deposit drafts and user transaction submissions currently executing, by operation." [("operation", value), ("backend", backend)]
   rollbackDepth <- Registry.histogram registry "hydra_chain_rollback_slots" "Slots from the last backend roll-forward to the rollback point." [0, 1, 10, 100, 1000, 10000, 100000] [("backend", backend)]
   blockfrostRetries <- Registry.counter registry "hydra_chain_blockfrost_retries_total" "Retryable Blockfrost errors observed by the outer retry loop." [("backend", backend)]
   blockfrostRateLimits <- Registry.counter registry "hydra_chain_blockfrost_rate_limits_total" "HTTP 429 responses across node startup, wallet queries, chain polling and transaction submissions." [("backend", backend)]

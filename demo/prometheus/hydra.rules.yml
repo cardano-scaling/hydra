@@ -88,12 +88,12 @@ groups:
         annotations:
           summary: "SQLite has an active batch without completed writes on {{ $labels.instance }}"
       - alert: HydraL1OperationStalled
-        expr: hydra_chain_operations_inflight{job="hydra_nodes"} > 0 and on (job, instance, backend) (sum by (job, instance, backend) (increase(hydra_chain_operation_seconds_count[5m])) == 0)
+        expr: hydra_chain_operations_inflight{job="hydra_nodes"} > 0 and on (job, instance, backend, operation) (increase(hydra_chain_operation_seconds_count[5m]) == 0)
         for: 5m
         labels:
           severity: warning
         annotations:
-          summary: "Hydra has active L1 operations without completions on {{ $labels.instance }}"
+          summary: "Hydra L1 operation {{ $labels.operation }} has active work without completions on {{ $labels.instance }}"
       - alert: HydraTimingCoverageLost
         expr: increase(hydra_monitoring_timing_evictions_total{job="hydra_nodes"}[5m]) > 0
         for: 1m

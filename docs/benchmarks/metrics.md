@@ -212,12 +212,12 @@ include the configured backend (`direct`, `blockfrost` or `offline`).
 | `hydra_network_events_total` | counter | Operational network failures, reconnects and lease warnings; routine deduplication and compaction recovery excluded. |
 | `hydra_chain_operation_failures_total` | counter | Failed L1 protocol posts, API deposit drafts and user transaction submissions. |
 | `hydra_chain_operation_seconds` | histogram | L1 operation construction and backend submission duration; successful return does not imply on-chain inclusion. |
-| `hydra_chain_operations_inflight` | gauge | L1 protocol posts, API deposit drafts and user transaction submissions currently executing. |
+| `hydra_chain_operations_inflight` | gauge | L1 protocol posts, API deposit drafts and user transaction submissions currently executing, by `operation` and `backend`. |
 | `hydra_chain_rollback_slots` | histogram | Slots from the last backend roll-forward to the rollback point. |
 | `hydra_chain_blockfrost_retries_total` | counter | Retryable Blockfrost errors observed by the outer retry loop. |
 | `hydra_chain_blockfrost_rate_limits_total` | counter | HTTP 429 responses across node startup, wallet queries, chain polling and transaction submissions. |
 | `hydra_head_pending_deposits` | gauge | Current unconsumed deposits tracked by this node, corrected by rollback. |
-| `hydra_head_decommit_state` | gauge | Current decommit state as a one-hot set. |
+| `hydra_head_decommit_state` | gauge | Logical decommit state as a one-hot set; settled decommits are excluded even when their snapshots are retained for rollback recovery. |
 | `hydra_head_fanout_remaining_outputs` | gauge | Outputs still awaiting distribution in the current partial fanout state. |
 | `hydra_head_fanout_mode` | gauge | Current fanout mode as a one-hot set; deferred work is intentionally waiting for selection. |
 | `hydra_persistence_queue_depth` | gauge | SQLite queue items awaiting the writer, including flush markers. |
@@ -305,6 +305,10 @@ same events are unnecessary. Duration histograms only observe finished work.
 Use `hydra_chain_operations_inflight` and `hydra_persistence_write_inflight`
 alongside their completion counts to detect work that has started but stopped
 completing, even if the waiting queues are empty.
+Match L1 activity and completions on `operation` and `backend`: a deposit draft
+completing through the API must not hide a stalled protocol post. The L1 stall
+alert checks each operation separately; it measures progress for that operation,
+not the age of individual concurrent API requests.
 
 Fanout operation failures are available by summing
 `hydra_chain_operation_failures_total{operation=~"fanout|partial_fanout|final_fanout"}`

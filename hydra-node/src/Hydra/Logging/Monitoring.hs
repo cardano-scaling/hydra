@@ -233,9 +233,9 @@ prepareRegistry backend = do
           oneHot decommit (Stats.decommitState stats)
           set fanoutRemaining (fromIntegral $ Stats.fanoutRemainingOutputs stats)
           oneHot fanoutMode (Stats.fanoutMode stats)
-        Node ChainPostStarted{} -> Gauge.inc chainInflight
+        Node ChainPostStarted{operation} -> Gauge.inc (chainInflight `at` operation)
         Node ChainPostFinished{operation, accepted, duration} -> do
-          Gauge.dec chainInflight
+          Gauge.dec (chainInflight `at` operation)
           observe (chainDuration `at` operation) (realToFrac duration)
           unless accepted $ tick $ chainFailures `at` operation
         Network (Network.Authenticate _) -> networkEvent "authentication_failure"
@@ -257,9 +257,9 @@ prepareRegistry backend = do
           Etcd.NoKeepAliveResponse -> networkEvent "lease_warning"
           _ -> pure ()
         APIServer message -> case message of
-          API.APIL1Started{} -> Gauge.inc chainInflight
+          API.APIL1Started{operation} -> Gauge.inc (chainInflight `at` operation)
           API.APIL1Finished{operation, successful, duration} -> do
-            Gauge.dec chainInflight
+            Gauge.dec (chainInflight `at` operation)
             observe (chainDuration `at` operation) (realToFrac duration)
             unless successful $ tick (chainFailures `at` operation)
           _ -> pure ()

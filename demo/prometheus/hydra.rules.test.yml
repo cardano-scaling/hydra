@@ -1,0 +1,55 @@
+rule_files:
+  - hydra.rules.yml
+
+evaluation_interval: 1m
+
+tests:
+  - name: API activity cannot hide a blocked protocol post
+    interval: 1m
+    input_series:
+      - series: hydra_chain_operations_inflight{job="hydra_nodes",instance="alice",backend="direct",operation="increment"}
+        values: 1+0x12
+      - series: hydra_chain_operation_seconds_count{job="hydra_nodes",instance="alice",backend="direct",operation="increment"}
+        values: 0+0x12
+      - series: hydra_chain_operations_inflight{job="hydra_nodes",instance="alice",backend="direct",operation="draft_deposit"}
+        values: 0+0x12
+      - series: hydra_chain_operation_seconds_count{job="hydra_nodes",instance="alice",backend="direct",operation="draft_deposit"}
+        values: 0+2x12
+      - series: hydra_chain_operation_failures_total{job="hydra_nodes",instance="alice",backend="direct",operation="draft_deposit"}
+        values: 0+1x12
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: HydraL1OperationStalled
+        exp_alerts:
+          - exp_labels:
+              job: hydra_nodes
+              instance: alice
+              backend: direct
+              operation: increment
+              severity: warning
+            exp_annotations:
+              summary: Hydra L1 operation increment has active work without completions on alice
+
+  - name: Repeated protocol completions count as progress
+    interval: 1m
+    input_series:
+      - series: hydra_chain_operations_inflight{job="hydra_nodes",instance="alice",backend="direct",operation="increment"}
+        values: 1+0x12
+      - series: hydra_chain_operation_seconds_count{job="hydra_nodes",instance="alice",backend="direct",operation="increment"}
+        values: 0+1x12
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: HydraL1OperationStalled
+        exp_alerts: []
+
+  - name: Completed or cancelled work does not stall during inactivity
+    interval: 1m
+    input_series:
+      - series: hydra_chain_operations_inflight{job="hydra_nodes",instance="alice",backend="direct",operation="submit"}
+        values: 0+0x12
+      - series: hydra_chain_operation_seconds_count{job="hydra_nodes",instance="alice",backend="direct",operation="submit"}
+        values: 1+0x12
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: HydraL1OperationStalled
+        exp_alerts: []

@@ -22,9 +22,10 @@ import Hydra.Cardano.Api (SigningKey)
 import Hydra.Chain (Chain (..), ChainEvent (..), OnChainTx (..), PostChainTx (..), PostTxError (..))
 import Hydra.Chain.ChainState (ChainSlot (..), IsChainState (..))
 import Hydra.HeadLogic (Input (..), StateChanged (..), TTL)
+import Hydra.HeadLogic qualified as Head
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.HeadLogicSpec (inOpenState, receiveMessage, receiveMessageFrom, testSnapshot)
-import Hydra.Ledger.Simple (SimpleTx (..), simpleLedger)
+import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), simpleLedger)
 import Hydra.Network (Network (..), StallReason (..))
 import Hydra.Network qualified as Network
 import Hydra.Network.Message (Message (..), NetworkEvent (..))
@@ -53,6 +54,7 @@ import Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Tx.Crypto (HydraKey, sign)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.Party (Party, deriveParty)
+import Hydra.Tx.Snapshot qualified as Snapshot
 import System.FilePath ((</>))
 import Test.Hydra.HeadLogic.Outcome (genStateChanged)
 import Test.Hydra.HeadLogic.StateEvent (genStateEvent)
@@ -109,6 +111,34 @@ spec = parallel $ do
           -- The third poll must still run after the second poll attempted
           -- to notify a full queue. A blocking enqueue cannot reach it.
           check $ length [() | Logging.Envelope{message = BroadcastHealth{}} <- entries] >= 3
+
+  describe "decommit lifecycle gauges" $ do
+    let initial = inOpenState [alice]
+        decommit = SimpleTx 42 mempty (utxoRefs [42])
+        request ns = Head.aggregateNodeState ns (Head.DecommitRecorded testHeadId decommit)
+        approve number version ns =
+          let snapshot :: Snapshot.Snapshot SimpleTx
+              snapshot = (testSnapshot number version [] mempty){Snapshot.utxoToDecommit = Just (utxoRefs [42])}
+           in Head.aggregateNodeState ns (Head.SnapshotConfirmed testHeadId (Just snapshot) mempty)
+        settle version ns = Head.aggregateNodeState ns (Head.DecommitFinalized (SimpleChainState 2) testHeadId (utxoRefs [42]) version)
+        requested = request initial
+        approved = approve 1 0 requested
+        settled = settle 1 approved
+        stateOf = Stats.decommitState . Stats.nodeStats 0 0
+
+    it "clears approval on settlement and reports a subsequent decommit" $ do
+      let requestedAgain = request settled
+          approvedAgain = approve 2 1 requestedAgain
+      map stateOf [initial, requested, approved, settled, requestedAgain, approvedAgain, settle 2 approvedAgain]
+        `shouldBe` ["none", "requested", "approved", "none", "requested", "approved", "none"]
+
+    it "preserves logical decommit state across rollback and settlement replay" $ do
+      let rollback ns = Head.aggregateNodeState ns (Head.ChainRolledBack $ SimpleChainState 0)
+      stateOf (rollback approved) `shouldBe` "approved"
+      -- Rollback retains the coordinated version and the settled snapshot as
+      -- recovery evidence; it must not turn that snapshot into a new approval.
+      stateOf (rollback settled) `shouldBe` "none"
+      stateOf (settle 1 $ rollback settled) `shouldBe` "none"
 
   describe "deposit lifecycle tracking" $ do
     let s0 = initNodeState 0 :: NodeState SimpleTx
