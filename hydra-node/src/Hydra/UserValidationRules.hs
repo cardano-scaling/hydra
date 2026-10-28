@@ -16,25 +16,34 @@ data PolicyViolation
   = PolicyMintingViolation {invalidPolicyIds :: Set PolicyId, allowedPolicyIds :: Set PolicyId}
   deriving (Eq, Show)
 
-data MintingRule
+data PolicyRule
   = ForbidAnyPolicy
   | AllowOnlyPolicies (Set PolicyId)
   deriving (Eq, Show, Generic)
 
-newtype UserValidationRules = UserValidationRules
-  { mintingRule :: Maybe MintingRule
+data MintingOnL2Rule
+  = ForbidMinting
+  | AllowMinting
+  deriving (Eq, Show, Generic)
+
+data UserValidationRules = UserValidationRules
+  { policyRule :: Maybe PolicyRule
+  , l2MintingRule :: MintingOnL2Rule
   }
   deriving (Eq, Show, Generic)
 
 validateUserTransactionWith :: UserValidationRules -> Tx -> Either PolicyViolation ()
-validateUserTransactionWith rules tx =
-  case rules.mintingRule of
-    Just ForbidAnyPolicy -> checkMinting mempty tx -- here if policies is empty it means we don't accept any
-    Just (AllowOnlyPolicies policies) -> checkMinting policies tx
+validateUserTransactionWith rules tx = do
+  case rules.policyRule of
+    Just ForbidAnyPolicy -> checkPolicies mempty tx
+    Just (AllowOnlyPolicies policies) -> checkPolicies policies tx
     Nothing -> Right ()
+  case rules.l2MintingRule of
+    ForbidMinting -> checkPolicies mempty tx
+    AllowMinting -> Right ()
 
-checkMinting :: Set PolicyId -> Tx -> Either PolicyViolation ()
-checkMinting policies tx = do
+checkPolicies :: Set PolicyId -> Tx -> Either PolicyViolation ()
+checkPolicies policies tx = do
   let mintedValue =
         txMintValueToValue . txMintValue . getTxBodyContent $ getTxBody tx
       usedPolicies =
