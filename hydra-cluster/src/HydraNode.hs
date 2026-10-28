@@ -48,9 +48,12 @@ import System.Environment (getEnvironment)
 import System.FilePath ((<.>), (</>))
 import System.IO.Unsafe (unsafePerformIO)
 import System.Info (os)
+import System.Posix.Signals (sigCONT, sigSTOP, signalProcess)
+import System.Posix.Types (ProcessID)
 import System.Process.Typed (
   ExitCode (..),
   createPipe,
+  getPid,
   getStderr,
   proc,
   setCloseFds,
@@ -82,7 +85,21 @@ data HydraClient = HydraClient
   , workDir :: Maybe FilePath
   -- ^ Work directory of the spawned hydra-node, when this test spawned it;
   -- used to point at its logs in failure messages.
+  , processId :: Maybe ProcessID
+  -- ^ Present only for processes owned by this harness; used for bounded faults.
   }
+
+-- | Suspend only a node owned by this harness. Its etcd child keeps running,
+-- so a three-party Head can lose a signer without losing the broadcast quorum.
+-- Always resume before the enclosing process bracket attempts termination.
+withSuspendedNode :: HydraClient -> IO a -> IO a
+withSuspendedNode HydraClient{processId = Nothing} _ = fail "Cannot suspend an externally connected node"
+withSuspendedNode HydraClient{processId = Just pid} action =
+  withSuspendedProcess pid action
+
+withSuspendedProcess :: ProcessID -> IO a -> IO a
+withSuspendedProcess pid =
+  bracket_ (signalProcess sigSTOP pid) (signalProcess sigCONT pid)
 
 -- | Create an input as expected by 'send'.
 input :: Text -> [Pair] -> Aeson.Value
@@ -693,10 +710,11 @@ withPreparedHydraNodeWithQuery mQueryParams extraEnv tracer workDir hydraNodeId 
     traceWith tracer $ HydraNodeCommandSpec $ show cmd
 
     withProcessTerm cmd $ \p -> do
+      pid <- getPid p
       -- NOTE: exit code thread gets cancelled if 'action' terminates first
       raceLabelled
         ("collect-check-process-exit-code", collectAndCheckExitCode p)
-        ("with-connection-to-node", withConnectionToNodeHost tracer hydraNodeId apiAddress monPort (mQueryParams <|> Just "/?history=yes") (\client -> action client{workDir = Just workDir}))
+        ("with-connection-to-node", withConnectionToNodeHost tracer hydraNodeId apiAddress monPort (mQueryParams <|> Just "/?history=yes") (\client -> action client{workDir = Just workDir, processId = pid}))
         <&> either absurd id
  where
   apiAddress =
@@ -891,7 +909,7 @@ withConnectionToNodeHost tracer hydraNodeId apiHost@Host{hostname, port} monitor
     \connection -> do
       atomicWriteIORef connectedOnce True
       traceWith tracer (NodeStarted hydraNodeId)
-      res <- action $ HydraClient{hydraNodeId, apiHost, monitoringPort, connection, tracer, apiEncoding, workDir = Nothing}
+      res <- action $ HydraClient{hydraNodeId, apiHost, monitoringPort, connection, tracer, apiEncoding, workDir = Nothing, processId = Nothing}
       sendClose connection ("Bye" :: Text)
       pure res
 

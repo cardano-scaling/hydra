@@ -207,6 +207,22 @@
         demo = demoShell;
         delegated-demo = delegatedDemoShell;
         headStateUI = headStateUIShell;
+      } // pkgs.lib.optionalAttrs pkgs.stdenv.isLinux {
+        dashboard-recording = cleanPkgs.mkShellNoCC {
+          packages = [
+            (cleanPkgs.python3.withPackages (p: [ p.playwright ]))
+            cleanPkgs.ffmpeg
+            cleanPkgs.prometheus
+            cleanPkgs.grafana
+          ];
+          PLAYWRIGHT_BROWSERS_PATH = "${cleanPkgs.playwright-driver.browsers}";
+          GRAFANA_HOME = "${cleanPkgs.grafana}/share/grafana";
+          FONTCONFIG_FILE = cleanPkgs.makeFontsConf { fontDirectories = [ cleanPkgs.dejavu_fonts ]; };
+        };
+        head-lifecycle-demo = cleanPkgs.mkShellNoCC {
+          inputsFrom = [ self'.packages.hydra-cluster-bench self'.devShells.dashboard-recording ];
+          inherit (self'.devShells.dashboard-recording) PLAYWRIGHT_BROWSERS_PATH GRAFANA_HOME FONTCONFIG_FILE;
+        };
       };
     };
 }

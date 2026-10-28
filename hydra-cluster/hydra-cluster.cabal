@@ -75,6 +75,7 @@ library
     CardanoNode
     Hydra.Cluster.Faucet
     Hydra.Cluster.Fixture
+    Hydra.Cluster.HeadLifecycle
     Hydra.Cluster.Mithril
     Hydra.Cluster.Options
     Hydra.Cluster.Scenarios
@@ -164,6 +165,7 @@ test-suite tests
     Test.GeneratorSpec
     Test.Hydra.Cluster.CardanoCliSpec
     Test.Hydra.Cluster.FaucetSpec
+    Test.Hydra.Cluster.FaultSpec
     Test.Hydra.Cluster.MithrilSpec
     Test.Hydra.Cluster.Utils
     Test.Hydra.Cluster.UtilSpec
@@ -215,6 +217,7 @@ benchmark bench-e2e
   type:               exitcode-stdio-1.0
   other-modules:
     Bench.EndToEnd
+    Bench.Lifecycle
     Bench.Options
     Bench.Summary
 

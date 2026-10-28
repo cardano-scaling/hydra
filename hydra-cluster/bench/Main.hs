@@ -6,6 +6,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Bench.EndToEnd (BenchRunOptions (..), bench, benchDemo)
+import Bench.Lifecycle (runLifecycle)
 import Bench.Options (Options (..), UTxOSize (..), benchOptionsParser)
 import Bench.Summary (Summary (..), SystemStats, errorSummary, markdownReport, matrixMarkdownReport, textReport)
 import Data.Aeson (eitherDecodeFileStrict', encodeFile, object, (.=))
@@ -59,6 +60,13 @@ main = do
         threadDelay 10
         runSingle dataset workDir action
       summarizeResults outputDirectory [results]
+    LifecycleOptions{outputDirectory, numberOfTxs, timeoutSeconds, startingNodeId, generationSeed, lifecycleSettings} -> do
+      when (numberOfTxs < 3) $ die "lifecycle requires --number-of-txs >= 3"
+      (_, faucetSk) <- keysFor Faucet
+      workDir <- maybe (createTempDir "head-lifecycle") checkEmpty outputDirectory
+      dataset <- runGen (generationSeed <|> Just 42) $ generateConstantUTxODataset faucetSk 3 numberOfTxs
+      saveDataset (workDir </> "dataset.json") dataset
+      runLifecycle startingNodeId timeoutSeconds lifecycleSettings workDir dataset
     MatrixOptions{outputDirectory, timeoutSeconds, numberOfTxs, startingNodeId, clusterSizes, utxoShapes, incrementalModes, waitForTxValidModes, cborClients, generationSeed} -> do
       (_, faucetSk) <- keysFor Faucet
       -- NOTE: Unlike a standalone matrix run, the docs pipeline points

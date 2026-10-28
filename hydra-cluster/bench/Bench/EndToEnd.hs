@@ -30,7 +30,7 @@ import Control.Tracer.JSON (
   withTracerOutputTo,
  )
 import Data.Aeson (Result (Error, Success), Value, encode, fromJSON, (.=))
-import Data.Aeson.Lens (key, members, values, _JSON, _Number, _String)
+import Data.Aeson.Lens (key, values, _Number, _String)
 import Data.Aeson.Types (parseMaybe)
 import Data.ByteString qualified as BS
 import Data.ByteString.Lazy qualified as LBS
@@ -44,11 +44,12 @@ import Data.Set qualified as Set
 import Data.Text qualified as T
 import Data.Time (UTCTime (UTCTime), utctDayTime)
 import Data.Vector qualified as Vector
-import Hydra.Cardano.Api (NetworkId, PaymentKey, SigningKey, SocketPath, Tx, TxId, UTxO, lovelaceToValue, txOutAddress, txOutValue)
+import Hydra.Cardano.Api (NetworkId, PaymentKey, SigningKey, SocketPath, Tx, TxId, UTxO, txOutAddress, txOutValue)
 import Hydra.Chain.Backend (ChainBackend (..))
-import Hydra.Cluster.Faucet (FaucetLog (..), publishHydraScriptsAs, returnFundsToFaucet', seedFromFaucet)
+import Hydra.Cluster.Faucet (FaucetLog (..), publishHydraScriptsAs, returnFundsToFaucet')
 import Hydra.Cluster.Fixture (Actor (..))
-import Hydra.Cluster.Util (Timing (..), depositTimeout, truncatedDepositPeriod)
+import Hydra.Cluster.HeadLifecycle (closeHead, fanoutHead, fundDataset, openHead)
+import Hydra.Cluster.Util (Timing (..), truncatedDepositPeriod)
 import Hydra.Generator (ClientDataset (..), Dataset (..))
 import Hydra.Ledger.Cardano (mkSimpleTx)
 import Hydra.Network (Host)
@@ -58,13 +59,9 @@ import Hydra.Tx.Crypto (generateSigningKey, getVerificationKey, signTx)
 import HydraNode (
   HydraClient (..),
   getMetrics,
-  getSnapshotUTxO,
   input,
-  output,
   requestCommitTx,
   send,
-  waitFor,
-  waitForAllMatch,
   waitForNodesConnected,
   waitMatch,
   withConnectionToNodeHost,
@@ -94,8 +91,21 @@ data BenchRunOptions = BenchRunOptions
   deriving stock (Eq, Show)
 
 bench :: Int -> NominalDiffTime -> BenchRunOptions -> FilePath -> Dataset -> IO (Summary, SystemStats)
-bench startingNodeId timeoutSeconds runOptions workDir dataset = do
-  let BenchRunOptions{incrementalOps} = runOptions
+bench startingNodeId timeoutSeconds runOptions@BenchRunOptions{incrementalOps} workDir dataset =
+  withDatasetCluster startingNodeId timeoutSeconds incrementalOps workDir dataset $ \tracer timing opts clients sideUTxOs ->
+    scenario tracer timing opts workDir dataset clients Nothing sideUTxOs runOptions
+
+-- | Shared local devnet, funding and participant startup. Scenario actions run
+-- inside the process brackets, with live metrics and persistent work directories.
+withDatasetCluster ::
+  Int ->
+  NominalDiffTime ->
+  Bool ->
+  FilePath ->
+  Dataset ->
+  (Tracer IO HydraNodeLog -> Timing -> ChainBackendOptions -> NonEmpty HydraClient -> [UTxO] -> IO a) ->
+  IO (a, SystemStats)
+withDatasetCluster startingNodeId timeoutSeconds incrementalOps workDir dataset action = do
   putStrLn $ "Test logs available in: " <> (workDir </> "test.log")
   withFile (workDir </> "test.log") ReadWriteMode $ \hdl ->
     withTracerOutputTo defaultLogBuffering hdl "Test" $ \tracer ->
@@ -111,7 +121,7 @@ bench startingNodeId timeoutSeconds runOptions workDir dataset = do
           let contestationPeriod = truncate $ 10 * blockTime
           let DirectOptions{nodeSocket = nodeSocket'} = directOpts
           putTextLn "Seeding network"
-          sideUTxOs <- seedNetwork opts dataset incrementalOps (contramap FromFaucet tracer)
+          sideUTxOs <- fundDataset opts dataset incrementalOps (contramap FromFaucet tracer)
           putTextLn "Publishing hydra scripts"
           hydraScriptsTxId <- publishHydraScriptsAs opts Faucet
           putStrLn $ "Starting hydra cluster in " <> workDir
@@ -139,7 +149,7 @@ bench startingNodeId timeoutSeconds runOptions workDir dataset = do
             hydraScriptsTxId
             $ \clients -> do
               waitForNodesConnected hydraTracer 20 clients
-              scenario hydraTracer timing opts workDir dataset clients Nothing sideUTxOs runOptions
+              action hydraTracer timing opts clients sideUTxOs
         systemStats <- readTVarIO statsTvar
         pure (scenarioData, systemStats)
 
@@ -167,7 +177,7 @@ benchDemo networkId nodeSocket timeoutSeconds hydraClients pumbaCommand runOptio
           Just (blockTime, directOpts) -> do
             let opts = Direct directOpts
             putTextLn "Seeding network"
-            sideUTxOs <- seedNetwork opts dataset incrementalOps (contramap FromFaucet tracer)
+            sideUTxOs <- fundDataset opts dataset incrementalOps (contramap FromFaucet tracer)
             (`finally` returnFaucetFunds tracer opts) $ do
               putStrLn $ "Connecting to hydra cluster: " <> show hydraClients
               let hydraTracer = contramap FromHydraNode tracer
@@ -261,30 +271,7 @@ runScenario hydraTracer timing opts workDir Dataset{clientDatasets, title, descr
       clients = toList nonEmptyClients
   let totalTxs = sum $ map (length . txSequence) clientDatasets
 
-  putTextLn "Initializing Head"
-  send leader $ input "Init" []
-  headId :: HeadId <-
-    -- Opening the Head needs L1 Init round-trips whose wall-clock
-    -- cost is dominated by fixed overhead (tx building, observation, etcd), not
-    -- block time.
-    waitForAllMatch (60 + 5 * blockTime) clients $ \v -> do
-      guard $ v ^? key "tag" == Just "HeadIsOpen"
-      v ^? key "headId" . _JSON
-
-  putTextLn "Depositing initialUTxO from datasets"
-  depositTxs <- commitUTxO opts clients clientDatasets
-
-  putTextLn $ "Waiting for deposits to finalize: " <> show (txId <$> depositTxs)
-  -- NOTE: Need to wait for any CommitFinalized and only assert ids after as
-  -- waitForAllMatch skips over messages otherwise.
-  deposits <- replicateM (length depositTxs) $
-    waitForAllMatch (depositTimeout timing * fromIntegral clusterSize * 30) clients $ \v -> do
-      guard $ v ^? key "tag" == Just "CommitFinalized"
-      guard $ v ^? key "headId" == Just (toJSON headId)
-      v ^? key "depositTxId" >>= parseMaybe parseJSON
-  Set.fromList deposits `shouldBe` Set.fromList (txId <$> depositTxs)
-
-  putTextLn "HeadIsOpen with deposits finalized"
+  headId <- openHead timing opts clientDatasets nonEmptyClients
 
   -- Bracket the tx-processing window with RTS counter scrapes, outside the
   -- measured phase so the HTTP requests cannot disturb it.
@@ -312,15 +299,7 @@ runScenario hydraTracer timing opts workDir Dataset{clientDatasets, title, descr
 
   rtsAfter <- scrapeRtsStats clients
 
-  putTextLn "Closing the Head"
-  send leader $ input "Close" []
-
-  -- Same reasoning as the HeadIsOpen wait above: add a fixed overhead budget so
-  -- the timeout does not collapse to 2s on the fast-block devnet.
-  deadline <- waitMatch (60 + 20 * blockTime) leader $ \v -> do
-    guard $ v ^? key "tag" == Just "HeadIsClosed"
-    guard $ v ^? key "headId" == Just (toJSON headId)
-    v ^? key "contestationDeadline" . _JSON
+  deadline <- closeHead timing headId leader
 
   -- Write the results already in case we cannot finalize
   let res = mapMaybe analyze . Map.toList $ processedTransactions
@@ -328,29 +307,12 @@ runScenario hydraTracer timing opts workDir Dataset{clientDatasets, title, descr
 
   writeResultsCsv (workDir </> "results.csv") aggregates
 
-  -- Expect to see ReadyToFanout within 3 seconds after deadline
-  remainingTime <- diffUTCTime deadline <$> getCurrentTime
-  waitFor hydraTracer (remainingTime + 3) [leader] $
-    output "ReadyToFanout" ["headId" .= headId]
-
-  putTextLn "Finalizing the Head"
-  send leader $ input "Fanout" []
-  -- Partial fanout distributes a large UTxO over a chain of transactions, so
-  -- scale the wait with the head's size on top of a fixed floor.
-  headSize <- UTxO.size <$> getSnapshotUTxO leader
-  let fanoutBudget = fromIntegral $ 100 + headSize `div` 2
-  fanoutResult :: Either SomeException Int <- try $ waitMatch fanoutBudget leader $ \v -> do
-    guard (v ^? key "tag" == Just "HeadIsFinalized")
-    guard $ v ^? key "headId" == Just (toJSON headId)
-    -- 'finalizedUTxO' is a JSON object keyed by tx input, so count its
-    -- members ('values' would traverse an array and always yield 0).
-    finalizedObj <- v ^? key "finalizedUTxO"
-    pure $ length (finalizedObj ^.. members)
+  fanoutResult :: Either SomeException Int <- try $ fanoutHead hydraTracer deadline headId leader
 
   numberOfFanoutOutputs <-
     case fanoutResult of
       Left err -> do
-        putStrLn $ "Fanout did not finalize within " <> show fanoutBudget <> "s: " <> show err
+        putStrLn $ "Fanout did not finalize: " <> show err
         pure 0
       Right n -> pure n
 
@@ -407,8 +369,6 @@ runScenario hydraTracer timing opts workDir Dataset{clientDatasets, title, descr
       , nodeRtsStats = nodeRtsDeltas rtsBefore rtsAfter
       }
  where
-  Timing{blockTime} = timing
-
   withPumba :: Maybe String -> IO a -> IO a
   withPumba Nothing action = action
   withPumba (Just cmd) action = do
@@ -456,45 +416,6 @@ movingAverage confirmations =
               , n `div` window
               )
    in map average fiveSeconds
-
--- | Distribute 100 ADA fuel, starting funds from faucet for each client in the
--- dataset. When 'incrementalOpsEnabled' is True, additionally seeds a small
--- side UTxO (10 ADA) per client used later for interleaved incremental
--- commit/decommit cycles. The returned list is parallel to
--- 'clientDatasets' (empty when the flag is off).
-seedNetwork :: ChainBackendOptions -> Dataset -> Bool -> Tracer IO FaucetLog -> IO [UTxO]
-seedNetwork opts Dataset{fundingTransaction, hydraNodeKeys, clientDatasets} incrementalOpsEnabled tracer = do
-  fundClients hydraNodeKeys
-  forM_ hydraNodeKeys fuelWith100Ada
-  if incrementalOpsEnabled
-    then do
-      putTextLn "Funding side UTxOs for incremental ops"
-      forM clientDatasets $ \ClientDataset{paymentKey} ->
-        seedFromFaucet opts (getVerificationKey paymentKey) (lovelaceToValue 10_000_000) tracer
-    else pure []
- where
-  fundClients hydraSKeys = do
-    putTextLn "Fund scenario from faucet"
-    runBackend opts $ submitTransaction fundingTransaction
-    let vks = getVerificationKey <$> hydraSKeys
-    forM_ vks $ \vk -> runBackend opts (awaitTransaction fundingTransaction vk)
-
-  fuelWith100Ada signingKey = do
-    let vk = getVerificationKey signingKey
-    putTextLn $ "Fuel node key " <> show vk
-    seedFromFaucet opts vk (lovelaceToValue 100_000_000) tracer
-
--- | Deposit all 'initialUTxO' of each client data set.
-commitUTxO :: ChainBackendOptions -> [HydraClient] -> [ClientDataset] -> IO [Tx]
-commitUTxO opts clients clientDatasets =
-  forM (zip clients clientDatasets) doCommit
- where
-  doCommit (client, ClientDataset{initialUTxO, paymentKey}) = do
-    depositTx <-
-      requestCommitTx client initialUTxO
-        <&> signTx paymentKey
-    runBackend opts $ submitTransaction depositTx
-    pure depositTx
 
 data Event = Event
   { submittedAt :: UTCTime

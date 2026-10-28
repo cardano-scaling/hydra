@@ -320,3 +320,11 @@ other people's merges cannot appear as PR deltas):
 A new summary metric only shows a difference once both sides emit it, and
 must be registered in the script's `METRICS` table.
 
+
+## Scripted lifecycle and dashboard recording
+
+The `bench-e2e lifecycle` command reuses benchmark setup and lifecycle helpers
+for a three-party Head with a disappearing participant and checked recovery.
+It emits a live JSONL timeline and Prometheus targets. See
+[the lifecycle recording guide](../demo/lifecycle/README.md) for the scenario
+and the isolated Grafana/browser recording command.
