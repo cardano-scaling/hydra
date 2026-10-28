@@ -65,6 +65,7 @@ import Hydra.Node.UnsyncedPeriod (defaultUnsyncedPeriodFor)
 import Hydra.NodeSpec (createMockEventStore)
 import Hydra.Options (defaultContestationPeriod, defaultDepositActivation, defaultDepositPeriod)
 import Hydra.Tx (HeadId)
+import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Hydra.Tx.ContestationPeriod qualified as CP
 import Hydra.Tx.Crypto (HydraKey, aggregate, getVerificationKey, sign)
@@ -286,6 +287,30 @@ spec = parallel $ do
 
                 send n1 Close
                 waitForNext n1 >>= assertHeadIsClosedWith 1
+
+      it "accumulator capacity rejection lets all three parties confirm a later merge" $
+        shouldRunInSim $
+          withSimulatedChainAndNetwork $ \chain ->
+            withHydraNode aliceSk [bob, carol] chain $ \n1 ->
+              withHydraNode bobSk [alice, carol] chain $ \n2 ->
+                withHydraNode carolSk [alice, bob] chain $ \n3 -> do
+                  let nodes = [n1, n2, n3]
+                      limit = fromIntegral Accumulator.maxAccumulatorSize
+                      initial = utxoRefs [1 .. limit]
+                      split = SimpleTx 1 (utxoRef 1) (utxoRefs [limit + 1, limit + 2])
+                      merge = SimpleTx 2 (utxoRefs [1, 2]) (utxoRef (limit + 3))
+                  send n1 Init
+                  waitUntil nodes $ HeadIsOpen testHeadId (fromList [alice, bob, carol])
+                  depositHead chain nodes initial
+                  send n3 (NewTx split)
+                  waitUntilMatch nodes $ \case
+                    TxInvalid{transaction} -> guard $ transaction == split
+                    _ -> Nothing
+                  send n2 (NewTx merge)
+                  waitUntilMatch nodes $ \case
+                    SnapshotConfirmed{snapshot = Snapshot{confirmed, utxo}} ->
+                      guard $ confirmed == [merge] && utxo == applyTxTo merge initial
+                    _ -> Nothing
 
       it "snapshots are created as long as transactions to snapshot exist" $
         shouldRunInSim $
