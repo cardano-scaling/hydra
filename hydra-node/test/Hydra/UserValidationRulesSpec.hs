@@ -11,16 +11,20 @@ import GHC.IsList (toList)
 import Hydra.Cardano.Api (AssetId (..), getTxBody, getTxBodyContent, txMintValue, txMintValueToValue)
 import Hydra.Prelude hiding (toList)
 import Hydra.UserValidationRules (
-  MintingRule (..),
+  MintingOnL2Rule (..),
+  PolicyRule (..),
   UserValidationRules (..),
-  checkMinting,
+  checkPolicies,
   validateUserTransactionWith,
  )
 import Test.Hydra.Prelude
 import Test.Hydra.Tx.Gen (genTxWithMint)
 import Test.QuickCheck (Property, checkCoverage, coverTable, forAll, oneof, sublistOf, tabulate, (===))
 
-instance Arbitrary MintingRule where
+instance Arbitrary PolicyRule where
+  arbitrary = genericArbitrary
+
+instance Arbitrary MintingOnL2Rule where
   arbitrary = genericArbitrary
 
 instance Arbitrary UserValidationRules where
@@ -29,22 +33,28 @@ instance Arbitrary UserValidationRules where
 spec :: Spec
 spec = do
   describe "user validated transactions" $ do
-    prop "checkMinting" prop_checkMintedAssets
+    prop "checkPolicies" prop_checkMintedAssets
     prop "validateUserTransactionWith" prop_validateUserTransactionWith
 
 prop_validateUserTransactionWith :: Property
 prop_validateUserTransactionWith =
   forAll genTxWithMint $ \tx ->
-    forAll arbitrary $ \rules@(UserValidationRules rule) ->
-      let (category, expected) = case rule of
+    forAll (arbitrary :: Gen UserValidationRules) $ \rules ->
+      let (category, policyResult) = case policyRule rules of
             Nothing ->
-              ("validation disabled", Right ())
+              ("policy restriction disabled", Right ())
             Just ForbidAnyPolicy ->
-              ("forbid all policies", checkMinting Set.empty tx)
+              ("forbid all policies", checkPolicies Set.empty tx)
             Just (AllowOnlyPolicies allowed) ->
-              ("allow selected policies", checkMinting allowed tx)
-       in tabulate "Minting rule" [category] $
-            validateUserTransactionWith rules tx === expected
+              ("allow selected policies", checkPolicies allowed tx)
+          expected = do
+            policyResult
+            case l2MintingRule rules of
+              ForbidMinting -> checkPolicies Set.empty tx
+              AllowMinting -> Right ()
+       in tabulate "Policy rule" [category] $
+            tabulate "L2 minting rule" [show (l2MintingRule rules)] $
+              validateUserTransactionWith rules tx === expected
 
 prop_checkMintedAssets :: Property
 prop_checkMintedAssets =
@@ -81,4 +91,4 @@ prop_checkMintedAssets =
                     | expected = "allowed policies accept"
                     | otherwise = "partial allowlist rejects"
                in tabulate "Policy cases" [category] $
-                    isRight (checkMinting allowed tx) === expected
+                    isRight (checkPolicies allowed tx) === expected
