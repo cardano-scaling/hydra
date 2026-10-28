@@ -312,8 +312,12 @@ without the `operation` label.
 
 Keep no-traffic windows empty instead of presenting them as zero latency. The
 demo dashboards use these windowed queries and instant scrapeable-node counts,
-plus separate configured/unavailable-target counts. Both provisioning variants
-use the explicit datasource UID `prometheus`.
+plus separate configured/unavailable-target counts. Collapsible sections group
+node health, transaction flow, snapshot agreement, input pressure, broadcast and
+etcd, L1 operations, funds workflows, and persistence. The dashboards cover all
+core metric families, including etcd acknowledgement latency, the signed/adopted
+snapshot split and rollback depth. Both provisioning variants use the explicit
+datasource UID `prometheus`.
 
 `demo/prometheus/hydra.rules.yml` supplies alerts for absent/down targets, missing
 metric instrumentation, sync/connectivity, queue pressure, stalled L1/SQLite
