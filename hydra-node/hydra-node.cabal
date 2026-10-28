@@ -103,6 +103,7 @@ library
     Hydra.Node.UnsyncedPeriod
     Hydra.Node.Util
     Hydra.Options
+    Hydra.UserValidationRules
     Hydra.Utils
 
   other-modules:      Paths_hydra_node
@@ -425,6 +426,7 @@ test-suite tests
     Hydra.OptionsSpec
     Hydra.PartySpec
     Hydra.PersistentQueueSpec
+    Hydra.UserValidationRulesSpec
     Hydra.UtilsSpec
     Paths_hydra_node
     Test.Util

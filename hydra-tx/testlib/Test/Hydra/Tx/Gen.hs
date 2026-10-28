@@ -13,11 +13,13 @@ import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Crypto.DSIGN qualified as CC
 import Cardano.Crypto.Hash (hashToBytes)
 import Cardano.Crypto.Util (SignableRepresentation)
-import Cardano.Ledger.Api (ensureMinCoinTxOut, setMinCoinTxOut)
+import Cardano.Ledger.Api (bodyTxL, ensureMinCoinTxOut, setMinCoinTxOut)
+import Cardano.Ledger.Api qualified as LedgerApi
 import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Credential qualified as Ledger
 import Cardano.Ledger.Mary.Value (MaryValue (..))
 import Codec.CBOR.Magic (uintegerFromBytes)
+import Control.Lens (set)
 import Data.ByteString qualified as BS
 import Data.List (nub)
 import Data.Map.Strict qualified as Map
@@ -374,6 +376,15 @@ genScriptRegistryWithCRSSize crsSize = do
 instance Arbitrary Tx where
   -- TODO: shrinker!
   arbitrary = fromLedgerTx <$> arbitrary
+
+genTxWithMint :: Gen Tx
+genTxWithMint = do
+  tx <- arbitrary
+  mintedValue <- oneof [pure mempty, genMintedOrBurnedValue]
+  let MaryValue _ multiAsset = toLedgerValue mintedValue
+  pure $
+    fromLedgerTx $
+      set (bodyTxL . LedgerApi.mintTxBodyL) multiAsset (toLedgerTx tx)
 
 shrinkValue :: Value -> [Value]
 shrinkValue =
