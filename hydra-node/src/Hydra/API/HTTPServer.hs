@@ -35,8 +35,8 @@ import Hydra.Node.State (NodeState (..))
 import Hydra.Tx (CommitBlueprintTx (..), ConfirmedSnapshot, IsTx (..), Snapshot (..), UTxOType)
 import Hydra.Tx.Accumulator (AccumulatorTooLarge (..))
 import Hydra.Tx.DepositPeriod (toNominalDiffTime)
-import Network.HTTP.Types (ResponseHeaders, Status, hAccept, hContentType, status200, status202, status400, status404, status500, status503, statusCode)
-import Network.Wai (Application, Middleware, Request (pathInfo, requestMethod), Response, consumeRequestBodyStrict, rawPathInfo, requestHeaders, responseLBS, responseStatus)
+import Network.HTTP.Types (ResponseHeaders, Status, hAccept, hContentType, status200, status202, status400, status404, status500, status503)
+import Network.Wai (Application, Request (pathInfo, requestMethod), Response, consumeRequestBodyStrict, rawPathInfo, requestHeaders, responseLBS)
 
 newtype DraftCommitTxResponse tx = DraftCommitTxResponse
   { commitTx :: tx
@@ -340,31 +340,7 @@ httpApp ::
   -- | Channel to listen for events
   TChan (Either (TimedServerOutput tx) (ClientMessage tx)) ->
   Application
-httpApp tracer configDoc directChain env pparams getNodeState getCommitInfo getPendingDeposits putClientInput apiTransactionTimeout responseChannel = instrumentHTTP tracer $ httpAppUninstrumented tracer configDoc directChain env pparams getNodeState getCommitInfo getPendingDeposits putClientInput apiTransactionTimeout responseChannel
-
-httpAppUninstrumented ::
-  forall tx.
-  IsChainState tx =>
-  Tracer IO APIServerLog ->
-  -- | Pre-rendered effective configuration (served at GET /config).
-  Aeson.Value ->
-  Chain tx IO ->
-  Environment ->
-  PParams LedgerEra ->
-  -- | Get latest 'NodeState'.
-  IO (NodeState tx) ->
-  -- | A means to get commit info.
-  IO CommitInfo ->
-  -- | Get the pending commits (deposits)
-  IO [TxIdType tx] ->
-  -- | Callback to yield a 'ClientInput' to the main event loop.
-  (ClientInput tx -> IO ()) ->
-  -- | Timeout for transaction submission
-  ApiTransactionTimeout ->
-  -- | Channel to listen for events
-  TChan (Either (TimedServerOutput tx) (ClientMessage tx)) ->
-  Application
-httpAppUninstrumented tracer configDoc directChain env pparams getNodeState getCommitInfo getPendingDeposits putClientInput apiTransactionTimeout responseChannel request respond = do
+httpApp tracer configDoc directChain env pparams getNodeState getCommitInfo getPendingDeposits putClientInput apiTransactionTimeout responseChannel request respond = do
   traceWith tracer $
     APIHTTPRequestReceived
       { method = Method $ requestMethod request
@@ -390,7 +366,7 @@ httpAppUninstrumented tracer configDoc directChain env pparams getNodeState getC
       respond . respondApi respEnc status200 $ getSeenSnapshot hs
     ("POST", ["snapshot"]) ->
       consumeRequestBodyStrict request
-        >>= handleSideLoadSnapshot tracer putClientInput apiTransactionTimeout responseChannel reqEnc respEnc
+        >>= handleSideLoadSnapshot putClientInput apiTransactionTimeout responseChannel reqEnc respEnc
         >>= respond
     ("POST", ["commit"]) ->
       consumeRequestBodyStrict request
@@ -398,13 +374,13 @@ httpAppUninstrumented tracer configDoc directChain env pparams getNodeState getC
         >>= respond
     ("DELETE", ["commits", _]) ->
       consumeRequestBodyStrict request
-        >>= handleRecoverCommitUtxo tracer putClientInput apiTransactionTimeout responseChannel (last . fromList $ pathInfo request) respEnc
+        >>= handleRecoverCommitUtxo putClientInput apiTransactionTimeout responseChannel (last . fromList $ pathInfo request) respEnc
         >>= respond
     ("GET", ["commits"]) ->
       getPendingDeposits >>= respond . respondApi respEnc status200
     ("POST", ["decommit"]) ->
       consumeRequestBodyStrict request
-        >>= handleDecommit tracer putClientInput apiTransactionTimeout responseChannel reqEnc respEnc
+        >>= handleDecommit putClientInput apiTransactionTimeout responseChannel reqEnc respEnc
         >>= respond
     ("GET", ["protocol-parameters"]) ->
       respond $ respondPParams respEnc pparams
@@ -414,7 +390,7 @@ httpAppUninstrumented tracer configDoc directChain env pparams getNodeState getC
         >>= respond
     ("POST", ["transaction"]) ->
       consumeRequestBodyStrict request
-        >>= handleSubmitL2Tx tracer putClientInput apiTransactionTimeout responseChannel reqEnc respEnc
+        >>= handleSubmitL2Tx putClientInput apiTransactionTimeout responseChannel reqEnc respEnc
         >>= respond
     _ ->
       respond $ respondApi respEnc status400 ("Resource not found" :: Text)
@@ -522,7 +498,6 @@ handleDraftCommitUtxo tracer env pparams directChain getNodeState getCommitInfo 
 handleRecoverCommitUtxo ::
   forall tx.
   IsChainState tx =>
-  Tracer IO APIServerLog ->
   (ClientInput tx -> IO ()) ->
   ApiTransactionTimeout ->
   TChan (Either (TimedServerOutput tx) (ClientMessage tx)) ->
@@ -530,7 +505,7 @@ handleRecoverCommitUtxo ::
   ApiEncoding ->
   LBS.ByteString ->
   IO Response
-handleRecoverCommitUtxo tracer putClientInput apiTransactionTimeout responseChannel recoverPath respEnc _body = do
+handleRecoverCommitUtxo putClientInput apiTransactionTimeout responseChannel recoverPath respEnc _body = do
   case parseTxIdFromPath recoverPath of
     Left err -> pure err
     Right recoverTxId -> do
@@ -546,7 +521,7 @@ handleRecoverCommitUtxo tracer putClientInput apiTransactionTimeout responseChan
               Right (RejectedInputBecauseUnsynced{clientInput = Recover{}, drift}) ->
                 pure $ respondApi respEnc status503 ("Recover failed because node is out of sync with chain, drift: " <> show drift :: Text)
               _ -> wait
-      apiTimeout tracer "recover" (realToFrac (apiTransactionTimeoutNominalDiffTime apiTransactionTimeout)) wait >>= \case
+      timeout (realToFrac (apiTransactionTimeoutNominalDiffTime apiTransactionTimeout)) wait >>= \case
         Just r -> pure r
         Nothing ->
           pure $ respondApi respEnc status202 $ operationTimedOut "RecoverSubmitted" apiTransactionTimeout
@@ -589,7 +564,6 @@ handleSubmitUserTx tracer directChain reqEnc respEnc body = do
 handleDecommit ::
   forall tx.
   IsTx tx =>
-  Tracer IO APIServerLog ->
   (ClientInput tx -> IO ()) ->
   ApiTransactionTimeout ->
   TChan (Either (TimedServerOutput tx) (ClientMessage tx)) ->
@@ -597,7 +571,7 @@ handleDecommit ::
   ApiEncoding ->
   LBS.ByteString ->
   IO Response
-handleDecommit tracer putClientInput apiTransactionTimeout responseChannel reqEnc respEnc body =
+handleDecommit putClientInput apiTransactionTimeout responseChannel reqEnc respEnc body =
   case decodeWire reqEnc body :: Either String tx of
     Left err ->
       pure $ respondApi respEnc status400 (pack err)
@@ -623,7 +597,7 @@ handleDecommit tracer putClientInput apiTransactionTimeout responseChannel reqEn
                 | txId refused == txId decommitTx ->
                     pure $ respondApi respEnc status503 ("Decommit failed because the node's outbound message queue " <> describeStallReason stallReason <> ", " <> show pendingBroadcasts <> " messages pending" :: Text)
               _ -> wait
-      apiTimeout tracer "decommit" (realToFrac (apiTransactionTimeoutNominalDiffTime apiTransactionTimeout)) wait >>= \case
+      timeout (realToFrac (apiTransactionTimeoutNominalDiffTime apiTransactionTimeout)) wait >>= \case
         Just r -> pure r
         Nothing ->
           pure $ respondApi respEnc status202 $ operationTimedOut "DecommitSubmitted" apiTransactionTimeout
@@ -632,7 +606,6 @@ handleDecommit tracer putClientInput apiTransactionTimeout responseChannel reqEn
 handleSideLoadSnapshot ::
   forall tx.
   IsChainState tx =>
-  Tracer IO APIServerLog ->
   (ClientInput tx -> IO ()) ->
   ApiTransactionTimeout ->
   TChan (Either (TimedServerOutput tx) (ClientMessage tx)) ->
@@ -640,7 +613,7 @@ handleSideLoadSnapshot ::
   ApiEncoding ->
   LBS.ByteString ->
   IO Response
-handleSideLoadSnapshot tracer putClientInput apiTransactionTimeout responseChannel reqEnc respEnc body = do
+handleSideLoadSnapshot putClientInput apiTransactionTimeout responseChannel reqEnc respEnc body = do
   -- SECURITY: validate before queueing. An oversized snapshot decodes fine but
   -- detonates the moment its accumulator is forced -- in the tracer, in the
   -- rejection that echoes it back, or in multisignature verification. See
@@ -667,7 +640,7 @@ handleSideLoadSnapshot tracer putClientInput apiTransactionTimeout responseChann
               Right (RejectedInputBecauseUnsynced{clientInput = SideLoadSnapshot{}, drift}) ->
                 pure $ respondApi respEnc status503 ("Side-load snapshot failed because node is out of sync with chain, drift: " <> show drift :: Text)
               _ -> wait
-      apiTimeout tracer "side_load" (realToFrac (apiTransactionTimeoutNominalDiffTime apiTransactionTimeout)) wait >>= \case
+      timeout (realToFrac (apiTransactionTimeoutNominalDiffTime apiTransactionTimeout)) wait >>= \case
         Just r -> pure r
         Nothing ->
           pure $ respondApi respEnc status202 $ operationTimedOut "SideLoadSnapshotSubmitted" apiTransactionTimeout
@@ -676,7 +649,6 @@ handleSideLoadSnapshot tracer putClientInput apiTransactionTimeout responseChann
 handleSubmitL2Tx ::
   forall tx.
   IsChainState tx =>
-  Tracer IO APIServerLog ->
   (ClientInput tx -> IO ()) ->
   ApiTransactionTimeout ->
   TChan (Either (TimedServerOutput tx) (ClientMessage tx)) ->
@@ -684,7 +656,7 @@ handleSubmitL2Tx ::
   ApiEncoding ->
   LBS.ByteString ->
   IO Response
-handleSubmitL2Tx tracer putClientInput apiTransactionTimeout responseChannel reqEnc respEnc body = do
+handleSubmitL2Tx putClientInput apiTransactionTimeout responseChannel reqEnc respEnc body = do
   case decodeWire @(SubmitL2TxRequest tx) reqEnc body of
     Left err ->
       pure $ respondApi respEnc status400 (pack err)
@@ -697,9 +669,7 @@ handleSubmitL2Tx tracer putClientInput apiTransactionTimeout responseChannel req
 
       let txid = txId submitL2Tx
       result <-
-        apiTimeout
-          tracer
-          "transaction"
+        timeout
           (realToFrac (apiTransactionTimeoutNominalDiffTime apiTransactionTimeout))
           (waitForTransactionResult dupChannel txid)
 
@@ -756,41 +726,6 @@ badRequest apiEncoding = respondApi apiEncoding status400
 
 notFound :: ApiEncoding -> Response
 notFound apiEncoding = respondApi apiEncoding status404 ("" :: Text)
-
--- | Fixed route labels: transaction IDs and unknown paths never enter metrics.
-metricRoute :: [Text] -> Text
-metricRoute = \case
-  ["commits", _] -> "/commits/:id"
-  ["snapshot", "utxo"] -> "/snapshot/utxo"
-  ["snapshot", "last-seen"] -> "/snapshot/last-seen"
-  [route] | route `elem` ["config", "head", "snapshot", "commit", "commits", "decommit", "protocol-parameters", "cardano-transaction", "transaction"] -> "/" <> route
-  _ -> "unknown"
-
-instrumentHTTP :: Tracer IO APIServerLog -> Middleware
-instrumentHTTP tracer app request respond = do
-  started <- getMonotonicTime
-  let route = metricRoute (pathInfo request)
-      rawMethod = decodeUtf8 $ requestMethod request
-      httpMethod = if rawMethod `elem` ["GET", "POST", "DELETE", "PUT", "PATCH", "HEAD", "OPTIONS"] then rawMethod else "OTHER"
-  bracket_
-    (traceWith tracer APIHTTPStarted{route, httpMethod})
-    (traceWith tracer APIHTTPFinished)
-    ( app
-        request
-        ( \response -> do
-            result <- respond response
-            finished <- getMonotonicTime
-            traceWith tracer APIHTTPCompleted{route, httpMethod, status = statusCode $ responseStatus response, duration = diffTime finished started}
-            pure result
-        )
-        `onException` traceWith tracer APIHTTPException{route}
-    )
-
-apiTimeout :: Tracer IO APIServerLog -> Text -> DiffTime -> IO a -> IO (Maybe a)
-apiTimeout tracer command duration action = do
-  result <- timeout duration action
-  when (isNothing result) $ traceWith tracer APIOperationTimedOut{command}
-  pure result
 
 observeL1 :: Tracer IO APIServerLog -> Text -> (a -> Bool) -> IO a -> IO a
 observeL1 tracer operation succeeded action = do

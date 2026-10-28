@@ -9,12 +9,6 @@ data APIServerLog
   = APIServerStarted {listeningPort :: PortNumber}
   | APIL1Started {operation :: Text}
   | APIL1Finished {operation :: Text, successful :: Bool, duration :: DiffTime}
-  | APIHTTPStarted {route :: Text, httpMethod :: Text}
-  | APIHTTPFinished
-  | APIHTTPCompleted {route :: Text, httpMethod :: Text, status :: Int, duration :: DiffTime}
-  | APIHTTPException {route :: Text}
-  | APIOperationTimedOut {command :: Text}
-  | APIConnectionClosed
   | NewAPIConnection
   | APIOutputSent {sentOutput :: Aeson.Value}
   | APIInputReceived {receivedInput :: Aeson.Value}

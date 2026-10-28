@@ -20,8 +20,8 @@ data InputQueue m e = InputQueue
   { enqueue :: e -> m ()
   , tryEnqueue :: e -> m Bool
   -- ^ Admit an advisory input only if there is room, without blocking its producer.
-  , queueStats :: m (Natural, Int, Integer)
-  -- ^ Queued items, parked items, and delayed/releasing workers.
+  , queueStats :: m (Natural, Int)
+  -- ^ Queued items and parked items, including those awaiting readmission.
   , reenqueue :: DiffTime -> Queued e -> m ()
   , park :: Queued e -> m ()
   -- ^ Hold an item aside without re-enqueuing it, until 'releaseParked' moves
@@ -70,8 +70,7 @@ createInputQueue = do
           queued <- lengthTBQueue q
           held <- readTVar parked
           returning <- readTVar releasing
-          workers <- readTVar numThreads
-          pure (queued, length held + returning, workers)
+          pure (queued, length held + returning)
       , reenqueue = \delay e -> do
           atomically $ modifyTVar' numThreads succ
           void . asyncLabelled "input-queue-reenqueue" $ do

@@ -21,7 +21,7 @@ spec = do
           park q firstItem
           parked <- queueStats q
           pure (admitted, stats, parked)
-    result `shouldBe` (False, (100, 0, 0), (99, 1, 0))
+    result `shouldBe` (False, (100, 0), (99, 1))
 
   prop "adds sequential id to all enqueued items" prop_identify_enqueued_items
 

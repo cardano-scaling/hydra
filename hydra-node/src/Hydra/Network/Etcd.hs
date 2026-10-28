@@ -458,7 +458,7 @@ broadcastMessages tracer config ourHost queue = do
                     started <- getMonotonicTime
                     putMessage tracer conn ourHost lastModRevVar (batchValue $ snd <$> batch)
                     finished <- getMonotonicTime
-                    traceWith tracer $ BroadcastCompleted{messages = length batch, duration = diffTime finished started}
+                    traceWith tracer $ BroadcastCompleted{duration = diffTime finished started}
                     popBatchPersistentQueue (contramap fromPersistentQueueLog tracer) queue batch
                     atomically $ writeTVar inFlightVar Nothing
                     go (n - 1)
@@ -928,7 +928,7 @@ fromPersistentQueueLog = \case
 data EtcdLog
   = EtcdLog {etcd :: Value}
   | PersistentQueueStats {depth :: Natural, oldestAgeSeconds :: Double}
-  | BroadcastCompleted {messages :: Int, duration :: DiffTime}
+  | BroadcastCompleted {duration :: DiffTime}
   | NetworkConnectivity {connected :: Bool}
   | PersistentQueueStatFailed {reason :: Text}
   | PersistentQueueWriteFailed {reason :: Text}

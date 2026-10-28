@@ -120,7 +120,7 @@ spec = parallel $ do
           restored = rollbackDeposits (ChainSlot 1) consumed
           count :: NodeState SimpleTx -> Int
           count ns =
-            let gauges = Stats.nodeStats 0 0 0 ns
+            let gauges = Stats.nodeStats 0 0 ns
              in Stats.inactiveDeposits gauges + Stats.activeDeposits gauges + Stats.expiredDeposits gauges
       map count [observed, consumed, restored] `shouldBe` [1, 0, 1]
 

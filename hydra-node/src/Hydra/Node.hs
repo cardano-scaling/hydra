@@ -457,8 +457,8 @@ runHydraNode node@HydraNode{tracer, networkOutbox, nodeStateHandler = NodeStateH
 monitorNodeHealth :: (MonadDelay m, MonadSTM m, IsChainState tx) => HydraNode tx m -> m ()
 monitorNodeHealth HydraNode{tracer, inputQueue = InputQueue{queueStats}, nodeStateHandler = NodeStateHandler{queryNodeState}} = forever $ do
   currentState <- atomically queryNodeState
-  (queued, parked, delayed) <- queueStats
-  traceWith tracer $ NodeHealth $ nodeStats queued parked delayed currentState
+  (queued, parked) <- queueStats
+  traceWith tracer $ NodeHealth $ nodeStats queued parked currentState
   threadDelay 1
 
 stepHydraNode ::

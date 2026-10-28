@@ -81,13 +81,14 @@ import Control.Concurrent.Class.MonadSTM (
   writeTBQueue,
   writeTVar,
  )
-import Control.Exception (Exception, IOException, catch, finally, onException, throwIO)
+import Control.Exception (Exception, finally, onException, throwIO)
 import Control.Monad (forM, forM_, forever, unless, when)
 import Control.Monad.Class.MonadAsync (async, cancel, link)
 import Control.Monad.IO.Class (liftIO)
 import Control.Tracer (Tracer, traceWith)
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Aeson qualified as Aeson
+import Data.Bifunctor (second)
 import Data.ByteString (ByteString)
 import Data.ByteString qualified as BS
 import Data.Conduit.Combinators (linesUnboundedAscii)
@@ -103,9 +104,8 @@ import Data.Word (Word64)
 import Database.SQLite.Simple (Connection, Only (..), Statement, close, closeStatement, execute, executeMany, execute_, nextRow, open, openStatement, query, query_, withTransaction)
 import GHC.Clock (getMonotonicTimeNSec)
 import GHC.Generics (Generic)
-import System.Directory (createDirectoryIfMissing, doesFileExist, getFileSize, removeFile, renameFile)
+import System.Directory (createDirectoryIfMissing, doesFileExist, removeFile, renameFile)
 import System.FilePath (takeBaseName, takeDirectory, takeExtension, (</>))
-import System.IO.Error (isDoesNotExistError)
 
 -- | Exception thrown when a persisted event cannot be decoded.
 data EventDecodingException = EventDecodingException
@@ -120,10 +120,9 @@ data SQLiteLog
   = MigratingFromFileBased {legacyFile :: FilePath}
   | MigrationSkipped {legacyFile :: FilePath}
   | MigrationComplete {legacyFile :: FilePath}
-  | SQLiteStats {queueDepth :: Int, databaseBytes :: Integer, walBytes :: Integer}
-  | SQLiteStatsFailed
+  | SQLiteStats {queueDepth :: Int}
   | SQLiteWriteStarted
-  | SQLiteWriteCompleted {eventsWritten :: Int, writeSeconds :: Double, oldestEventSeconds :: Double}
+  | SQLiteWriteCompleted {writeSeconds :: Double}
   | SQLiteWriteFailed
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
@@ -135,7 +134,7 @@ data SQLiteLog
 -- encoding of an event carrying a large payload otherwise sits on the caller's
 -- thread. The bounded queue briefly pins event values instead of compact
 -- bytes, but the writer drains whole-queue batches so the window is short.
-type WriteItem e = Either (TMVar IO ()) (Word64, e, Word64)
+type WriteItem e = Either (TMVar IO ()) (Word64, e)
 
 -- | Bracket-style wrapper around 'mkSQLiteEventStore'. Creates the database,
 -- schema, and writer thread, runs the callback, then flushes queued writes and
@@ -195,13 +194,8 @@ mkSQLiteEventStore tracer dbFile = do
   writeQueue <- newTBQueueIO 1000
   writerThread <- async $ writerLoop tracer conn writeQueue
   statsThread <- async $ forever $ do
-    ( do
-        queueDepth <- fromIntegral <$> atomically (lengthTBQueue writeQueue)
-        databaseBytes <- fileSize dbFile
-        walBytes <- fileSize (dbFile <> "-wal")
-        traceWith tracer SQLiteStats{queueDepth, databaseBytes, walBytes}
-      )
-      `catch` \(_ :: IOException) -> traceWith tracer SQLiteStatsFailed
+    queueDepth <- fromIntegral <$> atomically (lengthTBQueue writeQueue)
+    traceWith tracer SQLiteStats{queueDepth}
     threadDelay 1000000
   link writerThread
   link statsThread
@@ -238,10 +232,9 @@ mkSQLiteEventStore tracer dbFile = do
             yield evt
             yieldRows stmt
 
-    enqueueEvent evt = do
-      queuedAt <- getMonotonicTimeNSec
+    enqueueEvent evt =
       atomically $ do
-        writeTBQueue writeQueue (Right (getEventId evt, evt, queuedAt))
+        writeTBQueue writeQueue (Right (getEventId evt, evt))
         setLastSeenEventId evt
 
     putEvent evt =
@@ -256,10 +249,9 @@ mkSQLiteEventStore tracer dbFile = do
       let newEvts = case lastSeen of
             Nothing -> evts
             Just lastId -> filter (\e -> getEventId e > lastId) evts
-      unless (null newEvts) $ do
-        queuedAt <- getMonotonicTimeNSec
+      unless (null newEvts) $
         atomically $ do
-          forM_ newEvts $ \evt -> writeTBQueue writeQueue (Right (getEventId evt, evt, queuedAt))
+          forM_ newEvts $ \evt -> writeTBQueue writeQueue (Right (getEventId evt, evt))
           case nonEmpty newEvts of
             Just ne -> setLastSeenEventId (NE.last ne)
             Nothing -> pure ()
@@ -305,15 +297,14 @@ writerLoop tracer conn queue = forever $ do
   rest <- atomically $ flushTBQueue queue
   let allItems = first' : rest
       (flushSignals, events) = partitionEithers allItems
-      eventRows = map (\(eid, evt, _) -> (eid, serialize' evt)) events
+      eventRows = map (second serialize') events
   unless (null eventRows) $ do
     started <- getMonotonicTimeNSec
     traceWith tracer SQLiteWriteStarted
     withTransaction conn (insertEvents conn eventRows)
       `onException` traceWith tracer SQLiteWriteFailed
     finished <- getMonotonicTimeNSec
-    let oldest = minimum [queuedAt | (_, _, queuedAt) <- events]
-    traceWith tracer $ SQLiteWriteCompleted (length eventRows) (secondsBetween finished started) (secondsBetween finished oldest)
+    traceWith tracer $ SQLiteWriteCompleted (secondsBetween finished started)
   forM_ flushSignals $ \mv -> atomically $ putTMVar mv ()
 
 -- | Block until all items currently in the write queue have been flushed to
@@ -512,8 +503,3 @@ backupDatabase conn dbFile logId = do
 
 secondsBetween :: Word64 -> Word64 -> Double
 secondsBetween end start = fromIntegral (end - start) / 1.0e9
-
-fileSize :: FilePath -> IO Integer
-fileSize path = do
-  exists <- doesFileExist path
-  if exists then getFileSize path `catch` \(e :: IOException) -> if isDoesNotExistError e then pure 0 else throwIO e else pure 0

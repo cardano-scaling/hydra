@@ -50,12 +50,11 @@ spec = do
             (void . atomically $ tryPutTMVar allowCommit ())
             ( do
                 samples <- readIORef observations
-                [eventsWritten | SQLiteWriteCompleted{eventsWritten} <- samples] `shouldBe` []
+                [writeSeconds | SQLiteWriteCompleted{writeSeconds} <- samples] `shouldBe` []
             )
           getEvents eventSource `shouldReturn` [event]
           samples <- readIORef observations
-          sum [eventsWritten | SQLiteWriteCompleted{eventsWritten} <- samples] `shouldBe` 1
-          [oldestEventSeconds >= writeSeconds | SQLiteWriteCompleted{oldestEventSeconds, writeSeconds} <- samples] `shouldBe` [True]
+          [writeSeconds >= 0 | SQLiteWriteCompleted{writeSeconds} <- samples] `shouldBe` [True]
 
   describe "mkSQLiteEventStore" $ do
     prop "can stream events" $

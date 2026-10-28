@@ -138,8 +138,8 @@
     },
     {
       "id": 3,
-      "title": "Ready / synced / connected",
-      "description": "",
+      "title": "Synced / network connected",
+      "description": "Chain synchronization and live network connectivity. Inspect snapshot and queue progress separately.",
       "type": "stat",
       "datasource": {
         "type": "prometheus",
@@ -157,45 +157,34 @@
           "min": 0,
           "color": {
             "mode": "palette-classic"
-          }
+          },
+          "max": 1
         },
         "overrides": []
       },
       "targets": [
         {
           "refId": "A",
-          "expr": "hydra_node_ready{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}",
-          "legendFormat": "{{instance}} ready",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "instant": true,
-          "range": false,
-          "editorMode": "code"
-        },
-        {
-          "refId": "B",
           "expr": "hydra_node_synced{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}",
           "legendFormat": "{{instance}} synced",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "instant": true,
-          "range": false,
+          "instant": false,
+          "range": true,
           "editorMode": "code"
         },
         {
-          "refId": "C",
+          "refId": "B",
           "expr": "hydra_network_connected{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}",
           "legendFormat": "{{instance}} network",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "instant": true,
-          "range": false,
+          "instant": false,
+          "range": true,
           "editorMode": "code"
         }
       ],
@@ -557,8 +546,8 @@
     },
     {
       "id": 10,
-      "title": "Outstanding round age",
-      "description": "Age is derived from the outstanding round start timestamp. No age is shown when absent or restored with an unknown start; inflight and missing-signature signals still identify outstanding work.",
+      "title": "Snapshot round in flight",
+      "description": "Outstanding snapshot requests or signature collection, including restored work.",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
@@ -572,19 +561,20 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "s",
+          "unit": "short",
           "min": 0,
           "color": {
             "mode": "palette-classic"
-          }
+          },
+          "max": 1
         },
         "overrides": []
       },
       "targets": [
         {
           "refId": "A",
-          "expr": "clamp_min(time() - hydra_head_snapshot_started_timestamp_seconds{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}, 0) and (hydra_head_snapshot_started_timestamp_seconds{job=\"hydra_nodes\",instance=~\"${instance:regex}\"} > 0)",
-          "legendFormat": "{{instance}} seconds",
+          "expr": "hydra_head_snapshot_inflight{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}",
+          "legendFormat": "{{instance}} inflight",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -938,8 +928,8 @@
     },
     {
       "id": 17,
-      "title": "Network failures and recovery",
-      "description": "",
+      "title": "Network failures / reconnects / lease warnings",
+      "description": "Bounded operational categories; routine deduplication and compaction recovery remain in logs.",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
@@ -1034,18 +1024,6 @@
           "instant": false,
           "range": true,
           "editorMode": "code"
-        },
-        {
-          "refId": "C",
-          "expr": "hydra_node_delayed_input_workers{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}",
-          "legendFormat": "{{instance}} retry workers",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "instant": false,
-          "range": true,
-          "editorMode": "code"
         }
       ],
       "options": {
@@ -1121,8 +1099,8 @@
     },
     {
       "id": 20,
-      "title": "Invalid / refused transactions",
-      "description": "",
+      "title": "Transaction refusals / invalidations",
+      "description": "Transaction lifecycle events and refusals of NewTx/Decommit inputs. Events are not unique transactions or a success-rate denominator.",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
@@ -1147,7 +1125,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "rate(hydra_head_transaction_outcomes_total{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}[$__rate_interval])",
+          "expr": "rate(hydra_head_transaction_outcomes_total{job=\"hydra_nodes\",instance=~\"${instance:regex}\",outcome!=\"applied\"}[$__rate_interval])",
           "legendFormat": "{{instance}} {{outcome}}",
           "datasource": {
             "type": "prometheus",
@@ -1257,20 +1235,8 @@
         },
         {
           "refId": "B",
-          "expr": "rate(hydra_chain_rollbacks_total{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}[$__rate_interval])",
+          "expr": "rate(hydra_chain_rollback_slots_count{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}[$__rate_interval])",
           "legendFormat": "{{instance}} rollback",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "instant": false,
-          "range": true,
-          "editorMode": "code"
-        },
-        {
-          "refId": "C",
-          "expr": "rate(hydra_chain_blockfrost_rate_limits_total{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}[$__rate_interval])",
-          "legendFormat": "{{instance}} rate limit",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -1492,8 +1458,8 @@
     },
     {
       "id": 27,
-      "title": "API HTTP latency",
-      "description": "",
+      "title": "L1 operations in flight",
+      "description": "Includes L1 protocol posts, deposit drafts and user transaction submissions.",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
@@ -1507,7 +1473,7 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "s",
+          "unit": "short",
           "min": 0,
           "color": {
             "mode": "palette-classic"
@@ -1518,8 +1484,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "rate(hydra_api_http_seconds_sum{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}[$__rate_interval]) / rate(hydra_api_http_seconds_count{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}[$__rate_interval])",
-          "legendFormat": "{{instance}} {{route}}",
+          "expr": "hydra_chain_operations_inflight{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}",
+          "legendFormat": "{{instance}} {{backend}} inflight",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -1541,8 +1507,8 @@
     },
     {
       "id": 28,
-      "title": "API responses / wait timeouts",
-      "description": "",
+      "title": "SQLite write in flight",
+      "description": "One while encoding and committing a batch, even if the waiting queue is empty.",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
@@ -1556,31 +1522,20 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "ops",
+          "unit": "short",
           "min": 0,
           "color": {
             "mode": "palette-classic"
-          }
+          },
+          "max": 1
         },
         "overrides": []
       },
       "targets": [
         {
           "refId": "A",
-          "expr": "rate(hydra_api_http_responses_total{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}[$__rate_interval])",
-          "legendFormat": "{{instance}} {{route}} {{status}}",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "instant": false,
-          "range": true,
-          "editorMode": "code"
-        },
-        {
-          "refId": "B",
-          "expr": "rate(hydra_api_operation_timeouts_total{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}[$__rate_interval])",
-          "legendFormat": "{{instance}} {{command}} timeout",
+          "expr": "hydra_persistence_write_inflight{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}",
+          "legendFormat": "{{instance}} write inflight",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -1651,8 +1606,8 @@
     },
     {
       "id": 30,
-      "title": "Persistence completion latency",
-      "description": "",
+      "title": "Persistence write latency",
+      "description": "Batch encoding and SQLite commit duration. Completion does not guarantee durability against power loss.",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
@@ -1686,18 +1641,6 @@
           "instant": false,
           "range": true,
           "editorMode": "code"
-        },
-        {
-          "refId": "B",
-          "expr": "rate(hydra_persistence_oldest_event_seconds_sum{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}[$__rate_interval]) / rate(hydra_persistence_oldest_event_seconds_count{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}[$__rate_interval])",
-          "legendFormat": "{{instance}} oldest queued event",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "instant": false,
-          "range": true,
-          "editorMode": "code"
         }
       ],
       "options": {
@@ -1712,8 +1655,8 @@
     },
     {
       "id": 31,
-      "title": "Database / WAL / resident memory",
-      "description": "",
+      "title": "Blockfrost retries / rate limits",
+      "description": "Provider diagnostics when the node uses the Blockfrost chain backend.",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
@@ -1727,7 +1670,7 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "bytes",
+          "unit": "ops",
           "min": 0,
           "color": {
             "mode": "palette-classic"
@@ -1738,8 +1681,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "hydra_persistence_database_bytes{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}",
-          "legendFormat": "{{instance}} DB",
+          "expr": "rate(hydra_chain_blockfrost_retries_total{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}[$__rate_interval])",
+          "legendFormat": "{{instance}} retries",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -1750,20 +1693,8 @@
         },
         {
           "refId": "B",
-          "expr": "hydra_persistence_wal_bytes{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}",
-          "legendFormat": "{{instance}} WAL",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "instant": false,
-          "range": true,
-          "editorMode": "code"
-        },
-        {
-          "refId": "C",
-          "expr": "hydra_process_resident_memory_bytes{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}",
-          "legendFormat": "{{instance}} RSS",
+          "expr": "rate(hydra_chain_blockfrost_rate_limits_total{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}[$__rate_interval])",
+          "legendFormat": "{{instance}} rate limits",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -1785,8 +1716,8 @@
     },
     {
       "id": 32,
-      "title": "CPU seconds per second",
-      "description": "CPU cores consumed by the process, including runtime and GC work.",
+      "title": "Input waits / dropped inputs",
+      "description": "Wait outcomes include retries; dropped inputs have exhausted retry eligibility.",
       "type": "timeseries",
       "datasource": {
         "type": "prometheus",
@@ -1800,7 +1731,7 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "short",
+          "unit": "ops",
           "min": 0,
           "color": {
             "mode": "palette-classic"
@@ -1811,8 +1742,20 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "rate(hydra_process_cpu_seconds_total{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}[$__rate_interval])",
-          "legendFormat": "{{instance}}",
+          "expr": "rate(hydra_node_input_waits_total{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}[$__rate_interval])",
+          "legendFormat": "{{instance}} wait {{reason}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": false,
+          "range": true,
+          "editorMode": "code"
+        },
+        {
+          "refId": "B",
+          "expr": "rate(hydra_node_input_drops_total{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}[$__rate_interval])",
+          "legendFormat": "{{instance}} dropped {{source}}",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"

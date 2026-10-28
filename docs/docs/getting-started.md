@@ -128,9 +128,9 @@ docker compose up -d prometheus grafana
 
 Prometheus will scrape the `/metrics` endpoint of each Hydra node automatically.
 
-Grafana is preconfigured with per-node readiness, transaction rates, windowed
-mean and p95 latency, chain and network health, input queues, deposits, decommit,
-fanout, API, persistence and process resource panels. The instance dropdown
+Grafana is preconfigured with per-node synchronization and connectivity,
+transaction rates, windowed mean and p95 latency, chain and network health, input
+queues, deposits, decommit, fanout and persistence panels. The instance dropdown
 selects nodes; peer counts keep complete instance names. Confirmation rates are
 per replica and must not be summed as unique Head throughput.
 

@@ -38,14 +38,16 @@ will return Prometheus text with `HELP` and `TYPE` metadata. For example:
 # HELP hydra_head_confirmed_tx_total Transactions in newly confirmed or adopted snapshot numbers observed in this process; repeated adoption excluded.
 # TYPE hydra_head_confirmed_tx_total counter
 hydra_head_confirmed_tx_total  0
-# HELP hydra_node_ready One when the main loop has started, the node is synced, the network is connected and the outbox is not stalled.
-# TYPE hydra_node_ready gauge
-hydra_node_ready  0.0
+# HELP hydra_node_synced One when the current node state is in sync.
+# TYPE hydra_node_synced gauge
+hydra_node_synced  0.0
 ```
 
 The endpoint is available during initialization. A successful scrape means the
-process is reachable; `hydra_node_ready` reports application readiness. An
-occupied monitoring port fails startup instead of silently disabling metrics.
+process is reachable. Assess synchronization with `hydra_node_synced`, network
+connectivity with `hydra_network_connected`, and actual work through the progress
+and backlog metrics. An occupied monitoring port fails startup instead of
+silently disabling metrics.
 
 See the [metrics reference](/benchmarks/metrics#runtime-metrics-prometheus) for
 all families, units, bounded labels, timing boundaries and compatibility aliases.

@@ -18,19 +18,26 @@ groups:
         annotations:
           summary: "No Hydra targets are configured or discovered"
       - alert: HydraMetricsMissing
-        expr: up{job="hydra_nodes"} == 1 unless on (job, instance) hydra_node_ready
+        expr: up{job="hydra_nodes"} == 1 unless on (job, instance) hydra_node_synced
         for: 2m
         labels:
           severity: warning
         annotations:
-          summary: "Hydra endpoint responds but its readiness metric is absent"
-      - alert: HydraNotReady
-        expr: hydra_node_ready{job="hydra_nodes"} == 0
+          summary: "Hydra endpoint responds but its sync metric is absent"
+      - alert: HydraNodeUnsynced
+        expr: hydra_node_synced{job="hydra_nodes"} == 0
         for: 5m
         labels:
           severity: warning
         annotations:
-          summary: "Hydra has not become ready on {{ $labels.instance }}"
+          summary: "Hydra remains out of sync on {{ $labels.instance }}"
+      - alert: HydraNetworkDisconnected
+        expr: hydra_network_connected{job="hydra_nodes"} == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Hydra network remains disconnected on {{ $labels.instance }}"
       - alert: HydraBroadcastStalled
         expr: hydra_head_broadcast_stalled{job="hydra_nodes"} == 1
         for: 30s
@@ -73,6 +80,27 @@ groups:
           severity: warning
         annotations:
           summary: "SQLite write queue is near capacity on {{ $labels.instance }}"
+      - alert: HydraPersistenceWriterStalled
+        expr: hydra_persistence_write_inflight{job="hydra_nodes"} == 1 and on (job, instance) (changes(hydra_persistence_write_seconds_count[5m]) == 0)
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "SQLite has an active batch without completed writes on {{ $labels.instance }}"
+      - alert: HydraL1OperationStalled
+        expr: hydra_chain_operations_inflight{job="hydra_nodes"} > 0 and on (job, instance, backend) (sum by (job, instance, backend) (increase(hydra_chain_operation_seconds_count[5m])) == 0)
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Hydra has active L1 operations without completions on {{ $labels.instance }}"
+      - alert: HydraTimingCoverageLost
+        expr: increase(hydra_monitoring_timing_evictions_total{job="hydra_nodes"}[5m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Hydra transaction latency timing coverage is incomplete on {{ $labels.instance }}"
       - alert: HydraFanoutStalled
         expr: hydra_head_fanout_remaining_outputs{job="hydra_nodes"} > 0 and on (job, instance) (hydra_head_fanout_mode{mode=~"automatic|selected"} == 1) and on (job, instance) (changes(hydra_head_fanout_remaining_outputs[10m]) == 0)
         for: 10m

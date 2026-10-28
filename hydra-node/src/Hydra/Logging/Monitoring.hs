@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE RecordWildCards #-}
 
 -- | Prometheus exposition and trace-driven accounting. Counters describe this
@@ -19,14 +18,12 @@ import Control.Tracer (Tracer (Tracer), emit, traceWith)
 import Data.EventSource.SQLite (SQLiteLog (..))
 import Data.Map.Strict qualified as Map
 import Data.Set qualified as Set
-import Data.Text qualified as Text
 import Data.Time.Clock.POSIX (utcTimeToPOSIXSeconds)
-import Data.Version (showVersion)
 import GHC.Stats (RTSStats (..), getRTSStats, getRTSStatsEnabled)
 import Hydra.API.APIServerLog qualified as API
+import Hydra.API.ClientInput qualified as Client
 import Hydra.API.ServerOutput qualified as Output
 import Hydra.Cardano.Api (ChainPoint (..), SlotNo (..))
-import Hydra.Chain qualified as Chain
 import Hydra.Chain.Direct.Handlers qualified as ChainLog
 import Hydra.HeadLogic (Input (..))
 import Hydra.HeadLogic.Outcome (Effect (ClientEffect), Outcome (..), StateChanged (..), WaitReason (..))
@@ -38,7 +35,6 @@ import Hydra.Logging.Monitoring.Registry qualified as Registry
 import Hydra.Network (PortNumber, StallReason (..))
 import Hydra.Network.Etcd qualified as Etcd
 import Hydra.Network.Message (Message (ReqTx), NetworkEvent (..))
-import Hydra.NetworkVersions (hydraNodeVersion)
 import Hydra.Node (HydraNodeLog (..))
 import Hydra.Node.Network qualified as Network
 import Hydra.Node.State qualified as NodeState
@@ -47,11 +43,6 @@ import Hydra.Tx (HeadId, IsTx (..), Snapshot (..), getSnapshot)
 import Network.HTTP.Types (status200, status404)
 import Network.Wai (pathInfo, responseLBS)
 import Network.Wai.Handler.Warp (defaultSettings, runSettings, setBeforeMainLoop, setPort)
-import System.CPUTime (getCPUTime)
-import System.Directory (doesFileExist)
-#ifndef mingw32_HOST_OS
-import System.Posix.Unistd (SysVar (ClockTick), getSysVar)
-#endif
 import System.Metrics.Prometheus.Metric.Counter qualified as Counter
 import System.Metrics.Prometheus.Metric.Gauge qualified as Gauge
 import System.Metrics.Prometheus.Metric.Histogram qualified as Histogram
@@ -63,7 +54,7 @@ withMonitoringForBackend :: IsTx tx => Text -> Maybe PortNumber -> Tracer IO (Hy
 withMonitoringForBackend _ Nothing tracer action = action tracer
 withMonitoringForBackend backend (Just port) tracer action = do
   (traceMetric, registry, refresh) <- prepareRegistry backend
-  refreshRuntime <- registerRuntimeMetrics registry
+  refreshRuntime <- registerRtsMetrics registry
   scrapeLock <- MVar.newMVar ()
   listening <- newLabelledEmptyTMVarIO "monitoring-listening"
   let settings = setPort (fromIntegral port) $ setBeforeMainLoop (atomically $ putTMVar listening ()) defaultSettings
@@ -96,13 +87,10 @@ isMetricSample = \case
   Network (Network.Etcd Etcd.NetworkConnectivity{}) -> True
   SQLite SQLiteWriteStarted -> True
   SQLite SQLiteWriteCompleted{} -> True
+  SQLite SQLiteWriteFailed -> True
   APIServer API.APIL1Started{} -> True
   APIServer API.APIL1Finished{} -> True
-  APIServer API.APIHTTPStarted{} -> True
-  APIServer API.APIHTTPFinished -> True
-  APIServer API.APIHTTPCompleted{} -> True
   SQLite SQLiteStats{} -> True
-  SQLite SQLiteStatsFailed -> True
   _ -> False
 
 -- | The refresh action expires unused timers even when no messages arrive.
@@ -113,11 +101,6 @@ prepareRegistry backend = do
   accounting <- MVar.newMVar Accounting.empty
   inputStarted <- newIORef Nothing
   peerSet <- newIORef Set.empty
-  loopStarted <- newIORef False
-  connected <- newIORef False
-  stalled <- newIORef False
-  syncState <- newIORef False
-  roundStarted <- newIORef False
   backendSlot <- newIORef 0
   let set = flip Gauge.set
       tick = Counter.inc
@@ -126,29 +109,17 @@ prepareRegistry backend = do
       bool gauge value = set gauge (if value then 1 else 0)
       timestamp gauge = getCurrentTime >>= set gauge . realToFrac . utcTimeToPOSIXSeconds
       mono = realToFrac . (\(Time t) -> t) <$> getMonotonicTime
-      updateReady = do
-        running <- readIORef loopStarted
-        inSync <- readIORef syncState
-        online <- readIORef connected
-        blocked <- readIORef stalled
-        bool ready (running && inSync && online && not blocked)
       oneHot :: Map Text Gauge.Gauge -> Text -> IO ()
       oneHot gauges value = forM_ (Map.toList gauges) $ \(key, gauge) -> bool gauge (key == value)
-      resetRound = writeIORef roundStarted False >> set snapshotStarted 0
-      startRound = do
-        started <- readIORef roundStarted
-        unless started $ timestamp snapshotStarted >> writeIORef roundStarted True
       refresh = do
         now <- mono
         MVar.modifyMVar_ accounting $ \state -> do
           let (removed, next) = Accounting.prune 100000 3600 now state
           add evictedTimings removed
           pure next
-      clearPending = MVar.modifyMVar_ accounting (pure . Accounting.clearPending) >> resetRound
-      resetHead = do
+      clearPending = MVar.modifyMVar_ accounting (pure . Accounting.clearPending)
+      resetHead =
         MVar.modifyMVar_ accounting $ \state -> pure (Accounting.clearPending state){Accounting.confirmed = Nothing}
-        resetRound
-        set decommitStarted 0
       seed ns = do
         let (confirmed, pending) = case NodeState.headState ns of
               Head.Open Head.OpenState{coordinatedHeadState = Head.CoordinatedHeadState{confirmedSnapshot, seenSnapshot}} ->
@@ -162,7 +133,6 @@ prepareRegistry backend = do
               { Accounting.confirmed = snapshotKey <$> confirmed
               , Accounting.inFlight = (\snapshot -> (snapshotKey snapshot, Nothing, txId <$> Hydra.Tx.confirmed snapshot)) <$> pending
               }
-        resetRound
       confirm supplied = do
         now <- mono
         MVar.modifyMVar accounting $ \state -> do
@@ -178,7 +148,6 @@ prepareRegistry backend = do
                 tick $ snapshots `at` source
                 traverse_ (observe snapshotConfirmationTime) duration
                 traverse_ (observe txConfirmationTime) txDurations
-              when (isNothing $ Accounting.inFlight next) resetRound
               pure (next, newNumber)
       stateChange = \case
         PeerConnected{peer} -> do
@@ -196,44 +165,38 @@ prepareRegistry backend = do
           resetHead
           MVar.modifyMVar_ accounting $ \state -> pure state{Accounting.confirmed = Just $ Accounting.SnapshotKey headId 0 0}
         HeadClosed{} -> clearPending
-        HeadFannedOut{} -> resetHead >> tick fanoutChunks
-        HeadPartialFannedOut{} -> tick fanoutChunks
+        HeadFannedOut{} -> resetHead
         LocalStateCleared{} -> clearPending
         Checkpoint{state} -> seed state
-        SnapshotRequestDecided{} -> startRound
         SnapshotRequested{requestedSnapshot} -> do
           now <- mono
           MVar.modifyMVar_ accounting $ pure . Accounting.startSnapshot (snapshotKey requestedSnapshot) (Just now) (txId <$> Hydra.Tx.confirmed requestedSnapshot)
-          startRound
         SnapshotConfirmed{snapshot} -> void $ confirm snapshot
         TxInvalid{transaction} -> do
           MVar.modifyMVar_ accounting (pure . Accounting.forget (txId transaction))
           tick $ txOutcomes `at` "invalid"
         TransactionAppliedToLocalUTxO{} -> tick $ txOutcomes `at` "applied"
-        DecommitRecorded{} -> timestamp decommitStarted
         DecommitInvalid{} -> tick (txOutcomes `at` "decommit_invalid")
-        DecommitFinalized{} -> set decommitStarted 0
         _ -> pure ()
+      transactionRefused :: Text -> Client.ClientInput tx -> IO ()
+      transactionRefused outcome input = when (isTransactionInput input) $ tick (txOutcomes `at` outcome)
       effect = \case
-        ClientEffect Output.RejectedInputBecauseBroadcastStalled{} -> tick inputsRefusedBroadcastStalled >> tick (txOutcomes `at` "refused_stalled")
-        ClientEffect Output.RejectedInputBecauseUnsynced{} -> tick $ txOutcomes `at` "refused_unsynced"
-        ClientEffect Output.CommandFailed{} -> tick $ txOutcomes `at` "command_failed"
+        ClientEffect Output.RejectedInputBecauseBroadcastStalled{clientInput} -> tick inputsRefusedBroadcastStalled >> transactionRefused "refused_stalled" clientInput
+        ClientEffect Output.RejectedInputBecauseUnsynced{clientInput} -> transactionRefused "refused_unsynced" clientInput
+        ClientEffect Output.CommandFailed{clientInput} -> transactionRefused "rejected_state" clientInput
         _ -> pure ()
       networkEvent event = tick $ networkEvents `at` event
       handle = \case
-        EnteringMainloop -> writeIORef loopStarted True >> updateReady
         Node LoadedState{nodeState} -> seed nodeState
         Node BeginInput{inputId, input} -> do
           now <- mono
           writeIORef inputStarted $ Just (now, inputSource input)
-          tick $ inputAttempts `at` inputSource input
           case input of
             NetworkInput _ ReceivedMessage{msg = ReqTx tx} -> MVar.modifyMVar_ accounting $ \state -> do
               let (fresh, removed, next) = Accounting.request 100000 3600 now inputId (txId tx) state
               when fresh $ tick headRequestedTx
               add evictedTimings removed
               pure next
-            ChainInput Chain.Observation{observedTx} -> tick $ chainObservations `at` observationName observedTx
             _ -> pure ()
         Node EndInput{} -> do
           tick headInputs
@@ -255,33 +218,22 @@ prepareRegistry backend = do
           bool broadcastStalled (isJust stalledReason)
           bool broadcastStalledNoProgress (stalledReason == Just NoProgress)
           bool broadcastStalledBacklogFull (stalledReason == Just BacklogFull)
-          writeIORef stalled (isJust stalledReason)
-          updateReady
         Node NodeHealth{stats} -> do
-          writeIORef syncState (Stats.synchronized stats)
           bool synced (Stats.synchronized stats)
           oneHot phase (Stats.phase stats)
-          set processedSlot (Stats.processedSlot stats)
           set queuedInputs (fromIntegral $ Stats.queuedInputs stats)
           set parkedInputs (fromIntegral $ Stats.parkedInputs stats)
-          set delayedInputs (fromIntegral $ Stats.delayedInputs stats)
           set snapshotNumber (fromIntegral $ Stats.confirmedNumber stats)
-          set snapshotVersion (fromIntegral $ Stats.confirmedVersion stats)
           bool snapshotPending (Stats.snapshotPending stats)
           set missingSignatures (fromIntegral $ Stats.missingSignatures stats)
           set outstandingTransactions (fromIntegral $ Stats.pendingTransactions stats)
           set (deposits `at` "inactive") (fromIntegral $ Stats.inactiveDeposits stats)
           set (deposits `at` "active") (fromIntegral $ Stats.activeDeposits stats)
           set (deposits `at` "expired") (fromIntegral $ Stats.expiredDeposits stats)
-          set oldestDeposit (Stats.oldestDepositTimestamp stats)
-          set depositDeadline (Stats.nextDepositDeadline stats)
           oneHot decommit (Stats.decommitState stats)
-          when (Stats.decommitState stats == "none") $ set decommitStarted 0
           set fanoutRemaining (fromIntegral $ Stats.fanoutRemainingOutputs stats)
           oneHot fanoutMode (Stats.fanoutMode stats)
-          set contestationDeadline (Stats.contestationDeadlineTimestamp stats)
-          updateReady
-        Node ChainPostStarted{operation} -> tick (chainOperations `at` operation) >> Gauge.inc chainInflight
+        Node ChainPostStarted{} -> Gauge.inc chainInflight
         Node ChainPostFinished{operation, accepted, duration} -> do
           Gauge.dec chainInflight
           observe (chainDuration `at` operation) (realToFrac duration)
@@ -289,63 +241,54 @@ prepareRegistry backend = do
         Network (Network.Authenticate _) -> networkEvent "authentication_failure"
         Network (Network.Etcd message) -> case message of
           Etcd.PersistentQueueStats{depth, oldestAgeSeconds} -> set persistentDepth (fromIntegral depth) >> set persistentAge oldestAgeSeconds
-          Etcd.BroadcastCompleted{messages, duration} -> add putMessages messages >> observe putLatency (realToFrac duration)
-          Etcd.NetworkConnectivity{connected = online} -> writeIORef connected online >> bool networkConnected online >> updateReady
+          Etcd.BroadcastCompleted{duration} -> observe putLatency (realToFrac duration)
+          Etcd.NetworkConnectivity{connected = online} -> bool networkConnected online
           Etcd.Reconnecting -> networkEvent "reconnect"
           Etcd.BroadcastFailed{} -> networkEvent "broadcast_failure"
           Etcd.WatchFailed{} -> networkEvent "watch_failure"
-          Etcd.WatchMessagesFallbackTo{} -> networkEvent "watch_compacted"
-          Etcd.BroadcastDeduped{} -> networkEvent "deduplicated"
-          Etcd.FailedToDecodeValue{} -> networkEvent "decode_value"
-          Etcd.FailedToDecodeLog{} -> networkEvent "decode_log"
+          Etcd.FailedToDecodeValue{} -> networkEvent "decode_failure"
+          Etcd.FailedToDecodeLog{} -> networkEvent "decode_failure"
           Etcd.PersistentQueueStatFailed{} -> networkEvent "queue_stat_failure"
-          Etcd.PersistentQueueLoadFailed{} -> networkEvent "queue_load_failure"
-          Etcd.PersistentQueueWriteFailed{} -> networkEvent "queue_write_failure"
-          Etcd.PersistentQueueDeleteFailed{} -> networkEvent "queue_delete_failure"
+          Etcd.PersistentQueueLoadFailed{} -> networkEvent "queue_storage_failure"
+          Etcd.PersistentQueueWriteFailed{} -> networkEvent "queue_storage_failure"
+          Etcd.PersistentQueueDeleteFailed{} -> networkEvent "queue_storage_failure"
           Etcd.PersistentQueueFull -> networkEvent "queue_full"
-          Etcd.LowLeaseTTL{} -> networkEvent "lease_low"
-          Etcd.NoKeepAliveResponse -> networkEvent "lease_no_response"
+          Etcd.LowLeaseTTL{} -> networkEvent "lease_warning"
+          Etcd.NoKeepAliveResponse -> networkEvent "lease_warning"
           _ -> pure ()
         APIServer message -> case message of
-          API.APIL1Started{operation} -> tick (chainOperations `at` operation) >> Gauge.inc chainInflight
+          API.APIL1Started{} -> Gauge.inc chainInflight
           API.APIL1Finished{operation, successful, duration} -> do
             Gauge.dec chainInflight
             observe (chainDuration `at` operation) (realToFrac duration)
             unless successful $ tick (chainFailures `at` operation)
-          API.APIHTTPStarted{} -> Gauge.inc httpInflight
-          API.APIHTTPFinished -> Gauge.dec httpInflight
-          API.APIHTTPCompleted{route, status, duration} -> tick (httpResponses `at` (route, statusClass status)) >> observe (httpDuration `at` route) (realToFrac duration)
-          API.APIHTTPException{} -> tick $ apiErrors `at` "http_exception"
-          API.APIOperationTimedOut{command} -> tick $ apiTimeouts `at` command
-          API.NewAPIConnection -> Gauge.inc wsConnections
-          API.APIConnectionClosed -> Gauge.dec wsConnections
-          API.APIInvalidInput{} -> tick $ apiErrors `at` "invalid_input"
-          API.APIConnectionError{} -> tick $ apiErrors `at` "connection"
-          API.APIReturnedError{} -> tick $ apiErrors `at` "internal"
           _ -> pure ()
         DirectChain message -> case message of
           ChainLog.RolledForward{point} -> timestamp chainBackendTimestamp >> writeIORef backendSlot (pointSlot point)
           ChainLog.RolledBackward{point} -> do
             previous <- atomicModifyIORef' backendSlot (pointSlot point,)
-            tick rollbacks
             observe rollbackDepth (max 0 $ previous - pointSlot point)
-          ChainLog.PostedTx{} -> tick $ chainSubmissions `at` "accepted"
-          ChainLog.PostingFailed{} -> tick $ chainSubmissions `at` "failed"
           ChainLog.BlockfrostTransientError{} -> tick blockfrostRetries
           ChainLog.BlockfrostRateLimit -> tick blockfrostRateLimits
           _ -> pure ()
         SQLite message -> case message of
-          SQLiteStats{queueDepth, databaseBytes, walBytes} -> set sqliteQueue (fromIntegral queueDepth) >> set sqliteDatabase (fromIntegral databaseBytes) >> set sqliteWal (fromIntegral walBytes)
-          SQLiteStatsFailed -> tick sqliteStatsFailures
+          SQLiteStats{queueDepth} -> set sqliteQueue (fromIntegral queueDepth)
           SQLiteWriteStarted -> set sqliteInflight 1
-          SQLiteWriteCompleted{eventsWritten, writeSeconds, oldestEventSeconds} -> set sqliteInflight 0 >> add sqliteEvents eventsWritten >> observe sqliteDuration writeSeconds >> observe sqliteLatency oldestEventSeconds
-          SQLiteWriteFailed -> set sqliteInflight 0 >> tick sqliteFailures
+          SQLiteWriteCompleted{writeSeconds} -> set sqliteInflight 0 >> observe sqliteDuration writeSeconds
+          SQLiteWriteFailed -> set sqliteInflight 0
           _ -> pure ()
         _ -> pure ()
   pure (handle, registry, refresh)
 
 snapshotKey :: Snapshot tx -> Accounting.SnapshotKey Hydra.Tx.HeadId
 snapshotKey Snapshot{headId, version, number} = Accounting.SnapshotKey headId (fromIntegral version) (fromIntegral number)
+
+-- | Only inputs carrying a transaction contribute to transaction refusals.
+isTransactionInput :: Client.ClientInput tx -> Bool
+isTransactionInput = \case
+  Client.NewTx{} -> True
+  Client.Decommit{} -> True
+  _ -> False
 
 inputSource :: Input tx -> Text
 inputSource = \case ClientInput{} -> "client"; NetworkInput{} -> "network"; ChainInput{} -> "chain"
@@ -365,46 +308,8 @@ waitReason = \case
   WaitOnDepositActivation{} -> "deposit_activation"
   WaitOnNodeInSync{} -> "sync"
 
-observationName :: Chain.OnChainTx tx -> Text
-observationName = \case
-  Chain.OnInitTx{} -> "init"
-  Chain.OnDepositTx{} -> "deposit"
-  Chain.OnRecoverTx{} -> "recover"
-  Chain.OnIncrementTx{} -> "increment"
-  Chain.OnDecrementTx{} -> "decrement"
-  Chain.OnCloseTx{} -> "close"
-  Chain.OnContestTx{} -> "contest"
-  Chain.OnFanoutTx{} -> "fanout"
-  Chain.OnPartialFanoutTx{} -> "partial_fanout"
-
 pointSlot :: ChainPoint -> Double
 pointSlot = \case ChainPointAtGenesis -> 0; ChainPoint (SlotNo slot) _ -> fromIntegral slot
-
-statusClass :: Int -> Text
-statusClass status
-  | status >= 100 && status < 600 = show (status `div` 100) <> "xx"
-  | otherwise = "other"
-
-registerRuntimeMetrics :: Registry.Registry -> IO (IO ())
-registerRuntimeMetrics registry = do
-  build <- Registry.gauge registry "hydra_build_info" "Build version of the running node." [("version", toText $ showVersion hydraNodeVersion)]
-  Gauge.set 1 build
-  cpu <- Registry.sampledCounter registry "hydra_process_cpu_seconds_total" "Total process user and system CPU time."
-  started <- Registry.gauge registry "hydra_monitoring_start_time_seconds" "Wall-clock time this process started its monitoring endpoint." []
-  getCurrentTime >>= flip Gauge.set started . realToFrac . utcTimeToPOSIXSeconds
-  hasProc <- doesFileExist "/proc/self/status"
-  rss <- if hasProc then Just <$> Registry.gauge registry "hydra_process_resident_memory_bytes" "Current resident memory reported by the operating system." [] else pure Nothing
-  registerProcessStart registry hasProc
-  rts <- registerRtsMetrics registry
-  pure $ do
-    getCPUTime >>= flip Gauge.set cpu . (/ 1.0e12) . fromIntegral
-    forM_ rss $ \gauge -> do
-      status <- decodeUtf8 <$> readFileBS "/proc/self/status"
-      forM_ (find (Text.isPrefixOf "VmRSS:") $ Text.lines status) $ \line ->
-        case Text.words line of
-          [_, value, _] -> traverse_ (flip Gauge.set gauge . (* 1024)) (readMaybe $ toString value)
-          _ -> pure ()
-    rts
 
 registerRtsMetrics :: Registry.Registry -> IO (IO ())
 registerRtsMetrics registry = do
@@ -431,21 +336,3 @@ registerRtsMetrics registry = do
     handle <- Registry.sampledCounter registry (legacy <> "_total") help
     Registry.alias registry (legacy <> "_total") legacy 1
     pure handle
-
-registerProcessStart :: Registry.Registry -> Bool -> IO ()
-#ifndef mingw32_HOST_OS
-registerProcessStart registry hasProc = when hasProc $ do
-  ticks <- getSysVar ClockTick
-  processStat <- decodeUtf8 <$> readFileBS "/proc/self/stat"
-  uptime <- decodeUtf8 <$> readFileBS "/proc/uptime"
-  now <- realToFrac . utcTimeToPOSIXSeconds <$> getCurrentTime
-  -- The comm field may contain spaces and parentheses; fields after its
-  -- closing parenthesis start at field 3. starttime is field 22.
-  let startTicks = listToMaybe (drop 19 $ Text.words $ snd $ Text.breakOnEnd ")" processStat) >>= readMaybe . toString
-      bootAge = listToMaybe (Text.words uptime) >>= readMaybe . toString
-  forM_ ((,) <$> startTicks <*> bootAge) $ \(start, age) -> do
-    processStart <- Registry.gauge registry "hydra_process_start_time_seconds" "Operating-system process start time as Unix seconds; Linux only." []
-    Gauge.set (now - age + start / fromIntegral ticks) processStart
-#else
-registerProcessStart _ _ = pure ()
-#endif

@@ -28,65 +28,37 @@ data Metrics = Metrics
   , pendingBroadcasts :: Gauge
   , broadcastNoProgressSeconds :: Gauge
   , inputsRefusedBroadcastStalled :: Counter
-  , inputAttempts :: Map Text Counter
   , inputRetries :: Map Text Counter
   , inputDrops :: Map Text Counter
   , inputProcessing :: Map Text Histogram
   , inputQueueWait :: Histogram
   , queuedInputs :: Gauge
   , parkedInputs :: Gauge
-  , delayedInputs :: Gauge
-  , ready :: Gauge
   , synced :: Gauge
   , phase :: Map Text Gauge
-  , processedSlot :: Gauge
   , networkConnected :: Gauge
   , snapshotNumber :: Gauge
-  , snapshotVersion :: Gauge
   , snapshotPending :: Gauge
-  , snapshotStarted :: Gauge
   , missingSignatures :: Gauge
   , outstandingTransactions :: Gauge
   , txOutcomes :: Map Text Counter
   , persistentDepth :: Gauge
   , persistentAge :: Gauge
   , putLatency :: Histogram
-  , putMessages :: Counter
   , networkEvents :: Map Text Counter
-  , chainOperations :: Map Text Counter
   , chainFailures :: Map Text Counter
   , chainDuration :: Map Text Histogram
   , chainInflight :: Gauge
-  , chainSubmissions :: Map Text Counter
-  , chainObservations :: Map Text Counter
-  , rollbacks :: Counter
   , rollbackDepth :: Histogram
   , blockfrostRetries :: Counter
   , blockfrostRateLimits :: Counter
   , deposits :: Map Text Gauge
-  , oldestDeposit :: Gauge
-  , depositDeadline :: Gauge
   , decommit :: Map Text Gauge
-  , decommitStarted :: Gauge
   , fanoutRemaining :: Gauge
   , fanoutMode :: Map Text Gauge
-  , fanoutChunks :: Counter
-  , contestationDeadline :: Gauge
-  , httpInflight :: Gauge
-  , httpResponses :: Map (Text, Text) Counter
-  , httpDuration :: Map Text Histogram
-  , apiTimeouts :: Map Text Counter
-  , wsConnections :: Gauge
-  , apiErrors :: Map Text Counter
   , sqliteQueue :: Gauge
   , sqliteInflight :: Gauge
-  , sqliteEvents :: Counter
-  , sqliteFailures :: Counter
-  , sqliteStatsFailures :: Counter
   , sqliteDuration :: Histogram
-  , sqliteLatency :: Histogram
-  , sqliteDatabase :: Gauge
-  , sqliteWal :: Gauge
   }
 
 registerMetrics :: Registry.Registry -> Text -> IO Metrics
@@ -108,65 +80,37 @@ registerMetrics registry backend = do
   pendingBroadcasts <- Registry.gauge registry "hydra_head_pending_broadcasts" "Messages in the outer network hand-off; excludes the persistent network queue." []
   broadcastNoProgressSeconds <- Registry.gauge registry "hydra_head_broadcast_no_progress_seconds" "Seconds without outer hand-off progress while it has pending messages." []
   inputsRefusedBroadcastStalled <- Registry.counter registry "hydra_head_inputs_refused_broadcast_stalled_total" "Client inputs refused because the outbound hand-off is stalled." []
-  inputAttempts <- vector inputSources $ \value -> Registry.counter registry "hydra_node_input_attempts_total" "Input processing attempts by source, including retries." [("source", value)]
   inputRetries <- vector waitReasons $ \value -> Registry.counter registry "hydra_node_input_waits_total" "Wait outcomes by bounded reason, including inputs parked during catch-up." [("reason", value)]
   inputDrops <- vector inputSources $ \value -> Registry.counter registry "hydra_node_input_drops_total" "Inputs discarded after exhausting retry eligibility." [("source", value)]
   inputProcessing <- vector inputSources $ \value -> Registry.histogram registry "hydra_node_input_processing_seconds" "BeginInput-to-EndInput duration, including inline effects and synchronous trace handling." latencyBuckets [("source", value)]
   inputQueueWait <- Registry.histogram registry "hydra_node_input_queue_wait_seconds" "Time spent waiting for admission and dequeue on each attempt; retry delay and parked time excluded." latencyBuckets []
   queuedInputs <- Registry.gauge registry "hydra_node_input_queue_depth" "Inputs currently admitted to the bounded processing queue." []
   parkedInputs <- Registry.gauge registry "hydra_node_parked_inputs" "Network inputs parked pending chain sync or awaiting readmission after sync." []
-  delayedInputs <- Registry.gauge registry "hydra_node_delayed_input_workers" "Delayed retry and parked-release workers, including workers blocked on admission." []
-  ready <- Registry.gauge registry "hydra_node_ready" "One when the main loop has started, the node is synced, the network is connected and the outbox is not stalled." []
   synced <- Registry.gauge registry "hydra_node_synced" "One when the current node state is in sync." []
   phase <- vector ["idle", "open", "closed", "fanout"] $ \value -> Registry.gauge registry "hydra_head_phase" "Current head phase as a one-hot state set." [("phase", value)]
-  processedSlot <- Registry.gauge registry "hydra_chain_processed_slot" "Latest chain slot in current node state; rewinds after rollback." []
   networkConnected <- Registry.gauge registry "hydra_network_connected" "Live network connectivity callback status; zero before a successful connection." []
   snapshotNumber <- Registry.gauge registry "hydra_head_confirmed_snapshot_number" "Current confirmed snapshot number; zero with no head." []
-  snapshotVersion <- Registry.gauge registry "hydra_head_confirmed_snapshot_version" "Version of the current confirmed snapshot; zero with no head." []
   snapshotPending <- Registry.gauge registry "hydra_head_snapshot_inflight" "One while a snapshot request is outstanding or signatures are being collected." []
-  snapshotStarted <- Registry.gauge registry "hydra_head_snapshot_started_timestamp_seconds" "Wall-clock start of the outstanding round observed in this process; zero when absent or restored with unknown start." []
   missingSignatures <- Registry.gauge registry "hydra_head_snapshot_missing_signatures" "Participants whose signatures are still missing from the outstanding snapshot." []
   outstandingTransactions <- Registry.gauge registry "hydra_head_outstanding_transactions" "Current allTxs entries awaiting inclusion in a snapshot." []
-  txOutcomes <- vector ["applied", "invalid", "refused_stalled", "refused_unsynced", "command_failed", "decommit_invalid"] $ \value -> Registry.counter registry "hydra_head_transaction_outcomes_total" "Transaction and command outcomes observed by this node, with bounded reason labels." [("outcome", value)]
+  txOutcomes <- vector ["applied", "invalid", "refused_stalled", "refused_unsynced", "rejected_state", "decommit_invalid"] $ \value -> Registry.counter registry "hydra_head_transaction_outcomes_total" "Transaction lifecycle events and refusals of NewTx or Decommit inputs; events are not unique transactions or mutually exclusive outcomes." [("outcome", value)]
   persistentDepth <- Registry.gauge registry "hydra_network_persistent_queue_depth" "Messages awaiting successful etcd broadcast, including the pinned in-flight batch." []
   persistentAge <- Registry.gauge registry "hydra_network_persistent_queue_oldest_age_seconds" "Age of the oldest persisted queued message, using its file timestamp across restart." []
   putLatency <- Registry.histogram registry "hydra_network_put_seconds" "Duration of successful etcd put attempts, including deduplicated retries." latencyBuckets []
-  putMessages <- Registry.counter registry "hydra_network_broadcast_messages_total" "Messages in batches acknowledged by etcd, including deduplicated retries once." []
-  networkEvents <- vector networkEventsValues $ \value -> Registry.counter registry "hydra_network_events_total" "Network failures, retries and recovery events by bounded category." [("event", value)]
-  chainOperations <- vector chainOperationsValues $ \value -> Registry.counter registry "hydra_chain_operations_total" "L1 protocol posts, API deposit drafts and user transaction submissions attempted." [("operation", value), ("backend", backend)]
+  networkEvents <- vector networkEventsValues $ \value -> Registry.counter registry "hydra_network_events_total" "Operational network failures, reconnects and lease warnings; routine deduplication and compaction recovery excluded." [("event", value)]
   chainFailures <- vector chainOperationsValues $ \value -> Registry.counter registry "hydra_chain_operation_failures_total" "Failed L1 protocol posts, API deposit drafts and user transaction submissions." [("operation", value), ("backend", backend)]
   chainDuration <- vector chainOperationsValues $ \value -> Registry.histogram registry "hydra_chain_operation_seconds" "L1 operation construction and backend submission duration; successful return does not imply on-chain inclusion." operationLatencyBuckets [("operation", value), ("backend", backend)]
   chainInflight <- Registry.gauge registry "hydra_chain_operations_inflight" "L1 protocol posts, API deposit drafts and user transaction submissions currently executing." [("backend", backend)]
-  chainSubmissions <- vector ["accepted", "failed"] $ \value -> Registry.counter registry "hydra_chain_submissions_total" "Actual backend transaction submission responses, separate from on-chain observations." [("outcome", value), ("backend", backend)]
-  chainObservations <- vector ["init", "deposit", "recover", "increment", "decrement", "close", "contest", "fanout", "partial_fanout", "other"] $ \value -> Registry.counter registry "hydra_chain_observations_total" "Protocol transactions observed by the node; re-observation after rollback is counted." [("operation", value), ("backend", backend)]
-  rollbacks <- Registry.counter registry "hydra_chain_rollbacks_total" "Raw backend rollback notifications." [("backend", backend)]
   rollbackDepth <- Registry.histogram registry "hydra_chain_rollback_slots" "Slots from the last backend roll-forward to the rollback point." [0, 1, 10, 100, 1000, 10000, 100000] [("backend", backend)]
   blockfrostRetries <- Registry.counter registry "hydra_chain_blockfrost_retries_total" "Retryable Blockfrost errors observed by the outer retry loop." [("backend", backend)]
   blockfrostRateLimits <- Registry.counter registry "hydra_chain_blockfrost_rate_limits_total" "HTTP 429 responses across node startup, wallet queries, chain polling and transaction submissions." [("backend", backend)]
   deposits <- vector ["inactive", "active", "expired"] $ \value -> Registry.gauge registry "hydra_head_pending_deposits" "Current unconsumed deposits tracked by this node, corrected by rollback." [("state", value)]
-  oldestDeposit <- Registry.gauge registry "hydra_head_oldest_deposit_timestamp_seconds" "Creation time of the oldest unconsumed deposit; zero if none." []
-  depositDeadline <- Registry.gauge registry "hydra_head_next_deposit_deadline_timestamp_seconds" "Earliest deadline of unconsumed deposits, including expired recoverable deposits; zero if none." []
   decommit <- vector ["none", "requested", "approved"] $ \value -> Registry.gauge registry "hydra_head_decommit_state" "Current decommit state as a one-hot set." [("state", value)]
-  decommitStarted <- Registry.gauge registry "hydra_head_decommit_started_timestamp_seconds" "Time this process observed a new decommit; zero if restored or absent." []
   fanoutRemaining <- Registry.gauge registry "hydra_head_fanout_remaining_outputs" "Outputs still awaiting distribution in the current partial fanout state." []
   fanoutMode <- vector ["none", "automatic", "selected", "deferred"] $ \value -> Registry.gauge registry "hydra_head_fanout_mode" "Current fanout mode as a one-hot set; deferred work is intentionally waiting for selection." [("mode", value)]
-  fanoutChunks <- Registry.counter registry "hydra_head_fanout_chunks_total" "Observed partial and final fanout transactions; re-observation after rollback counts again." []
-  contestationDeadline <- Registry.gauge registry "hydra_head_contestation_deadline_timestamp_seconds" "Current contestation deadline; zero for idle or open heads." []
-  httpInflight <- Registry.gauge registry "hydra_api_http_inflight" "HTTP requests whose handler and response callback have not finished." []
-  httpResponses <- vectorPairs routes ["1xx", "2xx", "3xx", "4xx", "5xx", "other"] $ \route status -> Registry.counter registry "hydra_api_http_responses_total" "Completed HTTP responses by normalized route and status class." [("route", route), ("status", status)]
-  httpDuration <- vector routes $ \value -> Registry.histogram registry "hydra_api_http_seconds" "HTTP request duration through completion of the WAI response callback, by normalized route." operationLatencyBuckets [("route", value)]
-  apiTimeouts <- vector ["transaction", "decommit", "recover", "side_load"] $ \value -> Registry.counter registry "hydra_api_operation_timeouts_total" "Operations returning HTTP 202 because their response wait expired; distinct from accepted submissions." [("command", value)]
-  wsConnections <- Registry.gauge registry "hydra_api_websocket_connections" "WebSocket handlers currently active, including handshake and history replay." []
-  apiErrors <- vector ["invalid_input", "connection", "http_exception", "internal"] $ \value -> Registry.counter registry "hydra_api_errors_total" "API failures by bounded category." [("reason", value)]
   sqliteQueue <- Registry.gauge registry "hydra_persistence_queue_depth" "SQLite queue items awaiting the writer, including flush markers." []
   sqliteInflight <- Registry.gauge registry "hydra_persistence_write_inflight" "One while a SQLite event batch is being encoded and committed." []
-  sqliteEvents <- Registry.counter registry "hydra_persistence_written_events_total" "Events whose SQLite transaction has completed; synchronous NORMAL does not promise power-loss durability." []
-  sqliteStatsFailures <- Registry.counter registry "hydra_persistence_stat_failures_total" "Failures collecting database or WAL file sizes; previous size samples remain visible." []
-  sqliteFailures <- Registry.counter registry "hydra_persistence_write_failures_total" "Failed SQLite event batches." []
   sqliteDuration <- Registry.histogram registry "hydra_persistence_write_seconds" "SQLite batch encoding and transaction completion duration." latencyBuckets []
-  sqliteLatency <- Registry.histogram registry "hydra_persistence_oldest_event_seconds" "Enqueue-call-to-commit latency of the oldest event in each SQLite batch, including blocked admission." latencyBuckets []
-  sqliteDatabase <- Registry.gauge registry "hydra_persistence_database_bytes" "Current SQLite database file size." []
-  sqliteWal <- Registry.gauge registry "hydra_persistence_wal_bytes" "Current SQLite WAL file size; zero if no WAL file exists." []
   Registry.alias registry "hydra_head_inputs_total" "hydra_head_inputs" 1
   Registry.alias registry "hydra_head_requested_tx_total" "hydra_head_requested_tx" 1
   Registry.alias registry "hydra_head_confirmed_tx_total" "hydra_head_confirmed_tx" 1
@@ -178,16 +122,13 @@ registerMetrics registry backend = do
 latencyBuckets :: [Double]
 latencyBuckets = [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 2.5, 5, 10, 30, 60, 120, 300]
 
--- | Coarser bounds for HTTP and L1 operations, from fast responses to long
--- backend waits. Keep protocol latency buckets separate for benchmark consumers.
+-- | Coarser bounds for L1 operations, from construction to long backend waits.
+-- Keep protocol latency buckets separate for benchmark consumers.
 operationLatencyBuckets :: [Double]
 operationLatencyBuckets = [0.01, 0.1, 0.5, 1, 5, 30, 60, 300]
 
 vector :: [Text] -> (Text -> IO a) -> IO (Map Text a)
 vector values action = Map.fromList <$> traverse (\value -> (value,) <$> action value) values
-
-vectorPairs :: [Text] -> [Text] -> (Text -> Text -> IO a) -> IO (Map (Text, Text) a)
-vectorPairs xs ys action = Map.fromList <$> traverse (\(x, y) -> ((x, y),) <$> action x y) [(x, y) | x <- xs, y <- ys]
 
 at :: (Ord key, Show key) => Map key a -> key -> a
 at values key = fromMaybe (error $ "Unregistered metric label: " <> show key) (Map.lookup key values)
@@ -199,10 +140,7 @@ waitReasons :: [Text]
 waitReasons = ["transaction", "snapshot_number", "snapshot_version", "seen_snapshot", "transactions", "contestation_deadline", "decommit", "unresolved_commit", "unresolved_decommit", "deposit_observation", "deposit_activation", "sync"]
 
 networkEventsValues :: [Text]
-networkEventsValues = ["reconnect", "broadcast_failure", "watch_failure", "watch_compacted", "deduplicated", "authentication_failure", "decode_value", "decode_log", "queue_load_failure", "queue_stat_failure", "queue_write_failure", "queue_delete_failure", "queue_full", "lease_low", "lease_no_response"]
+networkEventsValues = ["reconnect", "broadcast_failure", "watch_failure", "authentication_failure", "decode_failure", "queue_storage_failure", "queue_stat_failure", "queue_full", "lease_warning"]
 
 chainOperationsValues :: [Text]
 chainOperationsValues = ["draft_deposit", "submit", "init", "increment", "recover", "decrement", "close", "contest", "fanout", "partial_fanout", "final_fanout"]
-
-routes :: [Text]
-routes = ["/config", "/head", "/snapshot", "/snapshot/utxo", "/snapshot/last-seen", "/commit", "/commits", "/commits/:id", "/decommit", "/protocol-parameters", "/cardano-transaction", "/transaction", "unknown"]
