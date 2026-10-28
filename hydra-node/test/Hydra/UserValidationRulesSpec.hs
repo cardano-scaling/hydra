@@ -16,9 +16,10 @@ import Hydra.UserValidationRules (
   UserValidationRules (..),
   checkPolicies,
   validateUserTransactionWith,
+  checkMaxUTxOCount,
  )
 import Test.Hydra.Prelude
-import Test.Hydra.Tx.Gen (genTxWithMint)
+import Test.Hydra.Tx.Gen (genTxWithMint, genUTxO)
 import Test.QuickCheck (Property, checkCoverage, coverTable, forAll, oneof, sublistOf, tabulate, (===))
 
 instance Arbitrary PolicyRule where
@@ -38,23 +39,29 @@ spec = do
 
 prop_validateUserTransactionWith :: Property
 prop_validateUserTransactionWith =
-  forAll genTxWithMint $ \tx ->
-    forAll (arbitrary :: Gen UserValidationRules) $ \rules ->
-      let (category, policyResult) = case policyRule rules of
-            Nothing ->
-              ("policy restriction disabled", Right ())
-            Just ForbidAnyPolicy ->
-              ("forbid all policies", checkPolicies Set.empty tx)
-            Just (AllowOnlyPolicies allowed) ->
-              ("allow selected policies", checkPolicies allowed tx)
-          expected = do
-            policyResult
-            case l2MintingRule rules of
-              ForbidMinting -> checkPolicies Set.empty tx
-              AllowMinting -> Right ()
-       in tabulate "Policy rule" [category] $
-            tabulate "L2 minting rule" [show (l2MintingRule rules)] $
-              validateUserTransactionWith rules tx === expected
+  forAll genCase $ \(tx, utxo, rules) ->
+    tabulate "Policy rule" [policyCategory (policyRule rules)] $
+      tabulate "L2 minting rule" [show (l2MintingRule rules)] $
+        validateUserTransactionWith rules utxo tx
+          === expectedResult rules utxo tx
+ where
+  genCase =
+    (,,) <$> genTxWithMint <*> genUTxO <*> arbitrary
+
+  policyCategory = \case
+    Nothing -> "policy restriction disabled"
+    Just ForbidAnyPolicy -> "forbid all policies"
+    Just (AllowOnlyPolicies _) -> "allow selected policies"
+
+  expectedResult rules utxo tx = do
+    case policyRule rules of
+      Nothing -> Right ()
+      Just ForbidAnyPolicy -> checkPolicies Set.empty tx
+      Just (AllowOnlyPolicies allowed) -> checkPolicies allowed tx
+    case l2MintingRule rules of
+      ForbidMinting -> checkPolicies Set.empty tx
+      AllowMinting -> Right ()
+    maybe (Right ()) (`checkMaxUTxOCount` utxo) (maxUTxOCount rules)
 
 prop_checkMintedAssets :: Property
 prop_checkMintedAssets =
