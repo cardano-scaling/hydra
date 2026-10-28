@@ -256,6 +256,15 @@ A requested snapshot that would exceed this is rejected with
 `ReqSnUTxOSetTooLarge`, so the head cannot reach a state it would be unable to fan
 out.
 
+Transaction admission and snapshot construction enforce the same bound, including
+outputs owed by pending commits and decommits. Transactions that do not fit use
+the normal retry budget, then produce `TxInvalid`; new deposits that do not fit
+are deferred. Confirm any merges an expanding decommit relies on before submitting it.
+
+For a head already stalled on an older version,
+[side-load the last confirmed snapshot](/docs/how-to/sideload-snapshot) on all
+nodes to clear pending local state.
+
 The same bound applies to a snapshot supplied by a client rather than by a peer.
 A [side-loaded snapshot](/docs/how-to/sideload-snapshot) above the limit is
 refused by the API with a `400` before it reaches the head logic, which keeps its

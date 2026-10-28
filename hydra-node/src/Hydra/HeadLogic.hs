@@ -241,13 +241,16 @@ onOpenNetworkReqTx env ledger ChainPointTime{currentSlot, currentChainTime} st t
  where
   waitApplyTx cont =
     case applyTransactionsWithoutCollision ledger currentSlot localUTxO [tx] of
-      Right _
+      Right nextUTxO
         -- Refuse a tx creating an output that a claimable or settling deposit
         -- names: it would collide with that deposit once absorbed, and no node
         -- signs a snapshot carrying both. Expired deposits are never claimed, so
         -- they do not count.
-        | namesNoneOf (utxoFromTx tx) namedByDepositsInPlay -> cont
-        | otherwise -> notApplicable (ValidationError "transaction creates an output a pending deposit names")
+        | not (namesNoneOf (utxoFromTx tx) namedByDepositsInPlay) ->
+            notApplicable (ValidationError "transaction creates an output a pending deposit names")
+        | Left AccumulatorTooLarge{utxoCount, maxAllowed} <- checkSnapshotUTxOSize nextUTxO reservedCommit reservedDecommit ->
+            notApplicable (ValidationError $ "transaction exceeds the head's accumulator capacity: " <> show utxoCount <> " outputs (maximum " <> show maxAllowed <> ")")
+        | otherwise -> cont
       Left (_, err) -> notApplicable err
    where
     namedByDepositsInPlay :: UTxOType tx
@@ -273,18 +276,20 @@ onOpenNetworkReqTx env ledger ChainPointTime{currentSlot, currentChainTime} st t
           -- both. This is a valid request and it could make the head stuck.
           newState TxInvalid{headId, utxo = localUTxO, transaction = tx, validationError = err}
 
-  maybeRequestSnapshot nextSn outcome =
-    -- The request includes this tx. It is checked against the same UTxO the
-    -- followers use to check it, so they do not reject it.
-    case chainedSnapshotRequest confirmedUTxO localTxs' pendingDeposits currentDepositTxId decommitTx settlingCommit of
-      Just SnapshotRequest{requestTxs, requestDecommitTx, requestDepositTxId}
-        | not (snapshotInFlight seenSnapshot) && isLeader parameters party nextSn ->
-            outcome
-              -- XXX: This state update has no equivalence in the
-              -- spec. Do we really need to store that we have
-              -- requested a snapshot? If yes, should update spec.
-              <> newState SnapshotRequestDecided{snapshotNumber = nextSn}
-              <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> requestTxs) requestDecommitTx requestDepositTxId)
+  maybeRequestSnapshot nextSn outcome
+    | snapshotInFlight seenSnapshot || not (isLeader parameters party nextSn) = outcome
+    | otherwise = requestSnapshot
+   where
+    -- Build against the same UTxO the followers use, checking capacity before
+    -- persisting a request. Other parties and in-flight rounds skip this work.
+    requestSnapshot = case chainedSnapshotRequest confirmedUTxO localTxs' pendingDeposits currentDepositTxId decommitTx settlingCommit of
+      Just SnapshotRequest{requestTxs, requestDecommitTx, requestDepositTxId} ->
+        outcome
+          -- XXX: This state update has no equivalence in the
+          -- spec. Do we really need to store that we have
+          -- requested a snapshot? If yes, should update spec.
+          <> newState SnapshotRequestDecided{snapshotNumber = nextSn}
+          <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> requestTxs) requestDecommitTx requestDepositTxId)
       _ -> outcome
 
   Environment{party} = env
@@ -304,6 +309,23 @@ onOpenNetworkReqTx env ledger ChainPointTime{currentSlot, currentChainTime} st t
   confirmedUTxO = settledUTxO version (getSnapshot confirmedSnapshot)
 
   settlingCommit = settlingCommitAt env version currentChainTime pendingDeposits (getSnapshot confirmedSnapshot)
+
+  -- Reserve the outputs a signed (or being-signed) snapshot still owes.
+  -- Unclaimed deposits can be deferred by the request builder instead.
+  reservedCommit = case seenSnapshot of
+    SeenSnapshot{snapshot}
+      | snapshot.version == version -> snapshot.utxoToCommit
+    _ -> case settlingCommit of
+      Just (ContinueCommit (_, Deposit{deposited})) -> Just deposited
+      _ -> Nothing
+
+  reservedDecommit =
+    (utxoFromTx <$> decommitTx) <|> case seenSnapshot of
+      SeenSnapshot{snapshot}
+        | snapshot.version == version -> snapshot.utxoToDecommit
+      _ ->
+        let snapshot = getSnapshot confirmedSnapshot
+         in if snapshot.version == version then snapshot.utxoToDecommit else Nothing
 
   OpenState{coordinatedHeadState, headId, parameters} = st
 
@@ -422,7 +444,7 @@ onOpenNetworkReqSn env ledger pendingDeposits ChainPointTime{currentSlot, curren
                         --
                         -- NOTE: 'SnapshotRequested' rebuilds 'localUTxO' from
                         -- 'nextUTxO', so every kept tx applies there.
-                        let newLocalTxs = pruneTransactions nextUTxO
+                        let newLocalTxs = pruneTransactions nextUTxO mUtxoToCommit mUtxoToDecommit
                         newState
                           SnapshotRequested
                             { requestedSnapshot = nextSnapshot
@@ -592,7 +614,7 @@ onOpenNetworkReqSn env ledger pendingDeposits ChainPointTime{currentSlot, curren
   -- \| Filter 'localTxs' to those that still apply against the running UTxO
   -- after each previous successful tx. The post-snapshot UTxO is not returned:
   -- aggregate will recompute it.
-  pruneTransactions utxo0 = go utxo0 localTxs
+  pruneTransactions utxo0 mCommit mDecommit = go utxo0 localTxs
    where
     go _ Seq.Empty = Seq.empty
     go u (tx Seq.:<| rest) =
@@ -602,7 +624,9 @@ onOpenNetworkReqSn env ledger pendingDeposits ChainPointTime{currentSlot, curren
       -- here when a tx becomes invalid.
       case applyTransactionsWithoutCollision ledger currentSlot u [tx] of
         Left _ -> go u rest
-        Right u' -> tx Seq.<| go u' rest
+        Right u'
+          | isRight (checkSnapshotUTxOSize u' mCommit mDecommit) -> tx Seq.<| go u' rest
+          | otherwise -> go u rest
   confSn = case confirmedSnapshot of
     InitialSnapshot{} -> 0
     ConfirmedSnapshot{snapshot = Snapshot{number}} -> number
@@ -867,7 +891,7 @@ onOpenClientDecommit ::
 onOpenClientDecommit headId ledger currentSlot coordinatedHeadState decommitTx =
   checkNoDecommitInFlight $
     checkValidDecommitTx $
-      requireDecommitOutputs headId localUTxO decommitTx $
+      requireDecommitOutputs headId localUTxO confirmedUTxO decommitTx $
         cause (NetworkEffect ReqDec{transaction = decommitTx})
  where
   checkNoDecommitInFlight continue =
@@ -899,7 +923,9 @@ onOpenClientDecommit headId ledger currentSlot coordinatedHeadState decommitTx =
             }
       Right _ -> cont
 
-  CoordinatedHeadState{decommitTx = mExistingDecommitTx, localUTxO} = coordinatedHeadState
+  confirmedUTxO = settledUTxO version (getSnapshot confirmedSnapshot)
+
+  CoordinatedHeadState{decommitTx = mExistingDecommitTx, localUTxO, confirmedSnapshot, version} = coordinatedHeadState
 
 -- | Process the request 'ReqDec' to decommit something from the Open head.
 --
@@ -925,7 +951,7 @@ onOpenNetworkReqDec ::
 onOpenNetworkReqDec env ledger ttl ChainPointTime{currentSlot, currentChainTime} pendingDeposits openState decommitTx =
   -- Spec: wait 𝑈𝛼 = ∅ ^ txω =⊥ ∧ L̂ ◦ tx ≠ ⊥
   waitOnApplicableDecommit $
-    requireDecommitOutputs headId localUTxO decommitTx $
+    requireDecommitOutputs headId localUTxO confirmedUTxO decommitTx $
       -- Spec: L̂ ← L̂ ◦ tx \ outputs(tx)
       -- Spec: txω ← tx
       newState DecommitRecorded{headId, decommitTx}
@@ -2260,10 +2286,14 @@ selectNextDeposit absorbableHere pendingDeposits currentDepositTxId mDecommitTx 
  where
   tracked (depositTxId, Deposit{deposited}) = depositTxId <$ guard (deposited /= mempty && absorbableHere deposited)
 
--- | Reject a decommit that materializes no output.
+-- | Reject a decommit that materializes no output or exceeds capacity.
 -- 'Hydra.Contract.Head.checkDecrement' requires at least one, so such a decommit
 -- can never settle on-chain, and recording it would block every later snapshot
 -- (which cannot carry a different one).
+-- Its outputs still belong to the head until the decrement settles, so an
+-- output-expanding decommit must fit before it is recorded or broadcast.
+-- Check the confirmed UTxO too: pending merges can fall outside the next
+-- request's tx-count cap, and followers apply the decommit before its txs.
 --
 -- Belongs after the applicability check at every call site: a transaction that
 -- does not apply is reported with the ledger's own, more precise reason.
@@ -2271,22 +2301,32 @@ requireDecommitOutputs ::
   IsTx tx =>
   HeadId ->
   UTxOType tx ->
+  UTxOType tx ->
   tx ->
   Outcome tx ->
   Outcome tx
-requireDecommitOutputs headId localUTxO decommitTx continue
+requireDecommitOutputs headId localUTxO confirmedUTxO decommitTx continue
   | utxoFromTx decommitTx == mempty =
-      newState
-        DecommitInvalid
-          { headId
-          , decommitTx
-          , decommitInvalidReason =
-              ServerOutput.DecommitTxInvalid
-                { localUTxO
-                , validationError = ValidationError "decommit transaction has no outputs"
-                }
-          }
+      invalid "decommit transaction has no outputs"
+  | Left AccumulatorTooLarge{utxoCount, maxAllowed} <- capacity =
+      invalid $ "decommit exceeds the head's accumulator capacity: " <> show utxoCount <> " outputs (maximum " <> show maxAllowed <> ")"
   | otherwise = continue
+ where
+  invalid reason =
+    newState
+      DecommitInvalid
+        { headId
+        , decommitTx
+        , decommitInvalidReason =
+            ServerOutput.DecommitTxInvalid
+              { localUTxO
+              , validationError = ValidationError reason
+              }
+        }
+
+  capacity =
+    checkSnapshotUTxOSize (applyTxTo decommitTx localUTxO) Nothing Nothing
+      *> checkSnapshotUTxOSize (applyTxTo decommitTx confirmedUTxO) Nothing Nothing
 
 -- | What a leader puts in its next 'ReqSn', see 'nextSnapshotRequest'.
 data SnapshotRequest tx = SnapshotRequest
@@ -2356,34 +2396,73 @@ buildSnapshotRequest ::
 buildSnapshotRequest utxo localTxs pendingDeposits currentDepositTxId mDecommitTx mSettlingCommit =
   case mSettlingCommit of
     Just (ContinueCommit (depositTxId, Deposit{deposited})) ->
-      let requestTxs = requestable (utxo <> deposited)
+      let requestTxs = requestable (Just deposited) Nothing
        in (SnapshotRequest{requestTxs, requestDecommitTx = Nothing, requestDepositTxId = Just depositTxId}, not (null requestTxs) || prunesPending)
     Just DropCommit -> withoutDeposit
     Nothing ->
-      case selectNextDeposit (absorbable utxo candidates) pendingDeposits currentDepositTxId mDecommitTx of
-        Just depositTxId -> (SnapshotRequest{requestTxs = requestable utxo, requestDecommitTx = Nothing, requestDepositTxId = Just depositTxId}, True)
+      case selectNextDeposit canAbsorb pendingDeposits currentDepositTxId mDecommitTx of
+        Just depositTxId -> (SnapshotRequest{requestTxs = requestable Nothing Nothing, requestDecommitTx = Nothing, requestDepositTxId = Just depositTxId}, True)
         Nothing -> withoutDeposit
  where
   withoutDeposit :: (SnapshotRequest tx, Bool)
   withoutDeposit =
-    let requestTxs = requestable utxo
+    let requestTxs = requestable Nothing mDecommitTx
      in (SnapshotRequest{requestTxs, requestDecommitTx = mDecommitTx, requestDepositTxId = Nothing}, not (null requestTxs) || prunesPending)
 
-  -- The first pending tx collides with the ledger; only a snapshot prunes it.
+  -- A new deposit must fit alongside the actual request. Defer it rather
+  -- than blocking ordinary transactions; a settling commit is always carried.
+  canAbsorb deposited =
+    absorbable utxo candidates deposited
+      && isRight (checkSnapshotUTxOSize requestedUTxO (Just deposited) Nothing)
+
+  requestedUTxO = foldl' (flip applyTxTo) utxo (requestable Nothing Nothing)
+
+  -- Only a snapshot prunes an unrequestable first pending transaction.
   prunesPending :: Bool
-  prunesPending = case candidates of
-    tx : _ -> not (namesNoneOf (utxoFromTx tx) utxo)
-    [] -> False
+  prunesPending = not (null candidates) && null (requestable Nothing mDecommitTx)
 
   -- The pending txs up to the first one creating an output the ledger or the
-  -- carried commit holds: no node accepts that one.
-  requestable :: UTxOType tx -> [tx]
-  requestable held = takeWhile (\tx -> namesNoneOf (utxoFromTx tx) held) candidates
+  -- carried commit holds, or exceeding capacity. Check every prefix: a later
+  -- merge might fall outside maxTxsPerSnapshot or arrive only after ReqSn.
+  requestable :: Maybe (UTxOType tx) -> Maybe tx -> [tx]
+  requestable mCommit mDecommit = go activeUTxO candidates
+   where
+    held = utxo <> fold mCommit
+    mDecommitUTxO = utxoFromTx <$> mDecommit
+    activeUTxO = case mDecommit of
+      Just tx -> applyTxTo tx utxo `withoutUTxO` utxoFromTx tx
+      Nothing -> utxo
+    go _ [] = []
+    go u (tx : rest)
+      | namesNoneOf (utxoFromTx tx) held
+      , let next = applyTxTo tx u
+      , isRight (checkSnapshotUTxOSize next mCommit mDecommitUTxO) =
+          tx : go next rest
+      | otherwise = []
 
   -- The first 'maxTxsPerSnapshot' pending txs: a snapshot request lists at
   -- most that many.
   candidates :: [tx]
   candidates = toList (Seq.take maxTxsPerSnapshot localTxs)
+
+-- | Count the two possible fanout sets without serializing outputs or building
+-- cryptographic commitments. This must match 'Accumulator.buildFromSnapshotUTxOs'.
+checkSnapshotUTxOSize ::
+  forall tx.
+  IsTx tx =>
+  UTxOType tx ->
+  Maybe (UTxOType tx) ->
+  Maybe (UTxOType tx) ->
+  Either AccumulatorTooLarge ()
+checkSnapshotUTxOSize utxo mCommit mDecommit =
+  traverse_ check [combinedUTxO utxo Nothing mDecommit, combinedUTxO utxo mCommit Nothing]
+ where
+  check :: UTxOType tx -> Either AccumulatorTooLarge ()
+  check u
+    | n > Accumulator.maxAccumulatorSize = Left AccumulatorTooLarge{utxoCount = n, maxAllowed = Accumulator.maxAccumulatorSize}
+    | otherwise = Right ()
+   where
+    n = length (outputsOfUTxO u)
 
 -- | The deposit claimed by a retained finalized increment ('finalizedCommit'),
 -- if any. Such a deposit only resurfaces in 'pendingDeposits' when a rollback
