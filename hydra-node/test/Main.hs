@@ -50,6 +50,7 @@ import Hydra.OffChainLeaderSpec qualified
 import Hydra.OptionsSpec qualified
 import Hydra.PartySpec qualified
 import Hydra.PersistentQueueSpec qualified
+import Hydra.UserValidationRulesSpec qualified
 import Hydra.UtilsSpec qualified
 import Test.Hydra.TastyMain (defaultMainHydra, testSpec, testSpecs)
 import Test.Tasty (DependencyType (AllFinish), after, dependentTestGroup)
@@ -121,4 +122,5 @@ main =
     , testSpec "Party" Hydra.PartySpec.spec
     , testSpec "PersistentQueue" Hydra.PersistentQueueSpec.spec
     , testSpec "Utils" Hydra.UtilsSpec.spec
+    , testSpec "UserValidationRules" Hydra.UserValidationRulesSpec.spec
     ]

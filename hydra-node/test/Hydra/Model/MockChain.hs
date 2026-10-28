@@ -64,7 +64,7 @@ import Hydra.HeadLogic (
   Input (..),
   OpenState (..),
  )
-import Hydra.Ledger (Ledger (..), ValidationError (..), PolicyViolation (..))
+import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano (adjustUTxO, fromChainSlot)
 import Hydra.Ledger.Cardano.Evaluate (renderEvaluationReport)
 import Hydra.Model.Payment (CardanoSigningKey (..))
@@ -85,6 +85,7 @@ import Hydra.Tx.Party (Party (..), deriveParty)
 import Hydra.Tx.ScriptRegistry (registryUTxO)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..))
 import Hydra.Tx.Utils (verificationKeyToOnChainId)
+import Hydra.UserValidationRules (PolicyViolation (..))
 import Test.Gen.Cardano.Api.Typed (genBlockHeaderAt)
 import Test.Hydra.Ledger (collectTransactions)
 import Test.Hydra.Ledger.Cardano.Fixtures (eraHistoryWithoutHorizon, evaluateTx)
