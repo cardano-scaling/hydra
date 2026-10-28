@@ -506,7 +506,6 @@ FailedToDecodeAddress :: Text -> BlockfrostException
 ByronAddressNotSupported :: BlockfrostException
 FailedUTxOForHash :: Text -> BlockfrostException
 FailedEraHistory :: BlockfrostException
-AssetNameMissing :: BlockfrostException
 DeserialiseError :: Text -> BlockfrostException
 data BlockfrostConversion
 BlockfrostConversion :: NonNegativeInterval -> UnitInterval -> UnitInterval -> NonNegativeInterval -> NonNegativeInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> UnitInterval -> Quantity -> Quantity -> Quantity -> Coin -> Integer -> Quantity -> NonNegativeInterval -> BlockfrostConversion
@@ -604,6 +603,10 @@ toCardanoPoolId :: PoolId -> Hash StakePoolKey
 toCardanoTxIn :: Text -> Integer -> TxIn
 toCardanoAddress :: Text -> Maybe AddressInEra
 toCardanoPolicyIdAndAssetName :: Text -> BlockfrostClientT IO (PolicyId, AssetName)
+
+-- | Blockfrost represents a valid empty asset name as null in asset
+--   details.
+toCardanoAssetName :: MonadIO m => Maybe Text -> m AssetName
 toCardanoNetworkId :: Integer -> NetworkId
 toCardanoSystemStart :: Genesis -> SystemStart
 toCardanoGenesisParameters :: Genesis -> GenesisParameters ShelleyEra
