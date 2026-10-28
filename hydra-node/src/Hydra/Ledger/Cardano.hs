@@ -42,8 +42,9 @@ import Data.Default (def)
 import Data.Map.Strict qualified as Map
 import Data.Set qualified as Set
 import Hydra.Chain.ChainState (ChainSlot (..))
-import Hydra.Ledger (Ledger (..), ValidationError (..), PolicyViolation (..))
+import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Tx (IsTx (..))
+import Hydra.UserValidationRules (PolicyViolation (..))
 
 -- * Ledger
 

@@ -7,12 +7,7 @@ import Hydra.Prelude
 
 import Hydra.Chain.ChainState (ChainSlot (..))
 import Hydra.Tx.IsTx (IsTx (..))
-import Hydra.Cardano.Api (PolicyId)
-
-
-data PolicyViolation =
-  PolicyMintingViolation { invalidPolicyIds :: Set PolicyId, allowedPolicyIds :: Set PolicyId }
-  deriving (Eq, Show)
+import Hydra.UserValidationRules (PolicyViolation)
 
 -- | An abstract interface for a 'Ledger'. Allows to define mock / simpler
 -- implementation for testing as well as limiting feature-envy from the business
@@ -28,7 +23,7 @@ data Ledger tx = Ledger
   -- TODO: 'ValidationError' should also include the UTxO, which is not
   -- necessarily the same as the given UTxO after some transactions
   , validateUserTransaction :: Maybe (tx -> Either PolicyViolation ())
-    -- ^ potential user policy validation if set on start
+  -- ^ potential user policy validation if set on start
   }
 
 -- | Either valid or an error which we get from the ledger-specs tx validation.
