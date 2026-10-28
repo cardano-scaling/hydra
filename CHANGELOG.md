@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 As a minor extension, we also keep a semantic version for the `UNRELEASED`
 changes.
 
+## [UNRELEASED]
+
+- Fixed the Blockfrost backend crashing on tokens with an empty asset name.
+  A null `asset_name` in asset details is now decoded as an empty name.
+  [#2923](https://github.com/cardano-scaling/hydra/issues/2923)
+
 ## [2.4.2] - 2026.10.22
 
 - Numerous fixes to the docs [#2917](https://github.com/cardano-scaling/hydra/pull/2917)

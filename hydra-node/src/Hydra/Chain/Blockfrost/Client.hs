@@ -77,7 +77,6 @@ data BlockfrostException
   | ByronAddressNotSupported
   | FailedUTxOForHash Text
   | FailedEraHistory
-  | AssetNameMissing
   | DeserialiseError Text
   deriving stock (Show)
 
@@ -332,17 +331,20 @@ toCardanoTxOut networkId addrTxt val mDatumHash mInlineDatum plutusScript = do
       NoStakeAddress
 
 toCardanoPolicyIdAndAssetName :: Text -> BlockfrostClientT IO (PolicyId, AssetName)
-toCardanoPolicyIdAndAssetName pid = do
-  Blockfrost.AssetDetails{_assetDetailsPolicyId, _assetDetailsAssetName} <- Blockfrost.getAssetDetails (Blockfrost.mkAssetId pid)
+toCardanoPolicyIdAndAssetName unit = do
+  Blockfrost.AssetDetails{_assetDetailsPolicyId, _assetDetailsAssetName} <- Blockfrost.getAssetDetails (Blockfrost.mkAssetId unit)
   case deserialiseFromRawBytesHex (encodeUtf8 $ Blockfrost.unPolicyId _assetDetailsPolicyId) of
     Left err -> liftIO $ throwIO $ BlockfrostClientError $ DeserialiseError (show err)
-    Right p ->
-      case _assetDetailsAssetName of
-        Nothing -> liftIO $ throwIO $ BlockfrostClientError AssetNameMissing
-        Just assetName ->
-          case deserialiseFromRawBytesHex (encodeUtf8 assetName) of
-            Left err -> liftIO $ throwIO $ BlockfrostClientError $ DeserialiseError (show err)
-            Right asset -> pure (p, asset)
+    Right policyId -> do
+      assetName <- toCardanoAssetName _assetDetailsAssetName
+      pure (policyId, assetName)
+
+-- | Blockfrost represents a valid empty asset name as null in asset details.
+toCardanoAssetName :: MonadIO m => Maybe Text -> m AssetName
+toCardanoAssetName assetName =
+  case deserialiseFromRawBytesHex (encodeUtf8 $ fromMaybe "" assetName) of
+    Left err -> liftIO $ throwIO $ BlockfrostClientError $ DeserialiseError (show err)
+    Right asset -> pure asset
 
 toCardanoValue :: [Blockfrost.Amount] -> BlockfrostClientT IO Value
 toCardanoValue = foldMapM convertAmount
