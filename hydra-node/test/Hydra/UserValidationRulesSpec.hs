@@ -6,15 +6,20 @@
 
 module Hydra.UserValidationRulesSpec where
 
+import Cardano.Ledger.Address qualified as Ledger
+import Cardano.Ledger.BaseTypes qualified as Ledger
+import Cardano.Ledger.Credential qualified as Ledger
 import Data.ByteString qualified as BS
 import Data.Set qualified as Set
 import GHC.IsList (toList)
 import Hydra.Cardano.Api (
+  AddressInEra,
   AssetId (..),
   CtxTx,
   Quantity (..),
   ScriptData (..),
   TxOut,
+  fromLedgerAddr,
   getOriginalScriptDataBytes,
   getTxBody,
   getTxBodyContent,
@@ -35,6 +40,7 @@ import Hydra.UserValidationRules (
   PolicyRule (..),
   PolicyViolation (..),
   UserValidationRules (..),
+  checkAllowedScriptAddresses,
   checkMaxDatumSize,
   checkMaxOutputValueAssets,
   checkMaxUTxOCount,
@@ -75,6 +81,7 @@ spec = do
     prop "checkPolicies" prop_checkMintedAssets
     prop "checkMaxOutputValueAssets" prop_checkMaxOutputValueAssets
     prop "checkMaxDatumSize" prop_checkMaxDatumSize
+    prop "checkAllowedScriptAddresses" prop_checkAllowedScriptAddresses
     prop "validateUserTransactionWith" prop_validateUserTransactionWith
 
 prop_validateUserTransactionWith :: Property
@@ -110,6 +117,10 @@ prop_validateUserTransactionWith =
       Nothing -> Right ()
       Just limit ->
         traverse_ (checkMaxDatumSize limit) (txOuts' tx)
+    case allowedScriptAddresses rules of
+      Nothing -> Right ()
+      Just allowed ->
+        traverse_ (checkAllowedScriptAddresses allowed) (txOuts' tx)
 
 prop_checkMintedAssets :: Property
 prop_checkMintedAssets =
@@ -225,3 +236,63 @@ prop_checkMaxDatumSize =
                 withOutput (TxOutDatumHash (hashScriptDataBytes scriptData)) $ \actualOutput ->
                   checkMaxDatumSize 0 actualOutput === Right ()
             ]
+
+prop_checkAllowedScriptAddresses :: Property
+prop_checkAllowedScriptAddresses =
+  forAll (genTxOut :: Gen (TxOut CtxTx)) $ \(TxOut _ value datum refScript) ->
+    forAll arbitrary $ \scriptHash ->
+      forAll arbitrary $ \keyHash ->
+        let scriptAddress =
+              fromLedgerAddr $
+                Ledger.Addr
+                  Ledger.Testnet
+                  (Ledger.ScriptHashObj scriptHash)
+                  Ledger.StakeRefNull
+            otherNetworkAddress =
+              fromLedgerAddr $
+                Ledger.Addr
+                  Ledger.Mainnet
+                  (Ledger.ScriptHashObj scriptHash)
+                  Ledger.StakeRefNull
+            stakedScriptAddress =
+              fromLedgerAddr $
+                Ledger.Addr
+                  Ledger.Testnet
+                  (Ledger.ScriptHashObj scriptHash)
+                  (Ledger.StakeRefBase (Ledger.ScriptHashObj scriptHash))
+            keyAddress =
+              fromLedgerAddr $
+                Ledger.Addr
+                  Ledger.Testnet
+                  (Ledger.KeyHashObj keyHash)
+                  (Ledger.StakeRefBase (Ledger.ScriptHashObj scriptHash))
+            output address = TxOut address value datum refScript
+            rejected :: AddressInEra -> Either PolicyViolation ()
+            rejected address =
+              Left
+                ScriptAddressNotAllowed
+                  { rejectedScriptAddress = address
+                  }
+         in conjoin
+              [ counterexample "listed script address" $
+                  checkAllowedScriptAddresses
+                    (Set.singleton scriptAddress)
+                    (output scriptAddress)
+                    === Right ()
+              , counterexample "empty allowlist rejects script address" $
+                  checkAllowedScriptAddresses Set.empty (output scriptAddress)
+                    === rejected scriptAddress
+              , counterexample "different network does not match" $
+                  checkAllowedScriptAddresses
+                    (Set.singleton otherNetworkAddress)
+                    (output scriptAddress)
+                    === rejected scriptAddress
+              , counterexample "different staking component does not match" $
+                  checkAllowedScriptAddresses
+                    (Set.singleton stakedScriptAddress)
+                    (output scriptAddress)
+                    === rejected scriptAddress
+              , counterexample "key payment with script staking is permitted" $
+                  checkAllowedScriptAddresses Set.empty (output keyAddress)
+                    === Right ()
+              ]

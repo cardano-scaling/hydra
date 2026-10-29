@@ -8,11 +8,13 @@ module Hydra.UserValidationRules where
 
 import Cardano.Api (AssetId (..), HashableScriptData, TxBodyContent (txMintValue), TxOutDatum (..), getOriginalScriptDataBytes, getTxBody, getTxBodyContent, txMintValueToValue)
 import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Ledger.Address qualified as Ledger
+import Cardano.Ledger.Credential qualified as Ledger
 import Data.ByteString qualified as BS
 import Data.Map qualified as Map
 import Data.Set qualified as Set
 import GHC.IsList (toList)
-import Hydra.Cardano.Api (PolicyId, Tx, TxOut, UTxO, txOuts', pattern TxOut)
+import Hydra.Cardano.Api (AddressInEra, PolicyId, Tx, TxOut, UTxO, toLedgerAddr, txOuts', pattern TxOut)
 import Hydra.Prelude hiding (toList)
 
 data PolicyViolation
@@ -28,6 +30,9 @@ data PolicyViolation
   | MaxOutputDatumSizeExceeded
       { actualDatumSize :: Natural
       , maximumDatumSize :: Natural
+      }
+  | ScriptAddressNotAllowed
+      { rejectedScriptAddress :: AddressInEra
       }
   deriving (Eq, Show)
 
@@ -47,6 +52,7 @@ data UserValidationRules = UserValidationRules
   , maxUTxOCount :: Maybe Natural
   , maxOutputValueAssets :: Maybe Natural
   , maxDatumSize :: Maybe Natural
+  , allowedScriptAddresses :: Maybe (Set AddressInEra)
   }
   deriving (Eq, Show, Generic)
 
@@ -70,6 +76,10 @@ validateUserTransactionWith rules resultingUTxO tx = do
     Nothing -> Right ()
     Just limit ->
       traverse_ (checkMaxDatumSize limit) (txOuts' tx)
+  case rules.allowedScriptAddresses of
+    Nothing -> Right ()
+    Just allowed ->
+      traverse_ (checkAllowedScriptAddresses allowed) (txOuts' tx)
 
 checkPolicies :: Set PolicyId -> Tx -> Either PolicyViolation ()
 checkPolicies policies tx = do
@@ -141,3 +151,14 @@ checkMaxDatumSize limit (TxOut _ _ datum _) =
                 { actualDatumSize = actual
                 , maximumDatumSize = limit
                 }
+
+checkAllowedScriptAddresses :: Set AddressInEra -> TxOut ctx -> Either PolicyViolation ()
+checkAllowedScriptAddresses allowed (TxOut address _ _ _) =
+  case toLedgerAddr address of
+    Ledger.Addr _ (Ledger.ScriptHashObj _) _ ->
+      unless (Set.member address allowed) $
+        Left
+          ScriptAddressNotAllowed
+            { rejectedScriptAddress = address
+            }
+    _ -> Right ()
