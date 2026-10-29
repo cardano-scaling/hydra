@@ -865,10 +865,17 @@ withUnsyncedSoloHydraNode :: HasCallStack => Tracer IO HydraNodeLog -> ChainConf
 --   termination.
 withSuspendedNode :: HydraClient -> IO a -> IO a
 withSuspendedNodeProcesses :: ProcessID -> IO a -> IO a
-withSuspendedProcess :: ProcessID -> IO a -> IO a
+
+-- | Stop only the owned node's etcd service, keeping its API and metrics
+--   live.
+withSuspendedEtcd :: HydraClient -> IO a -> IO a
 
 -- | Only act on the unique direct etcd child of this owned node.
 findEtcdChild :: ProcessID -> IO ProcessID
+withSuspendedProcess :: ProcessID -> IO a -> IO a
+
+-- | Resolve a unique direct child before applying a scoped local fault.
+findChildProcess :: ProcessID -> FilePath -> IO ProcessID
 waitNext :: HasCallStack => HydraClient -> IO Value
 
 -- | Scale a wait budget to the environment. Blockfrost runs triple it (the

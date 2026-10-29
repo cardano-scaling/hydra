@@ -1,0 +1,843 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE RecordWildCards #-}</span><span>
+</span><span id="line-2"></span><span>
+</span><span id="line-3"></span><span class="annot"><span class="hs-comment">-- | Typed handles and bounded label domains for the public metrics interface.</span></span><span>
+</span><span id="line-4"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.Logging.Monitoring.Metrics</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-5"></span><span>
+</span><span id="line-6"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Strict.html"><span class="hs-identifier">Data.Map.Strict</span></a></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Map</span></span><span>
+</span><span id="line-7"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Logging.Monitoring.Registry.html"><span class="hs-identifier">Hydra.Logging.Monitoring.Registry</span></a></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Registry</span></span><span>
+</span><span id="line-8"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Prelude</span></span><span>
+</span><span id="line-9"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">System.Metrics.Prometheus.Metric.Counter</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Counter</span></span><span class="hs-special">)</span><span>
+</span><span id="line-10"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">System.Metrics.Prometheus.Metric.Gauge</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Gauge</span></span><span class="hs-special">)</span><span>
+</span><span id="line-11"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">System.Metrics.Prometheus.Metric.Histogram</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Histogram</span></span><span class="hs-special">)</span><span>
+</span><span id="line-12"></span><span>
+</span><span id="line-13"></span><span class="hs-keyword">data</span><span> </span><span id="Metrics"><span class="annot"><a href="Hydra.Logging.Monitoring.Metrics.html#Metrics"><span class="hs-identifier hs-var">Metrics</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Metrics"><span class="annot"><a href="Hydra.Logging.Monitoring.Metrics.html#Metrics"><span class="hs-identifier hs-var">Metrics</span></a></span></span><span>
+</span><span id="line-14"></span><span>  </span><span class="hs-special">{</span><span> </span><span id="%24sel%3AheadInputs%3AMetrics"><span class="annot"><span class="annottext">Metrics -&gt; Counter
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#%24sel%3AheadInputs%3AMetrics"><span class="hs-identifier hs-var hs-var">headInputs</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Counter</span></span><span>
+</span><span id="line-15"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AheadRequestedTx%3AMetrics"><span class="annot"><span class="annottext">Metrics -&gt; Counter
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#%24sel%3AheadRequestedTx%3AMetrics"><span class="hs-identifier hs-var hs-var">headRequestedTx</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Counter</span></span><span>
+</span><span id="line-16"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AheadConfirmedTx%3AMetrics"><span class="annot"><span class="annottext">Metrics -&gt; Counter
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#%24sel%3AheadConfirmedTx%3AMetrics"><span class="hs-identifier hs-var hs-var">headConfirmedTx</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Counter</span></span><span>
+</span><span id="line-17"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AtxConfirmationTime%3AMetrics"><span class="annot"><span class="annottext">Metrics -&gt; Histogram
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#%24sel%3AtxConfirmationTime%3AMetrics"><span class="hs-identifier hs-var hs-var">txConfirmationTime</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Histogram</span></span><span>
+</span><span id="line-18"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AsnapshotConfirmationTime%3AMetrics"><span class="annot"><span class="annottext">Metrics -&gt; Histogram
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#%24sel%3AsnapshotConfirmationTime%3AMetrics"><span class="hs-identifier hs-var hs-var">snapshotConfirmationTime</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Histogram</span></span><span>
+</span><span id="line-19"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3Asnapshots%3AMetrics"><span class="annot"><span class="annottext">Metrics -&gt; Map Text Counter
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#%24sel%3Asnapshots%3AMetrics"><span class="hs-identifier hs-var hs-var">snapshots</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Internal.html#Map"><span class="hs-identifier hs-type">Map</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Counter</span></span><span>
+</span><span id="line-20"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AevictedTimings%3AMetrics"><span class="annot"><span class="annottext">Metrics -&gt; Counter
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#%24sel%3AevictedTimings%3AMetrics"><span class="hs-identifier hs-var hs-var">evictedTimings</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Counter</span></span><span>
+</span><span id="line-21"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3ApeersConnected%3AMetrics"><span class="annot"><span class="annottext">Metrics -&gt; Gauge
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#%24sel%3ApeersConnected%3AMetrics"><span class="hs-identifier hs-var hs-var">peersConnected</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Gauge</span></span><span>
+</span><span id="line-22"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AchainDriftSeconds%3AMetrics"><span class="annot"><span class="annottext">Metrics -&gt; Gauge
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#%24sel%3AchainDriftSeconds%3AMetrics"><span class="hs-identifier hs-var hs-var">chainDriftSeconds</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Gauge</span></span><span>
+</span><span id="line-23"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AchainLastBlockTimestampSeconds%3AMetrics"><span class="annot"><span class="annottext">Metrics -&gt; Gauge
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#%24sel%3AchainLastBlockTimestampSeconds%3AMetrics"><span class="hs-identifier hs-var hs-var">chainLastBlockTimestampSeconds</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Gauge</span></span><span>
+</span><span id="line-24"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AchainBackendTimestamp%3AMetrics"><span class="annot"><span class="annottext">Metrics -&gt; Gauge
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#%24sel%3AchainBackendTimestamp%3AMetrics"><span class="hs-identifier hs-var hs-var">chainBackendTimestamp</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Gauge</span></span><span>
+</span><span id="line-25"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AbroadcastStalled%3AMetrics"><span class="annot"><span class="annottext">Metrics -&gt; Gauge
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#%24sel%3AbroadcastStalled%3AMetrics"><span class="hs-identifier hs-var hs-var">broadcastStalled</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Gauge</span></span><span>
+</span><span id="line-26"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AbroadcastStalledNoProgress%3AMetrics"><span class="annot"><span class="annottext">Metrics -&gt; Gauge
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#%24sel%3AbroadcastStalledNoProgress%3AMetrics"><span class="hs-identifier hs-var hs-var">broadcastStalledNoProgress</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Gauge</span></span><span>
+</span><span id="line-27"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AbroadcastStalledBacklogFull%3AMetrics"><span class="annot"><span class="annottext">Metrics -&gt; Gauge
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#%24sel%3AbroadcastStalledBacklogFull%3AMetrics"><span class="hs-identifier hs-var hs-var">broadcastStalledBacklogFull</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Gauge</span></span><span>
+</span><span id="line-28"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3ApendingBroadcasts%3AMetrics"><span class="annot"><span class="annottext">Metrics -&gt; Gauge
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#%24sel%3ApendingBroadcasts%3AMetrics"><span class="hs-identifier hs-var hs-var">pendingBroadcasts</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Gauge</span></span><span>
+</span><span id="line-29"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AbroadcastNoProgressSeconds%3AMetrics"><span class="annot"><span class="annottext">Metrics -&gt; Gauge
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#%24sel%3AbroadcastNoProgressSeconds%3AMetrics"><span class="hs-identifier hs-var hs-var">broadcastNoProgressSeconds</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Gauge</span></span><span>
+</span><span id="line-30"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AinputsRefusedBroadcastStalled%3AMetrics"><span class="annot"><span class="annottext">Metrics -&gt; Counter
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#%24sel%3AinputsRefusedBroadcastStalled%3AMetrics"><span class="hs-identifier hs-var hs-var">inputsRefusedBroadcastStalled</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Counter</span></span><span>
+</span><span id="line-31"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AinputRetries%3AMetrics"><span class="annot"><span class="annottext">Metrics -&gt; Map Text Counter
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#%24sel%3AinputRetries%3AMetrics"><span class="hs-identifier hs-var hs-var">inputRetries</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Internal.html#Map"><span class="hs-identifier hs-type">Map</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Counter</span></span><span>
+</span><span id="line-32"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AinputDrops%3AMetrics"><span class="annot"><span class="annottext">Metrics -&gt; Map Text Counter
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#%24sel%3AinputDrops%3AMetrics"><span class="hs-identifier hs-var hs-var">inputDrops</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Internal.html#Map"><span class="hs-identifier hs-type">Map</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Counter</span></span><span>
+</span><span id="line-33"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AinputProcessing%3AMetrics"><span class="annot"><span class="annottext">Metrics -&gt; Map Text Histogram
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#%24sel%3AinputProcessing%3AMetrics"><span class="hs-identifier hs-var hs-var">inputProcessing</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Internal.html#Map"><span class="hs-identifier hs-type">Map</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Histogram</span></span><span>
+</span><span id="line-34"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AinputQueueWait%3AMetrics"><span class="annot"><span class="annottext">Metrics -&gt; Histogram
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#%24sel%3AinputQueueWait%3AMetrics"><span class="hs-identifier hs-var hs-var">inputQueueWait</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Histogram</span></span><span>
+</span><span id="line-35"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AqueuedInputs%3AMetrics"><span class="annot"><span class="annottext">Metrics -&gt; Gauge
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#%24sel%3AqueuedInputs%3AMetrics"><span class="hs-identifier hs-var hs-var">queuedInputs</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Gauge</span></span><span>
+</span><span id="line-36"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AparkedInputs%3AMetrics"><span class="annot"><span class="annottext">Metrics -&gt; Gauge
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#%24sel%3AparkedInputs%3AMetrics"><span class="hs-identifier hs-var hs-var">parkedInputs</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Gauge</span></span><span>
+</span><span id="line-37"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3Asynced%3AMetrics"><span class="annot"><span class="annottext">Metrics -&gt; Gauge
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#%24sel%3Asynced%3AMetrics"><span class="hs-identifier hs-var hs-var">synced</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Gauge</span></span><span>
+</span><span id="line-38"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3Aphase%3AMetrics"><span class="annot"><span class="annottext">Metrics -&gt; Map Text Gauge
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#%24sel%3Aphase%3AMetrics"><span class="hs-identifier hs-var hs-var">phase</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Internal.html#Map"><span class="hs-identifier hs-type">Map</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Gauge</span></span><span>
+</span><span id="line-39"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AnetworkConnected%3AMetrics"><span class="annot"><span class="annottext">Metrics -&gt; Gauge
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#%24sel%3AnetworkConnected%3AMetrics"><span class="hs-identifier hs-var hs-var">networkConnected</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Gauge</span></span><span>
+</span><span id="line-40"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AsnapshotNumber%3AMetrics"><span class="annot"><span class="annottext">Metrics -&gt; Gauge
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#%24sel%3AsnapshotNumber%3AMetrics"><span class="hs-identifier hs-var hs-var">snapshotNumber</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Gauge</span></span><span>
+</span><span id="line-41"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AsnapshotPending%3AMetrics"><span class="annot"><span class="annottext">Metrics -&gt; Gauge
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#%24sel%3AsnapshotPending%3AMetrics"><span class="hs-identifier hs-var hs-var">snapshotPending</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Gauge</span></span><span>
+</span><span id="line-42"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AmissingSignatures%3AMetrics"><span class="annot"><span class="annottext">Metrics -&gt; Gauge
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#%24sel%3AmissingSignatures%3AMetrics"><span class="hs-identifier hs-var hs-var">missingSignatures</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Gauge</span></span><span>
+</span><span id="line-43"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AoutstandingTransactions%3AMetrics"><span class="annot"><span class="annottext">Metrics -&gt; Gauge
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#%24sel%3AoutstandingTransactions%3AMetrics"><span class="hs-identifier hs-var hs-var">outstandingTransactions</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Gauge</span></span><span>
+</span><span id="line-44"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AtxOutcomes%3AMetrics"><span class="annot"><span class="annottext">Metrics -&gt; Map Text Counter
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#%24sel%3AtxOutcomes%3AMetrics"><span class="hs-identifier hs-var hs-var">txOutcomes</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Internal.html#Map"><span class="hs-identifier hs-type">Map</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Counter</span></span><span>
+</span><span id="line-45"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3ApersistentDepth%3AMetrics"><span class="annot"><span class="annottext">Metrics -&gt; Gauge
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#%24sel%3ApersistentDepth%3AMetrics"><span class="hs-identifier hs-var hs-var">persistentDepth</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Gauge</span></span><span>
+</span><span id="line-46"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3ApersistentAge%3AMetrics"><span class="annot"><span class="annottext">Metrics -&gt; Gauge
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#%24sel%3ApersistentAge%3AMetrics"><span class="hs-identifier hs-var hs-var">persistentAge</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Gauge</span></span><span>
+</span><span id="line-47"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AputLatency%3AMetrics"><span class="annot"><span class="annottext">Metrics -&gt; Histogram
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#%24sel%3AputLatency%3AMetrics"><span class="hs-identifier hs-var hs-var">putLatency</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Histogram</span></span><span>
+</span><span id="line-48"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AnetworkEvents%3AMetrics"><span class="annot"><span class="annottext">Metrics -&gt; Map Text Counter
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#%24sel%3AnetworkEvents%3AMetrics"><span class="hs-identifier hs-var hs-var">networkEvents</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Internal.html#Map"><span class="hs-identifier hs-type">Map</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Counter</span></span><span>
+</span><span id="line-49"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AchainFailures%3AMetrics"><span class="annot"><span class="annottext">Metrics -&gt; Map Text Counter
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#%24sel%3AchainFailures%3AMetrics"><span class="hs-identifier hs-var hs-var">chainFailures</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Internal.html#Map"><span class="hs-identifier hs-type">Map</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Counter</span></span><span>
+</span><span id="line-50"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AchainDuration%3AMetrics"><span class="annot"><span class="annottext">Metrics -&gt; Map Text Histogram
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#%24sel%3AchainDuration%3AMetrics"><span class="hs-identifier hs-var hs-var">chainDuration</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Internal.html#Map"><span class="hs-identifier hs-type">Map</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Histogram</span></span><span>
+</span><span id="line-51"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AchainInflight%3AMetrics"><span class="annot"><span class="annottext">Metrics -&gt; Map Text Gauge
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#%24sel%3AchainInflight%3AMetrics"><span class="hs-identifier hs-var hs-var">chainInflight</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Internal.html#Map"><span class="hs-identifier hs-type">Map</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Gauge</span></span><span>
+</span><span id="line-52"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3ArollbackDepth%3AMetrics"><span class="annot"><span class="annottext">Metrics -&gt; Histogram
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#%24sel%3ArollbackDepth%3AMetrics"><span class="hs-identifier hs-var hs-var">rollbackDepth</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Histogram</span></span><span>
+</span><span id="line-53"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AblockfrostRetries%3AMetrics"><span class="annot"><span class="annottext">Metrics -&gt; Counter
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#%24sel%3AblockfrostRetries%3AMetrics"><span class="hs-identifier hs-var hs-var">blockfrostRetries</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Counter</span></span><span>
+</span><span id="line-54"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AblockfrostRateLimits%3AMetrics"><span class="annot"><span class="annottext">Metrics -&gt; Counter
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#%24sel%3AblockfrostRateLimits%3AMetrics"><span class="hs-identifier hs-var hs-var">blockfrostRateLimits</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Counter</span></span><span>
+</span><span id="line-55"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3Adeposits%3AMetrics"><span class="annot"><span class="annottext">Metrics -&gt; Map Text Gauge
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#%24sel%3Adeposits%3AMetrics"><span class="hs-identifier hs-var hs-var">deposits</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Internal.html#Map"><span class="hs-identifier hs-type">Map</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Gauge</span></span><span>
+</span><span id="line-56"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3Adecommit%3AMetrics"><span class="annot"><span class="annottext">Metrics -&gt; Map Text Gauge
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#%24sel%3Adecommit%3AMetrics"><span class="hs-identifier hs-var hs-var">decommit</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Internal.html#Map"><span class="hs-identifier hs-type">Map</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Gauge</span></span><span>
+</span><span id="line-57"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AfanoutRemaining%3AMetrics"><span class="annot"><span class="annottext">Metrics -&gt; Gauge
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#%24sel%3AfanoutRemaining%3AMetrics"><span class="hs-identifier hs-var hs-var">fanoutRemaining</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Gauge</span></span><span>
+</span><span id="line-58"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AfanoutMode%3AMetrics"><span class="annot"><span class="annottext">Metrics -&gt; Map Text Gauge
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#%24sel%3AfanoutMode%3AMetrics"><span class="hs-identifier hs-var hs-var">fanoutMode</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Internal.html#Map"><span class="hs-identifier hs-type">Map</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Gauge</span></span><span>
+</span><span id="line-59"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AsqliteQueue%3AMetrics"><span class="annot"><span class="annottext">Metrics -&gt; Gauge
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#%24sel%3AsqliteQueue%3AMetrics"><span class="hs-identifier hs-var hs-var">sqliteQueue</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Gauge</span></span><span>
+</span><span id="line-60"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AsqliteInflight%3AMetrics"><span class="annot"><span class="annottext">Metrics -&gt; Gauge
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#%24sel%3AsqliteInflight%3AMetrics"><span class="hs-identifier hs-var hs-var">sqliteInflight</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Gauge</span></span><span>
+</span><span id="line-61"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AsqliteDuration%3AMetrics"><span class="annot"><span class="annottext">Metrics -&gt; Histogram
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#%24sel%3AsqliteDuration%3AMetrics"><span class="hs-identifier hs-var hs-var">sqliteDuration</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Histogram</span></span><span>
+</span><span id="line-62"></span><span>  </span><span class="hs-special">}</span><span>
+</span><span id="line-63"></span><span>
+</span><span id="line-64"></span><span class="annot"><a href="Hydra.Logging.Monitoring.Metrics.html#registerMetrics"><span class="hs-identifier hs-type">registerMetrics</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Logging.Monitoring.Registry.html#Registry"><span class="hs-identifier hs-type">Registry.Registry</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><a href="Hydra.Logging.Monitoring.Metrics.html#Metrics"><span class="hs-identifier hs-type">Metrics</span></a></span><span>
+</span><span id="line-65"></span><span id="registerMetrics"><span class="annot"><span class="annottext">registerMetrics :: Registry -&gt; Text -&gt; IO Metrics
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#registerMetrics"><span class="hs-identifier hs-var hs-var">registerMetrics</span></a></span></span><span> </span><span id="local-6989586621679839543"><span class="annot"><span class="annottext">Registry
+</span><a href="#local-6989586621679839543"><span class="hs-identifier hs-var">registry</span></a></span></span><span> </span><span id="local-6989586621679839544"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839544"><span class="hs-identifier hs-var">backend</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-66"></span><span>  </span><span id="local-6989586621679839545"><span class="annot"><span class="annottext">Counter
+</span><a href="#local-6989586621679839545"><span class="hs-identifier hs-var">headInputs</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Registry -&gt; Text -&gt; Text -&gt; [(Text, Text)] -&gt; IO Counter
+</span><a href="Hydra.Logging.Monitoring.Registry.html#counter"><span class="hs-identifier hs-var">Registry.counter</span></a></span><span> </span><span class="annot"><span class="annottext">Registry
+</span><a href="#local-6989586621679839543"><span class="hs-identifier hs-var">registry</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;hydra_head_inputs_total&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;Completed input processing attempts, including retries.&quot;</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-67"></span><span>  </span><span id="local-6989586621679839547"><span class="annot"><span class="annottext">Counter
+</span><a href="#local-6989586621679839547"><span class="hs-identifier hs-var">headRequestedTx</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Registry -&gt; Text -&gt; Text -&gt; [(Text, Text)] -&gt; IO Counter
+</span><a href="Hydra.Logging.Monitoring.Registry.html#counter"><span class="hs-identifier hs-var">Registry.counter</span></a></span><span> </span><span class="annot"><span class="annottext">Registry
+</span><a href="#local-6989586621679839543"><span class="hs-identifier hs-var">registry</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;hydra_head_requested_tx_total&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;ReqTx network messages first processed by this node; retries excluded and external duplicate messages included.&quot;</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-68"></span><span>  </span><span id="local-6989586621679839548"><span class="annot"><span class="annottext">Counter
+</span><a href="#local-6989586621679839548"><span class="hs-identifier hs-var">headConfirmedTx</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Registry -&gt; Text -&gt; Text -&gt; [(Text, Text)] -&gt; IO Counter
+</span><a href="Hydra.Logging.Monitoring.Registry.html#counter"><span class="hs-identifier hs-var">Registry.counter</span></a></span><span> </span><span class="annot"><span class="annottext">Registry
+</span><a href="#local-6989586621679839543"><span class="hs-identifier hs-var">registry</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;hydra_head_confirmed_tx_total&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;Transactions in newly confirmed or adopted snapshot numbers observed in this process; repeated adoption excluded.&quot;</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-69"></span><span>  </span><span id="local-6989586621679839549"><span class="annot"><span class="annottext">Histogram
+</span><a href="#local-6989586621679839549"><span class="hs-identifier hs-var">txConfirmationTime</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Registry
+-&gt; Text -&gt; Text -&gt; [Double] -&gt; [(Text, Text)] -&gt; IO Histogram
+</span><a href="Hydra.Logging.Monitoring.Registry.html#histogram"><span class="hs-identifier hs-var">Registry.histogram</span></a></span><span> </span><span class="annot"><span class="annottext">Registry
+</span><a href="#local-6989586621679839543"><span class="hs-identifier hs-var">registry</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;hydra_head_tx_confirmation_seconds&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;Time from first local processing of ReqTx to confirmation; excludes queue admission and unavailable timings.&quot;</span></span><span> </span><span class="annot"><span class="annottext">[Double]
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#latencyBuckets"><span class="hs-identifier hs-var">latencyBuckets</span></a></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-70"></span><span>  </span><span id="local-6989586621679839552"><span class="annot"><span class="annottext">Histogram
+</span><a href="#local-6989586621679839552"><span class="hs-identifier hs-var">snapshotConfirmationTime</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Registry
+-&gt; Text -&gt; Text -&gt; [Double] -&gt; [(Text, Text)] -&gt; IO Histogram
+</span><a href="Hydra.Logging.Monitoring.Registry.html#histogram"><span class="hs-identifier hs-var">Registry.histogram</span></a></span><span> </span><span class="annot"><span class="annottext">Registry
+</span><a href="#local-6989586621679839543"><span class="hs-identifier hs-var">registry</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;hydra_head_snapshot_confirmation_seconds&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;Time from accepted SnapshotRequested after validation to confirmation of the same head, version and number.&quot;</span></span><span> </span><span class="annot"><span class="annottext">[Double]
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#latencyBuckets"><span class="hs-identifier hs-var">latencyBuckets</span></a></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-71"></span><span>  </span><span id="local-6989586621679839553"><span class="annot"><span class="annottext">Map Text Counter
+</span><a href="#local-6989586621679839553"><span class="hs-identifier hs-var">snapshots</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[Text] -&gt; (Text -&gt; IO Counter) -&gt; IO (Map Text Counter)
+forall a. [Text] -&gt; (Text -&gt; IO a) -&gt; IO (Map Text a)
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#vector"><span class="hs-identifier hs-var">vector</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;signed&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;adopted&quot;</span></span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">((Text -&gt; IO Counter) -&gt; IO (Map Text Counter))
+-&gt; (Text -&gt; IO Counter) -&gt; IO (Map Text Counter)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679839555"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839555"><span class="hs-identifier hs-var">value</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Registry -&gt; Text -&gt; Text -&gt; [(Text, Text)] -&gt; IO Counter
+</span><a href="Hydra.Logging.Monitoring.Registry.html#counter"><span class="hs-identifier hs-var">Registry.counter</span></a></span><span> </span><span class="annot"><span class="annottext">Registry
+</span><a href="#local-6989586621679839543"><span class="hs-identifier hs-var">registry</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;hydra_head_snapshots_total&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;New snapshot numbers observed, split by signed confirmation or adoption.&quot;</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;source&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839555"><span class="hs-identifier hs-var">value</span></a></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
+</span><span id="line-72"></span><span>  </span><span id="local-6989586621679839556"><span class="annot"><span class="annottext">Counter
+</span><a href="#local-6989586621679839556"><span class="hs-identifier hs-var">evictedTimings</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Registry -&gt; Text -&gt; Text -&gt; [(Text, Text)] -&gt; IO Counter
+</span><a href="Hydra.Logging.Monitoring.Registry.html#counter"><span class="hs-identifier hs-var">Registry.counter</span></a></span><span> </span><span class="annot"><span class="annottext">Registry
+</span><a href="#local-6989586621679839543"><span class="hs-identifier hs-var">registry</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;hydra_monitoring_timing_evictions_total&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;Transaction timings discarded due to age or capacity; confirmation counters are unaffected.&quot;</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-73"></span><span>  </span><span id="local-6989586621679839557"><span class="annot"><span class="annottext">Gauge
+</span><a href="#local-6989586621679839557"><span class="hs-identifier hs-var">peersConnected</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Registry -&gt; Text -&gt; Text -&gt; [(Text, Text)] -&gt; IO Gauge
+</span><a href="Hydra.Logging.Monitoring.Registry.html#gauge"><span class="hs-identifier hs-var">Registry.gauge</span></a></span><span> </span><span class="annot"><span class="annottext">Registry
+</span><a href="#local-6989586621679839543"><span class="hs-identifier hs-var">registry</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;hydra_head_peers_connected&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;Distinct connected peers observed by the processing loop.&quot;</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-74"></span><span>  </span><span id="local-6989586621679839559"><span class="annot"><span class="annottext">Gauge
+</span><a href="#local-6989586621679839559"><span class="hs-identifier hs-var">chainDriftSeconds</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Registry -&gt; Text -&gt; Text -&gt; [(Text, Text)] -&gt; IO Gauge
+</span><a href="Hydra.Logging.Monitoring.Registry.html#gauge"><span class="hs-identifier hs-var">Registry.gauge</span></a></span><span> </span><span class="annot"><span class="annottext">Registry
+</span><a href="#local-6989586621679839543"><span class="hs-identifier hs-var">registry</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;hydra_chain_drift_seconds&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;Wall clock minus chain time at the latest processed tick; may be negative with clock skew.&quot;</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-75"></span><span>  </span><span id="local-6989586621679839560"><span class="annot"><span class="annottext">Gauge
+</span><a href="#local-6989586621679839560"><span class="hs-identifier hs-var">chainLastBlockTimestampSeconds</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Registry -&gt; Text -&gt; Text -&gt; [(Text, Text)] -&gt; IO Gauge
+</span><a href="Hydra.Logging.Monitoring.Registry.html#gauge"><span class="hs-identifier hs-var">Registry.gauge</span></a></span><span> </span><span class="annot"><span class="annottext">Registry
+</span><a href="#local-6989586621679839543"><span class="hs-identifier hs-var">registry</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;hydra_chain_last_block_timestamp_seconds&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;Wall-clock time of the last tick processed by the main loop; zero before the first tick.&quot;</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-76"></span><span>  </span><span id="local-6989586621679839561"><span class="annot"><span class="annottext">Gauge
+</span><a href="#local-6989586621679839561"><span class="hs-identifier hs-var">chainBackendTimestamp</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Registry -&gt; Text -&gt; Text -&gt; [(Text, Text)] -&gt; IO Gauge
+</span><a href="Hydra.Logging.Monitoring.Registry.html#gauge"><span class="hs-identifier hs-var">Registry.gauge</span></a></span><span> </span><span class="annot"><span class="annottext">Registry
+</span><a href="#local-6989586621679839543"><span class="hs-identifier hs-var">registry</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;hydra_chain_backend_last_block_timestamp_seconds&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;Wall-clock time of the last raw backend roll-forward; independent of main-loop progress.&quot;</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-77"></span><span>  </span><span id="local-6989586621679839562"><span class="annot"><span class="annottext">Gauge
+</span><a href="#local-6989586621679839562"><span class="hs-identifier hs-var">broadcastStalled</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Registry -&gt; Text -&gt; Text -&gt; [(Text, Text)] -&gt; IO Gauge
+</span><a href="Hydra.Logging.Monitoring.Registry.html#gauge"><span class="hs-identifier hs-var">Registry.gauge</span></a></span><span> </span><span class="annot"><span class="annottext">Registry
+</span><a href="#local-6989586621679839543"><span class="hs-identifier hs-var">registry</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;hydra_head_broadcast_stalled&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;Live outbox stall predicate; independent of queued client notifications.&quot;</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-78"></span><span>  </span><span id="local-6989586621679839563"><span class="annot"><span class="annottext">Gauge
+</span><a href="#local-6989586621679839563"><span class="hs-identifier hs-var">broadcastStalledNoProgress</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Registry -&gt; Text -&gt; Text -&gt; [(Text, Text)] -&gt; IO Gauge
+</span><a href="Hydra.Logging.Monitoring.Registry.html#gauge"><span class="hs-identifier hs-var">Registry.gauge</span></a></span><span> </span><span class="annot"><span class="annottext">Registry
+</span><a href="#local-6989586621679839543"><span class="hs-identifier hs-var">registry</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;hydra_head_broadcast_stalled_no_progress&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;Live outbox stall caused by no progress.&quot;</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-79"></span><span>  </span><span id="local-6989586621679839564"><span class="annot"><span class="annottext">Gauge
+</span><a href="#local-6989586621679839564"><span class="hs-identifier hs-var">broadcastStalledBacklogFull</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Registry -&gt; Text -&gt; Text -&gt; [(Text, Text)] -&gt; IO Gauge
+</span><a href="Hydra.Logging.Monitoring.Registry.html#gauge"><span class="hs-identifier hs-var">Registry.gauge</span></a></span><span> </span><span class="annot"><span class="annottext">Registry
+</span><a href="#local-6989586621679839543"><span class="hs-identifier hs-var">registry</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;hydra_head_broadcast_stalled_backlog_full&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;Live outbox stall caused by the backlog limit.&quot;</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-80"></span><span>  </span><span id="local-6989586621679839565"><span class="annot"><span class="annottext">Gauge
+</span><a href="#local-6989586621679839565"><span class="hs-identifier hs-var">pendingBroadcasts</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Registry -&gt; Text -&gt; Text -&gt; [(Text, Text)] -&gt; IO Gauge
+</span><a href="Hydra.Logging.Monitoring.Registry.html#gauge"><span class="hs-identifier hs-var">Registry.gauge</span></a></span><span> </span><span class="annot"><span class="annottext">Registry
+</span><a href="#local-6989586621679839543"><span class="hs-identifier hs-var">registry</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;hydra_head_pending_broadcasts&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;Messages in the outer network hand-off; excludes the persistent network queue.&quot;</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-81"></span><span>  </span><span id="local-6989586621679839566"><span class="annot"><span class="annottext">Gauge
+</span><a href="#local-6989586621679839566"><span class="hs-identifier hs-var">broadcastNoProgressSeconds</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Registry -&gt; Text -&gt; Text -&gt; [(Text, Text)] -&gt; IO Gauge
+</span><a href="Hydra.Logging.Monitoring.Registry.html#gauge"><span class="hs-identifier hs-var">Registry.gauge</span></a></span><span> </span><span class="annot"><span class="annottext">Registry
+</span><a href="#local-6989586621679839543"><span class="hs-identifier hs-var">registry</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;hydra_head_broadcast_no_progress_seconds&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;Seconds without outer hand-off progress while it has pending messages.&quot;</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-82"></span><span>  </span><span id="local-6989586621679839567"><span class="annot"><span class="annottext">Counter
+</span><a href="#local-6989586621679839567"><span class="hs-identifier hs-var">inputsRefusedBroadcastStalled</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Registry -&gt; Text -&gt; Text -&gt; [(Text, Text)] -&gt; IO Counter
+</span><a href="Hydra.Logging.Monitoring.Registry.html#counter"><span class="hs-identifier hs-var">Registry.counter</span></a></span><span> </span><span class="annot"><span class="annottext">Registry
+</span><a href="#local-6989586621679839543"><span class="hs-identifier hs-var">registry</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;hydra_head_inputs_refused_broadcast_stalled_total&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;Client inputs refused because the outbound hand-off is stalled.&quot;</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-83"></span><span>  </span><span id="local-6989586621679839568"><span class="annot"><span class="annottext">Map Text Counter
+</span><a href="#local-6989586621679839568"><span class="hs-identifier hs-var">inputRetries</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[Text] -&gt; (Text -&gt; IO Counter) -&gt; IO (Map Text Counter)
+forall a. [Text] -&gt; (Text -&gt; IO a) -&gt; IO (Map Text a)
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#vector"><span class="hs-identifier hs-var">vector</span></a></span><span> </span><span class="annot"><span class="annottext">[Text]
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#waitReasons"><span class="hs-identifier hs-var">waitReasons</span></a></span><span> </span><span class="annot"><span class="annottext">((Text -&gt; IO Counter) -&gt; IO (Map Text Counter))
+-&gt; (Text -&gt; IO Counter) -&gt; IO (Map Text Counter)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679839570"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839570"><span class="hs-identifier hs-var">value</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Registry -&gt; Text -&gt; Text -&gt; [(Text, Text)] -&gt; IO Counter
+</span><a href="Hydra.Logging.Monitoring.Registry.html#counter"><span class="hs-identifier hs-var">Registry.counter</span></a></span><span> </span><span class="annot"><span class="annottext">Registry
+</span><a href="#local-6989586621679839543"><span class="hs-identifier hs-var">registry</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;hydra_node_input_waits_total&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;Wait outcomes by bounded reason, including inputs parked during catch-up.&quot;</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;reason&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839570"><span class="hs-identifier hs-var">value</span></a></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
+</span><span id="line-84"></span><span>  </span><span id="local-6989586621679839571"><span class="annot"><span class="annottext">Map Text Counter
+</span><a href="#local-6989586621679839571"><span class="hs-identifier hs-var">inputDrops</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[Text] -&gt; (Text -&gt; IO Counter) -&gt; IO (Map Text Counter)
+forall a. [Text] -&gt; (Text -&gt; IO a) -&gt; IO (Map Text a)
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#vector"><span class="hs-identifier hs-var">vector</span></a></span><span> </span><span class="annot"><span class="annottext">[Text]
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#inputSources"><span class="hs-identifier hs-var">inputSources</span></a></span><span> </span><span class="annot"><span class="annottext">((Text -&gt; IO Counter) -&gt; IO (Map Text Counter))
+-&gt; (Text -&gt; IO Counter) -&gt; IO (Map Text Counter)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679839573"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839573"><span class="hs-identifier hs-var">value</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Registry -&gt; Text -&gt; Text -&gt; [(Text, Text)] -&gt; IO Counter
+</span><a href="Hydra.Logging.Monitoring.Registry.html#counter"><span class="hs-identifier hs-var">Registry.counter</span></a></span><span> </span><span class="annot"><span class="annottext">Registry
+</span><a href="#local-6989586621679839543"><span class="hs-identifier hs-var">registry</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;hydra_node_input_drops_total&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;Inputs discarded after exhausting retry eligibility.&quot;</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;source&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839573"><span class="hs-identifier hs-var">value</span></a></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
+</span><span id="line-85"></span><span>  </span><span id="local-6989586621679839574"><span class="annot"><span class="annottext">Map Text Histogram
+</span><a href="#local-6989586621679839574"><span class="hs-identifier hs-var">inputProcessing</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[Text] -&gt; (Text -&gt; IO Histogram) -&gt; IO (Map Text Histogram)
+forall a. [Text] -&gt; (Text -&gt; IO a) -&gt; IO (Map Text a)
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#vector"><span class="hs-identifier hs-var">vector</span></a></span><span> </span><span class="annot"><span class="annottext">[Text]
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#inputSources"><span class="hs-identifier hs-var">inputSources</span></a></span><span> </span><span class="annot"><span class="annottext">((Text -&gt; IO Histogram) -&gt; IO (Map Text Histogram))
+-&gt; (Text -&gt; IO Histogram) -&gt; IO (Map Text Histogram)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679839575"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839575"><span class="hs-identifier hs-var">value</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Registry
+-&gt; Text -&gt; Text -&gt; [Double] -&gt; [(Text, Text)] -&gt; IO Histogram
+</span><a href="Hydra.Logging.Monitoring.Registry.html#histogram"><span class="hs-identifier hs-var">Registry.histogram</span></a></span><span> </span><span class="annot"><span class="annottext">Registry
+</span><a href="#local-6989586621679839543"><span class="hs-identifier hs-var">registry</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;hydra_node_input_processing_seconds&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;BeginInput-to-EndInput duration, including inline effects and synchronous trace handling.&quot;</span></span><span> </span><span class="annot"><span class="annottext">[Double]
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#latencyBuckets"><span class="hs-identifier hs-var">latencyBuckets</span></a></span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;source&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839575"><span class="hs-identifier hs-var">value</span></a></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
+</span><span id="line-86"></span><span>  </span><span id="local-6989586621679839576"><span class="annot"><span class="annottext">Histogram
+</span><a href="#local-6989586621679839576"><span class="hs-identifier hs-var">inputQueueWait</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Registry
+-&gt; Text -&gt; Text -&gt; [Double] -&gt; [(Text, Text)] -&gt; IO Histogram
+</span><a href="Hydra.Logging.Monitoring.Registry.html#histogram"><span class="hs-identifier hs-var">Registry.histogram</span></a></span><span> </span><span class="annot"><span class="annottext">Registry
+</span><a href="#local-6989586621679839543"><span class="hs-identifier hs-var">registry</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;hydra_node_input_queue_wait_seconds&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;Time spent waiting for admission and dequeue on each attempt; retry delay and parked time excluded.&quot;</span></span><span> </span><span class="annot"><span class="annottext">[Double]
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#latencyBuckets"><span class="hs-identifier hs-var">latencyBuckets</span></a></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-87"></span><span>  </span><span id="local-6989586621679839577"><span class="annot"><span class="annottext">Gauge
+</span><a href="#local-6989586621679839577"><span class="hs-identifier hs-var">queuedInputs</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Registry -&gt; Text -&gt; Text -&gt; [(Text, Text)] -&gt; IO Gauge
+</span><a href="Hydra.Logging.Monitoring.Registry.html#gauge"><span class="hs-identifier hs-var">Registry.gauge</span></a></span><span> </span><span class="annot"><span class="annottext">Registry
+</span><a href="#local-6989586621679839543"><span class="hs-identifier hs-var">registry</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;hydra_node_input_queue_depth&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;Inputs currently admitted to the bounded processing queue.&quot;</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-88"></span><span>  </span><span id="local-6989586621679839578"><span class="annot"><span class="annottext">Gauge
+</span><a href="#local-6989586621679839578"><span class="hs-identifier hs-var">parkedInputs</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Registry -&gt; Text -&gt; Text -&gt; [(Text, Text)] -&gt; IO Gauge
+</span><a href="Hydra.Logging.Monitoring.Registry.html#gauge"><span class="hs-identifier hs-var">Registry.gauge</span></a></span><span> </span><span class="annot"><span class="annottext">Registry
+</span><a href="#local-6989586621679839543"><span class="hs-identifier hs-var">registry</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;hydra_node_parked_inputs&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;Network inputs parked pending chain sync or awaiting readmission after sync.&quot;</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-89"></span><span>  </span><span id="local-6989586621679839579"><span class="annot"><span class="annottext">Gauge
+</span><a href="#local-6989586621679839579"><span class="hs-identifier hs-var">synced</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Registry -&gt; Text -&gt; Text -&gt; [(Text, Text)] -&gt; IO Gauge
+</span><a href="Hydra.Logging.Monitoring.Registry.html#gauge"><span class="hs-identifier hs-var">Registry.gauge</span></a></span><span> </span><span class="annot"><span class="annottext">Registry
+</span><a href="#local-6989586621679839543"><span class="hs-identifier hs-var">registry</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;hydra_node_synced&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;One when the current node state is in sync.&quot;</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-90"></span><span>  </span><span id="local-6989586621679839580"><span class="annot"><span class="annottext">Map Text Gauge
+</span><a href="#local-6989586621679839580"><span class="hs-identifier hs-var">phase</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[Text] -&gt; (Text -&gt; IO Gauge) -&gt; IO (Map Text Gauge)
+forall a. [Text] -&gt; (Text -&gt; IO a) -&gt; IO (Map Text a)
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#vector"><span class="hs-identifier hs-var">vector</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;idle&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;open&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;closed&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;fanout&quot;</span></span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">((Text -&gt; IO Gauge) -&gt; IO (Map Text Gauge))
+-&gt; (Text -&gt; IO Gauge) -&gt; IO (Map Text Gauge)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679839581"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839581"><span class="hs-identifier hs-var">value</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Registry -&gt; Text -&gt; Text -&gt; [(Text, Text)] -&gt; IO Gauge
+</span><a href="Hydra.Logging.Monitoring.Registry.html#gauge"><span class="hs-identifier hs-var">Registry.gauge</span></a></span><span> </span><span class="annot"><span class="annottext">Registry
+</span><a href="#local-6989586621679839543"><span class="hs-identifier hs-var">registry</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;hydra_head_phase&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;Current head phase as a one-hot state set.&quot;</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;phase&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839581"><span class="hs-identifier hs-var">value</span></a></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
+</span><span id="line-91"></span><span>  </span><span id="local-6989586621679839582"><span class="annot"><span class="annottext">Gauge
+</span><a href="#local-6989586621679839582"><span class="hs-identifier hs-var">networkConnected</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Registry -&gt; Text -&gt; Text -&gt; [(Text, Text)] -&gt; IO Gauge
+</span><a href="Hydra.Logging.Monitoring.Registry.html#gauge"><span class="hs-identifier hs-var">Registry.gauge</span></a></span><span> </span><span class="annot"><span class="annottext">Registry
+</span><a href="#local-6989586621679839543"><span class="hs-identifier hs-var">registry</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;hydra_network_connected&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;Live network connectivity callback status; zero before a successful connection.&quot;</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-92"></span><span>  </span><span id="local-6989586621679839583"><span class="annot"><span class="annottext">Gauge
+</span><a href="#local-6989586621679839583"><span class="hs-identifier hs-var">snapshotNumber</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Registry -&gt; Text -&gt; Text -&gt; [(Text, Text)] -&gt; IO Gauge
+</span><a href="Hydra.Logging.Monitoring.Registry.html#gauge"><span class="hs-identifier hs-var">Registry.gauge</span></a></span><span> </span><span class="annot"><span class="annottext">Registry
+</span><a href="#local-6989586621679839543"><span class="hs-identifier hs-var">registry</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;hydra_head_confirmed_snapshot_number&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;Current confirmed snapshot number; zero with no head.&quot;</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-93"></span><span>  </span><span id="local-6989586621679839584"><span class="annot"><span class="annottext">Gauge
+</span><a href="#local-6989586621679839584"><span class="hs-identifier hs-var">snapshotPending</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Registry -&gt; Text -&gt; Text -&gt; [(Text, Text)] -&gt; IO Gauge
+</span><a href="Hydra.Logging.Monitoring.Registry.html#gauge"><span class="hs-identifier hs-var">Registry.gauge</span></a></span><span> </span><span class="annot"><span class="annottext">Registry
+</span><a href="#local-6989586621679839543"><span class="hs-identifier hs-var">registry</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;hydra_head_snapshot_inflight&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;One while a snapshot request is outstanding or signatures are being collected.&quot;</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-94"></span><span>  </span><span id="local-6989586621679839585"><span class="annot"><span class="annottext">Gauge
+</span><a href="#local-6989586621679839585"><span class="hs-identifier hs-var">missingSignatures</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Registry -&gt; Text -&gt; Text -&gt; [(Text, Text)] -&gt; IO Gauge
+</span><a href="Hydra.Logging.Monitoring.Registry.html#gauge"><span class="hs-identifier hs-var">Registry.gauge</span></a></span><span> </span><span class="annot"><span class="annottext">Registry
+</span><a href="#local-6989586621679839543"><span class="hs-identifier hs-var">registry</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;hydra_head_snapshot_missing_signatures&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;Participants whose signatures are still missing from the outstanding snapshot.&quot;</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-95"></span><span>  </span><span id="local-6989586621679839586"><span class="annot"><span class="annottext">Gauge
+</span><a href="#local-6989586621679839586"><span class="hs-identifier hs-var">outstandingTransactions</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Registry -&gt; Text -&gt; Text -&gt; [(Text, Text)] -&gt; IO Gauge
+</span><a href="Hydra.Logging.Monitoring.Registry.html#gauge"><span class="hs-identifier hs-var">Registry.gauge</span></a></span><span> </span><span class="annot"><span class="annottext">Registry
+</span><a href="#local-6989586621679839543"><span class="hs-identifier hs-var">registry</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;hydra_head_outstanding_transactions&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;Current allTxs entries awaiting inclusion in a snapshot.&quot;</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-96"></span><span>  </span><span id="local-6989586621679839587"><span class="annot"><span class="annottext">Map Text Counter
+</span><a href="#local-6989586621679839587"><span class="hs-identifier hs-var">txOutcomes</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[Text] -&gt; (Text -&gt; IO Counter) -&gt; IO (Map Text Counter)
+forall a. [Text] -&gt; (Text -&gt; IO a) -&gt; IO (Map Text a)
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#vector"><span class="hs-identifier hs-var">vector</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;applied&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;invalid&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;refused_stalled&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;refused_unsynced&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;rejected_state&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;decommit_invalid&quot;</span></span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">((Text -&gt; IO Counter) -&gt; IO (Map Text Counter))
+-&gt; (Text -&gt; IO Counter) -&gt; IO (Map Text Counter)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679839588"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839588"><span class="hs-identifier hs-var">value</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Registry -&gt; Text -&gt; Text -&gt; [(Text, Text)] -&gt; IO Counter
+</span><a href="Hydra.Logging.Monitoring.Registry.html#counter"><span class="hs-identifier hs-var">Registry.counter</span></a></span><span> </span><span class="annot"><span class="annottext">Registry
+</span><a href="#local-6989586621679839543"><span class="hs-identifier hs-var">registry</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;hydra_head_transaction_outcomes_total&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;Transaction lifecycle events and refusals of NewTx or Decommit inputs; events are not unique transactions or mutually exclusive outcomes.&quot;</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;outcome&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839588"><span class="hs-identifier hs-var">value</span></a></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
+</span><span id="line-97"></span><span>  </span><span id="local-6989586621679839589"><span class="annot"><span class="annottext">Gauge
+</span><a href="#local-6989586621679839589"><span class="hs-identifier hs-var">persistentDepth</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Registry -&gt; Text -&gt; Text -&gt; [(Text, Text)] -&gt; IO Gauge
+</span><a href="Hydra.Logging.Monitoring.Registry.html#gauge"><span class="hs-identifier hs-var">Registry.gauge</span></a></span><span> </span><span class="annot"><span class="annottext">Registry
+</span><a href="#local-6989586621679839543"><span class="hs-identifier hs-var">registry</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;hydra_network_persistent_queue_depth&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;Messages awaiting successful etcd broadcast, including the pinned in-flight batch.&quot;</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-98"></span><span>  </span><span id="local-6989586621679839590"><span class="annot"><span class="annottext">Gauge
+</span><a href="#local-6989586621679839590"><span class="hs-identifier hs-var">persistentAge</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Registry -&gt; Text -&gt; Text -&gt; [(Text, Text)] -&gt; IO Gauge
+</span><a href="Hydra.Logging.Monitoring.Registry.html#gauge"><span class="hs-identifier hs-var">Registry.gauge</span></a></span><span> </span><span class="annot"><span class="annottext">Registry
+</span><a href="#local-6989586621679839543"><span class="hs-identifier hs-var">registry</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;hydra_network_persistent_queue_oldest_age_seconds&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;Age of the oldest persisted queued message, using its file timestamp across restart.&quot;</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-99"></span><span>  </span><span id="local-6989586621679839591"><span class="annot"><span class="annottext">Histogram
+</span><a href="#local-6989586621679839591"><span class="hs-identifier hs-var">putLatency</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Registry
+-&gt; Text -&gt; Text -&gt; [Double] -&gt; [(Text, Text)] -&gt; IO Histogram
+</span><a href="Hydra.Logging.Monitoring.Registry.html#histogram"><span class="hs-identifier hs-var">Registry.histogram</span></a></span><span> </span><span class="annot"><span class="annottext">Registry
+</span><a href="#local-6989586621679839543"><span class="hs-identifier hs-var">registry</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;hydra_network_put_seconds&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;Duration of successful etcd put attempts, including deduplicated retries.&quot;</span></span><span> </span><span class="annot"><span class="annottext">[Double]
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#latencyBuckets"><span class="hs-identifier hs-var">latencyBuckets</span></a></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-100"></span><span>  </span><span id="local-6989586621679839592"><span class="annot"><span class="annottext">Map Text Counter
+</span><a href="#local-6989586621679839592"><span class="hs-identifier hs-var">networkEvents</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[Text] -&gt; (Text -&gt; IO Counter) -&gt; IO (Map Text Counter)
+forall a. [Text] -&gt; (Text -&gt; IO a) -&gt; IO (Map Text a)
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#vector"><span class="hs-identifier hs-var">vector</span></a></span><span> </span><span class="annot"><span class="annottext">[Text]
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#networkEventsValues"><span class="hs-identifier hs-var">networkEventsValues</span></a></span><span> </span><span class="annot"><span class="annottext">((Text -&gt; IO Counter) -&gt; IO (Map Text Counter))
+-&gt; (Text -&gt; IO Counter) -&gt; IO (Map Text Counter)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679839594"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839594"><span class="hs-identifier hs-var">value</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Registry -&gt; Text -&gt; Text -&gt; [(Text, Text)] -&gt; IO Counter
+</span><a href="Hydra.Logging.Monitoring.Registry.html#counter"><span class="hs-identifier hs-var">Registry.counter</span></a></span><span> </span><span class="annot"><span class="annottext">Registry
+</span><a href="#local-6989586621679839543"><span class="hs-identifier hs-var">registry</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;hydra_network_events_total&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;Operational network failures, reconnects and lease warnings; routine deduplication and compaction recovery excluded.&quot;</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;event&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839594"><span class="hs-identifier hs-var">value</span></a></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
+</span><span id="line-101"></span><span>  </span><span id="local-6989586621679839595"><span class="annot"><span class="annottext">Map Text Counter
+</span><a href="#local-6989586621679839595"><span class="hs-identifier hs-var">chainFailures</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[Text] -&gt; (Text -&gt; IO Counter) -&gt; IO (Map Text Counter)
+forall a. [Text] -&gt; (Text -&gt; IO a) -&gt; IO (Map Text a)
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#vector"><span class="hs-identifier hs-var">vector</span></a></span><span> </span><span class="annot"><span class="annottext">[Text]
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#chainOperationsValues"><span class="hs-identifier hs-var">chainOperationsValues</span></a></span><span> </span><span class="annot"><span class="annottext">((Text -&gt; IO Counter) -&gt; IO (Map Text Counter))
+-&gt; (Text -&gt; IO Counter) -&gt; IO (Map Text Counter)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679839597"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839597"><span class="hs-identifier hs-var">value</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Registry -&gt; Text -&gt; Text -&gt; [(Text, Text)] -&gt; IO Counter
+</span><a href="Hydra.Logging.Monitoring.Registry.html#counter"><span class="hs-identifier hs-var">Registry.counter</span></a></span><span> </span><span class="annot"><span class="annottext">Registry
+</span><a href="#local-6989586621679839543"><span class="hs-identifier hs-var">registry</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;hydra_chain_operation_failures_total&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;Failed L1 protocol posts, API deposit drafts and user transaction submissions.&quot;</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;operation&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839597"><span class="hs-identifier hs-var">value</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;backend&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839544"><span class="hs-identifier hs-var">backend</span></a></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
+</span><span id="line-102"></span><span>  </span><span id="local-6989586621679839598"><span class="annot"><span class="annottext">Map Text Histogram
+</span><a href="#local-6989586621679839598"><span class="hs-identifier hs-var">chainDuration</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[Text] -&gt; (Text -&gt; IO Histogram) -&gt; IO (Map Text Histogram)
+forall a. [Text] -&gt; (Text -&gt; IO a) -&gt; IO (Map Text a)
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#vector"><span class="hs-identifier hs-var">vector</span></a></span><span> </span><span class="annot"><span class="annottext">[Text]
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#chainOperationsValues"><span class="hs-identifier hs-var">chainOperationsValues</span></a></span><span> </span><span class="annot"><span class="annottext">((Text -&gt; IO Histogram) -&gt; IO (Map Text Histogram))
+-&gt; (Text -&gt; IO Histogram) -&gt; IO (Map Text Histogram)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679839599"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839599"><span class="hs-identifier hs-var">value</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Registry
+-&gt; Text -&gt; Text -&gt; [Double] -&gt; [(Text, Text)] -&gt; IO Histogram
+</span><a href="Hydra.Logging.Monitoring.Registry.html#histogram"><span class="hs-identifier hs-var">Registry.histogram</span></a></span><span> </span><span class="annot"><span class="annottext">Registry
+</span><a href="#local-6989586621679839543"><span class="hs-identifier hs-var">registry</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;hydra_chain_operation_seconds&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;L1 operation construction and backend submission duration; successful return does not imply on-chain inclusion.&quot;</span></span><span> </span><span class="annot"><span class="annottext">[Double]
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#operationLatencyBuckets"><span class="hs-identifier hs-var">operationLatencyBuckets</span></a></span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;operation&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839599"><span class="hs-identifier hs-var">value</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;backend&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839544"><span class="hs-identifier hs-var">backend</span></a></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
+</span><span id="line-103"></span><span>  </span><span id="local-6989586621679839601"><span class="annot"><span class="annottext">Map Text Gauge
+</span><a href="#local-6989586621679839601"><span class="hs-identifier hs-var">chainInflight</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[Text] -&gt; (Text -&gt; IO Gauge) -&gt; IO (Map Text Gauge)
+forall a. [Text] -&gt; (Text -&gt; IO a) -&gt; IO (Map Text a)
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#vector"><span class="hs-identifier hs-var">vector</span></a></span><span> </span><span class="annot"><span class="annottext">[Text]
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#chainOperationsValues"><span class="hs-identifier hs-var">chainOperationsValues</span></a></span><span> </span><span class="annot"><span class="annottext">((Text -&gt; IO Gauge) -&gt; IO (Map Text Gauge))
+-&gt; (Text -&gt; IO Gauge) -&gt; IO (Map Text Gauge)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679839602"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839602"><span class="hs-identifier hs-var">value</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Registry -&gt; Text -&gt; Text -&gt; [(Text, Text)] -&gt; IO Gauge
+</span><a href="Hydra.Logging.Monitoring.Registry.html#gauge"><span class="hs-identifier hs-var">Registry.gauge</span></a></span><span> </span><span class="annot"><span class="annottext">Registry
+</span><a href="#local-6989586621679839543"><span class="hs-identifier hs-var">registry</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;hydra_chain_operations_inflight&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;L1 protocol posts, API deposit drafts and user transaction submissions currently executing, by operation.&quot;</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;operation&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839602"><span class="hs-identifier hs-var">value</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;backend&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839544"><span class="hs-identifier hs-var">backend</span></a></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
+</span><span id="line-104"></span><span>  </span><span id="local-6989586621679839603"><span class="annot"><span class="annottext">Histogram
+</span><a href="#local-6989586621679839603"><span class="hs-identifier hs-var">rollbackDepth</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Registry
+-&gt; Text -&gt; Text -&gt; [Double] -&gt; [(Text, Text)] -&gt; IO Histogram
+</span><a href="Hydra.Logging.Monitoring.Registry.html#histogram"><span class="hs-identifier hs-var">Registry.histogram</span></a></span><span> </span><span class="annot"><span class="annottext">Registry
+</span><a href="#local-6989586621679839543"><span class="hs-identifier hs-var">registry</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;hydra_chain_rollback_slots&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;Slots from the last backend roll-forward to the rollback point.&quot;</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">0</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">1</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">10</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">100</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">1000</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">10000</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">100000</span></span><span class="hs-special">]</span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;backend&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839544"><span class="hs-identifier hs-var">backend</span></a></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
+</span><span id="line-105"></span><span>  </span><span id="local-6989586621679839604"><span class="annot"><span class="annottext">Counter
+</span><a href="#local-6989586621679839604"><span class="hs-identifier hs-var">blockfrostRetries</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Registry -&gt; Text -&gt; Text -&gt; [(Text, Text)] -&gt; IO Counter
+</span><a href="Hydra.Logging.Monitoring.Registry.html#counter"><span class="hs-identifier hs-var">Registry.counter</span></a></span><span> </span><span class="annot"><span class="annottext">Registry
+</span><a href="#local-6989586621679839543"><span class="hs-identifier hs-var">registry</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;hydra_chain_blockfrost_retries_total&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;Retryable Blockfrost errors observed by the outer retry loop.&quot;</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;backend&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839544"><span class="hs-identifier hs-var">backend</span></a></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
+</span><span id="line-106"></span><span>  </span><span id="local-6989586621679839605"><span class="annot"><span class="annottext">Counter
+</span><a href="#local-6989586621679839605"><span class="hs-identifier hs-var">blockfrostRateLimits</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Registry -&gt; Text -&gt; Text -&gt; [(Text, Text)] -&gt; IO Counter
+</span><a href="Hydra.Logging.Monitoring.Registry.html#counter"><span class="hs-identifier hs-var">Registry.counter</span></a></span><span> </span><span class="annot"><span class="annottext">Registry
+</span><a href="#local-6989586621679839543"><span class="hs-identifier hs-var">registry</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;hydra_chain_blockfrost_rate_limits_total&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;HTTP 429 responses across node startup, wallet queries, chain polling and transaction submissions.&quot;</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;backend&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839544"><span class="hs-identifier hs-var">backend</span></a></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
+</span><span id="line-107"></span><span>  </span><span id="local-6989586621679839606"><span class="annot"><span class="annottext">Map Text Gauge
+</span><a href="#local-6989586621679839606"><span class="hs-identifier hs-var">deposits</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[Text] -&gt; (Text -&gt; IO Gauge) -&gt; IO (Map Text Gauge)
+forall a. [Text] -&gt; (Text -&gt; IO a) -&gt; IO (Map Text a)
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#vector"><span class="hs-identifier hs-var">vector</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;inactive&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;active&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;expired&quot;</span></span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">((Text -&gt; IO Gauge) -&gt; IO (Map Text Gauge))
+-&gt; (Text -&gt; IO Gauge) -&gt; IO (Map Text Gauge)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679839607"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839607"><span class="hs-identifier hs-var">value</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Registry -&gt; Text -&gt; Text -&gt; [(Text, Text)] -&gt; IO Gauge
+</span><a href="Hydra.Logging.Monitoring.Registry.html#gauge"><span class="hs-identifier hs-var">Registry.gauge</span></a></span><span> </span><span class="annot"><span class="annottext">Registry
+</span><a href="#local-6989586621679839543"><span class="hs-identifier hs-var">registry</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;hydra_head_pending_deposits&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;Current unconsumed deposits tracked by this node, corrected by rollback.&quot;</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;state&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839607"><span class="hs-identifier hs-var">value</span></a></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
+</span><span id="line-108"></span><span>  </span><span id="local-6989586621679839608"><span class="annot"><span class="annottext">Map Text Gauge
+</span><a href="#local-6989586621679839608"><span class="hs-identifier hs-var">decommit</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[Text] -&gt; (Text -&gt; IO Gauge) -&gt; IO (Map Text Gauge)
+forall a. [Text] -&gt; (Text -&gt; IO a) -&gt; IO (Map Text a)
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#vector"><span class="hs-identifier hs-var">vector</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;none&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;requested&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;approved&quot;</span></span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">((Text -&gt; IO Gauge) -&gt; IO (Map Text Gauge))
+-&gt; (Text -&gt; IO Gauge) -&gt; IO (Map Text Gauge)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679839609"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839609"><span class="hs-identifier hs-var">value</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Registry -&gt; Text -&gt; Text -&gt; [(Text, Text)] -&gt; IO Gauge
+</span><a href="Hydra.Logging.Monitoring.Registry.html#gauge"><span class="hs-identifier hs-var">Registry.gauge</span></a></span><span> </span><span class="annot"><span class="annottext">Registry
+</span><a href="#local-6989586621679839543"><span class="hs-identifier hs-var">registry</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;hydra_head_decommit_state&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;Current decommit state as a one-hot set.&quot;</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;state&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839609"><span class="hs-identifier hs-var">value</span></a></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
+</span><span id="line-109"></span><span>  </span><span id="local-6989586621679839610"><span class="annot"><span class="annottext">Gauge
+</span><a href="#local-6989586621679839610"><span class="hs-identifier hs-var">fanoutRemaining</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Registry -&gt; Text -&gt; Text -&gt; [(Text, Text)] -&gt; IO Gauge
+</span><a href="Hydra.Logging.Monitoring.Registry.html#gauge"><span class="hs-identifier hs-var">Registry.gauge</span></a></span><span> </span><span class="annot"><span class="annottext">Registry
+</span><a href="#local-6989586621679839543"><span class="hs-identifier hs-var">registry</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;hydra_head_fanout_remaining_outputs&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;Outputs still awaiting distribution in the current partial fanout state.&quot;</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-110"></span><span>  </span><span id="local-6989586621679839611"><span class="annot"><span class="annottext">Map Text Gauge
+</span><a href="#local-6989586621679839611"><span class="hs-identifier hs-var">fanoutMode</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[Text] -&gt; (Text -&gt; IO Gauge) -&gt; IO (Map Text Gauge)
+forall a. [Text] -&gt; (Text -&gt; IO a) -&gt; IO (Map Text a)
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#vector"><span class="hs-identifier hs-var">vector</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;none&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;automatic&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;selected&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;deferred&quot;</span></span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">((Text -&gt; IO Gauge) -&gt; IO (Map Text Gauge))
+-&gt; (Text -&gt; IO Gauge) -&gt; IO (Map Text Gauge)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679839612"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839612"><span class="hs-identifier hs-var">value</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Registry -&gt; Text -&gt; Text -&gt; [(Text, Text)] -&gt; IO Gauge
+</span><a href="Hydra.Logging.Monitoring.Registry.html#gauge"><span class="hs-identifier hs-var">Registry.gauge</span></a></span><span> </span><span class="annot"><span class="annottext">Registry
+</span><a href="#local-6989586621679839543"><span class="hs-identifier hs-var">registry</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;hydra_head_fanout_mode&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;Current fanout mode as a one-hot set; deferred work is intentionally waiting for selection.&quot;</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;mode&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839612"><span class="hs-identifier hs-var">value</span></a></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
+</span><span id="line-111"></span><span>  </span><span id="local-6989586621679839613"><span class="annot"><span class="annottext">Gauge
+</span><a href="#local-6989586621679839613"><span class="hs-identifier hs-var">sqliteQueue</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Registry -&gt; Text -&gt; Text -&gt; [(Text, Text)] -&gt; IO Gauge
+</span><a href="Hydra.Logging.Monitoring.Registry.html#gauge"><span class="hs-identifier hs-var">Registry.gauge</span></a></span><span> </span><span class="annot"><span class="annottext">Registry
+</span><a href="#local-6989586621679839543"><span class="hs-identifier hs-var">registry</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;hydra_persistence_queue_depth&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;SQLite queue items awaiting the writer, including flush markers.&quot;</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-112"></span><span>  </span><span id="local-6989586621679839614"><span class="annot"><span class="annottext">Gauge
+</span><a href="#local-6989586621679839614"><span class="hs-identifier hs-var">sqliteInflight</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Registry -&gt; Text -&gt; Text -&gt; [(Text, Text)] -&gt; IO Gauge
+</span><a href="Hydra.Logging.Monitoring.Registry.html#gauge"><span class="hs-identifier hs-var">Registry.gauge</span></a></span><span> </span><span class="annot"><span class="annottext">Registry
+</span><a href="#local-6989586621679839543"><span class="hs-identifier hs-var">registry</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;hydra_persistence_write_inflight&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;One while a SQLite event batch is being encoded and committed.&quot;</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-113"></span><span>  </span><span id="local-6989586621679839615"><span class="annot"><span class="annottext">Histogram
+</span><a href="#local-6989586621679839615"><span class="hs-identifier hs-var">sqliteDuration</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Registry
+-&gt; Text -&gt; Text -&gt; [Double] -&gt; [(Text, Text)] -&gt; IO Histogram
+</span><a href="Hydra.Logging.Monitoring.Registry.html#histogram"><span class="hs-identifier hs-var">Registry.histogram</span></a></span><span> </span><span class="annot"><span class="annottext">Registry
+</span><a href="#local-6989586621679839543"><span class="hs-identifier hs-var">registry</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;hydra_persistence_write_seconds&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;SQLite batch encoding and transaction completion duration.&quot;</span></span><span> </span><span class="annot"><span class="annottext">[Double]
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#latencyBuckets"><span class="hs-identifier hs-var">latencyBuckets</span></a></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-114"></span><span>  </span><span class="annot"><span class="annottext">Registry -&gt; Text -&gt; Text -&gt; Double -&gt; IO ()
+</span><a href="Hydra.Logging.Monitoring.Registry.html#alias"><span class="hs-identifier hs-var">Registry.alias</span></a></span><span> </span><span class="annot"><span class="annottext">Registry
+</span><a href="#local-6989586621679839543"><span class="hs-identifier hs-var">registry</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;hydra_head_inputs_total&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;hydra_head_inputs&quot;</span></span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">1</span></span><span>
+</span><span id="line-115"></span><span>  </span><span class="annot"><span class="annottext">Registry -&gt; Text -&gt; Text -&gt; Double -&gt; IO ()
+</span><a href="Hydra.Logging.Monitoring.Registry.html#alias"><span class="hs-identifier hs-var">Registry.alias</span></a></span><span> </span><span class="annot"><span class="annottext">Registry
+</span><a href="#local-6989586621679839543"><span class="hs-identifier hs-var">registry</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;hydra_head_requested_tx_total&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;hydra_head_requested_tx&quot;</span></span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">1</span></span><span>
+</span><span id="line-116"></span><span>  </span><span class="annot"><span class="annottext">Registry -&gt; Text -&gt; Text -&gt; Double -&gt; IO ()
+</span><a href="Hydra.Logging.Monitoring.Registry.html#alias"><span class="hs-identifier hs-var">Registry.alias</span></a></span><span> </span><span class="annot"><span class="annottext">Registry
+</span><a href="#local-6989586621679839543"><span class="hs-identifier hs-var">registry</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;hydra_head_confirmed_tx_total&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;hydra_head_confirmed_tx&quot;</span></span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">1</span></span><span>
+</span><span id="line-117"></span><span>  </span><span class="annot"><span class="annottext">Registry -&gt; Text -&gt; Text -&gt; Double -&gt; IO ()
+</span><a href="Hydra.Logging.Monitoring.Registry.html#alias"><span class="hs-identifier hs-var">Registry.alias</span></a></span><span> </span><span class="annot"><span class="annottext">Registry
+</span><a href="#local-6989586621679839543"><span class="hs-identifier hs-var">registry</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;hydra_head_tx_confirmation_seconds&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;hydra_head_tx_confirmation_time_ms&quot;</span></span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">1000</span></span><span>
+</span><span id="line-118"></span><span>  </span><span class="annot"><span class="annottext">Registry -&gt; Text -&gt; Text -&gt; Double -&gt; IO ()
+</span><a href="Hydra.Logging.Monitoring.Registry.html#alias"><span class="hs-identifier hs-var">Registry.alias</span></a></span><span> </span><span class="annot"><span class="annottext">Registry
+</span><a href="#local-6989586621679839543"><span class="hs-identifier hs-var">registry</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;hydra_head_snapshot_confirmation_seconds&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;hydra_head_snapshot_confirmation_time_ms&quot;</span></span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">1000</span></span><span>
+</span><span id="line-119"></span><span>  </span><span class="annot"><span class="annottext">Registry -&gt; Text -&gt; Text -&gt; Double -&gt; IO ()
+</span><a href="Hydra.Logging.Monitoring.Registry.html#alias"><span class="hs-identifier hs-var">Registry.alias</span></a></span><span> </span><span class="annot"><span class="annottext">Registry
+</span><a href="#local-6989586621679839543"><span class="hs-identifier hs-var">registry</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;hydra_head_inputs_refused_broadcast_stalled_total&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;hydra_head_inputs_refused_broadcast_stalled&quot;</span></span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">1</span></span><span>
+</span><span id="line-120"></span><span>  </span><span class="annot"><span class="annottext">Metrics -&gt; IO Metrics
+forall a. a -&gt; IO a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><a href="Hydra.Logging.Monitoring.Metrics.html#Metrics"><span class="hs-identifier hs-type">Metrics</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">Map Text Counter
+Map Text Gauge
+Map Text Histogram
+Counter
+Gauge
+Histogram
+$sel:headInputs:Metrics :: Counter
+$sel:headRequestedTx:Metrics :: Counter
+$sel:headConfirmedTx:Metrics :: Counter
+$sel:txConfirmationTime:Metrics :: Histogram
+$sel:snapshotConfirmationTime:Metrics :: Histogram
+$sel:snapshots:Metrics :: Map Text Counter
+$sel:evictedTimings:Metrics :: Counter
+$sel:peersConnected:Metrics :: Gauge
+$sel:chainDriftSeconds:Metrics :: Gauge
+$sel:chainLastBlockTimestampSeconds:Metrics :: Gauge
+$sel:chainBackendTimestamp:Metrics :: Gauge
+$sel:broadcastStalled:Metrics :: Gauge
+$sel:broadcastStalledNoProgress:Metrics :: Gauge
+$sel:broadcastStalledBacklogFull:Metrics :: Gauge
+$sel:pendingBroadcasts:Metrics :: Gauge
+$sel:broadcastNoProgressSeconds:Metrics :: Gauge
+$sel:inputsRefusedBroadcastStalled:Metrics :: Counter
+$sel:inputRetries:Metrics :: Map Text Counter
+$sel:inputDrops:Metrics :: Map Text Counter
+$sel:inputProcessing:Metrics :: Map Text Histogram
+$sel:inputQueueWait:Metrics :: Histogram
+$sel:queuedInputs:Metrics :: Gauge
+$sel:parkedInputs:Metrics :: Gauge
+$sel:synced:Metrics :: Gauge
+$sel:phase:Metrics :: Map Text Gauge
+$sel:networkConnected:Metrics :: Gauge
+$sel:snapshotNumber:Metrics :: Gauge
+$sel:snapshotPending:Metrics :: Gauge
+$sel:missingSignatures:Metrics :: Gauge
+$sel:outstandingTransactions:Metrics :: Gauge
+$sel:txOutcomes:Metrics :: Map Text Counter
+$sel:persistentDepth:Metrics :: Gauge
+$sel:persistentAge:Metrics :: Gauge
+$sel:putLatency:Metrics :: Histogram
+$sel:networkEvents:Metrics :: Map Text Counter
+$sel:chainFailures:Metrics :: Map Text Counter
+$sel:chainDuration:Metrics :: Map Text Histogram
+$sel:chainInflight:Metrics :: Map Text Gauge
+$sel:rollbackDepth:Metrics :: Histogram
+$sel:blockfrostRetries:Metrics :: Counter
+$sel:blockfrostRateLimits:Metrics :: Counter
+$sel:deposits:Metrics :: Map Text Gauge
+$sel:decommit:Metrics :: Map Text Gauge
+$sel:fanoutRemaining:Metrics :: Gauge
+$sel:fanoutMode:Metrics :: Map Text Gauge
+$sel:sqliteQueue:Metrics :: Gauge
+$sel:sqliteInflight:Metrics :: Gauge
+$sel:sqliteDuration:Metrics :: Histogram
+headInputs :: Counter
+headRequestedTx :: Counter
+headConfirmedTx :: Counter
+txConfirmationTime :: Histogram
+snapshotConfirmationTime :: Histogram
+snapshots :: Map Text Counter
+evictedTimings :: Counter
+peersConnected :: Gauge
+chainDriftSeconds :: Gauge
+chainLastBlockTimestampSeconds :: Gauge
+chainBackendTimestamp :: Gauge
+broadcastStalled :: Gauge
+broadcastStalledNoProgress :: Gauge
+broadcastStalledBacklogFull :: Gauge
+pendingBroadcasts :: Gauge
+broadcastNoProgressSeconds :: Gauge
+inputsRefusedBroadcastStalled :: Counter
+inputRetries :: Map Text Counter
+inputDrops :: Map Text Counter
+inputProcessing :: Map Text Histogram
+inputQueueWait :: Histogram
+queuedInputs :: Gauge
+parkedInputs :: Gauge
+synced :: Gauge
+phase :: Map Text Gauge
+networkConnected :: Gauge
+snapshotNumber :: Gauge
+snapshotPending :: Gauge
+missingSignatures :: Gauge
+outstandingTransactions :: Gauge
+txOutcomes :: Map Text Counter
+persistentDepth :: Gauge
+persistentAge :: Gauge
+putLatency :: Histogram
+networkEvents :: Map Text Counter
+chainFailures :: Map Text Counter
+chainDuration :: Map Text Histogram
+chainInflight :: Map Text Gauge
+rollbackDepth :: Histogram
+blockfrostRetries :: Counter
+blockfrostRateLimits :: Counter
+deposits :: Map Text Gauge
+decommit :: Map Text Gauge
+fanoutRemaining :: Gauge
+fanoutMode :: Map Text Gauge
+sqliteQueue :: Gauge
+sqliteInflight :: Gauge
+sqliteDuration :: Histogram
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#%24sel%3AheadInputs%3AMetrics"><span class="hs-glyph hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">..</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-121"></span><span>
+</span><span id="line-122"></span><span class="annot"><a href="Hydra.Logging.Monitoring.Metrics.html#latencyBuckets"><span class="hs-identifier hs-type">latencyBuckets</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Double"><span class="hs-identifier hs-type">Double</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-123"></span><span id="latencyBuckets"><span class="annot"><span class="annottext">latencyBuckets :: [Double]
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#latencyBuckets"><span class="hs-identifier hs-var hs-var">latencyBuckets</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">0.001</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">0.005</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">0.01</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">0.05</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">0.1</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">0.5</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">1</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">2.5</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">5</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">10</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">30</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">60</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">120</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">300</span></span><span class="hs-special">]</span><span>
+</span><span id="line-124"></span><span>
+</span><span id="line-125"></span><span class="hs-comment">-- | Coarser bounds for L1 operations, from construction to long backend waits.</span><span>
+</span><span id="line-126"></span><span class="hs-comment">-- Keep protocol latency buckets separate for benchmark consumers.</span><span>
+</span><span id="line-127"></span><span class="annot"><a href="Hydra.Logging.Monitoring.Metrics.html#operationLatencyBuckets"><span class="hs-identifier hs-type">operationLatencyBuckets</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Double"><span class="hs-identifier hs-type">Double</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-128"></span><span id="operationLatencyBuckets"><span class="annot"><span class="annottext">operationLatencyBuckets :: [Double]
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#operationLatencyBuckets"><span class="hs-identifier hs-var hs-var">operationLatencyBuckets</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">0.01</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">0.1</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">0.5</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">1</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">5</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">30</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">60</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">300</span></span><span class="hs-special">]</span><span>
+</span><span id="line-129"></span><span>
+</span><span id="line-130"></span><span id="local-6989586621679839217"><span class="annot"><a href="Hydra.Logging.Monitoring.Metrics.html#vector"><span class="hs-identifier hs-type">vector</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679839217"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Internal.html#Map"><span class="hs-identifier hs-type">Map</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="annot"><a href="#local-6989586621679839217"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span></span><span>
+</span><span id="line-131"></span><span id="vector"><span class="annot"><span class="annottext">vector :: forall a. [Text] -&gt; (Text -&gt; IO a) -&gt; IO (Map Text a)
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#vector"><span class="hs-identifier hs-var hs-var">vector</span></a></span></span><span> </span><span id="local-6989586621679839625"><span class="annot"><span class="annottext">[Text]
+</span><a href="#local-6989586621679839625"><span class="hs-identifier hs-var">values</span></a></span></span><span> </span><span id="local-6989586621679839626"><span class="annot"><span class="annottext">Text -&gt; IO a
+</span><a href="#local-6989586621679839626"><span class="hs-identifier hs-var">action</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[(Text, a)] -&gt; Map Text a
+forall k a. Ord k =&gt; [(k, a)] -&gt; Map k a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Strict.Internal.html#fromList"><span class="hs-identifier hs-var">Map.fromList</span></a></span><span> </span><span class="annot"><span class="annottext">([(Text, a)] -&gt; Map Text a) -&gt; IO [(Text, a)] -&gt; IO (Map Text a)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; IO (Text, a)) -&gt; [Text] -&gt; IO [(Text, a)]
+forall (t :: * -&gt; *) (f :: * -&gt; *) a b.
+(Traversable t, Applicative f) =&gt;
+(a -&gt; f b) -&gt; t a -&gt; f (t b)
+forall (f :: * -&gt; *) a b.
+Applicative f =&gt;
+(a -&gt; f b) -&gt; [a] -&gt; f [b]
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Traversable.html#traverse"><span class="hs-identifier hs-var">traverse</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679839630"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839630"><span class="hs-identifier hs-var">value</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839630"><span class="hs-identifier hs-var">value</span></a></span><span class="hs-special">,</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(a -&gt; (Text, a)) -&gt; IO a -&gt; IO (Text, a)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; IO a
+</span><a href="#local-6989586621679839626"><span class="hs-identifier hs-var">action</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839630"><span class="hs-identifier hs-var">value</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[Text]
+</span><a href="#local-6989586621679839625"><span class="hs-identifier hs-var">values</span></a></span><span>
+</span><span id="line-132"></span><span>
+</span><span id="line-133"></span><span id="local-6989586621679839233"><span id="local-6989586621679839234"><span class="annot"><a href="Hydra.Logging.Monitoring.Metrics.html#at"><span class="hs-identifier hs-type">at</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Ord"><span class="hs-identifier hs-type">Ord</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679839233"><span class="hs-identifier hs-type">key</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-type">Show</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679839233"><span class="hs-identifier hs-type">key</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Internal.html#Map"><span class="hs-identifier hs-type">Map</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679839233"><span class="hs-identifier hs-type">key</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679839234"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679839233"><span class="hs-identifier hs-type">key</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679839234"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
+</span><span id="line-134"></span><span id="at"><span class="annot"><span class="annottext">at :: forall key a. (Ord key, Show key) =&gt; Map key a -&gt; key -&gt; a
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#at"><span class="hs-identifier hs-var hs-var">at</span></a></span></span><span> </span><span id="local-6989586621679839646"><span class="annot"><span class="annottext">Map key a
+</span><a href="#local-6989586621679839646"><span class="hs-identifier hs-var">values</span></a></span></span><span> </span><span id="local-6989586621679839647"><span class="annot"><span class="annottext">key
+</span><a href="#local-6989586621679839647"><span class="hs-identifier hs-var">key</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">a -&gt; Maybe a -&gt; a
+forall a. a -&gt; Maybe a -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Maybe.html#fromMaybe"><span class="hs-identifier hs-var">fromMaybe</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; a
+forall a t. (HasCallStack, IsText t) =&gt; t -&gt; a
+</span><span class="hs-identifier hs-var">error</span></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; a) -&gt; Text -&gt; a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;Unregistered metric label: &quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">key -&gt; Text
+forall b a. (Show a, IsString b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">show</span></span><span> </span><span class="annot"><span class="annottext">key
+</span><a href="#local-6989586621679839647"><span class="hs-identifier hs-var">key</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">key -&gt; Map key a -&gt; Maybe a
+forall k a. Ord k =&gt; k -&gt; Map k a -&gt; Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Internal.html#lookup"><span class="hs-identifier hs-var">Map.lookup</span></a></span><span> </span><span class="annot"><span class="annottext">key
+</span><a href="#local-6989586621679839647"><span class="hs-identifier hs-var">key</span></a></span><span> </span><span class="annot"><span class="annottext">Map key a
+</span><a href="#local-6989586621679839646"><span class="hs-identifier hs-var">values</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-135"></span><span>
+</span><span id="line-136"></span><span class="annot"><a href="Hydra.Logging.Monitoring.Metrics.html#inputSources"><span class="hs-identifier hs-type">inputSources</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span class="hs-special">]</span><span>
+</span><span id="line-137"></span><span id="inputSources"><span class="annot"><span class="annottext">inputSources :: [Text]
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#inputSources"><span class="hs-identifier hs-var hs-var">inputSources</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;client&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;network&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;chain&quot;</span></span><span class="hs-special">]</span><span>
+</span><span id="line-138"></span><span>
+</span><span id="line-139"></span><span class="annot"><a href="Hydra.Logging.Monitoring.Metrics.html#waitReasons"><span class="hs-identifier hs-type">waitReasons</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span class="hs-special">]</span><span>
+</span><span id="line-140"></span><span id="waitReasons"><span class="annot"><span class="annottext">waitReasons :: [Text]
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#waitReasons"><span class="hs-identifier hs-var hs-var">waitReasons</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;transaction&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;snapshot_number&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;snapshot_version&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;seen_snapshot&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;transactions&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;contestation_deadline&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;decommit&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;unresolved_commit&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;unresolved_decommit&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;deposit_observation&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;deposit_activation&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;sync&quot;</span></span><span class="hs-special">]</span><span>
+</span><span id="line-141"></span><span>
+</span><span id="line-142"></span><span class="annot"><a href="Hydra.Logging.Monitoring.Metrics.html#networkEventsValues"><span class="hs-identifier hs-type">networkEventsValues</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span class="hs-special">]</span><span>
+</span><span id="line-143"></span><span id="networkEventsValues"><span class="annot"><span class="annottext">networkEventsValues :: [Text]
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#networkEventsValues"><span class="hs-identifier hs-var hs-var">networkEventsValues</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;reconnect&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;broadcast_failure&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;watch_failure&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;authentication_failure&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;decode_failure&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;queue_storage_failure&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;queue_stat_failure&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;queue_full&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;lease_warning&quot;</span></span><span class="hs-special">]</span><span>
+</span><span id="line-144"></span><span>
+</span><span id="line-145"></span><span class="annot"><a href="Hydra.Logging.Monitoring.Metrics.html#chainOperationsValues"><span class="hs-identifier hs-type">chainOperationsValues</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span class="hs-special">]</span><span>
+</span><span id="line-146"></span><span id="chainOperationsValues"><span class="annot"><span class="annottext">chainOperationsValues :: [Text]
+</span><a href="Hydra.Logging.Monitoring.Metrics.html#chainOperationsValues"><span class="hs-identifier hs-var hs-var">chainOperationsValues</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;draft_deposit&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;submit&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;init&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;increment&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;recover&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;decrement&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;close&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;contest&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;fanout&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;partial_fanout&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;final_fanout&quot;</span></span><span class="hs-special">]</span><span>
+</span><span id="line-147"></span></pre></body></html>

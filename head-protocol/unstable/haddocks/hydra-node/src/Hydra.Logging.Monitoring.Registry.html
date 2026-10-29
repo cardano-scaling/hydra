@@ -1,0 +1,539 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="annot"><span class="hs-comment">-- | Described metrics and compatibility aliases backed by the Prometheus client.</span></span><span>
+</span><span id="line-2"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.Logging.Monitoring.Registry</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-3"></span><span>
+</span><span id="line-4"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Prelude</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#toList"><span class="hs-identifier">toList</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-5"></span><span>
+</span><span id="line-6"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/bytestring-0.11.5.4/src/Data.ByteString.Builder.html"><span class="hs-identifier">Data.ByteString.Builder</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/bytestring-0.11.5.4/src/Data.ByteString.Builder.Internal.html#Builder"><span class="hs-identifier">Builder</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/bytestring-0.11.5.4/src/Data.ByteString.Builder.Internal.html#byteString"><span class="hs-identifier">byteString</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/bytestring-0.11.5.4/src/Data.ByteString.Builder.Internal.html#lazyByteString"><span class="hs-identifier">lazyByteString</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/bytestring-0.11.5.4/src/Data.ByteString.Builder.html#toLazyByteString"><span class="hs-identifier">toLazyByteString</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-7"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/bytestring-0.11.5.4/src/Data.ByteString.Lazy.html"><span class="hs-identifier">Data.ByteString.Lazy</span></a></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">LBS</span></span><span>
+</span><span id="line-8"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Strict.html"><span class="hs-identifier">Data.Map.Strict</span></a></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Map</span></span><span>
+</span><span id="line-9"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Data.Text</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Text</span></span><span>
+</span><span id="line-10"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">System.Metrics.Prometheus.Concurrent.Registry</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Prom</span></span><span>
+</span><span id="line-11"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">System.Metrics.Prometheus.Encode.Text</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">encodeMetrics</span></span><span class="hs-special">)</span><span>
+</span><span id="line-12"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">System.Metrics.Prometheus.Metric</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">MetricSample</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-13"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">System.Metrics.Prometheus.Metric.Counter</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Counter</span></span><span class="hs-special">)</span><span>
+</span><span id="line-14"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">System.Metrics.Prometheus.Metric.Gauge</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Gauge</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">GaugeSample</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-15"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">System.Metrics.Prometheus.Metric.Histogram</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Histogram</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">HistogramSample</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-16"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">System.Metrics.Prometheus.MetricId</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Labels</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">MetricId</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">Name</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-17"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">System.Metrics.Prometheus.Registry</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">RegistrySample</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-18"></span><span>
+</span><span id="line-19"></span><span class="hs-keyword">data</span><span> </span><span id="Registry"><span class="annot"><a href="Hydra.Logging.Monitoring.Registry.html#Registry"><span class="hs-identifier hs-var">Registry</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Registry"><span class="annot"><a href="Hydra.Logging.Monitoring.Registry.html#Registry"><span class="hs-identifier hs-var">Registry</span></a></span></span><span>
+</span><span id="line-20"></span><span>  </span><span class="hs-special">{</span><span> </span><span id="%24sel%3Aunderlying%3ARegistry"><span class="annot"><span class="annottext">Registry -&gt; Registry
+</span><a href="Hydra.Logging.Monitoring.Registry.html#%24sel%3Aunderlying%3ARegistry"><span class="hs-identifier hs-var hs-var">underlying</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Prom.Registry</span></span><span>
+</span><span id="line-21"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3Adescriptions%3ARegistry"><span class="annot"><span class="annottext">Registry -&gt; IORef (Map Text (Text, Text))
+</span><a href="Hydra.Logging.Monitoring.Registry.html#%24sel%3Adescriptions%3ARegistry"><span class="hs-identifier hs-var hs-var">descriptions</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.IORef.html#IORef"><span class="hs-identifier hs-type">IORef</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Internal.html#Map"><span class="hs-identifier hs-type">Map</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-22"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3Aaliases%3ARegistry"><span class="annot"><span class="annottext">Registry -&gt; IORef [(Text, Text, Double)]
+</span><a href="Hydra.Logging.Monitoring.Registry.html#%24sel%3Aaliases%3ARegistry"><span class="hs-identifier hs-var hs-var">aliases</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.IORef.html#IORef"><span class="hs-identifier hs-type">IORef</span></a></span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Double"><span class="hs-identifier hs-type">Double</span></a></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
+</span><span id="line-23"></span><span>  </span><span class="hs-special">}</span><span>
+</span><span id="line-24"></span><span>
+</span><span id="line-25"></span><span class="annot"><a href="Hydra.Logging.Monitoring.Registry.html#new"><span class="hs-identifier hs-type">new</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><a href="Hydra.Logging.Monitoring.Registry.html#Registry"><span class="hs-identifier hs-type">Registry</span></a></span><span>
+</span><span id="line-26"></span><span id="new"><span class="annot"><span class="annottext">new :: IO Registry
+</span><a href="Hydra.Logging.Monitoring.Registry.html#new"><span class="hs-identifier hs-var hs-var">new</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Registry
+-&gt; IORef (Map Text (Text, Text))
+-&gt; IORef [(Text, Text, Double)]
+-&gt; Registry
+</span><a href="Hydra.Logging.Monitoring.Registry.html#Registry"><span class="hs-identifier hs-var">Registry</span></a></span><span> </span><span class="annot"><span class="annottext">(Registry
+ -&gt; IORef (Map Text (Text, Text))
+ -&gt; IORef [(Text, Text, Double)]
+ -&gt; Registry)
+-&gt; IO Registry
+-&gt; IO
+     (IORef (Map Text (Text, Text))
+      -&gt; IORef [(Text, Text, Double)] -&gt; Registry)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">IO Registry
+</span><span class="hs-identifier hs-var">Prom.new</span></span><span> </span><span class="annot"><span class="annottext">IO
+  (IORef (Map Text (Text, Text))
+   -&gt; IORef [(Text, Text, Double)] -&gt; Registry)
+-&gt; IO (IORef (Map Text (Text, Text)))
+-&gt; IO (IORef [(Text, Text, Double)] -&gt; Registry)
+forall a b. IO (a -&gt; b) -&gt; IO a -&gt; IO b
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%2A%3E"><span class="hs-operator hs-var">&lt;*&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Map Text (Text, Text) -&gt; IO (IORef (Map Text (Text, Text)))
+forall (m :: * -&gt; *) a. MonadIO m =&gt; a -&gt; m (IORef a)
+</span><span class="hs-identifier hs-var">newIORef</span></span><span> </span><span class="annot"><span class="annottext">Map Text (Text, Text)
+forall a. Monoid a =&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#mempty"><span class="hs-identifier hs-var">mempty</span></a></span><span> </span><span class="annot"><span class="annottext">IO (IORef [(Text, Text, Double)] -&gt; Registry)
+-&gt; IO (IORef [(Text, Text, Double)]) -&gt; IO Registry
+forall a b. IO (a -&gt; b) -&gt; IO a -&gt; IO b
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%2A%3E"><span class="hs-operator hs-var">&lt;*&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">[(Text, Text, Double)] -&gt; IO (IORef [(Text, Text, Double)])
+forall (m :: * -&gt; *) a. MonadIO m =&gt; a -&gt; m (IORef a)
+</span><span class="hs-identifier hs-var">newIORef</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-27"></span><span>
+</span><span id="line-28"></span><span class="annot"><a href="Hydra.Logging.Monitoring.Registry.html#describe"><span class="hs-identifier hs-type">describe</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Logging.Monitoring.Registry.html#Registry"><span class="hs-identifier hs-type">Registry</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-29"></span><span id="describe"><span class="annot"><span class="annottext">describe :: Registry -&gt; Text -&gt; Text -&gt; Text -&gt; IO ()
+</span><a href="Hydra.Logging.Monitoring.Registry.html#describe"><span class="hs-identifier hs-var hs-var">describe</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Logging.Monitoring.Registry.html#Registry"><span class="hs-identifier hs-type">Registry</span></a></span><span class="hs-special">{</span><span id="local-6989586621679839102"><span class="annot"><span class="annottext">IORef (Map Text (Text, Text))
+$sel:descriptions:Registry :: Registry -&gt; IORef (Map Text (Text, Text))
+descriptions :: IORef (Map Text (Text, Text))
+</span><a href="Hydra.Logging.Monitoring.Registry.html#%24sel%3Adescriptions%3ARegistry"><span class="hs-identifier hs-var hs-var">descriptions</span></a></span></span><span class="hs-special">}</span><span> </span><span id="local-6989586621679839103"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839103"><span class="hs-identifier hs-var">name</span></a></span></span><span> </span><span id="local-6989586621679839104"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839104"><span class="hs-identifier hs-var">kind</span></a></span></span><span> </span><span id="local-6989586621679839105"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839105"><span class="hs-identifier hs-var">help</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-30"></span><span>  </span><span class="annot"><span class="annottext">IORef (Map Text (Text, Text))
+-&gt; (Map Text (Text, Text) -&gt; (Map Text (Text, Text), ())) -&gt; IO ()
+forall (m :: * -&gt; *) a b.
+MonadIO m =&gt;
+IORef a -&gt; (a -&gt; (a, b)) -&gt; m b
+</span><span class="hs-identifier hs-var">atomicModifyIORef'</span></span><span> </span><span class="annot"><span class="annottext">IORef (Map Text (Text, Text))
+</span><a href="#local-6989586621679839102"><span class="hs-identifier hs-var">descriptions</span></a></span><span> </span><span class="annot"><span class="annottext">((Map Text (Text, Text) -&gt; (Map Text (Text, Text), ())) -&gt; IO ())
+-&gt; (Map Text (Text, Text) -&gt; (Map Text (Text, Text), ())) -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679839107"><span class="annot"><span class="annottext">Map Text (Text, Text)
+</span><a href="#local-6989586621679839107"><span class="hs-identifier hs-var">ds</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text
+-&gt; (Text, Text) -&gt; Map Text (Text, Text) -&gt; Map Text (Text, Text)
+forall k a. Ord k =&gt; k -&gt; a -&gt; Map k a -&gt; Map k a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Strict.Internal.html#insert"><span class="hs-identifier hs-var">Map.insert</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839103"><span class="hs-identifier hs-var">name</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839104"><span class="hs-identifier hs-var">kind</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839105"><span class="hs-identifier hs-var">help</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Map Text (Text, Text)
+</span><a href="#local-6989586621679839107"><span class="hs-identifier hs-var">ds</span></a></span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-31"></span><span>
+</span><span id="line-32"></span><span class="annot"><a href="Hydra.Logging.Monitoring.Registry.html#counter"><span class="hs-identifier hs-type">counter</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Logging.Monitoring.Registry.html#Registry"><span class="hs-identifier hs-type">Registry</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span class="hs-special">)</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Counter</span></span><span>
+</span><span id="line-33"></span><span id="counter"><span class="annot"><span class="annottext">counter :: Registry -&gt; Text -&gt; Text -&gt; [(Text, Text)] -&gt; IO Counter
+</span><a href="Hydra.Logging.Monitoring.Registry.html#counter"><span class="hs-identifier hs-var hs-var">counter</span></a></span></span><span> </span><span id="local-6989586621679839110"><span class="annot"><span class="annottext">registry :: Registry
+</span><a href="#local-6989586621679839110"><span class="hs-identifier hs-var">registry</span></a></span></span><span class="hs-glyph">@</span><span class="annot"><a href="Hydra.Logging.Monitoring.Registry.html#Registry"><span class="hs-identifier hs-type">Registry</span></a></span><span class="hs-special">{</span><span id="local-6989586621679839111"><span class="annot"><span class="annottext">Registry
+$sel:underlying:Registry :: Registry -&gt; Registry
+underlying :: Registry
+</span><a href="Hydra.Logging.Monitoring.Registry.html#%24sel%3Aunderlying%3ARegistry"><span class="hs-identifier hs-var hs-var">underlying</span></a></span></span><span class="hs-special">}</span><span> </span><span id="local-6989586621679839112"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839112"><span class="hs-identifier hs-var">name</span></a></span></span><span> </span><span id="local-6989586621679839113"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839113"><span class="hs-identifier hs-var">help</span></a></span></span><span> </span><span id="local-6989586621679839114"><span class="annot"><span class="annottext">[(Text, Text)]
+</span><a href="#local-6989586621679839114"><span class="hs-identifier hs-var">labels</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-34"></span><span>  </span><span class="annot"><span class="annottext">Registry -&gt; Text -&gt; Text -&gt; Text -&gt; IO ()
+</span><a href="Hydra.Logging.Monitoring.Registry.html#describe"><span class="hs-identifier hs-var">describe</span></a></span><span> </span><span class="annot"><span class="annottext">Registry
+</span><a href="#local-6989586621679839110"><span class="hs-identifier hs-var">registry</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839112"><span class="hs-identifier hs-var">name</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;counter&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839113"><span class="hs-identifier hs-var">help</span></a></span><span>
+</span><span id="line-35"></span><span>  </span><span class="annot"><span class="annottext">Name -&gt; Labels -&gt; Registry -&gt; IO Counter
+</span><span class="hs-identifier hs-var">Prom.registerCounter</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; Name
+</span><span class="hs-identifier hs-var">Name</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839112"><span class="hs-identifier hs-var">name</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Map Text Text -&gt; Labels
+</span><span class="hs-identifier hs-var">Labels</span></span><span> </span><span class="annot"><span class="annottext">(Map Text Text -&gt; Labels) -&gt; Map Text Text -&gt; Labels
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">[(Text, Text)] -&gt; Map Text Text
+forall k a. Ord k =&gt; [(k, a)] -&gt; Map k a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Strict.Internal.html#fromList"><span class="hs-identifier hs-var">Map.fromList</span></a></span><span> </span><span class="annot"><span class="annottext">[(Text, Text)]
+</span><a href="#local-6989586621679839114"><span class="hs-identifier hs-var">labels</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Registry
+</span><a href="#local-6989586621679839111"><span class="hs-identifier hs-var">underlying</span></a></span><span>
+</span><span id="line-36"></span><span>
+</span><span id="line-37"></span><span class="annot"><a href="Hydra.Logging.Monitoring.Registry.html#gauge"><span class="hs-identifier hs-type">gauge</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Logging.Monitoring.Registry.html#Registry"><span class="hs-identifier hs-type">Registry</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span class="hs-special">)</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Gauge</span></span><span>
+</span><span id="line-38"></span><span id="gauge"><span class="annot"><span class="annottext">gauge :: Registry -&gt; Text -&gt; Text -&gt; [(Text, Text)] -&gt; IO Gauge
+</span><a href="Hydra.Logging.Monitoring.Registry.html#gauge"><span class="hs-identifier hs-var hs-var">gauge</span></a></span></span><span> </span><span id="local-6989586621679839120"><span class="annot"><span class="annottext">registry :: Registry
+</span><a href="#local-6989586621679839120"><span class="hs-identifier hs-var">registry</span></a></span></span><span class="hs-glyph">@</span><span class="annot"><a href="Hydra.Logging.Monitoring.Registry.html#Registry"><span class="hs-identifier hs-type">Registry</span></a></span><span class="hs-special">{</span><span id="local-6989586621679839121"><span class="annot"><span class="annottext">Registry
+$sel:underlying:Registry :: Registry -&gt; Registry
+underlying :: Registry
+</span><a href="Hydra.Logging.Monitoring.Registry.html#%24sel%3Aunderlying%3ARegistry"><span class="hs-identifier hs-var hs-var">underlying</span></a></span></span><span class="hs-special">}</span><span> </span><span id="local-6989586621679839122"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839122"><span class="hs-identifier hs-var">name</span></a></span></span><span> </span><span id="local-6989586621679839123"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839123"><span class="hs-identifier hs-var">help</span></a></span></span><span> </span><span id="local-6989586621679839124"><span class="annot"><span class="annottext">[(Text, Text)]
+</span><a href="#local-6989586621679839124"><span class="hs-identifier hs-var">labels</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-39"></span><span>  </span><span class="annot"><span class="annottext">Registry -&gt; Text -&gt; Text -&gt; Text -&gt; IO ()
+</span><a href="Hydra.Logging.Monitoring.Registry.html#describe"><span class="hs-identifier hs-var">describe</span></a></span><span> </span><span class="annot"><span class="annottext">Registry
+</span><a href="#local-6989586621679839120"><span class="hs-identifier hs-var">registry</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839122"><span class="hs-identifier hs-var">name</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;gauge&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839123"><span class="hs-identifier hs-var">help</span></a></span><span>
+</span><span id="line-40"></span><span>  </span><span class="annot"><span class="annottext">Name -&gt; Labels -&gt; Registry -&gt; IO Gauge
+</span><span class="hs-identifier hs-var">Prom.registerGauge</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; Name
+</span><span class="hs-identifier hs-var">Name</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839122"><span class="hs-identifier hs-var">name</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Map Text Text -&gt; Labels
+</span><span class="hs-identifier hs-var">Labels</span></span><span> </span><span class="annot"><span class="annottext">(Map Text Text -&gt; Labels) -&gt; Map Text Text -&gt; Labels
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">[(Text, Text)] -&gt; Map Text Text
+forall k a. Ord k =&gt; [(k, a)] -&gt; Map k a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Strict.Internal.html#fromList"><span class="hs-identifier hs-var">Map.fromList</span></a></span><span> </span><span class="annot"><span class="annottext">[(Text, Text)]
+</span><a href="#local-6989586621679839124"><span class="hs-identifier hs-var">labels</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Registry
+</span><a href="#local-6989586621679839121"><span class="hs-identifier hs-var">underlying</span></a></span><span>
+</span><span id="line-41"></span><span>
+</span><span id="line-42"></span><span class="hs-comment">-- | Absolute, possibly fractional counters (e.g. RTS CPU seconds). The client's</span><span>
+</span><span id="line-43"></span><span class="hs-comment">-- incrementable Counter stores Int; sample these through a Gauge handle and</span><span>
+</span><span id="line-44"></span><span class="hs-comment">-- publish their counter type. Callers supply monotonically increasing values.</span><span>
+</span><span id="line-45"></span><span class="annot"><a href="Hydra.Logging.Monitoring.Registry.html#sampledCounter"><span class="hs-identifier hs-type">sampledCounter</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Logging.Monitoring.Registry.html#Registry"><span class="hs-identifier hs-type">Registry</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Gauge</span></span><span>
+</span><span id="line-46"></span><span id="sampledCounter"><span class="annot"><span class="annottext">sampledCounter :: Registry -&gt; Text -&gt; Text -&gt; IO Gauge
+</span><a href="Hydra.Logging.Monitoring.Registry.html#sampledCounter"><span class="hs-identifier hs-var hs-var">sampledCounter</span></a></span></span><span> </span><span id="local-6989586621679839127"><span class="annot"><span class="annottext">registry :: Registry
+</span><a href="#local-6989586621679839127"><span class="hs-identifier hs-var">registry</span></a></span></span><span class="hs-glyph">@</span><span class="annot"><a href="Hydra.Logging.Monitoring.Registry.html#Registry"><span class="hs-identifier hs-type">Registry</span></a></span><span class="hs-special">{</span><span id="local-6989586621679839128"><span class="annot"><span class="annottext">Registry
+$sel:underlying:Registry :: Registry -&gt; Registry
+underlying :: Registry
+</span><a href="Hydra.Logging.Monitoring.Registry.html#%24sel%3Aunderlying%3ARegistry"><span class="hs-identifier hs-var hs-var">underlying</span></a></span></span><span class="hs-special">}</span><span> </span><span id="local-6989586621679839129"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839129"><span class="hs-identifier hs-var">name</span></a></span></span><span> </span><span id="local-6989586621679839130"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839130"><span class="hs-identifier hs-var">help</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-47"></span><span>  </span><span class="annot"><span class="annottext">Registry -&gt; Text -&gt; Text -&gt; Text -&gt; IO ()
+</span><a href="Hydra.Logging.Monitoring.Registry.html#describe"><span class="hs-identifier hs-var">describe</span></a></span><span> </span><span class="annot"><span class="annottext">Registry
+</span><a href="#local-6989586621679839127"><span class="hs-identifier hs-var">registry</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839129"><span class="hs-identifier hs-var">name</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;counter&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839130"><span class="hs-identifier hs-var">help</span></a></span><span>
+</span><span id="line-48"></span><span>  </span><span class="annot"><span class="annottext">Name -&gt; Labels -&gt; Registry -&gt; IO Gauge
+</span><span class="hs-identifier hs-var">Prom.registerGauge</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; Name
+</span><span class="hs-identifier hs-var">Name</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839129"><span class="hs-identifier hs-var">name</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Labels
+forall a. Monoid a =&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#mempty"><span class="hs-identifier hs-var">mempty</span></a></span><span> </span><span class="annot"><span class="annottext">Registry
+</span><a href="#local-6989586621679839128"><span class="hs-identifier hs-var">underlying</span></a></span><span>
+</span><span id="line-49"></span><span>
+</span><span id="line-50"></span><span class="annot"><a href="Hydra.Logging.Monitoring.Registry.html#histogram"><span class="hs-identifier hs-type">histogram</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Logging.Monitoring.Registry.html#Registry"><span class="hs-identifier hs-type">Registry</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Double"><span class="hs-identifier hs-type">Double</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span class="hs-special">)</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Histogram</span></span><span>
+</span><span id="line-51"></span><span id="histogram"><span class="annot"><span class="annottext">histogram :: Registry
+-&gt; Text -&gt; Text -&gt; [Double] -&gt; [(Text, Text)] -&gt; IO Histogram
+</span><a href="Hydra.Logging.Monitoring.Registry.html#histogram"><span class="hs-identifier hs-var hs-var">histogram</span></a></span></span><span> </span><span id="local-6989586621679839132"><span class="annot"><span class="annottext">registry :: Registry
+</span><a href="#local-6989586621679839132"><span class="hs-identifier hs-var">registry</span></a></span></span><span class="hs-glyph">@</span><span class="annot"><a href="Hydra.Logging.Monitoring.Registry.html#Registry"><span class="hs-identifier hs-type">Registry</span></a></span><span class="hs-special">{</span><span id="local-6989586621679839133"><span class="annot"><span class="annottext">Registry
+$sel:underlying:Registry :: Registry -&gt; Registry
+underlying :: Registry
+</span><a href="Hydra.Logging.Monitoring.Registry.html#%24sel%3Aunderlying%3ARegistry"><span class="hs-identifier hs-var hs-var">underlying</span></a></span></span><span class="hs-special">}</span><span> </span><span id="local-6989586621679839134"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839134"><span class="hs-identifier hs-var">name</span></a></span></span><span> </span><span id="local-6989586621679839135"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839135"><span class="hs-identifier hs-var">help</span></a></span></span><span> </span><span id="local-6989586621679839136"><span class="annot"><span class="annottext">[Double]
+</span><a href="#local-6989586621679839136"><span class="hs-identifier hs-var">buckets</span></a></span></span><span> </span><span id="local-6989586621679839137"><span class="annot"><span class="annottext">[(Text, Text)]
+</span><a href="#local-6989586621679839137"><span class="hs-identifier hs-var">labels</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-52"></span><span>  </span><span class="annot"><span class="annottext">Registry -&gt; Text -&gt; Text -&gt; Text -&gt; IO ()
+</span><a href="Hydra.Logging.Monitoring.Registry.html#describe"><span class="hs-identifier hs-var">describe</span></a></span><span> </span><span class="annot"><span class="annottext">Registry
+</span><a href="#local-6989586621679839132"><span class="hs-identifier hs-var">registry</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839134"><span class="hs-identifier hs-var">name</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;histogram&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839135"><span class="hs-identifier hs-var">help</span></a></span><span>
+</span><span id="line-53"></span><span>  </span><span class="annot"><span class="annottext">Name -&gt; Labels -&gt; [Double] -&gt; Registry -&gt; IO Histogram
+</span><span class="hs-identifier hs-var">Prom.registerHistogram</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; Name
+</span><span class="hs-identifier hs-var">Name</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839134"><span class="hs-identifier hs-var">name</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Map Text Text -&gt; Labels
+</span><span class="hs-identifier hs-var">Labels</span></span><span> </span><span class="annot"><span class="annottext">(Map Text Text -&gt; Labels) -&gt; Map Text Text -&gt; Labels
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">[(Text, Text)] -&gt; Map Text Text
+forall k a. Ord k =&gt; [(k, a)] -&gt; Map k a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Strict.Internal.html#fromList"><span class="hs-identifier hs-var">Map.fromList</span></a></span><span> </span><span class="annot"><span class="annottext">[(Text, Text)]
+</span><a href="#local-6989586621679839137"><span class="hs-identifier hs-var">labels</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[Double]
+</span><a href="#local-6989586621679839136"><span class="hs-identifier hs-var">buckets</span></a></span><span> </span><span class="annot"><span class="annottext">Registry
+</span><a href="#local-6989586621679839133"><span class="hs-identifier hs-var">underlying</span></a></span><span>
+</span><span id="line-54"></span><span>
+</span><span id="line-55"></span><span class="hs-comment">-- | Both names are rendered from exactly the same sample. Histogram aliases</span><span>
+</span><span id="line-56"></span><span class="hs-comment">-- scale the sum and bucket boundaries together; counts remain unchanged.</span><span>
+</span><span id="line-57"></span><span class="annot"><a href="Hydra.Logging.Monitoring.Registry.html#alias"><span class="hs-identifier hs-type">alias</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Logging.Monitoring.Registry.html#Registry"><span class="hs-identifier hs-type">Registry</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Double"><span class="hs-identifier hs-type">Double</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-58"></span><span id="alias"><span class="annot"><span class="annottext">alias :: Registry -&gt; Text -&gt; Text -&gt; Double -&gt; IO ()
+</span><a href="Hydra.Logging.Monitoring.Registry.html#alias"><span class="hs-identifier hs-var hs-var">alias</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Logging.Monitoring.Registry.html#Registry"><span class="hs-identifier hs-type">Registry</span></a></span><span class="hs-special">{</span><span id="local-6989586621679839140"><span class="annot"><span class="annottext">IORef [(Text, Text, Double)]
+$sel:aliases:Registry :: Registry -&gt; IORef [(Text, Text, Double)]
+aliases :: IORef [(Text, Text, Double)]
+</span><a href="Hydra.Logging.Monitoring.Registry.html#%24sel%3Aaliases%3ARegistry"><span class="hs-identifier hs-var hs-var">aliases</span></a></span></span><span class="hs-special">}</span><span> </span><span id="local-6989586621679839141"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839141"><span class="hs-identifier hs-var">canonical</span></a></span></span><span> </span><span id="local-6989586621679839142"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839142"><span class="hs-identifier hs-var">legacy</span></a></span></span><span> </span><span id="local-6989586621679839143"><span class="annot"><span class="annottext">Double
+</span><a href="#local-6989586621679839143"><span class="hs-identifier hs-var">scale</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-59"></span><span>  </span><span class="annot"><span class="annottext">IORef [(Text, Text, Double)]
+-&gt; ([(Text, Text, Double)] -&gt; ([(Text, Text, Double)], ()))
+-&gt; IO ()
+forall (m :: * -&gt; *) a b.
+MonadIO m =&gt;
+IORef a -&gt; (a -&gt; (a, b)) -&gt; m b
+</span><span class="hs-identifier hs-var">atomicModifyIORef'</span></span><span> </span><span class="annot"><span class="annottext">IORef [(Text, Text, Double)]
+</span><a href="#local-6989586621679839140"><span class="hs-identifier hs-var">aliases</span></a></span><span> </span><span class="annot"><span class="annottext">(([(Text, Text, Double)] -&gt; ([(Text, Text, Double)], ())) -&gt; IO ())
+-&gt; ([(Text, Text, Double)] -&gt; ([(Text, Text, Double)], ()))
+-&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679839144"><span class="annot"><span class="annottext">[(Text, Text, Double)]
+</span><a href="#local-6989586621679839144"><span class="hs-keyword hs-var">as</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839141"><span class="hs-identifier hs-var">canonical</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839142"><span class="hs-identifier hs-var">legacy</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Double
+</span><a href="#local-6989586621679839143"><span class="hs-identifier hs-var">scale</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Text, Text, Double)
+-&gt; [(Text, Text, Double)] -&gt; [(Text, Text, Double)]
+forall a. a -&gt; [a] -&gt; [a]
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#%3A"><span class="hs-glyph hs-var">:</span></a></span><span> </span><span class="annot"><span class="annottext">[(Text, Text, Double)]
+</span><a href="#local-6989586621679839144"><span class="hs-keyword hs-var">as</span></a></span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-60"></span><span>
+</span><span id="line-61"></span><span class="annot"><a href="Hydra.Logging.Monitoring.Registry.html#sample"><span class="hs-identifier hs-type">sample</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Logging.Monitoring.Registry.html#Registry"><span class="hs-identifier hs-type">Registry</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/bytestring-0.11.5.4/src/Data.ByteString.Lazy.Internal.html#ByteString"><span class="hs-identifier hs-type">LBS.ByteString</span></a></span><span>
+</span><span id="line-62"></span><span id="sample"><span class="annot"><span class="annottext">sample :: Registry -&gt; IO ByteString
+</span><a href="Hydra.Logging.Monitoring.Registry.html#sample"><span class="hs-identifier hs-var hs-var">sample</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Logging.Monitoring.Registry.html#Registry"><span class="hs-identifier hs-type">Registry</span></a></span><span class="hs-special">{</span><span id="local-6989586621679839146"><span class="annot"><span class="annottext">Registry
+$sel:underlying:Registry :: Registry -&gt; Registry
+underlying :: Registry
+</span><a href="Hydra.Logging.Monitoring.Registry.html#%24sel%3Aunderlying%3ARegistry"><span class="hs-identifier hs-var hs-var">underlying</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679839147"><span class="annot"><span class="annottext">IORef (Map Text (Text, Text))
+$sel:descriptions:Registry :: Registry -&gt; IORef (Map Text (Text, Text))
+descriptions :: IORef (Map Text (Text, Text))
+</span><a href="Hydra.Logging.Monitoring.Registry.html#%24sel%3Adescriptions%3ARegistry"><span class="hs-identifier hs-var hs-var">descriptions</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679839148"><span class="annot"><span class="annottext">IORef [(Text, Text, Double)]
+$sel:aliases:Registry :: Registry -&gt; IORef [(Text, Text, Double)]
+aliases :: IORef [(Text, Text, Double)]
+</span><a href="Hydra.Logging.Monitoring.Registry.html#%24sel%3Aaliases%3ARegistry"><span class="hs-identifier hs-var hs-var">aliases</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-63"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">RegistrySample</span></span><span> </span><span id="local-6989586621679839150"><span class="annot"><span class="annottext">Map MetricId MetricSample
+</span><a href="#local-6989586621679839150"><span class="hs-identifier hs-var">values</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Registry -&gt; IO RegistrySample
+</span><span class="hs-identifier hs-var">Prom.sample</span></span><span> </span><span class="annot"><span class="annottext">Registry
+</span><a href="#local-6989586621679839146"><span class="hs-identifier hs-var">underlying</span></a></span><span>
+</span><span id="line-64"></span><span>  </span><span id="local-6989586621679839152"><span class="annot"><span class="annottext">Map Text (Text, Text)
+</span><a href="#local-6989586621679839152"><span class="hs-identifier hs-var">ds</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IORef (Map Text (Text, Text)) -&gt; IO (Map Text (Text, Text))
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IORef a -&gt; m a
+</span><span class="hs-identifier hs-var">readIORef</span></span><span> </span><span class="annot"><span class="annottext">IORef (Map Text (Text, Text))
+</span><a href="#local-6989586621679839147"><span class="hs-identifier hs-var">descriptions</span></a></span><span>
+</span><span id="line-65"></span><span>  </span><span id="local-6989586621679839154"><span class="annot"><span class="annottext">[(Text, Text, Double)]
+</span><a href="#local-6989586621679839154"><span class="hs-keyword hs-var">as</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IORef [(Text, Text, Double)] -&gt; IO [(Text, Text, Double)]
+forall (m :: * -&gt; *) a. MonadIO m =&gt; IORef a -&gt; m a
+</span><span class="hs-identifier hs-var">readIORef</span></span><span> </span><span class="annot"><span class="annottext">IORef [(Text, Text, Double)]
+</span><a href="#local-6989586621679839148"><span class="hs-identifier hs-var">aliases</span></a></span><span>
+</span><span id="line-66"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679839155"><span class="annot"><span class="annottext">extra :: [(MetricId, MetricSample)]
+</span><a href="#local-6989586621679839155"><span class="hs-identifier hs-var hs-var">extra</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-67"></span><span>        </span><span class="hs-special">[</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Name -&gt; Labels -&gt; MetricId
+</span><span class="hs-identifier hs-var">MetricId</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; Name
+</span><span class="hs-identifier hs-var">Name</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839157"><span class="hs-identifier hs-var">legacy</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Labels
+</span><a href="#local-6989586621679839158"><span class="hs-identifier hs-var">labels</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Double -&gt; MetricSample -&gt; MetricSample
+</span><a href="Hydra.Logging.Monitoring.Registry.html#scaleSample"><span class="hs-identifier hs-var">scaleSample</span></a></span><span> </span><span class="annot"><span class="annottext">Double
+</span><a href="#local-6989586621679839160"><span class="hs-identifier hs-var">scale</span></a></span><span> </span><span class="annot"><span class="annottext">MetricSample
+</span><a href="#local-6989586621679839161"><span class="hs-identifier hs-var">value</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-68"></span><span>        </span><span class="hs-glyph">|</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679839162"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839162"><span class="hs-identifier hs-var">canonical</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679839157"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839157"><span class="hs-identifier hs-var">legacy</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679839160"><span class="annot"><span class="annottext">Double
+</span><a href="#local-6989586621679839160"><span class="hs-identifier hs-var">scale</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[(Text, Text, Double)]
+</span><a href="#local-6989586621679839154"><span class="hs-keyword hs-var">as</span></a></span><span>
+</span><span id="line-69"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">MetricId</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Name</span></span><span> </span><span id="local-6989586621679839163"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839163"><span class="hs-identifier hs-var">name</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621679839158"><span class="annot"><span class="annottext">Labels
+</span><a href="#local-6989586621679839158"><span class="hs-identifier hs-var">labels</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679839161"><span class="annot"><span class="annottext">MetricSample
+</span><a href="#local-6989586621679839161"><span class="hs-identifier hs-var">value</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Map MetricId MetricSample -&gt; [(MetricId, MetricSample)]
+forall k a. Map k a -&gt; [(k, a)]
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Internal.html#toList"><span class="hs-identifier hs-var">Map.toList</span></a></span><span> </span><span class="annot"><span class="annottext">Map MetricId MetricSample
+</span><a href="#local-6989586621679839150"><span class="hs-identifier hs-var">values</span></a></span><span>
+</span><span id="line-70"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839163"><span class="hs-identifier hs-var">name</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3D%3D"><span class="hs-operator hs-var">==</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839162"><span class="hs-identifier hs-var">canonical</span></a></span><span>
+</span><span id="line-71"></span><span>        </span><span class="hs-special">]</span><span>
+</span><span id="line-72"></span><span>      </span><span id="local-6989586621679839165"><span class="annot"><span class="annottext">allDescriptions :: Map Text (Text, Text)
+</span><a href="#local-6989586621679839165"><span class="hs-identifier hs-var hs-var">allDescriptions</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Map Text (Text, Text)
+ -&gt; (Text, Text, Double) -&gt; Map Text (Text, Text))
+-&gt; Map Text (Text, Text)
+-&gt; [(Text, Text, Double)]
+-&gt; Map Text (Text, Text)
+forall b a. (b -&gt; a -&gt; b) -&gt; b -&gt; [a] -&gt; b
+forall (t :: * -&gt; *) b a.
+Foldable t =&gt;
+(b -&gt; a -&gt; b) -&gt; b -&gt; t a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#foldl%27"><span class="hs-identifier hs-var">foldl'</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679839167"><span class="annot"><span class="annottext">Map Text (Text, Text)
+</span><a href="#local-6989586621679839167"><span class="hs-identifier hs-var">acc</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679839168"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839168"><span class="hs-identifier hs-var">canonical</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679839169"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839169"><span class="hs-identifier hs-var">legacy</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Map Text (Text, Text)
+-&gt; ((Text, Text) -&gt; Map Text (Text, Text))
+-&gt; Maybe (Text, Text)
+-&gt; Map Text (Text, Text)
+forall b a. b -&gt; (a -&gt; b) -&gt; Maybe a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Maybe.html#maybe"><span class="hs-identifier hs-var">maybe</span></a></span><span> </span><span class="annot"><span class="annottext">Map Text (Text, Text)
+</span><a href="#local-6989586621679839167"><span class="hs-identifier hs-var">acc</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621679839171"><span class="annot"><span class="annottext">(Text, Text)
+</span><a href="#local-6989586621679839171"><span class="hs-identifier hs-var">d</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+-&gt; (Text, Text) -&gt; Map Text (Text, Text) -&gt; Map Text (Text, Text)
+forall k a. Ord k =&gt; k -&gt; a -&gt; Map k a -&gt; Map k a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Strict.Internal.html#insert"><span class="hs-identifier hs-var">Map.insert</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839169"><span class="hs-identifier hs-var">legacy</span></a></span><span> </span><span class="annot"><span class="annottext">(Text, Text)
+</span><a href="#local-6989586621679839171"><span class="hs-identifier hs-var">d</span></a></span><span> </span><span class="annot"><span class="annottext">Map Text (Text, Text)
+</span><a href="#local-6989586621679839167"><span class="hs-identifier hs-var">acc</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; Map Text (Text, Text) -&gt; Maybe (Text, Text)
+forall k a. Ord k =&gt; k -&gt; Map k a -&gt; Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Internal.html#lookup"><span class="hs-identifier hs-var">Map.lookup</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839168"><span class="hs-identifier hs-var">canonical</span></a></span><span> </span><span class="annot"><span class="annottext">Map Text (Text, Text)
+</span><a href="#local-6989586621679839152"><span class="hs-identifier hs-var">ds</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Map Text (Text, Text)
+</span><a href="#local-6989586621679839152"><span class="hs-identifier hs-var">ds</span></a></span><span> </span><span class="annot"><span class="annottext">[(Text, Text, Double)]
+</span><a href="#local-6989586621679839154"><span class="hs-keyword hs-var">as</span></a></span><span>
+</span><span id="line-73"></span><span>      </span><span id="local-6989586621679839173"><span class="annot"><span class="annottext">groups :: Map Text [(MetricId, MetricSample)]
+</span><a href="#local-6989586621679839173"><span class="hs-identifier hs-var hs-var">groups</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">([(MetricId, MetricSample)]
+ -&gt; [(MetricId, MetricSample)] -&gt; [(MetricId, MetricSample)])
+-&gt; [(Text, [(MetricId, MetricSample)])]
+-&gt; Map Text [(MetricId, MetricSample)]
+forall k a. Ord k =&gt; (a -&gt; a -&gt; a) -&gt; [(k, a)] -&gt; Map k a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Strict.Internal.html#fromListWith"><span class="hs-identifier hs-var">Map.fromListWith</span></a></span><span> </span><span class="annot"><span class="annottext">[(MetricId, MetricSample)]
+-&gt; [(MetricId, MetricSample)] -&gt; [(MetricId, MetricSample)]
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">(&lt;&gt;)</span></a></span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="annottext">Name -&gt; Text
+</span><span class="hs-identifier hs-var">unName</span></span><span> </span><span class="annot"><span class="annottext">Name
+</span><a href="#local-6989586621679839176"><span class="hs-identifier hs-var">name</span></a></span><span class="hs-special">,</span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="annottext">MetricId
+</span><a href="#local-6989586621679839177"><span class="hs-identifier hs-var">mid</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">MetricSample
+</span><a href="#local-6989586621679839178"><span class="hs-identifier hs-var">value</span></a></span><span class="hs-special">)</span><span class="hs-special">]</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">|</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679839177"><span class="annot"><span class="annottext">mid :: MetricId
+</span><a href="#local-6989586621679839177"><span class="hs-identifier hs-var">mid</span></a></span></span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">MetricId</span></span><span class="hs-special">{</span><span id="local-6989586621679839176"><span class="annot"><span class="annottext">Name
+name :: Name
+name :: MetricId -&gt; Name
+</span><a href="#local-6989586621679839176"><span class="hs-identifier hs-var hs-var">name</span></a></span></span><span class="hs-special">}</span><span class="hs-special">,</span><span> </span><span id="local-6989586621679839178"><span class="annot"><span class="annottext">MetricSample
+</span><a href="#local-6989586621679839178"><span class="hs-identifier hs-var">value</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Map MetricId MetricSample -&gt; [(MetricId, MetricSample)]
+forall k a. Map k a -&gt; [(k, a)]
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Internal.html#toList"><span class="hs-identifier hs-var">Map.toList</span></a></span><span> </span><span class="annot"><span class="annottext">Map MetricId MetricSample
+</span><a href="#local-6989586621679839150"><span class="hs-identifier hs-var">values</span></a></span><span> </span><span class="annot"><span class="annottext">[(MetricId, MetricSample)]
+-&gt; [(MetricId, MetricSample)] -&gt; [(MetricId, MetricSample)]
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">[(MetricId, MetricSample)]
+</span><a href="#local-6989586621679839155"><span class="hs-identifier hs-var">extra</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-74"></span><span>  </span><span class="annot"><span class="annottext">ByteString -&gt; IO ByteString
+forall a. a -&gt; IO a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; IO ByteString)
+-&gt; ([(Text, [(MetricId, MetricSample)])] -&gt; ByteString)
+-&gt; [(Text, [(MetricId, MetricSample)])]
+-&gt; IO ByteString
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">Builder -&gt; ByteString
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/bytestring-0.11.5.4/src/Data.ByteString.Builder.html#toLazyByteString"><span class="hs-identifier hs-var">toLazyByteString</span></a></span><span> </span><span class="annot"><span class="annottext">(Builder -&gt; ByteString)
+-&gt; ([(Text, [(MetricId, MetricSample)])] -&gt; Builder)
+-&gt; [(Text, [(MetricId, MetricSample)])]
+-&gt; ByteString
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">((Text, [(MetricId, MetricSample)]) -&gt; Builder)
+-&gt; [(Text, [(MetricId, MetricSample)])] -&gt; Builder
+forall m a. Monoid m =&gt; (a -&gt; m) -&gt; [a] -&gt; m
+forall (t :: * -&gt; *) m a.
+(Foldable t, Monoid m) =&gt;
+(a -&gt; m) -&gt; t a -&gt; m
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#foldMap"><span class="hs-identifier hs-var">foldMap</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Map Text (Text, Text)
+-&gt; (Text, [(MetricId, MetricSample)]) -&gt; Builder
+</span><a href="#local-6989586621679839182"><span class="hs-identifier hs-var">render</span></a></span><span> </span><span class="annot"><span class="annottext">Map Text (Text, Text)
+</span><a href="#local-6989586621679839165"><span class="hs-identifier hs-var">allDescriptions</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">([(Text, [(MetricId, MetricSample)])] -&gt; IO ByteString)
+-&gt; [(Text, [(MetricId, MetricSample)])] -&gt; IO ByteString
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Map Text [(MetricId, MetricSample)]
+-&gt; [(Text, [(MetricId, MetricSample)])]
+forall k a. Map k a -&gt; [(k, a)]
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Internal.html#toList"><span class="hs-identifier hs-var">Map.toList</span></a></span><span> </span><span class="annot"><span class="annottext">Map Text [(MetricId, MetricSample)]
+</span><a href="#local-6989586621679839173"><span class="hs-identifier hs-var">groups</span></a></span><span>
+</span><span id="line-75"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-76"></span><span>  </span><span class="annot"><a href="#local-6989586621679839182"><span class="hs-identifier hs-type">render</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Internal.html#Map"><span class="hs-identifier hs-type">Map</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span class="hs-special">,</span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">MetricId</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MetricSample</span></span><span class="hs-special">)</span><span class="hs-special">]</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/bytestring-0.11.5.4/src/Data.ByteString.Builder.Internal.html#Builder"><span class="hs-identifier hs-type">Builder</span></a></span><span>
+</span><span id="line-77"></span><span>  </span><span id="local-6989586621679839182"><span class="annot"><span class="annottext">render :: Map Text (Text, Text)
+-&gt; (Text, [(MetricId, MetricSample)]) -&gt; Builder
+</span><a href="#local-6989586621679839182"><span class="hs-identifier hs-var hs-var">render</span></a></span></span><span> </span><span id="local-6989586621679839183"><span class="annot"><span class="annottext">Map Text (Text, Text)
+</span><a href="#local-6989586621679839183"><span class="hs-identifier hs-var">ds</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679839184"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839184"><span class="hs-identifier hs-var">name</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679839185"><span class="annot"><span class="annottext">[(MetricId, MetricSample)]
+</span><a href="#local-6989586621679839185"><span class="hs-identifier hs-var">values</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-78"></span><span>    </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Map Text (Text, Text) -&gt; Maybe (Text, Text)
+forall k a. Ord k =&gt; k -&gt; Map k a -&gt; Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Internal.html#lookup"><span class="hs-identifier hs-var">Map.lookup</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839184"><span class="hs-identifier hs-var">name</span></a></span><span> </span><span class="annot"><span class="annottext">Map Text (Text, Text)
+</span><a href="#local-6989586621679839183"><span class="hs-identifier hs-var">ds</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-79"></span><span>      </span><span class="annot"><span class="annottext">Maybe (Text, Text)
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">RegistrySample -&gt; Builder
+</span><span class="hs-identifier hs-var">encodeMetrics</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Map MetricId MetricSample -&gt; RegistrySample
+</span><span class="hs-identifier hs-var">RegistrySample</span></span><span> </span><span class="annot"><span class="annottext">(Map MetricId MetricSample -&gt; RegistrySample)
+-&gt; Map MetricId MetricSample -&gt; RegistrySample
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">[(MetricId, MetricSample)] -&gt; Map MetricId MetricSample
+forall k a. Ord k =&gt; [(k, a)] -&gt; Map k a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Strict.Internal.html#fromList"><span class="hs-identifier hs-var">Map.fromList</span></a></span><span> </span><span class="annot"><span class="annottext">[(MetricId, MetricSample)]
+</span><a href="#local-6989586621679839185"><span class="hs-identifier hs-var">values</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-80"></span><span>      </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679839186"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839186"><span class="hs-identifier hs-var">kind</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679839187"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839187"><span class="hs-identifier hs-var">help</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-81"></span><span>        </span><span class="annot"><span class="annottext">ByteString -&gt; Builder
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/bytestring-0.11.5.4/src/Data.ByteString.Builder.Internal.html#byteString"><span class="hs-identifier hs-var">byteString</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; ByteString
+forall a b. ConvertUtf8 a b =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">encodeUtf8</span></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; ByteString) -&gt; Text -&gt; ByteString
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;# HELP &quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839184"><span class="hs-identifier hs-var">name</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot; &quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text
+</span><a href="#local-6989586621679839189"><span class="hs-identifier hs-var">escape</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839187"><span class="hs-identifier hs-var">help</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;\n# TYPE &quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839184"><span class="hs-identifier hs-var">name</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot; &quot;</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679839186"><span class="hs-identifier hs-var">kind</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Text -&gt; Text
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;\n&quot;</span></span><span class="hs-special">)</span><span>
+</span><span id="line-82"></span><span>          </span><span class="hs-comment">-- The library supplies samples, label escaping and histogram encoding.</span><span>
+</span><span id="line-83"></span><span>          </span><span class="hs-comment">-- Replace only its TYPE header, adding the description it cannot store.</span><span>
+</span><span id="line-84"></span><span>          </span><span class="annot"><span class="annottext">Builder -&gt; Builder -&gt; Builder
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Builder
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/bytestring-0.11.5.4/src/Data.ByteString.Builder.Internal.html#lazyByteString"><span class="hs-identifier hs-var">lazyByteString</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int64 -&gt; ByteString -&gt; ByteString
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/bytestring-0.11.5.4/src/Data.ByteString.Lazy.html#drop"><span class="hs-identifier hs-var">LBS.drop</span></a></span><span> </span><span class="annot"><span class="annottext">Int64
+</span><span class="hs-number">1</span></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; ByteString)
+-&gt; (Map MetricId MetricSample -&gt; ByteString)
+-&gt; Map MetricId MetricSample
+-&gt; ByteString
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">(Word8 -&gt; Bool) -&gt; ByteString -&gt; ByteString
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/bytestring-0.11.5.4/src/Data.ByteString.Lazy.html#dropWhile"><span class="hs-identifier hs-var">LBS.dropWhile</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Word8 -&gt; Word8 -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%2F%3D"><span class="hs-operator hs-var">/=</span></a></span><span> </span><span class="annot"><span class="annottext">Word8
+</span><span class="hs-number">10</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; ByteString)
+-&gt; (Map MetricId MetricSample -&gt; ByteString)
+-&gt; Map MetricId MetricSample
+-&gt; ByteString
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">Builder -&gt; ByteString
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/bytestring-0.11.5.4/src/Data.ByteString.Builder.html#toLazyByteString"><span class="hs-identifier hs-var">toLazyByteString</span></a></span><span> </span><span class="annot"><span class="annottext">(Builder -&gt; ByteString)
+-&gt; (Map MetricId MetricSample -&gt; Builder)
+-&gt; Map MetricId MetricSample
+-&gt; ByteString
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">RegistrySample -&gt; Builder
+</span><span class="hs-identifier hs-var">encodeMetrics</span></span><span> </span><span class="annot"><span class="annottext">(RegistrySample -&gt; Builder)
+-&gt; (Map MetricId MetricSample -&gt; RegistrySample)
+-&gt; Map MetricId MetricSample
+-&gt; Builder
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">Map MetricId MetricSample -&gt; RegistrySample
+</span><span class="hs-identifier hs-var">RegistrySample</span></span><span> </span><span class="annot"><span class="annottext">(Map MetricId MetricSample -&gt; ByteString)
+-&gt; Map MetricId MetricSample -&gt; ByteString
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">[(MetricId, MetricSample)] -&gt; Map MetricId MetricSample
+forall k a. Ord k =&gt; [(k, a)] -&gt; Map k a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Strict.Internal.html#fromList"><span class="hs-identifier hs-var">Map.fromList</span></a></span><span> </span><span class="annot"><span class="annottext">[(MetricId, MetricSample)]
+</span><a href="#local-6989586621679839185"><span class="hs-identifier hs-var">values</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-85"></span><span>
+</span><span id="line-86"></span><span>  </span><span class="annot"><a href="#local-6989586621679839189"><span class="hs-identifier hs-type">escape</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span>
+</span><span id="line-87"></span><span>  </span><span id="local-6989586621679839189"><span class="annot"><span class="annottext">escape :: Text -&gt; Text
+</span><a href="#local-6989586621679839189"><span class="hs-identifier hs-var hs-var">escape</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HasCallStack =&gt; Text -&gt; Text -&gt; Text -&gt; Text
+Text -&gt; Text -&gt; Text -&gt; Text
+</span><span class="hs-identifier hs-var">Text.replace</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;\n&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;\\n&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Text -&gt; Text) -&gt; (Text -&gt; Text) -&gt; Text -&gt; Text
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">HasCallStack =&gt; Text -&gt; Text -&gt; Text -&gt; Text
+Text -&gt; Text -&gt; Text -&gt; Text
+</span><span class="hs-identifier hs-var">Text.replace</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;\\&quot;</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;\\\\&quot;</span></span><span>
+</span><span id="line-88"></span><span>
+</span><span id="line-89"></span><span class="annot"><a href="Hydra.Logging.Monitoring.Registry.html#scaleSample"><span class="hs-identifier hs-type">scaleSample</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Double"><span class="hs-identifier hs-type">Double</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MetricSample</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">MetricSample</span></span><span>
+</span><span id="line-90"></span><span id="scaleSample"><span class="annot"><span class="annottext">scaleSample :: Double -&gt; MetricSample -&gt; MetricSample
+</span><a href="Hydra.Logging.Monitoring.Registry.html#scaleSample"><span class="hs-identifier hs-var hs-var">scaleSample</span></a></span></span><span> </span><span id="local-6989586621679839194"><span class="annot"><span class="annottext">Double
+</span><a href="#local-6989586621679839194"><span class="hs-identifier hs-var">scale</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-91"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">HistogramMetricSample</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">HistogramSample</span></span><span class="hs-special">{</span><span id="local-6989586621679839197"><span class="annot"><span class="annottext">Buckets
+histBuckets :: Buckets
+histBuckets :: HistogramSample -&gt; Buckets
+</span><a href="#local-6989586621679839197"><span class="hs-identifier hs-var hs-var">histBuckets</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679839199"><span class="annot"><span class="annottext">Double
+histSum :: Double
+histSum :: HistogramSample -&gt; Double
+</span><a href="#local-6989586621679839199"><span class="hs-identifier hs-var hs-var">histSum</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679839201"><span class="annot"><span class="annottext">Int
+histCount :: Int
+histCount :: HistogramSample -&gt; Int
+</span><a href="#local-6989586621679839201"><span class="hs-identifier hs-var hs-var">histCount</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-92"></span><span>    </span><span class="annot"><span class="annottext">HistogramSample -&gt; MetricSample
+</span><span class="hs-identifier hs-var">HistogramMetricSample</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">HistogramSample</span></span><span class="hs-special">{</span><span class="annot"><span class="annottext">histBuckets :: Buckets
+</span><span class="hs-identifier hs-var">histBuckets</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Double -&gt; Double) -&gt; Buckets -&gt; Buckets
+forall k1 k2 a. (k1 -&gt; k2) -&gt; Map k1 a -&gt; Map k2 a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Internal.html#mapKeysMonotonic"><span class="hs-identifier hs-var">Map.mapKeysMonotonic</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Double -&gt; Double -&gt; Double
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#%2A"><span class="hs-operator hs-var">*</span></a></span><span> </span><span class="annot"><span class="annottext">Double
+</span><a href="#local-6989586621679839194"><span class="hs-identifier hs-var">scale</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Buckets
+</span><a href="#local-6989586621679839197"><span class="hs-identifier hs-var">histBuckets</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">histSum :: Double
+</span><span class="hs-identifier hs-var">histSum</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Double
+</span><a href="#local-6989586621679839199"><span class="hs-identifier hs-var">histSum</span></a></span><span> </span><span class="annot"><span class="annottext">Double -&gt; Double -&gt; Double
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#%2A"><span class="hs-operator hs-var">*</span></a></span><span> </span><span class="annot"><span class="annottext">Double
+</span><a href="#local-6989586621679839194"><span class="hs-identifier hs-var">scale</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Int
+histCount :: Int
+histCount :: Int
+</span><a href="#local-6989586621679839201"><span class="hs-identifier hs-var hs-var">histCount</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-93"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">GaugeMetricSample</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">GaugeSample</span></span><span> </span><span id="local-6989586621679839207"><span class="annot"><span class="annottext">Double
+</span><a href="#local-6989586621679839207"><span class="hs-identifier hs-var">value</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">GaugeSample -&gt; MetricSample
+</span><span class="hs-identifier hs-var">GaugeMetricSample</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Double -&gt; GaugeSample
+</span><span class="hs-identifier hs-var">GaugeSample</span></span><span> </span><span class="annot"><span class="annottext">(Double -&gt; GaugeSample) -&gt; Double -&gt; GaugeSample
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Double
+</span><a href="#local-6989586621679839207"><span class="hs-identifier hs-var">value</span></a></span><span> </span><span class="annot"><span class="annottext">Double -&gt; Double -&gt; Double
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#%2A"><span class="hs-operator hs-var">*</span></a></span><span> </span><span class="annot"><span class="annottext">Double
+</span><a href="#local-6989586621679839194"><span class="hs-identifier hs-var">scale</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-94"></span><span>  </span><span id="local-6989586621679839208"><span class="annot"><span class="annottext">MetricSample
+</span><a href="#local-6989586621679839208"><span class="hs-identifier hs-var">value</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">MetricSample
+</span><a href="#local-6989586621679839208"><span class="hs-identifier hs-var">value</span></a></span><span>
+</span><span id="line-95"></span></pre></body></html>

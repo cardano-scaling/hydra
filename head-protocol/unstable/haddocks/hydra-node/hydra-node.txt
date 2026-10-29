@@ -456,6 +456,9 @@ type ChainCallback tx m = ChainEvent tx -> m ()
 -- | A type tying both posting and observing transactions into a single
 --   <i>Component</i>.
 type ChainComponent tx m a = ChainCallback tx m -> (Chain tx m -> m a) -> m a
+
+-- | Stable, bounded names for L1 operation telemetry.
+postChainTxName :: PostChainTx tx -> Text
 instance GHC.Generics.Generic (Hydra.Chain.PostChainTx tx)
 instance GHC.Generics.Generic (Hydra.Chain.OnChainTx tx)
 instance GHC.Generics.Generic (Hydra.Chain.PostTxError tx)
@@ -582,6 +585,10 @@ awaitPolicy :: MonadIO m => RetryPolicyM m
 
 -- | Like <a>runBlockfrostM</a> but with a custom rate-limit retry policy.
 runBlockfrostMWith :: (MonadIO m, MonadThrow m) => RetryPolicyM m -> Project -> BlockfrostClientT IO a -> m a
+
+-- | Count each HTTP 429 response, including the last response when retries
+--   are exhausted. The callback does not change the retry policy.
+runBlockfrostMWithObserver :: (MonadIO m, MonadThrow m) => m () -> RetryPolicyM m -> Project -> BlockfrostClientT IO a -> m a
 
 -- | Run a Blockfrost client action, retrying when rate limited (HTTP 429)
 --   using <a>blockfrostRetryPolicy</a>. blockfrost-client does not expose
@@ -1823,6 +1830,138 @@ instance Cardano.Binary.ToCBOR.ToCBOR Hydra.Ledger.Simple.SimpleTx
 instance Cardano.Binary.FromCBOR.FromCBOR Hydra.Ledger.Simple.SimpleTx
 
 
+-- | Bounded, process-local timing state. Replayed events seed identities,
+--   never invent start times or increment process counters.
+module Hydra.Logging.Monitoring.Accounting
+data SnapshotKey head
+SnapshotKey :: head -> Natural -> Natural -> SnapshotKey head
+[$sel:headIdentity:SnapshotKey] :: SnapshotKey head -> head
+[$sel:version:SnapshotKey] :: SnapshotKey head -> Natural
+[$sel:number:SnapshotKey] :: SnapshotKey head -> Natural
+data Accounting head txid
+Accounting :: Map txid Double -> Map (Double, txid) () -> Maybe Word64 -> Maybe (SnapshotKey head) -> Maybe (SnapshotKey head, Maybe Double, [txid]) -> Accounting head txid
+[$sel:timers:Accounting] :: Accounting head txid -> Map txid Double
+[$sel:orderedTimers:Accounting] :: Accounting head txid -> Map (Double, txid) ()
+[$sel:latestInput:Accounting] :: Accounting head txid -> Maybe Word64
+[$sel:confirmed:Accounting] :: Accounting head txid -> Maybe (SnapshotKey head)
+[$sel:inFlight:Accounting] :: Accounting head txid -> Maybe (SnapshotKey head, Maybe Double, [txid])
+empty :: Accounting head txid
+
+-- | Admission order is monotone. Retries and parked inputs retain their
+--   ID, so one high-water mark distinguishes first processing without a
+--   set of IDs.
+request :: Ord txid => Int -> Double -> Double -> Word64 -> txid -> Accounting head txid -> (Bool, Int, Accounting head txid)
+prune :: Ord txid => Int -> Double -> Double -> Accounting head txid -> (Int, Accounting head txid)
+forget :: Ord txid => txid -> Accounting head txid -> Accounting head txid
+clearPending :: Accounting head txid -> Accounting head txid
+startSnapshot :: Eq head => SnapshotKey head -> Maybe Double -> [txid] -> Accounting head txid -> Accounting head txid
+
+-- | Returns transactions and durations only when the confirmed number
+--   advances within this head. A version bump at the same number does not
+--   confirm the transactions again. An unrelated adoption cannot consume a
+--   pending timer.
+confirmSnapshot :: (Eq head, Ord txid) => Double -> SnapshotKey head -> [txid] -> Accounting head txid -> (Bool, Maybe Double, [Double], Accounting head txid)
+instance GHC.Show.Show head => GHC.Show.Show (Hydra.Logging.Monitoring.Accounting.SnapshotKey head)
+instance GHC.Classes.Eq head => GHC.Classes.Eq (Hydra.Logging.Monitoring.Accounting.SnapshotKey head)
+instance (GHC.Show.Show txid, GHC.Show.Show head) => GHC.Show.Show (Hydra.Logging.Monitoring.Accounting.Accounting head txid)
+instance (GHC.Classes.Eq txid, GHC.Classes.Eq head) => GHC.Classes.Eq (Hydra.Logging.Monitoring.Accounting.Accounting head txid)
+
+
+-- | Described metrics and compatibility aliases backed by the Prometheus
+--   client.
+module Hydra.Logging.Monitoring.Registry
+data Registry
+Registry :: Registry -> IORef (Map Text (Text, Text)) -> IORef [(Text, Text, Double)] -> Registry
+[$sel:underlying:Registry] :: Registry -> Registry
+[$sel:descriptions:Registry] :: Registry -> IORef (Map Text (Text, Text))
+[$sel:aliases:Registry] :: Registry -> IORef [(Text, Text, Double)]
+new :: IO Registry
+describe :: Registry -> Text -> Text -> Text -> IO ()
+counter :: Registry -> Text -> Text -> [(Text, Text)] -> IO Counter
+gauge :: Registry -> Text -> Text -> [(Text, Text)] -> IO Gauge
+
+-- | Absolute, possibly fractional counters (e.g. RTS CPU seconds). The
+--   client's incrementable Counter stores Int; sample these through a
+--   Gauge handle and publish their counter type. Callers supply
+--   monotonically increasing values.
+sampledCounter :: Registry -> Text -> Text -> IO Gauge
+histogram :: Registry -> Text -> Text -> [Double] -> [(Text, Text)] -> IO Histogram
+
+-- | Both names are rendered from exactly the same sample. Histogram
+--   aliases scale the sum and bucket boundaries together; counts remain
+--   unchanged.
+alias :: Registry -> Text -> Text -> Double -> IO ()
+sample :: Registry -> IO ByteString
+scaleSample :: Double -> MetricSample -> MetricSample
+
+
+-- | Typed handles and bounded label domains for the public metrics
+--   interface.
+module Hydra.Logging.Monitoring.Metrics
+data Metrics
+Metrics :: Counter -> Counter -> Counter -> Histogram -> Histogram -> Map Text Counter -> Counter -> Gauge -> Gauge -> Gauge -> Gauge -> Gauge -> Gauge -> Gauge -> Gauge -> Gauge -> Counter -> Map Text Counter -> Map Text Counter -> Map Text Histogram -> Histogram -> Gauge -> Gauge -> Gauge -> Map Text Gauge -> Gauge -> Gauge -> Gauge -> Gauge -> Gauge -> Map Text Counter -> Gauge -> Gauge -> Histogram -> Map Text Counter -> Map Text Counter -> Map Text Histogram -> Map Text Gauge -> Histogram -> Counter -> Counter -> Map Text Gauge -> Map Text Gauge -> Gauge -> Map Text Gauge -> Gauge -> Gauge -> Histogram -> Metrics
+[$sel:headInputs:Metrics] :: Metrics -> Counter
+[$sel:headRequestedTx:Metrics] :: Metrics -> Counter
+[$sel:headConfirmedTx:Metrics] :: Metrics -> Counter
+[$sel:txConfirmationTime:Metrics] :: Metrics -> Histogram
+[$sel:snapshotConfirmationTime:Metrics] :: Metrics -> Histogram
+[$sel:snapshots:Metrics] :: Metrics -> Map Text Counter
+[$sel:evictedTimings:Metrics] :: Metrics -> Counter
+[$sel:peersConnected:Metrics] :: Metrics -> Gauge
+[$sel:chainDriftSeconds:Metrics] :: Metrics -> Gauge
+[$sel:chainLastBlockTimestampSeconds:Metrics] :: Metrics -> Gauge
+[$sel:chainBackendTimestamp:Metrics] :: Metrics -> Gauge
+[$sel:broadcastStalled:Metrics] :: Metrics -> Gauge
+[$sel:broadcastStalledNoProgress:Metrics] :: Metrics -> Gauge
+[$sel:broadcastStalledBacklogFull:Metrics] :: Metrics -> Gauge
+[$sel:pendingBroadcasts:Metrics] :: Metrics -> Gauge
+[$sel:broadcastNoProgressSeconds:Metrics] :: Metrics -> Gauge
+[$sel:inputsRefusedBroadcastStalled:Metrics] :: Metrics -> Counter
+[$sel:inputRetries:Metrics] :: Metrics -> Map Text Counter
+[$sel:inputDrops:Metrics] :: Metrics -> Map Text Counter
+[$sel:inputProcessing:Metrics] :: Metrics -> Map Text Histogram
+[$sel:inputQueueWait:Metrics] :: Metrics -> Histogram
+[$sel:queuedInputs:Metrics] :: Metrics -> Gauge
+[$sel:parkedInputs:Metrics] :: Metrics -> Gauge
+[$sel:synced:Metrics] :: Metrics -> Gauge
+[$sel:phase:Metrics] :: Metrics -> Map Text Gauge
+[$sel:networkConnected:Metrics] :: Metrics -> Gauge
+[$sel:snapshotNumber:Metrics] :: Metrics -> Gauge
+[$sel:snapshotPending:Metrics] :: Metrics -> Gauge
+[$sel:missingSignatures:Metrics] :: Metrics -> Gauge
+[$sel:outstandingTransactions:Metrics] :: Metrics -> Gauge
+[$sel:txOutcomes:Metrics] :: Metrics -> Map Text Counter
+[$sel:persistentDepth:Metrics] :: Metrics -> Gauge
+[$sel:persistentAge:Metrics] :: Metrics -> Gauge
+[$sel:putLatency:Metrics] :: Metrics -> Histogram
+[$sel:networkEvents:Metrics] :: Metrics -> Map Text Counter
+[$sel:chainFailures:Metrics] :: Metrics -> Map Text Counter
+[$sel:chainDuration:Metrics] :: Metrics -> Map Text Histogram
+[$sel:chainInflight:Metrics] :: Metrics -> Map Text Gauge
+[$sel:rollbackDepth:Metrics] :: Metrics -> Histogram
+[$sel:blockfrostRetries:Metrics] :: Metrics -> Counter
+[$sel:blockfrostRateLimits:Metrics] :: Metrics -> Counter
+[$sel:deposits:Metrics] :: Metrics -> Map Text Gauge
+[$sel:decommit:Metrics] :: Metrics -> Map Text Gauge
+[$sel:fanoutRemaining:Metrics] :: Metrics -> Gauge
+[$sel:fanoutMode:Metrics] :: Metrics -> Map Text Gauge
+[$sel:sqliteQueue:Metrics] :: Metrics -> Gauge
+[$sel:sqliteInflight:Metrics] :: Metrics -> Gauge
+[$sel:sqliteDuration:Metrics] :: Metrics -> Histogram
+registerMetrics :: Registry -> Text -> IO Metrics
+latencyBuckets :: [Double]
+
+-- | Coarser bounds for L1 operations, from construction to long backend
+--   waits. Keep protocol latency buckets separate for benchmark consumers.
+operationLatencyBuckets :: [Double]
+vector :: [Text] -> (Text -> IO a) -> IO (Map Text a)
+at :: (Ord key, Show key) => Map key a -> key -> a
+inputSources :: [Text]
+waitReasons :: [Text]
+networkEventsValues :: [Text]
+chainOperationsValues :: [Text]
+
+
 -- | Asynchronous messaging interface to the Hydra Network, e.g to other
 --   Hydra nodes.
 --   
@@ -2025,6 +2164,12 @@ module Hydra.API.APIServerLog
 data APIServerLog
 APIServerStarted :: PortNumber -> APIServerLog
 [$sel:listeningPort:APIServerStarted] :: APIServerLog -> PortNumber
+APIL1Started :: Text -> APIServerLog
+[$sel:operation:APIServerStarted] :: APIServerLog -> Text
+APIL1Finished :: Text -> Bool -> DiffTime -> APIServerLog
+[$sel:operation:APIServerStarted] :: APIServerLog -> Text
+[$sel:successful:APIServerStarted] :: APIServerLog -> Bool
+[$sel:duration:APIServerStarted] :: APIServerLog -> DiffTime
 NewAPIConnection :: APIServerLog
 APIOutputSent :: Value -> APIServerLog
 [$sel:sentOutput:APIServerStarted] :: APIServerLog -> Value
@@ -2605,6 +2750,17 @@ fromPersistentQueueLog :: PersistentQueueLog -> EtcdLog
 data EtcdLog
 EtcdLog :: Value -> EtcdLog
 [$sel:etcd:EtcdLog] :: EtcdLog -> Value
+PersistentQueueStats :: Natural -> Double -> EtcdLog
+[$sel:depth:EtcdLog] :: EtcdLog -> Natural
+[$sel:oldestAgeSeconds:EtcdLog] :: EtcdLog -> Double
+BroadcastCompleted :: DiffTime -> EtcdLog
+[$sel:duration:EtcdLog] :: EtcdLog -> DiffTime
+NetworkConnectivity :: Bool -> EtcdLog
+[$sel:connected:EtcdLog] :: EtcdLog -> Bool
+PersistentQueueStatFailed :: Text -> EtcdLog
+[$sel:reason:EtcdLog] :: EtcdLog -> Text
+PersistentQueueWriteFailed :: Text -> EtcdLog
+[$sel:reason:EtcdLog] :: EtcdLog -> Text
 Reconnecting :: EtcdLog
 BroadcastFailed :: Text -> EtcdLog
 [$sel:reason:EtcdLog] :: EtcdLog -> Text
@@ -2670,8 +2826,15 @@ module Hydra.Node.InputQueue
 --   "fed". NOTE(SN): handle pattern, but likely not required as there is
 --   no need for an alternative implementation
 data InputQueue m e
-InputQueue :: (e -> m ()) -> (DiffTime -> Queued e -> m ()) -> (Queued e -> m ()) -> m () -> m (Queued e) -> m Bool -> InputQueue m e
+InputQueue :: (e -> m ()) -> (e -> m Bool) -> m (Natural, Int) -> (DiffTime -> Queued e -> m ()) -> (Queued e -> m ()) -> m () -> m (Queued e) -> m Bool -> InputQueue m e
 [$sel:enqueue:InputQueue] :: InputQueue m e -> e -> m ()
+
+-- | Admit an advisory input only if there is room, without blocking its
+--   producer.
+[$sel:tryEnqueue:InputQueue] :: InputQueue m e -> e -> m Bool
+
+-- | Queued items and parked items, including those awaiting readmission.
+[$sel:queueStats:InputQueue] :: InputQueue m e -> m (Natural, Int)
 [$sel:reenqueue:InputQueue] :: InputQueue m e -> DiffTime -> Queued e -> m ()
 
 -- | Hold an item aside without re-enqueuing it, until
@@ -2685,9 +2848,10 @@ InputQueue :: (e -> m ()) -> (DiffTime -> Queued e -> m ()) -> (Queued e -> m ()
 [$sel:dequeue:InputQueue] :: InputQueue m e -> m (Queued e)
 [$sel:isEmpty:InputQueue] :: InputQueue m e -> m Bool
 data Queued a
-Queued :: Word64 -> a -> Queued a
+Queued :: Word64 -> a -> Time -> Queued a
 [$sel:queuedId:Queued] :: Queued a -> Word64
 [$sel:queuedItem:Queued] :: Queued a -> a
+[$sel:queuedAt:Queued] :: Queued a -> Time
 createInputQueue :: (MonadDelay m, MonadAsync m, MonadLabelledSTM m) => m (InputQueue m e)
 
 
@@ -2765,6 +2929,8 @@ NetworkConfiguration :: FilePath -> Secret (SigningKey HydraKey) -> [Party] -> H
 --   <tt>Network</tt> to its continuation.
 withNetwork :: forall tx. IsTx tx => Tracer IO NetworkLog -> NetworkConfiguration -> NetworkComponent IO (Authenticated (Message tx)) (Message tx) ()
 data NetworkLog
+Authenticate :: AuthLog -> NetworkLog
+Etcd :: EtcdLog -> NetworkLog
 instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Node.Network.NetworkLog
 instance GHC.Generics.Generic Hydra.Node.Network.NetworkLog
 instance GHC.Show.Show Hydra.Node.Network.NetworkLog
@@ -3086,6 +3252,33 @@ instance Cardano.Binary.ToCBOR.ToCBOR Hydra.Node.State.SyncedStatus
 instance Cardano.Binary.FromCBOR.FromCBOR Hydra.Node.State.SyncedStatus
 instance Cardano.Binary.ToCBOR.ToCBOR Hydra.Node.State.ChainPointTime
 instance Cardano.Binary.FromCBOR.FromCBOR Hydra.Node.State.ChainPointTime
+
+
+-- | Compact measurements of current state. Sampling these instead of
+--   counting transitions keeps gauges correct after replay, side-loading
+--   and rollbacks.
+module Hydra.Node.Stats
+data NodeStats
+NodeStats :: Bool -> Text -> Natural -> Int -> Natural -> Bool -> Int -> Int -> Int -> Int -> Int -> Text -> Int -> Text -> NodeStats
+[$sel:synchronized:NodeStats] :: NodeStats -> Bool
+[$sel:phase:NodeStats] :: NodeStats -> Text
+[$sel:queuedInputs:NodeStats] :: NodeStats -> Natural
+[$sel:parkedInputs:NodeStats] :: NodeStats -> Int
+[$sel:confirmedNumber:NodeStats] :: NodeStats -> Natural
+[$sel:snapshotPending:NodeStats] :: NodeStats -> Bool
+[$sel:missingSignatures:NodeStats] :: NodeStats -> Int
+[$sel:pendingTransactions:NodeStats] :: NodeStats -> Int
+[$sel:inactiveDeposits:NodeStats] :: NodeStats -> Int
+[$sel:activeDeposits:NodeStats] :: NodeStats -> Int
+[$sel:expiredDeposits:NodeStats] :: NodeStats -> Int
+[$sel:decommitState:NodeStats] :: NodeStats -> Text
+[$sel:fanoutRemainingOutputs:NodeStats] :: NodeStats -> Int
+[$sel:fanoutMode:NodeStats] :: NodeStats -> Text
+nodeStats :: IsTx tx => Natural -> Int -> NodeState tx -> NodeStats
+instance Data.Aeson.Types.ToJSON.ToJSON Hydra.Node.Stats.NodeStats
+instance GHC.Generics.Generic Hydra.Node.Stats.NodeStats
+instance GHC.Show.Show Hydra.Node.Stats.NodeStats
+instance GHC.Classes.Eq Hydra.Node.Stats.NodeStats
 
 module Hydra.Node.UnsyncedPeriod
 
@@ -3988,7 +4181,7 @@ handleDraftCommitUtxo :: forall tx. IsChainState tx => Tracer IO APIServerLog ->
 handleRecoverCommitUtxo :: forall tx. IsChainState tx => (ClientInput tx -> IO ()) -> ApiTransactionTimeout -> TChan (Either (TimedServerOutput tx) (ClientMessage tx)) -> Text -> ApiEncoding -> ByteString -> IO Response
 
 -- | Handle request to submit a cardano transaction.
-handleSubmitUserTx :: forall tx. (FromJSON tx, FromCBOR tx) => Chain tx IO -> ApiEncoding -> ApiEncoding -> ByteString -> IO Response
+handleSubmitUserTx :: forall tx. (FromJSON tx, FromCBOR tx) => Tracer IO APIServerLog -> Chain tx IO -> ApiEncoding -> ApiEncoding -> ByteString -> IO Response
 handleDecommit :: forall tx. IsTx tx => (ClientInput tx -> IO ()) -> ApiTransactionTimeout -> TChan (Either (TimedServerOutput tx) (ClientMessage tx)) -> ApiEncoding -> ApiEncoding -> ByteString -> IO Response
 
 -- | Handle request to side load confirmed snapshot.
@@ -3998,6 +4191,7 @@ handleSideLoadSnapshot :: forall tx. IsChainState tx => (ClientInput tx -> IO ()
 handleSubmitL2Tx :: forall tx. IsChainState tx => (ClientInput tx -> IO ()) -> ApiTransactionTimeout -> TChan (Either (TimedServerOutput tx) (ClientMessage tx)) -> ApiEncoding -> ApiEncoding -> ByteString -> IO Response
 badRequest :: IsChainState tx => ApiEncoding -> PostTxError tx -> Response
 notFound :: ApiEncoding -> Response
+observeL1 :: Tracer IO APIServerLog -> Text -> (a -> Bool) -> IO a -> IO a
 instance GHC.Generics.Generic (Hydra.API.HTTPServer.DraftCommitTxResponse tx)
 instance GHC.Generics.Generic (Hydra.API.HTTPServer.DraftCommitTxRequest tx)
 instance Data.Aeson.Types.FromJSON.FromJSON tx => Data.Aeson.Types.FromJSON.FromJSON (Hydra.API.HTTPServer.SubmitTxRequest tx)
@@ -5622,6 +5816,7 @@ RolledBackward :: ChainPoint -> CardanoChainLog
 [$sel:point:ToPost] :: CardanoChainLog -> ChainPoint
 Wallet :: TinyWalletLog -> CardanoChainLog
 StartingChainDecision :: StartingDecision -> CardanoChainLog
+BlockfrostRateLimit :: CardanoChainLog
 BlockfrostTransientError :: Text -> Int -> CardanoChainLog
 [$sel:reason:ToPost] :: CardanoChainLog -> Text
 [$sel:retryDelay:ToPost] :: CardanoChainLog -> Int
@@ -6010,11 +6205,14 @@ module Hydra.Chain.Blockfrost
 newtype BlockfrostBackend a
 BlockfrostBackend :: ReaderT BlockfrostEnv IO a -> BlockfrostBackend a
 data BlockfrostEnv
-BlockfrostEnv :: Project -> TVar IO (Maybe Genesis) -> BlockfrostEnv
+BlockfrostEnv :: Project -> TVar IO (Maybe Genesis) -> IO () -> BlockfrostEnv
 [$sel:project:BlockfrostEnv] :: BlockfrostEnv -> Project
 [$sel:genesisVar:BlockfrostEnv] :: BlockfrostEnv -> TVar IO (Maybe Genesis)
+[$sel:onRateLimit:BlockfrostEnv] :: BlockfrostEnv -> IO ()
 newBlockfrostEnv :: BlockfrostOptions -> IO BlockfrostEnv
+newBlockfrostEnvWithObserver :: IO () -> BlockfrostOptions -> IO BlockfrostEnv
 runBlockfrostBackend :: BlockfrostOptions -> BlockfrostBackend a -> IO a
+runBlockfrostBackendWithObserver :: IO () -> BlockfrostOptions -> BlockfrostBackend a -> IO a
 runBlockfrostBackendWith :: BlockfrostEnv -> BlockfrostBackend a -> IO a
 
 -- | Return the cached value or run the action once and store its result.
@@ -6039,7 +6237,7 @@ blockfrostSubmissionClient :: forall m. MonadSTM m => Tracer m CardanoChainLog -
 
 -- | Submit a transaction via Blockfrost, rendering both transport and API
 --   level failures into a reason.
-submitViaBlockfrost :: MonadIO m => Project -> Tx -> m (Either Text TxHash)
+submitViaBlockfrost :: (MonadIO m, MonadCatch m) => Tracer m CardanoChainLog -> Project -> Tx -> m (Either Text TxHash)
 toChainPoint :: Block -> ChainPoint
 
 -- | Maximum number of blocks fetched per poll iteration (the Blockfrost
@@ -6376,7 +6574,12 @@ monitorBroadcast :: (MonadDelay m, MonadSTM m) => HydraNode tx m -> m ()
 --   <a>$sel:maxPending:StallBounds</a>.
 broadcastStallBounds :: StallBounds
 runHydraNode :: (MonadCatch m, MonadAsync m, MonadDelay m, MonadTime m, IsChainState tx) => HydraNode tx m -> m ()
-stepHydraNode :: (MonadCatch m, MonadAsync m, MonadTime m, IsChainState tx) => UTCTime -> HydraNode tx m -> m ()
+
+-- | Read current state outside the processing loop, including during a
+--   blocked chain submission. Production routes these samples directly to
+--   monitoring.
+monitorNodeHealth :: (MonadDelay m, MonadSTM m, IsChainState tx) => HydraNode tx m -> m ()
+stepHydraNode :: (MonadCatch m, MonadAsync m, MonadTime m, MonadMonotonicTime m, IsChainState tx) => UTCTime -> HydraNode tx m -> m ()
 
 -- | Client inputs that turn into a broadcast directly, and so are the ones
 --   worth refusing: the protocol's own messages cannot pile up while the
@@ -6415,7 +6618,7 @@ waitDelay :: DiffTime
 -- | Monadic interface around <a>update</a>.
 processNextInput :: IsChainState tx => HydraNode tx m -> Input tx -> UTCTime -> STM m (Outcome tx)
 processStateChanges :: (MonadSTM m, MonadTime m) => HydraNode tx m -> [StateChanged tx] -> m ()
-processEffects :: (MonadAsync m, MonadCatch m, IsChainState tx) => HydraNode tx m -> Tracer m (HydraNodeLog tx) -> Word64 -> [Effect tx] -> m ()
+processEffects :: (MonadAsync m, MonadCatch m, MonadMonotonicTime m, IsChainState tx) => HydraNode tx m -> Tracer m (HydraNodeLog tx) -> Word64 -> [Effect tx] -> m ()
 
 -- | Handle to access and modify the state in the Hydra Node.
 data NodeStateHandler tx m
@@ -6449,6 +6652,18 @@ LogicOutcome :: Party -> Outcome tx -> HydraNodeLog tx
 DroppedFromQueue :: Word64 -> Input tx -> HydraNodeLog tx
 [$sel:inputId:BeginInput] :: HydraNodeLog tx -> Word64
 [$sel:input:BeginInput] :: HydraNodeLog tx -> Input tx
+ChainPostStarted :: Text -> HydraNodeLog tx
+[$sel:operation:BeginInput] :: HydraNodeLog tx -> Text
+ChainPostFinished :: Text -> Bool -> DiffTime -> HydraNodeLog tx
+[$sel:operation:BeginInput] :: HydraNodeLog tx -> Text
+[$sel:accepted:BeginInput] :: HydraNodeLog tx -> Bool
+[$sel:duration:BeginInput] :: HydraNodeLog tx -> DiffTime
+InputDequeued :: DiffTime -> HydraNodeLog tx
+[$sel:queueWait:BeginInput] :: HydraNodeLog tx -> DiffTime
+NodeHealth :: NodeStats -> HydraNodeLog tx
+[$sel:stats:BeginInput] :: HydraNodeLog tx -> NodeStats
+BroadcastHealth :: Maybe StallReason -> HydraNodeLog tx
+[$sel:stalledReason:BeginInput] :: HydraNodeLog tx -> Maybe StallReason
 LoadingState :: HydraNodeLog tx
 LoadedState :: Last EventId -> NodeState tx -> HydraNodeLog tx
 [$sel:lastEventId:BeginInput] :: HydraNodeLog tx -> Last EventId
@@ -6514,33 +6729,19 @@ instance GHC.Show.Show (Hydra.Node.HydraNodeLog tx) => GHC.Show.Show (Hydra.Logg
 instance Data.Aeson.Types.ToJSON.ToJSON (Hydra.Node.HydraNodeLog tx) => Data.Aeson.Types.ToJSON.ToJSON (Hydra.Logging.Messages.HydraLog tx)
 
 
--- | Provides Prometheus-based metrics server based on <a>Tracer</a>
---   collection.
---   
---   To add a new metric, one needs to:
---   
---   <ul>
---   <li>Add a field to <a>Metrics</a> and register it in
---   <a>registerMetrics</a>,</li>
---   <li>Update the <a>monitor</a> function to handle relevant
---   <a>HydraLog</a> entries and update the underlying Prometheus metric.
---   Nested helpers are provided to increase a <a>Counter</a> by one
---   (<tt>tick</tt>) and to <a>observe</a> some value in a
---   <a>Histogram</a>.</li>
---   </ul>
---   
---   The metric handles are typed, so a metric can only be updated in the
---   way it was registered and a name can only be referred to if it was
---   registered.
+-- | Prometheus exposition and trace-driven accounting. Counters describe
+--   this process; state gauges are sampled independently of the processing
+--   queue.
 module Hydra.Logging.Monitoring
+withMonitoring :: IsTx tx => Maybe PortNumber -> Tracer IO (HydraLog tx) -> (Tracer IO (HydraLog tx) -> IO a) -> IO a
+withMonitoringForBackend :: IsTx tx => Text -> Maybe PortNumber -> Tracer IO (HydraLog tx) -> (Tracer IO (HydraLog tx) -> IO a) -> IO a
 
--- | Wraps a monadic action using a <a>Tracer</a> and capture metrics based
---   on traces. Given a <tt>portNumber</tt>, this wrapper starts a
---   Prometheus-compliant server on this port. This is a no-op if given
---   <a>Nothing</a>. This function is not polymorphic over the type of
---   messages because it needs to understand them in order to provide
---   meaningful metrics.
-withMonitoring :: (MonadIO m, MonadAsync m, IsTx tx, MonadMonotonicTime m, MonadTime m, MonadLabelledSTM m) => Maybe PortNumber -> Tracer m (HydraLog tx) -> (Tracer m (HydraLog tx) -> m ()) -> m ()
+-- | The refresh action expires unused timers even when no messages arrive.
+prepareRegistry :: forall tx. IsTx tx => Text -> IO (HydraLog tx -> IO (), Registry, IO ())
+
+-- | Samples bypass the JSON queue in production, so a blocked log output
+--   does not freeze the health workers.
+isMetricSample :: HydraLog tx -> Bool
 
 module Hydra.Node.Run
 data ConfigurationException
@@ -6548,7 +6749,7 @@ ConfigurationException :: ProtocolParametersConversionError -> ConfigurationExce
 InvalidOptionException :: InvalidOptions -> ConfigurationException
 TrustedSetupException :: KZGSetupError -> ConfigurationException
 run :: RunOptions -> IO ()
-getGlobalsForChain :: ChainConfig -> IO Globals
+getGlobalsForChain :: Tracer IO CardanoChainLog -> ChainConfig -> IO Globals
 data GlobalsTranslationException
 GlobalsTranslationException :: GlobalsTranslationException
 

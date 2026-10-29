@@ -33,6 +33,10 @@ data PersistentQueue m a
 data PersistentQueueLog
 PersistentQueueLoadFailed :: Text -> PersistentQueueLog
 [$sel:reason:PersistentQueueLoadFailed] :: PersistentQueueLog -> Text
+PersistentQueueStatFailed :: Text -> PersistentQueueLog
+[$sel:reason:PersistentQueueLoadFailed] :: PersistentQueueLog -> Text
+PersistentQueueWriteFailed :: Text -> PersistentQueueLog
+[$sel:reason:PersistentQueueLoadFailed] :: PersistentQueueLog -> Text
 PersistentQueueFull :: PersistentQueueLog
 PersistentQueueDeleteFailed :: Natural -> Text -> PersistentQueueLog
 [$sel:index:PersistentQueueLoadFailed] :: PersistentQueueLog -> Natural
@@ -78,5 +82,11 @@ popBatchPersistentQueue :: (MonadSTM m, MonadIO m) => Tracer IO PersistentQueueL
 --   declared the grown batch delivered would pop and lose the never-sent
 --   tail.
 nextPendingBatch :: MonadSTM m => TVar m (Maybe [(a, ByteString)]) -> PersistentQueue m a -> Int -> Int -> m (Maybe [(a, ByteString)])
+
+-- | Includes the pinned in-flight batch. The oldest file timestamp
+--   survives restart. A concurrent pop may remove that file; in that case
+--   age is unknown for this sample (zero), and the next sample reads the
+--   new head.
+persistentQueueStats :: Tracer IO PersistentQueueLog -> PersistentQueue IO a -> IO (Natural, Double)
 instance GHC.Show.Show Control.Concurrent.PersistentQueue.PersistentQueueLog
 instance GHC.Classes.Eq Control.Concurrent.PersistentQueue.PersistentQueueLog

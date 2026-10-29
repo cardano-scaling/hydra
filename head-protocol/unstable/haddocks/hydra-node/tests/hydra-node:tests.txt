@@ -367,6 +367,9 @@ prop_validateCorrectTransactions :: Property
 shrinkSequence :: [SimpleTx] -> [[SimpleTx]]
 genSequenceOfValidTransactions :: UTxOType SimpleTx -> Gen [SimpleTx]
 
+module Hydra.Logging.AccountingSpec
+spec :: Spec
+
 module Hydra.LoggingSpec
 spec :: Spec
 
@@ -1021,6 +1024,12 @@ spec :: Spec
 -- | The metrics <a>withMonitoring</a> always registers.
 protocolMetrics :: [Text]
 
+-- | Canonical names corresponding to the six compatibility aliases above.
+canonicalAliases :: [Text]
+
+-- | The additions approved for the public metrics interface.
+additionalMetrics :: [Text]
+
 -- | Registered only when the RTS collects statistics, see
 --   <tt>registerRtsMetrics</tt>.
 rtsMetrics :: [Text]
@@ -1034,8 +1043,8 @@ rtsMetrics :: [Text]
 --   and the old name is a prefix of the new one.
 scrapedMetricNames :: Text -> [Text]
 
--- | <a>withMonitoring</a> forks its server and returns immediately, so a
---   scrape can arrive before the socket is listening.
+-- | Retry transient HTTP errors while scraping test endpoints. A scrape
+--   can arrive before the socket is listening.
 scrapeMetrics :: Int -> IO Text
 
 module Hydra.HeadLogicSnapshotSpec

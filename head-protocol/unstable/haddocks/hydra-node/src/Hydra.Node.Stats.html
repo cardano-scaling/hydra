@@ -1,0 +1,337 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-comment">-- | Compact measurements of current state. Sampling these instead of counting</span><span>
+</span><span id="line-2"></span><span class="hs-comment">-- transitions keeps gauges correct after replay, side-loading and rollbacks.</span><span>
+</span><span id="line-3"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.Node.Stats</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-4"></span><span>
+</span><span id="line-5"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Prelude</span></span><span>
+</span><span id="line-6"></span><span>
+</span><span id="line-7"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Strict.html"><span class="hs-identifier">Data.Map.Strict</span></a></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Map</span></span><span>
+</span><span id="line-8"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.html"><span class="hs-identifier">Hydra.HeadLogic.State</span></a></span><span>
+</span><span id="line-9"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Node.State.html"><span class="hs-identifier">Hydra.Node.State</span></a></span><span>
+</span><span id="line-10"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">HeadParameters</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">IsTx</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">Snapshot</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">getSnapshot</span></span><span class="hs-special">)</span><span>
+</span><span id="line-11"></span><span>
+</span><span id="line-12"></span><span class="hs-keyword">data</span><span> </span><span id="NodeStats"><span class="annot"><a href="Hydra.Node.Stats.html#NodeStats"><span class="hs-identifier hs-var">NodeStats</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="NodeStats"><span class="annot"><a href="Hydra.Node.Stats.html#NodeStats"><span class="hs-identifier hs-var">NodeStats</span></a></span></span><span>
+</span><span id="line-13"></span><span>  </span><span class="hs-special">{</span><span> </span><span id="%24sel%3Asynchronized%3ANodeStats"><span class="annot"><span class="annottext">NodeStats -&gt; Bool
+</span><a href="Hydra.Node.Stats.html#%24sel%3Asynchronized%3ANodeStats"><span class="hs-identifier hs-var hs-var">synchronized</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Bool"><span class="hs-identifier hs-type">Bool</span></a></span><span>
+</span><span id="line-14"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3Aphase%3ANodeStats"><span class="annot"><span class="annottext">NodeStats -&gt; Text
+</span><a href="Hydra.Node.Stats.html#%24sel%3Aphase%3ANodeStats"><span class="hs-identifier hs-var hs-var">phase</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span>
+</span><span id="line-15"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AqueuedInputs%3ANodeStats"><span class="annot"><span class="annottext">NodeStats -&gt; Natural
+</span><a href="Hydra.Node.Stats.html#%24sel%3AqueuedInputs%3ANodeStats"><span class="hs-identifier hs-var hs-var">queuedInputs</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-bignum-1.3/src/GHC.Num.Natural.html#Natural"><span class="hs-identifier hs-type">Natural</span></a></span><span>
+</span><span id="line-16"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AparkedInputs%3ANodeStats"><span class="annot"><span class="annottext">NodeStats -&gt; Int
+</span><a href="Hydra.Node.Stats.html#%24sel%3AparkedInputs%3ANodeStats"><span class="hs-identifier hs-var hs-var">parkedInputs</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span>
+</span><span id="line-17"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AconfirmedNumber%3ANodeStats"><span class="annot"><span class="annottext">NodeStats -&gt; Natural
+</span><a href="Hydra.Node.Stats.html#%24sel%3AconfirmedNumber%3ANodeStats"><span class="hs-identifier hs-var hs-var">confirmedNumber</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-bignum-1.3/src/GHC.Num.Natural.html#Natural"><span class="hs-identifier hs-type">Natural</span></a></span><span>
+</span><span id="line-18"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AsnapshotPending%3ANodeStats"><span class="annot"><span class="annottext">NodeStats -&gt; Bool
+</span><a href="Hydra.Node.Stats.html#%24sel%3AsnapshotPending%3ANodeStats"><span class="hs-identifier hs-var hs-var">snapshotPending</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Bool"><span class="hs-identifier hs-type">Bool</span></a></span><span>
+</span><span id="line-19"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AmissingSignatures%3ANodeStats"><span class="annot"><span class="annottext">NodeStats -&gt; Int
+</span><a href="Hydra.Node.Stats.html#%24sel%3AmissingSignatures%3ANodeStats"><span class="hs-identifier hs-var hs-var">missingSignatures</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span>
+</span><span id="line-20"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3ApendingTransactions%3ANodeStats"><span class="annot"><span class="annottext">NodeStats -&gt; Int
+</span><a href="Hydra.Node.Stats.html#%24sel%3ApendingTransactions%3ANodeStats"><span class="hs-identifier hs-var hs-var">pendingTransactions</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span>
+</span><span id="line-21"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AinactiveDeposits%3ANodeStats"><span class="annot"><span class="annottext">NodeStats -&gt; Int
+</span><a href="Hydra.Node.Stats.html#%24sel%3AinactiveDeposits%3ANodeStats"><span class="hs-identifier hs-var hs-var">inactiveDeposits</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span>
+</span><span id="line-22"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AactiveDeposits%3ANodeStats"><span class="annot"><span class="annottext">NodeStats -&gt; Int
+</span><a href="Hydra.Node.Stats.html#%24sel%3AactiveDeposits%3ANodeStats"><span class="hs-identifier hs-var hs-var">activeDeposits</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span>
+</span><span id="line-23"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AexpiredDeposits%3ANodeStats"><span class="annot"><span class="annottext">NodeStats -&gt; Int
+</span><a href="Hydra.Node.Stats.html#%24sel%3AexpiredDeposits%3ANodeStats"><span class="hs-identifier hs-var hs-var">expiredDeposits</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span>
+</span><span id="line-24"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AdecommitState%3ANodeStats"><span class="annot"><span class="annottext">NodeStats -&gt; Text
+</span><a href="Hydra.Node.Stats.html#%24sel%3AdecommitState%3ANodeStats"><span class="hs-identifier hs-var hs-var">decommitState</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span>
+</span><span id="line-25"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AfanoutRemainingOutputs%3ANodeStats"><span class="annot"><span class="annottext">NodeStats -&gt; Int
+</span><a href="Hydra.Node.Stats.html#%24sel%3AfanoutRemainingOutputs%3ANodeStats"><span class="hs-identifier hs-var hs-var">fanoutRemainingOutputs</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span>
+</span><span id="line-26"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AfanoutMode%3ANodeStats"><span class="annot"><span class="annottext">NodeStats -&gt; Text
+</span><a href="Hydra.Node.Stats.html#%24sel%3AfanoutMode%3ANodeStats"><span class="hs-identifier hs-var hs-var">fanoutMode</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span>
+</span><span id="line-27"></span><span>  </span><span class="hs-special">}</span><span>
+</span><span id="line-28"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679857048"><span id="local-6989586621679857068"><span class="annot"><span class="annottext">NodeStats -&gt; NodeStats -&gt; Bool
+(NodeStats -&gt; NodeStats -&gt; Bool)
+-&gt; (NodeStats -&gt; NodeStats -&gt; Bool) -&gt; Eq NodeStats
+forall a. (a -&gt; a -&gt; Bool) -&gt; (a -&gt; a -&gt; Bool) -&gt; Eq a
+$c== :: NodeStats -&gt; NodeStats -&gt; Bool
+== :: NodeStats -&gt; NodeStats -&gt; Bool
+$c/= :: NodeStats -&gt; NodeStats -&gt; Bool
+/= :: NodeStats -&gt; NodeStats -&gt; Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Eq</span></a></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679857073"><span id="local-6989586621679857095"><span id="local-6989586621679857099"><span class="annot"><span class="annottext">Int -&gt; NodeStats -&gt; ShowS
+[NodeStats] -&gt; ShowS
+NodeStats -&gt; String
+(Int -&gt; NodeStats -&gt; ShowS)
+-&gt; (NodeStats -&gt; String)
+-&gt; ([NodeStats] -&gt; ShowS)
+-&gt; Show NodeStats
+forall a.
+(Int -&gt; a -&gt; ShowS) -&gt; (a -&gt; String) -&gt; ([a] -&gt; ShowS) -&gt; Show a
+$cshowsPrec :: Int -&gt; NodeStats -&gt; ShowS
+showsPrec :: Int -&gt; NodeStats -&gt; ShowS
+$cshow :: NodeStats -&gt; String
+show :: NodeStats -&gt; String
+$cshowList :: [NodeStats] -&gt; ShowS
+showList :: [NodeStats] -&gt; ShowS
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">Show</span></a></span></span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679857103"><span id="local-6989586621679857105"><span class="annot"><span class="annottext">(forall x. NodeStats -&gt; Rep NodeStats x)
+-&gt; (forall x. Rep NodeStats x -&gt; NodeStats) -&gt; Generic NodeStats
+forall x. Rep NodeStats x -&gt; NodeStats
+forall x. NodeStats -&gt; Rep NodeStats x
+forall a.
+(forall x. a -&gt; Rep a x) -&gt; (forall x. Rep a x -&gt; a) -&gt; Generic a
+$cfrom :: forall x. NodeStats -&gt; Rep NodeStats x
+from :: forall x. NodeStats -&gt; Rep NodeStats x
+$cto :: forall x. Rep NodeStats x -&gt; NodeStats
+to :: forall x. Rep NodeStats x -&gt; NodeStats
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Generics.html#Generic"><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var">Generic</span></a></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-29"></span><span>  </span><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">anyclass</span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679857109"><span id="local-6989586621679857116"><span id="local-6989586621679857119"><span id="local-6989586621679857122"><span id="local-6989586621679857125"><span class="annot"><span class="annottext">[NodeStats] -&gt; Value
+[NodeStats] -&gt; Encoding
+NodeStats -&gt; Bool
+NodeStats -&gt; Value
+NodeStats -&gt; Encoding
+(NodeStats -&gt; Value)
+-&gt; (NodeStats -&gt; Encoding)
+-&gt; ([NodeStats] -&gt; Value)
+-&gt; ([NodeStats] -&gt; Encoding)
+-&gt; (NodeStats -&gt; Bool)
+-&gt; ToJSON NodeStats
+forall a.
+(a -&gt; Value)
+-&gt; (a -&gt; Encoding)
+-&gt; ([a] -&gt; Value)
+-&gt; ([a] -&gt; Encoding)
+-&gt; (a -&gt; Bool)
+-&gt; ToJSON a
+$ctoJSON :: NodeStats -&gt; Value
+toJSON :: NodeStats -&gt; Value
+$ctoEncoding :: NodeStats -&gt; Encoding
+toEncoding :: NodeStats -&gt; Encoding
+$ctoJSONList :: [NodeStats] -&gt; Value
+toJSONList :: [NodeStats] -&gt; Value
+$ctoEncodingList :: [NodeStats] -&gt; Encoding
+toEncodingList :: [NodeStats] -&gt; Encoding
+$comitField :: NodeStats -&gt; Bool
+omitField :: NodeStats -&gt; Bool
+</span><span class="hs-identifier hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">ToJSON</span></span></span></span></span></span></span><span class="hs-special">)</span><span>
+</span><span id="line-30"></span><span>
+</span><span id="line-31"></span><span id="local-6989586621679856968"><span class="annot"><a href="Hydra.Node.Stats.html#nodeStats"><span class="hs-identifier hs-type">nodeStats</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IsTx</span></span><span> </span><span class="annot"><a href="#local-6989586621679856968"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-bignum-1.3/src/GHC.Num.Natural.html#Natural"><span class="hs-identifier hs-type">Natural</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.Node.State.html#NodeState"><span class="hs-identifier hs-type">NodeState</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679856968"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.Node.Stats.html#NodeStats"><span class="hs-identifier hs-type">NodeStats</span></a></span></span><span>
+</span><span id="line-32"></span><span id="nodeStats"><span class="annot"><span class="annottext">nodeStats :: forall tx. IsTx tx =&gt; Natural -&gt; Int -&gt; NodeState tx -&gt; NodeStats
+</span><a href="Hydra.Node.Stats.html#nodeStats"><span class="hs-identifier hs-var hs-var">nodeStats</span></a></span></span><span> </span><span id="local-6989586621679857430"><span class="annot"><span class="annottext">Natural
+</span><a href="#local-6989586621679857430"><span class="hs-identifier hs-var">queuedInputs</span></a></span></span><span> </span><span id="local-6989586621679857431"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679857431"><span class="hs-identifier hs-var">parkedInputs</span></a></span></span><span> </span><span id="local-6989586621679857432"><span class="annot"><span class="annottext">NodeState tx
+</span><a href="#local-6989586621679857432"><span class="hs-identifier hs-var">ns</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-33"></span><span>  </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">NodeState tx -&gt; HeadState tx
+forall tx. NodeState tx -&gt; HeadState tx
+</span><a href="Hydra.Node.State.html#%24sel%3AheadState%3ANodeInSync"><span class="hs-identifier hs-var">headState</span></a></span><span> </span><span class="annot"><span class="annottext">NodeState tx
+</span><a href="#local-6989586621679857432"><span class="hs-identifier hs-var">ns</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-34"></span><span>    </span><span class="annot"><a href="Hydra.HeadLogic.State.html#Idle"><span class="hs-identifier hs-type">Idle</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">NodeStats
+</span><a href="#local-6989586621679857435"><span class="hs-identifier hs-var">base</span></a></span><span>
+</span><span id="line-35"></span><span>    </span><span class="annot"><a href="Hydra.HeadLogic.State.html#Open"><span class="hs-identifier hs-type">Open</span></a></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.html#OpenState"><span class="hs-identifier hs-type">OpenState</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:parameters:OpenState :: forall tx. OpenState tx -&gt; HeadParameters
+</span><a href="Hydra.HeadLogic.State.html#%24sel%3Aparameters%3AOpenState"><span class="hs-identifier hs-var">parameters</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HeadParameters</span></span><span class="hs-special">{</span><span id="local-6989586621679857440"><span class="annot"><span class="annottext">[Party]
+parties :: [Party]
+$sel:parties:HeadParameters :: HeadParameters -&gt; [Party]
+</span><a href="#local-6989586621679857440"><span class="hs-identifier hs-var hs-var">parties</span></a></span></span><span class="hs-special">}</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:coordinatedHeadState:OpenState :: forall tx. OpenState tx -&gt; CoordinatedHeadState tx
+</span><a href="Hydra.HeadLogic.State.html#%24sel%3AcoordinatedHeadState%3AOpenState"><span class="hs-identifier hs-var">coordinatedHeadState</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.html#CoordinatedHeadState"><span class="hs-identifier hs-type">CoordinatedHeadState</span></a></span><span class="hs-special">{</span><span id="local-6989586621679857444"><span class="annot"><span class="annottext">ConfirmedSnapshot tx
+confirmedSnapshot :: ConfirmedSnapshot tx
+$sel:confirmedSnapshot:CoordinatedHeadState :: forall tx. CoordinatedHeadState tx -&gt; ConfirmedSnapshot tx
+</span><a href="#local-6989586621679857444"><span class="hs-identifier hs-var hs-var">confirmedSnapshot</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679857446"><span class="annot"><span class="annottext">SeenSnapshot tx
+seenSnapshot :: SeenSnapshot tx
+$sel:seenSnapshot:CoordinatedHeadState :: forall tx. CoordinatedHeadState tx -&gt; SeenSnapshot tx
+</span><a href="#local-6989586621679857446"><span class="hs-identifier hs-var hs-var">seenSnapshot</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679857448"><span class="annot"><span class="annottext">Map (TxIdType tx) tx
+allTxs :: Map (TxIdType tx) tx
+$sel:allTxs:CoordinatedHeadState :: forall tx. CoordinatedHeadState tx -&gt; Map (TxIdType tx) tx
+</span><a href="#local-6989586621679857448"><span class="hs-identifier hs-var hs-var">allTxs</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679857450"><span class="annot"><span class="annottext">Maybe tx
+decommitTx :: Maybe tx
+$sel:decommitTx:CoordinatedHeadState :: forall tx. CoordinatedHeadState tx -&gt; Maybe tx
+</span><a href="#local-6989586621679857450"><span class="hs-identifier hs-var hs-var">decommitTx</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:version:CoordinatedHeadState :: forall tx. CoordinatedHeadState tx -&gt; SnapshotVersion
+</span><a href="Hydra.HeadLogic.State.html#%24sel%3Aversion%3ACoordinatedHeadState"><span class="hs-identifier hs-var">version</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="local-6989586621679857453"><span class="annot"><span class="annottext">SnapshotVersion
+</span><a href="#local-6989586621679857453"><span class="hs-identifier hs-var">coordinatedVersion</span></a></span></span><span class="hs-special">}</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-36"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679857454"><span class="annot"><span class="annottext">snap :: Snapshot tx
+</span><a href="#local-6989586621679857454"><span class="hs-identifier hs-var">snap</span></a></span></span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">Snapshot</span></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:version:Snapshot :: forall tx. Snapshot tx -&gt; SnapshotVersion
+</span><span class="hs-identifier hs-var">version</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="local-6989586621679857457"><span class="annot"><span class="annottext">SnapshotVersion
+</span><a href="#local-6989586621679857457"><span class="hs-identifier hs-var">snapshotVersion</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ConfirmedSnapshot tx -&gt; Snapshot tx
+forall tx. IsTx tx =&gt; ConfirmedSnapshot tx -&gt; Snapshot tx
+</span><span class="hs-identifier hs-var">getSnapshot</span></span><span> </span><span class="annot"><span class="annottext">ConfirmedSnapshot tx
+</span><a href="#local-6989586621679857444"><span class="hs-identifier hs-var">confirmedSnapshot</span></a></span><span>
+</span><span id="line-37"></span><span>          </span><span id="local-6989586621679857458"><span class="annot"><span class="annottext">missing :: Int
+</span><a href="#local-6989586621679857458"><span class="hs-identifier hs-var hs-var">missing</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">SeenSnapshot tx
+</span><a href="#local-6989586621679857446"><span class="hs-identifier hs-var">seenSnapshot</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-38"></span><span>            </span><span class="annot"><a href="Hydra.HeadLogic.State.html#SeenSnapshot"><span class="hs-identifier hs-type">SeenSnapshot</span></a></span><span class="hs-special">{</span><span id="local-6989586621679857460"><span class="annot"><span class="annottext">Map Party (Signature (Snapshot tx))
+signatories :: Map Party (Signature (Snapshot tx))
+$sel:signatories:NoSeenSnapshot :: forall tx. SeenSnapshot tx -&gt; Map Party (Signature (Snapshot tx))
+</span><a href="#local-6989586621679857460"><span class="hs-identifier hs-var hs-var">signatories</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Ord a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#max"><span class="hs-identifier hs-var">max</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">0</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Party] -&gt; Int
+forall a. [a] -&gt; Int
+forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; Int
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#length"><span class="hs-identifier hs-var">length</span></a></span><span> </span><span class="annot"><span class="annottext">[Party]
+</span><a href="#local-6989586621679857440"><span class="hs-identifier hs-var">parties</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#-"><span class="hs-glyph hs-var">-</span></a></span><span> </span><span class="annot"><span class="annottext">Map Party (Signature (Snapshot tx)) -&gt; Int
+forall k a. Map k a -&gt; Int
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Internal.html#size"><span class="hs-identifier hs-var">Map.size</span></a></span><span> </span><span class="annot"><span class="annottext">Map Party (Signature (Snapshot tx))
+</span><a href="#local-6989586621679857460"><span class="hs-identifier hs-var">signatories</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-39"></span><span>            </span><span class="annot"><a href="Hydra.HeadLogic.State.html#RequestedSnapshot"><span class="hs-identifier hs-type">RequestedSnapshot</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">[Party] -&gt; Int
+forall a. [a] -&gt; Int
+forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; Int
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#length"><span class="hs-identifier hs-var">length</span></a></span><span> </span><span class="annot"><span class="annottext">[Party]
+</span><a href="#local-6989586621679857440"><span class="hs-identifier hs-var">parties</span></a></span><span>
+</span><span id="line-40"></span><span>            </span><span class="annot"><span class="annottext">SeenSnapshot tx
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">0</span></span><span>
+</span><span id="line-41"></span><span>          </span><span id="local-6989586621679857466"><span class="annot"><span class="annottext">dc :: Text
+</span><a href="#local-6989586621679857466"><span class="hs-identifier hs-var hs-var">dc</span></a></span></span><span>
+</span><span id="line-42"></span><span>            </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">SnapshotVersion
+</span><a href="#local-6989586621679857457"><span class="hs-identifier hs-var">snapshotVersion</span></a></span><span> </span><span class="annot"><span class="annottext">SnapshotVersion -&gt; SnapshotVersion -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3D%3D"><span class="hs-operator hs-var">==</span></a></span><span> </span><span class="annot"><span class="annottext">SnapshotVersion
+</span><a href="#local-6989586621679857453"><span class="hs-identifier hs-var">coordinatedVersion</span></a></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%26%26"><span class="hs-operator hs-var">&amp;&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (UTxOType tx) -&gt; Bool
+forall a. Maybe a -&gt; Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Maybe.html#isJust"><span class="hs-identifier hs-var">isJust</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Snapshot tx -&gt; Maybe (UTxOType tx)
+forall tx. Snapshot tx -&gt; Maybe (UTxOType tx)
+</span><span class="hs-identifier hs-var">utxoToDecommit</span></span><span> </span><span class="annot"><span class="annottext">Snapshot tx
+</span><a href="#local-6989586621679857454"><span class="hs-identifier hs-var">snap</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;approved&quot;</span></span><span>
+</span><span id="line-43"></span><span>            </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Maybe tx -&gt; Bool
+forall a. Maybe a -&gt; Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Maybe.html#isJust"><span class="hs-identifier hs-var">isJust</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe tx
+</span><a href="#local-6989586621679857450"><span class="hs-identifier hs-var">decommitTx</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;requested&quot;</span></span><span>
+</span><span id="line-44"></span><span>            </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#otherwise"><span class="hs-identifier hs-var">otherwise</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;none&quot;</span></span><span>
+</span><span id="line-45"></span><span>       </span><span class="hs-keyword">in</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Snapshot tx -&gt; NodeStats -&gt; NodeStats
+forall tx. Snapshot tx -&gt; NodeStats -&gt; NodeStats
+</span><a href="#local-6989586621679857470"><span class="hs-identifier hs-var">withSnapshot</span></a></span><span> </span><span class="annot"><span class="annottext">Snapshot tx
+</span><a href="#local-6989586621679857454"><span class="hs-identifier hs-var">snap</span></a></span><span> </span><span class="annot"><span class="annottext">NodeStats
+</span><a href="#local-6989586621679857435"><span class="hs-identifier hs-var">base</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-46"></span><span>            </span><span class="hs-special">{</span><span> </span><span class="annot"><a href="Hydra.Node.Stats.html#%24sel%3Aphase%3ANodeStats"><span class="hs-identifier hs-var">phase</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-string">&quot;open&quot;</span></span><span>
+</span><span id="line-47"></span><span>            </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Node.Stats.html#%24sel%3AsnapshotPending%3ANodeStats"><span class="hs-identifier hs-var">snapshotPending</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.html#snapshotInFlight"><span class="hs-identifier hs-type">snapshotInFlight</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679857446"><span class="hs-identifier hs-type">seenSnapshot</span></a></span><span>
+</span><span id="line-48"></span><span>            </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Node.Stats.html#%24sel%3AmissingSignatures%3ANodeStats"><span class="hs-identifier hs-var">missingSignatures</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="#local-6989586621679857458"><span class="hs-identifier hs-type">missing</span></a></span><span>
+</span><span id="line-49"></span><span>            </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Node.Stats.html#%24sel%3ApendingTransactions%3ANodeStats"><span class="hs-identifier hs-var">pendingTransactions</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Internal.html#size"><span class="hs-identifier hs-type">Map.size</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679857448"><span class="hs-identifier hs-type">allTxs</span></a></span><span>
+</span><span id="line-50"></span><span>            </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Node.Stats.html#%24sel%3AdecommitState%3ANodeStats"><span class="hs-identifier hs-var">decommitState</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="#local-6989586621679857466"><span class="hs-identifier hs-type">dc</span></a></span><span>
+</span><span id="line-51"></span><span>            </span><span class="hs-special">}</span><span>
+</span><span id="line-52"></span><span>    </span><span class="annot"><a href="Hydra.HeadLogic.State.html#Closed"><span class="hs-identifier hs-type">Closed</span></a></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.html#ClosedState"><span class="hs-identifier hs-type">ClosedState</span></a></span><span class="hs-special">{</span><span id="local-6989586621679857474"><span class="annot"><span class="annottext">ConfirmedSnapshot tx
+confirmedSnapshot :: ConfirmedSnapshot tx
+$sel:confirmedSnapshot:ClosedState :: forall tx. ClosedState tx -&gt; ConfirmedSnapshot tx
+</span><a href="#local-6989586621679857474"><span class="hs-identifier hs-var hs-var">confirmedSnapshot</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-53"></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Snapshot tx -&gt; NodeStats -&gt; NodeStats
+forall tx. Snapshot tx -&gt; NodeStats -&gt; NodeStats
+</span><a href="#local-6989586621679857470"><span class="hs-identifier hs-var">withSnapshot</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ConfirmedSnapshot tx -&gt; Snapshot tx
+forall tx. IsTx tx =&gt; ConfirmedSnapshot tx -&gt; Snapshot tx
+</span><span class="hs-identifier hs-var">getSnapshot</span></span><span> </span><span class="annot"><span class="annottext">ConfirmedSnapshot tx
+</span><a href="#local-6989586621679857474"><span class="hs-identifier hs-var">confirmedSnapshot</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">NodeStats
+</span><a href="#local-6989586621679857435"><span class="hs-identifier hs-var">base</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-54"></span><span>        </span><span class="hs-special">{</span><span> </span><span class="annot"><a href="Hydra.Node.Stats.html#%24sel%3Aphase%3ANodeStats"><span class="hs-identifier hs-var">phase</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-string">&quot;closed&quot;</span></span><span>
+</span><span id="line-55"></span><span>        </span><span class="hs-special">}</span><span>
+</span><span id="line-56"></span><span>    </span><span class="annot"><a href="Hydra.HeadLogic.State.html#FanoutProgress"><span class="hs-identifier hs-type">FanoutProgress</span></a></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.html#PartialFanoutState"><span class="hs-identifier hs-type">PartialFanoutState</span></a></span><span class="hs-special">{</span><span id="local-6989586621679857478"><span class="annot"><span class="annottext">ConfirmedSnapshot tx
+confirmedSnapshot :: ConfirmedSnapshot tx
+$sel:confirmedSnapshot:PartialFanoutState :: forall tx. PartialFanoutState tx -&gt; ConfirmedSnapshot tx
+</span><a href="#local-6989586621679857478"><span class="hs-identifier hs-var hs-var">confirmedSnapshot</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679857480"><span class="annot"><span class="annottext">UTxOType tx
+remainingOutputs :: UTxOType tx
+$sel:remainingOutputs:PartialFanoutState :: forall tx. PartialFanoutState tx -&gt; UTxOType tx
+</span><a href="#local-6989586621679857480"><span class="hs-identifier hs-var hs-var">remainingOutputs</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679857482"><span class="annot"><span class="annottext">FanoutMode tx
+mode :: FanoutMode tx
+$sel:mode:PartialFanoutState :: forall tx. PartialFanoutState tx -&gt; FanoutMode tx
+</span><a href="#local-6989586621679857482"><span class="hs-identifier hs-var hs-var">mode</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-57"></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Snapshot tx -&gt; NodeStats -&gt; NodeStats
+forall tx. Snapshot tx -&gt; NodeStats -&gt; NodeStats
+</span><a href="#local-6989586621679857470"><span class="hs-identifier hs-var">withSnapshot</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ConfirmedSnapshot tx -&gt; Snapshot tx
+forall tx. IsTx tx =&gt; ConfirmedSnapshot tx -&gt; Snapshot tx
+</span><span class="hs-identifier hs-var">getSnapshot</span></span><span> </span><span class="annot"><span class="annottext">ConfirmedSnapshot tx
+</span><a href="#local-6989586621679857478"><span class="hs-identifier hs-var">confirmedSnapshot</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">NodeStats
+</span><a href="#local-6989586621679857435"><span class="hs-identifier hs-var">base</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-58"></span><span>        </span><span class="hs-special">{</span><span> </span><span class="annot"><a href="Hydra.Node.Stats.html#%24sel%3Aphase%3ANodeStats"><span class="hs-identifier hs-var">phase</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-string">&quot;fanout&quot;</span></span><span>
+</span><span id="line-59"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Node.Stats.html#%24sel%3AfanoutRemainingOutputs%3ANodeStats"><span class="hs-identifier hs-var">fanoutRemainingOutputs</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#length"><span class="hs-identifier hs-type">length</span></a></span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-type">$</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">outputsOfUTxO</span></span><span> </span><span class="annot"><a href="#local-6989586621679857480"><span class="hs-identifier hs-type">remainingOutputs</span></a></span><span>
+</span><span id="line-60"></span><span>        </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Node.Stats.html#%24sel%3AfanoutMode%3ANodeStats"><span class="hs-identifier hs-var">fanoutMode</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><a href="#local-6989586621679857482"><span class="hs-identifier hs-type">mode</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-61"></span><span>            </span><span class="annot"><span class="annottext">FanoutMode tx
+</span><a href="Hydra.HeadLogic.State.html#AutoDrain"><span class="hs-identifier hs-var">AutoDrain</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;automatic&quot;</span></span><span>
+</span><span id="line-62"></span><span>            </span><span class="annot"><a href="Hydra.HeadLogic.State.html#DistributingSelection"><span class="hs-identifier hs-type">DistributingSelection</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;selected&quot;</span></span><span>
+</span><span id="line-63"></span><span>            </span><span class="annot"><span class="annottext">FanoutMode tx
+</span><a href="Hydra.HeadLogic.State.html#AwaitingSelection"><span class="hs-identifier hs-var">AwaitingSelection</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;deferred&quot;</span></span><span>
+</span><span id="line-64"></span><span>        </span><span class="hs-special">}</span><span>
+</span><span id="line-65"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-66"></span><span>  </span><span id="local-6989586621679857488"><span class="annot"><span class="annottext">pending :: [Deposit tx]
+</span><a href="#local-6989586621679857488"><span class="hs-identifier hs-var hs-var">pending</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Map (TxIdType tx) (Deposit tx) -&gt; [Deposit tx]
+forall k a. Map k a -&gt; [a]
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Internal.html#elems"><span class="hs-identifier hs-var">Map.elems</span></a></span><span> </span><span class="annot"><span class="annottext">(Map (TxIdType tx) (Deposit tx) -&gt; [Deposit tx])
+-&gt; Map (TxIdType tx) (Deposit tx) -&gt; [Deposit tx]
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">NodeState tx -&gt; Map (TxIdType tx) (Deposit tx)
+forall tx. NodeState tx -&gt; PendingDeposits tx
+</span><a href="Hydra.Node.State.html#pendingDeposits"><span class="hs-identifier hs-var">pendingDeposits</span></a></span><span> </span><span class="annot"><span class="annottext">NodeState tx
+</span><a href="#local-6989586621679857432"><span class="hs-identifier hs-var">ns</span></a></span><span>
+</span><span id="line-67"></span><span>  </span><span id="local-6989586621679857491"><span class="annot"><span class="annottext">count :: DepositStatus -&gt; Int
+</span><a href="#local-6989586621679857491"><span class="hs-identifier hs-var hs-var">count</span></a></span></span><span> </span><span id="local-6989586621679857492"><span class="annot"><span class="annottext">DepositStatus
+</span><a href="#local-6989586621679857492"><span class="hs-identifier hs-var">status'</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Deposit tx] -&gt; Int
+forall a. [a] -&gt; Int
+forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; Int
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#length"><span class="hs-identifier hs-var">length</span></a></span><span> </span><span class="annot"><span class="annottext">([Deposit tx] -&gt; Int) -&gt; [Deposit tx] -&gt; Int
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">(Deposit tx -&gt; Bool) -&gt; [Deposit tx] -&gt; [Deposit tx]
+forall a. (a -&gt; Bool) -&gt; [a] -&gt; [a]
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.List.html#filter"><span class="hs-identifier hs-var">filter</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span class="annot"><a href="Hydra.Node.State.html#Deposit"><span class="hs-identifier hs-type">Deposit</span></a></span><span class="hs-special">{</span><span id="local-6989586621679857494"><span class="annot"><span class="annottext">DepositStatus
+status :: DepositStatus
+$sel:status:Deposit :: forall tx. Deposit tx -&gt; DepositStatus
+</span><a href="#local-6989586621679857494"><span class="hs-identifier hs-var hs-var">status</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">DepositStatus
+</span><a href="#local-6989586621679857494"><span class="hs-identifier hs-var">status</span></a></span><span> </span><span class="annot"><span class="annottext">DepositStatus -&gt; DepositStatus -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3D%3D"><span class="hs-operator hs-var">==</span></a></span><span> </span><span class="annot"><span class="annottext">DepositStatus
+</span><a href="#local-6989586621679857492"><span class="hs-identifier hs-var">status'</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[Deposit tx]
+</span><a href="#local-6989586621679857488"><span class="hs-identifier hs-var">pending</span></a></span><span>
+</span><span id="line-68"></span><span>  </span><span id="local-6989586621679857005"><span class="annot"><a href="#local-6989586621679857470"><span class="hs-identifier hs-type">withSnapshot</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Snapshot</span></span><span> </span><span class="annot"><a href="#local-6989586621679857005"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.Node.Stats.html#NodeStats"><span class="hs-identifier hs-type">NodeStats</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.Node.Stats.html#NodeStats"><span class="hs-identifier hs-type">NodeStats</span></a></span></span><span>
+</span><span id="line-69"></span><span>  </span><span id="local-6989586621679857470"><span class="annot"><span class="annottext">withSnapshot :: forall tx. Snapshot tx -&gt; NodeStats -&gt; NodeStats
+</span><a href="#local-6989586621679857470"><span class="hs-identifier hs-var hs-var">withSnapshot</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Snapshot</span></span><span class="hs-special">{</span><span id="local-6989586621679857499"><span class="annot"><span class="annottext">SnapshotNumber
+number :: SnapshotNumber
+$sel:number:Snapshot :: forall tx. Snapshot tx -&gt; SnapshotNumber
+</span><a href="#local-6989586621679857499"><span class="hs-identifier hs-var hs-var">number</span></a></span></span><span class="hs-special">}</span><span> </span><span id="local-6989586621679857501"><span class="annot"><span class="annottext">NodeStats
+</span><a href="#local-6989586621679857501"><span class="hs-identifier hs-var">st</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NodeStats
+</span><a href="#local-6989586621679857501"><span class="hs-identifier hs-var">st</span></a></span><span class="hs-special">{</span><span class="annot"><a href="Hydra.Node.Stats.html#%24sel%3AconfirmedNumber%3ANodeStats"><span class="hs-identifier hs-var">confirmedNumber</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#fromIntegral"><span class="hs-identifier hs-type">fromIntegral</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679857499"><span class="hs-identifier hs-type">number</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-70"></span><span>  </span><span id="local-6989586621679857435"><span class="annot"><span class="annottext">base :: NodeStats
+</span><a href="#local-6989586621679857435"><span class="hs-identifier hs-var hs-var">base</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-71"></span><span>    </span><span class="annot"><a href="Hydra.Node.Stats.html#NodeStats"><span class="hs-identifier hs-type">NodeStats</span></a></span><span>
+</span><span id="line-72"></span><span>      </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">$sel:synchronized:NodeStats :: Bool
+</span><a href="Hydra.Node.Stats.html#%24sel%3Asynchronized%3ANodeStats"><span class="hs-identifier hs-var">synchronized</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">NodeState tx
+</span><a href="#local-6989586621679857432"><span class="hs-identifier hs-var">ns</span></a></span><span> </span><span class="hs-keyword">of</span><span> </span><span class="annot"><a href="Hydra.Node.State.html#NodeInSync"><span class="hs-identifier hs-type">NodeInSync</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#True"><span class="hs-identifier hs-var">True</span></a></span><span class="hs-special">;</span><span> </span><span class="annot"><a href="Hydra.Node.State.html#NodeCatchingUp"><span class="hs-identifier hs-type">NodeCatchingUp</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#False"><span class="hs-identifier hs-var">False</span></a></span><span>
+</span><span id="line-73"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:phase:NodeStats :: Text
+</span><a href="Hydra.Node.Stats.html#%24sel%3Aphase%3ANodeStats"><span class="hs-identifier hs-var">phase</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;idle&quot;</span></span><span>
+</span><span id="line-74"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Natural
+$sel:queuedInputs:NodeStats :: Natural
+queuedInputs :: Natural
+</span><a href="Hydra.Node.Stats.html#%24sel%3AqueuedInputs%3ANodeStats"><span class="hs-identifier hs-var hs-var">queuedInputs</span></a></span><span>
+</span><span id="line-75"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Int
+$sel:parkedInputs:NodeStats :: Int
+parkedInputs :: Int
+</span><a href="Hydra.Node.Stats.html#%24sel%3AparkedInputs%3ANodeStats"><span class="hs-identifier hs-var hs-var">parkedInputs</span></a></span><span>
+</span><span id="line-76"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:confirmedNumber:NodeStats :: Natural
+</span><a href="Hydra.Node.Stats.html#%24sel%3AconfirmedNumber%3ANodeStats"><span class="hs-identifier hs-var">confirmedNumber</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Natural
+</span><span class="hs-number">0</span></span><span>
+</span><span id="line-77"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:snapshotPending:NodeStats :: Bool
+</span><a href="Hydra.Node.Stats.html#%24sel%3AsnapshotPending%3ANodeStats"><span class="hs-identifier hs-var">snapshotPending</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#False"><span class="hs-identifier hs-var">False</span></a></span><span>
+</span><span id="line-78"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:missingSignatures:NodeStats :: Int
+</span><a href="Hydra.Node.Stats.html#%24sel%3AmissingSignatures%3ANodeStats"><span class="hs-identifier hs-var">missingSignatures</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">0</span></span><span>
+</span><span id="line-79"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:pendingTransactions:NodeStats :: Int
+</span><a href="Hydra.Node.Stats.html#%24sel%3ApendingTransactions%3ANodeStats"><span class="hs-identifier hs-var">pendingTransactions</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">0</span></span><span>
+</span><span id="line-80"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:inactiveDeposits:NodeStats :: Int
+</span><a href="Hydra.Node.Stats.html#%24sel%3AinactiveDeposits%3ANodeStats"><span class="hs-identifier hs-var">inactiveDeposits</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">DepositStatus -&gt; Int
+</span><a href="#local-6989586621679857491"><span class="hs-identifier hs-var">count</span></a></span><span> </span><span class="annot"><span class="annottext">DepositStatus
+</span><a href="Hydra.Node.State.html#Inactive"><span class="hs-identifier hs-var">Inactive</span></a></span><span>
+</span><span id="line-81"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:activeDeposits:NodeStats :: Int
+</span><a href="Hydra.Node.Stats.html#%24sel%3AactiveDeposits%3ANodeStats"><span class="hs-identifier hs-var">activeDeposits</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">DepositStatus -&gt; Int
+</span><a href="#local-6989586621679857491"><span class="hs-identifier hs-var">count</span></a></span><span> </span><span class="annot"><span class="annottext">DepositStatus
+</span><a href="Hydra.Node.State.html#Active"><span class="hs-identifier hs-var">Active</span></a></span><span>
+</span><span id="line-82"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:expiredDeposits:NodeStats :: Int
+</span><a href="Hydra.Node.Stats.html#%24sel%3AexpiredDeposits%3ANodeStats"><span class="hs-identifier hs-var">expiredDeposits</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">DepositStatus -&gt; Int
+</span><a href="#local-6989586621679857491"><span class="hs-identifier hs-var">count</span></a></span><span> </span><span class="annot"><span class="annottext">DepositStatus
+</span><a href="Hydra.Node.State.html#Expired"><span class="hs-identifier hs-var">Expired</span></a></span><span>
+</span><span id="line-83"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:decommitState:NodeStats :: Text
+</span><a href="Hydra.Node.Stats.html#%24sel%3AdecommitState%3ANodeStats"><span class="hs-identifier hs-var">decommitState</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;none&quot;</span></span><span>
+</span><span id="line-84"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:fanoutRemainingOutputs:NodeStats :: Int
+</span><a href="Hydra.Node.Stats.html#%24sel%3AfanoutRemainingOutputs%3ANodeStats"><span class="hs-identifier hs-var">fanoutRemainingOutputs</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">0</span></span><span>
+</span><span id="line-85"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:fanoutMode:NodeStats :: Text
+</span><a href="Hydra.Node.Stats.html#%24sel%3AfanoutMode%3ANodeStats"><span class="hs-identifier hs-var">fanoutMode</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;none&quot;</span></span><span>
+</span><span id="line-86"></span><span>      </span><span class="hs-special">}</span><span>
+</span><span id="line-87"></span></pre></body></html>

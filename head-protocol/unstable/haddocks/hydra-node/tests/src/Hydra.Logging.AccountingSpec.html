@@ -1,0 +1,787 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.Logging.AccountingSpec</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-2"></span><span>
+</span><span id="line-3"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Prelude</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Bifunctor.html#first"><span class="hs-identifier">first</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">insert</span></span><span class="hs-special">)</span><span>
+</span><span id="line-4"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.Hydra.Prelude</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">pending</span></span><span class="hs-special">)</span><span>
+</span><span id="line-5"></span><span>
+</span><span id="line-6"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Strict.html"><span class="hs-identifier">Data.Map.Strict</span></a></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Map</span></span><span>
+</span><span id="line-7"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Logging.Monitoring.Accounting</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">A</span></span><span>
+</span><span id="line-8"></span><span>
+</span><span id="line-9"></span><span class="annot"><a href="Hydra.Logging.AccountingSpec.html#spec"><span class="hs-identifier hs-type">spec</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Spec</span></span><span>
+</span><span id="line-10"></span><span id="spec"><span class="annot"><span class="annottext">spec :: Spec
+</span><a href="Hydra.Logging.AccountingSpec.html#spec"><span class="hs-identifier hs-var hs-var">spec</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-11"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecWith (Arg Expectation)
+forall a.
+(HasCallStack, Example a) =&gt;
+String -&gt; a -&gt; SpecWith (Arg a)
+</span><span class="hs-identifier hs-var">it</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;counts an input once and preserves its first processing time across retries&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Expectation -&gt; SpecWith (Arg Expectation))
+-&gt; Expectation -&gt; SpecWith (Arg Expectation)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-12"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679774427"><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679774427"><span class="hs-identifier hs-var">first</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679774428"><span class="annot"><span class="annottext">Accounting Text Int
+</span><a href="#local-6989586621679774428"><span class="hs-identifier hs-var">s1</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int
+-&gt; Double
+-&gt; Double
+-&gt; Word64
+-&gt; Int
+-&gt; Accounting Text Int
+-&gt; (Bool, Int, Accounting Text Int)
+forall txid head.
+Ord txid =&gt;
+Int
+-&gt; Double
+-&gt; Double
+-&gt; Word64
+-&gt; txid
+-&gt; Accounting head txid
+-&gt; (Bool, Int, Accounting head txid)
+</span><span class="hs-identifier hs-var">A.request</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">10</span></span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">3600</span></span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">0</span></span><span> </span><span class="annot"><span class="annottext">Word64
+</span><span class="hs-number">1</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">42</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Accounting Text Int
+</span><a href="#local-6989586621679774430"><span class="hs-identifier hs-var">initial</span></a></span><span>
+</span><span id="line-13"></span><span>        </span><span class="hs-special">(</span><span id="local-6989586621679774434"><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679774434"><span class="hs-identifier hs-var">retry</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679774435"><span class="annot"><span class="annottext">Accounting Text Int
+</span><a href="#local-6989586621679774435"><span class="hs-identifier hs-var">s2</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int
+-&gt; Double
+-&gt; Double
+-&gt; Word64
+-&gt; Int
+-&gt; Accounting Text Int
+-&gt; (Bool, Int, Accounting Text Int)
+forall txid head.
+Ord txid =&gt;
+Int
+-&gt; Double
+-&gt; Double
+-&gt; Word64
+-&gt; txid
+-&gt; Accounting head txid
+-&gt; (Bool, Int, Accounting head txid)
+</span><span class="hs-identifier hs-var">A.request</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">10</span></span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">3600</span></span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">0.5</span></span><span> </span><span class="annot"><span class="annottext">Word64
+</span><span class="hs-number">1</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">42</span></span><span> </span><span class="annot"><span class="annottext">Accounting Text Int
+</span><a href="#local-6989586621679774428"><span class="hs-identifier hs-var">s1</span></a></span><span>
+</span><span id="line-14"></span><span>        </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Maybe Double
+</span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679774436"><span class="annot"><span class="annottext">[Double]
+</span><a href="#local-6989586621679774436"><span class="hs-identifier hs-var">times</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Accounting Text Int
+</span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Double
+-&gt; SnapshotKey Text
+-&gt; [Int]
+-&gt; Accounting Text Int
+-&gt; (Bool, Maybe Double, [Double], Accounting Text Int)
+forall head txid.
+(Eq head, Ord txid) =&gt;
+Double
+-&gt; SnapshotKey head
+-&gt; [txid]
+-&gt; Accounting head txid
+-&gt; (Bool, Maybe Double, [Double], Accounting head txid)
+</span><span class="hs-identifier hs-var">A.confirmSnapshot</span></span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">0.6</span></span><span> </span><span class="annot"><span class="annottext">SnapshotKey Text
+</span><a href="#local-6989586621679774438"><span class="hs-identifier hs-var">key1</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">42</span></span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">Accounting Text Int
+</span><a href="#local-6989586621679774435"><span class="hs-identifier hs-var">s2</span></a></span><span>
+</span><span id="line-15"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679774427"><span class="hs-identifier hs-var">first</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679774434"><span class="hs-identifier hs-var">retry</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">[Double]
+</span><a href="#local-6989586621679774436"><span class="hs-identifier hs-var">times</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Bool, Bool, [Double]) -&gt; (Bool, Bool, [Double]) -&gt; Expectation
+forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; Expectation
+</span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#True"><span class="hs-identifier hs-var">True</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#False"><span class="hs-identifier hs-var">False</span></a></span><span class="hs-special">,</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">0.6</span></span><span class="hs-special">]</span><span class="hs-special">)</span><span>
+</span><span id="line-16"></span><span>
+</span><span id="line-17"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecWith (Arg Expectation)
+forall a.
+(HasCallStack, Example a) =&gt;
+String -&gt; a -&gt; SpecWith (Arg a)
+</span><span class="hs-identifier hs-var">it</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;counts externally duplicated messages but preserves their transaction's first time&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Expectation -&gt; SpecWith (Arg Expectation))
+-&gt; Expectation -&gt; SpecWith (Arg Expectation)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-18"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679774442"><span class="annot"><span class="annottext">Accounting Text Int
+</span><a href="#local-6989586621679774442"><span class="hs-identifier hs-var">s1</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int
+-&gt; Double
+-&gt; Double
+-&gt; Word64
+-&gt; Int
+-&gt; Accounting Text Int
+-&gt; (Bool, Int, Accounting Text Int)
+forall txid head.
+Ord txid =&gt;
+Int
+-&gt; Double
+-&gt; Double
+-&gt; Word64
+-&gt; txid
+-&gt; Accounting head txid
+-&gt; (Bool, Int, Accounting head txid)
+</span><span class="hs-identifier hs-var">A.request</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">10</span></span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">3600</span></span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">0</span></span><span> </span><span class="annot"><span class="annottext">Word64
+</span><span class="hs-number">1</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">42</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Accounting Text Int
+</span><a href="#local-6989586621679774430"><span class="hs-identifier hs-var">initial</span></a></span><span>
+</span><span id="line-19"></span><span>        </span><span class="hs-special">(</span><span id="local-6989586621679774446"><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679774446"><span class="hs-identifier hs-var">fresh</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679774447"><span class="annot"><span class="annottext">Accounting Text Int
+</span><a href="#local-6989586621679774447"><span class="hs-identifier hs-var">s2</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int
+-&gt; Double
+-&gt; Double
+-&gt; Word64
+-&gt; Int
+-&gt; Accounting Text Int
+-&gt; (Bool, Int, Accounting Text Int)
+forall txid head.
+Ord txid =&gt;
+Int
+-&gt; Double
+-&gt; Double
+-&gt; Word64
+-&gt; txid
+-&gt; Accounting head txid
+-&gt; (Bool, Int, Accounting head txid)
+</span><span class="hs-identifier hs-var">A.request</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">10</span></span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">3600</span></span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">0.5</span></span><span> </span><span class="annot"><span class="annottext">Word64
+</span><span class="hs-number">2</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">42</span></span><span> </span><span class="annot"><span class="annottext">Accounting Text Int
+</span><a href="#local-6989586621679774442"><span class="hs-identifier hs-var">s1</span></a></span><span>
+</span><span id="line-20"></span><span>    </span><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679774446"><span class="hs-identifier hs-var">fresh</span></a></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Expectation
+forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; Expectation
+</span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#True"><span class="hs-identifier hs-var">True</span></a></span><span>
+</span><span id="line-21"></span><span>    </span><span class="annot"><span class="annottext">Accounting Text Int -&gt; Map Int Double
+forall head txid. Accounting head txid -&gt; Map txid Double
+</span><span class="hs-identifier hs-var">A.timers</span></span><span> </span><span class="annot"><span class="annottext">Accounting Text Int
+</span><a href="#local-6989586621679774447"><span class="hs-identifier hs-var">s2</span></a></span><span> </span><span class="annot"><span class="annottext">Map Int Double -&gt; Map Int Double -&gt; Expectation
+forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; Expectation
+</span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Double -&gt; Map Int Double
+forall k a. k -&gt; a -&gt; Map k a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Strict.Internal.html#singleton"><span class="hs-identifier hs-var">Map.singleton</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">42</span></span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">0</span></span><span>
+</span><span id="line-22"></span><span>
+</span><span id="line-23"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecWith (Arg Expectation)
+forall a.
+(HasCallStack, Example a) =&gt;
+String -&gt; a -&gt; SpecWith (Arg a)
+</span><span class="hs-identifier hs-var">it</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;bounds both timer indexes and expires entries without more traffic&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Expectation -&gt; SpecWith (Arg Expectation))
+-&gt; Expectation -&gt; SpecWith (Arg Expectation)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-24"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span class="annot"><a href="#local-6989586621679774450"><span class="hs-identifier hs-type">insert</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">A.Accounting</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">A.Accounting</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span>
+</span><span id="line-25"></span><span>        </span><span id="local-6989586621679774450"><span class="annot"><span class="annottext">insert :: Accounting Text Int -&gt; Int -&gt; Accounting Text Int
+</span><a href="#local-6989586621679774450"><span class="hs-identifier hs-var hs-var">insert</span></a></span></span><span> </span><span id="local-6989586621679774451"><span class="annot"><span class="annottext">Accounting Text Int
+</span><a href="#local-6989586621679774451"><span class="hs-identifier hs-var">st</span></a></span></span><span> </span><span id="local-6989586621679774452"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679774452"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">let</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679774453"><span class="annot"><span class="annottext">Accounting Text Int
+</span><a href="#local-6989586621679774453"><span class="hs-identifier hs-var">next</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int
+-&gt; Double
+-&gt; Double
+-&gt; Word64
+-&gt; Int
+-&gt; Accounting Text Int
+-&gt; (Bool, Int, Accounting Text Int)
+forall txid head.
+Ord txid =&gt;
+Int
+-&gt; Double
+-&gt; Double
+-&gt; Word64
+-&gt; txid
+-&gt; Accounting head txid
+-&gt; (Bool, Int, Accounting head txid)
+</span><span class="hs-identifier hs-var">A.request</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">3</span></span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">10</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Double
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#fromIntegral"><span class="hs-identifier hs-var">fromIntegral</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679774452"><span class="hs-identifier hs-var">i</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Word64
+forall a b. (Integral a, Num b) =&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#fromIntegral"><span class="hs-identifier hs-var">fromIntegral</span></a></span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679774452"><span class="hs-identifier hs-var">i</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679774452"><span class="hs-identifier hs-var">i</span></a></span><span> </span><span class="annot"><span class="annottext">Accounting Text Int
+</span><a href="#local-6989586621679774451"><span class="hs-identifier hs-var">st</span></a></span><span> </span><span class="hs-keyword">in</span><span> </span><span class="annot"><span class="annottext">Accounting Text Int
+</span><a href="#local-6989586621679774453"><span class="hs-identifier hs-var">next</span></a></span><span>
+</span><span id="line-26"></span><span>        </span><span id="local-6989586621679774460"><span class="annot"><span class="annottext">full :: Accounting Text Int
+</span><a href="#local-6989586621679774460"><span class="hs-identifier hs-var hs-var">full</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Accounting Text Int -&gt; Int -&gt; Accounting Text Int)
+-&gt; Accounting Text Int -&gt; [Int] -&gt; Accounting Text Int
+forall b a. (b -&gt; a -&gt; b) -&gt; b -&gt; [a] -&gt; b
+forall (t :: * -&gt; *) b a.
+Foldable t =&gt;
+(b -&gt; a -&gt; b) -&gt; b -&gt; t a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#foldl%27"><span class="hs-identifier hs-var">foldl'</span></a></span><span> </span><span class="annot"><span class="annottext">Accounting Text Int -&gt; Int -&gt; Accounting Text Int
+</span><a href="#local-6989586621679774450"><span class="hs-identifier hs-var">insert</span></a></span><span> </span><span class="annot"><span class="annottext">Accounting Text Int
+</span><a href="#local-6989586621679774430"><span class="hs-identifier hs-var">initial</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">1</span></span><span> </span><span class="hs-glyph">..</span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">100</span></span><span class="hs-special">]</span><span>
+</span><span id="line-27"></span><span>        </span><span class="hs-special">(</span><span id="local-6989586621679774463"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679774463"><span class="hs-identifier hs-var">removed</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679774464"><span class="annot"><span class="annottext">Accounting Text Int
+</span><a href="#local-6989586621679774464"><span class="hs-identifier hs-var">expired</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int
+-&gt; Double
+-&gt; Double
+-&gt; Accounting Text Int
+-&gt; (Int, Accounting Text Int)
+forall txid head.
+Ord txid =&gt;
+Int
+-&gt; Double
+-&gt; Double
+-&gt; Accounting head txid
+-&gt; (Int, Accounting head txid)
+</span><span class="hs-identifier hs-var">A.prune</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">3</span></span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">10</span></span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">111</span></span><span> </span><span class="annot"><span class="annottext">Accounting Text Int
+</span><a href="#local-6989586621679774460"><span class="hs-identifier hs-var">full</span></a></span><span>
+</span><span id="line-28"></span><span>    </span><span class="annot"><span class="annottext">Map Int Double -&gt; [Int]
+forall k a. Map k a -&gt; [k]
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Internal.html#keys"><span class="hs-identifier hs-var">Map.keys</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Accounting Text Int -&gt; Map Int Double
+forall head txid. Accounting head txid -&gt; Map txid Double
+</span><span class="hs-identifier hs-var">A.timers</span></span><span> </span><span class="annot"><span class="annottext">Accounting Text Int
+</span><a href="#local-6989586621679774460"><span class="hs-identifier hs-var">full</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[Int] -&gt; [Int] -&gt; Expectation
+forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; Expectation
+</span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">98</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">99</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">100</span></span><span class="hs-special">]</span><span>
+</span><span id="line-29"></span><span>    </span><span class="annot"><span class="annottext">Map (Double, Int) () -&gt; Int
+forall k a. Map k a -&gt; Int
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Internal.html#size"><span class="hs-identifier hs-var">Map.size</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Accounting Text Int -&gt; Map (Double, Int) ()
+forall head txid. Accounting head txid -&gt; Map (Double, txid) ()
+</span><span class="hs-identifier hs-var">A.orderedTimers</span></span><span> </span><span class="annot"><span class="annottext">Accounting Text Int
+</span><a href="#local-6989586621679774460"><span class="hs-identifier hs-var">full</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Expectation
+forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; Expectation
+</span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">3</span></span><span>
+</span><span id="line-30"></span><span>    </span><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679774463"><span class="hs-identifier hs-var">removed</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Expectation
+forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; Expectation
+</span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">3</span></span><span>
+</span><span id="line-31"></span><span>    </span><span class="annot"><span class="annottext">Accounting Text Int -&gt; Map Int Double
+forall head txid. Accounting head txid -&gt; Map txid Double
+</span><span class="hs-identifier hs-var">A.timers</span></span><span> </span><span class="annot"><span class="annottext">Accounting Text Int
+</span><a href="#local-6989586621679774464"><span class="hs-identifier hs-var">expired</span></a></span><span> </span><span class="annot"><span class="annottext">Map Int Double -&gt; Map Int Double -&gt; Expectation
+forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; Expectation
+</span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">Map Int Double
+forall k a. Map k a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Internal.html#empty"><span class="hs-identifier hs-var">Map.empty</span></a></span><span>
+</span><span id="line-32"></span><span>    </span><span class="annot"><span class="annottext">Accounting Text Int -&gt; Map (Double, Int) ()
+forall head txid. Accounting head txid -&gt; Map (Double, txid) ()
+</span><span class="hs-identifier hs-var">A.orderedTimers</span></span><span> </span><span class="annot"><span class="annottext">Accounting Text Int
+</span><a href="#local-6989586621679774464"><span class="hs-identifier hs-var">expired</span></a></span><span> </span><span class="annot"><span class="annottext">Map (Double, Int) () -&gt; Map (Double, Int) () -&gt; Expectation
+forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; Expectation
+</span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">Map (Double, Int) ()
+forall k a. Map k a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Internal.html#empty"><span class="hs-identifier hs-var">Map.empty</span></a></span><span>
+</span><span id="line-33"></span><span>
+</span><span id="line-34"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecWith (Arg Expectation)
+forall a.
+(HasCallStack, Example a) =&gt;
+String -&gt; a -&gt; SpecWith (Arg a)
+</span><span class="hs-identifier hs-var">it</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;removes invalid or dropped transactions from both indexes&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Expectation -&gt; SpecWith (Arg Expectation))
+-&gt; Expectation -&gt; SpecWith (Arg Expectation)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-35"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679774472"><span class="annot"><span class="annottext">Accounting Text Int
+</span><a href="#local-6989586621679774472"><span class="hs-identifier hs-var">pending</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int
+-&gt; Double
+-&gt; Double
+-&gt; Word64
+-&gt; Int
+-&gt; Accounting Text Int
+-&gt; (Bool, Int, Accounting Text Int)
+forall txid head.
+Ord txid =&gt;
+Int
+-&gt; Double
+-&gt; Double
+-&gt; Word64
+-&gt; txid
+-&gt; Accounting head txid
+-&gt; (Bool, Int, Accounting head txid)
+</span><span class="hs-identifier hs-var">A.request</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">10</span></span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">3600</span></span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">0</span></span><span> </span><span class="annot"><span class="annottext">Word64
+</span><span class="hs-number">1</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">42</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Accounting Text Int
+</span><a href="#local-6989586621679774430"><span class="hs-identifier hs-var">initial</span></a></span><span>
+</span><span id="line-36"></span><span>        </span><span id="local-6989586621679774475"><span class="annot"><span class="annottext">next :: Accounting Text Int
+</span><a href="#local-6989586621679774475"><span class="hs-identifier hs-var hs-var">next</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Accounting Text Int -&gt; Accounting Text Int
+forall txid head.
+Ord txid =&gt;
+txid -&gt; Accounting head txid -&gt; Accounting head txid
+</span><span class="hs-identifier hs-var">A.forget</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">42</span></span><span> </span><span class="annot"><span class="annottext">Accounting Text Int
+</span><a href="#local-6989586621679774472"><span class="hs-identifier hs-var">pending</span></a></span><span>
+</span><span id="line-37"></span><span>    </span><span class="annot"><span class="annottext">Accounting Text Int -&gt; Map Int Double
+forall head txid. Accounting head txid -&gt; Map txid Double
+</span><span class="hs-identifier hs-var">A.timers</span></span><span> </span><span class="annot"><span class="annottext">Accounting Text Int
+</span><a href="#local-6989586621679774475"><span class="hs-identifier hs-var">next</span></a></span><span> </span><span class="annot"><span class="annottext">Map Int Double -&gt; Map Int Double -&gt; Expectation
+forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; Expectation
+</span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">Map Int Double
+forall k a. Map k a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Internal.html#empty"><span class="hs-identifier hs-var">Map.empty</span></a></span><span>
+</span><span id="line-38"></span><span>    </span><span class="annot"><span class="annottext">Accounting Text Int -&gt; Map (Double, Int) ()
+forall head txid. Accounting head txid -&gt; Map (Double, txid) ()
+</span><span class="hs-identifier hs-var">A.orderedTimers</span></span><span> </span><span class="annot"><span class="annottext">Accounting Text Int
+</span><a href="#local-6989586621679774475"><span class="hs-identifier hs-var">next</span></a></span><span> </span><span class="annot"><span class="annottext">Map (Double, Int) () -&gt; Map (Double, Int) () -&gt; Expectation
+forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; Expectation
+</span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">Map (Double, Int) ()
+forall k a. Map k a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Internal.html#empty"><span class="hs-identifier hs-var">Map.empty</span></a></span><span>
+</span><span id="line-39"></span><span>
+</span><span id="line-40"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecWith (Arg Expectation)
+forall a.
+(HasCallStack, Example a) =&gt;
+String -&gt; a -&gt; SpecWith (Arg a)
+</span><span class="hs-identifier hs-var">it</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;does not count repeated adoption or a version bump at the same number&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Expectation -&gt; SpecWith (Arg Expectation))
+-&gt; Expectation -&gt; SpecWith (Arg Expectation)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-41"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679774477"><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679774477"><span class="hs-identifier hs-var">first</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Maybe Double
+</span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">[Double]
+</span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679774478"><span class="annot"><span class="annottext">Accounting Text Int
+</span><a href="#local-6989586621679774478"><span class="hs-identifier hs-var">s1</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Double
+-&gt; SnapshotKey Text
+-&gt; [Int]
+-&gt; Accounting Text Int
+-&gt; (Bool, Maybe Double, [Double], Accounting Text Int)
+forall head txid.
+(Eq head, Ord txid) =&gt;
+Double
+-&gt; SnapshotKey head
+-&gt; [txid]
+-&gt; Accounting head txid
+-&gt; (Bool, Maybe Double, [Double], Accounting head txid)
+</span><span class="hs-identifier hs-var">A.confirmSnapshot</span></span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">1</span></span><span> </span><span class="annot"><span class="annottext">SnapshotKey Text
+</span><a href="#local-6989586621679774438"><span class="hs-identifier hs-var">key1</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">42</span></span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">Accounting Text Int
+</span><a href="#local-6989586621679774430"><span class="hs-identifier hs-var">initial</span></a></span><span>
+</span><span id="line-42"></span><span>        </span><span class="hs-special">(</span><span id="local-6989586621679774479"><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679774479"><span class="hs-identifier hs-var">again</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Maybe Double
+</span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">[Double]
+</span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679774480"><span class="annot"><span class="annottext">Accounting Text Int
+</span><a href="#local-6989586621679774480"><span class="hs-identifier hs-var">s2</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Double
+-&gt; SnapshotKey Text
+-&gt; [Int]
+-&gt; Accounting Text Int
+-&gt; (Bool, Maybe Double, [Double], Accounting Text Int)
+forall head txid.
+(Eq head, Ord txid) =&gt;
+Double
+-&gt; SnapshotKey head
+-&gt; [txid]
+-&gt; Accounting head txid
+-&gt; (Bool, Maybe Double, [Double], Accounting head txid)
+</span><span class="hs-identifier hs-var">A.confirmSnapshot</span></span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">2</span></span><span> </span><span class="annot"><span class="annottext">SnapshotKey Text
+</span><a href="#local-6989586621679774438"><span class="hs-identifier hs-var">key1</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">42</span></span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">Accounting Text Int
+</span><a href="#local-6989586621679774478"><span class="hs-identifier hs-var">s1</span></a></span><span>
+</span><span id="line-43"></span><span>        </span><span class="hs-special">(</span><span id="local-6989586621679774481"><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679774481"><span class="hs-identifier hs-var">bumped</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Maybe Double
+</span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">[Double]
+</span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Accounting Text Int
+</span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Double
+-&gt; SnapshotKey Text
+-&gt; [Int]
+-&gt; Accounting Text Int
+-&gt; (Bool, Maybe Double, [Double], Accounting Text Int)
+forall head txid.
+(Eq head, Ord txid) =&gt;
+Double
+-&gt; SnapshotKey head
+-&gt; [txid]
+-&gt; Accounting head txid
+-&gt; (Bool, Maybe Double, [Double], Accounting head txid)
+</span><span class="hs-identifier hs-var">A.confirmSnapshot</span></span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">3</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; Natural -&gt; Natural -&gt; SnapshotKey Text
+forall head. head -&gt; Natural -&gt; Natural -&gt; SnapshotKey head
+</span><span class="hs-identifier hs-var">A.SnapshotKey</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;head&quot;</span></span><span> </span><span class="annot"><span class="annottext">Natural
+</span><span class="hs-number">1</span></span><span> </span><span class="annot"><span class="annottext">Natural
+</span><span class="hs-number">1</span></span><span class="hs-special">)</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">42</span></span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">Accounting Text Int
+</span><a href="#local-6989586621679774480"><span class="hs-identifier hs-var">s2</span></a></span><span>
+</span><span id="line-44"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679774477"><span class="hs-identifier hs-var">first</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679774479"><span class="hs-identifier hs-var">again</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679774481"><span class="hs-identifier hs-var">bumped</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Bool, Bool, Bool) -&gt; (Bool, Bool, Bool) -&gt; Expectation
+forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; Expectation
+</span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#True"><span class="hs-identifier hs-var">True</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#False"><span class="hs-identifier hs-var">False</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#False"><span class="hs-identifier hs-var">False</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-45"></span><span>
+</span><span id="line-46"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecWith (Arg Expectation)
+forall a.
+(HasCallStack, Example a) =&gt;
+String -&gt; a -&gt; SpecWith (Arg a)
+</span><span class="hs-identifier hs-var">it</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;does not consume or time an unrelated in-flight snapshot when adopting an older one&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Expectation -&gt; SpecWith (Arg Expectation))
+-&gt; Expectation -&gt; SpecWith (Arg Expectation)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-47"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679774483"><span class="annot"><span class="annottext">pending :: Accounting Text Int
+</span><a href="#local-6989586621679774483"><span class="hs-identifier hs-var hs-var">pending</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SnapshotKey Text
+-&gt; Maybe Double
+-&gt; [Int]
+-&gt; Accounting Text Int
+-&gt; Accounting Text Int
+forall head txid.
+Eq head =&gt;
+SnapshotKey head
+-&gt; Maybe Double
+-&gt; [txid]
+-&gt; Accounting head txid
+-&gt; Accounting head txid
+</span><span class="hs-identifier hs-var">A.startSnapshot</span></span><span> </span><span class="annot"><span class="annottext">SnapshotKey Text
+</span><a href="#local-6989586621679774485"><span class="hs-identifier hs-var">key2</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Double -&gt; Maybe Double
+forall a. a -&gt; Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">1</span></span><span class="hs-special">)</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">43</span></span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">Accounting Text Int
+</span><a href="#local-6989586621679774430"><span class="hs-identifier hs-var">initial</span></a></span><span>
+</span><span id="line-48"></span><span>        </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679774486"><span class="annot"><span class="annottext">Maybe Double
+</span><a href="#local-6989586621679774486"><span class="hs-identifier hs-var">duration</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">[Double]
+</span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679774487"><span class="annot"><span class="annottext">Accounting Text Int
+</span><a href="#local-6989586621679774487"><span class="hs-identifier hs-var">next</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Double
+-&gt; SnapshotKey Text
+-&gt; [Int]
+-&gt; Accounting Text Int
+-&gt; (Bool, Maybe Double, [Double], Accounting Text Int)
+forall head txid.
+(Eq head, Ord txid) =&gt;
+Double
+-&gt; SnapshotKey head
+-&gt; [txid]
+-&gt; Accounting head txid
+-&gt; (Bool, Maybe Double, [Double], Accounting head txid)
+</span><span class="hs-identifier hs-var">A.confirmSnapshot</span></span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">2</span></span><span> </span><span class="annot"><span class="annottext">SnapshotKey Text
+</span><a href="#local-6989586621679774438"><span class="hs-identifier hs-var">key1</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">42</span></span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">Accounting Text Int
+</span><a href="#local-6989586621679774483"><span class="hs-identifier hs-var">pending</span></a></span><span>
+</span><span id="line-49"></span><span>    </span><span class="annot"><span class="annottext">Maybe Double
+</span><a href="#local-6989586621679774486"><span class="hs-identifier hs-var">duration</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe Double -&gt; Maybe Double -&gt; Expectation
+forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; Expectation
+</span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">Maybe Double
+forall a. Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span>
+</span><span id="line-50"></span><span>    </span><span class="annot"><span class="annottext">Accounting Text Int
+-&gt; Maybe (SnapshotKey Text, Maybe Double, [Int])
+forall head txid.
+Accounting head txid
+-&gt; Maybe (SnapshotKey head, Maybe Double, [txid])
+</span><span class="hs-identifier hs-var">A.inFlight</span></span><span> </span><span class="annot"><span class="annottext">Accounting Text Int
+</span><a href="#local-6989586621679774487"><span class="hs-identifier hs-var">next</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (SnapshotKey Text, Maybe Double, [Int])
+-&gt; Maybe (SnapshotKey Text, Maybe Double, [Int]) -&gt; Expectation
+forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; Expectation
+</span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">(SnapshotKey Text, Maybe Double, [Int])
+-&gt; Maybe (SnapshotKey Text, Maybe Double, [Int])
+forall a. a -&gt; Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SnapshotKey Text
+</span><a href="#local-6989586621679774485"><span class="hs-identifier hs-var">key2</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Double -&gt; Maybe Double
+forall a. a -&gt; Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">1</span></span><span class="hs-special">,</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">43</span></span><span class="hs-special">]</span><span class="hs-special">)</span><span>
+</span><span id="line-51"></span><span>
+</span><span id="line-52"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecWith (Arg Expectation)
+forall a.
+(HasCallStack, Example a) =&gt;
+String -&gt; a -&gt; SpecWith (Arg a)
+</span><span class="hs-identifier hs-var">it</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;does not match the same snapshot number in another head or version&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Expectation -&gt; SpecWith (Arg Expectation))
+-&gt; Expectation -&gt; SpecWith (Arg Expectation)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-53"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679774489"><span class="annot"><span class="annottext">pending :: Accounting Text Int
+</span><a href="#local-6989586621679774489"><span class="hs-identifier hs-var hs-var">pending</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SnapshotKey Text
+-&gt; Maybe Double
+-&gt; [Int]
+-&gt; Accounting Text Int
+-&gt; Accounting Text Int
+forall head txid.
+Eq head =&gt;
+SnapshotKey head
+-&gt; Maybe Double
+-&gt; [txid]
+-&gt; Accounting head txid
+-&gt; Accounting head txid
+</span><span class="hs-identifier hs-var">A.startSnapshot</span></span><span> </span><span class="annot"><span class="annottext">SnapshotKey Text
+</span><a href="#local-6989586621679774438"><span class="hs-identifier hs-var">key1</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Double -&gt; Maybe Double
+forall a. a -&gt; Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">1</span></span><span class="hs-special">)</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">42</span></span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">Accounting Text Int
+</span><a href="#local-6989586621679774430"><span class="hs-identifier hs-var">initial</span></a></span><span>
+</span><span id="line-54"></span><span>        </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679774490"><span class="annot"><span class="annottext">Maybe Double
+</span><a href="#local-6989586621679774490"><span class="hs-identifier hs-var">duration</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">[Double]
+</span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679774491"><span class="annot"><span class="annottext">Accounting Text Int
+</span><a href="#local-6989586621679774491"><span class="hs-identifier hs-var">next</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Double
+-&gt; SnapshotKey Text
+-&gt; [Int]
+-&gt; Accounting Text Int
+-&gt; (Bool, Maybe Double, [Double], Accounting Text Int)
+forall head txid.
+(Eq head, Ord txid) =&gt;
+Double
+-&gt; SnapshotKey head
+-&gt; [txid]
+-&gt; Accounting head txid
+-&gt; (Bool, Maybe Double, [Double], Accounting head txid)
+</span><span class="hs-identifier hs-var">A.confirmSnapshot</span></span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">2</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text -&gt; Natural -&gt; Natural -&gt; SnapshotKey Text
+forall head. head -&gt; Natural -&gt; Natural -&gt; SnapshotKey head
+</span><span class="hs-identifier hs-var">A.SnapshotKey</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;other&quot;</span></span><span> </span><span class="annot"><span class="annottext">Natural
+</span><span class="hs-number">0</span></span><span> </span><span class="annot"><span class="annottext">Natural
+</span><span class="hs-number">1</span></span><span class="hs-special">)</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">42</span></span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">Accounting Text Int
+</span><a href="#local-6989586621679774489"><span class="hs-identifier hs-var">pending</span></a></span><span>
+</span><span id="line-55"></span><span>    </span><span class="annot"><span class="annottext">Maybe Double
+</span><a href="#local-6989586621679774490"><span class="hs-identifier hs-var">duration</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe Double -&gt; Maybe Double -&gt; Expectation
+forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; Expectation
+</span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">Maybe Double
+forall a. Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span>
+</span><span id="line-56"></span><span>    </span><span class="annot"><span class="annottext">Accounting Text Int
+-&gt; Maybe (SnapshotKey Text, Maybe Double, [Int])
+forall head txid.
+Accounting head txid
+-&gt; Maybe (SnapshotKey head, Maybe Double, [txid])
+</span><span class="hs-identifier hs-var">A.inFlight</span></span><span> </span><span class="annot"><span class="annottext">Accounting Text Int
+</span><a href="#local-6989586621679774491"><span class="hs-identifier hs-var">next</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (SnapshotKey Text, Maybe Double, [Int])
+-&gt; Maybe (SnapshotKey Text, Maybe Double, [Int]) -&gt; Expectation
+forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; Expectation
+</span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">Accounting Text Int
+-&gt; Maybe (SnapshotKey Text, Maybe Double, [Int])
+forall head txid.
+Accounting head txid
+-&gt; Maybe (SnapshotKey head, Maybe Double, [txid])
+</span><span class="hs-identifier hs-var">A.inFlight</span></span><span> </span><span class="annot"><span class="annottext">Accounting Text Int
+</span><a href="#local-6989586621679774489"><span class="hs-identifier hs-var">pending</span></a></span><span>
+</span><span id="line-57"></span><span>
+</span><span id="line-58"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecWith (Arg Expectation)
+forall a.
+(HasCallStack, Example a) =&gt;
+String -&gt; a -&gt; SpecWith (Arg a)
+</span><span class="hs-identifier hs-var">it</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;restores snapshot contents without inventing a duration&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Expectation -&gt; SpecWith (Arg Expectation))
+-&gt; Expectation -&gt; SpecWith (Arg Expectation)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-59"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679774492"><span class="annot"><span class="annottext">pending :: Accounting Text Int
+</span><a href="#local-6989586621679774492"><span class="hs-identifier hs-var hs-var">pending</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SnapshotKey Text
+-&gt; Maybe Double
+-&gt; [Int]
+-&gt; Accounting Text Int
+-&gt; Accounting Text Int
+forall head txid.
+Eq head =&gt;
+SnapshotKey head
+-&gt; Maybe Double
+-&gt; [txid]
+-&gt; Accounting head txid
+-&gt; Accounting head txid
+</span><span class="hs-identifier hs-var">A.startSnapshot</span></span><span> </span><span class="annot"><span class="annottext">SnapshotKey Text
+</span><a href="#local-6989586621679774485"><span class="hs-identifier hs-var">key2</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe Double
+forall a. Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">43</span></span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">Accounting Text Int
+</span><a href="#local-6989586621679774430"><span class="hs-identifier hs-var">initial</span></a></span><span class="hs-special">{</span><span class="annot"><span class="hs-identifier hs-var">A.confirmed</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679774438"><span class="hs-identifier hs-type">key1</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-60"></span><span>        </span><span class="hs-special">(</span><span id="local-6989586621679774494"><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679774494"><span class="hs-identifier hs-var">advanced</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679774495"><span class="annot"><span class="annottext">Maybe Double
+</span><a href="#local-6989586621679774495"><span class="hs-identifier hs-var">duration</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679774496"><span class="annot"><span class="annottext">[Double]
+</span><a href="#local-6989586621679774496"><span class="hs-identifier hs-var">timings</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679774497"><span class="annot"><span class="annottext">Accounting Text Int
+</span><a href="#local-6989586621679774497"><span class="hs-identifier hs-var">next</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Double
+-&gt; SnapshotKey Text
+-&gt; [Int]
+-&gt; Accounting Text Int
+-&gt; (Bool, Maybe Double, [Double], Accounting Text Int)
+forall head txid.
+(Eq head, Ord txid) =&gt;
+Double
+-&gt; SnapshotKey head
+-&gt; [txid]
+-&gt; Accounting head txid
+-&gt; (Bool, Maybe Double, [Double], Accounting head txid)
+</span><span class="hs-identifier hs-var">A.confirmSnapshot</span></span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">500</span></span><span> </span><span class="annot"><span class="annottext">SnapshotKey Text
+</span><a href="#local-6989586621679774485"><span class="hs-identifier hs-var">key2</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">43</span></span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">Accounting Text Int
+</span><a href="#local-6989586621679774492"><span class="hs-identifier hs-var">pending</span></a></span><span>
+</span><span id="line-61"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679774494"><span class="hs-identifier hs-var">advanced</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Maybe Double
+</span><a href="#local-6989586621679774495"><span class="hs-identifier hs-var">duration</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">[Double]
+</span><a href="#local-6989586621679774496"><span class="hs-identifier hs-var">timings</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Bool, Maybe Double, [Double])
+-&gt; (Bool, Maybe Double, [Double]) -&gt; Expectation
+forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; Expectation
+</span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#True"><span class="hs-identifier hs-var">True</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Maybe Double
+forall a. Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span class="hs-special">,</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span class="hs-special">)</span><span>
+</span><span id="line-62"></span><span>    </span><span class="annot"><span class="annottext">Accounting Text Int
+-&gt; Maybe (SnapshotKey Text, Maybe Double, [Int])
+forall head txid.
+Accounting head txid
+-&gt; Maybe (SnapshotKey head, Maybe Double, [txid])
+</span><span class="hs-identifier hs-var">A.inFlight</span></span><span> </span><span class="annot"><span class="annottext">Accounting Text Int
+</span><a href="#local-6989586621679774497"><span class="hs-identifier hs-var">next</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (SnapshotKey Text, Maybe Double, [Int])
+-&gt; Maybe (SnapshotKey Text, Maybe Double, [Int]) -&gt; Expectation
+forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; Expectation
+</span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">Maybe (SnapshotKey Text, Maybe Double, [Int])
+forall a. Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span>
+</span><span id="line-63"></span><span>
+</span><span id="line-64"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; Expectation -&gt; SpecWith (Arg Expectation)
+forall a.
+(HasCallStack, Example a) =&gt;
+String -&gt; a -&gt; SpecWith (Arg a)
+</span><span class="hs-identifier hs-var">it</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;clears pending state without forgetting the confirmed watermark&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Expectation -&gt; SpecWith (Arg Expectation))
+-&gt; Expectation -&gt; SpecWith (Arg Expectation)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-65"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Bool
+</span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679774498"><span class="annot"><span class="annottext">Accounting Text Int
+</span><a href="#local-6989586621679774498"><span class="hs-identifier hs-var">pending</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Int
+-&gt; Double
+-&gt; Double
+-&gt; Word64
+-&gt; Int
+-&gt; Accounting Text Int
+-&gt; (Bool, Int, Accounting Text Int)
+forall txid head.
+Ord txid =&gt;
+Int
+-&gt; Double
+-&gt; Double
+-&gt; Word64
+-&gt; txid
+-&gt; Accounting head txid
+-&gt; (Bool, Int, Accounting head txid)
+</span><span class="hs-identifier hs-var">A.request</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">10</span></span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">3600</span></span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">0</span></span><span> </span><span class="annot"><span class="annottext">Word64
+</span><span class="hs-number">1</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">42</span></span><span> </span><span class="annot"><span class="annottext">Accounting Text Int
+</span><a href="#local-6989586621679774430"><span class="hs-identifier hs-var">initial</span></a></span><span class="hs-special">{</span><span class="annot"><span class="hs-identifier hs-var">A.confirmed</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679774438"><span class="hs-identifier hs-type">key1</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-66"></span><span>        </span><span id="local-6989586621679774499"><span class="annot"><span class="annottext">cleared :: Accounting Text Int
+</span><a href="#local-6989586621679774499"><span class="hs-identifier hs-var hs-var">cleared</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Accounting Text Int -&gt; Accounting Text Int
+forall head txid. Accounting head txid -&gt; Accounting head txid
+</span><span class="hs-identifier hs-var">A.clearPending</span></span><span> </span><span class="annot"><span class="annottext">(Accounting Text Int -&gt; Accounting Text Int)
+-&gt; Accounting Text Int -&gt; Accounting Text Int
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">SnapshotKey Text
+-&gt; Maybe Double
+-&gt; [Int]
+-&gt; Accounting Text Int
+-&gt; Accounting Text Int
+forall head txid.
+Eq head =&gt;
+SnapshotKey head
+-&gt; Maybe Double
+-&gt; [txid]
+-&gt; Accounting head txid
+-&gt; Accounting head txid
+</span><span class="hs-identifier hs-var">A.startSnapshot</span></span><span> </span><span class="annot"><span class="annottext">SnapshotKey Text
+</span><a href="#local-6989586621679774485"><span class="hs-identifier hs-var">key2</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Double -&gt; Maybe Double
+forall a. a -&gt; Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">0</span></span><span class="hs-special">)</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">42</span></span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">Accounting Text Int
+</span><a href="#local-6989586621679774498"><span class="hs-identifier hs-var">pending</span></a></span><span>
+</span><span id="line-67"></span><span>    </span><span class="annot"><span class="annottext">Accounting Text Int -&gt; Maybe (SnapshotKey Text)
+forall head txid. Accounting head txid -&gt; Maybe (SnapshotKey head)
+</span><span class="hs-identifier hs-var">A.confirmed</span></span><span> </span><span class="annot"><span class="annottext">Accounting Text Int
+</span><a href="#local-6989586621679774499"><span class="hs-identifier hs-var">cleared</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (SnapshotKey Text) -&gt; Maybe (SnapshotKey Text) -&gt; Expectation
+forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; Expectation
+</span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">SnapshotKey Text -&gt; Maybe (SnapshotKey Text)
+forall a. a -&gt; Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">SnapshotKey Text
+</span><a href="#local-6989586621679774438"><span class="hs-identifier hs-var">key1</span></a></span><span>
+</span><span id="line-68"></span><span>    </span><span class="annot"><span class="annottext">Accounting Text Int
+-&gt; Maybe (SnapshotKey Text, Maybe Double, [Int])
+forall head txid.
+Accounting head txid
+-&gt; Maybe (SnapshotKey head, Maybe Double, [txid])
+</span><span class="hs-identifier hs-var">A.inFlight</span></span><span> </span><span class="annot"><span class="annottext">Accounting Text Int
+</span><a href="#local-6989586621679774499"><span class="hs-identifier hs-var">cleared</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (SnapshotKey Text, Maybe Double, [Int])
+-&gt; Maybe (SnapshotKey Text, Maybe Double, [Int]) -&gt; Expectation
+forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; Expectation
+</span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">Maybe (SnapshotKey Text, Maybe Double, [Int])
+forall a. Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span>
+</span><span id="line-69"></span><span>    </span><span class="annot"><span class="annottext">Map Int Double -&gt; Int
+forall k a. Map k a -&gt; Int
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Internal.html#size"><span class="hs-identifier hs-var">Map.size</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Accounting Text Int -&gt; Map Int Double
+forall head txid. Accounting head txid -&gt; Map txid Double
+</span><span class="hs-identifier hs-var">A.timers</span></span><span> </span><span class="annot"><span class="annottext">Accounting Text Int
+</span><a href="#local-6989586621679774499"><span class="hs-identifier hs-var">cleared</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Expectation
+forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; Expectation
+</span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">0</span></span><span>
+</span><span id="line-70"></span><span>    </span><span class="annot"><span class="annottext">Map (Double, Int) () -&gt; Int
+forall k a. Map k a -&gt; Int
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Internal.html#size"><span class="hs-identifier hs-var">Map.size</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Accounting Text Int -&gt; Map (Double, Int) ()
+forall head txid. Accounting head txid -&gt; Map (Double, txid) ()
+</span><span class="hs-identifier hs-var">A.orderedTimers</span></span><span> </span><span class="annot"><span class="annottext">Accounting Text Int
+</span><a href="#local-6989586621679774499"><span class="hs-identifier hs-var">cleared</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Expectation
+forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; Expectation
+</span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">Int
+</span><span class="hs-number">0</span></span><span>
+</span><span id="line-71"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-72"></span><span>  </span><span class="annot"><a href="#local-6989586621679774430"><span class="hs-identifier hs-type">initial</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">A.Accounting</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span>
+</span><span id="line-73"></span><span>  </span><span id="local-6989586621679774430"><span class="annot"><span class="annottext">initial :: Accounting Text Int
+</span><a href="#local-6989586621679774430"><span class="hs-identifier hs-var hs-var">initial</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Accounting Text Int
+forall head txid. Accounting head txid
+</span><span class="hs-identifier hs-var">A.empty</span></span><span>
+</span><span id="line-74"></span><span>  </span><span id="local-6989586621679774438"><span class="annot"><span class="annottext">key1 :: SnapshotKey Text
+</span><a href="#local-6989586621679774438"><span class="hs-identifier hs-var hs-var">key1</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Natural -&gt; Natural -&gt; SnapshotKey Text
+forall head. head -&gt; Natural -&gt; Natural -&gt; SnapshotKey head
+</span><span class="hs-identifier hs-var">A.SnapshotKey</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;head&quot;</span></span><span> </span><span class="annot"><span class="annottext">Natural
+</span><span class="hs-number">0</span></span><span> </span><span class="annot"><span class="annottext">Natural
+</span><span class="hs-number">1</span></span><span>
+</span><span id="line-75"></span><span>  </span><span id="local-6989586621679774485"><span class="annot"><span class="annottext">key2 :: SnapshotKey Text
+</span><a href="#local-6989586621679774485"><span class="hs-identifier hs-var hs-var">key2</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Natural -&gt; Natural -&gt; SnapshotKey Text
+forall head. head -&gt; Natural -&gt; Natural -&gt; SnapshotKey head
+</span><span class="hs-identifier hs-var">A.SnapshotKey</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;head&quot;</span></span><span> </span><span class="annot"><span class="annottext">Natural
+</span><span class="hs-number">0</span></span><span> </span><span class="annot"><span class="annottext">Natural
+</span><span class="hs-number">2</span></span><span>
+</span><span id="line-76"></span></pre></body></html>

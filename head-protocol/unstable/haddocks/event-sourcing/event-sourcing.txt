@@ -161,6 +161,12 @@ MigrationSkipped :: FilePath -> SQLiteLog
 [legacyFile] :: SQLiteLog -> FilePath
 MigrationComplete :: FilePath -> SQLiteLog
 [legacyFile] :: SQLiteLog -> FilePath
+SQLiteStats :: Int -> SQLiteLog
+[queueDepth] :: SQLiteLog -> Int
+SQLiteWriteStarted :: SQLiteLog
+SQLiteWriteCompleted :: Double -> SQLiteLog
+[writeSeconds] :: SQLiteLog -> Double
+SQLiteWriteFailed :: SQLiteLog
 
 -- | Items in the write-behind queue: either an event to insert or a flush
 --   marker that the writer thread signals after processing all preceding
@@ -188,7 +194,7 @@ withSQLiteEventStore :: forall e a. (ToCBOR e, FromCBOR e, FromJSON e, HasEventI
 --   not exist. Returns <tt>(conn, store, flush, reinitLastSeen,
 --   cleanup)</tt>. Internal — prefer <a>withSQLiteEventStore</a> which
 --   handles cleanup, migration, and flushing automatically.
-mkSQLiteEventStore :: forall e. (ToCBOR e, FromCBOR e, FromJSON e, HasEventId e) => FilePath -> IO (Connection, EventStore e IO, IO (), IO (), IO ())
+mkSQLiteEventStore :: forall e. (ToCBOR e, FromCBOR e, FromJSON e, HasEventId e) => Tracer IO SQLiteLog -> FilePath -> IO (Connection, EventStore e IO, IO (), IO (), IO ())
 
 -- | Background writer that drains the queue and batch-inserts into SQLite.
 --   Each iteration blocks for at least one item, then flushes everything
@@ -196,7 +202,7 @@ mkSQLiteEventStore :: forall e. (ToCBOR e, FromCBOR e, FromJSON e, HasEventId e)
 --   batch-inserted in a single transaction, and any flush markers in the
 --   batch are signalled. Encode errors surface as writer thread crashes,
 --   which are <a>link</a>ed to the caller.
-writerLoop :: ToCBOR e => Connection -> TBQueue IO (WriteItem e) -> IO ()
+writerLoop :: ToCBOR e => Tracer IO SQLiteLog -> Connection -> TBQueue IO (WriteItem e) -> IO ()
 
 -- | Block until all items currently in the write queue have been flushed
 --   to SQLite. Sends a flush marker through the queue and waits for the
@@ -269,6 +275,7 @@ deleteAllEvents :: Connection -> IO ()
 --   first if present (e.g. a re-rotation at the same log id), since
 --   <tt>VACUUM INTO</tt> requires it not to exist.
 backupDatabase :: Connection -> FilePath -> Word64 -> IO ()
+secondsBetween :: Word64 -> Word64 -> Double
 instance GHC.Show.Show Data.EventSource.SQLite.EventDecodingException
 instance Data.Aeson.Types.ToJSON.ToJSON Data.EventSource.SQLite.SQLiteLog
 instance GHC.Generics.Generic Data.EventSource.SQLite.SQLiteLog

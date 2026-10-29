@@ -26,19 +26,19 @@
 </span><span id="line-26"></span><span class="annot"><a href="Hydra.Cluster.HeadLifecycle.html#fundDataset"><span class="hs-identifier hs-type">fundDataset</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ChainBackendOptions</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.Generator.html#Dataset"><span class="hs-identifier hs-type">Dataset</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Bool"><span class="hs-identifier hs-type">Bool</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tracer</span></span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><a href="Hydra.Cluster.Faucet.html#FaucetLog"><span class="hs-identifier hs-type">FaucetLog</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">UTxO</span></span><span class="hs-special">]</span><span>
 </span><span id="line-27"></span><span id="fundDataset"><span class="annot"><span class="annottext">fundDataset :: ChainBackendOptions
 -&gt; Dataset -&gt; Bool -&gt; Tracer IO FaucetLog -&gt; IO [UTxO]
-</span><a href="Hydra.Cluster.HeadLifecycle.html#fundDataset"><span class="hs-identifier hs-var hs-var">fundDataset</span></a></span></span><span> </span><span id="local-6989586621679550822"><span class="annot"><span class="annottext">ChainBackendOptions
-</span><a href="#local-6989586621679550822"><span class="hs-identifier hs-var">opts</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Generator.html#Dataset"><span class="hs-identifier hs-type">Dataset</span></a></span><span class="hs-special">{</span><span id="local-6989586621679550824"><span class="annot"><span class="annottext">Tx
+</span><a href="Hydra.Cluster.HeadLifecycle.html#fundDataset"><span class="hs-identifier hs-var hs-var">fundDataset</span></a></span></span><span> </span><span id="local-6989586621679550996"><span class="annot"><span class="annottext">ChainBackendOptions
+</span><a href="#local-6989586621679550996"><span class="hs-identifier hs-var">opts</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Generator.html#Dataset"><span class="hs-identifier hs-type">Dataset</span></a></span><span class="hs-special">{</span><span id="local-6989586621679550998"><span class="annot"><span class="annottext">Tx
 fundingTransaction :: Tx
 fundingTransaction :: Dataset -&gt; Tx
-</span><a href="#local-6989586621679550824"><span class="hs-identifier hs-var hs-var">fundingTransaction</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679550826"><span class="annot"><span class="annottext">[Secret (SigningKey PaymentKey)]
+</span><a href="#local-6989586621679550998"><span class="hs-identifier hs-var hs-var">fundingTransaction</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679551000"><span class="annot"><span class="annottext">[Secret (SigningKey PaymentKey)]
 hydraNodeKeys :: [Secret (SigningKey PaymentKey)]
 hydraNodeKeys :: Dataset -&gt; [Secret (SigningKey PaymentKey)]
-</span><a href="#local-6989586621679550826"><span class="hs-identifier hs-var hs-var">hydraNodeKeys</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679550828"><span class="annot"><span class="annottext">[ClientDataset]
+</span><a href="#local-6989586621679551000"><span class="hs-identifier hs-var hs-var">hydraNodeKeys</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679551002"><span class="annot"><span class="annottext">[ClientDataset]
 clientDatasets :: [ClientDataset]
 clientDatasets :: Dataset -&gt; [ClientDataset]
-</span><a href="#local-6989586621679550828"><span class="hs-identifier hs-var hs-var">clientDatasets</span></a></span></span><span class="hs-special">}</span><span> </span><span id="local-6989586621679550830"><span class="annot"><span class="annottext">Bool
-</span><a href="#local-6989586621679550830"><span class="hs-identifier hs-var">incremental</span></a></span></span><span> </span><span id="local-6989586621679550831"><span class="annot"><span class="annottext">Tracer IO FaucetLog
-</span><a href="#local-6989586621679550831"><span class="hs-identifier hs-var">tracer</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><a href="#local-6989586621679551002"><span class="hs-identifier hs-var hs-var">clientDatasets</span></a></span></span><span class="hs-special">}</span><span> </span><span id="local-6989586621679551004"><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679551004"><span class="hs-identifier hs-var">incremental</span></a></span></span><span> </span><span id="local-6989586621679551005"><span class="annot"><span class="annottext">Tracer IO FaucetLog
+</span><a href="#local-6989586621679551005"><span class="hs-identifier hs-var">tracer</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
 </span><span id="line-28"></span><span>  </span><span class="annot"><span class="annottext">ChainBackendOptions
 -&gt; (forall {m :: * -&gt; *}.
     (ChainBackend m, MonadIO m, MonadThrow m, MonadCatch m) =&gt;
@@ -51,7 +51,7 @@ ChainBackendOptions
     m a)
 -&gt; IO a
 </span><a href="CardanoNode.html#runBackend"><span class="hs-identifier hs-var">runBackend</span></a></span><span> </span><span class="annot"><span class="annottext">ChainBackendOptions
-</span><a href="#local-6989586621679550822"><span class="hs-identifier hs-var">opts</span></a></span><span> </span><span class="annot"><span class="annottext">((forall {m :: * -&gt; *}.
+</span><a href="#local-6989586621679550996"><span class="hs-identifier hs-var">opts</span></a></span><span> </span><span class="annot"><span class="annottext">((forall {m :: * -&gt; *}.
   (ChainBackend m, MonadIO m, MonadThrow m, MonadCatch m) =&gt;
   m ())
  -&gt; IO ())
@@ -63,23 +63,23 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Tx -&gt; m ()
 forall (m :: * -&gt; *). ChainBackend m =&gt; Tx -&gt; m ()
 </span><span class="hs-identifier hs-var">submitTransaction</span></span><span> </span><span class="annot"><span class="annottext">Tx
-</span><a href="#local-6989586621679550824"><span class="hs-identifier hs-var">fundingTransaction</span></a></span><span>
+</span><a href="#local-6989586621679550998"><span class="hs-identifier hs-var">fundingTransaction</span></a></span><span>
 </span><span id="line-29"></span><span>  </span><span class="annot"><span class="annottext">[Secret (SigningKey PaymentKey)]
 -&gt; (Secret (SigningKey PaymentKey) -&gt; IO ()) -&gt; IO ()
 forall (t :: * -&gt; *) (m :: * -&gt; *) a b.
 (Foldable t, Monad m) =&gt;
 t a -&gt; (a -&gt; m b) -&gt; m ()
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#forM_"><span class="hs-identifier hs-var">forM_</span></a></span><span> </span><span class="annot"><span class="annottext">[Secret (SigningKey PaymentKey)]
-</span><a href="#local-6989586621679550826"><span class="hs-identifier hs-var">hydraNodeKeys</span></a></span><span> </span><span class="annot"><span class="annottext">((Secret (SigningKey PaymentKey) -&gt; IO ()) -&gt; IO ())
+</span><a href="#local-6989586621679551000"><span class="hs-identifier hs-var">hydraNodeKeys</span></a></span><span> </span><span class="annot"><span class="annottext">((Secret (SigningKey PaymentKey) -&gt; IO ()) -&gt; IO ())
 -&gt; (Secret (SigningKey PaymentKey) -&gt; IO ()) -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679550839"><span class="annot"><span class="annottext">Secret (SigningKey PaymentKey)
-</span><a href="#local-6989586621679550839"><span class="hs-identifier hs-var">sk</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-30"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679550840"><span class="annot"><span class="annottext">vk :: VerificationKey PaymentKey
-</span><a href="#local-6989586621679550840"><span class="hs-identifier hs-var hs-var">vk</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Secret (SigningKey PaymentKey) -&gt; VerificationKey PaymentKey
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679551013"><span class="annot"><span class="annottext">Secret (SigningKey PaymentKey)
+</span><a href="#local-6989586621679551013"><span class="hs-identifier hs-var">sk</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-30"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679551014"><span class="annot"><span class="annottext">vk :: VerificationKey PaymentKey
+</span><a href="#local-6989586621679551014"><span class="hs-identifier hs-var hs-var">vk</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Secret (SigningKey PaymentKey) -&gt; VerificationKey PaymentKey
 forall s k. HasVerificationKey s k =&gt; s -&gt; VerificationKey k
 </span><span class="hs-identifier hs-var">getVerificationKey</span></span><span> </span><span class="annot"><span class="annottext">Secret (SigningKey PaymentKey)
-</span><a href="#local-6989586621679550839"><span class="hs-identifier hs-var">sk</span></a></span><span>
+</span><a href="#local-6989586621679551013"><span class="hs-identifier hs-var">sk</span></a></span><span>
 </span><span id="line-31"></span><span>    </span><span class="annot"><span class="annottext">IO UTxO -&gt; IO ()
 forall (f :: * -&gt; *) a. Functor f =&gt; f a -&gt; f ()
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#void"><span class="hs-identifier hs-var">void</span></a></span><span> </span><span class="annot"><span class="annottext">(IO UTxO -&gt; IO ()) -&gt; IO UTxO -&gt; IO ()
@@ -96,13 +96,13 @@ ChainBackendOptions
     m a)
 -&gt; IO a
 </span><a href="CardanoNode.html#runBackend"><span class="hs-identifier hs-var">runBackend</span></a></span><span> </span><span class="annot"><span class="annottext">ChainBackendOptions
-</span><a href="#local-6989586621679550822"><span class="hs-identifier hs-var">opts</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Tx -&gt; VerificationKey PaymentKey -&gt; m UTxO
+</span><a href="#local-6989586621679550996"><span class="hs-identifier hs-var">opts</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Tx -&gt; VerificationKey PaymentKey -&gt; m UTxO
 forall (m :: * -&gt; *).
 ChainBackend m =&gt;
 Tx -&gt; VerificationKey PaymentKey -&gt; m UTxO
 </span><span class="hs-identifier hs-var">awaitTransaction</span></span><span> </span><span class="annot"><span class="annottext">Tx
-</span><a href="#local-6989586621679550824"><span class="hs-identifier hs-var">fundingTransaction</span></a></span><span> </span><span class="annot"><span class="annottext">VerificationKey PaymentKey
-</span><a href="#local-6989586621679550840"><span class="hs-identifier hs-var">vk</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679550998"><span class="hs-identifier hs-var">fundingTransaction</span></a></span><span> </span><span class="annot"><span class="annottext">VerificationKey PaymentKey
+</span><a href="#local-6989586621679551014"><span class="hs-identifier hs-var">vk</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-32"></span><span>    </span><span class="annot"><span class="annottext">IO UTxO -&gt; IO ()
 forall (f :: * -&gt; *) a. Functor f =&gt; f a -&gt; f ()
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#void"><span class="hs-identifier hs-var">void</span></a></span><span> </span><span class="annot"><span class="annottext">(IO UTxO -&gt; IO ()) -&gt; IO UTxO -&gt; IO ()
@@ -113,38 +113,38 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 -&gt; Tracer IO FaucetLog
 -&gt; IO UTxO
 </span><a href="Hydra.Cluster.Faucet.html#seedFromFaucet"><span class="hs-identifier hs-var">seedFromFaucet</span></a></span><span> </span><span class="annot"><span class="annottext">ChainBackendOptions
-</span><a href="#local-6989586621679550822"><span class="hs-identifier hs-var">opts</span></a></span><span> </span><span class="annot"><span class="annottext">VerificationKey PaymentKey
-</span><a href="#local-6989586621679550840"><span class="hs-identifier hs-var">vk</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Lovelace -&gt; Value
+</span><a href="#local-6989586621679550996"><span class="hs-identifier hs-var">opts</span></a></span><span> </span><span class="annot"><span class="annottext">VerificationKey PaymentKey
+</span><a href="#local-6989586621679551014"><span class="hs-identifier hs-var">vk</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Lovelace -&gt; Value
 </span><span class="hs-identifier hs-var">lovelaceToValue</span></span><span> </span><span class="annot"><span class="annottext">Lovelace
 </span><span class="hs-number">100_000_000</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Tracer IO FaucetLog
-</span><a href="#local-6989586621679550831"><span class="hs-identifier hs-var">tracer</span></a></span><span>
+</span><a href="#local-6989586621679551005"><span class="hs-identifier hs-var">tracer</span></a></span><span>
 </span><span id="line-33"></span><span>  </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Bool
-</span><a href="#local-6989586621679550830"><span class="hs-identifier hs-var">incremental</span></a></span><span>
+</span><a href="#local-6989586621679551004"><span class="hs-identifier hs-var">incremental</span></a></span><span>
 </span><span id="line-34"></span><span>    </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">[ClientDataset] -&gt; (ClientDataset -&gt; IO UTxO) -&gt; IO [UTxO]
 forall (t :: * -&gt; *) (m :: * -&gt; *) a b.
 (Traversable t, Monad m) =&gt;
 t a -&gt; (a -&gt; m b) -&gt; m (t b)
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Traversable.html#forM"><span class="hs-identifier hs-var">forM</span></a></span><span> </span><span class="annot"><span class="annottext">[ClientDataset]
-</span><a href="#local-6989586621679550828"><span class="hs-identifier hs-var">clientDatasets</span></a></span><span> </span><span class="annot"><span class="annottext">((ClientDataset -&gt; IO UTxO) -&gt; IO [UTxO])
+</span><a href="#local-6989586621679551002"><span class="hs-identifier hs-var">clientDatasets</span></a></span><span> </span><span class="annot"><span class="annottext">((ClientDataset -&gt; IO UTxO) -&gt; IO [UTxO])
 -&gt; (ClientDataset -&gt; IO UTxO) -&gt; IO [UTxO]
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="annot"><a href="Hydra.Generator.html#ClientDataset"><span class="hs-identifier hs-type">ClientDataset</span></a></span><span class="hs-special">{</span><span id="local-6989586621679550850"><span class="annot"><span class="annottext">Secret (SigningKey PaymentKey)
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="annot"><a href="Hydra.Generator.html#ClientDataset"><span class="hs-identifier hs-type">ClientDataset</span></a></span><span class="hs-special">{</span><span id="local-6989586621679551024"><span class="annot"><span class="annottext">Secret (SigningKey PaymentKey)
 paymentKey :: Secret (SigningKey PaymentKey)
 paymentKey :: ClientDataset -&gt; Secret (SigningKey PaymentKey)
-</span><a href="#local-6989586621679550850"><span class="hs-identifier hs-var hs-var">paymentKey</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><a href="#local-6989586621679551024"><span class="hs-identifier hs-var hs-var">paymentKey</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-35"></span><span>      </span><span class="annot"><span class="annottext">ChainBackendOptions
 -&gt; VerificationKey PaymentKey
 -&gt; Value
 -&gt; Tracer IO FaucetLog
 -&gt; IO UTxO
 </span><a href="Hydra.Cluster.Faucet.html#seedFromFaucet"><span class="hs-identifier hs-var">seedFromFaucet</span></a></span><span> </span><span class="annot"><span class="annottext">ChainBackendOptions
-</span><a href="#local-6989586621679550822"><span class="hs-identifier hs-var">opts</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Secret (SigningKey PaymentKey) -&gt; VerificationKey PaymentKey
+</span><a href="#local-6989586621679550996"><span class="hs-identifier hs-var">opts</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Secret (SigningKey PaymentKey) -&gt; VerificationKey PaymentKey
 forall s k. HasVerificationKey s k =&gt; s -&gt; VerificationKey k
 </span><span class="hs-identifier hs-var">getVerificationKey</span></span><span> </span><span class="annot"><span class="annottext">Secret (SigningKey PaymentKey)
-</span><a href="#local-6989586621679550850"><span class="hs-identifier hs-var">paymentKey</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Lovelace -&gt; Value
+</span><a href="#local-6989586621679551024"><span class="hs-identifier hs-var">paymentKey</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Lovelace -&gt; Value
 </span><span class="hs-identifier hs-var">lovelaceToValue</span></span><span> </span><span class="annot"><span class="annottext">Lovelace
 </span><span class="hs-number">10_000_000</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Tracer IO FaucetLog
-</span><a href="#local-6989586621679550831"><span class="hs-identifier hs-var">tracer</span></a></span><span>
+</span><a href="#local-6989586621679551005"><span class="hs-identifier hs-var">tracer</span></a></span><span>
 </span><span id="line-36"></span><span>    </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">[UTxO] -&gt; IO [UTxO]
 forall a. a -&gt; IO a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
@@ -157,38 +157,38 @@ forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 -&gt; [ClientDataset]
 -&gt; NonEmpty HydraClient
 -&gt; IO HeadId
-</span><a href="Hydra.Cluster.HeadLifecycle.html#openHead"><span class="hs-identifier hs-var hs-var">openHead</span></a></span></span><span> </span><span id="local-6989586621679550853"><span class="annot"><span class="annottext">timing :: Timing
-</span><a href="#local-6989586621679550853"><span class="hs-identifier hs-var">timing</span></a></span></span><span class="hs-glyph">@</span><span class="annot"><a href="Hydra.Cluster.Util.html#Timing"><span class="hs-identifier hs-type">Timing</span></a></span><span class="hs-special">{</span><span id="local-6989586621679550855"><span class="annot"><span class="annottext">NominalDiffTime
+</span><a href="Hydra.Cluster.HeadLifecycle.html#openHead"><span class="hs-identifier hs-var hs-var">openHead</span></a></span></span><span> </span><span id="local-6989586621679551027"><span class="annot"><span class="annottext">timing :: Timing
+</span><a href="#local-6989586621679551027"><span class="hs-identifier hs-var">timing</span></a></span></span><span class="hs-glyph">@</span><span class="annot"><a href="Hydra.Cluster.Util.html#Timing"><span class="hs-identifier hs-type">Timing</span></a></span><span class="hs-special">{</span><span id="local-6989586621679551029"><span class="annot"><span class="annottext">NominalDiffTime
 blockTime :: NominalDiffTime
 $sel:blockTime:Timing :: Timing -&gt; NominalDiffTime
-</span><a href="#local-6989586621679550855"><span class="hs-identifier hs-var hs-var">blockTime</span></a></span></span><span class="hs-special">}</span><span> </span><span id="local-6989586621679550857"><span class="annot"><span class="annottext">ChainBackendOptions
-</span><a href="#local-6989586621679550857"><span class="hs-identifier hs-var">opts</span></a></span></span><span> </span><span id="local-6989586621679550858"><span class="annot"><span class="annottext">[ClientDataset]
-</span><a href="#local-6989586621679550858"><span class="hs-identifier hs-var">datasets</span></a></span></span><span> </span><span id="local-6989586621679550859"><span class="annot"><span class="annottext">NonEmpty HydraClient
-</span><a href="#local-6989586621679550859"><span class="hs-identifier hs-var">nodes</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-41"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679550860"><span class="annot"><span class="annottext">leader :: HydraClient
-</span><a href="#local-6989586621679550860"><span class="hs-identifier hs-var hs-var">leader</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NonEmpty HydraClient -&gt; HydraClient
+</span><a href="#local-6989586621679551029"><span class="hs-identifier hs-var hs-var">blockTime</span></a></span></span><span class="hs-special">}</span><span> </span><span id="local-6989586621679551031"><span class="annot"><span class="annottext">ChainBackendOptions
+</span><a href="#local-6989586621679551031"><span class="hs-identifier hs-var">opts</span></a></span></span><span> </span><span id="local-6989586621679551032"><span class="annot"><span class="annottext">[ClientDataset]
+</span><a href="#local-6989586621679551032"><span class="hs-identifier hs-var">datasets</span></a></span></span><span> </span><span id="local-6989586621679551033"><span class="annot"><span class="annottext">NonEmpty HydraClient
+</span><a href="#local-6989586621679551033"><span class="hs-identifier hs-var">nodes</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-41"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679551034"><span class="annot"><span class="annottext">leader :: HydraClient
+</span><a href="#local-6989586621679551034"><span class="hs-identifier hs-var hs-var">leader</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NonEmpty HydraClient -&gt; HydraClient
 forall (f :: * -&gt; *) a. IsNonEmpty f a a &quot;head&quot; =&gt; f a -&gt; a
 </span><span class="hs-identifier hs-var">head</span></span><span> </span><span class="annot"><span class="annottext">NonEmpty HydraClient
-</span><a href="#local-6989586621679550859"><span class="hs-identifier hs-var">nodes</span></a></span><span>
-</span><span id="line-42"></span><span>      </span><span id="local-6989586621679550862"><span class="annot"><span class="annottext">clients :: [HydraClient]
-</span><a href="#local-6989586621679550862"><span class="hs-identifier hs-var hs-var">clients</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NonEmpty HydraClient -&gt; [HydraClient]
+</span><a href="#local-6989586621679551033"><span class="hs-identifier hs-var">nodes</span></a></span><span>
+</span><span id="line-42"></span><span>      </span><span id="local-6989586621679551036"><span class="annot"><span class="annottext">clients :: [HydraClient]
+</span><a href="#local-6989586621679551036"><span class="hs-identifier hs-var hs-var">clients</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NonEmpty HydraClient -&gt; [HydraClient]
 forall a. NonEmpty a -&gt; [a]
 forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; [a]
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#toList"><span class="hs-identifier hs-var">toList</span></a></span><span> </span><span class="annot"><span class="annottext">NonEmpty HydraClient
-</span><a href="#local-6989586621679550859"><span class="hs-identifier hs-var">nodes</span></a></span><span>
+</span><a href="#local-6989586621679551033"><span class="hs-identifier hs-var">nodes</span></a></span><span>
 </span><span id="line-43"></span><span>  </span><span class="annot"><span class="annottext">Bool -&gt; IO () -&gt; IO ()
 forall (f :: * -&gt; *). Applicative f =&gt; Bool -&gt; f () -&gt; f ()
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.html#unless"><span class="hs-identifier hs-var">unless</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[HydraClient] -&gt; Int
 forall a. [a] -&gt; Int
 forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; Int
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#length"><span class="hs-identifier hs-var">length</span></a></span><span> </span><span class="annot"><span class="annottext">[HydraClient]
-</span><a href="#local-6989586621679550862"><span class="hs-identifier hs-var">clients</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+</span><a href="#local-6989586621679551036"><span class="hs-identifier hs-var">clients</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
 forall a. Eq a =&gt; a -&gt; a -&gt; Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3D%3D"><span class="hs-operator hs-var">==</span></a></span><span> </span><span class="annot"><span class="annottext">[ClientDataset] -&gt; Int
 forall a. [a] -&gt; Int
 forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; Int
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#length"><span class="hs-identifier hs-var">length</span></a></span><span> </span><span class="annot"><span class="annottext">[ClientDataset]
-</span><a href="#local-6989586621679550858"><span class="hs-identifier hs-var">datasets</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; IO ()) -&gt; IO () -&gt; IO ()
+</span><a href="#local-6989586621679551032"><span class="hs-identifier hs-var">datasets</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; IO ()) -&gt; IO () -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
 </span><span id="line-44"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; IO ()
@@ -202,13 +202,13 @@ forall (m :: * -&gt; *). MonadIO m =&gt; Text -&gt; m ()
 </span><span class="hs-string">&quot;Initializing Head&quot;</span></span><span>
 </span><span id="line-46"></span><span>  </span><span class="annot"><span class="annottext">HydraClient -&gt; Value -&gt; IO ()
 </span><a href="HydraNode.html#send"><span class="hs-identifier hs-var">send</span></a></span><span> </span><span class="annot"><span class="annottext">HydraClient
-</span><a href="#local-6989586621679550860"><span class="hs-identifier hs-var">leader</span></a></span><span> </span><span class="annot"><span class="annottext">(Value -&gt; IO ()) -&gt; Value -&gt; IO ()
+</span><a href="#local-6989586621679551034"><span class="hs-identifier hs-var">leader</span></a></span><span> </span><span class="annot"><span class="annottext">(Value -&gt; IO ()) -&gt; Value -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; [Pair] -&gt; Value
 </span><a href="HydraNode.html#input"><span class="hs-identifier hs-var">input</span></a></span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;Init&quot;</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
-</span><span id="line-47"></span><span>  </span><span id="local-6989586621679550867"><span class="annot"><span class="annottext">HeadId
-</span><a href="#local-6989586621679550867"><span class="hs-identifier hs-var">headId</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">NominalDiffTime
+</span><span id="line-47"></span><span>  </span><span id="local-6989586621679551041"><span class="annot"><span class="annottext">HeadId
+</span><a href="#local-6989586621679551041"><span class="hs-identifier hs-var">headId</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">NominalDiffTime
 -&gt; [HydraClient] -&gt; (Value -&gt; Maybe HeadId) -&gt; IO HeadId
 forall a.
 (Eq a, Show a, HasCallStack) =&gt;
@@ -220,18 +220,18 @@ forall a. Num a =&gt; a -&gt; a -&gt; a
 </span><span class="hs-number">5</span></span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; NominalDiffTime -&gt; NominalDiffTime
 forall a. Num a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#%2A"><span class="hs-operator hs-var">*</span></a></span><span> </span><span class="annot"><span class="annottext">NominalDiffTime
-</span><a href="#local-6989586621679550855"><span class="hs-identifier hs-var">blockTime</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[HydraClient]
-</span><a href="#local-6989586621679550862"><span class="hs-identifier hs-var">clients</span></a></span><span> </span><span class="annot"><span class="annottext">((Value -&gt; Maybe HeadId) -&gt; IO HeadId)
+</span><a href="#local-6989586621679551029"><span class="hs-identifier hs-var">blockTime</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[HydraClient]
+</span><a href="#local-6989586621679551036"><span class="hs-identifier hs-var">clients</span></a></span><span> </span><span class="annot"><span class="annottext">((Value -&gt; Maybe HeadId) -&gt; IO HeadId)
 -&gt; (Value -&gt; Maybe HeadId) -&gt; IO HeadId
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679550870"><span class="annot"><span class="annottext">Value
-</span><a href="#local-6989586621679550870"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679551044"><span class="annot"><span class="annottext">Value
+</span><a href="#local-6989586621679551044"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
 </span><span id="line-48"></span><span>    </span><span class="annot"><span class="annottext">Bool -&gt; Maybe ()
 forall (f :: * -&gt; *). Alternative f =&gt; Bool -&gt; f ()
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.html#guard"><span class="hs-identifier hs-var">guard</span></a></span><span> </span><span class="annot"><span class="annottext">(Bool -&gt; Maybe ()) -&gt; Bool -&gt; Maybe ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Value
-</span><a href="#local-6989586621679550870"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">Value -&gt; Getting (First Value) Value Value -&gt; Maybe Value
+</span><a href="#local-6989586621679551044"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">Value -&gt; Getting (First Value) Value Value -&gt; Maybe Value
 forall s a. s -&gt; Getting (First a) s a -&gt; Maybe a
 </span><span class="hs-operator hs-var">^?</span></span><span> </span><span class="annot"><span class="annottext">Key -&gt; Traversal' Value Value
 forall t. AsValue t =&gt; Key -&gt; Traversal' t Value
@@ -243,7 +243,7 @@ forall a. a -&gt; Maybe a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">Value
 </span><span class="hs-string">&quot;HeadIsOpen&quot;</span></span><span>
 </span><span id="line-49"></span><span>    </span><span class="annot"><span class="annottext">Value
-</span><a href="#local-6989586621679550870"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">Value -&gt; Getting (First HeadId) Value HeadId -&gt; Maybe HeadId
+</span><a href="#local-6989586621679551044"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">Value -&gt; Getting (First HeadId) Value HeadId -&gt; Maybe HeadId
 forall s a. s -&gt; Getting (First a) s a -&gt; Maybe a
 </span><span class="hs-operator hs-var">^?</span></span><span> </span><span class="annot"><span class="annottext">Key -&gt; Traversal' Value Value
 forall t. AsValue t =&gt; Key -&gt; Traversal' t Value
@@ -262,8 +262,8 @@ Prism Value Value HeadId HeadId
 forall (m :: * -&gt; *). MonadIO m =&gt; Text -&gt; m ()
 </span><span class="hs-identifier hs-var">putTextLn</span></span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;Depositing initialUTxO from datasets&quot;</span></span><span>
-</span><span id="line-51"></span><span>  </span><span id="local-6989586621679550872"><span class="annot"><span class="annottext">[Tx]
-</span><a href="#local-6989586621679550872"><span class="hs-identifier hs-var">deposits</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[(HydraClient, ClientDataset)]
+</span><span id="line-51"></span><span>  </span><span id="local-6989586621679551046"><span class="annot"><span class="annottext">[Tx]
+</span><a href="#local-6989586621679551046"><span class="hs-identifier hs-var">deposits</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[(HydraClient, ClientDataset)]
 -&gt; ((HydraClient, ClientDataset) -&gt; IO Tx) -&gt; IO [Tx]
 forall (t :: * -&gt; *) (m :: * -&gt; *) a b.
 (Traversable t, Monad m) =&gt;
@@ -271,28 +271,28 @@ t a -&gt; (a -&gt; m b) -&gt; m (t b)
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Traversable.html#forM"><span class="hs-identifier hs-var">forM</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[HydraClient] -&gt; [ClientDataset] -&gt; [(HydraClient, ClientDataset)]
 forall a b. [a] -&gt; [b] -&gt; [(a, b)]
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.List.html#zip"><span class="hs-identifier hs-var">zip</span></a></span><span> </span><span class="annot"><span class="annottext">[HydraClient]
-</span><a href="#local-6989586621679550862"><span class="hs-identifier hs-var">clients</span></a></span><span> </span><span class="annot"><span class="annottext">[ClientDataset]
-</span><a href="#local-6989586621679550858"><span class="hs-identifier hs-var">datasets</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(((HydraClient, ClientDataset) -&gt; IO Tx) -&gt; IO [Tx])
+</span><a href="#local-6989586621679551036"><span class="hs-identifier hs-var">clients</span></a></span><span> </span><span class="annot"><span class="annottext">[ClientDataset]
+</span><a href="#local-6989586621679551032"><span class="hs-identifier hs-var">datasets</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(((HydraClient, ClientDataset) -&gt; IO Tx) -&gt; IO [Tx])
 -&gt; ((HydraClient, ClientDataset) -&gt; IO Tx) -&gt; IO [Tx]
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="hs-special">(</span><span id="local-6989586621679550873"><span class="annot"><span class="annottext">HydraClient
-</span><a href="#local-6989586621679550873"><span class="hs-identifier hs-var">client</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Generator.html#ClientDataset"><span class="hs-identifier hs-type">ClientDataset</span></a></span><span class="hs-special">{</span><span id="local-6989586621679550874"><span class="annot"><span class="annottext">UTxO
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="hs-special">(</span><span id="local-6989586621679551047"><span class="annot"><span class="annottext">HydraClient
+</span><a href="#local-6989586621679551047"><span class="hs-identifier hs-var">client</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Generator.html#ClientDataset"><span class="hs-identifier hs-type">ClientDataset</span></a></span><span class="hs-special">{</span><span id="local-6989586621679551048"><span class="annot"><span class="annottext">UTxO
 initialUTxO :: UTxO
 initialUTxO :: ClientDataset -&gt; UTxO
-</span><a href="#local-6989586621679550874"><span class="hs-identifier hs-var hs-var">initialUTxO</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679550876"><span class="annot"><span class="annottext">Secret (SigningKey PaymentKey)
+</span><a href="#local-6989586621679551048"><span class="hs-identifier hs-var hs-var">initialUTxO</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679551050"><span class="annot"><span class="annottext">Secret (SigningKey PaymentKey)
 paymentKey :: ClientDataset -&gt; Secret (SigningKey PaymentKey)
 paymentKey :: Secret (SigningKey PaymentKey)
 </span><a href="Hydra.Generator.html#paymentKey"><span class="hs-identifier hs-var hs-var">paymentKey</span></a></span></span><span class="hs-special">}</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-52"></span><span>    </span><span id="local-6989586621679550877"><span class="annot"><span class="annottext">Tx
-</span><a href="#local-6989586621679550877"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Secret (SigningKey PaymentKey) -&gt; Tx -&gt; Tx
+</span><span id="line-52"></span><span>    </span><span id="local-6989586621679551051"><span class="annot"><span class="annottext">Tx
+</span><a href="#local-6989586621679551051"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Secret (SigningKey PaymentKey) -&gt; Tx -&gt; Tx
 forall s. CanSignTx s =&gt; s -&gt; Tx -&gt; Tx
 </span><span class="hs-identifier hs-var">signTx</span></span><span> </span><span class="annot"><span class="annottext">Secret (SigningKey PaymentKey)
-</span><a href="#local-6989586621679550876"><span class="hs-identifier hs-var">paymentKey</span></a></span><span> </span><span class="annot"><span class="annottext">(Tx -&gt; Tx) -&gt; IO Tx -&gt; IO Tx
+</span><a href="#local-6989586621679551050"><span class="hs-identifier hs-var">paymentKey</span></a></span><span> </span><span class="annot"><span class="annottext">(Tx -&gt; Tx) -&gt; IO Tx -&gt; IO Tx
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">HydraClient -&gt; UTxO -&gt; IO Tx
 </span><a href="HydraNode.html#requestCommitTx"><span class="hs-identifier hs-var">requestCommitTx</span></a></span><span> </span><span class="annot"><span class="annottext">HydraClient
-</span><a href="#local-6989586621679550873"><span class="hs-identifier hs-var">client</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO
-</span><a href="#local-6989586621679550874"><span class="hs-identifier hs-var">initialUTxO</span></a></span><span>
+</span><a href="#local-6989586621679551047"><span class="hs-identifier hs-var">client</span></a></span><span> </span><span class="annot"><span class="annottext">UTxO
+</span><a href="#local-6989586621679551048"><span class="hs-identifier hs-var">initialUTxO</span></a></span><span>
 </span><span id="line-53"></span><span>    </span><span class="annot"><span class="annottext">ChainBackendOptions
 -&gt; (forall {m :: * -&gt; *}.
     (ChainBackend m, MonadIO m, MonadThrow m, MonadCatch m) =&gt;
@@ -305,7 +305,7 @@ ChainBackendOptions
     m a)
 -&gt; IO a
 </span><a href="CardanoNode.html#runBackend"><span class="hs-identifier hs-var">runBackend</span></a></span><span> </span><span class="annot"><span class="annottext">ChainBackendOptions
-</span><a href="#local-6989586621679550857"><span class="hs-identifier hs-var">opts</span></a></span><span> </span><span class="annot"><span class="annottext">((forall {m :: * -&gt; *}.
+</span><a href="#local-6989586621679551031"><span class="hs-identifier hs-var">opts</span></a></span><span> </span><span class="annot"><span class="annottext">((forall {m :: * -&gt; *}.
   (ChainBackend m, MonadIO m, MonadThrow m, MonadCatch m) =&gt;
   m ())
  -&gt; IO ())
@@ -317,20 +317,20 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Tx -&gt; m ()
 forall (m :: * -&gt; *). ChainBackend m =&gt; Tx -&gt; m ()
 </span><span class="hs-identifier hs-var">submitTransaction</span></span><span> </span><span class="annot"><span class="annottext">Tx
-</span><a href="#local-6989586621679550877"><span class="hs-identifier hs-var">tx</span></a></span><span>
+</span><a href="#local-6989586621679551051"><span class="hs-identifier hs-var">tx</span></a></span><span>
 </span><span id="line-54"></span><span>    </span><span class="annot"><span class="annottext">Tx -&gt; IO Tx
 forall a. a -&gt; IO a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">Tx
-</span><a href="#local-6989586621679550877"><span class="hs-identifier hs-var">tx</span></a></span><span>
-</span><span id="line-55"></span><span>  </span><span id="local-6989586621679550884"><span class="annot"><span class="annottext">[TxId]
-</span><a href="#local-6989586621679550884"><span class="hs-identifier hs-var">observed</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Int -&gt; IO TxId -&gt; IO [TxId]
+</span><a href="#local-6989586621679551051"><span class="hs-identifier hs-var">tx</span></a></span><span>
+</span><span id="line-55"></span><span>  </span><span id="local-6989586621679551058"><span class="annot"><span class="annottext">[TxId]
+</span><a href="#local-6989586621679551058"><span class="hs-identifier hs-var">observed</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Int -&gt; IO TxId -&gt; IO [TxId]
 forall (m :: * -&gt; *) a. Applicative m =&gt; Int -&gt; m a -&gt; m [a]
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.html#replicateM"><span class="hs-identifier hs-var">replicateM</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Tx] -&gt; Int
 forall a. [a] -&gt; Int
 forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; Int
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#length"><span class="hs-identifier hs-var">length</span></a></span><span> </span><span class="annot"><span class="annottext">[Tx]
-</span><a href="#local-6989586621679550872"><span class="hs-identifier hs-var">deposits</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(IO TxId -&gt; IO [TxId]) -&gt; IO TxId -&gt; IO [TxId]
+</span><a href="#local-6989586621679551046"><span class="hs-identifier hs-var">deposits</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(IO TxId -&gt; IO [TxId]) -&gt; IO TxId -&gt; IO [TxId]
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
 </span><span id="line-56"></span><span>    </span><span class="annot"><span class="annottext">NominalDiffTime
@@ -340,7 +340,7 @@ forall a.
 NominalDiffTime -&gt; [HydraClient] -&gt; (Value -&gt; Maybe a) -&gt; IO a
 </span><a href="HydraNode.html#waitForAllMatch"><span class="hs-identifier hs-var">waitForAllMatch</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Timing -&gt; NominalDiffTime
 </span><a href="Hydra.Cluster.Util.html#depositTimeout"><span class="hs-identifier hs-var">depositTimeout</span></a></span><span> </span><span class="annot"><span class="annottext">Timing
-</span><a href="#local-6989586621679550853"><span class="hs-identifier hs-var">timing</span></a></span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; NominalDiffTime -&gt; NominalDiffTime
+</span><a href="#local-6989586621679551027"><span class="hs-identifier hs-var">timing</span></a></span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; NominalDiffTime -&gt; NominalDiffTime
 forall a. Num a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#%2A"><span class="hs-operator hs-var">*</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; NominalDiffTime
 forall a b. (Integral a, Num b) =&gt; a -&gt; b
@@ -348,21 +348,21 @@ forall a b. (Integral a, Num b) =&gt; a -&gt; b
 forall a. [a] -&gt; Int
 forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; Int
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#length"><span class="hs-identifier hs-var">length</span></a></span><span> </span><span class="annot"><span class="annottext">[HydraClient]
-</span><a href="#local-6989586621679550862"><span class="hs-identifier hs-var">clients</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; NominalDiffTime -&gt; NominalDiffTime
+</span><a href="#local-6989586621679551036"><span class="hs-identifier hs-var">clients</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; NominalDiffTime -&gt; NominalDiffTime
 forall a. Num a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#%2A"><span class="hs-operator hs-var">*</span></a></span><span> </span><span class="annot"><span class="annottext">NominalDiffTime
 </span><span class="hs-number">30</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[HydraClient]
-</span><a href="#local-6989586621679550862"><span class="hs-identifier hs-var">clients</span></a></span><span> </span><span class="annot"><span class="annottext">((Value -&gt; Maybe TxId) -&gt; IO TxId)
+</span><a href="#local-6989586621679551036"><span class="hs-identifier hs-var">clients</span></a></span><span> </span><span class="annot"><span class="annottext">((Value -&gt; Maybe TxId) -&gt; IO TxId)
 -&gt; (Value -&gt; Maybe TxId) -&gt; IO TxId
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679550886"><span class="annot"><span class="annottext">Value
-</span><a href="#local-6989586621679550886"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679551060"><span class="annot"><span class="annottext">Value
+</span><a href="#local-6989586621679551060"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
 </span><span id="line-57"></span><span>      </span><span class="annot"><span class="annottext">Bool -&gt; Maybe ()
 forall (f :: * -&gt; *). Alternative f =&gt; Bool -&gt; f ()
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.html#guard"><span class="hs-identifier hs-var">guard</span></a></span><span> </span><span class="annot"><span class="annottext">(Bool -&gt; Maybe ()) -&gt; Bool -&gt; Maybe ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Value
-</span><a href="#local-6989586621679550886"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">Value -&gt; Getting (First Value) Value Value -&gt; Maybe Value
+</span><a href="#local-6989586621679551060"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">Value -&gt; Getting (First Value) Value Value -&gt; Maybe Value
 forall s a. s -&gt; Getting (First a) s a -&gt; Maybe a
 </span><span class="hs-operator hs-var">^?</span></span><span> </span><span class="annot"><span class="annottext">Key -&gt; Traversal' Value Value
 forall t. AsValue t =&gt; Key -&gt; Traversal' t Value
@@ -378,7 +378,7 @@ forall (f :: * -&gt; *). Alternative f =&gt; Bool -&gt; f ()
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.html#guard"><span class="hs-identifier hs-var">guard</span></a></span><span> </span><span class="annot"><span class="annottext">(Bool -&gt; Maybe ()) -&gt; Bool -&gt; Maybe ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Value
-</span><a href="#local-6989586621679550886"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">Value -&gt; Getting (First Value) Value Value -&gt; Maybe Value
+</span><a href="#local-6989586621679551060"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">Value -&gt; Getting (First Value) Value Value -&gt; Maybe Value
 forall s a. s -&gt; Getting (First a) s a -&gt; Maybe a
 </span><span class="hs-operator hs-var">^?</span></span><span> </span><span class="annot"><span class="annottext">Key -&gt; Traversal' Value Value
 forall t. AsValue t =&gt; Key -&gt; Traversal' t Value
@@ -390,9 +390,9 @@ forall a. a -&gt; Maybe a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">HeadId -&gt; Value
 forall a. ToJSON a =&gt; a -&gt; Value
 </span><span class="hs-identifier hs-var">toJSON</span></span><span> </span><span class="annot"><span class="annottext">HeadId
-</span><a href="#local-6989586621679550867"><span class="hs-identifier hs-var">headId</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679551041"><span class="hs-identifier hs-var">headId</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-59"></span><span>      </span><span class="annot"><span class="annottext">Value
-</span><a href="#local-6989586621679550886"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">Value -&gt; Getting (First Value) Value Value -&gt; Maybe Value
+</span><a href="#local-6989586621679551060"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">Value -&gt; Getting (First Value) Value Value -&gt; Maybe Value
 forall s a. s -&gt; Getting (First a) s a -&gt; Maybe a
 </span><span class="hs-operator hs-var">^?</span></span><span> </span><span class="annot"><span class="annottext">Key -&gt; Traversal' Value Value
 forall t. AsValue t =&gt; Key -&gt; Traversal' t Value
@@ -408,7 +408,7 @@ forall a. FromJSON a =&gt; Value -&gt; Parser a
 </span><span id="line-60"></span><span>  </span><span class="annot"><span class="annottext">[TxId] -&gt; Set TxId
 forall a. Ord a =&gt; [a] -&gt; Set a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Set.Internal.html#fromList"><span class="hs-identifier hs-var">Set.fromList</span></a></span><span> </span><span class="annot"><span class="annottext">[TxId]
-</span><a href="#local-6989586621679550884"><span class="hs-identifier hs-var">observed</span></a></span><span> </span><span class="annot"><span class="annottext">Set TxId -&gt; Set TxId -&gt; IO ()
+</span><a href="#local-6989586621679551058"><span class="hs-identifier hs-var">observed</span></a></span><span> </span><span class="annot"><span class="annottext">Set TxId -&gt; Set TxId -&gt; IO ()
 forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; IO ()
 </span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">[TxId] -&gt; Set TxId
 forall a. Ord a =&gt; [a] -&gt; Set a
@@ -418,7 +418,7 @@ forall tx. IsTx tx =&gt; tx -&gt; TxIdType tx
 </span><span class="hs-identifier hs-var">txId</span></span><span> </span><span class="annot"><span class="annottext">(Tx -&gt; TxId) -&gt; [Tx] -&gt; [TxId]
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">[Tx]
-</span><a href="#local-6989586621679550872"><span class="hs-identifier hs-var">deposits</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679551046"><span class="hs-identifier hs-var">deposits</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-61"></span><span>  </span><span class="annot"><span class="annottext">Text -&gt; IO ()
 forall (m :: * -&gt; *). MonadIO m =&gt; Text -&gt; m ()
 </span><span class="hs-identifier hs-var">putTextLn</span></span><span> </span><span class="annot"><span class="annottext">Text
@@ -427,24 +427,24 @@ forall (m :: * -&gt; *). MonadIO m =&gt; Text -&gt; m ()
 forall a. a -&gt; IO a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">HeadId
-</span><a href="#local-6989586621679550867"><span class="hs-identifier hs-var">headId</span></a></span><span>
+</span><a href="#local-6989586621679551041"><span class="hs-identifier hs-var">headId</span></a></span><span>
 </span><span id="line-63"></span><span>
 </span><span id="line-64"></span><span class="annot"><span class="hs-comment">-- | Return the observed contestation deadline, allowing reporting before fanout.</span></span><span>
 </span><span id="line-65"></span><span class="annot"><a href="Hydra.Cluster.HeadLifecycle.html#closeHead"><span class="hs-identifier hs-type">closeHead</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Cluster.Util.html#Timing"><span class="hs-identifier hs-type">Timing</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HeadId</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="HydraNode.html#HydraClient"><span class="hs-identifier hs-type">HydraClient</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Clock.Internal.UTCTime.html#UTCTime"><span class="hs-identifier hs-type">UTCTime</span></a></span><span>
 </span><span id="line-66"></span><span id="closeHead"><span class="annot"><span class="annottext">closeHead :: Timing -&gt; HeadId -&gt; HydraClient -&gt; IO UTCTime
-</span><a href="Hydra.Cluster.HeadLifecycle.html#closeHead"><span class="hs-identifier hs-var hs-var">closeHead</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Cluster.Util.html#Timing"><span class="hs-identifier hs-type">Timing</span></a></span><span class="hs-special">{</span><span id="local-6989586621679550891"><span class="annot"><span class="annottext">NominalDiffTime
+</span><a href="Hydra.Cluster.HeadLifecycle.html#closeHead"><span class="hs-identifier hs-var hs-var">closeHead</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Cluster.Util.html#Timing"><span class="hs-identifier hs-type">Timing</span></a></span><span class="hs-special">{</span><span id="local-6989586621679551065"><span class="annot"><span class="annottext">NominalDiffTime
 $sel:blockTime:Timing :: Timing -&gt; NominalDiffTime
 blockTime :: NominalDiffTime
-</span><a href="Hydra.Cluster.Util.html#%24sel%3AblockTime%3ATiming"><span class="hs-identifier hs-var hs-var">blockTime</span></a></span></span><span class="hs-special">}</span><span> </span><span id="local-6989586621679550892"><span class="annot"><span class="annottext">HeadId
-</span><a href="#local-6989586621679550892"><span class="hs-identifier hs-var">headId</span></a></span></span><span> </span><span id="local-6989586621679550893"><span class="annot"><span class="annottext">HydraClient
-</span><a href="#local-6989586621679550893"><span class="hs-identifier hs-var">leader</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><a href="Hydra.Cluster.Util.html#%24sel%3AblockTime%3ATiming"><span class="hs-identifier hs-var hs-var">blockTime</span></a></span></span><span class="hs-special">}</span><span> </span><span id="local-6989586621679551066"><span class="annot"><span class="annottext">HeadId
+</span><a href="#local-6989586621679551066"><span class="hs-identifier hs-var">headId</span></a></span></span><span> </span><span id="local-6989586621679551067"><span class="annot"><span class="annottext">HydraClient
+</span><a href="#local-6989586621679551067"><span class="hs-identifier hs-var">leader</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
 </span><span id="line-67"></span><span>  </span><span class="annot"><span class="annottext">Text -&gt; IO ()
 forall (m :: * -&gt; *). MonadIO m =&gt; Text -&gt; m ()
 </span><span class="hs-identifier hs-var">putTextLn</span></span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;Closing the Head&quot;</span></span><span>
 </span><span id="line-68"></span><span>  </span><span class="annot"><span class="annottext">HydraClient -&gt; Value -&gt; IO ()
 </span><a href="HydraNode.html#send"><span class="hs-identifier hs-var">send</span></a></span><span> </span><span class="annot"><span class="annottext">HydraClient
-</span><a href="#local-6989586621679550893"><span class="hs-identifier hs-var">leader</span></a></span><span> </span><span class="annot"><span class="annottext">(Value -&gt; IO ()) -&gt; Value -&gt; IO ()
+</span><a href="#local-6989586621679551067"><span class="hs-identifier hs-var">leader</span></a></span><span> </span><span class="annot"><span class="annottext">(Value -&gt; IO ()) -&gt; Value -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; [Pair] -&gt; Value
 </span><a href="HydraNode.html#input"><span class="hs-identifier hs-var">input</span></a></span><span> </span><span class="annot"><span class="annottext">Text
@@ -461,18 +461,18 @@ forall a. Num a =&gt; a -&gt; a -&gt; a
 </span><span class="hs-number">20</span></span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; NominalDiffTime -&gt; NominalDiffTime
 forall a. Num a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#%2A"><span class="hs-operator hs-var">*</span></a></span><span> </span><span class="annot"><span class="annottext">NominalDiffTime
-</span><a href="#local-6989586621679550891"><span class="hs-identifier hs-var">blockTime</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">HydraClient
-</span><a href="#local-6989586621679550893"><span class="hs-identifier hs-var">leader</span></a></span><span> </span><span class="annot"><span class="annottext">((Value -&gt; Maybe UTCTime) -&gt; IO UTCTime)
+</span><a href="#local-6989586621679551065"><span class="hs-identifier hs-var">blockTime</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">HydraClient
+</span><a href="#local-6989586621679551067"><span class="hs-identifier hs-var">leader</span></a></span><span> </span><span class="annot"><span class="annottext">((Value -&gt; Maybe UTCTime) -&gt; IO UTCTime)
 -&gt; (Value -&gt; Maybe UTCTime) -&gt; IO UTCTime
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679550894"><span class="annot"><span class="annottext">Value
-</span><a href="#local-6989586621679550894"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679551068"><span class="annot"><span class="annottext">Value
+</span><a href="#local-6989586621679551068"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
 </span><span id="line-70"></span><span>    </span><span class="annot"><span class="annottext">Bool -&gt; Maybe ()
 forall (f :: * -&gt; *). Alternative f =&gt; Bool -&gt; f ()
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.html#guard"><span class="hs-identifier hs-var">guard</span></a></span><span> </span><span class="annot"><span class="annottext">(Bool -&gt; Maybe ()) -&gt; Bool -&gt; Maybe ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Value
-</span><a href="#local-6989586621679550894"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">Value -&gt; Getting (First Value) Value Value -&gt; Maybe Value
+</span><a href="#local-6989586621679551068"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">Value -&gt; Getting (First Value) Value Value -&gt; Maybe Value
 forall s a. s -&gt; Getting (First a) s a -&gt; Maybe a
 </span><span class="hs-operator hs-var">^?</span></span><span> </span><span class="annot"><span class="annottext">Key -&gt; Traversal' Value Value
 forall t. AsValue t =&gt; Key -&gt; Traversal' t Value
@@ -488,7 +488,7 @@ forall (f :: * -&gt; *). Alternative f =&gt; Bool -&gt; f ()
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.html#guard"><span class="hs-identifier hs-var">guard</span></a></span><span> </span><span class="annot"><span class="annottext">(Bool -&gt; Maybe ()) -&gt; Bool -&gt; Maybe ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Value
-</span><a href="#local-6989586621679550894"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">Value -&gt; Getting (First Value) Value Value -&gt; Maybe Value
+</span><a href="#local-6989586621679551068"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">Value -&gt; Getting (First Value) Value Value -&gt; Maybe Value
 forall s a. s -&gt; Getting (First a) s a -&gt; Maybe a
 </span><span class="hs-operator hs-var">^?</span></span><span> </span><span class="annot"><span class="annottext">Key -&gt; Traversal' Value Value
 forall t. AsValue t =&gt; Key -&gt; Traversal' t Value
@@ -500,9 +500,9 @@ forall a. a -&gt; Maybe a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">HeadId -&gt; Value
 forall a. ToJSON a =&gt; a -&gt; Value
 </span><span class="hs-identifier hs-var">toJSON</span></span><span> </span><span class="annot"><span class="annottext">HeadId
-</span><a href="#local-6989586621679550892"><span class="hs-identifier hs-var">headId</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679551066"><span class="hs-identifier hs-var">headId</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-72"></span><span>    </span><span class="annot"><span class="annottext">Value
-</span><a href="#local-6989586621679550894"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">Value -&gt; Getting (First UTCTime) Value UTCTime -&gt; Maybe UTCTime
+</span><a href="#local-6989586621679551068"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">Value -&gt; Getting (First UTCTime) Value UTCTime -&gt; Maybe UTCTime
 forall s a. s -&gt; Getting (First a) s a -&gt; Maybe a
 </span><span class="hs-operator hs-var">^?</span></span><span> </span><span class="annot"><span class="annottext">Key -&gt; Traversal' Value Value
 forall t. AsValue t =&gt; Key -&gt; Traversal' t Value
@@ -523,15 +523,15 @@ Prism Value Value UTCTime UTCTime
 </span><span id="line-76"></span><span class="annot"><a href="Hydra.Cluster.HeadLifecycle.html#fanoutHead"><span class="hs-identifier hs-type">fanoutHead</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Tracer</span></span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><a href="CardanoNode.html#HydraNodeLog"><span class="hs-identifier hs-type">HydraNodeLog</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Clock.Internal.UTCTime.html#UTCTime"><span class="hs-identifier hs-type">UTCTime</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HeadId</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="HydraNode.html#HydraClient"><span class="hs-identifier hs-type">HydraClient</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span>
 </span><span id="line-77"></span><span id="fanoutHead"><span class="annot"><span class="annottext">fanoutHead :: Tracer IO HydraNodeLog
 -&gt; UTCTime -&gt; HeadId -&gt; HydraClient -&gt; IO Int
-</span><a href="Hydra.Cluster.HeadLifecycle.html#fanoutHead"><span class="hs-identifier hs-var hs-var">fanoutHead</span></a></span></span><span> </span><span id="local-6989586621679550896"><span class="annot"><span class="annottext">Tracer IO HydraNodeLog
-</span><a href="#local-6989586621679550896"><span class="hs-identifier hs-var">tracer</span></a></span></span><span> </span><span id="local-6989586621679550897"><span class="annot"><span class="annottext">UTCTime
-</span><a href="#local-6989586621679550897"><span class="hs-identifier hs-var">deadline</span></a></span></span><span> </span><span id="local-6989586621679550898"><span class="annot"><span class="annottext">HeadId
-</span><a href="#local-6989586621679550898"><span class="hs-identifier hs-var">headId</span></a></span></span><span> </span><span id="local-6989586621679550899"><span class="annot"><span class="annottext">HydraClient
-</span><a href="#local-6989586621679550899"><span class="hs-identifier hs-var">leader</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-78"></span><span>  </span><span id="local-6989586621679550900"><span class="annot"><span class="annottext">NominalDiffTime
-</span><a href="#local-6989586621679550900"><span class="hs-identifier hs-var">remaining</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">UTCTime -&gt; UTCTime -&gt; NominalDiffTime
+</span><a href="Hydra.Cluster.HeadLifecycle.html#fanoutHead"><span class="hs-identifier hs-var hs-var">fanoutHead</span></a></span></span><span> </span><span id="local-6989586621679551070"><span class="annot"><span class="annottext">Tracer IO HydraNodeLog
+</span><a href="#local-6989586621679551070"><span class="hs-identifier hs-var">tracer</span></a></span></span><span> </span><span id="local-6989586621679551071"><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621679551071"><span class="hs-identifier hs-var">deadline</span></a></span></span><span> </span><span id="local-6989586621679551072"><span class="annot"><span class="annottext">HeadId
+</span><a href="#local-6989586621679551072"><span class="hs-identifier hs-var">headId</span></a></span></span><span> </span><span id="local-6989586621679551073"><span class="annot"><span class="annottext">HydraClient
+</span><a href="#local-6989586621679551073"><span class="hs-identifier hs-var">leader</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-78"></span><span>  </span><span id="local-6989586621679551074"><span class="annot"><span class="annottext">NominalDiffTime
+</span><a href="#local-6989586621679551074"><span class="hs-identifier hs-var">remaining</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">UTCTime -&gt; UTCTime -&gt; NominalDiffTime
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Clock.Internal.UTCDiff.html#diffUTCTime"><span class="hs-identifier hs-var">diffUTCTime</span></a></span><span> </span><span class="annot"><span class="annottext">UTCTime
-</span><a href="#local-6989586621679550897"><span class="hs-identifier hs-var">deadline</span></a></span><span> </span><span class="annot"><span class="annottext">(UTCTime -&gt; NominalDiffTime) -&gt; IO UTCTime -&gt; IO NominalDiffTime
+</span><a href="#local-6989586621679551071"><span class="hs-identifier hs-var">deadline</span></a></span><span> </span><span class="annot"><span class="annottext">(UTCTime -&gt; NominalDiffTime) -&gt; IO UTCTime -&gt; IO NominalDiffTime
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">IO UTCTime
 forall (m :: * -&gt; *). MonadTime m =&gt; m UTCTime
@@ -542,15 +542,15 @@ Tracer IO HydraNodeLog
 Tracer IO HydraNodeLog
 -&gt; NominalDiffTime -&gt; [HydraClient] -&gt; Value -&gt; IO ()
 </span><a href="HydraNode.html#waitFor"><span class="hs-identifier hs-var">waitFor</span></a></span><span> </span><span class="annot"><span class="annottext">Tracer IO HydraNodeLog
-</span><a href="#local-6989586621679550896"><span class="hs-identifier hs-var">tracer</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">NominalDiffTime -&gt; NominalDiffTime -&gt; NominalDiffTime
+</span><a href="#local-6989586621679551070"><span class="hs-identifier hs-var">tracer</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">NominalDiffTime -&gt; NominalDiffTime -&gt; NominalDiffTime
 forall a. Ord a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#max"><span class="hs-identifier hs-var">max</span></a></span><span> </span><span class="annot"><span class="annottext">NominalDiffTime
 </span><span class="hs-number">0</span></span><span> </span><span class="annot"><span class="annottext">NominalDiffTime
-</span><a href="#local-6989586621679550900"><span class="hs-identifier hs-var">remaining</span></a></span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; NominalDiffTime -&gt; NominalDiffTime
+</span><a href="#local-6989586621679551074"><span class="hs-identifier hs-var">remaining</span></a></span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; NominalDiffTime -&gt; NominalDiffTime
 forall a. Num a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#%2B"><span class="hs-operator hs-var">+</span></a></span><span> </span><span class="annot"><span class="annottext">NominalDiffTime
 </span><span class="hs-number">3</span></span><span class="hs-special">)</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">HydraClient
-</span><a href="#local-6989586621679550899"><span class="hs-identifier hs-var">leader</span></a></span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">(Value -&gt; IO ()) -&gt; Value -&gt; IO ()
+</span><a href="#local-6989586621679551073"><span class="hs-identifier hs-var">leader</span></a></span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">(Value -&gt; IO ()) -&gt; Value -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
 </span><span id="line-80"></span><span>    </span><span class="annot"><span class="annottext">Text -&gt; [Pair] -&gt; Value
@@ -560,22 +560,22 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 forall v. ToJSON v =&gt; Key -&gt; v -&gt; Pair
 forall e kv v. (KeyValue e kv, ToJSON v) =&gt; Key -&gt; v -&gt; kv
 </span><span class="hs-operator hs-var">.=</span></span><span> </span><span class="annot"><span class="annottext">HeadId
-</span><a href="#local-6989586621679550898"><span class="hs-identifier hs-var">headId</span></a></span><span class="hs-special">]</span><span>
+</span><a href="#local-6989586621679551072"><span class="hs-identifier hs-var">headId</span></a></span><span class="hs-special">]</span><span>
 </span><span id="line-81"></span><span>  </span><span class="annot"><span class="annottext">Text -&gt; IO ()
 forall (m :: * -&gt; *). MonadIO m =&gt; Text -&gt; m ()
 </span><span class="hs-identifier hs-var">putTextLn</span></span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;Finalizing the Head&quot;</span></span><span>
-</span><span id="line-82"></span><span>  </span><span id="local-6989586621679550904"><span class="annot"><span class="annottext">Int
-</span><a href="#local-6989586621679550904"><span class="hs-identifier hs-var">headSize</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">UTxO -&gt; Int
+</span><span id="line-82"></span><span>  </span><span id="local-6989586621679551078"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679551078"><span class="hs-identifier hs-var">headSize</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">UTxO -&gt; Int
 forall era. UTxO era -&gt; Int
 </span><span class="hs-identifier hs-var">UTxO.size</span></span><span> </span><span class="annot"><span class="annottext">(UTxO -&gt; Int) -&gt; IO UTxO -&gt; IO Int
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">HydraClient -&gt; IO UTxO
 </span><a href="HydraNode.html#getSnapshotUTxO"><span class="hs-identifier hs-var">getSnapshotUTxO</span></a></span><span> </span><span class="annot"><span class="annottext">HydraClient
-</span><a href="#local-6989586621679550899"><span class="hs-identifier hs-var">leader</span></a></span><span>
+</span><a href="#local-6989586621679551073"><span class="hs-identifier hs-var">leader</span></a></span><span>
 </span><span id="line-83"></span><span>  </span><span class="annot"><span class="annottext">HydraClient -&gt; Value -&gt; IO ()
 </span><a href="HydraNode.html#send"><span class="hs-identifier hs-var">send</span></a></span><span> </span><span class="annot"><span class="annottext">HydraClient
-</span><a href="#local-6989586621679550899"><span class="hs-identifier hs-var">leader</span></a></span><span> </span><span class="annot"><span class="annottext">(Value -&gt; IO ()) -&gt; Value -&gt; IO ()
+</span><a href="#local-6989586621679551073"><span class="hs-identifier hs-var">leader</span></a></span><span> </span><span class="annot"><span class="annottext">(Value -&gt; IO ()) -&gt; Value -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; [Pair] -&gt; Value
 </span><a href="HydraNode.html#input"><span class="hs-identifier hs-var">input</span></a></span><span> </span><span class="annot"><span class="annottext">Text
@@ -592,20 +592,20 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><span class="hs-number">100</span></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
 forall a. Num a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#%2B"><span class="hs-operator hs-var">+</span></a></span><span> </span><span class="annot"><span class="annottext">Int
-</span><a href="#local-6989586621679550904"><span class="hs-identifier hs-var">headSize</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+</span><a href="#local-6989586621679551078"><span class="hs-identifier hs-var">headSize</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
 forall a. Integral a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#div"><span class="hs-operator hs-var">`div`</span></a></span><span> </span><span class="annot"><span class="annottext">Int
 </span><span class="hs-number">2</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">HydraClient
-</span><a href="#local-6989586621679550899"><span class="hs-identifier hs-var">leader</span></a></span><span> </span><span class="annot"><span class="annottext">((Value -&gt; Maybe Int) -&gt; IO Int) -&gt; (Value -&gt; Maybe Int) -&gt; IO Int
+</span><a href="#local-6989586621679551073"><span class="hs-identifier hs-var">leader</span></a></span><span> </span><span class="annot"><span class="annottext">((Value -&gt; Maybe Int) -&gt; IO Int) -&gt; (Value -&gt; Maybe Int) -&gt; IO Int
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679550907"><span class="annot"><span class="annottext">Value
-</span><a href="#local-6989586621679550907"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679551081"><span class="annot"><span class="annottext">Value
+</span><a href="#local-6989586621679551081"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
 </span><span id="line-85"></span><span>    </span><span class="annot"><span class="annottext">Bool -&gt; Maybe ()
 forall (f :: * -&gt; *). Alternative f =&gt; Bool -&gt; f ()
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.html#guard"><span class="hs-identifier hs-var">guard</span></a></span><span> </span><span class="annot"><span class="annottext">(Bool -&gt; Maybe ()) -&gt; Bool -&gt; Maybe ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Value
-</span><a href="#local-6989586621679550907"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">Value -&gt; Getting (First Value) Value Value -&gt; Maybe Value
+</span><a href="#local-6989586621679551081"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">Value -&gt; Getting (First Value) Value Value -&gt; Maybe Value
 forall s a. s -&gt; Getting (First a) s a -&gt; Maybe a
 </span><span class="hs-operator hs-var">^?</span></span><span> </span><span class="annot"><span class="annottext">Key -&gt; Traversal' Value Value
 forall t. AsValue t =&gt; Key -&gt; Traversal' t Value
@@ -621,7 +621,7 @@ forall (f :: * -&gt; *). Alternative f =&gt; Bool -&gt; f ()
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.html#guard"><span class="hs-identifier hs-var">guard</span></a></span><span> </span><span class="annot"><span class="annottext">(Bool -&gt; Maybe ()) -&gt; Bool -&gt; Maybe ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Value
-</span><a href="#local-6989586621679550907"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">Value -&gt; Getting (First Value) Value Value -&gt; Maybe Value
+</span><a href="#local-6989586621679551081"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">Value -&gt; Getting (First Value) Value Value -&gt; Maybe Value
 forall s a. s -&gt; Getting (First a) s a -&gt; Maybe a
 </span><span class="hs-operator hs-var">^?</span></span><span> </span><span class="annot"><span class="annottext">Key -&gt; Traversal' Value Value
 forall t. AsValue t =&gt; Key -&gt; Traversal' t Value
@@ -633,10 +633,10 @@ forall a. a -&gt; Maybe a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">HeadId -&gt; Value
 forall a. ToJSON a =&gt; a -&gt; Value
 </span><span class="hs-identifier hs-var">toJSON</span></span><span> </span><span class="annot"><span class="annottext">HeadId
-</span><a href="#local-6989586621679550898"><span class="hs-identifier hs-var">headId</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-87"></span><span>    </span><span id="local-6989586621679550908"><span class="annot"><span class="annottext">Value
-</span><a href="#local-6989586621679550908"><span class="hs-identifier hs-var">finalized</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Value
-</span><a href="#local-6989586621679550907"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">Value -&gt; Getting (First Value) Value Value -&gt; Maybe Value
+</span><a href="#local-6989586621679551072"><span class="hs-identifier hs-var">headId</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-87"></span><span>    </span><span id="local-6989586621679551082"><span class="annot"><span class="annottext">Value
+</span><a href="#local-6989586621679551082"><span class="hs-identifier hs-var">finalized</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Value
+</span><a href="#local-6989586621679551081"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">Value -&gt; Getting (First Value) Value Value -&gt; Maybe Value
 forall s a. s -&gt; Getting (First a) s a -&gt; Maybe a
 </span><span class="hs-operator hs-var">^?</span></span><span> </span><span class="annot"><span class="annottext">Key -&gt; Traversal' Value Value
 forall t. AsValue t =&gt; Key -&gt; Traversal' t Value
@@ -651,7 +651,7 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 forall a. [a] -&gt; Int
 forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; Int
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#length"><span class="hs-identifier hs-var">length</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Value
-</span><a href="#local-6989586621679550908"><span class="hs-identifier hs-var">finalized</span></a></span><span> </span><span class="annot"><span class="annottext">Value -&gt; Getting (Endo [Value]) Value Value -&gt; [Value]
+</span><a href="#local-6989586621679551082"><span class="hs-identifier hs-var">finalized</span></a></span><span> </span><span class="annot"><span class="annottext">Value -&gt; Getting (Endo [Value]) Value Value -&gt; [Value]
 forall s a. s -&gt; Getting (Endo [a]) s a -&gt; [a]
 </span><span class="hs-operator hs-var">^..</span></span><span> </span><span class="annot"><span class="annottext">Getting (Endo [Value]) Value Value
 forall t. AsValue t =&gt; IndexedTraversal' Key t Value
