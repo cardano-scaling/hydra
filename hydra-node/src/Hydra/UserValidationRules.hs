@@ -6,8 +6,9 @@
 
 module Hydra.UserValidationRules where
 
-import Cardano.Api (AssetId (..), TxBodyContent (txMintValue), getTxBody, getTxBodyContent, txMintValueToValue)
+import Cardano.Api (AssetId (..), HashableScriptData, TxBodyContent (txMintValue), TxOutDatum (..), getOriginalScriptDataBytes, getTxBody, getTxBodyContent, txMintValueToValue)
 import Cardano.Api.UTxO qualified as UTxO
+import Data.ByteString qualified as BS
 import Data.Map qualified as Map
 import Data.Set qualified as Set
 import GHC.IsList (toList)
@@ -23,6 +24,10 @@ data PolicyViolation
   | MaxOutputValueAssetsExceeded
       { actualAssetCount :: Natural
       , maximumAssetCount :: Natural
+      }
+  | MaxOutputDatumSizeExceeded
+      { actualDatumSize :: Natural
+      , maximumDatumSize :: Natural
       }
   deriving (Eq, Show)
 
@@ -41,6 +46,7 @@ data UserValidationRules = UserValidationRules
   , l2MintingRule :: MintingOnL2Rule
   , maxUTxOCount :: Maybe Natural
   , maxOutputValueAssets :: Maybe Natural
+  , maxDatumSize :: Maybe Natural
   }
   deriving (Eq, Show, Generic)
 
@@ -60,6 +66,10 @@ validateUserTransactionWith rules resultingUTxO tx = do
     Nothing -> Right ()
     Just limit ->
       traverse_ (checkMaxOutputValueAssets limit) (txOuts' tx)
+  case rules.maxDatumSize of
+    Nothing -> Right ()
+    Just limit ->
+      traverse_ (checkMaxDatumSize limit) (txOuts' tx)
 
 checkPolicies :: Set PolicyId -> Tx -> Either PolicyViolation ()
 checkPolicies policies tx = do
@@ -110,3 +120,24 @@ checkMaxOutputValueAssets limit (TxOut _ value _ _) =
               { actualAssetCount = actual
               , maximumAssetCount = limit
               }
+
+checkMaxDatumSize :: Natural -> TxOut ctx -> Either PolicyViolation ()
+checkMaxDatumSize limit (TxOut _ _ datum _) =
+  case datum of
+    TxOutDatumNone -> Right ()
+    TxOutDatumHash _ _ -> Right ()
+    TxOutDatumInline _ scriptData -> checkSize scriptData
+    TxOutSupplementalDatum _ scriptData -> checkSize scriptData
+ where
+  checkSize :: HashableScriptData -> Either PolicyViolation ()
+  checkSize scriptData =
+    let actual =
+          fromIntegral (BS.length (getOriginalScriptDataBytes scriptData))
+     in if actual <= limit
+          then Right ()
+          else
+            Left
+              MaxOutputDatumSizeExceeded
+                { actualDatumSize = actual
+                , maximumDatumSize = limit
+                }
