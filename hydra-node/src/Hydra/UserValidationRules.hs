@@ -7,18 +7,22 @@
 module Hydra.UserValidationRules where
 
 import Cardano.Api (AssetId (..), TxBodyContent (txMintValue), getTxBody, getTxBodyContent, txMintValueToValue)
+import Cardano.Api.UTxO qualified as UTxO
+import Data.Map qualified as Map
 import Data.Set qualified as Set
 import GHC.IsList (toList)
-import Hydra.Cardano.Api (PolicyId, Tx, UTxO)
+import Hydra.Cardano.Api (PolicyId, Tx, TxOut, UTxO, txOuts', pattern TxOut)
 import Hydra.Prelude hiding (toList)
-import qualified Data.Map as Map
-import qualified Cardano.Api.UTxO as UTxO
 
 data PolicyViolation
   = PolicyMintingViolation {invalidPolicyIds :: Set PolicyId, allowedPolicyIds :: Set PolicyId}
   | MaxUTxOCountExceeded
       { actualCount :: Natural
       , maximumCount :: Natural
+      }
+  | MaxOutputValueAssetsExceeded
+      { actualAssetCount :: Natural
+      , maximumAssetCount :: Natural
       }
   deriving (Eq, Show)
 
@@ -36,6 +40,7 @@ data UserValidationRules = UserValidationRules
   { policyRule :: Maybe PolicyRule
   , l2MintingRule :: MintingOnL2Rule
   , maxUTxOCount :: Maybe Natural
+  , maxOutputValueAssets :: Maybe Natural
   }
   deriving (Eq, Show, Generic)
 
@@ -51,6 +56,10 @@ validateUserTransactionWith rules resultingUTxO tx = do
   case rules.maxUTxOCount of
     Nothing -> Right ()
     Just c -> checkMaxUTxOCount c resultingUTxO
+  case rules.maxOutputValueAssets of
+    Nothing -> Right ()
+    Just limit ->
+      traverse_ (checkMaxOutputValueAssets limit) (txOuts' tx)
 
 checkPolicies :: Set PolicyId -> Tx -> Either PolicyViolation ()
 checkPolicies policies tx = do
@@ -76,7 +85,28 @@ checkMaxUTxOCount limit utxo =
   let actual = fromIntegral (Map.size (UTxO.unUTxO utxo))
    in if actual <= limit
         then Right ()
-        else Left MaxUTxOCountExceeded
-          { actualCount = actual
-          , maximumCount = limit
-          }
+        else
+          Left
+            MaxUTxOCountExceeded
+              { actualCount = actual
+              , maximumCount = limit
+              }
+
+checkMaxOutputValueAssets :: Natural -> TxOut ctx -> Either PolicyViolation ()
+checkMaxOutputValueAssets limit (TxOut _ value _ _) =
+  let assets =
+        Set.fromList
+          [ assetId
+          | (assetId@(AssetId _ _), quantity) <-
+              toList value
+          , quantity /= 0
+          ]
+      actual = fromIntegral (Set.size assets)
+   in if actual <= limit
+        then Right ()
+        else
+          Left
+            MaxOutputValueAssetsExceeded
+              { actualAssetCount = actual
+              , maximumAssetCount = limit
+              }
