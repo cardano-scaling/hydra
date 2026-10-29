@@ -843,6 +843,7 @@ data CardanoChainLog
   | RolledBackward {point :: ChainPoint}
   | Wallet TinyWalletLog
   | StartingChainDecision StartingDecision
+  | BlockfrostRateLimit
   | BlockfrostTransientError {reason :: Text, retryDelay :: Int}
   | PartialFanoutFailed {reason :: Text}
   | -- | A transaction minted a head's tokens but carries a datum this node

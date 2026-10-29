@@ -84,6 +84,9 @@ library
     Hydra.Ledger.Simple
     Hydra.Logging.Messages
     Hydra.Logging.Monitoring
+    Hydra.Logging.Monitoring.Accounting
+    Hydra.Logging.Monitoring.Metrics
+    Hydra.Logging.Monitoring.Registry
     Hydra.Network
     Hydra.Network.Authenticate
     Hydra.Network.Etcd
@@ -100,6 +103,7 @@ library
     Hydra.Node.ParameterMismatch
     Hydra.Node.Run
     Hydra.Node.State
+    Hydra.Node.Stats
     Hydra.Node.UnsyncedPeriod
     Hydra.Node.Util
     Hydra.Options
@@ -404,6 +408,7 @@ test-suite tests
     Hydra.Ledger.Cardano.TimeSpec
     Hydra.Ledger.CardanoSpec
     Hydra.Ledger.SimpleSpec
+    Hydra.Logging.AccountingSpec
     Hydra.Logging.MonitoringSpec
     Hydra.LoggingSpec
     Hydra.Model
@@ -436,6 +441,7 @@ test-suite tests
     , amazonka
     , amazonka-s3
     , base
+    , blockfrost-client
     , bytestring
     , cardano-api
     , cardano-api:gen

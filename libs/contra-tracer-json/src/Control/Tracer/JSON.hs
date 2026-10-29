@@ -127,7 +127,8 @@ withTracerOutputTo bufferingMode hdl namespace action = do
   tracer queue =
     Tracer $
       emit $
-        mkEnvelope namespace >=> liftIO . atomically . writeTBQueue queue
+        mkEnvelope namespace >=> \entry ->
+          liftIO $ atomically $ writeTBQueue queue entry
 
   writeLogs queue closed = do
     entries <- atomically $ do
@@ -148,7 +149,10 @@ withTracerOutputTo bufferingMode hdl namespace action = do
       -- unnoticed until the queue filled, at which point every 'traceWith' in
       -- the node blocks forever on a queue nobody drains.
       liftIO $
-        (forM_ entries (encodeEntry >=> write) >> hFlush hdl)
+        ( do
+            forM_ entries (encodeEntry >=> write)
+            hFlush hdl
+        )
           `catch` \(_ :: IOException) -> pure ()
       writeLogs queue closed
 

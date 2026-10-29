@@ -3,22 +3,39 @@ module Hydra.Logging.MonitoringSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
+import Data.Set qualified as Set
 import Data.Text qualified as Text
+import Hydra.HeadLogic.State qualified as Head
+import Hydra.Logging.Monitoring.Registry qualified as Registry
+import Hydra.Node.State qualified as NodeState
+import Hydra.Node.Stats qualified as Stats
 
-import Control.Tracer.JSON (Tracer, nullTracer, traceWith)
+import Control.Concurrent qualified as Concurrent
+import Control.Concurrent.Class.MonadSTM (putTMVar, takeTMVar)
+import Control.Exception qualified as Exception
+import Control.Monad.Class.MonadAsync (cancel, waitCatch)
+import Control.Tracer (emit)
+import Control.Tracer.JSON (Tracer (..), nullTracer, traceWith)
+import GHC.Conc (BlockReason (BlockedOnException), ThreadStatus (..), threadStatus)
 import GHC.Stats (getRTSStatsEnabled)
+import Hydra.API.APIServerLog qualified as API
 import Hydra.API.ClientInput (ClientInput (NewTx))
+import Hydra.API.ClientInput qualified as Client
+import Hydra.API.HTTPServer (observeL1)
 import Hydra.API.ServerOutput (ClientMessage (RejectedInputBecauseBroadcastStalled))
+import Hydra.API.ServerOutput qualified as Output
+import Hydra.HeadLogic (Input (ClientInput))
 import Hydra.HeadLogic.Outcome (Effect (ClientEffect), Outcome (..), StateChanged (..))
-import Hydra.HeadLogicSpec (receiveMessage, testSnapshot)
+import Hydra.HeadLogicSpec (inIdleState, inOpenState, receiveMessage, testSnapshot)
 import Hydra.Ledger.Simple (SimpleTx)
-import Hydra.Logging.Messages (HydraLog (Node))
+import Hydra.Logging.Messages (HydraLog (APIServer, Network, Node))
 import Hydra.Logging.Monitoring
 import Hydra.Network (Host (Host), StallReason (..))
+import Hydra.Network.Etcd qualified as Etcd
 import Hydra.Network.Message (Message (ReqTx))
 import Hydra.Node (HydraNodeLog (..))
+import Hydra.Node.Network qualified as Network
 
--- import Network.Socket (PortNumber(PortNumber))
 import Network.HTTP.Req (GET (..), NoReqBody (..), bsResponse, defaultHttpConfig, http, port, req, responseBody, runReq, (/:))
 import Test.Hydra.Ledger.Simple (aValidTx, utxoRefs)
 import Test.Hydra.Tx.Fixture (alice, testHeadId)
@@ -26,6 +43,211 @@ import Test.Network.Ports (randomUnusedTCPPorts)
 
 spec :: Spec
 spec = do
+  it "publishes one HELP and TYPE per family, including labelled families" $ do
+    (_, registry, _) <- prepareRegistry @SimpleTx "direct"
+    rows <- Text.lines . decodeUtf8 . toStrict <$> Registry.sample registry
+    let declarations prefix = [name | line <- rows, prefix `Text.isPrefixOf` line, name <- take 1 $ drop 2 $ Text.words line]
+        types = declarations "# TYPE "
+        helps = declarations "# HELP "
+    length types `shouldBe` Set.size (Set.fromList types)
+    sort helps `shouldBe` sort types
+    rows `shouldContain` ["# TYPE hydra_head_requested_tx_total counter"]
+    rows `shouldContain` ["hydra_head_tx_confirmation_seconds_bucket{le=\"300.0\"} 0.0"]
+    rows `shouldContain` ["hydra_head_tx_confirmation_time_ms_bucket{le=\"300000.0\"} 0.0"]
+
+  it "exposes only the approved protocol families and compatibility aliases" $ do
+    (_, registry, _) <- prepareRegistry @SimpleTx "direct"
+    rows <- Text.lines . decodeUtf8 . toStrict <$> Registry.sample registry
+    let families = [name | line <- rows, "# TYPE " `Text.isPrefixOf` line, name <- take 1 $ drop 2 $ Text.words line]
+    sort families `shouldBe` sort (protocolMetrics <> canonicalAliases <> additionalMetrics)
+
+  it "does not count processing retries as new requests" $ do
+    (record, registry, _) <- prepareRegistry @SimpleTx "direct"
+    let input = Node $ BeginInput alice 7 (receiveMessage (ReqTx $ aValidTx 42))
+    record input
+    record input
+    rows <- Text.lines . decodeUtf8 . toStrict <$> Registry.sample registry
+    rows `shouldContain` ["hydra_head_requested_tx_total  1"]
+    rows `shouldContain` ["hydra_head_requested_tx  1"]
+
+  it "records completed client processing attempts including retries" $ do
+    (record, registry, _) <- prepareRegistry @SimpleTx "direct"
+    let input = ClientInput $ NewTx $ aValidTx 42
+    record $ Node $ BeginInput alice 7 input
+    record $ Node $ EndInput alice 7
+    record $ Node $ BeginInput alice 7 input
+    record $ Node $ EndInput alice 7
+    record $ Node $ BeginInput alice 8 input
+    record $ Node $ EndInput alice 8
+    rows <- Text.lines . decodeUtf8 . toStrict <$> Registry.sample registry
+    rows `shouldContain` ["hydra_head_inputs_total  3"]
+    rows `shouldContain` ["hydra_node_input_processing_seconds_count{source=\"client\"} 3"]
+
+  it "counts transaction refusals without mixing in unrelated commands" $ do
+    (record, registry, _) <- prepareRegistry @SimpleTx "direct"
+    let failedHead = NodeState.headState inIdleState
+        txInputs = [Client.NewTx $ aValidTx 42, Client.Decommit $ aValidTx 43]
+        commands :: [Client.ClientInput SimpleTx]
+        commands = [Client.Close, Client.Fanout]
+        effects =
+          [ClientEffect $ Output.CommandFailed input failedHead | input <- txInputs <> commands]
+            <> [ClientEffect $ Output.RejectedInputBecauseUnsynced input 1 | input <- txInputs <> commands]
+    record $ Node $ LogicOutcome alice (Continue [] effects)
+    rows <- Text.lines . decodeUtf8 . toStrict <$> Registry.sample registry
+    rows `shouldContain` ["hydra_head_transaction_outcomes_total{outcome=\"rejected_state\"} 2"]
+    rows `shouldContain` ["hydra_head_transaction_outcomes_total{outcome=\"refused_unsynced\"} 2"]
+
+  it "groups network failures and ignores routine recovery events" $ do
+    (record, registry, _) <- prepareRegistry @SimpleTx "direct"
+    let emitEvent = record . Network . Network.Etcd
+    mapM_ emitEvent [Etcd.WatchMessagesFallbackTo 1, Etcd.BroadcastDeduped 1 2]
+    initial <- Text.lines . decodeUtf8 . toStrict <$> Registry.sample registry
+    let samples = filter (Text.isPrefixOf "hydra_network_events_total{") initial
+    length samples `shouldBe` 9
+    samples `shouldSatisfy` all (Text.isSuffixOf " 0")
+    mapM_
+      emitEvent
+      [ Etcd.LowLeaseTTL 1
+      , Etcd.NoKeepAliveResponse
+      , Etcd.FailedToDecodeLog "log" "invalid"
+      , Etcd.FailedToDecodeValue "key" "value" "invalid"
+      , Etcd.PersistentQueueLoadFailed "invalid item"
+      , Etcd.PersistentQueueWriteFailed "disk full"
+      , Etcd.PersistentQueueDeleteFailed 1 "permission denied"
+      , Etcd.PersistentQueueStatFailed "permission denied"
+      ]
+    rows <- Text.lines . decodeUtf8 . toStrict <$> Registry.sample registry
+    rows `shouldContain` ["hydra_network_events_total{event=\"lease_warning\"} 2"]
+    rows `shouldContain` ["hydra_network_events_total{event=\"decode_failure\"} 2"]
+    rows `shouldContain` ["hydra_network_events_total{event=\"queue_storage_failure\"} 3"]
+    rows `shouldContain` ["hydra_network_events_total{event=\"queue_stat_failure\"} 1"]
+
+  it "records failed chain posts before their error input is processed" $ do
+    (record, registry, _) <- prepareRegistry @SimpleTx "direct"
+    record $ Node $ ChainPostStarted "partial_fanout"
+    record $ Node $ ChainPostFinished "partial_fanout" False 2
+    rows <- Text.lines . decodeUtf8 . toStrict <$> Registry.sample registry
+    rows `shouldContain` ["hydra_chain_operation_failures_total{backend=\"direct\",operation=\"partial_fanout\"} 1"]
+    rows `shouldContain` ["hydra_chain_operations_inflight{backend=\"direct\",operation=\"partial_fanout\"} 0.0"]
+
+  it "keeps a blocked protocol post active while API drafts complete or fail" $ do
+    (record, registry, _) <- prepareRegistry @SimpleTx "direct"
+    record $ Node $ ChainPostStarted "increment"
+    forM_ [True, False, True, False] $ \successful -> do
+      record $ APIServer $ API.APIL1Started "draft_deposit"
+      record $ APIServer $ API.APIL1Finished "draft_deposit" successful 1
+    rows <- Text.lines . decodeUtf8 . toStrict <$> Registry.sample registry
+    rows `shouldContain` ["hydra_chain_operations_inflight{backend=\"direct\",operation=\"increment\"} 1.0"]
+    rows `shouldContain` ["hydra_chain_operation_seconds_count{backend=\"direct\",operation=\"increment\"} 0"]
+    rows `shouldContain` ["hydra_chain_operations_inflight{backend=\"direct\",operation=\"draft_deposit\"} 0.0"]
+    rows `shouldContain` ["hydra_chain_operation_seconds_count{backend=\"direct\",operation=\"draft_deposit\"} 4"]
+
+  forM_ [("start", True, "1"), ("completion", False, "0")] $ \(boundary, pauseOnStart, failures) ->
+    it ("balances API L1 accounting when cancelled at " <> boundary) $ failAfter 3 $ do
+      (record, registry, _) <- prepareRegistry @SimpleTx "direct"
+      reached <- newLabelledEmptyTMVarIO "accounting-boundary-reached"
+      release <- newLabelledEmptyTMVarIO "release-accounting-boundary"
+      thread <- newLabelledEmptyTMVarIO "operation-thread"
+      let pause = uninterruptibleMask_ $ do
+            atomically $ putTMVar reached ()
+            atomically $ takeTMVar release
+          tracer = Tracer . emit $ \message -> case message of
+            API.APIL1Started{} -> do
+              record $ APIServer message
+              when pauseOnStart pause
+            API.APIL1Finished{} -> do
+              unless pauseOnStart pause
+              record $ APIServer message
+            _ -> pure ()
+      withAsyncLabelled
+        ( "observed-api-operation"
+        , do
+            Concurrent.myThreadId >>= atomically . putTMVar thread
+            observeL1 tracer "submit" id (pure True)
+        )
+        $ \worker -> do
+          ( do
+              atomically $ takeTMVar reached
+              workerThread <- atomically $ takeTMVar thread
+              sender <- Concurrent.forkIO $ Concurrent.throwTo workerThread Exception.ThreadKilled
+              -- Queue cancellation while the callback holds the boundary,
+              -- then release it without relying on scheduling or a delay.
+              let awaitCancellation =
+                    threadStatus sender >>= \case
+                      ThreadBlocked BlockedOnException -> pure ()
+                      ThreadFinished -> expectationFailure "Cancellation was not queued"
+                      ThreadDied -> expectationFailure "Cancellation sender died"
+                      _ -> Concurrent.yield >> awaitCancellation
+              awaitCancellation
+            )
+            `finally` atomically (putTMVar release ())
+          result <- waitCatch worker
+          -- Completion may win the cancellation as the async worker returns;
+          -- either outcome must leave exactly one completed operation.
+          when pauseOnStart $ result `shouldSatisfy` isLeft
+      rows <- Text.lines . decodeUtf8 . toStrict <$> Registry.sample registry
+      rows `shouldContain` ["hydra_chain_operations_inflight{backend=\"direct\",operation=\"submit\"} 0.0"]
+      rows `shouldContain` ["hydra_chain_operation_seconds_count{backend=\"direct\",operation=\"submit\"} 1"]
+      rows `shouldContain` ["hydra_chain_operation_failures_total{backend=\"direct\",operation=\"submit\"} " <> failures]
+
+  it "balances API L1 accounting when cancelled during the operation" $ failAfter 3 $ do
+    (record, registry, _) <- prepareRegistry @SimpleTx "direct"
+    entered <- newLabelledEmptyTMVarIO "operation-entered"
+    blocked <- newLabelledEmptyTMVarIO "blocked-operation"
+    let tracer = Tracer . emit $ record . APIServer
+        action = atomically (putTMVar entered ()) >> atomically (takeTMVar blocked)
+    withAsyncLabelled ("blocked-api-operation", observeL1 tracer "submit" id action) $ \worker -> do
+      atomically $ takeTMVar entered
+      cancel worker
+    rows <- Text.lines . decodeUtf8 . toStrict <$> Registry.sample registry
+    rows `shouldContain` ["hydra_chain_operations_inflight{backend=\"direct\",operation=\"submit\"} 0.0"]
+    rows `shouldContain` ["hydra_chain_operation_seconds_count{backend=\"direct\",operation=\"submit\"} 1"]
+    rows `shouldContain` ["hydra_chain_operation_failures_total{backend=\"direct\",operation=\"submit\"} 1"]
+
+  it "does not recount a repeated snapshot adoption" $ do
+    (record, registry, _) <- prepareRegistry @SimpleTx "direct"
+    let snapshot = testSnapshot 1 0 [aValidTx 42] (utxoRefs [1])
+    replicateM_ 3 $ record $ Node $ LogicOutcome alice (Continue [SnapshotConfirmed testHeadId (Just snapshot) mempty] [])
+    rows <- Text.lines . decodeUtf8 . toStrict <$> Registry.sample registry
+    rows `shouldContain` ["hydra_head_confirmed_tx_total  1"]
+    rows `shouldContain` ["hydra_head_snapshots_total{source=\"adopted\"} 1"]
+    rows `shouldContain` ["hydra_head_snapshot_confirmation_seconds_count  0"]
+
+  it "restores an in-flight snapshot's contents without fabricating its latency" $ do
+    (record, registry, _) <- prepareRegistry @SimpleTx "direct"
+    let snapshot = testSnapshot 1 0 [aValidTx 42] (utxoRefs [1])
+        initial = inOpenState [alice]
+        restored = case NodeState.headState initial of
+          Head.Open open@Head.OpenState{coordinatedHeadState = coordinated} ->
+            initial{NodeState.headState = Head.Open open{Head.coordinatedHeadState = coordinated{Head.seenSnapshot = Head.mkSeenSnapshot snapshot mempty}}}
+          _ -> initial
+    record $ Node $ LoadedState mempty restored
+    record $ Node $ NodeHealth $ Stats.nodeStats 0 0 restored
+    restoredRows <- Text.lines . decodeUtf8 . toStrict <$> Registry.sample registry
+    restoredRows `shouldContain` ["hydra_head_snapshot_inflight  1.0"]
+    restoredRows `shouldContain` ["hydra_head_snapshot_missing_signatures  1.0"]
+    record $ Node $ LogicOutcome alice (Continue [SnapshotConfirmed testHeadId Nothing mempty] [])
+    rows <- Text.lines . decodeUtf8 . toStrict <$> Registry.sample registry
+    rows `shouldContain` ["hydra_head_confirmed_tx_total  1"]
+    rows `shouldContain` ["hydra_head_snapshot_confirmation_seconds_count  0"]
+    rows `shouldContain` ["hydra_head_tx_confirmation_seconds_count  0"]
+
+  it "clears timing entries on a dropped request and local-state reset" $ do
+    let input = receiveMessage (ReqTx $ aValidTx 42)
+        snapshot = testSnapshot 1 0 [aValidTx 42] (utxoRefs [1])
+    forM_
+      [ Node $ DroppedFromQueue 1 input
+      , Node $ LogicOutcome alice (Continue [LocalStateCleared testHeadId 0] [])
+      ]
+      $ \discard -> do
+        (record, registry, _) <- prepareRegistry @SimpleTx "direct"
+        record $ Node $ BeginInput alice 1 input
+        record discard
+        record $ Node $ LogicOutcome alice (Continue [SnapshotConfirmed testHeadId (Just snapshot) mempty] [])
+        rows <- Text.lines . decodeUtf8 . toStrict <$> Registry.sample registry
+        rows `shouldContain` ["hydra_head_confirmed_tx_total  1"]
+        rows `shouldContain` ["hydra_head_tx_confirmation_seconds_count  0"]
+
   it "records snapshot round and tx confirmation times on the normal signing path" $ do
     failAfter 3 $ do
       [p] <- randomUnusedTCPPorts 1
@@ -50,13 +272,13 @@ spec = do
   -- renaming one breaks operators without breaking any other test. All are
   -- registered when monitoring starts, so a scrape carries every one of them
   -- before anything has been observed.
-  it "registers every documented metric on start up" $ do
+  it "keeps existing metric families registered at startup" $ do
     failAfter 10 $ do
       [p] <- randomUnusedTCPPorts 1
       withMonitoring (Just $ fromIntegral p) nullTracer $ \(_ :: Tracer IO (HydraLog SimpleTx)) -> do
         scraped <- scrapedMetricNames <$> scrapeMetrics p
         filter (`notElem` scraped) protocolMetrics `shouldBe` []
-        -- The RTS gauges are registered only when the process runs with
+        -- The RTS metrics are registered only when the process runs with
         -- '+RTS -T', which this suite does not, so they are expected absent
         -- here and present anywhere that does.
         rtsEnabled <- getRTSStatsEnabled
@@ -73,7 +295,7 @@ spec = do
         let scrape = Text.lines <$> scrapeMetrics p
 
         traceWith tracer (Node $ BroadcastBacklog 7 4)
-        traceWith tracer (Node $ LogicOutcome alice (Continue [NetworkBroadcastStalled 7 NoProgress] mempty))
+        traceWith tracer (Node $ BroadcastHealth (Just NoProgress))
         traceWith tracer . Node . LogicOutcome alice $
           Continue mempty [ClientEffect (RejectedInputBecauseBroadcastStalled (NewTx (aValidTx 42)) 7 NoProgress)]
 
@@ -88,7 +310,7 @@ spec = do
         stalledMetrics `shouldContain` ["hydra_head_broadcast_stalled_backlog_full  0.0"]
 
         -- The other cause must move the other gauge, and only that one.
-        traceWith tracer (Node $ LogicOutcome alice (Continue [NetworkBroadcastStalled 1000 BacklogFull] mempty))
+        traceWith tracer (Node $ BroadcastHealth (Just BacklogFull))
         backlogMetrics <- scrape
         backlogMetrics `shouldContain` ["hydra_head_broadcast_stalled  1.0"]
         backlogMetrics `shouldContain` ["hydra_head_broadcast_stalled_no_progress  0.0"]
@@ -97,7 +319,7 @@ spec = do
         -- Draining again must take them all back down, or a cleared stall
         -- looks like a current one forever.
         traceWith tracer (Node $ BroadcastBacklog 0 0)
-        traceWith tracer (Node $ LogicOutcome alice (Continue [NetworkBroadcastResumed] mempty))
+        traceWith tracer (Node $ BroadcastHealth Nothing)
 
         resumedMetrics <- scrape
         resumedMetrics `shouldContain` ["hydra_head_broadcast_stalled  0.0"]
@@ -143,6 +365,62 @@ protocolMetrics =
   , "hydra_head_peers_connected"
   , "hydra_chain_drift_seconds"
   , "hydra_chain_last_block_timestamp_seconds"
+  , "hydra_head_broadcast_stalled"
+  , "hydra_head_broadcast_stalled_no_progress"
+  , "hydra_head_broadcast_stalled_backlog_full"
+  , "hydra_head_pending_broadcasts"
+  , "hydra_head_broadcast_no_progress_seconds"
+  , "hydra_head_inputs_refused_broadcast_stalled"
+  ]
+
+-- | Canonical names corresponding to the six compatibility aliases above.
+canonicalAliases :: [Text]
+canonicalAliases =
+  [ "hydra_head_inputs_total"
+  , "hydra_head_requested_tx_total"
+  , "hydra_head_confirmed_tx_total"
+  , "hydra_head_tx_confirmation_seconds"
+  , "hydra_head_snapshot_confirmation_seconds"
+  , "hydra_head_inputs_refused_broadcast_stalled_total"
+  ]
+
+-- | The additions approved for the public metrics interface.
+additionalMetrics :: [Text]
+additionalMetrics =
+  [ "hydra_chain_backend_last_block_timestamp_seconds"
+  , "hydra_chain_blockfrost_rate_limits_total"
+  , "hydra_chain_blockfrost_retries_total"
+  , "hydra_chain_operation_failures_total"
+  , "hydra_chain_operation_seconds"
+  , "hydra_chain_operations_inflight"
+  , "hydra_chain_rollback_slots"
+  , "hydra_head_confirmed_snapshot_number"
+  , "hydra_head_decommit_state"
+  , "hydra_head_fanout_mode"
+  , "hydra_head_fanout_remaining_outputs"
+  , "hydra_head_outstanding_transactions"
+  , "hydra_head_pending_deposits"
+  , "hydra_head_phase"
+  , "hydra_head_snapshot_inflight"
+  , "hydra_head_snapshot_missing_signatures"
+  , "hydra_head_snapshots_total"
+  , "hydra_head_transaction_outcomes_total"
+  , "hydra_monitoring_timing_evictions_total"
+  , "hydra_network_connected"
+  , "hydra_network_events_total"
+  , "hydra_network_persistent_queue_depth"
+  , "hydra_network_persistent_queue_oldest_age_seconds"
+  , "hydra_network_put_seconds"
+  , "hydra_node_input_drops_total"
+  , "hydra_node_input_processing_seconds"
+  , "hydra_node_input_queue_depth"
+  , "hydra_node_input_queue_wait_seconds"
+  , "hydra_node_input_waits_total"
+  , "hydra_node_parked_inputs"
+  , "hydra_node_synced"
+  , "hydra_persistence_queue_depth"
+  , "hydra_persistence_write_inflight"
+  , "hydra_persistence_write_seconds"
   ]
 
 -- | Registered only when the RTS collects statistics, see 'registerRtsMetrics'.
@@ -176,7 +454,7 @@ scrapedMetricNames body =
     fromMaybe name . asum $
       [Text.stripSuffix suffix name | suffix <- ["_bucket", "_sum", "_count"]]
 
--- | 'withMonitoring' forks its server and returns immediately, so a scrape can
+-- | Retry transient HTTP errors while scraping test endpoints. A scrape can
 -- arrive before the socket is listening.
 scrapeMetrics :: Int -> IO Text
 scrapeMetrics p = go (100 :: Int)
@@ -191,4 +469,4 @@ scrapeMetrics p = go (100 :: Int)
   scrape =
     decodeUtf8
       . responseBody
-      <$> runReq @IO defaultHttpConfig (req GET (http "localhost" /: "metrics") NoReqBody bsResponse (port p))
+      <$> runReq @IO defaultHttpConfig (req GET (http "127.0.0.1" /: "metrics") NoReqBody bsResponse (port p))

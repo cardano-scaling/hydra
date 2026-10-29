@@ -1,0 +1,47 @@
+{
+  "health": {
+    "title": "Hydra metrics · Node and chain health",
+    "panels": [1, 3, 12, 4, 13, 35],
+    "phases": ["ready"]
+  },
+  "settlement": {
+    "title": "Hydra metrics · Incremental deposits and L1 work",
+    "panels": [23, 12, 21, 27, 29, 30],
+    "phases": ["opening", "deposit"]
+  },
+  "flow": {
+    "title": "Hydra metrics · Transactions and snapshots",
+    "panels": [5, 36, 7, 8, 37, 34],
+    "phases": ["steady", "recovered-traffic"]
+  },
+  "agreement": {
+    "title": "Hydra metrics · A missing signing participant",
+    "panels": [1, 2, 9, 10, 11, 36],
+    "phases": ["peer-disappearance", "recovery"]
+  },
+  "inputs": {
+    "title": "Hydra metrics · Invalid transactions and input retries",
+    "panels": [20, 32, 18, 19, 6, 9],
+    "phases": ["invalid-transaction", "input-retries"]
+  },
+  "pressure": {
+    "title": "Hydra metrics · A paused L1 backend and input pressure",
+    "panels": [27, 18, 13, 19, 24, 30],
+    "phases": ["l1-pause", "input-pressure", "l1-recovery"]
+  },
+  "broadcast": {
+    "title": "Hydra metrics · Loss of etcd quorum and broadcast recovery",
+    "panels": [38, 14, 15, 16, 39, 41],
+    "phases": ["quorum-loss", "broadcast-refusal", "quorum-recovery"]
+  },
+  "transport": {
+    "title": "Hydra metrics · Recovery and completed work",
+    "panels": [40, 17, 29, 30, 28, 22],
+    "phases": ["network-health"]
+  },
+  "fanout": {
+    "title": "Hydra metrics · Selective fanout and finalization",
+    "panels": [12, 25, 26, 21, 27, 24],
+    "phases": ["closing", "fanout", "partial-fanout", "complete"]
+  }
+}

@@ -1,4 +1,5 @@
 import importlib.util
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
 import socket
@@ -7,6 +8,7 @@ from pathlib import Path
 import tempfile
 import subprocess
 import sys
+import threading
 import unittest
 
 spec = importlib.util.spec_from_file_location(
@@ -22,6 +24,29 @@ spec.loader.exec_module(launcher)
 
 
 class LauncherTests(unittest.TestCase):
+    def test_showcase_keeps_availability_global_when_focusing_a_node(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            launcher.prepare(root / "capture", 19090, 13000)
+            self.assertIn(
+                "min_refresh_interval = 1s",
+                (root / "capture/grafana.ini").read_text(),
+            )
+            plan = launcher.prepare_showcase(root / "capture")
+            cameras = json.loads(plan.read_text())
+            self.assertIn("input-pressure", cameras)
+            self.assertIn("quorum-loss", cameras)
+            self.assertIn("partial-fanout", cameras)
+            health = json.loads(
+                (root / "capture/dashboards/health.json").read_text()
+            )
+            reachable = next(p for p in health["panels"] if p["id"] == 1)
+            self.assertNotIn("instance=", reachable["targets"][0]["expr"])
+            phase = next(p for p in health["panels"] if p["id"] == 12)
+            self.assertTrue(phase["targets"][0]["expr"].endswith(" == 1"))
+            self.assertIn('node="0"', phase["targets"][0]["expr"])
+            self.assertEqual(health["templating"]["list"], [])
+
     def test_refuses_a_port_owned_by_another_server(self):
         with socket.socket() as listener:
             listener.bind(("127.0.0.1", 0))
@@ -86,6 +111,63 @@ class TimelineTests(unittest.TestCase):
     "Set HYDRA_RECORD_BROWSER_TESTS=1 in the dashboard-recording shell",
 )
 class BrowserRecordingTests(unittest.TestCase):
+    def test_camera_changes_keep_refreshing_the_dashboard(self):
+        class Dashboard(BaseHTTPRequestHandler):
+            def do_GET(self):
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html")
+                self.end_headers()
+                self.wfile.write(
+                    b'<h1 id="metrics">Metric refresh fixture</h1>'
+                    b'<button data-testid="data-testid RefreshPicker run button" '
+                    b'onclick="this.textContent=Number(this.textContent)+1">0</button>'
+                )
+
+            def log_message(self, *_args):
+                pass
+
+        with tempfile.TemporaryDirectory() as directory, ThreadingHTTPServer(
+            ("127.0.0.1", 0), Dashboard
+        ) as server:
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            root = Path(directory)
+            scenario = root / "scenario.py"
+            scenario.write_text("""import datetime, json, sys, time
+from pathlib import Path
+with Path(sys.argv[1]).open('w', buffering=1) as journal:
+    for phase in ['ready', 'complete']:
+        journal.write(json.dumps(dict(schemaVersion=1,
+            timestamp=datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            elapsedSeconds=0 if phase == 'ready' else 5,
+            phase=phase, status='observed', message=phase)) + '\\n')
+        if phase == 'ready': time.sleep(5)
+""")
+            camera = root / "camera.json"
+            camera.write_text(json.dumps({"ready": "fixture"}))
+            output = root / "video"
+            try:
+                result = subprocess.run(
+                    [
+                        sys.executable,
+                        str(Path(__file__).with_name("record.py")),
+                        "--url", f"http://127.0.0.1:{server.server_port}/",
+                        "--ready-selector", "#metrics",
+                        "--timeline", str(root / "timeline.jsonl"),
+                        "--output-directory", str(output),
+                        "--camera-plan", str(camera),
+                        "--no-overlay", "--tail-seconds", "0",
+                        "--", sys.executable, str(scenario), str(root / "timeline.jsonl"),
+                    ],
+                    capture_output=True, text=True, timeout=30,
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
+                capture = json.loads((output / "capture.json").read_text())
+                self.assertEqual(len(capture["cameraChanges"]), 1)
+                self.assertGreaterEqual(len(capture["dashboardRefreshes"]), 2)
+            finally:
+                server.shutdown()
+
     def test_records_video_and_preserves_a_failed_scenario(self):
         for exit_code in [0, 7]:
             with (

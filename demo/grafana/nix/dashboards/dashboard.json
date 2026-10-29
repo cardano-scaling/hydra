@@ -15,7 +15,7 @@
       }
     ]
   },
-  "description": "Monitoring for participant's node. This dashboard contains metrics of the hydra nodes and also of the system resources.",
+  "description": "Per-node Hydra health, transaction flow, agreement, backpressure and settlement, grouped into collapsible sections. Replicas observe the same work; do not sum their transaction rates as unique Head throughput.",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
@@ -23,565 +23,2544 @@
   "links": [],
   "panels": [
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "P1809F7CD0C75ACF3"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green"
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
+      "id": 100,
+      "type": "row",
+      "title": "Node health and chain progress",
+      "collapsed": false,
       "gridPos": {
-        "h": 7,
+        "x": 0,
+        "y": 0,
         "w": 24,
-        "x": 0,
-        "y": 0
+        "h": 1
       },
-      "id": 14,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "percentChangeColorMode": "standard",
-        "reduceOptions": {
-          "calcs": ["lastNotNull"],
-          "fields": "",
-          "values": false
-        },
-        "showPercentChange": false,
-        "textMode": "auto",
-        "wideLayout": true
-      },
-      "pluginVersion": "12.0.1",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "P1809F7CD0C75ACF3"
-          },
-          "disableTextWrap": false,
-          "editorMode": "code",
-          "expr": "label_replace(hydra_head_peers_connected{instance=~\"${instance:raw}\"}, \"host\", \"$1\", \"instance\", \"^([^.]*).*\")",
-          "format": "time_series",
-          "fullMetaSearch": false,
-          "includeNullMetadata": true,
-          "instant": false,
-          "legendFormat": "{{host}}",
-          "range": true,
-          "refId": "A",
-          "useBackend": false
-        }
-      ],
-      "title": "Peer connected",
-      "type": "stat"
+      "panels": []
     },
     {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "P1809F7CD0C75ACF3"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "left",
-            "barAlignment": 0,
-            "barWidthFactor": 0.6,
-            "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green"
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 7
-      },
-      "id": 8,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "right",
-          "showLegend": true
-        },
-        "tooltip": {
-          "hideZeros": false,
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "pluginVersion": "12.0.1",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "P1809F7CD0C75ACF3"
-          },
-          "disableTextWrap": false,
-          "editorMode": "builder",
-          "expr": "hydra_head_confirmed_tx{instance=~\"${instance:raw}\"}",
-          "fullMetaSearch": false,
-          "includeNullMetadata": true,
-          "instant": false,
-          "legendFormat": "{{instance}}",
-          "range": true,
-          "refId": "A",
-          "useBackend": false
-        }
-      ],
-      "title": "Hydra Head Confirmed Tx",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "P1809F7CD0C75ACF3"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "left",
-            "barAlignment": 0,
-            "barWidthFactor": 0.6,
-            "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green"
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 7
-      },
-      "id": 9,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "right",
-          "showLegend": true
-        },
-        "tooltip": {
-          "hideZeros": false,
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "pluginVersion": "12.0.1",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "P1809F7CD0C75ACF3"
-          },
-          "disableTextWrap": false,
-          "editorMode": "builder",
-          "expr": "hydra_head_inputs{instance=~\"${instance:raw}\"}",
-          "fullMetaSearch": false,
-          "includeNullMetadata": true,
-          "instant": false,
-          "legendFormat": "{{instance}}",
-          "range": true,
-          "refId": "A",
-          "useBackend": false
-        }
-      ],
-      "title": "Hydra Head Inputs",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "P1809F7CD0C75ACF3"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "left",
-            "barAlignment": 0,
-            "barWidthFactor": 0.6,
-            "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green"
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 15
-      },
-      "id": 10,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "right",
-          "showLegend": true
-        },
-        "tooltip": {
-          "hideZeros": false,
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "pluginVersion": "12.0.1",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "P1809F7CD0C75ACF3"
-          },
-          "disableTextWrap": false,
-          "editorMode": "builder",
-          "expr": "hydra_head_requested_tx{instance=~\"${instance:raw}\"}",
-          "fullMetaSearch": false,
-          "includeNullMetadata": true,
-          "instant": false,
-          "legendFormat": "{{instance}}",
-          "range": true,
-          "refId": "A",
-          "useBackend": false
-        }
-      ],
-      "title": "Hydra Head Requested",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "P1809F7CD0C75ACF3"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "left",
-            "barAlignment": 0,
-            "barWidthFactor": 0.6,
-            "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green"
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 15
-      },
-      "id": 11,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "right",
-          "showLegend": true
-        },
-        "tooltip": {
-          "hideZeros": false,
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "pluginVersion": "12.0.1",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "P1809F7CD0C75ACF3"
-          },
-          "disableTextWrap": false,
-          "editorMode": "builder",
-          "expr": "hydra_head_tx_confirmation_time_ms_sum{instance=~\"${instance:raw}\"} / hydra_head_tx_confirmation_time_ms_count",
-          "fullMetaSearch": false,
-          "includeNullMetadata": false,
-          "instant": false,
-          "legendFormat": "{{instance}}",
-          "range": true,
-          "refId": "A",
-          "useBackend": false
-        }
-      ],
-      "title": "Hydra Head Tx Confirmation Time (ms)",
-      "type": "timeseries"
-    },
-    {
+      "id": 1,
+      "title": "Reachable nodes",
+      "description": "Instant count of successful scrapes among selected targets. Zero also occurs if target discovery is empty; inspect the targets panel.",
+      "type": "stat",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
+      "gridPos": {
+        "x": 0,
+        "y": 1,
+        "w": 8,
+        "h": 5
+      },
       "fieldConfig": {
         "defaults": {
+          "unit": "short",
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(up{job=\"hydra_nodes\",instance=~\"${instance:regex}\"} == 1) or vector(0)",
+          "legendFormat": "{{instance}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": true,
+          "range": false,
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "values": false,
+          "fields": ""
+        },
+        "graphMode": "none",
+        "colorMode": "none"
+      }
+    },
+    {
+      "id": 2,
+      "title": "Configured targets / unavailable targets",
+      "description": "Configured scrape targets and targets whose latest scrape failed. Zero configured targets can indicate missing discovery; inspect this separately from scrape availability.",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 1,
+        "w": 8,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "count(up{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}) or vector(0)",
+          "legendFormat": "Configured",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": true,
+          "range": false,
+          "editorMode": "code"
+        },
+        {
+          "refId": "B",
+          "expr": "sum(up{job=\"hydra_nodes\",instance=~\"${instance:regex}\"} == bool 0) or vector(0)",
+          "legendFormat": "Unavailable",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": true,
+          "range": false,
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "values": false,
+          "fields": ""
+        },
+        "graphMode": "none",
+        "colorMode": "none"
+      }
+    },
+    {
+      "id": 3,
+      "title": "Synced / network connected",
+      "description": "Chain synchronization and live network connectivity. Inspect snapshot and queue progress separately.",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 1,
+        "w": 8,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "max": 1
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "hydra_node_synced{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}",
+          "legendFormat": "{{instance}} synced",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": true,
+          "range": false,
+          "editorMode": "code"
+        },
+        {
+          "refId": "B",
+          "expr": "hydra_network_connected{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}",
+          "legendFormat": "{{instance}} network",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": true,
+          "range": false,
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "values": false,
+          "fields": ""
+        },
+        "graphMode": "none",
+        "colorMode": "none"
+      }
+    },
+    {
+      "id": 4,
+      "title": "Connected peers",
+      "description": "Distinct peer reports processed by the node. Zero is valid for a single-party deployment; configure peer expectations for your topology.",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 6,
+        "w": 12,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "hydra_head_peers_connected{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}",
+          "legendFormat": "{{instance}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": true,
+          "range": false,
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "values": false,
+          "fields": ""
+        },
+        "graphMode": "none",
+        "colorMode": "none"
+      }
+    },
+    {
+      "id": 12,
+      "title": "Head phase",
+      "description": "Current head phase sampled from node state. Values form a one-hot state set after state sampling starts.",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 6,
+        "w": 12,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "max": 1
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "hydra_head_phase{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}",
+          "legendFormat": "{{instance}} {{phase}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": true,
+          "range": false,
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "values": false,
+          "fields": ""
+        },
+        "graphMode": "none",
+        "colorMode": "none"
+      }
+    },
+    {
+      "id": 13,
+      "title": "Backend and processing heartbeat ages",
+      "description": "Seconds since raw backend progress and the last tick processed by the main loop. A fresh backend with old processing suggests a blocked loop. Initial zero timestamps are omitted; negative ages suggest clock skew.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 11,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "time() - (hydra_chain_backend_last_block_timestamp_seconds{job=\"hydra_nodes\",instance=~\"${instance:regex}\"} > 0)",
+          "legendFormat": "{{instance}} backend",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": false,
+          "range": true,
+          "editorMode": "code"
+        },
+        {
+          "refId": "B",
+          "expr": "time() - (hydra_chain_last_block_timestamp_seconds{job=\"hydra_nodes\",instance=~\"${instance:regex}\"} > 0)",
+          "legendFormat": "{{instance}} processing loop",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": false,
+          "range": true,
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 35,
+      "title": "Chain time drift",
+      "description": "Wall clock minus chain time at the latest processed tick. A frozen loop also freezes this gauge; compare the heartbeat ages. Negative values can indicate clock skew.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 11,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "hydra_chain_drift_seconds{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}",
+          "legendFormat": "{{instance}} drift",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": false,
+          "range": true,
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 101,
+      "type": "row",
+      "title": "Transaction flow",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 19,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 5,
+      "title": "Transaction pipeline rates",
+      "description": "Per-node request messages, local application events and newly confirmed/adopted snapshot contents. Retries and re-observations affect these stages differently; replicas observe the same transactions.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 20,
+        "w": 24,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(hydra_head_requested_tx_total{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}[$__rate_interval])",
+          "legendFormat": "{{instance}} requested",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": false,
+          "range": true,
+          "editorMode": "code"
+        },
+        {
+          "refId": "B",
+          "expr": "rate(hydra_head_transaction_outcomes_total{job=\"hydra_nodes\",instance=~\"${instance:regex}\",outcome=\"applied\"}[$__rate_interval])",
+          "legendFormat": "{{instance}} applied locally",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": false,
+          "range": true,
+          "editorMode": "code"
+        },
+        {
+          "refId": "C",
+          "expr": "rate(hydra_head_confirmed_tx_total{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}[$__rate_interval])",
+          "legendFormat": "{{instance}} confirmed",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": false,
+          "range": true,
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 7,
+      "title": "Transaction confirmation latency",
+      "description": "First local ReqTx processing to confirmation. Missing timings after restart or eviction are excluded. Empty windows have no value.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 28,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(hydra_head_tx_confirmation_seconds_sum{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}[$__rate_interval]) / rate(hydra_head_tx_confirmation_seconds_count{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}[$__rate_interval])",
+          "legendFormat": "{{instance}} mean",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": false,
+          "range": true,
+          "editorMode": "code"
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.95, sum by (instance, le) (rate(hydra_head_tx_confirmation_seconds_bucket{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}[$__rate_interval])))",
+          "legendFormat": "{{instance}} p95",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": false,
+          "range": true,
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 9,
+      "title": "Transactions awaiting snapshot inclusion",
+      "description": "Current transaction inventory awaiting inclusion in a snapshot. This remains useful when no snapshot round is getting started.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 28,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "hydra_head_outstanding_transactions{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}",
+          "legendFormat": "{{instance}} outstanding transactions",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": false,
+          "range": true,
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 20,
+      "title": "Transaction refusals / invalidations",
+      "description": "Transaction lifecycle events and refusals of NewTx/Decommit inputs. Events are not unique transactions or a success-rate denominator.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 36,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(hydra_head_transaction_outcomes_total{job=\"hydra_nodes\",instance=~\"${instance:regex}\",outcome!=\"applied\"}[$__rate_interval])",
+          "legendFormat": "{{instance}} {{outcome}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": false,
+          "range": true,
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 33,
+      "title": "Transaction timing evictions",
+      "description": "Transaction timings discarded because of age or capacity limits. Eviction does not reduce confirmation counters; missing timings can bias latency summaries.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 36,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(hydra_monitoring_timing_evictions_total{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}[$__rate_interval])",
+          "legendFormat": "{{instance}} timing evictions",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": false,
+          "range": true,
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 102,
+      "type": "row",
+      "title": "Snapshot agreement",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 44,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 36,
+      "title": "Confirmed snapshot number",
+      "description": "Current confirmed snapshot number per node. Compare participants for lag and inspect inflight status before interpreting an unchanged number as a stall.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 45,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "hydra_head_confirmed_snapshot_number{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}",
+          "legendFormat": "{{instance}} snapshot",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": false,
+          "range": true,
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 37,
+      "title": "Snapshot throughput by confirmation source",
+      "description": "New snapshot numbers observed by this process, split into signed confirmations and adoptions. Repeated adoption and version-only changes are excluded; replicas observe the same work.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 45,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(hydra_head_snapshots_total{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}[$__rate_interval])",
+          "legendFormat": "{{instance}} {{source}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": false,
+          "range": true,
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 34,
+      "title": "Transactions per observed snapshot",
+      "description": "Mean transactions per newly confirmed or adopted snapshot, derived from counters. Windows with no completed snapshots are empty.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 53,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(hydra_head_confirmed_tx_total{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}[$__rate_interval]) / (sum without (source) (rate(hydra_head_snapshots_total{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}[$__rate_interval])) > 0)",
+          "legendFormat": "{{instance}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": false,
+          "range": true,
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 8,
+      "title": "Snapshot confirmation latency",
+      "description": "Accepted SnapshotRequested to confirmation of the same head, version and number. Validation and unavailable pre-restart timing are excluded. Empty windows have no latency sample.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 53,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(hydra_head_snapshot_confirmation_seconds_sum{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}[$__rate_interval]) / rate(hydra_head_snapshot_confirmation_seconds_count{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}[$__rate_interval])",
+          "legendFormat": "{{instance}} mean",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": false,
+          "range": true,
+          "editorMode": "code"
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.95, sum by (instance, le) (rate(hydra_head_snapshot_confirmation_seconds_bucket{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}[$__rate_interval])))",
+          "legendFormat": "{{instance}} p95",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": false,
+          "range": true,
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 10,
+      "title": "Snapshot round in flight",
+      "description": "Outstanding snapshot requests or signature collection, including restored work.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 61,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "max": 1,
+          "custom": {
+            "lineInterpolation": "stepAfter"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "hydra_head_snapshot_inflight{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}",
+          "legendFormat": "{{instance}} inflight",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": false,
+          "range": true,
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 11,
+      "title": "Missing snapshot signatures",
+      "description": "Participants whose signatures are still missing. Also applies to restored outstanding rounds.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 61,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "B",
+          "expr": "hydra_head_snapshot_missing_signatures{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}",
+          "legendFormat": "{{instance}} signatures",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": false,
+          "range": true,
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 103,
+      "type": "row",
+      "title": "Input pressure and processing",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 69,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 18,
+      "title": "Input queues",
+      "description": "Admitted inputs occupy the bounded processing queue; parked inputs wait outside it during catch-up or readmission. A queue of 100 admitted inputs is full.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 70,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "hydra_node_input_queue_depth{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}",
+          "legendFormat": "{{instance}} admitted",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": false,
+          "range": true,
+          "editorMode": "code"
+        },
+        {
+          "refId": "B",
+          "expr": "hydra_node_parked_inputs{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}",
+          "legendFormat": "{{instance}} parked",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": false,
+          "range": true,
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 32,
+      "title": "Input waits / dropped inputs",
+      "description": "Wait outcomes include retries; dropped inputs have exhausted retry eligibility.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 70,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(hydra_node_input_waits_total{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}[$__rate_interval])",
+          "legendFormat": "{{instance}} wait {{reason}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": false,
+          "range": true,
+          "editorMode": "code"
+        },
+        {
+          "refId": "B",
+          "expr": "rate(hydra_node_input_drops_total{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}[$__rate_interval])",
+          "legendFormat": "{{instance}} dropped {{source}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": false,
+          "range": true,
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 19,
+      "title": "Queue wait and processing p95",
+      "description": "Estimated p95 per-attempt admission/dequeue wait and processing time by source. Retry delay and parked time are excluded from queue wait. Empty windows have no latency sample.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 78,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (job, instance, le) (rate(hydra_node_input_queue_wait_seconds_bucket{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}[$__rate_interval])))",
+          "legendFormat": "{{instance}} queue wait",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": false,
+          "range": true,
+          "editorMode": "code"
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.95, sum by (job, instance, source, le) (rate(hydra_node_input_processing_seconds_bucket{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}[$__rate_interval])))",
+          "legendFormat": "{{instance}} {{source}} processing",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": false,
+          "range": true,
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 6,
+      "title": "Completed input processing attempts",
+      "description": "Processing completions including retries, split by source alongside the total. A blocked input contributes only when it finishes.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 78,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(hydra_head_inputs_total{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}[$__rate_interval])",
+          "legendFormat": "{{instance}} all inputs",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": false,
+          "range": true,
+          "editorMode": "code"
+        },
+        {
+          "refId": "B",
+          "expr": "rate(hydra_node_input_processing_seconds_count{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}[$__rate_interval])",
+          "legendFormat": "{{instance}} {{source}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": false,
+          "range": true,
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 104,
+      "type": "row",
+      "title": "Broadcast hand-off and etcd",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 86,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 38,
+      "title": "Broadcast hand-off stalled",
+      "description": "Live outbound stall status, independent of processing client notifications. Inspect the cause and queue panels for context.",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 87,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
           "color": {
             "mode": "thresholds"
           },
+          "max": 1,
           "mappings": [
             {
+              "type": "value",
               "options": {
-                "match": "null",
-                "result": {
-                  "text": "N/A"
+                "0": {
+                  "text": "Healthy",
+                  "color": "green"
+                },
+                "1": {
+                  "text": "Stalled",
+                  "color": "red"
                 }
-              },
-              "type": "special"
+              }
             }
           ],
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
-                "value": 80
+                "value": 1
               }
             ]
-          },
-          "unit": "none"
+          }
         },
         "overrides": []
       },
-      "gridPos": {
-        "h": 3,
-        "w": 6,
-        "x": 0,
-        "y": 23
-      },
-      "id": 7,
-      "maxDataPoints": 100,
-      "options": {
-        "colorMode": "none",
-        "graphMode": "none",
-        "justifyMode": "auto",
-        "orientation": "horizontal",
-        "percentChangeColorMode": "standard",
-        "reduceOptions": {
-          "calcs": ["mean"],
-          "fields": "",
-          "values": false
-        },
-        "showPercentChange": false,
-        "textMode": "auto",
-        "wideLayout": true
-      },
-      "pluginVersion": "12.0.1",
       "targets": [
         {
+          "refId": "A",
+          "expr": "hydra_head_broadcast_stalled{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}",
+          "legendFormat": "{{instance}}",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "disableTextWrap": false,
-          "editorMode": "builder",
-          "expr": "count(up{job=\"hydra_nodes\", instance=~\"${instance:raw}\"} == 1)",
-          "fullMetaSearch": false,
-          "includeNullMetadata": true,
-          "intervalFactor": 2,
-          "legendFormat": "",
-          "metric": "last_seen",
-          "range": true,
-          "refId": "A",
-          "step": 240,
-          "useBackend": false
+          "instant": true,
+          "range": false,
+          "editorMode": "code"
         }
       ],
-      "title": "Running nodes",
-      "transparent": true,
-      "type": "stat"
-    }    
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "values": false,
+          "fields": ""
+        },
+        "graphMode": "none",
+        "colorMode": "value"
+      }
+    },
+    {
+      "id": 14,
+      "title": "Broadcast stall cause",
+      "description": "Live one-hot causes: no hand-off progress, or a backlog reaching its limit. Backlog pressure can occur while a network is still making progress.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 87,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "max": 1,
+          "custom": {
+            "lineInterpolation": "stepAfter"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "hydra_head_broadcast_stalled_no_progress{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}",
+          "legendFormat": "{{instance}} no progress",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": false,
+          "range": true,
+          "editorMode": "code"
+        },
+        {
+          "refId": "B",
+          "expr": "hydra_head_broadcast_stalled_backlog_full{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}",
+          "legendFormat": "{{instance}} backlog full",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": false,
+          "range": true,
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 15,
+      "title": "Network queues",
+      "description": "Separate outer hand-off and persistent etcd queue depths. The persistent queue includes the pinned in-flight batch.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 95,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "hydra_head_pending_broadcasts{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}",
+          "legendFormat": "{{instance}} hand-off",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": false,
+          "range": true,
+          "editorMode": "code"
+        },
+        {
+          "refId": "B",
+          "expr": "hydra_network_persistent_queue_depth{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}",
+          "legendFormat": "{{instance}} persistent",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": false,
+          "range": true,
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 16,
+      "title": "Persistent network queue age",
+      "description": "Age of the oldest persisted message, including the pinned batch; survives restart. Zero can mean empty or unknown age, so inspect queue depth and queue-stat failure events too.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 95,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "hydra_network_persistent_queue_oldest_age_seconds{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}",
+          "legendFormat": "{{instance}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": false,
+          "range": true,
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 39,
+      "title": "Time without hand-off progress",
+      "description": "Seconds since the outer hand-off last progressed while messages are pending. The persistent etcd queue has its own oldest-message age.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 103,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "hydra_head_broadcast_no_progress_seconds{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}",
+          "legendFormat": "{{instance}} no progress",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": false,
+          "range": true,
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 41,
+      "title": "Client inputs refused during a broadcast stall",
+      "description": "Client-visible impact of an outbound stall. The refusal gate protects transaction-growing inputs while close, contest and fanout remain available.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 103,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(hydra_head_inputs_refused_broadcast_stalled_total{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}[$__rate_interval])",
+          "legendFormat": "{{instance}} refused",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": false,
+          "range": true,
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 40,
+      "title": "etcd acknowledgement latency",
+      "description": "Successful etcd put-attempt duration, including deduplicated retries. Unfinished/failed puts have no duration sample; inspect persistent backlog age and network events for stalls.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 111,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(hydra_network_put_seconds_sum{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}[$__rate_interval]) / rate(hydra_network_put_seconds_count{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}[$__rate_interval])",
+          "legendFormat": "{{instance}} mean",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": false,
+          "range": true,
+          "editorMode": "code"
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.95, sum by (job, instance, le) (rate(hydra_network_put_seconds_bucket{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}[$__rate_interval])))",
+          "legendFormat": "{{instance}} p95",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": false,
+          "range": true,
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 17,
+      "title": "Network failures / reconnects / lease warnings",
+      "description": "Bounded operational categories; routine deduplication and compaction recovery remain in logs.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 111,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(hydra_network_events_total{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}[$__rate_interval])",
+          "legendFormat": "{{instance}} {{event}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": false,
+          "range": true,
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 105,
+      "type": "row",
+      "title": "L1 operations and recovery",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 119,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 21,
+      "title": "L1 operation latency",
+      "description": "L1 construction and backend submission duration by operation. Completed operations only; a successful return does not imply on-chain inclusion. Inspect inflight status for unfinished work.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 120,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(hydra_chain_operation_seconds_sum{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}[$__rate_interval]) / rate(hydra_chain_operation_seconds_count{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}[$__rate_interval])",
+          "legendFormat": "{{instance}} {{backend}} {{operation}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": false,
+          "range": true,
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 27,
+      "title": "L1 operations in flight",
+      "description": "L1 protocol posts, deposit drafts and user transaction submissions, separated by operation so API activity cannot hide a stalled protocol post.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 120,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "hydra_chain_operations_inflight{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}",
+          "legendFormat": "{{instance}} {{backend}} {{operation}} inflight",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": false,
+          "range": true,
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 22,
+      "title": "L1 failures / rollbacks",
+      "description": "Failed L1 posts, deposit drafts and user submissions by operation, plus raw rollback-notification frequency. The adjacent panel shows rollback depth.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 128,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(hydra_chain_operation_failures_total{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}[$__rate_interval])",
+          "legendFormat": "{{instance}} {{operation}} failure",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": false,
+          "range": true,
+          "editorMode": "code"
+        },
+        {
+          "refId": "B",
+          "expr": "rate(hydra_chain_rollback_slots_count{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}[$__rate_interval])",
+          "legendFormat": "{{instance}} rollback",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": false,
+          "range": true,
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 42,
+      "title": "Rollback depth in slots",
+      "description": "Mean and estimated p95 distance from the last raw roll-forward to each rollback point, in slots. Empty windows have no depth sample; the failure/rollback-rate panel shows notification frequency.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 128,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(hydra_chain_rollback_slots_sum{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}[$__rate_interval]) / rate(hydra_chain_rollback_slots_count{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}[$__rate_interval])",
+          "legendFormat": "{{instance}} {{backend}} mean",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": false,
+          "range": true,
+          "editorMode": "code"
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.95, sum by (job, instance, backend, le) (rate(hydra_chain_rollback_slots_bucket{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}[$__rate_interval])))",
+          "legendFormat": "{{instance}} {{backend}} p95",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": false,
+          "range": true,
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 31,
+      "title": "Blockfrost retries / rate limits",
+      "description": "Provider retry and HTTP 429 event rates. Only nodes using Blockfrost produce these events; other backends normally remain at zero.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 136,
+        "w": 24,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(hydra_chain_blockfrost_retries_total{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}[$__rate_interval])",
+          "legendFormat": "{{instance}} {{backend}} retries",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": false,
+          "range": true,
+          "editorMode": "code"
+        },
+        {
+          "refId": "B",
+          "expr": "rate(hydra_chain_blockfrost_rate_limits_total{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}[$__rate_interval])",
+          "legendFormat": "{{instance}} {{backend}} rate limits",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": false,
+          "range": true,
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 106,
+      "type": "row",
+      "title": "Deposits, decommit and fanout",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 144,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 23,
+      "title": "Pending deposits",
+      "description": "Unconsumed deposits by current inactive, active or expired state, corrected after replay and rollback. Expired deposits may need recovery once their deadlines permit it.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 145,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "hydra_head_pending_deposits{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}",
+          "legendFormat": "{{instance}} {{state}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": false,
+          "range": true,
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 24,
+      "title": "Decommit state",
+      "description": "Open-head decommit state: none, requested, or approved while awaiting on-chain settlement. Sampled state remains useful after replay and rollback.",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 145,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "max": 1
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "hydra_head_decommit_state{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}",
+          "legendFormat": "{{instance}} {{state}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": true,
+          "range": false,
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "values": false,
+          "fields": ""
+        },
+        "graphMode": "none",
+        "colorMode": "none"
+      }
+    },
+    {
+      "id": 25,
+      "title": "Remaining fanout outputs",
+      "description": "Outputs still awaiting distribution in the current partial-fanout state. Rollback can increase this value; interpret lack of progress alongside fanout mode.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 153,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "hydra_head_fanout_remaining_outputs{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}",
+          "legendFormat": "{{instance}} remaining outputs",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": false,
+          "range": true,
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 26,
+      "title": "Fanout mode",
+      "description": "Automatic and selected distribution should progress; deferred work intentionally waits for another selection.",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 153,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "max": 1
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "B",
+          "expr": "hydra_head_fanout_mode{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}",
+          "legendFormat": "{{instance}} {{mode}}",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": true,
+          "range": false,
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "graphMode": "none",
+        "colorMode": "none"
+      }
+    },
+    {
+      "id": 107,
+      "type": "row",
+      "title": "Persistence",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 161,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 29,
+      "title": "Persistence queue",
+      "description": "SQLite items awaiting the writer, including flush markers. Active work has already left this queue; inspect write-inflight status as well.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 162,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "hydra_persistence_queue_depth{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}",
+          "legendFormat": "{{instance}} persistence",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": false,
+          "range": true,
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 28,
+      "title": "SQLite write in flight",
+      "description": "One while a SQLite batch is encoded and committed, even if the waiting queue is empty. Pair with completion latency and the stalled-writer alert.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 162,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "max": 1,
+          "custom": {
+            "lineInterpolation": "stepAfter"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "hydra_persistence_write_inflight{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}",
+          "legendFormat": "{{instance}} write inflight",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": false,
+          "range": true,
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 30,
+      "title": "SQLite batch completion latency",
+      "description": "Batch encoding and transaction completion duration. Unfinished writes have no latency sample. SQLite synchronous NORMAL does not guarantee power-loss durability.",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 162,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(hydra_persistence_write_seconds_sum{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}[$__rate_interval]) / rate(hydra_persistence_write_seconds_count{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}[$__rate_interval])",
+          "legendFormat": "{{instance}} mean",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": false,
+          "range": true,
+          "editorMode": "code"
+        },
+        {
+          "refId": "B",
+          "expr": "histogram_quantile(0.95, sum by (job, instance, le) (rate(hydra_persistence_write_seconds_bucket{job=\"hydra_nodes\",instance=~\"${instance:regex}\"}[$__rate_interval])))",
+          "legendFormat": "{{instance}} p95",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "instant": false,
+          "range": true,
+          "editorMode": "code"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    }
   ],
   "preload": false,
   "refresh": "10s",
@@ -592,14 +2571,22 @@
       {
         "name": "instance",
         "type": "query",
-        "datasource": "prometheus", 
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
         "refresh": 2,
         "query": "label_values(up{job=\"hydra_nodes\"}, instance)",
-        "regex": "0.0.0.0:600[1-3]",
+        "regex": "",
         "includeAll": true,
-        "allValue": ".+",
+        "allValue": ".*",
         "sort": 1,
-        "hide": 0
+        "hide": 0,
+        "multi": true,
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        }
       }
     ]
   },
@@ -611,5 +2598,5 @@
   "timezone": "browser",
   "title": "Participant Hydra Nodes",
   "uid": "ee75b6b8-f1c6-4ef1-9d39-fe50cc55a274",
-  "version": 1
+  "version": 3
 }

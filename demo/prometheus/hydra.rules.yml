@@ -1,0 +1,110 @@
+# Starting points for operators; tune time thresholds to the chain and workload.
+# Prometheus evaluates these rules. Configure Alertmanager targets for delivery.
+groups:
+  - name: hydra
+    rules:
+      - alert: HydraTargetDown
+        expr: up{job="hydra_nodes"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Hydra metrics endpoint unavailable on {{ $labels.instance }}"
+      - alert: HydraTargetsMissing
+        expr: absent(up{job="hydra_nodes"})
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "No Hydra targets are configured or discovered"
+      - alert: HydraMetricsMissing
+        expr: up{job="hydra_nodes"} == 1 unless on (job, instance) hydra_node_synced
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Hydra endpoint responds but its sync metric is absent"
+      - alert: HydraNodeUnsynced
+        expr: hydra_node_synced{job="hydra_nodes"} == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Hydra remains out of sync on {{ $labels.instance }}"
+      - alert: HydraNetworkDisconnected
+        expr: hydra_network_connected{job="hydra_nodes"} == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Hydra network remains disconnected on {{ $labels.instance }}"
+      - alert: HydraBroadcastStalled
+        expr: hydra_head_broadcast_stalled{job="hydra_nodes"} == 1
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Outbound Hydra hand-off stalled on {{ $labels.instance }}"
+      - alert: HydraPersistentBroadcastStalled
+        expr: hydra_network_persistent_queue_depth{job="hydra_nodes"} > 0 and on (job, instance) hydra_network_persistent_queue_oldest_age_seconds > 30
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Persisted broadcasts are not draining on {{ $labels.instance }}"
+      - alert: HydraChainBackendSilent
+        expr: (time() - hydra_chain_backend_last_block_timestamp_seconds{job="hydra_nodes"} > 120) and on (job, instance) (hydra_chain_backend_last_block_timestamp_seconds > 0)
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "No backend roll-forward for over two minutes on {{ $labels.instance }}"
+      - alert: HydraSnapshotStalled
+        expr: hydra_head_snapshot_inflight{job="hydra_nodes"} == 1 and on (job, instance) (changes(hydra_head_confirmed_snapshot_number[5m]) == 0)
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Outstanding snapshot is not progressing on {{ $labels.instance }}"
+      - alert: HydraInputQueueFull
+        expr: hydra_node_input_queue_depth{job="hydra_nodes"} >= 100
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Hydra processing queue stays full on {{ $labels.instance }}"
+      - alert: HydraPersistenceBacklog
+        expr: hydra_persistence_queue_depth{job="hydra_nodes"} > 800
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "SQLite write queue is near capacity on {{ $labels.instance }}"
+      - alert: HydraPersistenceWriterStalled
+        expr: hydra_persistence_write_inflight{job="hydra_nodes"} == 1 and on (job, instance) (changes(hydra_persistence_write_seconds_count[5m]) == 0)
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "SQLite has an active batch without completed writes on {{ $labels.instance }}"
+      - alert: HydraL1OperationStalled
+        expr: hydra_chain_operations_inflight{job="hydra_nodes"} > 0 and on (job, instance, backend, operation) (increase(hydra_chain_operation_seconds_count[5m]) == 0)
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Hydra L1 operation {{ $labels.operation }} has active work without completions on {{ $labels.instance }}"
+      - alert: HydraTimingCoverageLost
+        expr: increase(hydra_monitoring_timing_evictions_total{job="hydra_nodes"}[5m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Hydra transaction latency timing coverage is incomplete on {{ $labels.instance }}"
+      - alert: HydraFanoutStalled
+        expr: hydra_head_fanout_remaining_outputs{job="hydra_nodes"} > 0 and on (job, instance) (hydra_head_fanout_mode{mode=~"automatic|selected"} == 1) and on (job, instance) (changes(hydra_head_fanout_remaining_outputs[10m]) == 0)
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Active fanout has not distributed outputs on {{ $labels.instance }}"

@@ -64,3 +64,6 @@ __pycache__/
 spec/_build/
 .claude/
 delegated-demo/js/node_modules/
+
+# Demos
+demo-recordings/

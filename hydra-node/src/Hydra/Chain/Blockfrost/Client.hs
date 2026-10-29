@@ -144,12 +144,27 @@ runBlockfrostMWith ::
   Blockfrost.Project ->
   BlockfrostClientT IO a ->
   m a
-runBlockfrostMWith policy prj action = do
+runBlockfrostMWith = runBlockfrostMWithObserver (pure ())
+
+-- | Count each HTTP 429 response, including the last response when retries
+-- are exhausted. The callback does not change the retry policy.
+runBlockfrostMWithObserver ::
+  (MonadIO m, MonadThrow m) =>
+  m () ->
+  RetryPolicyM m ->
+  Blockfrost.Project ->
+  BlockfrostClientT IO a ->
+  m a
+runBlockfrostMWithObserver onRateLimit policy prj action = do
   res <-
     retrying
       policy
-      (\_ -> pure . isRateLimited)
-      (\_ -> liftIO $ Blockfrost.runBlockfrost prj action)
+      (\_ result -> pure $ isRateLimited result)
+      ( \_ -> do
+          result <- liftIO $ Blockfrost.runBlockfrost prj action
+          when (isRateLimited result) onRateLimit
+          pure result
+      )
   case res of
     Right val -> pure val
     Left Blockfrost.BlockfrostUsageLimitReached -> throwIO BlockfrostRateLimited

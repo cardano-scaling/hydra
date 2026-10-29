@@ -39,7 +39,7 @@
 module Hydra.Node.Network (
   NetworkConfiguration (..),
   withNetwork,
-  NetworkLog,
+  NetworkLog (..),
 ) where
 
 import Hydra.Prelude hiding (fromList, replicate)

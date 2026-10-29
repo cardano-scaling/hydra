@@ -5,7 +5,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Control.Concurrent.Class.MonadSTM (check, newTVarIO, readTVarIO, writeTVar)
-import Control.Concurrent.PersistentQueue (PersistentQueue, PersistentQueueLog (..), newPersistentQueue, nextPendingBatch, peekBatchPersistentQueue, peekPersistentQueue, popBatchPersistentQueue, tryPeekPersistentQueue, writePersistentQueue)
+import Control.Concurrent.PersistentQueue (PersistentQueue, PersistentQueueLog (..), newPersistentQueue, nextPendingBatch, peekBatchPersistentQueue, peekPersistentQueue, persistentQueueStats, popBatchPersistentQueue, tryPeekPersistentQueue, writePersistentQueue)
 import Control.Monad.Class.MonadAsync (concurrently, wait, withAsync)
 import Control.Tracer.JSON (Envelope (message), Tracer, nullTracer, traceInTVar)
 import System.Directory (createDirectory, listDirectory, removeFile)
@@ -15,6 +15,21 @@ import Test.QuickCheck.Instances.Natural ()
 
 spec :: Spec
 spec = do
+  it "reports the pinned batch in depth and preserves age across reload" $
+    withTempDir "persistent-queue-stats" $ \dir -> do
+      queue <- newPersistentQueue nullTracer dir 10
+      writePersistentQueue nullTracer queue (1 :: Int)
+      writePersistentQueue nullTracer queue 2
+      batch <- peekBatchPersistentQueue queue 10 10000
+      (depth, age) <- persistentQueueStats nullTracer queue
+      depth `shouldBe` 2
+      reloaded <- newPersistentQueue @_ @Int nullTracer dir 10
+      (restoredDepth, restoredAge) <- persistentQueueStats nullTracer reloaded
+      restoredDepth `shouldBe` 2
+      restoredAge `shouldSatisfy` (>= age)
+      popBatchPersistentQueue nullTracer queue batch
+      persistentQueueStats nullTracer queue `shouldReturn` (0, 0)
+
   it "can be constructed" $ do
     capacity <- generate arbitrary
     withTempDir "persistent-queue" $ \dir -> do

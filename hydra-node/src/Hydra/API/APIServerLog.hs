@@ -7,6 +7,8 @@ import Hydra.Network (PortNumber)
 
 data APIServerLog
   = APIServerStarted {listeningPort :: PortNumber}
+  | APIL1Started {operation :: Text}
+  | APIL1Finished {operation :: Text, successful :: Bool, duration :: DiffTime}
   | NewAPIConnection
   | APIOutputSent {sentOutput :: Aeson.Value}
   | APIInputReceived {receivedInput :: Aeson.Value}
