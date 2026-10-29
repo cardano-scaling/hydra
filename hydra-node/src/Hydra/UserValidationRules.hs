@@ -14,7 +14,7 @@ import Data.ByteString qualified as BS
 import Data.Map qualified as Map
 import Data.Set qualified as Set
 import GHC.IsList (toList)
-import Hydra.Cardano.Api (AddressInEra, PolicyId, Tx, TxOut, UTxO, toLedgerAddr, txOuts', pattern TxOut)
+import Hydra.Cardano.Api (AddressInEra, PolicyId, Tx, TxId, TxOut, UTxO, toLedgerAddr, txOuts', pattern TxOut)
 import Hydra.Prelude hiding (toList)
 
 data PolicyViolation
@@ -34,6 +34,7 @@ data PolicyViolation
   | ScriptAddressNotAllowed
       { rejectedScriptAddress :: AddressInEra
       }
+  | DepositNotAllowed {rejectedDepositTxId :: TxId}
   deriving (Eq, Show)
 
 data PolicyRule
@@ -46,6 +47,11 @@ data MintingOnL2Rule
   | AllowMinting
   deriving (Eq, Show, Generic)
 
+data DepositRule
+  = NoDepositsAfterOpen
+  | AllowOnlyDeposits (Set TxId)
+  deriving (Eq, Show, Generic)
+
 data UserValidationRules = UserValidationRules
   { policyRule :: Maybe PolicyRule
   , l2MintingRule :: MintingOnL2Rule
@@ -53,8 +59,26 @@ data UserValidationRules = UserValidationRules
   , maxOutputValueAssets :: Maybe Natural
   , maxDatumSize :: Maybe Natural
   , allowedScriptAddresses :: Maybe (Set AddressInEra)
+  , depositRule :: Maybe DepositRule
   }
   deriving (Eq, Show, Generic)
+
+data UserValidationAction
+  = ValidateL2Transaction Tx
+  | AdmitNewDeposit TxId
+
+validateUserActionWith ::
+  UserValidationRules ->
+  UTxO ->
+  UserValidationAction ->
+  Either PolicyViolation ()
+validateUserActionWith rules resultingUTxO = \case
+  ValidateL2Transaction tx ->
+    validateUserTransactionWith rules resultingUTxO tx
+  AdmitNewDeposit depositTxId ->
+    case rules.depositRule of
+      Nothing -> Right ()
+      Just rule -> checkDeposit rule depositTxId
 
 validateUserTransactionWith :: UserValidationRules -> UTxO -> Tx -> Either PolicyViolation ()
 validateUserTransactionWith rules resultingUTxO tx = do
@@ -162,3 +186,16 @@ checkAllowedScriptAddresses allowed (TxOut address _ _ _) =
             { rejectedScriptAddress = address
             }
     _ -> Right ()
+
+checkDeposit :: DepositRule -> TxId -> Either PolicyViolation ()
+checkDeposit rule depositTxId =
+  case rule of
+    NoDepositsAfterOpen -> reject
+    AllowOnlyDeposits allowed ->
+      unless (Set.member depositTxId allowed) reject
+ where
+  reject =
+    Left
+      DepositNotAllowed
+        { rejectedDepositTxId = depositTxId
+        }
