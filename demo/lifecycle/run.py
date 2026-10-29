@@ -164,6 +164,8 @@ provisioning = {provisioning}
 [auth.anonymous]
 enabled = true
 org_role = Viewer
+[dashboards]
+min_refresh_interval = 1s
 [security]
 admin_user = admin
 admin_password = {password}
@@ -173,6 +175,64 @@ check_for_updates = false
 """)
     config.chmod(0o600)
     return dashboard["uid"], password
+
+
+def prepare_showcase(root):
+    """Provision focused chapters from the checkout's actual metric panels."""
+    source = json.loads((root / "dashboards/hydra.json").read_text())
+    plan = json.loads(Path(__file__).with_name("showcase.json").read_text())
+    panels = {panel["id"]: panel for panel in source["panels"]}
+    cameras = {}
+    for name, chapter in plan.items():
+        dashboard = json.loads(json.dumps(source))
+        dashboard["uid"] = "hydra-showcase-" + name
+        dashboard["title"] = chapter["title"]
+        dashboard["panels"] = []
+        height = 10 if len(chapter["panels"]) <= 4 else 7
+        for index, panel_id in enumerate(chapter["panels"]):
+            panel = json.loads(json.dumps(panels[panel_id]))
+            panel["gridPos"] = dict(
+                x=(index % 2) * 12, y=(index // 2) * height, w=12, h=height
+            )
+            for target in panel.get("targets", []):
+                if panel_id in (1, 2):
+                    target["expr"] = target["expr"].replace(
+                        ',instance=~"${instance:regex}"', ""
+                    )
+                else:
+                    target["expr"] = target["expr"].replace(
+                        ',instance=~"${instance:regex}"', ',node="0"'
+                    )
+                    target["legendFormat"] = target.get("legendFormat", "").replace(
+                        "{{instance}} ", ""
+                    )
+            if panel_id in (12, 24, 26):
+                target = panel["targets"][0]
+                target["expr"] += " == 1"
+                panel["options"]["textMode"] = "name"
+            if panel_id == 27:
+                target = panel["targets"][0]
+                target["expr"] = "sum(" + target["expr"] + ")"
+                target["legendFormat"] = "in flight"
+            if panel_id in (17, 20, 21, 22):
+                if panel_id == 22:
+                    panel["title"] = "L1 operation failures"
+                    panel["targets"] = panel["targets"][:1]
+                for target in panel["targets"]:
+                    target["expr"] = "(" + target["expr"] + ") > 0"
+            dashboard["panels"].append(panel)
+        dashboard["time"] = {"from": "now-1m", "to": "now"}
+        dashboard["refresh"] = "2s"
+        dashboard["timepicker"] = {"refresh_intervals": ["1s", "2s", "5s", "10s", "30s"]}
+        dashboard["templating"] = {"list": []}
+        (root / "dashboards" / (name + ".json")).write_text(
+            json.dumps(dashboard, indent=2) + "\n"
+        )
+        for phase in chapter["phases"]:
+            cameras[phase] = dashboard["uid"]
+    path = root / "camera-plan.json"
+    path.write_text(json.dumps(cameras, indent=2) + "\n")
+    return path
 
 
 def main():
@@ -193,6 +253,11 @@ def main():
     parser.add_argument("--mp4", action="store_true")
     parser.add_argument("--headed", action="store_true")
     parser.add_argument("--dashboard", type=Path, help="Dashboard JSON to provision")
+    parser.add_argument(
+        "--metrics-showcase",
+        action="store_true",
+        help="Run the extended local fault scenario and follow focused metric chapters",
+    )
     parser.add_argument(
         "--no-overlay",
         action="store_true",
@@ -231,10 +296,12 @@ def main():
         for flag, enabled in [
             ("--mp4", args.mp4),
             ("--headed", args.headed),
-            ("--no-overlay", args.no_overlay),
+            ("--no-overlay", args.no_overlay or args.metrics_showcase),
         ]
         if enabled
     ]
+    if args.metrics_showcase:
+        command += ["--camera-plan", str(prepare_showcase(root))]
     command += [
         "--",
         "bench-e2e",
@@ -252,6 +319,8 @@ def main():
         "--tx-interval-ms",
         str(args.tx_interval_ms),
     ]
+    if args.metrics_showcase:
+        command += ["--metrics-showcase"]
     with ExitStack() as stack:
         prometheus = stack.enter_context(
             service(

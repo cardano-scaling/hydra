@@ -464,4 +464,5 @@ lifecycleOptionsInfo = info parser (progDesc "Run a local Head lifecycle with a 
               <$> option auto (long "phase-seconds" <> value 10 <> metavar "SECONDS" <> help "Hold healthy phase boundaries for recording (zero is allowed).")
               <*> option auto (long "peer-pause-seconds" <> value 20 <> metavar "SECONDS" <> help "How long to suspend a participant; must be positive.")
               <*> option auto (long "tx-interval-ms" <> value 250 <> metavar "MILLISECONDS" <> help "Delay between confirmed baseline transactions.")
+              <*> flag False True (long "metrics-showcase" <> help "Also exercise input pressure, invalid transactions, etcd quorum loss, incremental funds and selective fanout on the local devnet.")
           )

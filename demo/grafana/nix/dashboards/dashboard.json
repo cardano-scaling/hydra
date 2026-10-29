@@ -37,7 +37,7 @@
     },
     {
       "id": 1,
-      "title": "Scrapeable nodes",
+      "title": "Reachable nodes",
       "description": "Instant count of successful scrapes among selected targets. Zero also occurs if target discovery is empty; inspect the targets panel.",
       "type": "stat",
       "datasource": {

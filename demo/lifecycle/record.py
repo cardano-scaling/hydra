@@ -14,7 +14,7 @@ import shutil
 import signal
 import subprocess
 import sys
-from urllib.parse import urlparse
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 from urllib.request import Request, urlopen
 
 
@@ -152,6 +152,11 @@ async def record(args):
     child = None
     status = 1
     video = None
+    cameras = json.loads(args.camera_plan.read_text()) if args.camera_plan else {}
+    current_camera = None
+    metadata["cameraChanges"] = []
+    metadata["dashboardRefreshes"] = []
+    metadata["screenshots"] = []
     async with async_playwright() as playwright:
         browser = await playwright.chromium.launch(
             headless=not args.headed,
@@ -192,8 +197,31 @@ async def record(args):
                 }""")
 
             async def consume(batch):
+                nonlocal current_camera
                 for event in batch:
                     events.append(event)
+                    camera = cameras.get(event["phase"])
+                    if camera and camera != current_camera:
+                        parsed = urlparse(args.url)
+                        query = dict(parse_qsl(parsed.query, keep_blank_values=True))
+                        query.update({"from": "now-1m", "to": "now", "refresh": "2s"})
+                        url = urlunparse(
+                            parsed._replace(
+                                path=f"/d/{camera}/metrics", query=urlencode(query)
+                            )
+                        )
+                        await page.goto(url, wait_until="domcontentloaded")
+                        await page.locator(args.ready_selector).first.wait_for(
+                            state="visible", timeout=60_000
+                        )
+                        current_camera = camera
+                        metadata["cameraChanges"].append(
+                            {
+                                "phase": event["phase"],
+                                "dashboardUID": camera,
+                                "visibleAt": datetime.now(timezone.utc).isoformat(),
+                            }
+                        )
                     if not args.no_overlay:
                         await page.evaluate(
                             "text => { document.getElementById('head-lifecycle-caption').textContent = text; }",
@@ -205,14 +233,18 @@ async def record(args):
                             args.annotation_url,
                             os.environ.get("GRAFANA_TOKEN"),
                             event,
-                            args.dashboard_uid,
+                            current_camera or args.dashboard_uid,
                         )
                     if event["status"] in ("observed", "failed"):
+                        screenshot = f"{len(events):03}-{event['phase']}.png"
                         await page.screenshot(
-                            path=str(
-                                args.output_directory
-                                / f"{len(events):03}-{event['phase']}.png"
-                            )
+                            path=str(args.output_directory / screenshot)
+                        )
+                        metadata["screenshots"].append(
+                            {
+                                "file": screenshot,
+                                "capturedAt": datetime.now(timezone.utc).isoformat(),
+                            }
                         )
 
             with (args.output_directory / "scenario.log").open("wb") as log:
@@ -223,8 +255,18 @@ async def record(args):
                     start_new_session=True,
                 )
                 deadline = asyncio.get_running_loop().time() + args.max_seconds
+                next_refresh = asyncio.get_running_loop().time()
                 while child.returncode is None:
                     await consume(reader.read())
+                    now = asyncio.get_running_loop().time()
+                    if current_camera and now >= next_refresh:
+                        await page.get_by_test_id(
+                            "data-testid RefreshPicker run button"
+                        ).click(timeout=5_000)
+                        metadata["dashboardRefreshes"].append(
+                            datetime.now(timezone.utc).isoformat()
+                        )
+                        next_refresh = now + 2
                     if asyncio.get_running_loop().time() > deadline:
                         raise TimeoutError("Recording exceeded --max-seconds")
                     await asyncio.sleep(0.2)
@@ -300,6 +342,9 @@ def main():
         help="Optional Grafana /api/annotations URL; token comes from GRAFANA_TOKEN",
     )
     parser.add_argument("--dashboard-uid", help="Scope annotations to this dashboard")
+    parser.add_argument(
+        "--camera-plan", type=Path, help="Map timeline phases to provisioned dashboard UIDs"
+    )
     parser.add_argument("--max-seconds", type=float, default=1200)
     parser.add_argument("--tail-seconds", type=float, default=5)
     parser.add_argument("--headed", action="store_true")
@@ -315,6 +360,8 @@ def main():
         args.command = args.command[1:]
     if not args.command:
         parser.error("Provide the scenario command after --")
+    if args.camera_plan and not args.no_overlay:
+        parser.error("--camera-plan requires --no-overlay; render editable subtitles afterwards")
     if (
         not math.isfinite(args.max_seconds)
         or args.max_seconds <= 0

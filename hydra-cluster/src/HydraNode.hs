@@ -97,6 +97,13 @@ withSuspendedNode HydraClient{processId = Nothing} _ = fail "Cannot suspend an e
 withSuspendedNode HydraClient{processId = Just pid} action =
   withSuspendedNodeProcesses pid action
 
+-- | Stop only the owned node's etcd service, keeping its API and metrics live.
+withSuspendedEtcd :: HydraClient -> IO a -> IO a
+withSuspendedEtcd HydraClient{processId = Nothing} _ = fail "Cannot suspend an externally connected node's etcd"
+withSuspendedEtcd HydraClient{processId = Just pid} action = do
+  child <- findEtcdChild pid
+  withSuspendedProcess child action
+
 -- Stop the parent first so that its child cannot be replaced while it is
 -- identified. etcd creates its own process group, so a group signal to the
 -- parent would not reach it. The nested brackets resume etcd first.
@@ -107,16 +114,20 @@ withSuspendedNodeProcesses pid action = withSuspendedProcess pid $ do
 
 -- | Only act on the unique direct etcd child of this owned node.
 findEtcdChild :: ProcessID -> IO ProcessID
-findEtcdChild parent = do
+findEtcdChild parent = findChildProcess parent "etcd"
+
+-- | Resolve a unique direct child before applying a scoped local fault.
+findChildProcess :: ProcessID -> FilePath -> IO ProcessID
+findChildProcess parent executable = do
   processes <- readProcess "ps" ["-A", "-o", "ppid=", "-o", "pid=", "-o", "comm="] ""
   let matching = mapMaybe parseLine (Prelude.lines processes)
   case matching of
     [pid] -> pure pid
-    _ -> fail $ "Expected exactly one etcd child of node " <> show parent <> ", found " <> show matching
+    _ -> fail $ "Expected exactly one " <> executable <> " child of process " <> show parent <> ", found " <> show matching
  where
   parseLine :: String -> Maybe ProcessID
   parseLine line = case Prelude.words line of
-    ppid : pid : command | takeFileName (Prelude.unwords command) == "etcd" -> do
+    ppid : pid : command | takeFileName (Prelude.unwords command) == executable -> do
       ppid' <- readMaybe ppid :: Maybe Int
       guard $ ppid' == fromIntegral parent
       fromIntegral <$> (readMaybe pid :: Maybe Int)
