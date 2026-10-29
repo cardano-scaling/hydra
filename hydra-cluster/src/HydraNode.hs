@@ -45,12 +45,16 @@ import Network.HTTP.Simple (getResponseBody, httpJSON, httpLbs, setRequestBodyJS
 import Network.WebSockets (Connection, ConnectionException, HandshakeException, receiveData, runClient, sendBinaryData, sendClose, sendTextData)
 import System.Directory (createDirectoryIfMissing)
 import System.Environment (getEnvironment)
-import System.FilePath ((<.>), (</>))
+import System.FilePath (takeFileName, (<.>), (</>))
 import System.IO.Unsafe (unsafePerformIO)
 import System.Info (os)
+import System.Posix.Signals (sigCONT, sigSTOP, signalProcess)
+import System.Posix.Types (ProcessID)
+import System.Process (readProcess)
 import System.Process.Typed (
   ExitCode (..),
   createPipe,
+  getPid,
   getStderr,
   proc,
   setCloseFds,
@@ -82,7 +86,45 @@ data HydraClient = HydraClient
   , workDir :: Maybe FilePath
   -- ^ Work directory of the spawned hydra-node, when this test spawned it;
   -- used to point at its logs in failure messages.
+  , processId :: Maybe ProcessID
+  -- ^ Present only for processes owned by this harness; used for bounded faults.
   }
+
+-- | Suspend a node owned by this harness and its separately grouped etcd
+-- child. Resume both before the enclosing process bracket attempts termination.
+withSuspendedNode :: HydraClient -> IO a -> IO a
+withSuspendedNode HydraClient{processId = Nothing} _ = fail "Cannot suspend an externally connected node"
+withSuspendedNode HydraClient{processId = Just pid} action =
+  withSuspendedNodeProcesses pid action
+
+-- Stop the parent first so that its child cannot be replaced while it is
+-- identified. etcd creates its own process group, so a group signal to the
+-- parent would not reach it. The nested brackets resume etcd first.
+withSuspendedNodeProcesses :: ProcessID -> IO a -> IO a
+withSuspendedNodeProcesses pid action = withSuspendedProcess pid $ do
+  etcdPid <- findEtcdChild pid
+  withSuspendedProcess etcdPid action
+
+-- | Only act on the unique direct etcd child of this owned node.
+findEtcdChild :: ProcessID -> IO ProcessID
+findEtcdChild parent = do
+  processes <- readProcess "ps" ["-A", "-o", "ppid=", "-o", "pid=", "-o", "comm="] ""
+  let matching = mapMaybe parseLine (Prelude.lines processes)
+  case matching of
+    [pid] -> pure pid
+    _ -> fail $ "Expected exactly one etcd child of node " <> show parent <> ", found " <> show matching
+ where
+  parseLine :: String -> Maybe ProcessID
+  parseLine line = case Prelude.words line of
+    ppid : pid : command | takeFileName (Prelude.unwords command) == "etcd" -> do
+      ppid' <- readMaybe ppid :: Maybe Int
+      guard $ ppid' == fromIntegral parent
+      fromIntegral <$> (readMaybe pid :: Maybe Int)
+    _ -> Nothing
+
+withSuspendedProcess :: ProcessID -> IO a -> IO a
+withSuspendedProcess pid =
+  bracket_ (signalProcess sigSTOP pid) (signalProcess sigCONT pid)
 
 -- | Create an input as expected by 'send'.
 input :: Text -> [Pair] -> Aeson.Value
@@ -693,10 +735,11 @@ withPreparedHydraNodeWithQuery mQueryParams extraEnv tracer workDir hydraNodeId 
     traceWith tracer $ HydraNodeCommandSpec $ show cmd
 
     withProcessTerm cmd $ \p -> do
+      pid <- getPid p
       -- NOTE: exit code thread gets cancelled if 'action' terminates first
       raceLabelled
         ("collect-check-process-exit-code", collectAndCheckExitCode p)
-        ("with-connection-to-node", withConnectionToNodeHost tracer hydraNodeId apiAddress monPort (mQueryParams <|> Just "/?history=yes") (\client -> action client{workDir = Just workDir}))
+        ("with-connection-to-node", withConnectionToNodeHost tracer hydraNodeId apiAddress monPort (mQueryParams <|> Just "/?history=yes") (\client -> action client{workDir = Just workDir, processId = pid}))
         <&> either absurd id
  where
   apiAddress =
@@ -891,7 +934,7 @@ withConnectionToNodeHost tracer hydraNodeId apiHost@Host{hostname, port} monitor
     \connection -> do
       atomicWriteIORef connectedOnce True
       traceWith tracer (NodeStarted hydraNodeId)
-      res <- action $ HydraClient{hydraNodeId, apiHost, monitoringPort, connection, tracer, apiEncoding, workDir = Nothing}
+      res <- action $ HydraClient{hydraNodeId, apiHost, monitoringPort, connection, tracer, apiEncoding, workDir = Nothing, processId = Nothing}
       sendClose connection ("Bye" :: Text)
       pure res
 

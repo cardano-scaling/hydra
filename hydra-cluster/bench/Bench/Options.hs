@@ -2,6 +2,7 @@ module Bench.Options where
 
 import Hydra.Prelude
 
+import Bench.Lifecycle (LifecycleSettings (..))
 import Data.Text (splitOn)
 import Hydra.Cardano.Api (NetworkId, SocketPath)
 import Hydra.Chain (maximumNumberOfParties)
@@ -65,6 +66,14 @@ data Options
       , pumbaCommand :: Maybe String
       , cborClients :: Bool
       }
+  | LifecycleOptions
+      { outputDirectory :: Maybe FilePath
+      , numberOfTxs :: Int
+      , timeoutSeconds :: NominalDiffTime
+      , startingNodeId :: Int
+      , generationSeed :: Maybe Int
+      , lifecycleSettings :: LifecycleSettings
+      }
   | MatrixOptions
       { outputDirectory :: Maybe FilePath
       , timeoutSeconds :: NominalDiffTime
@@ -95,6 +104,7 @@ benchOptionsParser =
             <> command "datasets" datasetOptionsInfo
             <> command "generate" generateOptionsInfo
             <> command "demo" demoOptionsInfo
+            <> command "lifecycle" lifecycleOptionsInfo
             <> command "matrix" matrixOptionsInfo
         )
         <**> helper
@@ -438,3 +448,20 @@ waitForTxValidModesParser =
 
 parseListOf :: Read a => String -> Maybe [a]
 parseListOf s = traverse (readMaybe . toString) (splitOn "," (toText s))
+
+-- | The lifecycle scenario shares dataset generation and startup with benchmarks.
+lifecycleOptionsInfo :: ParserInfo Options
+lifecycleOptionsInfo = info parser (progDesc "Run a local Head lifecycle with a disappearing peer and a recording timeline.")
+ where
+  parser =
+    LifecycleOptions
+      <$> optional outputDirectoryParser
+      <*> numberOfTxsParser
+      <*> timeoutParser
+      <*> startingNodeIdParser
+      <*> optional generationSeedParser
+      <*> ( LifecycleSettings
+              <$> option auto (long "phase-seconds" <> value 10 <> metavar "SECONDS" <> help "Hold healthy phase boundaries for recording (zero is allowed).")
+              <*> option auto (long "peer-pause-seconds" <> value 20 <> metavar "SECONDS" <> help "How long to suspend a participant; must be positive.")
+              <*> option auto (long "tx-interval-ms" <> value 250 <> metavar "MILLISECONDS" <> help "Delay between confirmed baseline transactions.")
+          )
