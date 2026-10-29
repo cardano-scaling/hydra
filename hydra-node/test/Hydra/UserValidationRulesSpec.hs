@@ -36,15 +36,19 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Prelude hiding (toList)
 import Hydra.UserValidationRules (
+  DepositRule (..),
   MintingOnL2Rule (..),
   PolicyRule (..),
   PolicyViolation (..),
+  UserValidationAction (..),
   UserValidationRules (..),
   checkAllowedScriptAddresses,
+  checkDeposit,
   checkMaxDatumSize,
   checkMaxOutputValueAssets,
   checkMaxUTxOCount,
   checkPolicies,
+  validateUserActionWith,
   validateUserTransactionWith,
  )
 import Test.Hydra.Prelude
@@ -75,6 +79,9 @@ instance Arbitrary MintingOnL2Rule where
 instance Arbitrary UserValidationRules where
   arbitrary = genericArbitrary
 
+instance Arbitrary DepositRule where
+  arbitrary = genericArbitrary
+
 spec :: Spec
 spec = do
   describe "user validated transactions" $ do
@@ -82,7 +89,38 @@ spec = do
     prop "checkMaxOutputValueAssets" prop_checkMaxOutputValueAssets
     prop "checkMaxDatumSize" prop_checkMaxDatumSize
     prop "checkAllowedScriptAddresses" prop_checkAllowedScriptAddresses
+    prop "checkDeposit" prop_checkDeposit
     prop "validateUserTransactionWith" prop_validateUserTransactionWith
+    prop "validateUserActionWith" prop_validateUserActionWith
+
+prop_validateUserActionWith :: Property
+prop_validateUserActionWith =
+  forAll genCase $ \(tx, utxo, rules, depositTxId) ->
+    let checkAdmission rule expected =
+          validateUserActionWith
+            (rules {depositRule = rule})
+            utxo
+            (AdmitNewDeposit depositTxId)
+            === expected
+        enabledRules =
+          [ NoDepositsAfterOpen
+          , AllowOnlyDeposits Set.empty
+          , AllowOnlyDeposits (Set.singleton depositTxId)
+          ]
+     in conjoin $
+          [ counterexample "L2 transaction delegation" $
+              validateUserActionWith rules utxo (ValidateL2Transaction tx)
+                === validateUserTransactionWith rules utxo tx
+          , counterexample "deposit restriction disabled" $
+              checkAdmission Nothing (Right ())
+          ]
+            <> [ counterexample ("deposit delegation: " <> show rule) $
+                   checkAdmission (Just rule) (checkDeposit rule depositTxId)
+               | rule <- enabledRules
+               ]
+ where
+  genCase =
+    (,,,) <$> genTxWithMint <*> genUTxO <*> arbitrary <*> arbitrary
 
 prop_validateUserTransactionWith :: Property
 prop_validateUserTransactionWith =
@@ -296,3 +334,31 @@ prop_checkAllowedScriptAddresses =
                   checkAllowedScriptAddresses Set.empty (output keyAddress)
                     === Right ()
               ]
+
+prop_checkDeposit :: Property
+prop_checkDeposit =
+  forAll arbitrary $ \depositTxId ->
+    forAll arbitrary $ \allowed ->
+      let rejected =
+            Left
+              DepositNotAllowed
+                { rejectedDepositTxId = depositTxId
+                }
+       in conjoin
+            [ counterexample "deposits forbidden" $
+                checkDeposit NoDepositsAfterOpen depositTxId
+                  === rejected
+            , counterexample "empty allowlist" $
+                checkDeposit (AllowOnlyDeposits Set.empty) depositTxId
+                  === rejected
+            , counterexample "listed deposit" $
+                checkDeposit
+                  (AllowOnlyDeposits (Set.insert depositTxId allowed))
+                  depositTxId
+                  === Right ()
+            , counterexample "unlisted deposit" $
+                checkDeposit
+                  (AllowOnlyDeposits (Set.delete depositTxId allowed))
+                  depositTxId
+                  === rejected
+            ]
