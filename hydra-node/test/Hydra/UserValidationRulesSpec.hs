@@ -6,19 +6,28 @@
 
 module Hydra.UserValidationRulesSpec where
 
+import Data.ByteString qualified as BS
 import Data.Set qualified as Set
 import GHC.IsList (toList)
 import Hydra.Cardano.Api (
   AssetId (..),
   CtxTx,
   Quantity (..),
+  ScriptData (..),
   TxOut,
+  getOriginalScriptDataBytes,
   getTxBody,
   getTxBodyContent,
+  hashScriptDataBytes,
   txMintValue,
   txMintValueToValue,
   txOuts',
+  unsafeHashableScriptData,
   pattern TxOut,
+  pattern TxOutDatumHash,
+  pattern TxOutDatumInline,
+  pattern TxOutDatumNone,
+  pattern TxOutSupplementalDatum,
  )
 import Hydra.Prelude hiding (toList)
 import Hydra.UserValidationRules (
@@ -26,6 +35,7 @@ import Hydra.UserValidationRules (
   PolicyRule (..),
   PolicyViolation (..),
   UserValidationRules (..),
+  checkMaxDatumSize,
   checkMaxOutputValueAssets,
   checkMaxUTxOCount,
   checkPolicies,
@@ -38,8 +48,10 @@ import Test.QuickCheck (
   checkCoverage,
   chooseInteger,
   conjoin,
+  counterexample,
   coverTable,
   forAll,
+  forAllBlind,
   listOf1,
   oneof,
   resize,
@@ -62,6 +74,7 @@ spec = do
   describe "user validated transactions" $ do
     prop "checkPolicies" prop_checkMintedAssets
     prop "checkMaxOutputValueAssets" prop_checkMaxOutputValueAssets
+    prop "checkMaxDatumSize" prop_checkMaxDatumSize
     prop "validateUserTransactionWith" prop_validateUserTransactionWith
 
 prop_validateUserTransactionWith :: Property
@@ -93,6 +106,10 @@ prop_validateUserTransactionWith =
       Nothing -> Right ()
       Just limit ->
         traverse_ (checkMaxOutputValueAssets limit) (txOuts' tx)
+    case maxDatumSize rules of
+      Nothing -> Right ()
+      Just limit ->
+        traverse_ (checkMaxDatumSize limit) (txOuts' tx)
 
 prop_checkMintedAssets :: Property
 prop_checkMintedAssets =
@@ -166,3 +183,45 @@ prop_checkMaxOutputValueAssets =
         ]
     quantity <- chooseInteger (1, 1000000)
     pure (output, policyId, names, quantity)
+
+prop_checkMaxDatumSize :: Property
+prop_checkMaxDatumSize =
+  forAllBlind (genTxOut :: Gen (TxOut CtxTx)) $ \(TxOut address value _ refScript) ->
+    forAll (arbitrary :: Gen [Word8]) $ \bytes ->
+      let scriptData =
+            unsafeHashableScriptData (ScriptDataBytes (BS.pack bytes))
+          datumSize =
+            fromIntegral (BS.length (getOriginalScriptDataBytes scriptData))
+          output datum = TxOut address value datum refScript
+          withOutput datum assertion =
+            let actualOutput = output datum
+             in counterexample
+                  ("Output being checked: " <> show actualOutput)
+                  $ assertion actualOutput
+          checkPayload datum =
+            withOutput datum $ \actualOutput ->
+              counterexample ("Encoded datum bytes: " <> show datumSize) $
+                conjoin $
+                  [ checkMaxDatumSize datumSize actualOutput === Right ()
+                  , checkMaxDatumSize (datumSize + 1) actualOutput === Right ()
+                  ]
+                    <> [ checkMaxDatumSize (datumSize - 1) actualOutput
+                        === Left
+                          MaxOutputDatumSizeExceeded
+                            { actualDatumSize = datumSize
+                            , maximumDatumSize = datumSize - 1
+                            }
+                       | datumSize > 0
+                       ]
+       in conjoin
+            [ counterexample "TxOutDatumInline" $
+                checkPayload (TxOutDatumInline scriptData)
+            , counterexample "TxOutSupplementalDatum" $
+                checkPayload (TxOutSupplementalDatum scriptData)
+            , counterexample "TxOutDatumNone" $
+                withOutput TxOutDatumNone $ \actualOutput ->
+                  checkMaxDatumSize 0 actualOutput === Right ()
+            , counterexample "TxOutDatumHash" $
+                withOutput (TxOutDatumHash (hashScriptDataBytes scriptData)) $ \actualOutput ->
+                  checkMaxDatumSize 0 actualOutput === Right ()
+            ]
