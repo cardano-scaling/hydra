@@ -8,19 +8,45 @@ module Hydra.UserValidationRulesSpec where
 
 import Data.Set qualified as Set
 import GHC.IsList (toList)
-import Hydra.Cardano.Api (AssetId (..), getTxBody, getTxBodyContent, txMintValue, txMintValueToValue)
+import Hydra.Cardano.Api (
+  AssetId (..),
+  CtxTx,
+  Quantity (..),
+  TxOut,
+  getTxBody,
+  getTxBodyContent,
+  txMintValue,
+  txMintValueToValue,
+  txOuts',
+  pattern TxOut,
+ )
 import Hydra.Prelude hiding (toList)
 import Hydra.UserValidationRules (
   MintingOnL2Rule (..),
   PolicyRule (..),
+  PolicyViolation (..),
   UserValidationRules (..),
+  checkMaxOutputValueAssets,
+  checkMaxUTxOCount,
   checkPolicies,
   validateUserTransactionWith,
-  checkMaxUTxOCount,
  )
 import Test.Hydra.Prelude
-import Test.Hydra.Tx.Gen (genTxWithMint, genUTxO)
-import Test.QuickCheck (Property, checkCoverage, coverTable, forAll, oneof, sublistOf, tabulate, (===))
+import Test.Hydra.Tx.Gen (genTxOut, genTxWithMint, genUTxO)
+import Test.QuickCheck (
+  Property,
+  checkCoverage,
+  chooseInteger,
+  conjoin,
+  coverTable,
+  forAll,
+  listOf1,
+  oneof,
+  resize,
+  sublistOf,
+  tabulate,
+  (===),
+ )
 
 instance Arbitrary PolicyRule where
   arbitrary = genericArbitrary
@@ -35,6 +61,7 @@ spec :: Spec
 spec = do
   describe "user validated transactions" $ do
     prop "checkPolicies" prop_checkMintedAssets
+    prop "checkMaxOutputValueAssets" prop_checkMaxOutputValueAssets
     prop "validateUserTransactionWith" prop_validateUserTransactionWith
 
 prop_validateUserTransactionWith :: Property
@@ -62,6 +89,10 @@ prop_validateUserTransactionWith =
       ForbidMinting -> checkPolicies Set.empty tx
       AllowMinting -> Right ()
     maybe (Right ()) (`checkMaxUTxOCount` utxo) (maxUTxOCount rules)
+    case maxOutputValueAssets rules of
+      Nothing -> Right ()
+      Just limit ->
+        traverse_ (checkMaxOutputValueAssets limit) (txOuts' tx)
 
 prop_checkMintedAssets :: Property
 prop_checkMintedAssets =
@@ -99,3 +130,39 @@ prop_checkMintedAssets =
                     | otherwise = "partial allowlist rejects"
                in tabulate "Policy cases" [category] $
                     isRight (checkPolicies allowed tx) === expected
+
+prop_checkMaxOutputValueAssets :: Property
+prop_checkMaxOutputValueAssets =
+  forAll genCase $ \(TxOut address _ datum refScript, policyId, names, quantity) ->
+    let value =
+          fromList $
+            (AdaAssetId, Quantity 2000000)
+              : [ (AssetId policyId name, Quantity quantity)
+                | name <- Set.toList names
+                ]
+        output = TxOut address value datum refScript
+        count = fromIntegral (Set.size names)
+     in tabulate "Output assets" [if count == 0 then "ADA only" else "tokens"] $
+          conjoin $
+            [ checkMaxOutputValueAssets count output === Right ()
+            , checkMaxOutputValueAssets (count + 1) output === Right ()
+            ]
+              <> [ checkMaxOutputValueAssets (count - 1) output
+                  === Left
+                    MaxOutputValueAssetsExceeded
+                      { actualAssetCount = count
+                      , maximumAssetCount = count - 1
+                      }
+                 | count > 0
+                 ]
+ where
+  genCase = do
+    output <- genTxOut :: Gen (TxOut CtxTx)
+    policyId <- arbitrary
+    names <-
+      oneof
+        [ pure Set.empty
+        , Set.fromList <$> resize 12 (listOf1 arbitrary)
+        ]
+    quantity <- chooseInteger (1, 1000000)
+    pure (output, policyId, names, quantity)
