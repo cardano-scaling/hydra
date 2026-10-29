@@ -696,7 +696,7 @@ instance GHC.Show.Show CardanoNode.ProcessHasExited
 
 module HydraNode
 data HydraClient
-HydraClient :: Int -> Host -> Maybe PortNumber -> Connection -> Tracer IO HydraNodeLog -> ApiEncoding -> Maybe FilePath -> HydraClient
+HydraClient :: Int -> Host -> Maybe PortNumber -> Connection -> Tracer IO HydraNodeLog -> ApiEncoding -> Maybe FilePath -> Maybe ProcessID -> HydraClient
 [$sel:hydraNodeId:HydraClient] :: HydraClient -> Int
 [$sel:apiHost:HydraClient] :: HydraClient -> Host
 
@@ -715,6 +715,10 @@ HydraClient :: Int -> Host -> Maybe PortNumber -> Connection -> Tracer IO HydraN
 --   used to point at its logs in failure messages.
 [$sel:workDir:HydraClient] :: HydraClient -> Maybe FilePath
 
+-- | Present only for processes owned by this harness; used for bounded
+--   faults.
+[$sel:processId:HydraClient] :: HydraClient -> Maybe ProcessID
+
 -- | The three ports a hydra-node binds: API, peer-to-peer listen, and the
 --   optional Prometheus monitoring endpoint. Callers allocate these via
 --   <a>allocateHydraNodePorts</a> (or pre-allocate a full cluster) and
@@ -724,6 +728,38 @@ HydraNodePorts :: PortNumber -> PortNumber -> PortNumber -> HydraNodePorts
 [$sel:apiPort:HydraNodePorts] :: HydraNodePorts -> PortNumber
 [$sel:listenPort:HydraNodePorts] :: HydraNodePorts -> PortNumber
 [$sel:monitoringPort:HydraNodePorts] :: HydraNodePorts -> PortNumber
+
+-- | Get the latest snapshot UTxO from the hydra-node. NOTE: While we
+--   usually avoid parsing responses using the same data types as the
+--   system under test, this parses the response as a <a>UTxO</a> type as
+--   we often need to pick it apart.
+getSnapshotUTxO :: HydraClient -> IO UTxO
+
+-- | Create an input as expected by <a>send</a>.
+input :: Text -> [Pair] -> Value
+
+-- | Create an output as expected by <a>waitFor</a> and <a>waitForAll</a>.
+output :: Text -> [Pair] -> Value
+
+-- | Helper to make it easy to obtain a commit tx using some wallet utxo
+requestCommitTx :: HydraClient -> UTxO -> IO Tx
+send :: HydraClient -> Value -> IO ()
+
+-- | Wait some time for a single API server output from each of given
+--   nodes. This function waits for <tt>delay</tt> seconds for message
+--   <tt>expected</tt> to be seen by all given <tt>nodes</tt>.
+waitFor :: HasCallStack => Tracer IO HydraNodeLog -> NominalDiffTime -> [HydraClient] -> Value -> IO ()
+
+-- | Wait up to some <tt>delay</tt> for some JSON <a>Value</a> to match
+--   given function.
+--   
+--   This is a generalisation of <a>waitMatch</a> to multiple nodes.
+waitForAllMatch :: (Eq a, Show a, HasCallStack) => NominalDiffTime -> [HydraClient] -> (Value -> Maybe a) -> IO a
+
+-- | Wait up to some time for an API server output to match the given
+--   predicate. The budget is scaled to the environment, see
+--   <a>scaleWaitTime</a>.
+waitMatch :: HasCallStack => NominalDiffTime -> HydraClient -> (Value -> Maybe a) -> IO a
 
 -- | Allocate ports for every node in a cluster up front. The returned map
 --   must be passed to every <a>prepareHydraNode</a> / <a>withHydraNode</a>
@@ -753,18 +789,6 @@ getProtocolParameters :: HydraClient -> IO (PParams LedgerEra)
 --   we often need to pick it apart.
 getSnapshotConfirmed :: HydraClient -> IO (ConfirmedSnapshot Tx)
 
--- | Get the latest snapshot UTxO from the hydra-node. NOTE: While we
---   usually avoid parsing responses using the same data types as the
---   system under test, this parses the response as a <a>UTxO</a> type as
---   we often need to pick it apart.
-getSnapshotUTxO :: HydraClient -> IO UTxO
-
--- | Create an input as expected by <a>send</a>.
-input :: Text -> [Pair] -> Value
-
--- | Create an output as expected by <a>waitFor</a> and <a>waitForAll</a>.
-output :: Text -> [Pair] -> Value
-
 -- | Submit a decommit transaction to the hydra-node.
 postDecommit :: HydraClient -> Tx -> IO ()
 
@@ -777,24 +801,9 @@ postDecommit :: HydraClient -> Tx -> IO ()
 --   <a>allocateHydraNodePorts</a> + a singleton map for a standalone node.
 prepareHydraNode :: HasCallStack => ChainConfig -> FilePath -> Int -> Secret (SigningKey HydraKey) -> [VerificationKey HydraKey] -> Map Int HydraNodePorts -> (Value -> Value) -> IO RunOptions
 
--- | Helper to make it easy to obtain a commit tx using some wallet utxo
-requestCommitTx :: HydraClient -> UTxO -> IO Tx
-
 -- | <tt>failAfter</tt> with the budget scaled like <a>scaleWaitTime</a>.
 --   Use for whole-test backstops in end-to-end tests.
 scaledFailAfter :: HasCallStack => NominalDiffTime -> IO a -> IO a
-send :: HydraClient -> Value -> IO ()
-
--- | Wait some time for a single API server output from each of given
---   nodes. This function waits for <tt>delay</tt> seconds for message
---   <tt>expected</tt> to be seen by all given <tt>nodes</tt>.
-waitFor :: HasCallStack => Tracer IO HydraNodeLog -> NominalDiffTime -> [HydraClient] -> Value -> IO ()
-
--- | Wait up to some <tt>delay</tt> for some JSON <a>Value</a> to match
---   given function.
---   
---   This is a generalisation of <a>waitMatch</a> to multiple nodes.
-waitForAllMatch :: (Eq a, Show a, HasCallStack) => NominalDiffTime -> [HydraClient] -> (Value -> Maybe a) -> IO a
 waitForNodesConnected :: Tracer IO HydraNodeLog -> NominalDiffTime -> NonEmpty HydraClient -> IO ()
 waitForNodesDisconnected :: Tracer IO HydraNodeLog -> NominalDiffTime -> NonEmpty HydraClient -> IO ()
 waitForNodesSynced :: HasCallStack => NominalDiffTime -> [HydraClient] -> IO ()
@@ -809,11 +818,6 @@ waitForNodesSynced :: HasCallStack => NominalDiffTime -> [HydraClient] -> IO ()
 --   seen is kept so that a genuine mismatch is still reported as a
 --   mismatch, rather than as a bare timeout.
 waitForSnapshotUTxO :: HasCallStack => NominalDiffTime -> HydraClient -> UTxO -> IO ()
-
--- | Wait up to some time for an API server output to match the given
---   predicate. The budget is scaled to the environment, see
---   <a>scaleWaitTime</a>.
-waitMatch :: HasCallStack => NominalDiffTime -> HydraClient -> (Value -> Maybe a) -> IO a
 withConnectionToNode :: forall a. Tracer IO HydraNodeLog -> Int -> Host -> Maybe PortNumber -> (HydraClient -> IO a) -> IO a
 withHydraCluster :: HasCallStack => Tracer IO HydraNodeLog -> Timing -> FilePath -> SocketPath -> Int -> [(VerificationKey PaymentKey, Secret (SigningKey PaymentKey))] -> [Secret (SigningKey HydraKey)] -> [TxId] -> (NonEmpty HydraClient -> IO a) -> IO a
 
@@ -855,6 +859,16 @@ withUnsyncedHydraNode :: HasCallStack => Tracer IO HydraNodeLog -> ChainConfig -
 -- | Convenience: <a>withUnsyncedHydraNode</a> for a single node with
 --   freshly allocated dynamic ports.
 withUnsyncedSoloHydraNode :: HasCallStack => Tracer IO HydraNodeLog -> ChainConfig -> FilePath -> Int -> Secret (SigningKey HydraKey) -> [VerificationKey HydraKey] -> (HydraClient -> IO a) -> IO a
+
+-- | Suspend a node owned by this harness and its separately grouped etcd
+--   child. Resume both before the enclosing process bracket attempts
+--   termination.
+withSuspendedNode :: HydraClient -> IO a -> IO a
+withSuspendedNodeProcesses :: ProcessID -> IO a -> IO a
+withSuspendedProcess :: ProcessID -> IO a -> IO a
+
+-- | Only act on the unique direct etcd child of this owned node.
+findEtcdChild :: ProcessID -> IO ProcessID
 waitNext :: HasCallStack => HydraClient -> IO Value
 
 -- | Scale a wait budget to the environment. Blockfrost runs triple it (the
@@ -1283,3 +1297,24 @@ cannotAbsorbDepositDuringClose :: Tracer IO EndToEndLog -> FilePath -> ChainBack
 --   
 --   TODO: This could move into the MutationSpec or the TraceSpec.
 cannotStealLargerDepositDuringOwnIncrement :: Tracer IO EndToEndLog -> FilePath -> ChainBackendOptions -> [TxId] -> IO ()
+
+
+-- | Head lifecycle shared by benchmarks and scripted demonstrations.
+module Hydra.Cluster.HeadLifecycle
+
+-- | Fund the dataset and node fuel, optionally reserving incremental
+--   deposits.
+fundDataset :: ChainBackendOptions -> Dataset -> Bool -> Tracer IO FaucetLog -> IO [UTxO]
+
+-- | Open an empty Head and wait for every dataset deposit to settle
+--   everywhere.
+openHead :: Timing -> ChainBackendOptions -> [ClientDataset] -> NonEmpty HydraClient -> IO HeadId
+
+-- | Return the observed contestation deadline, allowing reporting before
+--   fanout.
+closeHead :: Timing -> HeadId -> HydraClient -> IO UTCTime
+
+-- | Wait for the deadline and require successful finalization. Callers
+--   decide whether a failure is fatal (scenarios) or belongs in a
+--   benchmark report.
+fanoutHead :: Tracer IO HydraNodeLog -> UTCTime -> HeadId -> HydraClient -> IO Int
