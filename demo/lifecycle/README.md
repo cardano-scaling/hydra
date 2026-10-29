@@ -5,15 +5,19 @@ startup, funding, deposits, close and fanout. It is driven by protocol events;
 the configurable holds give a person time to see each state on Grafana.
 
 The first scenario opens and funds a three-party Head, confirms baseline
-transactions, suspends one Hydra process, proves a submitted transaction remains
-unconfirmed during the outage, resumes the participant, checks confirmation on
-all three participants, sends further transactions, closes, and fans out.
+transactions, suspends one Hydra process and its etcd child, proves a submitted
+transaction remains unconfirmed during the outage, resumes the participant,
+checks confirmation on all three participants, sends further transactions,
+closes, and fans out.
 
-The etcd child remains running while its Hydra process is suspended. This is a
-missing-signer/leader scenario, with broadcast quorum intact. Depending on the
-next leader, a snapshot can wait to start or wait for its last signature. The
-assertion is that confirmation stops and then recovers. Suspension is bracketed:
-exceptions and cancellation resume the peer before process cleanup.
+The node and its etcd child are suspended, so the peer stops serving both Hydra
+and etcd requests. Two of three etcd members remain available for quorum. This
+is a missing-signer/leader scenario. Depending on the next leader, a snapshot
+can wait to start or wait for its last signature. The scenario checks that both
+remaining participants receive the transaction, that confirmation stops, and
+that it then recovers. Suspension is bracketed:
+exceptions and cancellation resume both processes before cleanup. Suspension
+models an unavailable peer; it does not exercise process exit or restart.
 
 ## Run the scenario
 

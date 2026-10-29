@@ -91,15 +91,20 @@ runLifecycle firstNode timeoutSeconds settings workDir dataset@Dataset{clientDat
           hold
           event "peer-disappearance" "started" $ "Suspending Hydra participant " <> show (hydraNodeId peer)
           withSuspendedNode peer $ do
-            event "peer-disappearance" "applied" "The participant is suspended; its etcd child remains available"
+            event "peer-disappearance" "applied" "The participant and its etcd process are suspended"
             submit leader faultTx
+            forM_ (take 2 clients) $ \client ->
+              void $ waitMatch 30 client $ \v -> do
+                guard $ v ^? key "tag" == Just "TxValid"
+                guard $ v ^? key "transactionId" == Just (toJSON $ txId faultTx)
+            event "peer-disappearance" "observed" "The remaining participants received and validated the transaction"
             result <-
               Timeout.timeout (fromIntegral (peerPauseSeconds settings) * 1_000_000) $
                 let go = waitNext leader >>= maybe go pure . confirms faultTx
                  in go
             when (isJust result) $ fail "A transaction confirmed while a signing participant was suspended"
             event "peer-disappearance" "observed" "The submitted transaction remains unconfirmed during the outage"
-          event "recovery" "applied" "The suspended participant has been resumed"
+          event "recovery" "applied" "The participant and its etcd process have been resumed"
           mapM_ (confirm faultTx) clients
           event "recovery" "observed" "Every participant confirmed the transaction held during the outage"
           hold

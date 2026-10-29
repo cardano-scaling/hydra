@@ -73,6 +73,7 @@
         pkgs.liburing
         pkgs.systemd
         pkgs.selfci
+        pkgs.procps
       ];
 
       haskellNixShell = (hsPkgs.shellFor {
