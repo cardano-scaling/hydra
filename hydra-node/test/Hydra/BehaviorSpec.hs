@@ -288,7 +288,7 @@ spec = parallel $ do
                 send n1 Close
                 waitForNext n1 >>= assertHeadIsClosedWith 1
 
-      it "accumulator capacity rejection lets all three parties confirm a later merge" $
+      it "prunes an overflowing transaction and lets all three parties confirm a later merge" $
         shouldRunInSim $
           withSimulatedChainAndNetwork $ \chain ->
             withHydraNode aliceSk [bob, carol] chain $ \n1 ->
@@ -304,7 +304,7 @@ spec = parallel $ do
                   depositHead chain nodes initial
                   send n3 (NewTx split)
                   waitUntilMatch nodes $ \case
-                    TxInvalid{transaction} -> guard $ transaction == split
+                    SnapshotConfirmed{snapshot = Snapshot{confirmed, utxo}} -> guard $ null confirmed && utxo == initial
                     _ -> Nothing
                   send n2 (NewTx merge)
                   waitUntilMatch nodes $ \case

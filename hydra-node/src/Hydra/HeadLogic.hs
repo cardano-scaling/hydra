@@ -241,15 +241,13 @@ onOpenNetworkReqTx env ledger ChainPointTime{currentSlot, currentChainTime} st t
  where
   waitApplyTx cont =
     case applyTransactionsWithoutCollision ledger currentSlot localUTxO [tx] of
-      Right nextUTxO
+      Right _
         -- Refuse a tx creating an output that a claimable or settling deposit
         -- names: it would collide with that deposit once absorbed, and no node
         -- signs a snapshot carrying both. Expired deposits are never claimed, so
         -- they do not count.
         | not (namesNoneOf (utxoFromTx tx) namedByDepositsInPlay) ->
             notApplicable (ValidationError "transaction creates an output a pending deposit names")
-        | Left AccumulatorTooLarge{utxoCount, maxAllowed} <- checkSnapshotUTxOSize nextUTxO reservedCommit reservedDecommit ->
-            notApplicable (ValidationError $ "transaction exceeds the head's accumulator capacity: " <> show utxoCount <> " outputs (maximum " <> show maxAllowed <> ")")
         | otherwise -> cont
       Left (_, err) -> notApplicable err
    where
@@ -309,23 +307,6 @@ onOpenNetworkReqTx env ledger ChainPointTime{currentSlot, currentChainTime} st t
   confirmedUTxO = settledUTxO version (getSnapshot confirmedSnapshot)
 
   settlingCommit = settlingCommitAt env version currentChainTime pendingDeposits (getSnapshot confirmedSnapshot)
-
-  -- Reserve the outputs a signed (or being-signed) snapshot still owes.
-  -- Unclaimed deposits can be deferred by the request builder instead.
-  reservedCommit = case seenSnapshot of
-    SeenSnapshot{snapshot}
-      | snapshot.version == version -> snapshot.utxoToCommit
-    _ -> case settlingCommit of
-      Just (ContinueCommit (_, Deposit{deposited})) -> Just deposited
-      _ -> Nothing
-
-  reservedDecommit =
-    (utxoFromTx <$> decommitTx) <|> case seenSnapshot of
-      SeenSnapshot{snapshot}
-        | snapshot.version == version -> snapshot.utxoToDecommit
-      _ ->
-        let snapshot = getSnapshot confirmedSnapshot
-         in if snapshot.version == version then snapshot.utxoToDecommit else Nothing
 
   OpenState{coordinatedHeadState, headId, parameters} = st
 
@@ -2455,7 +2436,9 @@ checkSnapshotUTxOSize ::
   Maybe (UTxOType tx) ->
   Either AccumulatorTooLarge ()
 checkSnapshotUTxOSize utxo mCommit mDecommit =
-  traverse_ check [combinedUTxO utxo Nothing mDecommit, combinedUTxO utxo mCommit Nothing]
+  case (mCommit, mDecommit) of
+    (Nothing, Nothing) -> check utxo
+    _ -> traverse_ check [combinedUTxO utxo Nothing mDecommit, combinedUTxO utxo mCommit Nothing]
  where
   check :: UTxOType tx -> Either AccumulatorTooLarge ()
   check u

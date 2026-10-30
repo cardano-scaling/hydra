@@ -256,10 +256,12 @@ A requested snapshot that would exceed this is rejected with
 `ReqSnUTxOSetTooLarge`, so the head cannot reach a state it would be unable to fan
 out.
 
-Transaction admission and snapshot construction enforce the same bound, including
-outputs owed by pending commits and decommits. Transactions that do not fit use
-the normal retry budget, then produce `TxInvalid`; new deposits that do not fit
-are deferred. Confirm any merges an expanding decommit relies on before submitting it.
+Snapshot construction enforces the same bound, including outputs owed by pending
+commits and decommits. The optimistic local UTxO may temporarily exceed it:
+`TxValid` indicates local ledger acceptance, not inclusion in the next snapshot.
+Transactions that do not fit are pruned when a snapshot is applied; new deposits
+that do not fit are deferred. Confirm any merges an expanding decommit relies on
+before submitting it.
 
 For a head already stalled on an older version,
 [side-load the last confirmed snapshot](/docs/how-to/sideload-snapshot) on all
