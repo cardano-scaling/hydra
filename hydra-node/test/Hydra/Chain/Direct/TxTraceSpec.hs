@@ -840,7 +840,7 @@ newDepositTx _ utxoToDeposit = do
   let depositUTxO = realWorldModelUTxO utxoToDeposit
   let blueprint = CommitBlueprintTx{blueprintTx = txSpendingUTxO depositUTxO, lookupUTxO = depositUTxO}
   pure $
-    Right $
+    first toString $
       depositTx
         Fixture.testNetworkId
         Fixture.defaultPParams

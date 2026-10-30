@@ -33,14 +33,15 @@ genHealthyDepositTx = do
   -- transaction outputs.
   toDeposit <- genUTxOSized 1
   let tx =
-        depositTx
-          testNetworkId
-          defaultPParams
-          (mkHeadId testPolicyId)
-          (mkSimpleBlueprintTx toDeposit)
-          slot
-          healthyDeadline
-          Nothing
+        either (error . show) id $
+          depositTx
+            testNetworkId
+            defaultPParams
+            (mkHeadId testPolicyId)
+            (mkSimpleBlueprintTx toDeposit)
+            slot
+            healthyDeadline
+            Nothing
   pure (tx, toDeposit)
  where
   slot = chooseEnum (0, healthyDeadlineSlot) `generateWith` 42
