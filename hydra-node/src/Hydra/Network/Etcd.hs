@@ -266,7 +266,7 @@ withEtcdNetwork tracer protocolVersion config originalCallback action = do
         , ["--initial-advertise-peer-urls", httpUrl advertise]
         , ["--listen-client-urls", httpUrl clientHost]
         , -- Pick a random port for http api (and use above only for grpc)
-          ["--listen-client-http-urls", "http://localhost:0"]
+          ["--listen-client-http-urls", "http://127.0.0.1:0"]
         , -- Client access only on configured 'host' interface.
           ["--advertise-client-urls", httpUrl clientHost]
         , -- XXX: Could use unique initial-cluster-tokens to isolate clusters

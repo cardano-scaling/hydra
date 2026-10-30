@@ -65,6 +65,7 @@ test-index:
   cd test-reports
   shopt -s nullglob
   failed=0
+  total=0
   xmls=(*.xml)
   if [ ${#xmls[@]} -eq 0 ]; then
     echo "no test-reports/*.xml found — run 'just test' first" >&2
@@ -90,6 +91,12 @@ test-index:
       tests=$(printf %s "$attrs" | grep -oE 'tests="[0-9]+"'    | head -1 | grep -oE '[0-9]+' || echo "?")
       fails=$(printf %s "$attrs" | grep -oE 'failures="[0-9]+"' | head -1 | grep -oE '[0-9]+' || echo "0")
       errs=$(printf %s  "$attrs" | grep -oE 'errors="[0-9]+"'   | head -1 | grep -oE '[0-9]+' || echo "0")
+      if [ "$tests" = "?" ]; then
+        echo "cannot read test count from $xml" >&2
+        failed=1
+      else
+        total=$((total + tests))
+      fi
       mtime=$(date -r "$xml" '+%Y-%m-%d %H:%M:%S')
       cls="ok"
       if [ "${fails:-0}" != "0" ] || [ "${errs:-0}" != "0" ]; then cls="fail"; failed=1; fi
@@ -99,6 +106,10 @@ test-index:
     echo '</tbody></table>'
   } > index.html
   echo "wrote test-reports/index.html (${#xmls[@]} suites)"
+  if [ "$total" -eq 0 ]; then
+    echo "no tests selected — check the package and test pattern" >&2
+    exit 1
+  fi
   # 'cabal test --keep-going' exits 0 even when a suite fails, so this is what
   # makes 'just test' fail.
   [ "$failed" -eq 0 ] || { echo "failing suites, see test-reports/index.html" >&2; exit 1; }

@@ -30,6 +30,17 @@ import Test.Util (captureTracer)
 
 spec :: Spec
 spec = do
+  describe "bounded batch writes" $
+    forM_ [999, 1000, 1001, 2501 :: Int] $ \count ->
+      it ("persists and deduplicates a batch of " <> show count <> " events") $
+        failAfter 10 $
+          withEventSourceAndSink $ \source sink -> do
+            now <- getCurrentTime
+            let events = [StateEvent i NetworkConnected now | i <- [0 .. fromIntegral count - 1]]
+            putEvents sink events
+            putEvents sink events
+            getEvents source `shouldReturn` events
+
   it "reports SQLite completion only after the batch commits" $
     failAfter 5 $
       withTempDir "sqlite-completion" $ \dir -> do
