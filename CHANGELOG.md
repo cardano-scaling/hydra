@@ -15,7 +15,7 @@ changes.
   [#2923](https://github.com/cardano-scaling/hydra/issues/2923)
 
 - Prevent transactions exceeding the accumulator's 4,095-output capacity from
-  stalling snapshot confirmation. Capacity checks reserve pending commit and
+  stalling snapshot confirmation. Snapshot capacity checks reserve pending commit and
   decommit outputs, reject oversized decommits, and defer deposits that do not
   fit alongside the requested transactions.
   [#2924](https://github.com/cardano-scaling/hydra/issues/2924)

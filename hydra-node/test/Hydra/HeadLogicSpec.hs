@@ -168,51 +168,51 @@ spec =
       describe "accumulator capacity" $ do
         let limit = fromIntegral Accumulator.maxAccumulatorSize
             fullUTxO = utxoRefs [1 .. limit]
-            fullState =
-              inOpenState' threeParties $
-                coordinatedHeadState
-                  { localUTxO = fullUTxO
-                  , confirmedSnapshot = ConfirmedSnapshot (testSnapshot 0 0 [] fullUTxO) mempty
-                  }
             split = SimpleTx 1 (utxoRef 1) (utxoRefs [limit + 1, limit + 2])
             merge = SimpleTx 2 (utxoRefs [1, 2]) (utxoRef (limit + 3))
             expiredReqTx :: SimpleTx -> Input SimpleTx
             expiredReqTx tx = NetworkInput 0 $ ReceivedMessage{sender = alice, msg = ReqTx tx}
 
-        it "accepts a transaction at the capacity limit and rejects one exceeding it" $ do
+        it "requests transactions only up to the capacity limit" $ do
           let u0 = utxoRefs [1 .. limit - 1]
-              st = inOpenState' threeParties coordinatedHeadState{localUTxO = u0, confirmedSnapshot = ConfirmedSnapshot (testSnapshot 0 0 [] u0) mempty}
-          now <- nowFromSlot st.chainPointTime.currentSlot
-          update aliceEnv ledger now st (receiveMessage $ ReqTx split)
-            `hasStateChangedSatisfying` \case
-              TransactionAppliedToLocalUTxO{tx} -> tx == split
-              _ -> False
-
-          update aliceEnv ledger now fullState (expiredReqTx split)
-            `hasStateChangedSatisfying` \case
-              TxInvalid{transaction} -> transaction == split
-              _ -> False
+          (nextSnapshotRequest u0 (Seq.singleton split) mempty Nothing Nothing Nothing).requestTxs `shouldBe` [split]
+          (nextSnapshotRequest fullUTxO (Seq.singleton split) mempty Nothing Nothing Nothing).requestTxs `shouldBe` []
 
         it "reserves outputs owed by pending commits and decommits" $ do
           now <- getCurrentTime
           let u0 = utxoRefs [1 .. limit - 1]
               deposit = Deposit{headId = testHeadId, deposited = utxoRef (limit + 10), created = now, deadline = addUTCTime 3600 now, status = Active}
-              claiming :: Snapshot SimpleTx
-              claiming = (testSnapshot 1 0 [] u0){utxoToCommit = Just deposit.deposited, depositTxId = Just 7}
-              base :: CoordinatedHeadState SimpleTx
-              base = coordinatedHeadState{localUTxO = u0}
-              states :: [CoordinatedHeadState SimpleTx]
-              states =
-                [ base{seenSnapshot = mkSeenSnapshot claiming mempty}
-                , base{confirmedSnapshot = ConfirmedSnapshot claiming mempty, seenSnapshot = LastSeenSnapshot 1}
-                , base{decommitTx = Just (SimpleTx 3 mempty deposit.deposited)}
+              requests =
+                [ nextSnapshotRequest u0 (Seq.singleton split) mempty Nothing Nothing (Just $ ContinueCommit (7, deposit))
+                , nextSnapshotRequest u0 (Seq.singleton split) mempty Nothing (Just $ SimpleTx 3 mempty deposit.deposited) Nothing
                 ]
-          forM_ states $ \chs -> do
-            let st = (inOpenState' threeParties chs){deposits = trackedFromPending (Map.singleton 7 deposit)}
-            update bobEnv ledger now st (expiredReqTx split)
-              `hasStateChangedSatisfying` \case
-                TxInvalid{transaction} -> transaction == split
-                _ -> False
+          forM_ requests $ \request -> request.requestTxs `shouldBe` []
+
+        it "keeps competing optimistic transactions available for a delayed valid snapshot" $ do
+          let u0 = utxoRefs [1 .. limit - 1]
+              competing = SimpleTx 3 (utxoRef 2) (utxoRefs [limit + 3, limit + 4])
+              st = inOpenState' threeParties coordinatedHeadState{localUTxO = u0, confirmedSnapshot = ConfirmedSnapshot (testSnapshot 0 0 [] u0) mempty}
+          (optimistic, signed) <- runHeadLogic bobEnv ledger st $ do
+            step (receiveMessage $ ReqTx split)
+            -- Both transactions fit independently. The follower sees them in
+            -- a different order from the leader, beyond the retry budget.
+            step (expiredReqTx competing)
+            optimistic <- getState
+            signed <- step (receiveMessage $ ReqSn 0 1 [txId competing] Nothing Nothing)
+            pure (optimistic, signed)
+          headState optimistic `shouldSatisfy` \case
+            Open OpenState{coordinatedHeadState = CoordinatedHeadState{localUTxO, allTxs}} ->
+              length (outputsOfUTxO localUTxO) == fromIntegral limit + 1
+                && Map.member (txId split) allTxs
+                && Map.member (txId competing) allTxs
+            _ -> False
+          signed `hasEffectSatisfying` \case
+            NetworkEffect AckSn{} -> True
+            _ -> False
+          headState (aggregateState optimistic signed) `shouldSatisfy` \case
+            Open OpenState{coordinatedHeadState = CoordinatedHeadState{localUTxO, localTxs}} ->
+              localUTxO == applyTxTo competing u0 && null localTxs
+            _ -> False
 
         it "requires a merge to confirm before an expanding decommit relies on its capacity" $ do
           let neutral = SimpleTx 3 (utxoRef 3) (utxoRef (limit + 10))
