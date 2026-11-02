@@ -371,8 +371,10 @@ spec =
     -- whole node with it. So the size has to be rejected as part of decoding.
     -- The assertion that matters here is that the connection survives and stays
     -- usable: a reply at all means nothing forced the accumulator.
+    -- Encoding and decoding the oversized payload scales with the CRS capacity,
+    -- so slower CI workers need more time to reach the rejection.
     it "sends an error when a side-loaded snapshot exceeds the accumulator limit" $
-      failAfter 5 $
+      failAfter 60 $
         showLogsOnFailure "ServerSpec" $ \tracer ->
           withFreeServerSocket $ \sock port ->
             withTestAPIServer sock port alice (mockSource []) tracer $ \_ ->
