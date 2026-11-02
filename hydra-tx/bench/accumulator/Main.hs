@@ -34,6 +34,7 @@ import Hydra.Tx.Accumulator (
   createMembershipProofFromUTxO,
   crsG1Points,
   getAccumulatorHash,
+  maxAccumulatorSize,
   unHydraAccumulator,
  )
 import Hydra.Tx.IsTx (IsTx (..))
@@ -45,12 +46,11 @@ import Test.QuickCheck (generate)
 -- comment thing
 main :: IO ()
 main = do
-  -- A single uncached commitment at 4000 UTxOs currently takes minutes, so the
-  -- largest sizes are opt-in:
+  -- Large fixtures are opt-in; measure commitment and proof costs separately:
   --
-  -- > BENCH_MAX_UTXO=4000 cabal bench hydra-tx:accumulator-bench
+  -- > BENCH_MAX_UTXO=32767 cabal bench hydra-tx:accumulator-bench
   maxN <- fromMaybe 1000 . (>>= readMaybe) <$> lookupEnv "BENCH_MAX_UTXO"
-  let sizes = filter (<= maxN) [10, 50, 100, 500, 1000, 2000, 4000]
+  let sizes = filter (<= maxN) [10, 50, 100, 500, 1000, 2000, 4095, 8191, 16383, maxAccumulatorSize]
 
   putTextLn "=== Accumulator Benchmark Suite ==="
   putTextLn $ "Generating UTxO sets: " <> show sizes
@@ -143,7 +143,7 @@ main = do
         | (n, _, acc, _, _) <- fixtures
         ]
     , bgroup
-        "7. CRS Loading (G1 powers of tau from EIP-4844 trusted setup)"
+        "7. CRS Loading (G1 powers of tau from Ethereum 32768-point trusted setup)"
         -- Point1 lacks NFData, so we force the full spine via length
         [ bench ("CRS size " <> show (n + 1)) $ whnf (length . crsG1Points) (n + 1)
         | (n, _, _, _, _) <- fixtures

@@ -986,7 +986,7 @@ compiledValidator =
   unappliedValidator
     `PlutusTx.unsafeApplyCode` PlutusTx.liftCode plcVersion110 canonicalCRSDatumHash
 
--- | BLAKE2b-256 of the canonical CRS datum: the published EIP-4844 trusted setup
+-- | BLAKE2b-256 of the canonical CRS datum: the published Ethereum 32768-point setup
 -- (first 'KZG.defaultItems' G2 points) hashed by 'hashCRSDatum'. Baked into the
 -- validator so every fanout rejects a reference input carrying any other
 -- powers-of-tau setup. Computed directly from the embedded setup — no hardcoded value.
