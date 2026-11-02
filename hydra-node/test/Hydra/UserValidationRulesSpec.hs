@@ -36,7 +36,6 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Prelude hiding (toList)
 import Hydra.UserValidationRules (
-  DepositRule (..),
   MintingOnL2Rule (..),
   PolicyRule (..),
   PolicyViolation (..),
@@ -79,9 +78,6 @@ instance Arbitrary MintingOnL2Rule where
 instance Arbitrary UserValidationRules where
   arbitrary = genericArbitrary
 
-instance Arbitrary DepositRule where
-  arbitrary = genericArbitrary
-
 spec :: Spec
 spec = do
   describe "user validated transactions" $ do
@@ -98,14 +94,13 @@ prop_validateUserActionWith =
   forAll genCase $ \(tx, utxo, rules, depositTxId) ->
     let checkAdmission rule expected =
           validateUserActionWith
-            (rules {depositRule = rule})
+            (rules {allowedDeposits = rule})
             utxo
             (AdmitNewDeposit depositTxId)
             === expected
         enabledRules =
-          [ NoDepositsAfterOpen
-          , AllowOnlyDeposits Set.empty
-          , AllowOnlyDeposits (Set.singleton depositTxId)
+          [ Set.empty
+          , Set.singleton depositTxId
           ]
      in conjoin $
           [ counterexample "L2 transaction delegation" $
@@ -115,7 +110,7 @@ prop_validateUserActionWith =
               checkAdmission Nothing (Right ())
           ]
             <> [ counterexample ("deposit delegation: " <> show rule) $
-                   checkAdmission (Just rule) (checkDeposit rule depositTxId)
+                checkAdmission (Just rule) (checkDeposit rule depositTxId)
                | rule <- enabledRules
                ]
  where
@@ -345,20 +340,17 @@ prop_checkDeposit =
                 { rejectedDepositTxId = depositTxId
                 }
        in conjoin
-            [ counterexample "deposits forbidden" $
-                checkDeposit NoDepositsAfterOpen depositTxId
-                  === rejected
-            , counterexample "empty allowlist" $
-                checkDeposit (AllowOnlyDeposits Set.empty) depositTxId
+            [ counterexample "empty allowlist" $
+                checkDeposit Set.empty depositTxId
                   === rejected
             , counterexample "listed deposit" $
                 checkDeposit
-                  (AllowOnlyDeposits (Set.insert depositTxId allowed))
+                  (Set.insert depositTxId allowed)
                   depositTxId
                   === Right ()
             , counterexample "unlisted deposit" $
                 checkDeposit
-                  (AllowOnlyDeposits (Set.delete depositTxId allowed))
+                  (Set.delete depositTxId allowed)
                   depositTxId
                   === rejected
             ]

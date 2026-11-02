@@ -47,11 +47,6 @@ data MintingOnL2Rule
   | AllowMinting
   deriving (Eq, Show, Generic)
 
-data DepositRule
-  = NoDepositsAfterOpen
-  | AllowOnlyDeposits (Set TxId)
-  deriving (Eq, Show, Generic)
-
 data UserValidationRules = UserValidationRules
   { policyRule :: Maybe PolicyRule
   , l2MintingRule :: MintingOnL2Rule
@@ -59,7 +54,7 @@ data UserValidationRules = UserValidationRules
   , maxOutputValueAssets :: Maybe Natural
   , maxDatumSize :: Maybe Natural
   , allowedScriptAddresses :: Maybe (Set AddressInEra)
-  , depositRule :: Maybe DepositRule
+  , allowedDeposits :: Maybe (Set TxId)
   }
   deriving (Eq, Show, Generic)
 
@@ -76,9 +71,9 @@ validateUserActionWith rules resultingUTxO = \case
   ValidateL2Transaction tx ->
     validateUserTransactionWith rules resultingUTxO tx
   AdmitNewDeposit depositTxId ->
-    case rules.depositRule of
+    case rules.allowedDeposits of
       Nothing -> Right ()
-      Just rule -> checkDeposit rule depositTxId
+      Just allowedDeposits -> checkDeposit allowedDeposits depositTxId
 
 validateUserTransactionWith :: UserValidationRules -> UTxO -> Tx -> Either PolicyViolation ()
 validateUserTransactionWith rules resultingUTxO tx = do
@@ -187,12 +182,9 @@ checkAllowedScriptAddresses allowed (TxOut address _ _ _) =
             }
     _ -> Right ()
 
-checkDeposit :: DepositRule -> TxId -> Either PolicyViolation ()
-checkDeposit rule depositTxId =
-  case rule of
-    NoDepositsAfterOpen -> reject
-    AllowOnlyDeposits allowed ->
-      unless (Set.member depositTxId allowed) reject
+checkDeposit :: Set TxId -> TxId -> Either PolicyViolation ()
+checkDeposit allowedDeposits depositTxId =
+  unless (Set.member depositTxId allowedDeposits) reject
  where
   reject =
     Left
