@@ -157,12 +157,12 @@ instance FromCBOR PolicyViolation where
 data PolicyRule
   = ForbidAnyPolicy
   | AllowOnlyPolicies (Set PolicyId)
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 data MintingOnL2Rule
   = ForbidMinting
   | AllowMinting
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 data UserValidationRules = UserValidationRules
   { policyRule :: Maybe PolicyRule
@@ -173,7 +173,7 @@ data UserValidationRules = UserValidationRules
   , allowedScriptAddresses :: Maybe (Set AddressInEra)
   , allowedDeposits :: Maybe (Set TxId)
   }
-  deriving (Eq, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 data UserValidationAction
   = ValidateL2Transaction Tx

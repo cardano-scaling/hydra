@@ -363,7 +363,7 @@ renderServerOutput time output raw = case output of
       raw
 
 -- ---------------------------------------------------------------------------
--- ClientMessage (4 constructors)
+-- Client messages
 -- ---------------------------------------------------------------------------
 
 renderClientMessage :: UTCTime -> ClientMessage Tx -> Text -> RenderedMessage
@@ -410,6 +410,17 @@ renderClientMessage now msg raw = case msg of
       [ fld "Command" (show clientInput)
       , fld "Sync drift" (show drift)
       , "Wait for the node to catch up with the chain before retrying."
+      ]
+      raw
+  SnapshotRequestRejectedByPolicy{headId, snapshotNumber, transactionId, policyViolation} ->
+    mk
+      Error
+      now
+      "Snapshot request rejected by policy"
+      [ fld "Head ID" (prettyHeadId headId)
+      , fld "Snapshot" (show snapshotNumber)
+      , fld "Transaction ID" (prettyTxId transactionId)
+      , fld "Policy violation" (show policyViolation)
       ]
       raw
   SideLoadSnapshotRejected{clientInput, requirementFailure} ->
