@@ -92,6 +92,7 @@ library
     Hydra.Network.Etcd
     Hydra.Network.EtcdBinary
     Hydra.Network.Message
+    Hydra.Network.Policy
     Hydra.NetworkVersions
     Hydra.Node
     Hydra.Node.ApiTransactionTimeout
@@ -419,6 +420,7 @@ test-suite tests
     Hydra.ModelSpec
     Hydra.Network.AuthenticateSpec
     Hydra.Network.EtcdBinarySpec
+    Hydra.Network.PolicySpec
     Hydra.NetworkSpec
     Hydra.NetworkVersionsSpec
     Hydra.Node.InputQueueSpec
@@ -520,5 +522,6 @@ test-suite tests
     , typed-process
     , warp
     , websockets
+    , yaml
 
   ghc-options:    -threaded -rtsopts

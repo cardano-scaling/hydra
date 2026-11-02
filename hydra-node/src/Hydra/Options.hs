@@ -1135,6 +1135,7 @@ toArgs
     , ledgerConfig
     , whichEtcd
     , apiTransactionTimeout
+    , policy
     } =
     isVerbose verbosity
       <> ["--node-id", unpack nId]
@@ -1154,6 +1155,7 @@ toArgs
       <> argsChainConfig chainConfig
       <> argsLedgerConfig
       <> ["--api-transaction-timeout", show apiTransactionTimeout]
+      <> maybe [] (\file -> ["--policy", file]) policy
    where
     (NodeId nId) = nodeId
 
