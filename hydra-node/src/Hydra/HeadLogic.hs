@@ -606,7 +606,9 @@ onOpenNetworkReqSn env ledger pendingDeposits ChainPointTime{currentSlot, curren
       case applyTransactionsWithoutCollision ledger currentSlot u [tx] of
         Left _ -> go u rest
         Right u'
-          | isRight (checkSnapshotUTxOSize u' mCommit mDecommit) -> tx Seq.<| go u' rest
+          | namesNoneOf (utxoFromTx tx) (fold mCommit)
+          , isRight (checkSnapshotUTxOSize u' mCommit mDecommit) ->
+              tx Seq.<| go u' rest
           | otherwise -> go u rest
   confSn = case confirmedSnapshot of
     InitialSnapshot{} -> 0
@@ -2378,7 +2380,7 @@ buildSnapshotRequest utxo localTxs pendingDeposits currentDepositTxId mDecommitT
   case mSettlingCommit of
     Just (ContinueCommit (depositTxId, Deposit{deposited})) ->
       let requestTxs = requestable (Just deposited) Nothing
-       in (SnapshotRequest{requestTxs, requestDecommitTx = Nothing, requestDepositTxId = Just depositTxId}, not (null requestTxs) || prunesPending)
+       in (SnapshotRequest{requestTxs, requestDecommitTx = Nothing, requestDepositTxId = Just depositTxId}, hasPendingTransactions)
     Just DropCommit -> withoutDeposit
     Nothing ->
       case selectNextDeposit canAbsorb pendingDeposits currentDepositTxId mDecommitTx of
@@ -2388,7 +2390,7 @@ buildSnapshotRequest utxo localTxs pendingDeposits currentDepositTxId mDecommitT
   withoutDeposit :: (SnapshotRequest tx, Bool)
   withoutDeposit =
     let requestTxs = requestable Nothing mDecommitTx
-     in (SnapshotRequest{requestTxs, requestDecommitTx = mDecommitTx, requestDepositTxId = Nothing}, not (null requestTxs) || prunesPending)
+     in (SnapshotRequest{requestTxs, requestDecommitTx = mDecommitTx, requestDepositTxId = Nothing}, hasPendingTransactions)
 
   -- A new deposit must fit alongside the actual request. Defer it rather
   -- than blocking ordinary transactions; a settling commit is always carried.
@@ -2398,9 +2400,11 @@ buildSnapshotRequest utxo localTxs pendingDeposits currentDepositTxId mDecommitT
 
   requestedUTxO = foldl' (flip applyTxTo) utxo (requestable Nothing Nothing)
 
-  -- Only a snapshot prunes an unrequestable first pending transaction.
-  prunesPending :: Bool
-  prunesPending = not (null candidates) && null (requestable Nothing mDecommitTx)
+  -- With pending transactions, the selected request either carries a prefix
+  -- or prunes its first blocked transaction in that request's commit/decommit
+  -- context. An incremental action alone does not justify another snapshot.
+  hasPendingTransactions :: Bool
+  hasPendingTransactions = not (null candidates)
 
   -- The pending txs up to the first one creating an output the ledger or the
   -- carried commit holds, or exceeding capacity. Check every prefix: a later

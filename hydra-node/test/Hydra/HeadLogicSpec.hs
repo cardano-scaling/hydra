@@ -183,10 +183,35 @@ spec =
           let u0 = utxoRefs [1 .. limit - 1]
               deposit = Deposit{headId = testHeadId, deposited = utxoRef (limit + 10), created = now, deadline = addUTCTime 3600 now, status = Active}
               requests =
-                [ nextSnapshotRequest u0 (Seq.singleton split) mempty Nothing Nothing (Just $ ContinueCommit (7, deposit))
-                , nextSnapshotRequest u0 (Seq.singleton split) mempty Nothing (Just $ SimpleTx 3 mempty deposit.deposited) Nothing
+                [ chainedSnapshotRequest u0 (Seq.singleton split) mempty Nothing Nothing (Just $ ContinueCommit (7, deposit))
+                , chainedSnapshotRequest u0 (Seq.singleton split) mempty Nothing (Just $ SimpleTx 3 mempty deposit.deposited) Nothing
                 ]
-          forM_ requests $ \request -> request.requestTxs `shouldBe` []
+          forM_ requests $ \request -> do
+            isJust request `shouldBe` True
+            fmap (.requestTxs) request `shouldBe` Just []
+          isNothing (chainedSnapshotRequest u0 mempty mempty Nothing Nothing (Just $ ContinueCommit (7, deposit))) `shouldBe` True
+
+        it "prunes transactions blocked by a settling commit so an independent merge can proceed" $ do
+          now <- getCurrentTime
+          let u0 = utxoRefs [1 .. limit - 1]
+              deposit = Deposit{headId = testHeadId, deposited = utxoRef (limit + 10), created = now, deadline = addUTCTime 3600 now, status = Active}
+              claiming :: Snapshot SimpleTx
+              claiming = (testSnapshot 1 0 [] u0){utxoToCommit = Just deposit.deposited, depositTxId = Just 7}
+              independentMerge = SimpleTx 4 (utxoRefs [2, 3]) (utxoRef (limit + 20))
+              colliding = SimpleTx 3 mempty deposit.deposited
+          forM_ [split, colliding] $ \blocked -> do
+            let txs = Seq.fromList [blocked, independentMerge]
+                st =
+                  (inOpenState' threeParties coordinatedHeadState{localUTxO = foldl' (flip applyTxTo) u0 txs, localTxs = txs, confirmedSnapshot = ConfirmedSnapshot claiming mempty, seenSnapshot = LastSeenSnapshot 1})
+                    { deposits = trackedFromPending (Map.singleton 7 deposit)
+                    }
+            chainTime <- nowFromSlot st.chainPointTime.currentSlot
+            let pruned = aggregateState st $ update aliceEnv ledger chainTime st (receiveMessageFrom bob $ ReqSn 0 2 [] Nothing (Just 7))
+            headState pruned `shouldSatisfy` \case
+              Open OpenState{coordinatedHeadState = CoordinatedHeadState{localTxs}} -> localTxs == Seq.singleton independentMerge
+              _ -> False
+            fmap (.requestTxs) (chainedSnapshotRequest u0 (Seq.singleton independentMerge) mempty Nothing Nothing (Just $ ContinueCommit (7, deposit)))
+              `shouldBe` Just [independentMerge]
 
         it "keeps competing optimistic transactions available for a delayed valid snapshot" $ do
           let u0 = utxoRefs [1 .. limit - 1]
@@ -1073,12 +1098,12 @@ spec =
                     }
                 requests :: Outcome SimpleTx -> [([Integer], Maybe Integer)]
                 requests o = [(transactionIds, depositTxId) | NetworkEffect ReqSn{transactionIds, depositTxId} <- effectsOf o]
-            -- Txs before the colliding one go out; it and later ones wait.
+            -- Select the prefix before the colliding transaction.
             o <- runHeadLogic singlePartyEnv ledger (settling [fine, colliding] (utxoRef 3 <> depositedUtxo <> utxoRef 5)) $ step (receiveMessage $ ReqTx another)
             requests o `shouldBe` [([txId fine], Just pendingDepositTxId)]
-            -- Nothing before it: no request.
+            -- Nothing before it: request a snapshot to prune it.
             o' <- runHeadLogic singlePartyEnv ledger (settling [colliding] (utxoRef 1 <> depositedUtxo <> utxoRef 5)) $ step (receiveMessage $ ReqTx another)
-            requests o' `shouldBe` []
+            requests o' `shouldBe` [([], Just pendingDepositTxId)]
 
           it "on tick, drops a settling commit only once its increment can no longer land, never claiming another" $ do
             now <- getCurrentTime
