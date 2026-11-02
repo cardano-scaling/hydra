@@ -43,7 +43,7 @@ import Hydra.Chain.Direct.State (ChainStateAt (..), HasKnownUTxO (getKnownUTxO),
 import Hydra.Chain.Direct.State qualified as Direct
 import Hydra.Chain.Direct.TimeHandle (TimeHandle, mkTimeHandle, slotToUTCTime)
 import Hydra.HeadLogic (ClosedState (..), CoordinatedHeadState (..), Effect (..), FanoutMode (..), HeadState (..), Input (..), LogicError (..), OpenState (..), Outcome (..), PartialFanoutState (..), RequirementFailure (..), SettlingCommit (..), SideLoadRequirementFailure (..), SnapshotRequest (..), StateChanged (..), TTL, WaitReason (..), absorbable, aggregateState, applyTransactionsWithoutCollision, cause, chainedSnapshotRequest, existingDeposit, maxTxsPerSnapshot, namesNoneOf, newState, nextSnapshotRequest, noop, settlingCommitAt, update)
-import Hydra.HeadLogic.State (IdleState (..), SeenSnapshot (..), getHeadParameters, mkSeenSnapshot)
+import Hydra.HeadLogic.State (FinalizedSnapshot (..), IdleState (..), SeenSnapshot (..), getHeadParameters, mkSeenSnapshot)
 import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano (cardanoLedger, mkSimpleTx)
 import Hydra.Ledger.Cardano.Evaluate (renderEvaluationReport)
@@ -149,7 +149,7 @@ spec =
         let violation = PolicyMintingViolation mempty mempty
             policyError = PolicyValidationError violation
             allowAll :: UserValidation SimpleTx
-            allowAll = UserValidation (const $ Right ()) (const $ Right ())
+            allowAll = UserValidation (const $ Right ()) (const $ Right ()) (const $ Right ())
             rejectTransactions = allowAll{validateTransaction = const $ Left violation}
             limitUTxO =
               allowAll
@@ -616,6 +616,150 @@ spec =
             Open OpenState{coordinatedHeadState = CoordinatedHeadState{localTxs}} -> do
               localTxs `shouldBe` Seq.fromList [tx2, tx3]
             _ -> fail "expected Open state"
+
+      describe "deposit policy" $ do
+        let soloEnv = aliceEnv{otherParties = [], participants = [deriveOnChainId alice]}
+            restricted :: PolicyViolation -> [Integer] -> Ledger SimpleTx
+            restricted violation allowed =
+              ledger
+                { userValidation =
+                    Just $
+                      UserValidation
+                        { validateTransaction = const $ Right ()
+                        , validateResultingUTxO = const $ Right ()
+                        , validateDeposit = \depositId -> if depositId `elem` allowed then Right () else Left violation
+                        }
+                }
+            deposit now n =
+              Deposit
+                { headId = testHeadId
+                , deposited = utxoRef n
+                , created = addUTCTime (-7200 + fromInteger n) now
+                , deadline = addUTCTime 7200 now
+                , status = Active
+                }
+            withDeposits now chs ids =
+              (inOpenState' [alice] chs){deposits = trackedFromPending $ Map.fromList [(n, deposit now n) | n <- ids]}
+
+        forM_ ["ReqTx", "AckSn", "Tick", "Increment", "Decrement"] $ \trigger ->
+          it ("skips an unlisted deposit when proposing after " <> trigger) $ do
+            now <- getCurrentTime
+            violation <- DepositNotAllowed <$> generate arbitrary
+            let tx = SimpleTx 10 mempty (utxoRef 10)
+                snapshot = testSnapshot 1 0 [] mempty
+                committing = withAccumulators snapshot{utxoToCommit = Just (utxoRef 9), depositTxId = Just 9}
+                decommitting = withAccumulators snapshot{utxoToDecommit = Just (utxoRef 9)}
+                pendingState = coordinatedHeadState{localTxs = Seq.singleton tx, localUTxO = utxoFromTx tx, allTxs = Map.singleton (txId tx) tx, currentDepositTxId = Just 1}
+                (chs, input) = case trigger of
+                  "ReqTx" -> (coordinatedHeadState{currentDepositTxId = Just 1}, receiveMessage $ ReqTx tx)
+                  "AckSn" -> (pendingState{seenSnapshot = mkSeenSnapshot snapshot mempty}, receiveMessage $ AckSn (sign aliceSk snapshot) 1)
+                  "Tick" -> (coordinatedHeadState{currentDepositTxId = Just 1}, ChainInput $ Tick now 1)
+                  "Increment" -> (pendingState{confirmedSnapshot = ConfirmedSnapshot committing mempty, seenSnapshot = LastSeenSnapshot 1}, observeTx $ OnIncrementTx testHeadId 1 9 1 mempty)
+                  _ -> (pendingState{confirmedSnapshot = ConfirmedSnapshot decommitting mempty, seenSnapshot = LastSeenSnapshot 1}, observeTx $ OnDecrementTx testHeadId 1 (utxoRef 9) 1 mempty)
+                st = withDeposits now chs [1, 2]
+                proposes :: Integer -> Effect SimpleTx -> Bool
+                proposes n = \case
+                  NetworkEffect ReqSn{depositTxId} -> depositTxId == Just n
+                  _ -> False
+            update soloEnv ledger now st input `hasEffectSatisfying` proposes 1
+            let outcome = update soloEnv (restricted violation [2]) now st input
+            outcome `hasNoEffectSatisfying` proposes 1
+            outcome `hasEffectSatisfying` proposes 2
+
+        it "does not let an unlisted deposit block a decommit" $ do
+          now <- getCurrentTime
+          violation <- DepositNotAllowed <$> generate arbitrary
+          let tx = SimpleTx 10 mempty (utxoRef 10)
+              st = withDeposits now coordinatedHeadState{currentDepositTxId = Just 1} [1]
+          update soloEnv (restricted violation []) now st (receiveMessage $ ReqDec tx)
+            `hasEffectSatisfying` \case
+              NetworkEffect ReqSn{decommitTx, depositTxId} -> decommitTx == Just tx && isNothing depositTxId
+              _ -> False
+
+        it "does not propose a deposit when the allowlist is empty" $ do
+          now <- getCurrentTime
+          violation <- DepositNotAllowed <$> generate arbitrary
+          let st = withDeposits now coordinatedHeadState [1]
+              outcome = update soloEnv (restricted violation []) now st (ChainInput $ Tick now 1)
+          outcome `hasNoEffectSatisfying` \case
+            NetworkEffect ReqSn{} -> True
+            _ -> False
+          outcome `hasNoStateChangedSatisfying` \case
+            SnapshotRequestDecided{} -> True
+            _ -> False
+
+        it "rejects an unlisted deposit in an incoming snapshot without signing" $ do
+          now <- getCurrentTime
+          violation <- DepositNotAllowed <$> generate arbitrary
+          let st = withDeposits now coordinatedHeadState [1]
+          update soloEnv (restricted violation [2]) now st (receiveMessage $ ReqSn 0 1 [] Nothing (Just 1))
+            `shouldBe` Error (RequireFailed $ RequestedDepositRejectedByPolicy 1 violation)
+
+        it "signs a snapshot with a listed deposit" $ do
+          now <- getCurrentTime
+          violation <- DepositNotAllowed <$> generate arbitrary
+          let st = withDeposits now coordinatedHeadState [1]
+          update soloEnv (restricted violation [1]) now st (receiveMessage $ ReqSn 0 1 [] Nothing (Just 1))
+            `hasEffectSatisfying` \case
+              NetworkEffect AckSn{} -> True
+              _ -> False
+
+        forM_
+          [ ("open", inOpenState [alice])
+          , ("closed", inClosedState [alice])
+          , ("during fanout", inFanoutProgressWith [alice] (utxoRef 3) AwaitingSelection)
+          ]
+          $ \(headPhase, st) -> do
+            forM_ [[], [2]] $ \allowed ->
+              it ("does not record an unlisted deposit while " <> headPhase <> ", allowlist: " <> show allowed) $ do
+                now <- getCurrentTime
+                violation <- DepositNotAllowed <$> generate arbitrary
+                let outcome = update soloEnv (restricted violation allowed) now st $ observeTx $ OnDepositTx testHeadId 1 (utxoRef 1) now (addUTCTime 7200 now)
+                    next = aggregateState st outcome
+                next.pendingDeposits `shouldBe` mempty
+                next.deposits `shouldBe` mempty
+                outcome `hasNoStateChangedSatisfying` \case
+                  DepositRecorded{} -> True
+                  _ -> False
+
+            it ("records listed deposits while " <> headPhase) $ do
+              now <- getCurrentTime
+              violation <- DepositNotAllowed <$> generate arbitrary
+              let outcome = update soloEnv (restricted violation [1]) now st $ observeTx $ OnDepositTx testHeadId 1 (utxoRef 1) now (addUTCTime 7200 now)
+              Map.keys (aggregateState st outcome).pendingDeposits `shouldBe` [1]
+
+            it ("records deposits without a policy while " <> headPhase) $ do
+              now <- getCurrentTime
+              let outcome = update soloEnv ledger now st $ observeTx $ OnDepositTx testHeadId 1 (utxoRef 1) now (addUTCTime 7200 now)
+              Map.keys (aggregateState st outcome).pendingDeposits `shouldBe` [1]
+
+        forM_ ["confirmed", "in flight", "finalized"] $ \phase ->
+          it ("does not exempt a " <> phase <> " deposit from the policy") $ do
+            now <- getCurrentTime
+            violation <- DepositNotAllowed <$> generate arbitrary
+            let snapshot = withAccumulators (testSnapshot 1 0 [] mempty){utxoToCommit = Just (utxoRef 1), depositTxId = Just 1}
+                chs = case phase of
+                  "confirmed" -> coordinatedHeadState{confirmedSnapshot = ConfirmedSnapshot snapshot mempty, seenSnapshot = LastSeenSnapshot 1}
+                  "in flight" -> coordinatedHeadState{seenSnapshot = mkSeenSnapshot snapshot mempty}
+                  _ -> coordinatedHeadState{version = 1, finalizedCommit = Just $ FinalizedSnapshot (ConfirmedSnapshot snapshot mempty) 2}
+                st = inOpenState' [alice] chs
+                policyLedger = restricted violation []
+                outcome = update soloEnv policyLedger now st $ observeTx $ OnDepositTx testHeadId 1 (utxoRef 1) now (addUTCTime 7200 now)
+            (aggregateState st outcome).pendingDeposits `shouldBe` mempty
+            outcome `hasNoEffectSatisfying` \case
+              OnChainEffect{postChainTx = IncrementTx{}} -> True
+              _ -> False
+            when (phase == "confirmed") $
+              update soloEnv policyLedger now (withDeposits now chs [1]) (receiveMessage $ ReqSn 0 2 [] Nothing (Just 1))
+                `shouldBe` Error (RequireFailed $ RequestedDepositRejectedByPolicy 1 violation)
+
+        forM_ [False, True] $ \observed ->
+          it ("rejects an unlisted deposit before waiting for its observation, observed: " <> show observed) $ do
+            now <- getCurrentTime
+            violation <- DepositNotAllowed <$> generate arbitrary
+            let st = withDeposits now coordinatedHeadState [1 | observed]
+            update soloEnv (restricted violation []) now st (receiveMessage $ ReqSn 0 1 [] Nothing (Just 1))
+              `shouldBe` Error (RequireFailed $ RequestedDepositRejectedByPolicy 1 violation)
 
       describe "Deposit" $ do
         let plusTime = flip addUTCTime

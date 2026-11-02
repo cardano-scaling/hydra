@@ -110,7 +110,7 @@ import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Party (Party (vkey))
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, SnapshotVersion, getSnapshot)
-import Hydra.UserValidationRules (PolicyViolation, validateUserTransactionWith)
+import Hydra.UserValidationRules (PolicyViolation, validateDeposit, validateUserTransactionWith)
 
 -- * The Coordinated Head protocol
 
@@ -488,6 +488,9 @@ onOpenNetworkReqSn env ledger pendingDeposits ChainPointTime{currentSlot, curren
         -- second snapshot claiming the same deposit, see #2741.
         | finalizedDepositTxId finalizedCommit == Just depositTxId ->
             Error $ RequireFailed ReqSnDepositBlockedByFinalizedCommit{depositTxId}
+      Just depositTxId
+        | Left policyViolation <- checkUserDeposit ledger depositTxId ->
+            Error $ RequireFailed RequestedDepositRejectedByPolicy{depositTxId, policyViolation}
       Just depositTxId ->
         case Map.lookup depositTxId pendingDeposits of
           Nothing
@@ -2417,12 +2420,17 @@ finalizedDepositTxId finalizedCommit = do
   FinalizedSnapshot{snapshot} <- finalizedCommit
   (getSnapshot snapshot).depositTxId
 
--- | The deposits the handlers of an open head may act on: scoped to the head,
--- excluding the deposit claimed by the retained finalized increment (see
--- 'finalizedDepositTxId').
-scopedDeposits :: IsTx tx => OpenState tx -> PendingDeposits tx -> PendingDeposits tx
-scopedDeposits OpenState{headId, coordinatedHeadState} =
-  maybe id Map.delete (finalizedDepositTxId coordinatedHeadState.finalizedCommit) . depositsForHead headId
+checkUserDeposit :: Ledger tx -> TxIdType tx -> Either PolicyViolation ()
+checkUserDeposit ledger depositTxId =
+  for_ ledger.userValidation $ \validation -> validation.validateDeposit depositTxId
+
+-- | Deposits allowed by the policy and belonging to this head. Finalized
+-- deposits are handled separately by re-posting their increment.
+scopedDeposits :: IsTx tx => Ledger tx -> OpenState tx -> PendingDeposits tx -> PendingDeposits tx
+scopedDeposits ledger OpenState{headId, coordinatedHeadState = chs} =
+  maybe id Map.delete (finalizedDepositTxId chs.finalizedCommit)
+    . Map.filterWithKey (\depositTxId _ -> isRight (checkUserDeposit ledger depositTxId))
+    . depositsForHead headId
 
 -- | What the next request does with a commit the confirmed snapshot claims but
 -- whose increment has not landed. Leaders and followers decide it the same way.
@@ -2706,16 +2714,16 @@ handleChainInput env ledger now _chainPointTime pendingDeposits st ev syncStatus
     newState TickObserved{chainPoint, chainTime}
       <> handleOutOfSync env now chainPoint chainTime syncStatus
       <> onChainTick env pendingDeposits chainTime
-      <> onOpenChainTick env ledger chainTime (scopedDeposits openState pendingDeposits) openState
+      <> onOpenChainTick env ledger chainTime (scopedDeposits ledger openState pendingDeposits) openState
   (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnIncrementTx{headId, newVersion, depositTxId, snapshotNumber, signatures}, newChainState})
     | ourHeadId == headId ->
-        onOpenChainIncrementTx env ledger (scopedDeposits openState pendingDeposits) openState newChainState newVersion depositTxId snapshotNumber signatures
+        onOpenChainIncrementTx env ledger (scopedDeposits ledger openState pendingDeposits) openState newChainState newVersion depositTxId snapshotNumber signatures
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
   (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDecrementTx{headId, newVersion, distributedUTxO, snapshotNumber, signatures}, newChainState})
     -- TODO: What happens if observed decrement tx get's rolled back?
     | ourHeadId == headId ->
-        onOpenChainDecrementTx env ledger (scopedDeposits openState pendingDeposits) openState newChainState newVersion distributedUTxO snapshotNumber signatures
+        onOpenChainDecrementTx env ledger (scopedDeposits ledger openState pendingDeposits) openState newChainState newVersion distributedUTxO snapshotNumber signatures
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
   -- Closed
@@ -2754,7 +2762,8 @@ handleChainInput env ledger now _chainPointTime pendingDeposits st ev syncStatus
   ( Open OpenState{headId = ourHeadId, headSeed, parameters, coordinatedHeadState = CoordinatedHeadState{finalizedCommit}}
     , ChainInput Observation{observedTx = OnDepositTx{headId, depositTxId, deposited, created, deadline}, newChainState}
     )
-      | ourHeadId == headId ->
+      | ourHeadId == headId
+      , isRight (checkUserDeposit ledger depositTxId) ->
           newState DepositRecorded{chainState = newChainState, headId, depositTxId, deposited, created, deadline}
             -- The finalized deposit observed *again* means a rollback erased
             -- both the deposit and its finalized increment, and the deposit tx
@@ -2782,15 +2791,17 @@ handleChainInput env ledger now _chainPointTime pendingDeposits st ev syncStatus
       | otherwise ->
           Continue [] []
   (Closed ClosedState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDepositTx{headId, depositTxId, deposited, created, deadline}, newChainState})
-    | ourHeadId == headId ->
+    | ourHeadId == headId
+    , isRight (checkUserDeposit ledger depositTxId) ->
         newState DepositRecorded{chainState = newChainState, headId, depositTxId, deposited, created, deadline}
     | otherwise ->
         Continue [] []
   -- Mirror the 'Closed' case while mid-fanout: a deposit observed during a
-  -- (partial) fanout must still be recorded so it remains recoverable via
+  -- (partial) fanout is recorded if allowed, so it remains recoverable via
   -- 'Recover'. Without this the input falls through to 'Error' and is dropped.
   (FanoutProgress PartialFanoutState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDepositTx{headId, depositTxId, deposited, created, deadline}, newChainState})
-    | ourHeadId == headId ->
+    | ourHeadId == headId
+    , isRight (checkUserDeposit ledger depositTxId) ->
         newState DepositRecorded{chainState = newChainState, headId, depositTxId, deposited, created, deadline}
     | otherwise ->
         Continue [] []
@@ -2887,16 +2898,16 @@ handleNetworkInput env ledger chainPointTime pendingDeposits st ev = case (st, e
     onConnectionEvent env.configuredPeers conn
   -- Open
   (Open openState, NetworkInput ttl (ReceivedMessage{msg = ReqTx tx})) ->
-    onOpenNetworkReqTx env ledger chainPointTime openState ttl (scopedDeposits openState pendingDeposits) tx
+    onOpenNetworkReqTx env ledger chainPointTime openState ttl (scopedDeposits ledger openState pendingDeposits) tx
   -- NOTE: 'ReqSn' gets the unfiltered (per-head) deposits: it distinguishes a
   -- requested deposit that is blocked by a finalized increment (hard error)
   -- from one that is simply not known locally (wait).
   (Open openState@OpenState{headId = ourHeadId}, NetworkInput ttl (ReceivedMessage{sender, msg = ReqSn sv sn txIds decommitTx depositTxId})) ->
     onOpenNetworkReqSn env ledger (depositsForHead ourHeadId pendingDeposits) chainPointTime openState ttl sender sv sn txIds decommitTx depositTxId
   (Open openState, NetworkInput _ (ReceivedMessage{sender, msg = AckSn snapshotSignature sn})) ->
-    onOpenNetworkAckSn env ledger chainPointTime (scopedDeposits openState pendingDeposits) openState sender snapshotSignature sn
+    onOpenNetworkAckSn env ledger chainPointTime (scopedDeposits ledger openState pendingDeposits) openState sender snapshotSignature sn
   (Open openState, NetworkInput ttl (ReceivedMessage{msg = ReqDec{transaction}})) ->
-    onOpenNetworkReqDec env ledger ttl chainPointTime (scopedDeposits openState pendingDeposits) openState transaction
+    onOpenNetworkReqDec env ledger ttl chainPointTime (scopedDeposits ledger openState pendingDeposits) openState transaction
   _ ->
     Error $ UnhandledInput ev st
 

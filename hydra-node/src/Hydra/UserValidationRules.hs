@@ -23,7 +23,7 @@ import Data.Yaml qualified as Yaml
 import GHC.IsList (toList)
 import Hydra.Cardano.Api (AddressInEra, PolicyId, Tx, TxId, TxOut, UTxO, toLedgerAddr, txOuts', pattern TxOut)
 import Hydra.Prelude hiding (Key, toList)
-import Hydra.Tx (IsTx (UTxOType))
+import Hydra.Tx (IsTx (TxIdType, UTxOType))
 
 -- | Loading and parsing of user policy
 loadUserValidationRules :: FilePath -> IO UserValidationRules
@@ -183,6 +183,7 @@ data UserValidationAction
 data UserValidation tx = UserValidation
   { validateTransaction :: tx -> Either PolicyViolation ()
   , validateResultingUTxO :: UTxOType tx -> Either PolicyViolation ()
+  , validateDeposit :: TxIdType tx -> Either PolicyViolation ()
   }
 
 validateUserActionWith ::
@@ -194,9 +195,7 @@ validateUserActionWith rules resultingUTxO = \case
   ValidateL2Transaction tx ->
     validateUserTransactionWith (cardanoUserValidation rules) resultingUTxO tx
   AdmitNewDeposit depositTxId ->
-    case rules.allowedDeposits of
-      Nothing -> Right ()
-      Just allowedDeposits -> checkDeposit allowedDeposits depositTxId
+    validateDeposit (cardanoUserValidation rules) depositTxId
 
 validateUserTransactionWith ::
   UserValidation tx ->
@@ -215,6 +214,8 @@ cardanoUserValidation rules =
         case rules.maxUTxOCount of
           Nothing -> Right ()
           Just limit -> checkMaxUTxOCount limit utxo
+    , validateDeposit = \depositTxId ->
+        for_ rules.allowedDeposits $ \allowed -> checkDeposit allowed depositTxId
     }
 
 preValidateUserTransactionWith ::

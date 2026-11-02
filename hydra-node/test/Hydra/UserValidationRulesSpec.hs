@@ -39,6 +39,7 @@ import Hydra.UserValidationRules (
   MintingOnL2Rule (..),
   PolicyRule (..),
   PolicyViolation (..),
+  UserValidation (..),
   UserValidationAction (..),
   UserValidationRules (..),
   cardanoUserValidation,
@@ -81,6 +82,10 @@ instance Arbitrary UserValidationRules where
 
 spec :: Spec
 spec = do
+  describe "deposit policy handle" $ do
+    prop "uses the configured deposit allowlist" $ \rules depositTxId ->
+      validateDeposit (cardanoUserValidation rules) depositTxId
+        === maybe (Right ()) (`checkDeposit` depositTxId) (allowedDeposits rules)
   describe "user validated transactions" $ do
     prop "checkPolicies" prop_checkMintedAssets
     prop "checkMaxOutputValueAssets" prop_checkMaxOutputValueAssets
