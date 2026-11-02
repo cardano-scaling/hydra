@@ -10,13 +10,123 @@ import Cardano.Api (AssetId (..), HashableScriptData, TxBodyContent (txMintValue
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Address qualified as Ledger
 import Cardano.Ledger.Credential qualified as Ledger
+import Control.Exception (IOException)
+import Control.Exception qualified as E
+import Data.Aeson qualified as Aeson
+import Data.Aeson.Key (Key)
+import Data.Aeson.KeyMap qualified as KeyMap
+import Data.Aeson.Types (Object, Parser, parseEither)
 import Data.ByteString qualified as BS
 import Data.Map qualified as Map
 import Data.Set qualified as Set
+import Data.Yaml qualified as Yaml
 import GHC.IsList (toList)
 import Hydra.Cardano.Api (AddressInEra, PolicyId, Tx, TxId, TxOut, UTxO, toLedgerAddr, txOuts', pattern TxOut)
-import Hydra.Prelude hiding (toList)
+import Hydra.Prelude hiding (Key, toList)
+import Hydra.Tx (IsTx (UTxOType))
 
+-- | Loading and parsing of user policy
+loadUserValidationRules :: FilePath -> IO UserValidationRules
+loadUserValidationRules path = do
+  result <- E.try (Yaml.decodeFileEither path)
+  value <- case result of
+    Left (err :: IOException) ->
+      die $ "Failed to read policy file " <> path <> ": " <> show err
+    Right (Left err) ->
+      die $
+        "Invalid YAML in policy file "
+          <> path
+          <> ":\n"
+          <> Yaml.prettyPrintParseException err
+    Right (Right decoded) -> pure decoded
+  case parseEither parsePolicyFile value of
+    Left err ->
+      die $ "Invalid policy in " <> path <> ":\n" <> err
+    Right rules -> pure rules
+
+parsePolicyFile :: Aeson.Value -> Parser UserValidationRules
+parsePolicyFile = Aeson.withObject "Policy file" $ \o -> do
+  rejectUnknownKeys ["head-policy"] o
+  policy <- o Aeson..: "head-policy"
+  parseHeadPolicy policy
+
+parseHeadPolicy :: Aeson.Value -> Parser UserValidationRules
+parseHeadPolicy = Aeson.withObject "head-policy" $ \o -> do
+  rejectUnknownKeys
+    [ "deposits"
+    , "l2-minting"
+    , "allowed-assets"
+    , "max-utxo-count"
+    , "max-output-value-assets"
+    , "max-datum-bytes"
+    , "allowed-script-addresses"
+    ]
+    o
+
+  policies <- optionalField "allowed-assets" Aeson.parseJSON o
+  minting <- optionalField "l2-minting" parseMinting o
+  utxoLimit <- optionalField "max-utxo-count" Aeson.parseJSON o
+  assetLimit <- optionalField "max-output-value-assets" Aeson.parseJSON o
+  datumLimit <- optionalField "max-datum-bytes" Aeson.parseJSON o
+  scriptAddresses <-
+    optionalField "allowed-script-addresses" parseScriptAddresses o
+  deposits <- optionalField "deposits" parseDeposits o
+
+  pure
+    UserValidationRules
+      { policyRule = AllowOnlyPolicies <$> policies
+      , l2MintingRule = fromMaybe AllowMinting minting
+      , maxUTxOCount = utxoLimit
+      , maxOutputValueAssets = assetLimit
+      , maxDatumSize = datumLimit
+      , allowedScriptAddresses = scriptAddresses
+      , allowedDeposits = deposits
+      }
+ where
+  parseMinting :: Aeson.Value -> Parser MintingOnL2Rule
+  parseMinting = Aeson.withText "l2-minting" $ \case
+    "forbidden" -> pure ForbidMinting
+    "allowed" -> pure AllowMinting
+    _ -> fail "l2-minting must be 'forbidden' or 'allowed'"
+
+  parseDeposits :: Aeson.Value -> Parser (Set TxId)
+  parseDeposits = \case
+    Aeson.String "none-after-open" -> pure Set.empty
+    value@(Aeson.Array _) -> Aeson.parseJSON value
+    _ -> fail "deposits must be 'none-after-open' or a list of transaction IDs"
+
+  parseScriptAddresses :: Aeson.Value -> Parser (Set AddressInEra)
+  parseScriptAddresses value = do
+    addresses <- Aeson.parseJSON value :: Parser [AddressInEra]
+    forM_ addresses $ \address ->
+      case toLedgerAddr address of
+        Ledger.Addr _ (Ledger.ScriptHashObj _) _ -> pure ()
+        _ ->
+          fail $
+            "allowed-script-addresses requires script payment addresses: "
+              <> show address
+    pure $ Set.fromList addresses
+
+-- Missing fields are optional; explicit null values are rejected.
+optionalField ::
+  Key ->
+  (Aeson.Value -> Parser a) ->
+  Object ->
+  Parser (Maybe a)
+optionalField key parseValue object =
+  case KeyMap.lookup key object of
+    Nothing -> pure Nothing
+    Just value -> Just <$> parseValue value
+
+rejectUnknownKeys :: [Key] -> Object -> Parser ()
+rejectUnknownKeys known object =
+  unless (null unknown) $
+    fail $
+      "Unknown policy fields: " <> show unknown
+ where
+  unknown = filter (`notElem` known) (KeyMap.keys object)
+
+-- | All potential policy violations
 data PolicyViolation
   = PolicyMintingViolation {invalidPolicyIds :: Set PolicyId, allowedPolicyIds :: Set PolicyId}
   | MaxUTxOCountExceeded
@@ -62,6 +172,12 @@ data UserValidationAction
   = ValidateL2Transaction Tx
   | AdmitNewDeposit TxId
 
+-- | Abstract handle around utxo and tx types
+data UserValidation tx = UserValidation
+  { validateTransaction :: tx -> Either PolicyViolation ()
+  , validateResultingUTxO :: UTxOType tx -> Either PolicyViolation ()
+  }
+
 validateUserActionWith ::
   UserValidationRules ->
   UTxO ->
@@ -69,36 +185,52 @@ validateUserActionWith ::
   Either PolicyViolation ()
 validateUserActionWith rules resultingUTxO = \case
   ValidateL2Transaction tx ->
-    validateUserTransactionWith rules resultingUTxO tx
+    validateUserTransactionWith (cardanoUserValidation rules) resultingUTxO tx
   AdmitNewDeposit depositTxId ->
     case rules.allowedDeposits of
       Nothing -> Right ()
       Just allowedDeposits -> checkDeposit allowedDeposits depositTxId
 
-validateUserTransactionWith :: UserValidationRules -> UTxO -> Tx -> Either PolicyViolation ()
-validateUserTransactionWith rules resultingUTxO tx = do
+validateUserTransactionWith ::
+  UserValidation tx ->
+  UTxOType tx ->
+  tx ->
+  Either PolicyViolation ()
+validateUserTransactionWith validation resultingUTxO tx = do
+  validation.validateTransaction tx
+  validation.validateResultingUTxO resultingUTxO
+
+cardanoUserValidation :: UserValidationRules -> UserValidation Tx
+cardanoUserValidation rules =
+  UserValidation
+    { validateTransaction = preValidateUserTransactionWith rules
+    , validateResultingUTxO = \utxo ->
+        case rules.maxUTxOCount of
+          Nothing -> Right ()
+          Just limit -> checkMaxUTxOCount limit utxo
+    }
+
+preValidateUserTransactionWith ::
+  UserValidationRules -> Tx -> Either PolicyViolation ()
+preValidateUserTransactionWith rules tx = do
   case rules.policyRule of
+    Nothing -> Right ()
     Just ForbidAnyPolicy -> checkPolicies mempty tx
     Just (AllowOnlyPolicies policies) -> checkPolicies policies tx
-    Nothing -> Right ()
   case rules.l2MintingRule of
     ForbidMinting -> checkPolicies mempty tx
     AllowMinting -> Right ()
-  case rules.maxUTxOCount of
-    Nothing -> Right ()
-    Just c -> checkMaxUTxOCount c resultingUTxO
   case rules.maxOutputValueAssets of
     Nothing -> Right ()
-    Just limit ->
-      traverse_ (checkMaxOutputValueAssets limit) (txOuts' tx)
+    Just limit -> traverse_ (checkMaxOutputValueAssets limit) outputs
   case rules.maxDatumSize of
     Nothing -> Right ()
-    Just limit ->
-      traverse_ (checkMaxDatumSize limit) (txOuts' tx)
+    Just limit -> traverse_ (checkMaxDatumSize limit) outputs
   case rules.allowedScriptAddresses of
     Nothing -> Right ()
-    Just allowed ->
-      traverse_ (checkAllowedScriptAddresses allowed) (txOuts' tx)
+    Just allowed -> traverse_ (checkAllowedScriptAddresses allowed) outputs
+ where
+  outputs = txOuts' tx
 
 checkPolicies :: Set PolicyId -> Tx -> Either PolicyViolation ()
 checkPolicies policies tx = do

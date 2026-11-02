@@ -23,7 +23,7 @@ import Data.Set qualified as Set
 import Hydra.Chain.ChainState (ChainSlot, ChainStateType, IsChainState (..))
 import Hydra.Ledger (Ledger (..), ValidationError (ValidationError))
 import Hydra.Tx (IsTx (..))
-import Hydra.UserValidationRules (PolicyViolation)
+import Hydra.UserValidationRules (UserValidation)
 
 -- * Simple transactions
 
@@ -123,10 +123,10 @@ instance IsChainState SimpleTx where
 
 simpleLedger :: Ledger SimpleTx
 simpleLedger =
-  Ledger{applyTransactions, validateUserTransaction}
+  Ledger{applyTransactions, userValidation}
  where
-  validateUserTransaction :: Maybe (tx -> Either PolicyViolation ())
-  validateUserTransaction = Nothing
+  userValidation :: Maybe (UserValidation tx)
+  userValidation = Nothing
   -- NOTE: _slot is unused as SimpleTx transactions don't have a notion of time.
   applyTransactions :: Foldable t => p -> Set SimpleTxOut -> t SimpleTx -> Either (SimpleTx, ValidationError) (Set SimpleTxOut)
   applyTransactions _slot =

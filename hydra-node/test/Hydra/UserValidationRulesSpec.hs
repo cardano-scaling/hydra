@@ -41,6 +41,7 @@ import Hydra.UserValidationRules (
   PolicyViolation (..),
   UserValidationAction (..),
   UserValidationRules (..),
+  cardanoUserValidation,
   checkAllowedScriptAddresses,
   checkDeposit,
   checkMaxDatumSize,
@@ -94,7 +95,7 @@ prop_validateUserActionWith =
   forAll genCase $ \(tx, utxo, rules, depositTxId) ->
     let checkAdmission rule expected =
           validateUserActionWith
-            (rules {allowedDeposits = rule})
+            (rules{allowedDeposits = rule})
             utxo
             (AdmitNewDeposit depositTxId)
             === expected
@@ -105,7 +106,7 @@ prop_validateUserActionWith =
      in conjoin $
           [ counterexample "L2 transaction delegation" $
               validateUserActionWith rules utxo (ValidateL2Transaction tx)
-                === validateUserTransactionWith rules utxo tx
+                === validateUserTransactionWith (cardanoUserValidation rules) utxo tx
           , counterexample "deposit restriction disabled" $
               checkAdmission Nothing (Right ())
           ]
@@ -122,7 +123,7 @@ prop_validateUserTransactionWith =
   forAll genCase $ \(tx, utxo, rules) ->
     tabulate "Policy rule" [policyCategory (policyRule rules)] $
       tabulate "L2 minting rule" [show (l2MintingRule rules)] $
-        validateUserTransactionWith rules utxo tx
+        validateUserTransactionWith (cardanoUserValidation rules) utxo tx
           === expectedResult rules utxo tx
  where
   genCase =
@@ -141,7 +142,6 @@ prop_validateUserTransactionWith =
     case l2MintingRule rules of
       ForbidMinting -> checkPolicies Set.empty tx
       AllowMinting -> Right ()
-    maybe (Right ()) (`checkMaxUTxOCount` utxo) (maxUTxOCount rules)
     case maxOutputValueAssets rules of
       Nothing -> Right ()
       Just limit ->
@@ -154,6 +154,7 @@ prop_validateUserTransactionWith =
       Nothing -> Right ()
       Just allowed ->
         traverse_ (checkAllowedScriptAddresses allowed) (txOuts' tx)
+    maybe (Right ()) (`checkMaxUTxOCount` utxo) (maxUTxOCount rules)
 
 prop_checkMintedAssets :: Property
 prop_checkMintedAssets =

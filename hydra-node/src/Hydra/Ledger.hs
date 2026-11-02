@@ -7,7 +7,7 @@ import Hydra.Prelude
 
 import Hydra.Chain.ChainState (ChainSlot (..))
 import Hydra.Tx.IsTx (IsTx (..))
-import Hydra.UserValidationRules (PolicyViolation)
+import Hydra.UserValidationRules (UserValidation)
 
 -- | An abstract interface for a 'Ledger'. Allows to define mock / simpler
 -- implementation for testing as well as limiting feature-envy from the business
@@ -22,7 +22,7 @@ data Ledger tx = Ledger
   -- validation failures returned from the ledger.
   -- TODO: 'ValidationError' should also include the UTxO, which is not
   -- necessarily the same as the given UTxO after some transactions
-  , validateUserTransaction :: Maybe (tx -> Either PolicyViolation ())
+  , userValidation :: Maybe (UserValidation tx)
   -- ^ potential user policy validation if set on start
   }
 

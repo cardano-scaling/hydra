@@ -1002,7 +1002,7 @@ startNode tr mockChain seedCP (eventStore, readEvents) hsk otherParties = lift $
   let testClient = createTestHydraClient outputs messages outputHistory node
   pure (testClient, nodeThread)
  where
-  ledger = cardanoLedger defaultGlobals defaultLedgerEnv
+  ledger = cardanoLedger Nothing defaultGlobals defaultLedgerEnv
 
 performDeposit ::
   (MonadThrow m, MonadTimer m, MonadAsync m, MonadTime m, MonadLabelledSTM m) =>
