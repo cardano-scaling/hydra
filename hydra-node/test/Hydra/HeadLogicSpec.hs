@@ -28,7 +28,7 @@ import Data.Map.Strict (notMember)
 import Data.Map.Strict qualified as Map
 import Data.Sequence qualified as Seq
 import Data.Set qualified as Set
-import Hydra.API.ClientInput (ClientInput (Close, Decommit, Fanout, PartialFanout, Recover, SideLoadSnapshot))
+import Hydra.API.ClientInput (ClientInput (Close, Decommit, Fanout, NewTx, PartialFanout, Recover, SideLoadSnapshot))
 import Hydra.API.ServerOutput (ClientMessage (..), DecommitInvalidReason (..))
 import Hydra.Cardano.Api (ChainPoint (..), SlotNo (..), Tx, TxIn (..), TxIx (..), forceUTxO, fromLedgerTx, getTxBody, getTxWitnesses, makeSignedTransaction, mkVkAddress, toLedgerTx, txOutValue, unSlotNo, pattern TxValidityUpperBound)
 import Hydra.Cardano.Api.Gen (genTxIn)
@@ -75,6 +75,7 @@ import Hydra.Tx.Increment (IncrementObservation (..), observeIncrementTx)
 import Hydra.Tx.IsTx (IsTx (..))
 import Hydra.Tx.Party (Party (..), deriveParty)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, SnapshotVersion, getSnapshot)
+import Hydra.UserValidationRules (PolicyViolation (..), UserValidation (..))
 import Test.Gen.Cardano.Api.Typed (genBlockHeaderHash)
 import Test.Hydra.API.ClientInput ()
 import Test.Hydra.Chain ()
@@ -143,6 +144,348 @@ spec =
               , finalizedCommit = Nothing
               , finalizedDecommit = Nothing
               }
+
+      describe "user validation on received transactions and snapshots" $ do
+        let violation = PolicyMintingViolation mempty mempty
+            policyError = PolicyValidationError violation
+            allowAll :: UserValidation SimpleTx
+            allowAll = UserValidation (const $ Right ()) (const $ Right ())
+            rejectTransactions = allowAll{validateTransaction = const $ Left violation}
+            limitUTxO =
+              allowAll
+                { validateResultingUTxO = \utxo ->
+                    let count = fromIntegral $ Set.size utxo
+                     in if count <= 1 then Right () else Left $ MaxUTxOCountExceeded count 1
+                }
+            withValidation validation = ledger{userValidation = Just validation}
+            tx = SimpleTx 1 mempty (utxoRef 1)
+            stateWithTxs txs =
+              inOpenState' threeParties $
+                coordinatedHeadState{allTxs = Map.fromList [(txId t, t) | t <- txs]}
+            reqSn :: [SimpleTx] -> Input SimpleTx
+            reqSn txs = receiveMessage $ ReqSn 0 1 (txId <$> txs) Nothing Nothing
+
+        it "does not emit ReqTx when a client transaction violates the transaction policy" $ do
+          let st = inOpenState threeParties
+          now <- nowFromSlot st.chainPointTime.currentSlot
+          let outcome = update aliceEnv (withValidation rejectTransactions) now st (ClientInput $ NewTx tx)
+          outcome `hasNoEffectSatisfying` \case
+            NetworkEffect ReqTx{} -> True
+            _ -> False
+          outcome `hasStateChangedSatisfying` \case
+            TxInvalid{transaction, validationError} -> transaction == tx && validationError == policyError
+            _ -> False
+
+        it "does not emit ReqTx when a client transaction exceeds the resulting UTxO limit" $ do
+          let utxo = utxoRef 2
+              st = inOpenState' threeParties $ coordinatedHeadState{localUTxO = utxo}
+          now <- nowFromSlot st.chainPointTime.currentSlot
+          let outcome = update aliceEnv (withValidation limitUTxO) now st (ClientInput $ NewTx tx)
+          outcome `hasNoEffectSatisfying` \case
+            NetworkEffect ReqTx{} -> True
+            _ -> False
+          outcome `hasStateChangedSatisfying` \case
+            TxInvalid{transaction, validationError} -> transaction == tx && validationError == PolicyValidationError (MaxUTxOCountExceeded 2 1)
+            _ -> False
+
+        forM_ ["transaction policy", "UTxO policy"] $ \policyName ->
+          forM_ ["ReqTx", "AckSn", "ReqDec", "Tick", "Increment", "Decrement"] $ \trigger ->
+            it ("suppresses the whole outgoing ReqSn after " <> trigger <> " when the " <> policyName <> " fails") $ do
+              now <- getCurrentTime
+              let prefixTx = SimpleTx 9 mempty (utxoRef 8)
+                  largeTx = SimpleTx 10 mempty (utxoRefs [1, 2])
+                  drainTx = SimpleTx 11 (utxoRefs [1, 2, 8]) mempty
+                  decommit = SimpleTx 12 mempty (utxoRef 4)
+                  soloEnv = aliceEnv{otherParties = [], participants = [deriveOnChainId alice]}
+                  pendingState =
+                    coordinatedHeadState
+                      { localTxs = Seq.fromList [prefixTx, largeTx]
+                      , localUTxO = utxoFromTx prefixTx <> utxoFromTx largeTx
+                      , allTxs = Map.fromList [(txId t, t) | t <- [prefixTx, largeTx]]
+                      }
+                  snapshot = testSnapshot 1 0 [] mempty
+                  committing = withAccumulators snapshot{utxoToCommit = Just (utxoRef 9), depositTxId = Just 9}
+                  decommitting = withAccumulators snapshot{utxoToDecommit = Just (utxoRef 9)}
+                  deposit =
+                    Deposit
+                      { headId = testHeadId
+                      , deposited = utxoRef 9
+                      , created = addUTCTime (negate $ 1 + toNominalDiffTime soloEnv.depositActivation) now
+                      , deadline = addUTCTime 3600 now
+                      , status = Inactive
+                      }
+                  (st, input) = case trigger of
+                    "ReqTx" -> (inOpenState' [alice] pendingState, receiveMessage $ ReqTx drainTx)
+                    "AckSn" -> (inOpenState' [alice] pendingState{seenSnapshot = mkSeenSnapshot snapshot mempty}, receiveMessage $ AckSn (sign aliceSk snapshot) 1)
+                    "ReqDec" -> (inOpenState' [alice] pendingState, receiveMessage $ ReqDec decommit)
+                    "Tick" -> ((inOpenState' [alice] pendingState){deposits = trackedFromPending $ Map.singleton 9 deposit}, ChainInput $ Tick now 1)
+                    "Increment" -> (inOpenState' [alice] pendingState{confirmedSnapshot = ConfirmedSnapshot committing mempty, seenSnapshot = LastSeenSnapshot 1}, observeTx $ OnIncrementTx testHeadId 1 9 1 mempty)
+                    _ -> (inOpenState' [alice] pendingState{confirmedSnapshot = ConfirmedSnapshot decommitting mempty, seenSnapshot = LastSeenSnapshot 1}, observeTx $ OnDecrementTx testHeadId 1 (utxoRef 9) 1 mempty)
+                  validation =
+                    if policyName == "UTxO policy"
+                      then limitUTxO
+                      else allowAll{validateTransaction = \candidate -> if candidate == largeTx then Left violation else Right ()}
+                  isReqSn :: Effect SimpleTx -> Bool
+                  isReqSn = \case
+                    NetworkEffect ReqSn{} -> True
+                    _ -> False
+              -- Each trigger really requests a snapshot when policies are disabled.
+              update soloEnv ledger now st input `hasEffectSatisfying` isReqSn
+              let outcome = update soloEnv (withValidation validation) now st input
+              outcome `hasNoEffectSatisfying` isReqSn
+              outcome `hasEffectSatisfying` \case
+                ClientEffect SnapshotRequestRejectedByPolicy{headId, snapshotNumber, transactionId, policyViolation} ->
+                  headId == testHeadId
+                    && snapshotNumber == (if trigger `elem` ["AckSn", "Increment", "Decrement"] then 2 else 1)
+                    && transactionId == txId (if policyName == "UTxO policy" && trigger == "Increment" then prefixTx else largeTx)
+                    && if policyName == "UTxO policy"
+                      then case policyViolation of
+                        MaxUTxOCountExceeded{} -> True
+                        _ -> False
+                      else policyViolation == violation
+                _ -> False
+              outcome `hasNoStateChangedSatisfying` \case
+                SnapshotRequestDecided{} -> True
+                _ -> False
+              -- Suppressing a proposal must not discard the triggering event.
+              outcome `hasStateChangedSatisfying` \event -> case (trigger, event) of
+                ("ReqTx", TransactionAppliedToLocalUTxO{}) -> True
+                ("AckSn", SnapshotConfirmed{}) -> True
+                ("ReqDec", DecommitRecorded{}) -> True
+                ("Tick", TickObserved{}) -> True
+                ("Increment", CommitFinalized{}) -> True
+                ("Decrement", DecommitFinalized{}) -> True
+                _ -> False
+
+        it "checks outgoing transactions after removing newly decommitted inputs" $ do
+          let soloEnv = aliceEnv{otherParties = [], participants = [deriveOnChainId alice]}
+              pendingTx = SimpleTx 3 mempty (utxoRef 3)
+              decommit = SimpleTx 9 (utxoRefs [1, 2]) (utxoRef 9)
+              st =
+                inOpenState' [alice] $
+                  coordinatedHeadState
+                    { confirmedSnapshot = ConfirmedSnapshot (testSnapshot 0 0 [] (utxoRefs [1, 2])) mempty
+                    , localTxs = Seq.singleton pendingTx
+                    , localUTxO = utxoRefs [1, 2, 3]
+                    }
+          now <- nowFromSlot st.chainPointTime.currentSlot
+          update soloEnv (withValidation limitUTxO) now st (receiveMessage $ ReqDec decommit)
+            `hasEffect` NetworkEffect (ReqSn 0 1 [txId pendingTx] (Just decommit) Nothing)
+
+        forM_ ["AckSn", "Decrement"] $ \trigger ->
+          it ("does not apply the previous decommit again when proposing after " <> trigger) $ do
+            let soloEnv = aliceEnv{otherParties = [], participants = [deriveOnChainId alice]}
+                pendingTx = SimpleTx 3 mempty (utxoRef 3)
+                decommit = SimpleTx 9 (utxoRef 1) (utxoRef 9)
+                -- The mock ledger allows an ordinary transaction to recreate input 1
+                -- after the decommit spent it. Carrying the decommit must not spend it again.
+                snapshot = withAccumulators (testSnapshot 1 0 [] (utxoRef 1)){utxoToDecommit = Just (utxoRef 9)}
+                st =
+                  inOpenState' [alice] $
+                    coordinatedHeadState
+                      { confirmedSnapshot = ConfirmedSnapshot snapshot mempty
+                      , seenSnapshot = if trigger == "AckSn" then mkSeenSnapshot snapshot mempty else LastSeenSnapshot 1
+                      , decommitTx = Just decommit
+                      , localTxs = Seq.singleton pendingTx
+                      , localUTxO = utxoRefs [1, 3]
+                      }
+                input =
+                  if trigger == "AckSn"
+                    then receiveMessage $ AckSn (sign aliceSk snapshot) 1
+                    else observeTx $ OnDecrementTx testHeadId 1 (utxoRef 9) 1 mempty
+            now <- nowFromSlot st.chainPointTime.currentSlot
+            update soloEnv ledger now st input `hasEffectSatisfying` \case
+              NetworkEffect ReqSn{} -> True
+              _ -> False
+            let outcome = update soloEnv (withValidation limitUTxO) now st input
+            outcome `hasNoEffectSatisfying` \case
+              NetworkEffect ReqSn{} -> True
+              _ -> False
+            outcome
+              `hasEffect` ClientEffect
+                SnapshotRequestRejectedByPolicy
+                  { headId = testHeadId
+                  , snapshotNumber = 2
+                  , transactionId = txId pendingTx
+                  , policyViolation = MaxUTxOCountExceeded 2 1
+                  }
+
+        it "waits for the snapshot version before checking its policies" $ do
+          let st = stateWithTxs [tx]
+          now <- nowFromSlot st.chainPointTime.currentSlot
+          update aliceEnv (withValidation rejectTransactions) now st (receiveMessage $ ReqSn 1 1 [txId tx] Nothing Nothing)
+            `assertWait` WaitOnSnapshotVersion 1
+
+        it "waits for missing transactions before checking snapshot policies" $ do
+          let st = inOpenState threeParties
+          now <- nowFromSlot st.chainPointTime.currentSlot
+          update aliceEnv (withValidation rejectTransactions) now st (reqSn [tx])
+            `assertWait` WaitOnTxs [txId tx]
+
+        it "waits for the predecessor snapshot before checking policies" $ do
+          let st =
+                inOpenState' threeParties $
+                  coordinatedHeadState
+                    { allTxs = Map.singleton (txId tx) tx
+                    , seenSnapshot = mkSeenSnapshot (testSnapshot 1 0 [] mempty) mempty
+                    }
+          now <- nowFromSlot st.chainPointTime.currentSlot
+          update aliceEnv (withValidation rejectTransactions) now st (receiveMessageFrom bob $ ReqSn 0 2 [txId tx] Nothing Nothing)
+            `assertWait` WaitOnSnapshotNumber 1
+
+        it "rejects a ReqTx that violates the transaction policy" $ do
+          let st = inOpenState threeParties
+          now <- nowFromSlot st.chainPointTime.currentSlot
+          let outcome =
+                update aliceEnv (withValidation rejectTransactions) now st $
+                  NetworkInput 0 ReceivedMessage{sender = alice, msg = ReqTx tx}
+          outcome `hasStateChangedSatisfying` \case
+            TxInvalid{transaction, validationError} -> transaction == tx && validationError == policyError
+            _ -> False
+          outcome `hasNoStateChangedSatisfying` \case
+            TransactionAppliedToLocalUTxO{} -> True
+            _ -> False
+          outcome `hasNoEffectSatisfying` \case
+            NetworkEffect{} -> True
+            _ -> False
+
+        it "waits when a ReqTx exceeds the resulting UTxO policy" $ do
+          let st = inOpenState' threeParties $ coordinatedHeadState{localUTxO = utxoRef 2}
+          now <- nowFromSlot st.chainPointTime.currentSlot
+          let outcome = update bobEnv (withValidation limitUTxO) now st (receiveMessage $ ReqTx tx)
+          outcome
+            `shouldBe` Wait
+              (WaitOnNotApplicableTx $ PolicyValidationError $ MaxUTxOCountExceeded 2 1)
+              [TransactionReceived tx]
+
+        it "rechecks the transaction policy on ReqSn even for transactions already in allTxs" $ do
+          let st = stateWithTxs [tx]
+          now <- nowFromSlot st.chainPointTime.currentSlot
+          update bobEnv (withValidation rejectTransactions) now st (reqSn [tx])
+            `shouldBe` Error (RequireFailed $ SnapshotDoesNotApply 1 (txId tx) policyError)
+
+        it "rejects a ReqSn that exceeds the resulting UTxO policy" $ do
+          let largeTx = SimpleTx 2 mempty (utxoRefs [1, 2])
+              st = stateWithTxs [largeTx]
+          now <- nowFromSlot st.chainPointTime.currentSlot
+          update bobEnv (withValidation limitUTxO) now st (reqSn [largeTx])
+            `shouldBe` Error (RequireFailed $ SnapshotDoesNotApply 1 (txId largeTx) (PolicyValidationError $ MaxUTxOCountExceeded 2 1))
+
+        it "checks the resulting UTxO before ledger application on ReqTx" $ do
+          let largeTx = SimpleTx 2 mempty (utxoRefs [1, 2])
+              st = inOpenState threeParties
+              rejectingLedger =
+                (withValidation limitUTxO)
+                  { applyTransactions = \_ _ _ -> Left (largeTx, ValidationError "ledger application was reached")
+                  }
+          now <- nowFromSlot st.chainPointTime.currentSlot
+          update bobEnv rejectingLedger now st (receiveMessage $ ReqTx largeTx)
+            `assertWait` WaitOnNotApplicableTx (PolicyValidationError $ MaxUTxOCountExceeded 2 1)
+
+        it "checks the resulting UTxO before ledger application on ReqSn" $ do
+          let largeTx = SimpleTx 2 mempty (utxoRefs [1, 2])
+              st = stateWithTxs [largeTx]
+              rejectingLedger =
+                (withValidation limitUTxO)
+                  { applyTransactions = \_ _ _ -> Left (largeTx, ValidationError "ledger application was reached")
+                  }
+          now <- nowFromSlot st.chainPointTime.currentSlot
+          update bobEnv rejectingLedger now st (reqSn [largeTx])
+            `shouldBe` Error (RequireFailed $ SnapshotDoesNotApply 1 (txId largeTx) (PolicyValidationError $ MaxUTxOCountExceeded 2 1))
+
+        it "accounts for spent inputs when checking the resulting UTxO" $ do
+          let transfer = SimpleTx 2 (utxoRef 1) (utxoRef 2)
+              st = inOpenState' threeParties $ coordinatedHeadState{localUTxO = utxoRef 1}
+          now <- nowFromSlot st.chainPointTime.currentSlot
+          update bobEnv (withValidation limitUTxO) now st (receiveMessage $ ReqTx transfer)
+            `hasStateChangedSatisfying` \case
+              TransactionAppliedToLocalUTxO{tx = appliedTx} -> appliedTx == transfer
+              _ -> False
+
+        it "still rejects a ledger-invalid transaction that passes the UTxO policy" $ do
+          let missingInputTx = SimpleTx 2 (utxoRef 1) (utxoRef 2)
+              st = stateWithTxs [missingInputTx]
+          now <- nowFromSlot st.chainPointTime.currentSlot
+          update bobEnv (withValidation limitUTxO) now st (reqSn [missingInputTx])
+            `shouldBe` Error (RequireFailed $ SnapshotDoesNotApply 1 (txId missingInputTx) (ValidationError "cannot apply transaction"))
+
+        it "checks every transaction in ReqSn even when the final UTxO is within the limit" $ do
+          let grow = SimpleTx 2 mempty (utxoRef 2)
+              shrinkTx = SimpleTx 3 (utxoRefs [1, 2]) (utxoRef 3)
+              txs = [tx, grow, shrinkTx]
+              st = stateWithTxs txs
+          now <- nowFromSlot st.chainPointTime.currentSlot
+          update bobEnv (withValidation limitUTxO) now st (reqSn txs)
+            `shouldBe` Error (RequireFailed $ SnapshotDoesNotApply 1 (txId grow) (PolicyValidationError $ MaxUTxOCountExceeded 2 1))
+
+        it "can sign a transaction that exceeded the local UTxO limit but fits the snapshot" $ do
+          let st = inOpenState' threeParties $ coordinatedHeadState{localUTxO = utxoRef 2}
+              policyLedger = withValidation limitUTxO
+          (received, outcome) <- runHeadLogic bobEnv policyLedger st $ do
+            received <- step (receiveMessage $ ReqTx tx)
+            outcome <- step (reqSn [tx])
+            pure (received, outcome)
+          received `assertWait` WaitOnNotApplicableTx (PolicyValidationError $ MaxUTxOCountExceeded 2 1)
+          outcome `hasEffectSatisfying` \case
+            NetworkEffect AckSn{snapshotNumber = 1} -> True
+            _ -> False
+
+        it "retains ledger-valid local transactions during pruning but checks them before proposing or signing" $ do
+          let localTx = SimpleTx 2 mempty (utxoRef 2)
+              policyLedger = withValidation limitUTxO
+              snapshot = testSnapshot 1 0 [tx] (utxoRef 1)
+              st =
+                inOpenState' threeParties $
+                  coordinatedHeadState
+                    { allTxs = Map.fromList [(txId tx, tx), (txId localTx, localTx)]
+                    , localTxs = Seq.singleton localTx
+                    , localUTxO = utxoRef 2
+                    }
+          now <- nowFromSlot st.chainPointTime.currentSlot
+          let outcome = update bobEnv policyLedger now st (reqSn [tx])
+          outcome `hasStateChangedSatisfying` \case
+            SnapshotRequested{newLocalTxs} -> newLocalTxs == Seq.singleton localTx
+            _ -> False
+          (confirmed, nextRequest) <- runHeadLogic bobEnv policyLedger (aggregateState st outcome) $ do
+            step $ receiveMessageFrom alice $ AckSn (sign aliceSk snapshot) 1
+            step $ receiveMessageFrom bob $ AckSn (sign bobSk snapshot) 1
+            nextRequest <- step $ receiveMessageFrom carol $ AckSn (sign carolSk snapshot) 1
+            confirmed <- getState
+            pure (confirmed, nextRequest)
+          nextRequest `hasNoEffectSatisfying` \case
+            NetworkEffect ReqSn{} -> True
+            _ -> False
+          nextRequest
+            `hasEffect` ClientEffect
+              SnapshotRequestRejectedByPolicy
+                { headId = testHeadId
+                , snapshotNumber = 2
+                , transactionId = txId localTx
+                , policyViolation = MaxUTxOCountExceeded 2 1
+                }
+          update bobEnv policyLedger now confirmed (receiveMessageFrom bob $ ReqSn 0 2 [txId localTx] Nothing Nothing)
+            `shouldBe` Error (RequireFailed $ SnapshotDoesNotApply 2 (txId localTx) (PolicyValidationError $ MaxUTxOCountExceeded 2 1))
+
+        forM_ [Nothing, Just limitUTxO] $ \validation -> do
+          it ("emits ReqTx for a permitted client transaction with " <> if isNothing validation then "no policy" else "a configured policy") $ do
+            let st = inOpenState threeParties
+            now <- nowFromSlot st.chainPointTime.currentSlot
+            update aliceEnv ledger{userValidation = validation} now st (ClientInput $ NewTx tx)
+              `hasEffect` NetworkEffect (ReqTx tx)
+
+          it ("accepts a permitted ReqTx with " <> if isNothing validation then "no policy" else "a configured policy") $ do
+            let st = inOpenState threeParties
+            now <- nowFromSlot st.chainPointTime.currentSlot
+            update aliceEnv ledger{userValidation = validation} now st (receiveMessage $ ReqTx tx)
+              `hasEffect` NetworkEffect (ReqSn 0 1 [txId tx] Nothing Nothing)
+
+          it ("signs a permitted ReqSn with " <> if isNothing validation then "no policy" else "a configured policy") $ do
+            let st = stateWithTxs [tx]
+            now <- nowFromSlot st.chainPointTime.currentSlot
+            update bobEnv ledger{userValidation = validation} now st (reqSn [tx])
+              `hasEffectSatisfying` \case
+                NetworkEffect AckSn{snapshotNumber = 1} -> True
+                _ -> False
 
       it "reports if a requested tx is expired" $ do
         let inputs = utxoRef 1

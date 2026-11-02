@@ -57,6 +57,7 @@ import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Crypto (MultiSignature)
 import Hydra.Tx.IsTx (TxIdType, UTxOType, txId)
 import Hydra.Tx.Snapshot (Snapshot (..))
+import Hydra.UserValidationRules (PolicyViolation (..))
 import System.FilePath ((</>))
 import System.IO.Unsafe (unsafePerformIO)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
@@ -930,6 +931,38 @@ apiServerSpec = do
           )
           $ do
             post "/transaction" (mkReq testTx) `shouldRespondWith` 400
+
+      it "returns a structured policy error with 400 Bad Request" $ do
+        responseChannel <- newTChanIO
+        let validationError = PolicyValidationError (MaxUTxOCountExceeded 2 1)
+            event =
+              TimedServerOutput
+                { output =
+                    TxInvalid
+                      { headId = testHeadId
+                      , utxo = mempty
+                      , transaction = testTx
+                      , validationError = validationError
+                      }
+                , seq = 0
+                , time = now
+                }
+        withApplication
+          ( httpApp @SimpleTx
+              nullTracer
+              Aeson.Null
+              dummyChainHandle
+              testEnvironment
+              defaultPParams
+              (pure inIdleState)
+              (pure CannotCommit)
+              (pure [])
+              (const $ atomically $ writeTChan responseChannel (Left event))
+              10
+              responseChannel
+          )
+          $ do
+            post "/transaction" (mkReq testTx) `shouldRespondWith` 400{matchBody = matchJSON (SubmitTxPolicyInvalidResponse $ MaxUTxOCountExceeded 2 1)}
 
       prop "returns 503 on RejectedInputBecauseUnsynced" $ do
         responseChannel <- newTChanIO
