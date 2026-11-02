@@ -22,18 +22,21 @@
 -- = The Trusted Setup
 --
 -- Computing @A(τ)·G1@ and @Q(τ)·G1@ off-chain, and @P_S(τ)·G2@ on-chain, all
--- require the same secret @τ@ (powers of tau). We embed the __EIP-4844 KZG
+-- require the same secret @τ@ (powers of tau). We embed the __Ethereum 32768-point KZG
 -- trusted setup__ produced by the Ethereum KZG ceremony (2023):
 --
---   * Source: <https://github.com/ethereum/kzg-ceremony-verifier/tree/master/output_setups>
+--   * Source: <https://github.com/ethereum/kzg-ceremony-verifier/blob/cd73fdcf5bd060954c652e90606d46f29f0b137b/output_setups/trusted_setup_32768.json>
 --   * Ceremony: <https://ceremony.ethereum.org/>
---   * ~140,000 independent participants; secure as long as one destroyed their secret
+--   * 141,416 contributions; secure as long as one destroyed their secret
 --   * We use the @g1_monomial@ and @g2_monomial@ keys (not @g1_lagrange@, which is
 --     for Ethereum blob commitments and is unsuitable here)
 --
+-- This setup uses a different tau from the 4096-point EIP-4844 setup. Both
+-- G1 and G2 must move together; existing heads cannot use the new CRS.
+--
 -- The setup provides:
 --
---   * 4096 G1 points @[G1, τ·G1, ..., τ^4095·G1]@ — used off-chain to build the
+--   * 32768 G1 points @[G1, τ·G1, ..., τ^32767·G1]@ — used off-chain to build the
 --     accumulator commitment and membership proofs
 --   * 65 G2 points  @[G2, τ·G2, ..., τ^64·G2]@   — used as the on-chain
 --     verification CRS (G2 MSM to evaluate @P_S(τ)·G2@)
@@ -41,8 +44,8 @@
 -- = Accumulator size limit
 --
 -- The accumulator polynomial has degree n (one root per UTxO). Computing @A(τ)·G1@
--- off-chain needs n+1 G1 points. EIP-4844 provides 4096 G1 points, so a head can
--- hold up to __4095 UTxOs__. This is enforced by 'maxAccumulatorSize'.
+-- off-chain needs n+1 G1 points. The setup provides 32768 G1 points, so a head can
+-- hold up to __32767 UTxOs__. This is enforced by 'maxAccumulatorSize'.
 -- The on-chain G2 CRS only needs batch-size-many points per partial fanout step,
 -- so the 65 G2 points do not constrain the accumulator size.
 module Hydra.Contract.KZGTrustedSetup (
@@ -94,13 +97,13 @@ data KZGSetupError
   deriving stock (Show, Eq, Generic)
 
 -- | Maximum accumulator element count supported by the currently embedded G1 CRS.
--- The EIP-4844 setup provides exactly 4096 G1 monomial points [G1, τ·G1, ..., τ^4095·G1],
--- so the accumulator supports up to 4095 elements (n elements need n+1 G1 points).
+-- The Ethereum 32768-point setup provides exactly 32768 G1 monomial points [G1, τ·G1, ..., τ^32767·G1],
+-- so the accumulator supports up to 32767 elements (n elements need n+1 G1 points).
 maxAccumulatorSize :: Int
-maxAccumulatorSize = 4095
+maxAccumulatorSize = 32767
 
 -- | Theoretical upper bound on partial fanout batch size, derived from the
--- embedded EIP-4844 trusted setup: 65 G2 monomial points give room for a
+-- embedded Ethereum 32768-point trusted setup: 65 G2 monomial points give room for a
 -- polynomial of degree 64 (one (X - sᵢ) factor per fanned-out element).
 --
 -- NOTE: this is the __ceiling__ implied by the trusted-setup file, not the
@@ -128,11 +131,11 @@ maxFanoutBatchSize = 64
 deployedFanoutBatchSize :: Int
 deployedFanoutBatchSize = defaultItems - 1
 
--- | Expected SHA-256 of trusted_setup.json, from the EIP-4844 ceremony output.
--- Verify independently with: sha256sum hydra-tx/trusted_setup.json
--- Source: https://github.com/ethereum/kzg-ceremony-verifier/tree/master/output_setups
+-- | Expected SHA-256 of trusted_setup.json, from the Ethereum KZG ceremony (32768-point setup) output.
+-- Verify independently with: sha256sum hydra-plutus/trusted_setup.json
+-- Source: https://github.com/ethereum/kzg-ceremony-verifier/blob/cd73fdcf5bd060954c652e90606d46f29f0b137b/output_setups/trusted_setup_32768.json
 trustedSetupExpectedSHA256 :: Text
-trustedSetupExpectedSHA256 = "9a8dcad9eaba191842f57d23d14674cbdea4b3cf7912fcc477821264dfe0c042"
+trustedSetupExpectedSHA256 = "9749a8462e0f26ae1beed56f6dc538e4c4442eb08d0c66fcab8f0541135324d0"
 
 -- We use @g1_monomial@ (not @g1_lagrange@): the monomial form @[G1, τ·G1, ...]@ is required
 -- for KZG polynomial commitments. The @g1_lagrange@ form (used by Ethereum clients for blob
@@ -178,8 +181,8 @@ warmup = do
   countForced :: [a] -> Int
   countForced = foldl' (\n x -> x `seq` n + 1) 0
 
--- | G1 powers of tau [G1, τ·G1, ..., τ^4095·G1] from the EIP-4844 ceremony (monomial form).
--- 4096 points; used off-chain to build accumulator commitments and membership proofs.
+-- | G1 powers of tau [G1, τ·G1, ..., τ^32767·G1] from the Ethereum KZG ceremony (32768-point setup) (monomial form).
+-- 32768 points; used off-chain to build accumulator commitments and membership proofs.
 g1Points :: Either KZGSetupError [Point1]
 g1Points = mapM parseG1 . fst =<< embeddedSetup
  where
@@ -188,7 +191,7 @@ g1Points = mapM parseG1 . fst =<< embeddedSetup
     bs <- first (const (InvalidG1Point hex)) (decodeHexPoint hex)
     first (const (InvalidG1Point hex)) (blsUncompress bs)
 
--- | G2 powers of tau [G2, τ·G2, ..., τ^64·G2] from the EIP-4844 ceremony (monomial form).
+-- | G2 powers of tau [G2, τ·G2, ..., τ^64·G2] from the Ethereum KZG ceremony (32768-point setup) (monomial form).
 -- 65 points; used as the on-chain verification CRS (G2 MSM to evaluate @P_S(τ)·G2@).
 g2Points :: Either KZGSetupError [Point2]
 g2Points = mapM parseG2 . snd =<< embeddedSetup
@@ -216,7 +219,7 @@ defaultItems :: Int
 defaultItems = 30
 
 -- | The canonical on-chain CRS datum: the first 'defaultItems' G2 monomial points of
--- the embedded EIP-4844 setup, as the on-chain builtin element type. This is exactly
+-- the embedded Ethereum 32768-point setup, as the on-chain builtin element type. This is exactly
 -- what 'Hydra.Tx.Accumulator.createCRSG2Datum' publishes and what the head validator
 -- binds via its baked datum hash. Errors only if the embedded setup is corrupt.
 canonicalG2Points :: [BuiltinBLS12_381_G2_Element]

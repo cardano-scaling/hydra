@@ -405,3 +405,16 @@ type ChainCallback tx m = ChainEvent tx -> m ()
 
 -- | A type tying both posting and observing transactions into a single /Component/.
 type ChainComponent tx m a = ChainCallback tx m -> (Chain tx m -> m a) -> m a
+
+-- | Stable, bounded names for L1 operation telemetry.
+postChainTxName :: PostChainTx tx -> Text
+postChainTxName = \case
+  InitTx{} -> "init"
+  IncrementTx{} -> "increment"
+  RecoverTx{} -> "recover"
+  DecrementTx{} -> "decrement"
+  CloseTx{} -> "close"
+  ContestTx{} -> "contest"
+  FanoutTx{} -> "fanout"
+  PartialFanoutTx{} -> "partial_fanout"
+  FinalPartialFanoutTx{} -> "final_fanout"

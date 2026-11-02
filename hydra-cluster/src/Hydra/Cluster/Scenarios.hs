@@ -111,7 +111,7 @@ import Hydra.Chain.ChainState (ChainSlot (..))
 import Hydra.Cluster.Faucet (createOutputAtAddress, seedFromFaucet, seedFromFaucetWithMinting, seedFromFaucet_, seedManyFromFaucet)
 import Hydra.Cluster.Faucet qualified as Faucet
 import Hydra.Cluster.Fixture (Actor (..), actorName, alice, aliceSk, aliceVk, bob, bobSk, bobVk, carol, carolSk, carolVk)
-import Hydra.Cluster.Util (BlockTime, Timing (..), chainConfigFor, chainConfigFor', depositTimeout, keysFor, mkTestTiming, mkTestTiming', modifyConfig, nodeStartupBudget, setNetworkId, truncatedDepositPeriod)
+import Hydra.Cluster.Util (BlockTime, Participant (..), Timing (..), archiveParticipantKeys, chainConfigFor, chainConfigFor', chainConfigForParticipant, clearHeadOpen, depositTimeout, generateParticipant, headMayBeOpen, keysFor, leftoverParticipantKeys, markHeadOpen, mkTestTiming, mkTestTiming', modifyConfig, nodeStartupBudget, participantCardanoKeyFile, participantKeysDir, participantParty, setNetworkId, truncatedDepositPeriod, trySync)
 import Hydra.Contract.Dummy (dummyMintingScript, dummyRewardingScript, dummyValidatorScript)
 import Hydra.Ledger.Cardano (mkSimpleTx, mkTransferTx, unsafeBuildTransaction)
 import Hydra.Network qualified as Network
@@ -530,8 +530,14 @@ singlePartyHeadFullLifeCycle ::
   ChainBackendOptions ->
   [TxId] ->
   IO ()
-singlePartyHeadFullLifeCycle tracer workDir mkTiming opts hydraScriptsTxId =
-  (`finally` returnFundsToFaucet tracer opts Alice) $ do
+singlePartyHeadFullLifeCycle tracer workDir mkTiming opts hydraScriptsTxId = do
+  returnLeftoverParticipantFunds tracer opts workDir
+
+  participant@Participant{cardanoVk, cardanoSk, hydraSk, walletVk, walletSk, keyDir} <-
+    generateParticipant workDir
+  traceWith tracer CreatedKey{keyPath = participantCardanoKeyFile keyDir}
+
+  flip onException (returnParticipantFunds tracer opts workDir participant RunInterrupted) $ do
     blockTime <- runBackend opts getBlockTime
     networkId <- runBackend opts queryNetworkId
     let timing = mkTiming blockTime
@@ -542,22 +548,20 @@ singlePartyHeadFullLifeCycle tracer workDir mkTiming opts hydraScriptsTxId =
     -- alone -- pinned to the bare tip it would sit there until the next block.
     tip <- runBackend opts queryTip
 
-    (aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
-    let aliceAddress = mkVkAddress networkId aliceCardanoVk
+    let participantAddress = mkVkAddress networkId cardanoVk
 
-    -- Prepare deposit payload. Alice's fuel and the wallet's deposit come from
-    -- one faucet transaction, so this costs a single confirmation.
-    (walletVk, walletSk) <- generate genKeyPair
+    -- Prepare deposit payload. The participant's fuel and the wallet's deposit
+    -- come from one faucet transaction, so this costs a single confirmation.
     let depositAmount = 10_000_000
     depositUTxO <-
-      refuelAndSeed tracer opts Alice 55_000_000 [(walletVk, lovelaceToValue depositAmount)] >>= \case
+      refuelAndSeedFor tracer opts participantLabel cardanoVk 55_000_000 [(walletVk, lovelaceToValue depositAmount)] >>= \case
         [utxo] -> pure utxo
         utxos -> failure $ "expected exactly one seeded deposit UTxO, got " <> show (length utxos)
 
-    aliceChainConfig <-
-      chainConfigFor Alice workDir opts hydraScriptsTxId [] timing
-        <&> modifyConfig (\config -> config{startChainFrom = Just tip})
-          . setNetworkId networkId
+    let participantChainConfig =
+          modifyConfig (\config -> config{startChainFrom = Just tip}) $
+            setNetworkId networkId $
+              chainConfigForParticipant participant opts hydraScriptsTxId timing
     let changeAddress = mkVkAddress @Era networkId walletVk
     let (i, o) = List.head $ UTxO.toList depositUTxO
     let witness = BuildTxWith $ KeyWitness KeyWitnessForSpending
@@ -573,10 +577,12 @@ singlePartyHeadFullLifeCycle tracer workDir mkTiming opts hydraScriptsTxId =
             , "changeAddress" .= changeAddress
             ]
 
-    withSoloHydraNode hydraTracer blockTime aliceChainConfig workDir 1 aliceSk [] $ \n1 -> do
-      -- Open head
+    withSoloHydraNode hydraTracer blockTime participantChainConfig workDir 1 hydraSk [] $ \n1 -> do
+      -- Mark before Init: it may land before we observe it. If it never lands,
+      -- the stale marker requires manual removal but preserves the fuel.
+      markHeadOpen keyDir
       send n1 $ input "Init" []
-      headId <- waitMatch (30 * blockTime) n1 $ headIsOpenWith (Set.fromList [alice])
+      headId <- waitMatch (30 * blockTime) n1 $ headIsOpenWith (Set.fromList [participantParty participant])
       -- Deposit UTxO
       res <-
         runReq defaultHttpConfig $
@@ -592,7 +598,7 @@ singlePartyHeadFullLifeCycle tracer workDir mkTiming opts hydraScriptsTxId =
         pure ()
 
       utxo <- getSnapshotUTxO n1
-      l2tx <- mkTransferTx networkId utxo (mkSecret walletSk) aliceCardanoVk
+      l2tx <- mkTransferTx networkId utxo walletSk cardanoVk
       send n1 $ input "NewTx" ["transaction" .= l2tx]
       waitMatch (20 * blockTime) n1 $ \v -> do
         guard $ v ^? key "tag" == Just "SnapshotConfirmed"
@@ -603,7 +609,7 @@ singlePartyHeadFullLifeCycle tracer workDir mkTiming opts hydraScriptsTxId =
       decommitTx <- do
         let (input', output') = List.head $ UTxO.toList utxo'
         either (failure . show) pure $
-          mkSimpleTx (input', output') (aliceAddress, txOutValue o) aliceCardanoSk
+          mkSimpleTx (input', output') (participantAddress, txOutValue o) cardanoSk
 
       send n1 $ input "Decommit" ["decommitTx" .= decommitTx]
 
@@ -628,14 +634,88 @@ singlePartyHeadFullLifeCycle tracer workDir mkTiming opts hydraScriptsTxId =
       send n1 $ input "Fanout" []
 
       waitForAllMatch (50 * blockTime) [n1] $ headIsFinalizedWith headId mempty
-    traceRemainingFunds Alice
+      clearHeadOpen keyDir
+    traceRemainingFunds cardanoVk
+  -- Outside the handler above: a failure in this sweep must not start a second
+  -- one on the way out.
+  returnParticipantFunds tracer opts workDir participant RunFinished
  where
   hydraTracer = contramap FromHydraNode tracer
 
-  traceRemainingFunds actor = do
-    (actorVk, _) <- keysFor actor
-    utxo <- runBackend opts $ queryUTxOFor QueryTip actorVk
-    traceWith tracer RemainingFunds{actor = actorName actor, utxo}
+  participantLabel = "participant"
+
+  traceRemainingFunds vk = do
+    utxo <- runBackend opts $ queryUTxOFor QueryTip vk
+    traceWith tracer RemainingFunds{actor = participantLabel, utxo}
+
+-- | Whether the run completed or may still have funding in flight.
+data RunOutcome = RunFinished | RunInterrupted
+  deriving stock (Eq, Show)
+
+-- | Sweep the participant's payment keys under the 'sweepParticipantKeys' policy.
+returnParticipantFunds ::
+  Tracer IO EndToEndLog ->
+  ChainBackendOptions ->
+  FilePath ->
+  Participant ->
+  RunOutcome ->
+  IO ()
+returnParticipantFunds tracer opts workDir Participant{cardanoSk, walletSk, keyDir} =
+  sweepParticipantKeys tracer opts workDir keyDir [cardanoSk, walletSk]
+
+-- | Retry sweeps for earlier runs under the 'sweepParticipantKeys' policy.
+returnLeftoverParticipantFunds ::
+  Tracer IO EndToEndLog ->
+  ChainBackendOptions ->
+  FilePath ->
+  IO ()
+returnLeftoverParticipantFunds tracer opts workDir =
+  trySync (leftoverParticipantKeys workDir) >>= \case
+    Left (err :: SomeException) ->
+      traceWith tracer SweepFailed{keyPath = participantKeysDir workDir, reason = show err}
+    Right leftovers ->
+      forM_ leftovers $ \(keyDir, paymentKeys) -> case paymentKeys of
+        Left reason -> traceWith tracer SweepFailed{keyPath = keyDir, reason}
+        Right sks -> sweepParticipantKeys tracer opts workDir keyDir sks RunFinished
+
+-- | Sweep payment keys to the faucet and archive them when their run is finished.
+--
+-- Recovery policy: persist all keys before funding. An open-head marker keeps
+-- both keys and fuel for manual close or abort. Otherwise, sweep both payment
+-- keys; keep interrupted runs pending because funding may still arrive, and
+-- archive completed runs without deleting their keys. Later runs retry pending
+-- directories. Sweep failures are logged per run; cancellation propagates.
+sweepParticipantKeys ::
+  Tracer IO EndToEndLog ->
+  ChainBackendOptions ->
+  FilePath ->
+  -- | Key directory of the run being swept.
+  FilePath ->
+  [Secret (SigningKey PaymentKey)] ->
+  RunOutcome ->
+  IO ()
+sweepParticipantKeys tracer opts workDir keyDir sks outcome =
+  headMayBeOpen keyDir >>= \case
+    True ->
+      keep
+        "a head is still open; its fuel stays here to close or abort it. \
+        \Delete the head-open file once it is dealt with to release these keys."
+    False -> do
+      results <- forM sks sweep
+      case lefts results of
+        errs@(_ : _) -> traceWith tracer SweepFailed{keyPath = keyDir, reason = show errs}
+        [] -> case outcome of
+          RunInterrupted -> keep "run was interrupted; the next run sweeps these"
+          RunFinished -> archive
+ where
+  keep reason = traceWith tracer ParticipantKeysKept{keyPath = keyDir, reason}
+
+  archive =
+    archiveParticipantKeys workDir keyDir
+      >>= either (\reason -> traceWith tracer SweepFailed{keyPath = keyDir, reason}) pure
+
+  sweep :: Secret (SigningKey PaymentKey) -> IO (Either SomeException Coin)
+  sweep sk = trySync $ Faucet.returnFundsToFaucetBounded (contramap FromFaucet tracer) opts sk
 
 -- | Open a Hydra Head with only a single participant but some arbitrary UTxO
 -- committed.
@@ -2206,13 +2286,31 @@ refuelAndSeed ::
   IO [UTxO]
 refuelAndSeed tracer opts actor amount seeds = do
   (actorVk, _) <- keysFor actor
-  existingUtxo <- runBackend opts $ queryUTxOFor QueryTip actorVk
-  traceWith tracer $ StartingFunds{actor = actorName actor, utxo = existingUtxo}
-  let refuel = [(actorVk, lovelaceToValue amount) | selectLovelace (balance @Tx existingUtxo) < amount]
+  refuelAndSeedFor tracer opts (actorName actor) actorVk amount seeds
+
+-- | Like 'refuelAndSeed', but for a key with no 'Actor' behind it -- a
+-- generated 'Hydra.Cluster.Util.Participant', say -- with a label used only in
+-- the log entries.
+refuelAndSeedFor ::
+  Tracer IO EndToEndLog ->
+  ChainBackendOptions ->
+  -- | How to name this key in the logs.
+  String ->
+  VerificationKey PaymentKey ->
+  -- | Amount the key is to hold before the scenario starts.
+  Coin ->
+  -- | Further keys to seed, and the value each is to receive.
+  [(VerificationKey PaymentKey, CAPI.Value)] ->
+  -- | The seeded UTxO of each further key, in the order given.
+  IO [UTxO]
+refuelAndSeedFor tracer opts actor vk amount seeds = do
+  existingUtxo <- runBackend opts $ queryUTxOFor QueryTip vk
+  traceWith tracer $ StartingFunds{actor, utxo = existingUtxo}
+  let refuel = [(vk, lovelaceToValue amount) | selectLovelace (balance @Tx existingUtxo) < amount]
   seeded <- seedManyFromFaucet opts (refuel <> seeds) (contramap FromFaucet tracer)
   let (refueled, seededUTxO) = splitAt (length refuel) seeded
   forM_ refueled $ \utxo ->
-    traceWith tracer $ RefueledFunds{actor = actorName actor, refuelingAmount = amount, utxo}
+    traceWith tracer $ RefueledFunds{actor, refuelingAmount = amount, utxo}
   pure seededUTxO
 
 -- | Return the remaining funds to the faucet

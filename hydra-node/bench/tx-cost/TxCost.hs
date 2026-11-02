@@ -211,13 +211,13 @@ computeFanOutCost = do
 --
 -- For each total UTxO count N, we search for the largest chunk that fits, the
 -- same way the node does: bounded by 'deployedFanoutBatchSize', since no larger
--- subset can be verified on chain however cheap its transaction is. The tx size
--- grows with the total UTxO count because the accumulator serialisation stored
--- in the output datum grows linearly with remaining UTxO count.
+-- subset can be verified on chain however cheap its transaction is. The
+-- accumulator commitment in the output datum has constant size; larger heads
+-- increase the off-chain work needed to construct its membership proof.
 computePartialFanOutNominalCost :: Gen [(NumUTxO, NumUTxO, Natural, TxSize, MemUnit, CpuUnit, Coin)]
 computePartialFanOutNominalCost = do
-  -- Show how partial fanout scales across the full new accumulator range (up to 4095).
-  -- The tx size grows with remaining UTxO count (larger datum), so we probe widely.
+  -- Sample several head sizes while the distributed subset stays bounded by
+  -- the deployed G2 CRS. Larger sizes are covered by the accumulator benchmark.
   interesting <-
     catMaybes
       <$> mapM

@@ -6,8 +6,8 @@
                     "multiSignature": []
                 },
                 "snapshot": {
-                    "accumulator": "1a5cdf03a5dbe8fcd8ecf68f82a8feaf148f0948a326ccb3c0e01407205e39ff",
-                    "appliedAccumulator": "98c7160432a11ec991b72513b5b2921e7ee5718951350c163f9f14a2b8b7794d",
+                    "accumulator": "c6eda7661de2e7681fd41c401b0f65be3b02b10bea695faa592e847c6f7dbbe0",
+                    "appliedAccumulator": "835837da141697b0702116d3abfec9866240535ee5e390f5e7f9a32f891b2f74",
                     "confirmed": [],
                     "depositTxId": "0000010100000000000000010100000001010001010100000101000101010000",
                     "headId": "00000000010000000000010100000101",

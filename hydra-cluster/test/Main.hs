@@ -12,6 +12,7 @@ import Test.EndToEndSpec qualified
 import Test.GeneratorSpec qualified
 import Test.Hydra.Cluster.CardanoCliSpec qualified
 import Test.Hydra.Cluster.FaucetSpec qualified
+import Test.Hydra.Cluster.FaultSpec qualified
 import Test.Hydra.Cluster.MithrilSpec qualified
 import Test.Hydra.Cluster.UtilSpec qualified
 import Test.Hydra.TastyMain (hydraTestTree, runHydraTests, testSpec)
@@ -46,6 +47,7 @@ main = do
       , testSpec "EndToEnd" Test.EndToEndSpec.spec
       , testSpec "Generator" Test.GeneratorSpec.spec
       , testSpec "Hydra.Cluster.CardanoCli" Test.Hydra.Cluster.CardanoCliSpec.spec
+      , testSpec "Hydra.Cluster.Fault" Test.Hydra.Cluster.FaultSpec.spec
       , testSpec "Hydra.Cluster.Faucet" Test.Hydra.Cluster.FaucetSpec.spec
       , testSpec "Hydra.Cluster.Mithril" Test.Hydra.Cluster.MithrilSpec.spec
       , testSpec "Hydra.Cluster.Util" Test.Hydra.Cluster.UtilSpec.spec

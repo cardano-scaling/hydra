@@ -75,6 +75,7 @@ library
     CardanoNode
     Hydra.Cluster.Faucet
     Hydra.Cluster.Fixture
+    Hydra.Cluster.HeadLifecycle
     Hydra.Cluster.Mithril
     Hydra.Cluster.Options
     Hydra.Cluster.Scenarios
@@ -98,6 +99,7 @@ library
     , containers
     , contra-tracer
     , contra-tracer-json
+    , crypton
     , directory
     , filepath
     , http-conduit
@@ -163,6 +165,7 @@ test-suite tests
     Test.GeneratorSpec
     Test.Hydra.Cluster.CardanoCliSpec
     Test.Hydra.Cluster.FaucetSpec
+    Test.Hydra.Cluster.FaultSpec
     Test.Hydra.Cluster.MithrilSpec
     Test.Hydra.Cluster.Utils
     Test.Hydra.Cluster.UtilSpec
@@ -199,6 +202,7 @@ test-suite tests
     , tasty
     , text
     , time
+    , unix
 
   build-tool-depends:
     , hydra-chain-observer:hydra-chain-observer
@@ -213,6 +217,7 @@ benchmark bench-e2e
   type:               exitcode-stdio-1.0
   other-modules:
     Bench.EndToEnd
+    Bench.Lifecycle
     Bench.Options
     Bench.Summary
 
@@ -243,6 +248,7 @@ benchmark bench-e2e
     , text
     , time
     , typed-process
+    , unix
     , vector
 
   build-tool-depends: hydra-node:hydra-node

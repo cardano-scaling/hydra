@@ -1,20 +1,22 @@
 # Development workflow
 
+## Essential
+
 - You can launch `cabal repl <project>` to make quick recompilations in a separate process while working on features
 - When you make a change to the HeadLogic, or other sensitive areas, please make sure the spec and the Agda are also updated.
 
-# Testing
+### Testing
 
 - If making same-package changes, use `cabal repl <package>:test:tests` to load the test package and run the tests through `:main -p  "/<test name>/"`
 - If making cross-package changes, use `just test <package> "<test name>"`; i.e. `just test hydra-tx "hashing"`
   - :reload won't pick up dep changes (it silently keeps the old compiled dep) so tests can falsely pass. Restart the repl in this case.
 
-# Commenting
+### Commenting
 
 - Keep your comments clear, concise, and present tense. Don't ever refer to artefacts/links that aren't public.
 - Never write anything in the CHANGELOG.md; this will always be done by a Human, manually.
 
-# Finishing code changes
+## Finishing code changes
 
 - Always run `just lint` and iterate on fixes after finishing code changes
 - Run `just check` as a final step; it's resource-intensive so prefer to do as few times as possible
@@ -23,3 +25,11 @@
     hydra-tui have no flake check, so use `just test hydra-cluster` /
     `just test hydra-tui` for those.
 - Make sure any documentation is also updated; you can look in `docs/` to find it
+
+## Optional things
+
+### Recording a demo video
+
+You can use the infrastructure in `./demo/lifecycle` to record demo videos
+with captions. You can use this to record a "demo video" if I ask you for that
+specific phrase.

@@ -6,6 +6,7 @@ import Test.Hydra.Prelude
 import Cardano.Crypto.EllipticCurve.BLS12_381.Internal (Point1, Point2, blsCompress, blsGenerator, blsInGroup, blsUncompress)
 import Cardano.Crypto.Hash (Blake2b_224)
 import Cardano.Crypto.Hash.Class (HashAlgorithm (digest))
+import Data.ByteString.Base16 qualified as Base16
 import GHC.ByteOrder (ByteOrder (BigEndian))
 import Hydra.Contract.CRS (checkMembershipPairing)
 import Hydra.Contract.KZGTrustedSetup (canonicalG2Points, deployedFanoutBatchSize, g1Points, g2BuiltinPoints, g2Points, maxAccumulatorSize, maxFanoutBatchSize)
@@ -14,6 +15,7 @@ import Plutus.Crypto.BlsUtils qualified as Bls
 import PlutusTx.Builtins (
   bls12_381_G1_scalarMul,
   bls12_381_G1_uncompress,
+  bls12_381_G2_uncompress,
   bls12_381_finalVerify,
   bls12_381_millerLoop,
   byteStringToInteger,
@@ -28,20 +30,20 @@ spec = parallel $ do
       g2Pts = either (error . show) id g2Points
       g2BuiltinPts = either (error . show) id g2BuiltinPoints
 
-  describe "KZGTrustedSetup (EIP-4844)" $ do
-    it "g1Points has 4096 entries" $
-      length g1Pts `shouldBe` 4096
+  describe "KZGTrustedSetup (Ethereum 32768-point)" $ do
+    it "g1Points has 32768 entries" $
+      length g1Pts `shouldBe` 32768
 
     it "g2Points has 65 entries" $
       length g2Pts `shouldBe` 65
 
-    it "maxAccumulatorSize is 4095 (EIP-4844 provides 4096 G1 points)" $
-      maxAccumulatorSize `shouldBe` 4095
+    it "maxAccumulatorSize is 32767 (Ethereum 32768-point provides 32768 G1 points)" $
+      maxAccumulatorSize `shouldBe` 32767
 
     it "maxAccumulatorSize matches the parsed G1 point count minus one" $
       maxAccumulatorSize `shouldBe` length g1Pts - 1
 
-    it "maxFanoutBatchSize is 64 (EIP-4844 provides 65 G2 points)" $
+    it "maxFanoutBatchSize is 64 (Ethereum 32768-point provides 65 G2 points)" $
       maxFanoutBatchSize `shouldBe` 64
 
     it "maxFanoutBatchSize matches the parsed G2 point count minus one" $
@@ -78,8 +80,8 @@ spec = parallel $ do
     it "all G2 points are in the prime-order G2 subgroup" $
       all blsInGroup g2Pts `shouldBe` True
 
-    it "first 3 G1 points are in the prime-order G1 subgroup" $
-      all blsInGroup (take 3 g1Pts) `shouldBe` True
+    it "all G1 points are in the prime-order G1 subgroup" $
+      all blsInGroup g1Pts `shouldBe` True
 
     it "G1 points round-trip through compression" $
       case g1Pts of
@@ -127,6 +129,36 @@ spec = parallel $ do
       proofBytes <- either error pure $ createMembershipProof subsetA fullAcc (crsG1Points crsSize)
       let proof = bls12_381_G1_uncompress (toBuiltin proofBytes)
       checkMembershipPairing (getAccumulatorCommitment fullAcc) proof crsG2 ints
+        `shouldBe` False
+
+  describe "32768-point migration" $ do
+    forM_ [4096, maxAccumulatorSize] $ \n ->
+      it ("verifies a full fanout batch from " <> show n <> " elements") $ do
+        let elements = show <$> [1 .. n] :: [ByteString]
+            acc = build elements
+            subset = take deployedFanoutBatchSize elements
+        proofBytes <- either error pure $ createMembershipProof subset acc (crsG1Points $ n + 1)
+        let proof = bls12_381_G1_uncompress (toBuiltin proofBytes)
+        checkMembershipPairing (getAccumulatorCommitment acc) proof canonicalG2Points (map toInt subset)
+          `shouldBe` True
+        checkMembershipPairing (getAccumulatorCommitment acc) proof canonicalG2Points (map toInt ("foreign" : drop 1 subset))
+          `shouldBe` False
+
+    it "rejects a new-setup proof against the old EIP-4844 G2 powers" $ do
+      let acc = build ["alpha", "beta"]
+          subset = ["alpha"]
+          -- First two G2 points from Ethereum's final 4096-point setup.
+          oldG2 =
+            map
+              (bls12_381_G2_uncompress . toBuiltin . either (error . toText) id . Base16.decode)
+              [ "93e02b6052719f607dacd3a088274f65596bd0d09920b61ab5da61bbdc7f5049334cf11213945d57e5ac7d055d042b7e024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02b4510b647ae3d1770bac0326a805bbefd48056c8c121bdb8"
+              , "b5bfd7dd8cdeb128843bc287230af38926187075cbfbefa81009a2ce615ac53d2914e5870cb452d2afaaab24f3499f72185cbfee53492714734429b7b38608e23926c911cceceac9a36851477ba4c60b087041de621000edc98edada20c1def2"
+              ]
+      proofBytes <- either error pure $ createMembershipProof subset acc (crsG1Points 3)
+      let proof = bls12_381_G1_uncompress (toBuiltin proofBytes)
+      checkMembershipPairing (getAccumulatorCommitment acc) proof canonicalG2Points (map toInt subset)
+        `shouldBe` True
+      checkMembershipPairing (getAccumulatorCommitment acc) proof oldG2 (map toInt subset)
         `shouldBe` False
 
   -- 'getG2Commitment' pairs polynomial coefficients with CRS points using
