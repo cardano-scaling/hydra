@@ -10,13 +10,14 @@ module Hydra.Node where
 
 import Hydra.Prelude
 
-import Conduit (MonadUnliftIO, ZipSink (..), foldMapC, foldlC, mapC, runConduitRes, sinkList, (.|))
+import Conduit (MonadUnliftIO, ZipSink (..), awaitForever, foldMapC, foldlC, mapC, runConduitRes, (.|))
 import Control.Concurrent.Class.MonadSTM (
   stateTVar,
   writeTVar,
  )
 import Control.Monad.Trans.Writer (execWriter, tell)
 import Control.Tracer.JSON (Tracer, traceWith)
+import Data.Conduit.List (chunksOf)
 import Data.EventSource (EventId, EventSink (..), EventSource (..), getEventId, putEventsToSinks)
 import Data.EventSource.Rotation (EventStore (..))
 import Data.Secret (mkSecret)
@@ -214,9 +215,12 @@ hydrate tracer env ledger initialChainState EventStore{eventSource, eventSink} e
   -- XXX: re-stream events just for this?
   checkHeadState tracer env (headState nodeState)
   -- (Re-)submit events to sinks; de-duplication is handled by the sinks
-  traceWith tracer ReplayingState
-  replayedEvents <- runConduitRes $ sourceEvents eventSource .| sinkList
-  putEventsToSinks eventSinks replayedEvents
+  unless (null eventSinks) $ do
+    traceWith tracer ReplayingState
+    runConduitRes $
+      sourceEvents eventSource
+        .| chunksOf 1000
+        .| awaitForever (lift . lift . putEventsToSinks eventSinks)
 
   nodeStateHandler <- createNodeStateHandler (getLast lastEventId) nodeState
   inputQueue <- createInputQueue

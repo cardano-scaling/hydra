@@ -136,6 +136,9 @@ data SQLiteLog
 -- bytes, but the writer drains whole-queue batches so the window is short.
 type WriteItem e = Either (TMVar IO ()) (Word64, e)
 
+writeQueueCapacity :: Int
+writeQueueCapacity = 1000
+
 -- | Bracket-style wrapper around 'mkSQLiteEventStore'. Creates the database,
 -- schema, and writer thread, runs the callback, then flushes queued writes and
 -- cancels the writer thread on exit. The writer thread is 'link'ed so that
@@ -191,7 +194,7 @@ mkSQLiteEventStore tracer dbFile = do
     [Only lastId] -> atomically $ writeTVar eventIdV (Just lastId)
     _ -> pure ()
 
-  writeQueue <- newTBQueueIO 1000
+  writeQueue <- newTBQueueIO $ fromIntegral writeQueueCapacity
   writerThread <- async $ writerLoop tracer conn writeQueue
   statsThread <- async $ forever $ do
     queueDepth <- fromIntegral <$> atomically (lengthTBQueue writeQueue)
@@ -232,29 +235,20 @@ mkSQLiteEventStore tracer dbFile = do
             yield evt
             yieldRows stmt
 
-    enqueueEvent evt =
-      atomically $ do
+    enqueueEvent evt = do
+      lastSeen <- getLastSeenEventId
+      when (maybe True (getEventId evt >) lastSeen) $ do
         writeTBQueue writeQueue (Right (getEventId evt, evt))
         setLastSeenEventId evt
 
-    putEvent evt =
-      atomically getLastSeenEventId >>= \case
-        Nothing -> enqueueEvent evt
-        Just lastSeenEventId
-          | getEventId evt > lastSeenEventId -> enqueueEvent evt
-          | otherwise -> pure ()
+    putEvent = atomically . enqueueEvent
 
+    -- Bound each enqueue transaction so the writer can drain between chunks.
+    putEvents [] = pure ()
     putEvents evts = do
-      lastSeen <- atomically getLastSeenEventId
-      let newEvts = case lastSeen of
-            Nothing -> evts
-            Just lastId -> filter (\e -> getEventId e > lastId) evts
-      unless (null newEvts) $
-        atomically $ do
-          forM_ newEvts $ \evt -> writeTBQueue writeQueue (Right (getEventId evt, evt))
-          case nonEmpty newEvts of
-            Just ne -> setLastSeenEventId (NE.last ne)
-            Nothing -> pure ()
+      let (batch, rest) = splitAt writeQueueCapacity evts
+      atomically $ forM_ batch enqueueEvent
+      putEvents rest
 
     rotate logId checkpointEvent = do
       flushWriteQueue writeQueue

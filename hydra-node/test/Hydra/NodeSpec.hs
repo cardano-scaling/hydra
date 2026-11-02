@@ -214,6 +214,29 @@ spec = parallel $ do
 
   describe "hydrate" $ do
     around setupHydrate $ do
+      it "reads the event source only once when there are no replay sinks" $ \testHydrate -> do
+        sourceReads <- newIORef (0 :: Int)
+        let store =
+              EventStore
+                { eventSource = EventSource $ liftIO $ modifyIORef' sourceReads (+ 1)
+                , eventSink = mockSink
+                , rotate = \_ _ -> pure ()
+                }
+        void $ testHydrate store []
+        readIORef sourceReads `shouldReturn` 1
+
+      it "replays a large log in bounded batches to every sink" $ \testHydrate -> do
+        now <- getCurrentTime
+        batches <- newIORef []
+        let events = [StateEvent i Head.NetworkConnected now | i <- [0 .. 2500]]
+            sink = EventSink{putEvent = \_ -> failure "Expected batched replay", putEvents = \batch -> modifyIORef' batches (<> [batch])}
+        (otherSink, readOtherSink) <- createRecordingSink
+        void $ testHydrate (mockEventStore events) [sink, otherSink]
+        received <- readIORef batches
+        map length received `shouldBe` [1000, 1000, 501]
+        concat received `shouldBe` events
+        readOtherSink `shouldReturn` events
+
       it "loads events from source into all sinks" $ \testHydrate ->
         forAllShrink (listOf $ genStateChanged testEnvironment >>= genStateEvent) shrink $
           \someEvents -> do

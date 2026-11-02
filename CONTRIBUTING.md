@@ -131,6 +131,11 @@ hydra-cluster (real cardano-node devnets) and hydra-tui (needs a tty) are not
 among them and still run via `just test <package>` or
 `nix develop .#<package>-tests --command tests`.
 
+`just test <package> "<test name>"` accepts a substring filter. It fails when
+the filter selects no tests across the requested packages; an empty suite is
+allowed when another requested suite contains selected tests. Results are in
+`test-reports/index.html`.
+
 #### Code quality
 
 You can run the code quality check locally with
