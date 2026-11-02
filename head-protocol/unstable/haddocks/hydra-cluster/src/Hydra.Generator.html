@@ -1283,7 +1283,7 @@ forall ctx era. VerificationKey PaymentKey -&gt; TxOut ctx era -&gt; Bool
 </span><span id="line-291"></span><span class="hs-comment">-- making this the reference workload for large-UTxO head performance.</span><span>
 </span><span id="line-292"></span><span class="hs-comment">--</span><span>
 </span><span id="line-293"></span><span class="hs-comment">-- The head-level UTxO size is roughly clients * target and must stay below</span><span>
-</span><span id="line-294"></span><span class="hs-comment">-- the 4095 accumulator element limit.</span><span>
+</span><span id="line-294"></span><span class="hs-comment">-- the 32767 accumulator element limit.</span><span>
 </span><span id="line-295"></span><span class="annot"><a href="Hydra.Generator.html#generateLargeUTxODataset"><span class="hs-identifier hs-type">generateLargeUTxODataset</span></a></span><span> </span><span class="hs-glyph">::</span><span>
 </span><span id="line-296"></span><span>  </span><span class="annot"><span class="hs-comment">-- | Faucet signing key</span></span><span>
 </span><span id="line-297"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Secret</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">SigningKey</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">PaymentKey</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>

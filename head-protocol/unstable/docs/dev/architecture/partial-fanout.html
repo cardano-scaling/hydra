@@ -16,7 +16,7 @@
 
 
 <script src="https://plausible.io/js/script.js" defer="defer" data-domain="hydra.family"></script><link rel="stylesheet" href="/head-protocol/unstable/assets/css/styles.91b2ba67.css">
-<script src="/head-protocol/unstable/assets/js/runtime~main.92770ac9.js" defer="defer"></script>
+<script src="/head-protocol/unstable/assets/js/runtime~main.7bb51531.js" defer="defer"></script>
 <script src="/head-protocol/unstable/assets/js/main.07190c0b.js" defer="defer"></script>
 </head>
 <body class="navigation-with-keyboard">
@@ -139,8 +139,8 @@ on it. The secret is never held in one place: it comes
 from a <em>powers-of-tau ceremony</em> where many participants each contribute
 randomness, and the setup stays safe as long as at least one participant
 discarded their part.</p>
-<p>Hydra reuses the <a href="https://eips.ethereum.org/EIPS/eip-4844" target="_blank" rel="noopener noreferrer">EIP-4844</a> trusted setup
-from the Ethereum KZG ceremony, which had roughly 140,000 participants. The setup
+<p>Hydra reuses the <a href="https://github.com/ethereum/kzg-ceremony-verifier/blob/cd73fdcf5bd060954c652e90606d46f29f0b137b/output_setups/trusted_setup_32768.json" target="_blank" rel="noopener noreferrer">32768-point setup</a>
+from the Ethereum KZG ceremony, which recorded 141,416 contributions. The setup
 bytes are embedded into the binary at compile time and pinned by a SHA-256 digest,
 so every node uses the same canonical CRS and the file can be verified
 independently against the published ceremony output.</p>
@@ -212,9 +212,9 @@ to post before anything has been distributed, in which case the node reverts the
 head to <code>Closed</code> rather than wedging it.</p>
 <h2 class="anchor anchorWithStickyNavbar_LWe7" id="caveats">Caveats<a href="#caveats" class="hash-link" aria-label="Direct link to Caveats" title="Direct link to Caveats">​</a></h2>
 <h3 class="anchor anchorWithStickyNavbar_LWe7" id="head-size-limit">Head size limit<a href="#head-size-limit" class="hash-link" aria-label="Direct link to Head size limit" title="Direct link to Head size limit">​</a></h3>
-<p>The embedded trusted setup provides 4096 G1 powers of tau, and an accumulator over
+<p>The embedded trusted setup provides 32768 G1 powers of tau, and an accumulator over
 <code>n</code> elements needs <code>n + 1</code> of them. A snapshot can therefore commit to at most
-<strong>4095</strong> outputs, counting any pending commit or decommit alongside the UTxO set.
+<strong>32767</strong> outputs, counting any pending commit or decommit alongside the UTxO set.
 A requested snapshot that would exceed this is rejected with
 <code>ReqSnUTxOSetTooLarge</code>, so the head cannot reach a state it would be unable to fan
 out.</p>

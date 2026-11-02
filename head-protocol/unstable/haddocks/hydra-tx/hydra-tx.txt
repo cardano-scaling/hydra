@@ -721,14 +721,14 @@ applyUTxODelta :: forall tx. IsTx tx => HydraAccumulator -> UTxOType tx -> UTxOT
 --   set would be.
 removeOutputs :: forall tx. IsTx tx => HydraAccumulator -> UTxOType tx -> HydraAccumulator
 
--- | Returns the first <tt>n</tt> G2 powers of tau from the EIP-4844
---   trusted setup. Used as the on-chain CRS for verifying membership
---   proofs: <tt>[G2, τ·G2, ..., τ^(n-1)·G2]</tt>.
+-- | Returns the first <tt>n</tt> G2 powers of tau from the Ethereum
+--   32768-point trusted setup. Used as the on-chain CRS for verifying
+--   membership proofs: <tt>[G2, τ·G2, ..., τ^(n-1)·G2]</tt>.
 crsG2Points :: Int -> [Point2]
 
--- | Returns the first <tt>n</tt> G1 powers of tau from the EIP-4844
---   trusted setup. Used as the off-chain CRS for building accumulator
---   commitments and membership proofs: <tt>[G1, τ·G1, ...,
+-- | Returns the first <tt>n</tt> G1 powers of tau from the Ethereum
+--   32768-point trusted setup. Used as the off-chain CRS for building
+--   accumulator commitments and membership proofs: <tt>[G1, τ·G1, ...,
 --   τ^(n-1)·G1]</tt>.
 crsG1Points :: Int -> [Point1]
 

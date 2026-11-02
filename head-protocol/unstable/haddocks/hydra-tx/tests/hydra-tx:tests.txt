@@ -14,7 +14,8 @@ spec :: Spec
 referenceCommitmentBytes :: Accumulator -> ByteString
 
 -- | Deterministic element sets with expected commitment (compressed G1,
---   hex), recorded from the PlutusTx path before the FFI swap. These also
+--   hex), cross-checked with independent polynomial expansion and blst
+--   scalar multiplication for the Ethereum 32768-point setup. These also
 --   guard future haskell-accumulator <i> rust-accumulator </i>
 --   plutus-accumulator bumps against silent behavior changes.
 goldenCases :: [(String, [ByteString], ByteString)]

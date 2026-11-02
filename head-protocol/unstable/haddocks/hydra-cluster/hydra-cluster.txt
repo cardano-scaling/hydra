@@ -480,7 +480,7 @@ largestVkUTxO :: VerificationKey PaymentKey -> UTxO Era -> Maybe (TxIn, TxOut Ct
 --   workload for large-UTxO head performance.
 --   
 --   The head-level UTxO size is roughly clients * target and must stay
---   below the 4095 accumulator element limit.
+--   below the 32767 accumulator element limit.
 generateLargeUTxODataset :: Secret (SigningKey PaymentKey) -> Int -> Int -> Int -> Gen Dataset
 
 -- | Build a zero-fee 1-in N-out transaction that splits off

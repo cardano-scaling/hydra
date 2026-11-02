@@ -712,7 +712,7 @@ forall k a. Map k a -&gt; [a]
 </span><span id="line-321"></span><span>
 </span><span id="line-322"></span><span class="annot"><span class="hs-comment">-- * CRS (Common Reference String)</span></span><span>
 </span><span id="line-323"></span><span>
-</span><span id="line-324"></span><span class="hs-comment">-- | Returns the first @n@ G1 powers of tau from the EIP-4844 trusted setup.</span><span>
+</span><span id="line-324"></span><span class="hs-comment">-- | Returns the first @n@ G1 powers of tau from the Ethereum 32768-point trusted setup.</span><span>
 </span><span id="line-325"></span><span class="hs-comment">-- Used as the off-chain CRS for building accumulator commitments and membership proofs:</span><span>
 </span><span id="line-326"></span><span class="hs-comment">-- @[G1, &#964;&#183;G1, ..., &#964;^(n-1)&#183;G1]@.</span><span>
 </span><span id="line-327"></span><span class="annot"><a href="Hydra.Tx.Accumulator.html#crsG1Points"><span class="hs-identifier hs-type">crsG1Points</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Point1</span></span><span class="hs-special">]</span><span>
@@ -728,7 +728,7 @@ forall a. Either KZGSetupError a -&gt; a
 </span><a href="Hydra.Tx.Accumulator.html#fromKZGSetup"><span class="hs-identifier hs-var">fromKZGSetup</span></a></span><span> </span><span class="annot"><span class="annottext">Either KZGSetupError [Point1]
 </span><span class="hs-identifier hs-var">KZG.g1Points</span></span><span>
 </span><span id="line-329"></span><span>
-</span><span id="line-330"></span><span class="hs-comment">-- | Returns the first @n@ G2 powers of tau from the EIP-4844 trusted setup.</span><span>
+</span><span id="line-330"></span><span class="hs-comment">-- | Returns the first @n@ G2 powers of tau from the Ethereum 32768-point trusted setup.</span><span>
 </span><span id="line-331"></span><span class="hs-comment">-- Used as the on-chain CRS for verifying membership proofs:</span><span>
 </span><span id="line-332"></span><span class="hs-comment">-- @[G2, &#964;&#183;G2, ..., &#964;^(n-1)&#183;G2]@.</span><span>
 </span><span id="line-333"></span><span class="annot"><a href="Hydra.Tx.Accumulator.html#crsG2Points"><span class="hs-identifier hs-type">crsG2Points</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Point2</span></span><span class="hs-special">]</span><span>
