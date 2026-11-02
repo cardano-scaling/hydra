@@ -39,9 +39,12 @@ import Hydra.Network (
   ProtocolVersion (..),
   WhichEtcd (..),
  )
+import Hydra.Network.Authenticate (Authenticated (..))
 import Hydra.Network.Etcd (EtcdLog (..), LastKnownRevisionException (..), batchValue, catchEtcdError, connParams, getClientPort, getLastKnownRevision, grpcServer, isTransientGrpcError, peerPortToClientPort, putLastKnownRevision, putMessage, queryInitialModRev, retryableEtcdError, withEtcdNetwork, withProcessInterrupt)
 import Hydra.Network.Message (Message (..))
+import Hydra.Network.Policy (policyFingerprint)
 import Hydra.Node.Network (NetworkConfiguration (..))
+import Hydra.Node.Network qualified as NodeNetwork
 import Network.GRPC.Client (Address (..), Server (..), ServerDisconnected (..), withConnection)
 import Network.GRPC.Common (GrpcError (..), GrpcException (..))
 import Network.GRPC.Common.Exception (ExactException (..))
@@ -224,6 +227,28 @@ etcdSpec :: Spec
 etcdSpec =
   around (showLogsOnFailure "NetworkSpec") $ do
     let v1 = ProtocolVersion 1
+
+    it "agrees on policies before exchanging authenticated messages" $ \_ ->
+      showLogsOnFailure "PolicyStartup" $ \tracer ->
+        failAfter 60 $ withTempDir "test-policy-startup" $ \tmp -> do
+          PeerConfig2{aliceConfig, bobConfig} <- setup2Peers tmp
+          (recordAlice, receiveAlice, _) <- newRecordingCallback
+          (recordBob, receiveBob, _) <- newRecordingCallback
+          bobReceived <- newEmptyTMVarIO
+          let fingerprint = policyFingerprint Nothing
+              message = ReqTx (SimpleTx 1 mempty mempty)
+          concurrentlyLabelled_
+            ( "alice-policy-startup"
+            , NodeNetwork.withNetwork tracer aliceConfig{otherParties = [bob]} fingerprint recordAlice $ \network -> do
+                broadcast network message
+                receiveAlice `shouldReturn` Authenticated message alice
+                atomically $ takeTMVar bobReceived
+            )
+            ( "bob-policy-startup"
+            , NodeNetwork.withNetwork tracer bobConfig{otherParties = [alice]} fingerprint recordBob $ \_ -> do
+                receiveBob `shouldReturn` Authenticated message alice
+                atomically $ putTMVar bobReceived ()
+            )
 
     it "broadcasts to self" $ \tracer -> do
       failAfter 30 $

@@ -1,4 +1,5 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE OverloadedLabels #-}
 
 -- | Concrete `Hydra.Network` stack used in a hydra-node.
 --
@@ -44,12 +45,20 @@ module Hydra.Node.Network (
 
 import Hydra.Prelude hiding (fromList, replicate)
 
+import Cardano.Binary (decodeFull', serialize')
+import Control.Lens ((^.), (^..))
 import Control.Tracer (Tracer)
+import Crypto.Random (getRandomBytes)
 import Hydra.Network (NetworkComponent, NetworkConfiguration (..), ProtocolVersion (..))
-import Hydra.Network.Authenticate (AuthLog, Authenticated, withAuthentication)
-import Hydra.Network.Etcd (EtcdLog, withEtcdNetwork)
+import Hydra.Network.Authenticate (AuthLog, Authenticated, Signed (..), withAuthentication)
+import Hydra.Network.Etcd (EtcdLog, catchEtcdError, withEtcdNetworkSetup)
 import Hydra.Network.Message (Message)
-import Hydra.Tx (IsTx)
+import Hydra.Network.Policy (PolicyFingerprint, PolicyLog, PolicyStore (..), withPolicyAgreement)
+import Hydra.Tx (IsTx, Party)
+import Network.GRPC.Client (Connection, rpc)
+import Network.GRPC.Client.StreamType.IO (nonStreaming)
+import Network.GRPC.Common.Protobuf (Protobuf, defMessage, (.~))
+import Network.GRPC.Etcd (KV)
 
 -- | Starts the network layer of a node, passing configured `Network` to its continuation.
 withNetwork ::
@@ -59,18 +68,50 @@ withNetwork ::
   Tracer IO NetworkLog ->
   -- | The network configuration
   NetworkConfiguration ->
+  PolicyFingerprint ->
   -- | Produces a `NetworkComponent` that can send `msg` and consumes `Authenticated` @msg@.
   NetworkComponent IO (Authenticated (Message tx)) (Message tx) ()
-withNetwork tracer conf callback action = do
+withNetwork tracer conf fingerprint callback action = do
+  session <- encodeBase16 <$> (getRandomBytes 32 :: IO ByteString)
+  let setup conn =
+        withPolicyAgreement (contramap PolicyAgreement tracer) signingKey otherParties fingerprint session (policyStore conn)
   withAuthentication
     (contramap Authenticate tracer)
     signingKey
     otherParties
-    (withEtcdNetwork (contramap Etcd tracer) currentNetworkProtocolVersion conf)
+    (withEtcdNetworkSetup setup (contramap Etcd tracer) currentNetworkProtocolVersion conf)
     callback
     action
  where
   NetworkConfiguration{signingKey, otherParties} = conf
+
+-- | One declaration per party. Old values are harmless: startup requires a
+-- signed acknowledgement of a fresh random session, not a saved fingerprint.
+policyStore :: Connection -> PolicyStore IO
+policyStore conn =
+  PolicyStore
+    { publish = \declaration@Signed{party} ->
+        retryPolicyStore $
+          void $
+            nonStreaming conn (rpc @(Protobuf KV "put")) $
+              defMessage & #key .~ key party & #value .~ serialize' declaration
+    , load = retryPolicyStore $ do
+        response <-
+          nonStreaming conn (rpc @(Protobuf KV "range")) $
+            defMessage & #key .~ "policy/" & #rangeEnd .~ "policy0"
+        pure
+          [ declaration
+          | entry <- response ^.. #kvs . traverse
+          , Right declaration@Signed{party} <- [decodeFull' $ entry ^. #value]
+          , entry ^. #key == key party
+          ]
+    }
+ where
+  key :: Party -> ByteString
+  key party = "policy/" <> encodeUtf8 (encodeBase16 $ serialize' party)
+
+  retryPolicyStore :: IO a -> IO a
+  retryPolicyStore action = catchEtcdError action $ \_ -> threadDelay 1 >> retryPolicyStore action
 
 -- | The latest hydra network protocol version. Used to identify
 -- incompatibilities ahead of time.
@@ -85,5 +126,6 @@ currentNetworkProtocolVersion = ProtocolVersion 2
 data NetworkLog
   = Authenticate AuthLog
   | Etcd EtcdLog
+  | PolicyAgreement PolicyLog
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
