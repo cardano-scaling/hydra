@@ -186,6 +186,8 @@ seenSnapshotRows = \case
       , row "signatories" (sigSummary signatories)
       , row "transactions" (show (length (confirmed snap)) :: Text)
       ]
+  HS.AwaitingSnapshotTransactions{HS.requested} ->
+    row "awaiting transaction payloads for #" (show requested :: Text)
  where
   sigSummary :: Map.Map Party a -> Text
   sigSummary mp =
