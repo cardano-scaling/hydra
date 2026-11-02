@@ -141,7 +141,7 @@ benchCell n m = do
 
   now = posixSecondsToUTCTime 0
 
-  ledger = cardanoLedger defaultGlobals defaultLedgerEnv
+  ledger = cardanoLedger Nothing defaultGlobals defaultLedgerEnv
 
   applyOrCrash utxo txs =
     either (\(tx, err) -> error $ "tx does not apply: " <> show (txId tx) <> ": " <> show err) UTxO.size $

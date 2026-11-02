@@ -5215,7 +5215,7 @@ spec =
             _ -> expectationFailure $ "Expected Continue outcome, got: " <> show outcome
 
     describe "Coordinated Head Protocol using real Tx" $ do
-      let ledger = cardanoLedger Fixture.defaultGlobals Fixture.defaultLedgerEnv
+      let ledger = cardanoLedger Nothing Fixture.defaultGlobals Fixture.defaultLedgerEnv
 
           environmentFor :: HydraContext -> Secret (Crypto.SigningKey Crypto.HydraKey) -> Environment
           environmentFor hydraContext signingKey =
@@ -5747,7 +5747,7 @@ spec =
 
     prop "empty inputs in decommit tx are prevented" $ \tx -> do
       chainTime <- getCurrentTime
-      let ledger = cardanoLedger Fixture.defaultGlobals Fixture.defaultLedgerEnv
+      let ledger = cardanoLedger Nothing Fixture.defaultGlobals Fixture.defaultLedgerEnv
       let st =
             NodeInSync
               { headState =

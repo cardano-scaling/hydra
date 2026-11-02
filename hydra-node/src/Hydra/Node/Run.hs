@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedRecordDot #-}
+
 module Hydra.Node.Run where
 
 import Hydra.Prelude hiding (fromList)
@@ -58,6 +60,7 @@ import Hydra.Options (
   RunOptions (..),
   validateRunOptions,
  )
+import Hydra.UserValidationRules (UserValidationRules, loadUserValidationRules)
 import Hydra.Utils (readJsonFileThrow)
 import Ouroboros.Consensus.HardFork.History qualified as Consensus
 import System.FilePath ((</>))
@@ -96,10 +99,11 @@ run opts = do
       numG1Points <- either (throwIO . TrustedSetupException) pure KZG.warmup
       traceWith tracer TrustedSetupLoaded{numG1Points}
       env@Environment{party, otherParties, signingKey} <- initEnvironment opts
+      rules <- traverse loadUserValidationRules opts.policy
       -- Ledger
       pparams <- readJsonFileThrow parseJSON (cardanoLedgerProtocolParametersFile ledgerConfig)
       globals <- getGlobalsForChain (contramap DirectChain tracer) chainConfig
-      withCardanoLedger pparams globals $ \ledger -> do
+      withCardanoLedger rules pparams globals $ \ledger -> do
         -- Hydrate with event source and sinks
         let stateFile = persistenceDir </> "state"
             dbFile = persistenceDir </> "hydra.db"
@@ -150,10 +154,10 @@ run opts = do
   addEventSink :: EventSink (StateEvent tx) m -> HydraNode tx m -> HydraNode tx m
   addEventSink sink node = node{eventSinks = sink : eventSinks node}
 
-  withCardanoLedger :: PParams LedgerEra -> Globals -> (Ledger Tx -> m a) -> m a
-  withCardanoLedger protocolParams globals action =
+  withCardanoLedger :: Maybe UserValidationRules -> PParams LedgerEra -> Globals -> (Ledger Tx -> m a) -> m a
+  withCardanoLedger rules protocolParams globals action =
     let ledgerEnv = newLedgerEnv protocolParams
-     in action (cardanoLedger globals ledgerEnv)
+     in action (cardanoLedger rules globals ledgerEnv)
 
   prepareChainComponent ::
     Monad m =>
