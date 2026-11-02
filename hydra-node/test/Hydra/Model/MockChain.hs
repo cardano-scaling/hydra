@@ -64,7 +64,7 @@ import Hydra.HeadLogic (
   Input (..),
   OpenState (..),
  )
-import Hydra.Ledger (Ledger (..), ValidationError (..))
+import Hydra.Ledger (Ledger (..), ValidationError (..), renderValidationError)
 import Hydra.Ledger.Cardano (adjustUTxO, fromChainSlot)
 import Hydra.Ledger.Cardano.Evaluate (renderEvaluationReport)
 import Hydra.Model.Payment (CardanoSigningKey (..))
@@ -190,7 +190,7 @@ mockChainAndNetwork tr seedKeys networkLatencySeed = do
                   Nothing -> globalUTxO
                   Just (_, _, blockUTxO) -> blockUTxO
             case applyTransactions slot utxo [tx] of
-              Left (_tx, ValidationError{reason}) ->
+              Left (_tx, validationError) ->
                 -- A transaction that does not apply is rejected at submission,
                 -- as a real cardano-node would: the posting node observes a
                 -- 'PostTxError' (see 'processEffect') and the head continues.
@@ -203,7 +203,7 @@ mockChainAndNetwork tr seedKeys networkLatencySeed = do
                           [ "MockChain: Invalid tx submitted"
                           , "Slot: " <> show slot
                           , "Tx: " <> toText (renderTxWithUTxO utxo tx)
-                          , "Error: \n\n" <> reason
+                          , "Error: \n\n" <> renderValidationError validationError
                           ]
                     , failingTx = tx
                     }
@@ -528,7 +528,7 @@ mockChainAndNetwork tr seedKeys networkLatencySeed = do
           | tx <- transactions
           , tx `notElem` txs'
           , let reason = case applyTransactions newSlot utxo [tx] of
-                  Left (_, ValidationError{reason = r}) -> toText r
+                  Left (_, validationError) -> renderValidationError validationError
                   Right _ -> "conflicts with an earlier transaction in the same block"
           ]
     writeTVar chain (newSlot, position, blocks :|> (header, txs', utxo'), utxo')

@@ -145,7 +145,14 @@ data PolicyViolation
       { rejectedScriptAddress :: AddressInEra
       }
   | DepositNotAllowed {rejectedDepositTxId :: TxId}
-  deriving (Eq, Show)
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
+
+instance ToCBOR PolicyViolation where
+  toCBOR = genericToCBOR
+
+instance FromCBOR PolicyViolation where
+  fromCBOR = genericFromCBOR
 
 data PolicyRule
   = ForbidAnyPolicy
