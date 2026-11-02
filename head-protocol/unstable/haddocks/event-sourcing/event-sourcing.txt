@@ -178,6 +178,7 @@ SQLiteWriteFailed :: SQLiteLog
 --   of compact bytes, but the writer drains whole-queue batches so the
 --   window is short.
 type WriteItem e = Either (TMVar IO ()) (Word64, e)
+writeQueueCapacity :: Int
 
 -- | Bracket-style wrapper around <a>mkSQLiteEventStore</a>. Creates the
 --   database, schema, and writer thread, runs the callback, then flushes
