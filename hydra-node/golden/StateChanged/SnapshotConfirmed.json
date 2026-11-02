@@ -8,8 +8,8 @@
                 ]
             },
             "snapshot": {
-                "accumulator": "b188654b2aabd84100f830d5287ce5a32fc8bd4ac2e1680a4c642fec879d5d28",
-                "appliedAccumulator": "3813b9b468f8bc8dc8c891393f8534d39b3d8c45b1f59565a343c2a829229927",
+                "accumulator": "2d1a832307ac0c834d0af4d4311426addb4ed2a995400ab07124c0e0b8e1af69",
+                "appliedAccumulator": "9ddbe44bdd89cfdc8cb5c45b745bd64145041deb1a6debcec35cdac6362e8a39",
                 "confirmed": [],
                 "depositTxId": null,
                 "headId": "01010100010101010001000001000001",

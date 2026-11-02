@@ -64,8 +64,8 @@
                                 ]
                             },
                             "snapshot": {
-                                "accumulator": "642f0babdce3d8376cbf11add69e981396fea93941bbd6346728a76d5d4084da",
-                                "appliedAccumulator": "eb5de09dc36ce5022eb49b70b26d85f618d8b278e42cc92e52dff0ba8652e50b",
+                                "accumulator": "04039ddb5598bb034c15519df8a7d750a0727980466a147b316131ad46f3572f",
+                                "appliedAccumulator": "ff81f37e8a5da6d5024ff1a59ec738fd758798e7fb73599f0b37ce9620486e1c",
                                 "confirmed": [],
                                 "depositTxId": "0100000100000100010100000100010000000101000000010001000101010101",
                                 "headId": "01000001000000010101000000000100",

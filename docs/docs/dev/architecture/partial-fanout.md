@@ -163,8 +163,8 @@ from a _powers-of-tau ceremony_ where many participants each contribute
 randomness, and the setup stays safe as long as at least one participant
 discarded their part.
 
-Hydra reuses the [EIP-4844](https://eips.ethereum.org/EIPS/eip-4844) trusted setup
-from the Ethereum KZG ceremony, which had roughly 140,000 participants. The setup
+Hydra reuses the [32768-point setup](https://github.com/ethereum/kzg-ceremony-verifier/blob/cd73fdcf5bd060954c652e90606d46f29f0b137b/output_setups/trusted_setup_32768.json)
+from the Ethereum KZG ceremony, which recorded 141,416 contributions. The setup
 bytes are embedded into the binary at compile time and pinned by a SHA-256 digest,
 so every node uses the same canonical CRS and the file can be verified
 independently against the published ceremony output.
@@ -249,9 +249,9 @@ head to `Closed` rather than wedging it.
 
 ### Head size limit
 
-The embedded trusted setup provides 4096 G1 powers of tau, and an accumulator over
+The embedded trusted setup provides 32768 G1 powers of tau, and an accumulator over
 `n` elements needs `n + 1` of them. A snapshot can therefore commit to at most
-**4095** outputs, counting any pending commit or decommit alongside the UTxO set.
+**32767** outputs, counting any pending commit or decommit alongside the UTxO set.
 A requested snapshot that would exceed this is rejected with
 `ReqSnUTxOSetTooLarge`, so the head cannot reach a state it would be unable to fan
 out.

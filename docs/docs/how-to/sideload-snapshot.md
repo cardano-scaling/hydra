@@ -229,7 +229,7 @@ curl --fail-with-body -sS http://127.0.0.1:{4001,4002,4003}/snapshot | jq
 ## Limits
 
 A side-loaded snapshot has to be one the head could actually close and fan out,
-so `POST /snapshot` refuses a snapshot committing to more than **4095** outputs
+so `POST /snapshot` refuses a snapshot committing to more than **32767** outputs
 (the capacity of the embedded KZG trusted setup, counting any pending commit or
 decommit alongside the UTxO set) with a `400`. See
 [head size limit](/docs/dev/architecture/partial-fanout#head-size-limit).

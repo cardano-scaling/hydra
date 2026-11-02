@@ -153,6 +153,10 @@ given in its section below.
 -- spec §3.4/§5.8 accumulator operations (the §3.4 Accumulator scheme at the
 -- protocol's commitment/output/witness types), kept abstract, plus the G1
 -- generator representing the empty accumulator.
+-- The Ethereum 32768-point instantiation has capacity 32767 and a 30-point
+-- G2 prefix (29-output batches). Both groups share one tau, distinct from the
+-- 4096-point setup. These bounds and ceremony integrity are implementation
+-- obligations; the abstract laws below do not establish them.
 postulate
   accUTxO          : ℙ Output → AccCommitment   -- commitment to a UTxO set
   accVerify        : AccCommitment → ℙ Output → AccWitness → Bool

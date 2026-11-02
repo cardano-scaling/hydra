@@ -347,3 +347,12 @@ the implementation's `FanoutIncomplete` / `FinalPartialFanoutIncomplete`
 checks.
 
 The implementation uses KZG polynomial commitments~@KZG10 over the BLS12-381 elliptic curve.
+
+The 32768-point Ethereum ceremony instantiation supports at most 32767 output
+occurrences per accumulator: a degree-$n$ polynomial requires $n + 1$ G1 powers.
+The deployed G2 prefix remains 30 points, supporting batches of at most 29
+outputs. The two groups must use the same ceremony secret. Switching from the
+4096-point setup changes that secret, the canonical CRS hash and the validator;
+existing heads require settlement under their original setup. These concrete
+capacity and ceremony assumptions are outside the abstract Agda accumulator
+laws, which do not prove KZG soundness or ceremony integrity.

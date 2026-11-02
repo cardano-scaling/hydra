@@ -10,6 +10,9 @@ changes.
 
 ## [UNRELEASED]
 
+- **BREAKING** Switched to a new trusted CRS which bumps the maximum UTxO in the snapshot
+  from 4,095 to 32,767! [#2932](https://github.com/cardano-scaling/hydra/pull/2932)
+
 - Fixed the Blockfrost backend crashing on tokens with an empty asset name.
   A null `asset_name` in asset details is now decoded as an empty name.
   [#2923](https://github.com/cardano-scaling/hydra/issues/2923)

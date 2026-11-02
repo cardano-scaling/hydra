@@ -321,13 +321,13 @@ computeG1CommitmentBytes acc
 
 -- * CRS (Common Reference String)
 
--- | Returns the first @n@ G1 powers of tau from the EIP-4844 trusted setup.
+-- | Returns the first @n@ G1 powers of tau from the Ethereum 32768-point trusted setup.
 -- Used as the off-chain CRS for building accumulator commitments and membership proofs:
 -- @[G1, τ·G1, ..., τ^(n-1)·G1]@.
 crsG1Points :: Int -> [Point1]
 crsG1Points n = take n $ fromKZGSetup KZG.g1Points
 
--- | Returns the first @n@ G2 powers of tau from the EIP-4844 trusted setup.
+-- | Returns the first @n@ G2 powers of tau from the Ethereum 32768-point trusted setup.
 -- Used as the on-chain CRS for verifying membership proofs:
 -- @[G2, τ·G2, ..., τ^(n-1)·G2]@.
 crsG2Points :: Int -> [Point2]

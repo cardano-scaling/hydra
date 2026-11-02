@@ -160,7 +160,7 @@ spec = parallel $ do
         _ -> expectationFailure "expected exactly one CRS point"
 
     it "oversized accumulator errors when the commitment is forced" $ do
-      let acc = unHydraAccumulator $ build (show <$> [1 .. (4096 :: Int)])
+      let acc = unHydraAccumulator $ build (show <$> [1 .. maxAccumulatorSize + 1])
       (pure $! computeG1CommitmentBytes acc) `shouldThrow` anyErrorCall
 
     -- The client-facing 'SideLoadSnapshot' command carries a
@@ -203,7 +203,7 @@ spec = parallel $ do
       -- commitment, hence the size check.
       (pure $! getSignableRepresentation decoded) `shouldThrow` anyErrorCall
 
-    describe "golden commitments (recorded from the PlutusTx path before the FFI swap)" $
+    describe "golden commitments (Ethereum 32768-point setup)" $
       forM_ goldenCases $ \(caseName, els, expectedHex) ->
         it ("matches golden for " <> caseName) $ do
           let acc = unHydraAccumulator $ build els
@@ -267,16 +267,17 @@ referenceCommitmentBytes acc =
           expandedElems
 
 -- | Deterministic element sets with expected commitment (compressed G1, hex),
--- recorded from the PlutusTx path before the FFI swap. These also guard
+-- cross-checked with independent polynomial expansion and blst scalar
+-- multiplication for the Ethereum 32768-point setup. These also guard
 -- future haskell-accumulator / rust-accumulator / plutus-accumulator bumps
 -- against silent behavior changes.
 goldenCases :: [(String, [ByteString], ByteString)]
 goldenCases =
   [ ("0 elements", goldenElements 0, "97f1d3a73197d7942695638c4fa9ac0fc3688c4f9774b905a14e3a3f171bac586c55e83ff97a1aeffb3af00adb22c6bb")
-  , ("1 element", goldenElements 1, "82d3e038e43f9ee73805cc8a6078365b8140a4012fa92643c2b3732d51cecf1fe0a1928d62fbf39878763549951bdb5a")
-  , ("3 elements with a duplicate", goldenElements 2 <> take 1 (goldenElements 1), "91211024a7d57d2648b42394f87d2740fe5ebea49ef943aae048acf5a1b59c8bbd783801d9418af9a37e4673f3f5f1fe")
-  , ("100 elements", goldenElements 100, "ac19336fad62fc5bfb9ec509bd13ecae9c8eabd4f1a5af163a0ecb71684f3f12933bac6180c52727dcf5bd44a1c2890f")
-  , ("1000 elements", goldenElements 1000, "a49e01e30e499a14b161e7fab22b80d8a49d787cd80d0298b6a445b69f506003d3ad764704de29fc9ea22a5f7de7afe9")
+  , ("1 element", goldenElements 1, "b59c0b5af62047a5164e4bc004ad8421a1047fb55c70cc75d53f9ec163800192c27dcf2baf4f99ab2d81aa031fc34e0f")
+  , ("3 elements with a duplicate", goldenElements 2 <> take 1 (goldenElements 1), "932422a82d3c8fc5987c8af8e0a1fe30ee38ade31924b231999cefd7fdfba640cb5c3b9e729e33d858897088e724f6ae")
+  , ("100 elements", goldenElements 100, "ac3b3c2a928d7406e57a9f680271af5e8496af436597851e416bd400efe0ade2d7419e2ab2e8308b52c98badff931853")
+  , ("1000 elements", goldenElements 1000, "b0d379619c7fae41c07e7ed747d08aab3a29b188200cf8a34b14d97cc38e5b10e803b3a1b8701c9ae43db1381cd299a2")
   ]
 
 goldenElements :: Int -> [ByteString]
