@@ -21,8 +21,9 @@ import Cardano.Ledger.Api (bodyTxL, inputsTxBodyL)
 import Cardano.Slotting.Time (SystemStart (SystemStart))
 import Control.Lens ((.~))
 import Control.Monad (foldM)
-import Data.Aeson (Result (Success), Value (..), fromJSON)
+import Data.Aeson (Result (Success), Value (..), fromJSON, object, (.=))
 import Data.Aeson.KeyMap qualified as KeyMap
+import Data.Aeson.Types (parseEither)
 import Data.List qualified as List
 import Data.Map.Strict (notMember)
 import Data.Map.Strict qualified as Map
@@ -58,7 +59,7 @@ import Hydra.Node.State (ChainPointTime (..), Deposit (..), DepositStatus (Activ
 import Hydra.Node.UnsyncedPeriod (UnsyncedPeriod (..), unsyncedPeriodToNominalDiffTime)
 import Hydra.Options (defaultContestationPeriod, defaultDepositActivation, defaultDepositPeriod, defaultUnsyncedPeriod)
 import Hydra.Prelude qualified as Prelude
-import Hydra.Tx (HeadId, confirmedSignatures, headSeedToTxIn, registryUTxO, txInToHeadSeed)
+import Hydra.Tx (HeadId, confirmedSignatures, headSeedToTxIn, mkSimpleBlueprintTx, registryUTxO, txInToHeadSeed)
 import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Close (CloseObservation (..), isClosableAt)
 import Hydra.Tx.Close qualified as Close
@@ -68,6 +69,7 @@ import Hydra.Tx.Crypto (aggregate, generateSigningKey, sign)
 import Hydra.Tx.Crypto qualified as Crypto
 import Hydra.Tx.Decrement (DecrementObservation (..), observeDecrementTx)
 import Hydra.Tx.Deposit (DepositObservation (..), observeDepositTx)
+import Hydra.Tx.Deposit qualified as Deposit
 import Hydra.Tx.DepositPeriod (toNominalDiffTime)
 import Hydra.Tx.Fanout (FanoutObservation (..), observeFanoutTx)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
@@ -75,7 +77,7 @@ import Hydra.Tx.Increment (IncrementObservation (..), observeIncrementTx)
 import Hydra.Tx.IsTx (IsTx (..))
 import Hydra.Tx.Party (Party (..), deriveParty)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, SnapshotVersion, getSnapshot)
-import Hydra.UserValidationRules (PolicyViolation (..), UserValidation (..))
+import Hydra.UserValidationRules (PolicyViolation (..), UserValidation (..), checkPolicies, parsePolicyFile)
 import Test.Gen.Cardano.Api.Typed (genBlockHeaderHash)
 import Test.Hydra.API.ClientInput ()
 import Test.Hydra.Chain ()
@@ -92,7 +94,7 @@ import Test.Hydra.Node.Environment ()
 import Test.Hydra.Node.Fixture qualified as Fixture
 import Test.Hydra.Node.State ()
 import Test.Hydra.Tx.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, deriveOnChainId, fanoutChunkSize, fanoutOutputThreshold, testHeadId, testHeadSeed)
-import Test.Hydra.Tx.Gen (genKeyPair, genOutputFor, genTxOutAdaOnly, genValidityBoundsFromContestationPeriod)
+import Test.Hydra.Tx.Gen (genKeyPair, genOutputFor, genTxOutAdaOnly, genTxWithMint, genUTxOAdaOnlyOfSize, genValidityBoundsFromContestationPeriod)
 import Test.QuickCheck (Property, choose, counterexample, elements, forAll, forAllShrink, oneof, shuffle, sublistOf, suchThat, (.&&.), (===), (==>))
 import Test.QuickCheck.Gen (generate)
 import Test.QuickCheck.Hedgehog (hedgehog)
@@ -812,6 +814,30 @@ spec =
           let st = withDeposits now coordinatedHeadState [1]
           update soloEnv (restricted violation [2]) now st (receiveMessage $ ReqSn 0 1 [] Nothing (Just 1))
             `shouldBe` Error (RequireFailed $ RequestedDepositRejectedByPolicy 1 violation)
+
+        it "waits for a listed deposit to arrive and activate, then signs the snapshot" $ do
+          now <- getCurrentTime
+          violation <- DepositNotAllowed <$> generate arbitrary
+          let policyLedger = restricted violation [1]
+              request = receiveMessage $ ReqSn 0 1 [] Nothing (Just 1)
+              activationTime = addUTCTime (toNominalDiffTime soloEnv.depositActivation) now
+          (unseen, inactive, atBoundary, active, finalState) <- runHeadLogic soloEnv policyLedger (inOpenState [alice]) $ do
+            unseen <- step request
+            step $ observeTx $ OnDepositTx testHeadId 1 (utxoRef 1) now (addUTCTime (60 + toNominalDiffTime soloEnv.depositPeriod) activationTime)
+            inactive <- step request
+            step $ ChainInput $ Tick activationTime 1
+            atBoundary <- step request
+            step $ ChainInput $ Tick (addUTCTime 1 activationTime) 2
+            active <- step request
+            finalState <- getState
+            pure (unseen, inactive, atBoundary, active, finalState)
+          unseen `assertWait` WaitOnDepositObserved 1
+          inactive `assertWait` WaitOnDepositActivation 1
+          atBoundary `assertWait` WaitOnDepositActivation 1
+          active `hasEffectSatisfying` \case
+            NetworkEffect AckSn{snapshotNumber} -> snapshotNumber == 1
+            _ -> False
+          Map.keys finalState.pendingDeposits `shouldBe` [1]
 
         it "signs a snapshot with a listed deposit" $ do
           now <- getCurrentTime
@@ -5811,6 +5837,146 @@ spec =
             -- Rejection must be due to the occupied name, not an invalid payment.
             applyTransactions ledger (ChainSlot 0) seed [tx] `shouldSatisfy` isRight
             pure (tx, seed, deposited)
+
+      describe "policy admission with real transactions" $ do
+        let ledgerWithPolicy :: Value -> IO (Ledger Tx)
+            ledgerWithPolicy fields = do
+              rules <- either failure pure $ parseEither parsePolicyFile $ object ["head-policy" .= fields]
+              pure $ cardanoLedger (Just rules) Fixture.defaultGlobals Fixture.defaultLedgerEnv
+            soloEnv = aliceEnv{otherParties = [], participants = [deriveOnChainId alice]}
+
+        forM_
+          [ ("no transaction restriction", object [], True)
+          , ("at the UTxO limit", object ["max-utxo-count" .= (1 :: Int)], True)
+          , ("above the UTxO limit", object ["max-utxo-count" .= (0 :: Int)], False)
+          ]
+          $ \(policyCase, fields, allowed) ->
+            forM_ ["NewTx", "ReqTx", "ReqSn"] $ \entryPoint ->
+              it (entryPoint <> " admission: " <> policyCase) $ do
+                (tx, seed, _) <- paymentWithCollision
+                policyLedger <- ledgerWithPolicy fields
+                let st = openWith seed [tx | entryPoint == "ReqSn"]
+                    input = case entryPoint of
+                      "NewTx" -> ClientInput $ NewTx tx
+                      "ReqTx" -> NetworkInput 0 ReceivedMessage{sender = alice, msg = ReqTx tx}
+                      _ -> receiveMessage $ ReqSn 0 1 [txId tx] Nothing Nothing
+                now <- nowFromSlot st.chainPointTime.currentSlot
+                let outcome = update soloEnv policyLedger now st input
+                if allowed
+                  then
+                    outcome `hasEffectSatisfying` \case
+                      NetworkEffect ReqTx{} -> entryPoint == "NewTx"
+                      NetworkEffect ReqSn{} -> entryPoint == "ReqTx"
+                      NetworkEffect AckSn{} -> entryPoint == "ReqSn"
+                      _ -> False
+                  else do
+                    effectsOf outcome `shouldBe` []
+                    let policyError = PolicyValidationError $ MaxUTxOCountExceeded 1 0
+                    if entryPoint == "ReqSn"
+                      then outcome `shouldBe` Error (RequireFailed $ SnapshotDoesNotApply 1 (txId tx) policyError)
+                      else
+                        outcome `hasStateChangedSatisfying` \case
+                          TxInvalid{validationError} -> validationError == policyError
+                          _ -> False
+                    case (aggregateState st outcome).headState of
+                      Open OpenState{coordinatedHeadState = chs} -> do
+                        chs.localUTxO `shouldBe` seed
+                        chs.localTxs `shouldBe` mempty
+                        chs.seenSnapshot `shouldBe` NoSeenSnapshot
+                      _ -> failure "expected the head to remain open"
+
+        forM_
+          [ ("allowed-assets", object ["allowed-assets" .= ([] :: [Value])])
+          , ("l2-minting", object ["l2-minting" .= ("forbidden" :: Text)])
+          ]
+          $ \(rule, fields) ->
+            forM_ ["NewTx", "ReqTx", "ReqSn"] $ \entryPoint ->
+              it (entryPoint <> " rejects minting forbidden by " <> rule) $ do
+                tx <- generate $ genTxWithMint `suchThat` (isLeft . checkPolicies mempty)
+                policyLedger <- ledgerWithPolicy fields
+                let st = openWith mempty [tx | entryPoint == "ReqSn"]
+                    input = case entryPoint of
+                      "NewTx" -> ClientInput $ NewTx tx
+                      "ReqTx" -> NetworkInput 0 ReceivedMessage{sender = alice, msg = ReqTx tx}
+                      _ -> receiveMessage $ ReqSn 0 1 [txId tx] Nothing Nothing
+                    rejectsMinting = \case
+                      PolicyValidationError PolicyMintingViolation{invalidPolicyIds, allowedPolicyIds} -> not (Set.null invalidPolicyIds) && Set.null allowedPolicyIds
+                      _ -> False
+                now <- nowFromSlot st.chainPointTime.currentSlot
+                let outcome = update soloEnv policyLedger now st input
+                effectsOf outcome `shouldBe` []
+                if entryPoint == "ReqSn"
+                  then case outcome of
+                    Error (RequireFailed SnapshotDoesNotApply{error = validationError}) -> validationError `shouldSatisfy` rejectsMinting
+                    _ -> failure $ "expected a snapshot policy rejection, got: " <> show outcome
+                  else
+                    outcome `hasStateChangedSatisfying` \case
+                      TxInvalid{validationError} -> rejectsMinting validationError
+                      _ -> False
+
+        it "rejects an unlisted deposit and settles a listed deposit with the configured Cardano ledger" $ do
+          (ctx, directOpen, listedTx, spendable, incrementTx, confirmed) <-
+            generate $ genIncrementTxWithSnapshot (genDepositTx 1)
+          listed <- maybe (failure "expected a deposit transaction") pure $ observeDepositTx ctx.ctxNetworkId listedTx
+          otherFunds <- generate $ genUTxOAdaOnlyOfSize 1
+          let unlistedTx = Deposit.depositTx ctx.ctxNetworkId Fixture.defaultPParams listed.headId (mkSimpleBlueprintTx otherFunds) listed.created listed.deadline Nothing
+          unlisted <- maybe (failure "expected an unlisted deposit transaction") pure $ observeDepositTx ctx.ctxNetworkId unlistedTx
+          unlisted.depositTxId `shouldNotBe` listed.depositTxId
+          policyLedger <- ledgerWithPolicy $ object ["deposits" .= [listed.depositTxId]]
+          let target = getSnapshot confirmed
+              signingKey = List.head ctx.ctxHydraSigningKeys
+              env = environmentFor ctx signingKey
+              chainTime = addUTCTime (negate $ 1 + toNominalDiffTime env.depositPeriod) listed.deadline
+              created = addUTCTime (negate $ 1 + toNominalDiffTime env.depositActivation) chainTime
+              initial = openWaitingFor ctx directOpen target mempty mempty Nothing
+              st0 =
+                initial
+                  { headState = case initial.headState of
+                      Open os -> Open os{coordinatedHeadState = os.coordinatedHeadState{seenSnapshot = LastSeenSnapshot (target.number - 1)}}
+                      other -> other
+                  }
+              observe :: OnChainTx Tx -> Input Tx
+              observe observation = ChainInput $ Observation observation ChainStateAt{spendableUTxO = spendable, recordedAt = Nothing}
+              depositObservation :: DepositObservation -> Input Tx
+              depositObservation observed = observe $ OnDepositTx listed.headId observed.depositTxId observed.deposited created observed.deadline
+              rejected = update env policyLedger chainTime st0 (depositObservation unlisted)
+              st1 = aggregateState st0 rejected
+          st1 `shouldBe` st0
+          rejected `hasNoEffectSatisfying` \case
+            NetworkEffect{} -> True
+            _ -> False
+          let st2 = aggregateState st1 $ update env policyLedger chainTime st1 (depositObservation listed)
+              activated = update env policyLedger chainTime st2 $ ChainInput $ Tick chainTime ChainPointAtGenesis
+              st3 = aggregateState st2 activated
+          Map.keys st3.pendingDeposits `shouldBe` [listed.depositTxId]
+          activated `hasEffectSatisfying` \case
+            NetworkEffect ReqSn{depositTxId} -> depositTxId == Just listed.depositTxId
+            _ -> False
+          let requested = update env policyLedger chainTime st3 $ receiveMessageFrom env.party $ ReqSn target.version target.number [] Nothing (Just listed.depositTxId)
+              st4 = aggregateState st3 requested
+          requested `hasStateChangedSatisfying` \case
+            SnapshotRequested{requestedSnapshot} -> requestedSnapshot == target
+            _ -> False
+          requested `hasEffectSatisfying` \case
+            NetworkEffect AckSn{signed} -> signed == sign signingKey target
+            _ -> False
+          let approved = update env policyLedger chainTime st4 $ receiveMessageFrom env.party $ AckSn (sign signingKey target) target.number
+              st5 = aggregateState st4 approved
+          approved `hasEffectSatisfying` \case
+            OnChainEffect{postChainTx = IncrementTx{depositTxId, incrementingSnapshot}} -> depositTxId == listed.depositTxId && incrementingSnapshot == confirmed
+            _ -> False
+          let lookupUTxO = spendable <> registryUTxO ctx.ctxScriptRegistry
+          assertValidCardanoTx incrementTx lookupUTxO
+          IncrementObservation{newVersion, depositTxId, snapshotNumber, signatures} <-
+            maybe (failure "expected an increment transaction") pure $ observeIncrementTx ctx.ctxNetworkId lookupUTxO incrementTx
+          let settled = update env policyLedger chainTime st5 $ observe $ OnIncrementTx listed.headId newVersion depositTxId snapshotNumber signatures
+              finalState = aggregateState st5 settled
+          finalState.pendingDeposits `shouldBe` mempty
+          case finalState.headState of
+            Open OpenState{coordinatedHeadState = chs} -> do
+              chs.version `shouldBe` newVersion
+              chs.localUTxO `shouldBe` target.utxo <> listed.deposited
+            _ -> failure "expected the settled head to remain open"
 
       it "adopts a validated IncrementTx snapshot when an AckSn is withheld, then can close, contest and fanout" $ do
         now <- getCurrentTime

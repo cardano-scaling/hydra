@@ -31,8 +31,8 @@ import Graphics.Vty.Image (DisplayRegion)
 import Graphics.Vty.Input (Input (..))
 import Graphics.Vty.Platform.Unix.Output (buildOutput)
 import Graphics.Vty.Platform.Unix.Settings (UnixSettings (..))
-import Hydra.API.ServerOutput (ApiEncoding (..))
-import Hydra.Cardano.Api (Coin)
+import Hydra.API.ServerOutput (ApiEncoding (..), ApiMessage (..), ClientMessage (..))
+import Hydra.Cardano.Api (AsType (AsTxId), Coin, deserialiseFromRawBytes)
 import Hydra.Cluster.Faucet (
   FaucetLog,
   publishHydraScriptsAs,
@@ -46,11 +46,15 @@ import Hydra.Cluster.Util (chainConfigFor', createAndSaveSigningKey, keysFor)
 import Hydra.Network (Host (..))
 import Hydra.Options (ChainBackendOptions (..), DirectOptions (..), RunOptions, persistenceRotateAfter)
 import Hydra.TUI (runWithVty)
-import Hydra.TUI.Drawing.Utils (renderTime)
+import Hydra.TUI.Drawing.Utils (prettyTxId, renderTime)
+import Hydra.TUI.Logging.Types (Severity (Error))
 import Hydra.TUI.Options (Options (..))
+import Hydra.TUI.RenderMessage (RenderedMessage (..), renderMessage)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod, toNominalDiffTime)
 import Hydra.Tx.Crypto (getVerificationKey)
 import Hydra.Tx.DepositPeriod (DepositPeriod)
+import Hydra.Tx.HeadId (HeadId (UnsafeHeadId))
+import Hydra.UserValidationRules (PolicyViolation (MaxUTxOCountExceeded))
 import HydraNode (
   HydraClient (..),
   HydraNodeLog,
@@ -73,6 +77,18 @@ tuiDepositPeriod = 10
 
 spec :: Spec
 spec = do
+  it "renders a snapshot policy admission failure" $ do
+    now <- getCurrentTime
+    transactionId <- either (failure . show) pure $ deserialiseFromRawBytes AsTxId (BS.replicate 32 2)
+    let headId = UnsafeHeadId (BS.replicate 28 1)
+        rendered = renderMessage now $ ApiClientMessage $ SnapshotRequestRejectedByPolicy headId 7 transactionId (MaxUTxOCountExceeded 21 20)
+    rmSeverity rendered `shouldBe` Error
+    rmTime rendered `shouldBe` now
+    rmSummary rendered `shouldBe` "Snapshot request rejected by policy"
+    toString (rmDetail rendered) `shouldContain` "Snapshot: 7"
+    toString (rmDetail rendered) `shouldContain` toString (prettyTxId transactionId)
+    toString (rmDetail rendered) `shouldContain` "MaxUTxOCountExceeded"
+
   context "end-to-end smoke tests" $ do
     it "can quit before connected" $
       setupBadHostNodeAndTUI $ \TUITest{sendInputEvent, shouldRender, shouldNotRender} -> do
