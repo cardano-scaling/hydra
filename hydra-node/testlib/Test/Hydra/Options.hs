@@ -48,6 +48,7 @@ instance Arbitrary RunOptions where
     ledgerConfig <- arbitrary
     whichEtcd <- arbitrary
     apiTransactionTimeout <- arbitrary
+    policy <- arbitrary
     pure $
       RunOptions
         { verbosity
@@ -68,6 +69,7 @@ instance Arbitrary RunOptions where
         , ledgerConfig
         , whichEtcd
         , apiTransactionTimeout
+        , policy
         }
 
   shrink = genericShrink
