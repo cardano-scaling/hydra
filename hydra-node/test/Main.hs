@@ -31,6 +31,7 @@ import Hydra.JSONSchemaSpec qualified
 import Hydra.Ledger.Cardano.TimeSpec qualified
 import Hydra.Ledger.CardanoSpec qualified
 import Hydra.Ledger.SimpleSpec qualified
+import Hydra.Logging.AccountingSpec qualified
 import Hydra.Logging.MonitoringSpec qualified
 import Hydra.LoggingSpec qualified
 import Hydra.Model.MockChainSpec qualified
@@ -86,6 +87,7 @@ main =
     , testSpec "Ledger.Cardano" Hydra.Ledger.CardanoSpec.spec
     , testSpec "Ledger.Cardano.Time" Hydra.Ledger.Cardano.TimeSpec.spec
     , testSpec "Ledger.Simple" Hydra.Ledger.SimpleSpec.spec
+    , testSpec "Logging.Accounting" Hydra.Logging.AccountingSpec.spec
     , testSpec "Logging.Monitoring" Hydra.Logging.MonitoringSpec.spec
     , testSpec "Logging" Hydra.LoggingSpec.spec
     , testSpec "Model.MockChain" Hydra.Model.MockChainSpec.spec

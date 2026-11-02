@@ -44,6 +44,7 @@ data FaucetException
   = FaucetHasNotEnoughFunds {faucetUTxO :: UTxO}
   | FaucetFailedToBuildTx {reason :: TxBodyErrorAutoBalance Era}
   | FaucetBlockfrostError {blockFrostError :: Text}
+  | FaucetSweepTimedOut
   deriving stock (Show)
 
 instance Exception FaucetException
@@ -52,6 +53,7 @@ data FaucetLog
   = TraceResourceExhaustedHandled Text
   | ReturnedFunds {returnAmount :: Coin}
   | SubmitTxError Text
+  | NothingToReturn {reason :: Text}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
 
@@ -258,13 +260,14 @@ returnFundsToFaucet' tracer opts senderSk = do
   networkId <- runBackend opts queryNetworkId
   let faucetAddress = mkVkAddress networkId faucetVk
   let senderVk = getVerificationKey senderSk
-  utxo <- runBackend opts $ queryUTxOFor QueryTip senderVk
-  returnAmount <-
+  returnAmount <- retryOnExceptions tracer opts $ do
+    -- Re-query on retry: a previous submission may already have spent the
+    -- inputs, so retrying the same UTxO would fail indefinitely.
+    utxo <- runBackend opts $ queryUTxOFor QueryTip senderVk
     if UTxO.null utxo
       then pure 0
-      else retryOnExceptions tracer opts $ do
-        let utxoValue = balance @Tx utxo
-        let allLovelace = selectLovelace utxoValue
+      else do
+        let allLovelace = selectLovelace (balance @Tx utxo)
         tx <- sign senderSk <$> buildTxBody utxo faucetAddress
         runBackend opts $ submitTransaction tx
         void $ runBackend opts $ awaitTransaction tx faucetVk
@@ -278,6 +281,33 @@ returnFundsToFaucet' tracer opts senderSk = do
     runBackend opts (buildTransaction faucetAddress utxo []) >>= \case
       Left e -> throwIO $ FaucetFailedToBuildTx{reason = e}
       Right tx -> pure $ getTxBody tx
+
+-- | Bound cleanup queries, retries and confirmation waits. Transaction-building
+-- failures are logged as nothing returnable.
+returnFundsToFaucetBounded ::
+  Tracer IO FaucetLog ->
+  ChainBackendOptions ->
+  Secret (SigningKey PaymentKey) ->
+  IO Coin
+returnFundsToFaucetBounded tracer opts senderSk = do
+  -- Bound the lookup before its result can determine the sweep timeout.
+  blockTime <-
+    timeout 30 (runBackend opts getBlockTime)
+      >>= maybe (throwIO FaucetSweepTimedOut) pure
+  timeout (sweepTimeout blockTime) (returnFundsToFaucet' tracer opts senderSk `catch` nothingReturnable)
+    >>= maybe (throwIO FaucetSweepTimedOut) pure
+ where
+  nothingReturnable :: FaucetException -> IO Coin
+  nothingReturnable = \case
+    FaucetFailedToBuildTx{reason} -> do
+      traceWith tracer $ NothingToReturn{reason = show reason}
+      pure 0
+    e -> throwIO e
+
+-- | Allow thirty blocks for a sweep, with a floor for the fixed costs of
+-- querying, submitting and observing a transaction on a fast devnet.
+sweepTimeout :: NominalDiffTime -> DiffTime
+sweepTimeout blockTime = realToFrac $ max 30 (30 * blockTime)
 
 -- Use the Faucet utxo to create the output at specified address
 createOutputAtAddress ::

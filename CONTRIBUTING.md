@@ -131,6 +131,11 @@ hydra-cluster (real cardano-node devnets) and hydra-tui (needs a tty) are not
 among them and still run via `just test <package>` or
 `nix develop .#<package>-tests --command tests`.
 
+`just test <package> "<test name>"` accepts a substring filter. It fails when
+the filter selects no tests across the requested packages; an empty suite is
+allowed when another requested suite contains selected tests. Results are in
+`test-reports/index.html`.
+
 #### Code quality
 
 You can run the code quality check locally with
@@ -204,6 +209,13 @@ To perform a release of the next `<version>`:
 2. Publish Hydra scripts onto `preview`, `preprod`, and `mainnet` using the
    [smoke test][smoke-test] and put the transaction IDs as new `<version>`
    entries into [networks.json](./hydra-node/networks.json).
+
+   The `mainnet` run spends real ada. It funds a participant it generates for
+   that run and returns the remainder to the faucet on the way out; if the run
+   is cancelled or the runner dies first, the funds stay at that run's keys
+   under `<state-directory>/participant-keys/` and the next run sweeps them
+   back. Never point the smoke test at a key from `config/credentials` on a
+   public network -- those keys are public.
 3. Add the head and deposit script hashes as new `<version>` entries into
    [script-hashes.json](./hydra-chain-observer/script-hashes.json), so that
    `hydra-chain-observer` recognizes heads using the released scripts. The

@@ -5,6 +5,8 @@ import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
 import Cardano.Binary (decodeFull')
+import Control.Concurrent.Class.MonadSTM (putTMVar, takeTMVar, tryPutTMVar)
+import Control.Tracer (Tracer (..), emit)
 import Control.Tracer.JSON (Envelope (..), nullTracer)
 import Data.Aeson qualified as Aeson
 import Data.ByteString qualified as BS
@@ -14,7 +16,7 @@ import Data.EventSource.SQLite (EventDecodingException, SQLiteLog (..), getSchem
 import Data.List (zipWith3)
 import Data.List qualified as List
 import Database.SQLite.Simple (Only (..), close, execute, execute_, open, query)
-import Hydra.HeadLogic.Outcome (StateChanged)
+import Hydra.HeadLogic.Outcome (StateChanged (NetworkConnected))
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.Ledger.Cardano (Tx)
 import Hydra.Ledger.Simple (SimpleTx)
@@ -28,6 +30,43 @@ import Test.Util (captureTracer)
 
 spec :: Spec
 spec = do
+  describe "bounded batch writes" $
+    forM_ [999, 1000, 1001, 2501 :: Int] $ \count ->
+      it ("persists and deduplicates a batch of " <> show count <> " events") $
+        failAfter 10 $
+          withEventSourceAndSink $ \source sink -> do
+            now <- getCurrentTime
+            let events = [StateEvent i NetworkConnected now | i <- [0 .. fromIntegral count - 1]]
+            putEvents sink events
+            putEvents sink events
+            getEvents source `shouldReturn` events
+
+  it "reports SQLite completion only after the batch commits" $
+    failAfter 5 $
+      withTempDir "sqlite-completion" $ \dir -> do
+        started <- newLabelledEmptyTMVarIO "write-started"
+        allowCommit <- newLabelledEmptyTMVarIO "allow-commit"
+        observations <- newIORef []
+        now <- getCurrentTime
+        let tracer = Tracer . emit $ \message -> do
+              atomicModifyIORef' observations $ \events -> (message : events, ())
+              case message of
+                SQLiteWriteStarted -> atomically (putTMVar started ()) >> atomically (takeTMVar allowCommit)
+                _ -> pure ()
+            event = StateEvent 0 NetworkConnected now :: StateEvent SimpleTx
+        withSQLiteEventStore tracer (dir <> "/hydra.db") (dir <> "/state") $ \EventStore{eventSink, eventSource} -> do
+          putEvent eventSink event
+          bracket_
+            (atomically $ takeTMVar started)
+            (void . atomically $ tryPutTMVar allowCommit ())
+            ( do
+                samples <- readIORef observations
+                [writeSeconds | SQLiteWriteCompleted{writeSeconds} <- samples] `shouldBe` []
+            )
+          getEvents eventSource `shouldReturn` [event]
+          samples <- readIORef observations
+          [writeSeconds >= 0 | SQLiteWriteCompleted{writeSeconds} <- samples] `shouldBe` [True]
+
   describe "mkSQLiteEventStore" $ do
     prop "can stream events" $
       forAllShrink genContinuousEvents shrink $ \events ->

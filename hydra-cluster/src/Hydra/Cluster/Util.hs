@@ -5,18 +5,27 @@ module Hydra.Cluster.Util where
 
 import Hydra.Prelude
 
+import Control.Exception (SomeAsyncException (..))
+import Crypto.Random (getRandomBytes)
 import Data.Aeson qualified as Aeson
 import Data.ByteString qualified as BS
-import Data.Secret (Secret, mkSecret)
+import Data.Secret (Secret, mkSecret, withSecret)
 import Hydra.Cardano.Api (
-  Key (VerificationKey, getVerificationKey),
+  AsType (AsPaymentKey),
+  File (..),
+  FileError,
+  HasTextEnvelope,
+  Key (VerificationKey, verificationKeyHash),
   NetworkId,
   PaymentKey,
   SigningKey,
   TextEnvelopeError (TextEnvelopeAesonDecodeError),
   TxId,
   deserialiseFromTextEnvelope,
+  generateSigningKey,
+  serialiseToRawBytesHexText,
   textEnvelopeToJSON,
+  writeLazyByteStringFileWithOwnerPermissions,
  )
 import Hydra.Cluster.Fixture (Actor, actorName, fundsOf)
 import Hydra.Node.UnsyncedPeriod (defaultUnsyncedPeriodFor)
@@ -27,11 +36,15 @@ import Hydra.Options (
   DirectOptions (..),
   defaultCardanoChainConfig,
  )
+import Hydra.Tx (Party, deriveParty)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
+import Hydra.Tx.Crypto (HydraKey, getVerificationKey)
+import Hydra.Tx.Crypto qualified as Crypto
 import Hydra.Tx.DepositPeriod (DepositPeriod)
 import Hydra.Tx.DepositPeriod qualified as DP
 import Paths_hydra_cluster qualified as Pkg
-import System.FilePath ((<.>), (</>))
+import System.Directory (createDirectoryIfMissing, doesDirectoryExist, doesFileExist, listDirectory, removeFile, renameDirectory, renameFile)
+import System.FilePath (takeFileName, (<.>), (</>))
 import Test.Hydra.Prelude (failure)
 import Test.Hydra.Tx.Gen (genSigningKey)
 import Test.QuickCheck (generate)
@@ -49,16 +62,25 @@ readConfigFile source = do
 
 -- | Get the "well-known" keys for given actor. The signing key is
 -- 'Secret'-wrapped so callers cannot accidentally log or serialise it.
+--
+-- NOTE: These keys are committed to this repository and shipped as package
+-- data-files, so they are public and must never hold real funds. See
+-- 'Participant' for what a run against a public network uses instead.
 keysFor :: Actor -> IO (VerificationKey PaymentKey, Secret (SigningKey PaymentKey))
 keysFor actor = do
-  bs <- readConfigFile ("credentials" </> actorName actor <.> "sk")
-  let res =
-        first TextEnvelopeAesonDecodeError (Aeson.eitherDecodeStrict bs)
-          >>= deserialiseFromTextEnvelope
-  case res of
-    Left err ->
-      fail $ "cannot decode text envelope from '" <> show bs <> "', error: " <> show err
-    Right sk -> pure (getVerificationKey sk, mkSecret sk)
+  let path = "credentials" </> actorName actor <.> "sk"
+  sk <- decodeSigningKey path =<< readConfigFile path
+  pure (getVerificationKey sk, sk)
+
+-- | Decode a 'TextEnvelope'-encoded payment signing key, 'Secret'-wrapped.
+--
+-- NOTE: The failure names the file but never quotes it. A partly written key
+-- still holds key material, and this error reaches the logs.
+decodeSigningKey :: FilePath -> ByteString -> IO (Secret (SigningKey PaymentKey))
+decodeSigningKey path bs =
+  case first TextEnvelopeAesonDecodeError (Aeson.eitherDecodeStrict bs) >>= deserialiseFromTextEnvelope of
+    Left err -> fail $ "cannot decode text envelope at " <> path <> ": " <> show err
+    Right sk -> pure (mkSecret sk)
 
 -- | Create and save new signing key at the provided path, returning the
 -- key 'Secret'-wrapped.
@@ -68,6 +90,148 @@ createAndSaveSigningKey path = do
   sk <- generate genSigningKey
   writeFileLBS path $ textEnvelopeToJSON (Just "Key used to commit funds into a Head") sk
   pure (mkSecret sk)
+
+-- | Catch synchronous failures while allowing cancellation to propagate.
+trySync :: IO a -> IO (Either SomeException a)
+trySync action =
+  try action >>= \case
+    Left e | Just (SomeAsyncException _) <- fromException e -> throwIO e
+    result -> pure result
+
+-- * Ephemeral run credentials
+
+-- | Fresh Cardano and Hydra credentials for the participant and its commit
+-- wallet, persisted in 'keyDir' before funding.
+data Participant = Participant
+  { cardanoVk :: VerificationKey PaymentKey
+  , cardanoSk :: Secret (SigningKey PaymentKey)
+  , hydraSk :: Secret (SigningKey HydraKey)
+  , walletVk :: VerificationKey PaymentKey
+  , walletSk :: Secret (SigningKey PaymentKey)
+  , keyDir :: FilePath
+  -- ^ Directory holding this run's key files.
+  }
+
+-- | The 'Party' a 'Participant' appears as in a head.
+participantParty :: Participant -> Party
+participantParty Participant{hydraSk} = deriveParty hydraSk
+
+-- | Directory holding the keys of runs against this working directory.
+--
+-- Deliberately not named @state-@ anything: the runner wipes @state-*@ before
+-- every run, and these keys have to outlive that.
+participantKeysDir :: FilePath -> FilePath
+participantKeysDir workDir = workDir </> "participant-keys"
+
+-- | Where 'archiveParticipantKeys' moves the keys of a run whose funds are back.
+sweptParticipantKeysDir :: FilePath -> FilePath
+sweptParticipantKeysDir workDir = workDir </> "participant-keys-swept"
+
+-- | Path a hydra-node is pointed at with @--cardano-signing-key@.
+participantCardanoKeyFile :: FilePath -> FilePath
+participantCardanoKeyFile keyDir = keyDir </> "cardano.sk"
+
+participantHydraKeyFile :: FilePath -> FilePath
+participantHydraKeyFile keyDir = keyDir </> "hydra.sk"
+
+participantWalletKeyFile :: FilePath -> FilePath
+participantWalletKeyFile keyDir = keyDir </> "wallet.sk"
+
+-- | Marker a run leaves while it has a head open on chain.
+--
+-- The address cannot tell: the node returns its own init change there, so a
+-- sweep of it succeeds whether or not a head was left behind.
+participantHeadOpenFile :: FilePath -> FilePath
+participantHeadOpenFile keyDir = keyDir </> "head-open"
+
+markHeadOpen :: FilePath -> IO ()
+markHeadOpen keyDir = writeFileBS (participantHeadOpenFile keyDir) ""
+
+clearHeadOpen :: FilePath -> IO ()
+clearHeadOpen keyDir = removeFile (participantHeadOpenFile keyDir)
+
+headMayBeOpen :: FilePath -> IO Bool
+headMayBeOpen = doesFileExist . participantHeadOpenFile
+
+-- | Every key of a run that can hold funds, and so has to be swept.
+participantPaymentKeyFiles :: [FilePath -> FilePath]
+participantPaymentKeyFiles = [participantCardanoKeyFile, participantWalletKeyFile]
+
+-- | Generate a fresh 'Participant' under 'participantKeysDir', in a directory
+-- named after the Cardano key's hash so runs cannot clobber each other.
+--
+-- Uses system entropy rather than seedable test generators.
+generateParticipant :: FilePath -> IO Participant
+generateParticipant workDir = do
+  rawCardanoSk <- generateSigningKey AsPaymentKey
+  rawWalletSk <- generateSigningKey AsPaymentKey
+  hydraSk <- Crypto.generateSigningKey <$> getRandomBytes 32
+  let cardanoVk = getVerificationKey rawCardanoSk
+      keyDir =
+        participantKeysDir workDir
+          </> toString (serialiseToRawBytesHexText $ verificationKeyHash cardanoVk)
+  createDirectoryIfMissing True keyDir
+  writeSigningKey (participantCardanoKeyFile keyDir) rawCardanoSk
+  writeSigningKey (participantWalletKeyFile keyDir) rawWalletSk
+  withSecret hydraSk $ writeSigningKey (participantHydraKeyFile keyDir)
+  pure
+    Participant
+      { cardanoVk
+      , cardanoSk = mkSecret rawCardanoSk
+      , hydraSk
+      , walletVk = getVerificationKey rawWalletSk
+      , walletSk = mkSecret rawWalletSk
+      , keyDir
+      }
+
+-- | Write an owner-only 'TextEnvelope', then rename it atomically into place
+-- so interruption cannot leave a truncated key at the destination.
+writeSigningKey :: HasTextEnvelope (SigningKey k) => FilePath -> SigningKey k -> IO ()
+writeSigningKey path sk = do
+  let staging = path <.> "tmp"
+  written <- writeLazyByteStringFileWithOwnerPermissions (File staging) (textEnvelopeToJSON Nothing sk)
+  either (fail . show) pure (written :: Either (FileError ()) ())
+  renameFile staging path
+
+-- | Read payment keys from each pending run directory, skipping missing files
+-- and reporting decode failures per run. Non-directory entries are ignored.
+leftoverParticipantKeys :: FilePath -> IO [(FilePath, Either Text [Secret (SigningKey PaymentKey)])]
+leftoverParticipantKeys workDir = do
+  let dir = participantKeysDir workDir
+  exists <- doesDirectoryExist dir
+  if not exists
+    then pure []
+    else do
+      names <- listDirectory dir
+      keyDirs <- filterM doesDirectoryExist ((dir </>) <$> sort names)
+      forM keyDirs $ \keyDir -> (keyDir,) <$> readPaymentKeys keyDir
+ where
+  readPaymentKeys :: FilePath -> IO (Either Text [Secret (SigningKey PaymentKey)])
+  readPaymentKeys keyDir =
+    first (show @Text @SomeException) <$> trySync (fmap catMaybes . forM participantPaymentKeyFiles $ readKey keyDir)
+
+  readKey :: FilePath -> (FilePath -> FilePath) -> IO (Maybe (Secret (SigningKey PaymentKey)))
+  readKey keyDir keyFile = do
+    let path = keyFile keyDir
+    present <- doesFileExist path
+    if present
+      then Just <$> (decodeSigningKey path =<< BS.readFile path)
+      else pure Nothing
+
+-- | Move keys to 'sweptParticipantKeysDir' without overwriting an existing
+-- archive, returning any failure.
+archiveParticipantKeys :: FilePath -> FilePath -> IO (Either Text ())
+archiveParticipantKeys workDir keyDir =
+  first (show @Text @SomeException) <$> trySync go
+ where
+  go = do
+    let swept = sweptParticipantKeysDir workDir
+        dest = swept </> takeFileName keyDir
+    createDirectoryIfMissing True swept
+    alreadyThere <- doesDirectoryExist dest
+    if alreadyThere
+      then fail $ "refusing to overwrite already archived keys at " <> dest
+      else renameDirectory keyDir dest
 
 -- | Expected time between blocks (on average)
 type BlockTime = NominalDiffTime
@@ -216,17 +380,14 @@ chainConfigFor' me targetDir opts hydraScriptsTxId them contestationPeriod depos
   forM_ them $ \actor ->
     copyFile actor "vk"
   pure $
-    Cardano
-      defaultCardanoChainConfig
-        { hydraScriptsTxId
-        , cardanoSigningKey = actorFilePath me "sk"
-        , cardanoVerificationKeys = [actorFilePath himOrHer "vk" | himOrHer <- them]
-        , contestationPeriod
-        , depositPeriod
-        , depositActivation
-        , unsyncedPeriod = defaultUnsyncedPeriodFor contestationPeriod
-        , chainBackendOptions = opts
-        }
+    cardanoChainConfig
+      opts
+      hydraScriptsTxId
+      (actorFilePath me "sk")
+      [actorFilePath himOrHer "vk" | himOrHer <- them]
+      contestationPeriod
+      depositPeriod
+      depositActivation
  where
   actorFilePath actor fileType = targetDir </> actorFileName actor fileType
   actorFileName actor fileType = actorName actor <.> fileType
@@ -235,6 +396,58 @@ chainConfigFor' me targetDir opts hydraScriptsTxId them contestationPeriod depos
     let fileName = actorFileName actor fileType
         filePath = actorFilePath actor fileType
     readConfigFile ("credentials" </> fileName) >>= writeFileBS filePath
+
+-- | Chain config for a head run by a generated 'Participant', as the solo
+-- scenarios that move real funds on public networks do.
+--
+-- Unlike 'chainConfigFor' this copies nothing out of @config/credentials@: the
+-- node is pointed at the participant's own key, so no public fixture signing
+-- key is written into the state directory at all.
+chainConfigForParticipant ::
+  Participant ->
+  ChainBackendOptions ->
+  -- | Transaction ids at which Hydra scripts should have been published.
+  [TxId] ->
+  Timing ->
+  ChainConfig
+chainConfigForParticipant Participant{keyDir} opts hydraScriptsTxId timing =
+  cardanoChainConfig
+    opts
+    hydraScriptsTxId
+    (participantCardanoKeyFile keyDir)
+    []
+    contestationPeriod
+    depositPeriod
+    depositActivation
+ where
+  Timing{contestationPeriod, depositPeriod, depositActivation} = timing
+
+-- | Assemble a chain config from key files that are already on disk.
+cardanoChainConfig ::
+  ChainBackendOptions ->
+  -- | Transaction ids at which Hydra scripts should have been published.
+  [TxId] ->
+  -- | Path of the node's own Cardano signing key.
+  FilePath ->
+  -- | Paths of the other participants' Cardano verification keys.
+  [FilePath] ->
+  ContestationPeriod ->
+  DepositPeriod ->
+  -- | Deposit activation, independent from the deposit period.
+  DepositPeriod ->
+  ChainConfig
+cardanoChainConfig opts hydraScriptsTxId cardanoSigningKey cardanoVerificationKeys contestationPeriod depositPeriod depositActivation =
+  Cardano
+    defaultCardanoChainConfig
+      { hydraScriptsTxId
+      , cardanoSigningKey
+      , cardanoVerificationKeys
+      , contestationPeriod
+      , depositPeriod
+      , depositActivation
+      , unsyncedPeriod = defaultUnsyncedPeriodFor contestationPeriod
+      , chainBackendOptions = opts
+      }
 
 modifyConfig :: (CardanoChainConfig -> CardanoChainConfig) -> ChainConfig -> ChainConfig
 modifyConfig fn = \case

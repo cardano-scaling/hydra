@@ -386,7 +386,7 @@ httpApp tracer configDoc directChain env pparams getNodeState getCommitInfo getP
       respond $ respondPParams respEnc pparams
     ("POST", ["cardano-transaction"]) ->
       consumeRequestBodyStrict request
-        >>= handleSubmitUserTx directChain reqEnc respEnc
+        >>= handleSubmitUserTx tracer directChain reqEnc respEnc
         >>= respond
     ("POST", ["transaction"]) ->
       consumeRequestBodyStrict request
@@ -474,7 +474,7 @@ handleDraftCommitUtxo tracer env pparams directChain getNodeState getCommitInfo 
         deadline <-
           addUTCTime (toNominalDiffTime depositActivation + 2 * toNominalDiffTime depositPeriod)
             <$> getCurrentTime
-        result <- draftDepositTx headId pparams currentSnapshot commitBlueprint deadline changeAddress
+        result <- observeL1 tracer "draft_deposit" isRight $ draftDepositTx headId pparams currentSnapshot commitBlueprint deadline changeAddress
         case result of
           Left e ->
             case e of
@@ -540,6 +540,7 @@ handleRecoverCommitUtxo putClientInput apiTransactionTimeout responseChannel rec
 handleSubmitUserTx ::
   forall tx.
   (FromJSON tx, FromCBOR tx) =>
+  Tracer IO APIServerLog ->
   Chain tx IO ->
   -- | Request body encoding.
   ApiEncoding ->
@@ -548,12 +549,12 @@ handleSubmitUserTx ::
   -- | Request body.
   LBS.ByteString ->
   IO Response
-handleSubmitUserTx directChain reqEnc respEnc body = do
+handleSubmitUserTx tracer directChain reqEnc respEnc body = do
   case decodeWire reqEnc body of
     Left err ->
       pure $ respondApi respEnc status400 (pack err)
     Right txToSubmit -> do
-      try (submitTx txToSubmit) <&> \case
+      observeL1 tracer "submit" isRight (try $ submitTx txToSubmit) <&> \case
         Left (e :: PostTxError Tx) -> badRequest respEnc e
         Right _ ->
           respondApi respEnc status200 TransactionSubmitted
@@ -725,3 +726,14 @@ badRequest apiEncoding = respondApi apiEncoding status400
 
 notFound :: ApiEncoding -> Response
 notFound apiEncoding = respondApi apiEncoding status404 ("" :: Text)
+
+observeL1 :: Tracer IO APIServerLog -> Text -> (a -> Bool) -> IO a -> IO a
+observeL1 tracer operation succeeded action = mask $ \restore -> do
+  started <- getMonotonicTime
+  traceWith tracer APIL1Started{operation}
+  let finish successful = do
+        finished <- getMonotonicTime
+        traceWith tracer APIL1Finished{operation, successful, duration = diffTime finished started}
+  result <- restore action `onException` finish False
+  finish (succeeded result)
+  pure result

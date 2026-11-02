@@ -11,8 +11,8 @@
                 }
             ],
             "requestedSnapshot": {
-                "accumulator": "750aad9246af7307dd6da653ef6ad466bf77156277954a148cc94cb67e020776",
-                "appliedAccumulator": "2c8f511bab0ae822118a73c5d6d088956c1a5da093ad5afe4e92affa0660be13",
+                "accumulator": "826b3de94df990e0a071e7dde4a69af72bf03105518c1eb2b2c4a14f1165c5c3",
+                "appliedAccumulator": "4cc51fe0093d01fc30d5d17fd425e2d5212e368102aa9f2c6564f06b6f309ae8",
                 "confirmed": [],
                 "depositTxId": "0101000000010000000100010000000100000001010001010100010000000000",
                 "headId": "01000101010000010001000100010101",

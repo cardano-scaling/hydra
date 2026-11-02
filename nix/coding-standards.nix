@@ -10,7 +10,15 @@ _: {
 
     in
     {
-
+      checks.prometheus-rules = pkgs.runCommand "hydra-prometheus-rules"
+        { nativeBuildInputs = [ pkgs.prometheus.cli ]; }
+        ''
+          cp ${../demo/prometheus/hydra.rules.yml} hydra.rules.yml
+          cp ${../demo/prometheus/hydra.rules.test.yml} hydra.rules.test.yml
+          promtool check rules hydra.rules.yml
+          promtool test rules hydra.rules.test.yml
+          touch $out
+        '';
 
       coding.standards.hydra = {
         enable = true;

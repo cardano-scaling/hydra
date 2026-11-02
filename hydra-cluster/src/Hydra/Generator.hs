@@ -291,7 +291,7 @@ largestVkUTxO vk =
 -- making this the reference workload for large-UTxO head performance.
 --
 -- The head-level UTxO size is roughly clients * target and must stay below
--- the 4095 accumulator element limit.
+-- the 32767 accumulator element limit.
 generateLargeUTxODataset ::
   -- | Faucet signing key
   Secret (SigningKey PaymentKey) ->

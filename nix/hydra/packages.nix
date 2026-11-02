@@ -160,7 +160,7 @@
               pkgs.mithril-client-cli
               pkgs.check-jsonschema
               pkgs.etcd # hydra-cluster's HydraNode.hs runs hydra-node with SystemEtcd
-            ];
+            ] ++ lib.optionals pkgs.stdenv.isLinux [ pkgs.procps ];
         };
         hydra-tui-tests = pkgs.mkShellNoCC {
           name = "hydra-tui-tests";
@@ -191,7 +191,7 @@
               pkgs.cardano-node
               pkgs.cardano-cli
               pkgs.etcd # hydra-cluster's HydraNode.hs runs hydra-node with SystemEtcd
-            ];
+            ] ++ lib.optionals pkgs.stdenv.isLinux [ pkgs.procps ];
         };
 
         # Cost-centre profiled hydra-node (-fprof-late, profiled libraries).
@@ -210,7 +210,7 @@
               pkgs.cardano-node
               pkgs.cardano-cli
               pkgs.etcd # hydra-cluster's HydraNode.hs runs hydra-node with SystemEtcd
-            ];
+            ] ++ lib.optionals pkgs.stdenv.isLinux [ pkgs.procps ];
         };
       } // staticPackages;
   };

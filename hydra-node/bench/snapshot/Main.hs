@@ -36,7 +36,7 @@ import Hydra.Network.Message (Message (AckSn, ReqSn))
 import Hydra.Node (mkNetworkInput)
 import Hydra.Node.State (ChainPointTime (..), NodeState (..))
 import Hydra.Tx (HeadParameters (..), Snapshot (..), txId)
-import Hydra.Tx.Accumulator (buildFromUTxO, getAccumulatorHash)
+import Hydra.Tx.Accumulator (buildFromUTxO, getAccumulatorHash, maxAccumulatorSize)
 import Hydra.Tx.Crypto (Signature, sign)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..))
 import Test.Hydra.Ledger.Cardano (genFixedSizeSequenceOfSimplePaymentTransactions)
@@ -47,12 +47,11 @@ import Test.QuickCheck (generate)
 
 main :: IO ()
 main = do
-  -- The largest size takes minutes per commitment pre-optimization, so it is
-  -- opt-in:
+  -- Larger head sizes are opt-in:
   --
-  -- > BENCH_MAX_UTXO=4000 cabal bench hydra-node:snapshot
+  -- > BENCH_MAX_UTXO=32767 cabal bench hydra-node:snapshot
   maxN <- fromMaybe 1000 . (>>= readMaybe) <$> lookupEnv "BENCH_MAX_UTXO"
-  let utxoSizes = filter (<= maxN) [10, 100, 1000, 4000]
+  let utxoSizes = filter (<= maxN) [10, 100, 1000, 4095, 8191, 16383, maxAccumulatorSize]
       txCounts = [1, 10, 100]
   benches <- forM [(n, m) | n <- utxoSizes, m <- txCounts] $ uncurry benchCell
   defaultMain benches

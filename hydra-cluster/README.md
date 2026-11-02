@@ -60,11 +60,31 @@ otherwise be spent waiting those out. The contestation period stops at the point
 where the validity window of close, contest and increment transactions would
 start shrinking, so nothing is more likely to expire than before.
 
-:warning: do not provide actual funds to this faucet address as the
-signing key is publicly available. Shall you want to run the smoke
-test with actual funds, you shall override these file to use a secret
-signing key safely stored. See how the C.I overrides these files in
-.github/workflows/smoke-test.yaml
+:warning: every key that holds real funds must be private. The keys under
+`config/credentials` are not: they are committed to this repository and shipped
+as package data-files, so anyone can derive their addresses and spend from them.
+
+That means two things:
+
+- Do not provide actual funds to the `config/credentials/faucet.sk` address. To
+  run the smoke test with actual funds, override that file with a secret signing
+  key that is safely stored. See how the C.I overrides these files in
+  .github/workflows/smoke-test.yaml
+- Nothing else in the scenario is funded from a committed key either. The head's
+  participant, its Hydra key and the wallet it commits from are generated per
+  run from system entropy by `Hydra.Cluster.Util.generateParticipant`, and all
+  three are written to `<state-directory>/participant-keys/` before they are
+  funded. A run returns what they hold to the faucet on its way out and moves
+  the keys to `<state-directory>/participant-keys-swept/`; a run that is killed
+  first leaves them in place, and the next run sweeps them.
+
+  Keys are archived only once the head they opened is finalized and the run
+  that opened it is over. A run that ends while its head is still open leaves a
+  `head-open` marker beside them; every later run then leaves that directory
+  entirely alone -- keys and fuel both, since the fuel is what pays for the
+  abort or close -- and logs that a head needs dealing with. Once it has been
+  closed or aborted by hand, delete the `head-open` file and the next run
+  returns the remaining funds and archives the keys.
 
 To run the smoke test against the official cardano testnet using a
 local `state-testnet` directory (to re-use the synchronized chain db):
@@ -300,3 +320,11 @@ other people's merges cannot appear as PR deltas):
 A new summary metric only shows a difference once both sides emit it, and
 must be registered in the script's `METRICS` table.
 
+
+## Scripted lifecycle and dashboard recording
+
+The `bench-e2e lifecycle` command reuses benchmark setup and lifecycle helpers
+for a three-party Head with a disappearing participant and checked recovery.
+It emits a live JSONL timeline and Prometheus targets. See
+[the lifecycle recording guide](../demo/lifecycle/README.md) for the scenario
+and the isolated Grafana/browser recording command.

@@ -72,7 +72,7 @@ healthyIncrementTx =
       parameters
       (headInput, headOutput)
       healthySnapshot
-      depositUTxO
+      (healthyDepositInput, depositOutput)
       (slotNoFromUTCTime systemStart slotLength healthyDeadline)
       healthySignature
 
@@ -97,8 +97,11 @@ healthyIncrementTx =
 
   depositUTxO :: UTxO
   depositUTxO =
-    UTxO.singleton healthyDepositInput $
-      mkDepositOutput testNetworkId (mkHeadId testPolicyId) healthyDeposited healthyDeadline
+    UTxO.singleton healthyDepositInput depositOutput
+
+  depositOutput :: TxOut CtxUTxO
+  depositOutput =
+    mkDepositOutput testNetworkId (mkHeadId testPolicyId) healthyDeposited healthyDeadline
 
 -- | A structurally valid increment carrying no snapshot signatures. Kept as a
 -- named regression so rejection of incomplete on-chain evidence does not rely

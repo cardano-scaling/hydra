@@ -65,6 +65,13 @@ and batch-inserts the rows in one transaction, amortising WAL writes across even
 
 The last-seen event id is updated atomically at enqueue time (not write time), so de-duplication tracking remains correct even though the physical write is deferred. Reads via `sourceEvents` auto-flush the write queue before reading, so callers always see all enqueued events without manual synchronisation.
 
+Batch enqueue transactions contain at most 1,000 events, the queue capacity.
+Larger batches make progress as the writer drains each chunk. Deduplication
+is checked in the same STM transaction as enqueueing.
+
+Startup streams replay to custom sinks in batches of at most 1,000 events.
+When there are no custom sinks, it skips that replay pass entirely.
+
 #### Schema versioning
 
 The database schema is versioned using SQLite's built-in `PRAGMA user_version`. On startup, `initSchema` reads the current version and applies any pending migration steps incrementally up to `nextVersion`. Each step runs together with its version bump in a single transaction, so a crash or failure mid-migration rolls back to a well-defined version. The steps are defined as cases in `migrateStep`:
