@@ -16,6 +16,7 @@ import Hydra.Tx (
   SnapshotVersion,
  )
 import Hydra.Tx.Crypto (HydraKey, VerificationKey)
+import Hydra.UserValidationRules (PolicyViolation)
 
 data LogicError tx
   = UnhandledInput {input :: Input tx, currentHeadState :: HeadState tx}
@@ -82,6 +83,7 @@ data RequirementFailure tx
     -- already exists in the head, or is created by one of the requested
     -- transactions. See 'Hydra.HeadLogic.absorbable'.
     ReqSnDepositOutputsHeld {depositTxId :: TxIdType tx}
+  | RequestedDepositRejectedByPolicy {depositTxId :: TxIdType tx, policyViolation :: PolicyViolation}
   | RequestedDepositExpired {depositTxId :: TxIdType tx}
   | RequestedDepositNotFoundLocally {depositTxId :: TxIdType tx}
   | ReqSnUTxOSetTooLarge {utxoCount :: Int, maxAllowed :: Int}
