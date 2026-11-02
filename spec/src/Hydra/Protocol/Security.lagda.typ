@@ -448,6 +448,7 @@ data _⟶ˢ_ : System → System → Set where
     → (∀ {U′} → applyTxs (U₀ sys) (confirmedTxs (lookup (localOf sys) i)) ≡ just U′
               → Applicable U′ Δ)                                                      -- Δ applies on top of confirmed (requireApplyTxs)
     → Δ ⊆ˡ lookup (seen sys) i                                                        -- Δ already observed (only-seen)
+    → SnapshotFits (Snapshot.utxo snap) (Snapshot.utxoInc snap) (Snapshot.utxoDec snap) -- both possible fanouts fit before signing
     -- The digests an honest signer DERIVES from the snapshot it is about to sign, rather than
     -- accepting from the request. κ# is the one with security content: binding the deposit
     -- reference S̄.txOutRef_α alongside the recorded commit set is what stops a look-alike deposit

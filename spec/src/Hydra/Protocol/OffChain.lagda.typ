@@ -4,6 +4,8 @@ module Hydra.Protocol.OffChain where
 open import Hydra.Protocol.Prelude
 open import Hydra.Protocol.Preliminaries
 open import Hydra.Protocol.Setup
+open import Hydra.Protocol.OnChain using (outputRef-eqᵇ)
+open import Hydra.Protocol.OffChainReference using (snapshotCapacityRef; decommitCapacityRef; pendingTxFitsRef)
 -- Extra list/nat helpers for the off-chain handler model (the deposit registry + tick).
 open import Data.List using (map; _++_)
 open import Data.List.Properties using (length-map)
@@ -179,8 +181,47 @@ increment. Such a request is rejected, and a leader never makes one: a fresh
 deposit is picked only if it is disjoint from $macron(mc(S)).U$ and from the
 outputs of the transactions it is requested with, while the pending commit
 still settling — which every later request at this version must carry — is
-kept and it is the transactions creating an output it names that are held
-back, together with those after them, until its increment has settled.
+kept while transactions that cannot accompany it are excluded from the request.
+If the first pending transaction is blocked, an empty snapshot can prune it,
+allowing later independent transactions to proceed before the increment settles.
+
+=== Snapshot capacity
+
+The deployed accumulator setup contains 32768 powers and supports at most 32767
+output references in either fanout set. Write
+$sans("fits")(U,C,D)$ for $|U union D| <= 32767 and |U union C| <= 32767$,
+where $U$ is active UTxO, $C$ a pending commit, and $D$ pending decommit outputs.
+These are alternative future fanouts, not a union of all three sets. Unions are
+by output reference, so equal output values at different references count twice.
+An absent incremental action contributes the empty set.
+
+Optimistic transaction acceptance does not enforce this bound. The leader's
+$sans("requestable")(T,tx_alpha,tx_omega)$ selects the longest prefix of its
+bounded candidate list that avoids re-creating references held by the settled
+confirmed ledger or settling commit and satisfies $sans("fits")$ after every transaction.
+Its starting active ledger is the settled confirmed UTxO, with a requested
+decommit applied and its outputs excluded. A later merge cannot repair an
+overflowing earlier prefix. The node considers at most 4000 transactions per
+request; this is a construction policy, not a limit imposed on received requests.
+These prefix checks reserve already-settling incremental actions. A fresh deposit
+is chosen after selecting the ordinary prefix, and must fit alongside its final
+UTxO; it does not impose another check on that prefix's intermediate states.
+Otherwise the deposit is deferred. The figure's $sans("depositFits")(D)$ checks
+the selected ledger and $D.U$. Write $sans("outputs")(bot)=emptyset$.
+A settling commit stays in the request. Pending transactions
+justify either a non-empty request or an empty pruning snapshot; a settling
+incremental action alone does not repeatedly trigger empty snapshots.
+
+Let $sans("settled")(macron(mc(S)),hatv)$ include the confirmed snapshot's
+pending commit only when its increment has advanced the version. Before
+admitting or broadcasting a decommit, the node first checks local ledger
+applicability, then requires non-empty outputs and capacity after arithmetic
+application to *both* the optimistic and settled confirmed ledgers, before
+excluding the decommit's outputs. Confirmed-space checking is conservative:
+an unconfirmed merge may lie outside the next request's transaction prefix.
+Arithmetic application removes named inputs that exist and adds outputs; it
+does not require the decommit to be ledger-applicable against confirmed state.
+Both client decommit submission and the received $hpRD$ handler use these guards.
 
 A settling commit — $macron(mc(S)).U_alpha != bot$ at the current version — is
 dropped, by a request claiming no deposit, only once its increment can no
@@ -322,6 +363,57 @@ postulate
   _∪ᵘ_    : UTxO → UTxO → UTxO  -- UTxO-map union (L̂ ∪ U when an increment is observed)
   _∖ᵘ_    : UTxO → UTxO → UTxO  -- UTxO-map difference (… ∖ outputs(tx) when a decommit is requested)
   outputs : Data → UTxO         -- the outputs a transaction produces, as a UTxO map
+  -- Arithmetic update: remove named inputs that exist and add outputs, without
+  -- ledger validation. The confirmed decommit-capacity check uses this even
+  -- when the transaction spends an unconfirmed local transaction's output.
+  applyUTxO : UTxO → Data → UTxO
+
+-- Count distinct output REFERENCES, not distinct output values. The list model
+-- can represent a set with duplicate entries, so count each key only once.
+utxoRefs : UTxO → List OutputRef
+utxoRefs U = map proj₁ (setToList (proj₁ U))
+
+refOccurs : OutputRef → List OutputRef → Bool
+refOccurs r [] = false
+refOccurs r (x ∷ xs) = if outputRef-eqᵇ r x then true else refOccurs r xs
+
+countRefs : List OutputRef → ℕ
+countRefs [] = 0
+countRefs (r ∷ rs) = if refOccurs r rs then countRefs rs else suc (countRefs rs)
+
+utxoCount : UTxO → ℕ
+utxoCount U = countRefs (utxoRefs U)
+
+refsDisjoint : List OutputRef → List OutputRef → Bool
+refsDisjoint [] _ = true
+refsDisjoint (r ∷ rs) other = if refOccurs r other then false else refsDisjoint rs other
+
+SnapshotFits : UTxO → UTxO → UTxO → Set
+SnapshotFits U C D = snapshotCapacityRef (utxoCount (U ∪ᵘ D)) (utxoCount (U ∪ᵘ C)) ≡ true
+
+settledConfirmed : LocalState → UTxO
+settledConfirmed st =
+  if ⌊ Snapshot.version S <? LocalState.seenVersion st ⌋
+  then Snapshot.utxo S ∪ᵘ Snapshot.utxoInc S else Snapshot.utxo S
+  where S = LocalState.confirmed st
+
+DecommitFits : LocalState → Data → UTxO → Set
+DecommitFits st tx localAfter =
+  decommitCapacityRef (utxoCount (outputs tx)) (utxoCount localAfter)
+    (utxoCount (applyUTxO (settledConfirmed st) tx)) ≡ true
+
+-- Operational post-snapshot pruning. Keep a transaction only if it applies,
+-- avoids the carried commit's output references and fits both possible fanouts.
+-- Skipping a transaction leaves U unchanged and still considers later merges.
+prunePending : UTxO → UTxO → UTxO → List Data → UTxO × List Data
+prunePending U C D [] = U , []
+prunePending U C D (tx ∷ txs) with applyTxs U (tx ∷ [])
+... | nothing = prunePending U C D txs
+... | just U' with pendingTxFitsRef true
+  (refsDisjoint (utxoRefs (outputs tx)) (utxoRefs (U ∪ᵘ C)))
+  (utxoCount (U' ∪ᵘ D)) (utxoCount (U' ∪ᵘ C))
+...   | true = let result = prunePending U' C D txs in proj₁ result , tx ∷ proj₂ result
+...   | false = prunePending U C D txs
 ```
 
 == Protocol flow
@@ -465,10 +557,13 @@ Furthermore, the protocol validates the snapshot request by:
   commit, it is never dropped (see below).
 + Verify all requested transactions $underline(tx)_(sans("req"))$ are
   applicable to the active UTxO set
++ Require $sans("fits")(U,U_alpha,sans("outputs")(tx_omega))$ for the resulting
+  active UTxO $U$, before computing an accumulator commitment or signing.
 Only then, $party_i$ increments their seen-snapshot counter $hats$, resets the
 signature accumulator $hatSigma$, and computes the UTxO set of the new local
 snapshot as
 $U <- U_(sans("active")) applytx underline(tx)_(sans("req"))$. Then,
+                #kw("require") $sans("fits")(U,U_alpha,sans("outputs")(tx_omega))$ \\\\
 $party_i$ creates a signature $msSig_i$ using their signing key
 $hydraSigningKey$ on a message comprised by the $cid$, the new snapshot number
 $hats$, the new $eta$ resulting from canonically combining $U$ (see
@@ -483,8 +578,15 @@ identifies it). The resulting signature therefore authorizes that one deposit
 and no other recording the same UTxO. The signature is sent to all head members via
 message $(hpAS,hats,msSig_i)$. Finally, the local ledger state $hatmL$ and
 pending transaction set $hatmT$ get pruned by re-applying all locally pending
-transactions $hatmT$ to the just requested snapshot's UTxO set iteratively and
-ultimately yielding a "pruned" version of $hatmT$ and $hatmL$. \
+transactions $hatmT$ to the just requested snapshot's UTxO set iteratively.
+A transaction is kept only if it applies without re-creating a held output,
+does not name a carried commit output, and its resulting ledger satisfies
+$sans("fits")$ with that snapshot's pending commit/decommit. Pruned transactions
+leave the running ledger unchanged; subsequent transactions are still considered,
+so an independent merge can survive a capacity rejection. Ledger applicability
+alone is insufficient: a ledger-valid transaction can exceed fanout capacity.
+The Agda `prunePending` function models this postprocessing; `reqSn-sign` tracks
+the round counter and the system's `signHonest` rule requires `SnapshotFits`. \
 \
 #dparagraph[$hpAS$.]#h(1em) Upon receiving acknowledgment $(hpAS,s,msSig_j)$, all
 participants #kw("require") that it is from an expected snapshot (either the last seen
@@ -558,6 +660,7 @@ data _handles_↝_ : LocalState → Message → LocalState → Set where
     → LocalState.currentDepositTxId st ≡ nothing         -- U_α = ∅ (no commit in flight)
     → LocalState.pendingDecrement st ≡ nothing       -- tx_ω = ⊥ (no decommit in flight)
     → applyTxs (LocalState.localLedger st) (tx ∷ []) ≡ just L'   -- L̂ ∘ tx ≠ ⊥ (applicability, witnessed)
+    → DecommitFits st tx L'                         -- non-empty outputs; local AND confirmed capacity
     → st handles (reqDec tx) ↝ record st { localLedger = L' ∖ᵘ outputs tx ; pendingDecrement = just tx }
 
   -- on (ackSn, s, σ) before the round completes: record sender j's signature in Σ̂; S̄ unchanged. The §6
@@ -743,7 +846,7 @@ tick-preserves-deposits-length {st = st} tick-update = length-map _ (LocalState.
 reqDec-starts-decommit : ∀ {st tx st'}
   → st handles (reqDec tx) ↝ st'
   → (LocalState.pendingDecrement st ≡ nothing) × (LocalState.pendingDecrement st' ≡ just tx)
-reqDec-starts-decommit (reqDec-pending _ q _) = q , refl
+reqDec-starts-decommit (reqDec-pending _ q _ _) = q , refl
 
 -- The de-abstracted reqTx guard is load-bearing too: reqTx fires only for transactions that APPLY to
 -- the local ledger (the §6 `wait L̂ ∘ tx ≠ ⊥`). Deleting the `applyTxs … ≡ just L'` witness premise on
@@ -871,7 +974,7 @@ noBothInFlight-step : ∀ {st st'} → st ⟶ᴴ st' → NoBothInFlight st → N
 
 ```
 noBothInFlight-step (hstep (reqTx-pending _))     inv = inv
-noBothInFlight-step (hstep (reqDec-pending p _ _)) _  = inj₁ p
+noBothInFlight-step (hstep (reqDec-pending p _ _ _)) _  = inj₁ p
 noBothInFlight-step (hstep (ackSn-collect _))     inv = inv
 noBothInFlight-step (hstep (ackSn-confirm _ _ _ _)) inv = inv
 noBothInFlight-step (hstep (reqSn-sign _ _))      inv = inv
@@ -923,7 +1026,7 @@ versionDiscipline-step : ∀ {st st'} → st ⟶ᴴ st' → VersionDiscipline st
 
 ```
 versionDiscipline-step (hstep (reqTx-pending _))       inv = inv
-versionDiscipline-step (hstep (reqDec-pending _ _ _))  inv = inv
+versionDiscipline-step (hstep (reqDec-pending _ _ _ _))  inv = inv
 versionDiscipline-step (hstep (ackSn-collect _))       inv = inv
 versionDiscipline-step (hstep (ackSn-confirm _ _ _ d)) _   = d
 versionDiscipline-step (hstep (reqSn-sign _ _))        inv = inv
@@ -1054,13 +1157,9 @@ preventing inconsistency between the on-chain and off-chain state.
                 #nst[
                   #kw("if") $tx_alpha = bot and tx_omega = bot and macron(mc(S)).U_alpha = emptyset$
                   #nst[
-                    $tx_alpha <-$ oldest $D in mc(D)$ with $D.sans("status") = sans("Active") and D.U inter macron(mc(S)).U = emptyset and D.U inter sans("outputs")(hatmT) = emptyset$
+                    $tx_alpha <-$ oldest $D in mc(D)$ with $D.sans("status") = sans("Active") and D.U inter macron(mc(S)).U = emptyset and D.U inter sans("outputs")(hatmT) = emptyset and sans("depositFits")(D)$
                   ]
-                  #kw("else if") $tx_alpha != bot$
-                  #nst[
-                    $hatmT <-$ longest prefix of $hatmT$ with $sans("outputs")(hatmT) inter mc(D)[tx_alpha].U = emptyset$ #text(size: 0.8em)[(only the settling commit is kept over a colliding transaction; nothing is requested if empty)]
-                  ]
-                  #kw("multicast") $(hpRS, hatv, macron(mc(S)).s + 1, hatmT, tx_alpha, tx_omega)$
+                  #kw("multicast") $(hpRS, hatv, macron(mc(S)).s + 1, sans("requestable")(hatmT, tx_alpha, tx_omega), tx_alpha, tx_omega)$
                 ]
               ]
             ]
@@ -1068,17 +1167,18 @@ preventing inconsistency between the on-chain and off-chain state.
             #proc([#kw("on") $(hpRD, tx)$ #kw("from") $party_j$])[
               #kw("wait") $U_alpha = emptyset and tx_omega = bot and hatmL applytx tx != bot$
               #nst[
+                #kw("require") $sans("outputs")(tx) != emptyset and |hatmL applytx tx| <= 32767 and |sans("applyUTxO")(sans("settled")(macron(mc(S)),hatv),tx)| <= 32767$ \\
                 $hatmL <- hatmL applytx tx without sans("outputs")(tx)$ \
                 $tx_omega <- tx$ \
                 #kw("if") $hats = macron(mc(S)).s and hpLdr(macron(mc(S)).s + 1) = i$
                 #nst[
                   #kw("if") $tx_alpha != bot$ #text(size: 0.8em)[(a settling commit is carried on; the decommit waits for it)]
                   #nst[
-                    #kw("multicast") $(hpRS, hatv, macron(mc(S)).s + 1, hatmT, tx_alpha, bot)$
+                    #kw("multicast") $(hpRS, hatv, macron(mc(S)).s + 1, sans("requestable")(hatmT, tx_alpha, bot), tx_alpha, bot)$
                   ]
                   #kw("else")
                   #nst[
-                    #kw("multicast") $(hpRS, hatv, macron(mc(S)).s + 1, hatmT, bot, tx_omega)$
+                    #kw("multicast") $(hpRS, hatv, macron(mc(S)).s + 1, sans("requestable")(hatmT, bot, tx_omega), bot, tx_omega)$
                   ]
                 ]
               ]
@@ -1140,7 +1240,7 @@ preventing inconsistency between the on-chain and off-chain state.
                 $hatmL <- U$ \
                 $X <- hatmT$ \
                 $hatmT <- emptyset$ \
-                #kw("for") $tx in X : hatmL applytx tx != bot$
+                #kw("for") $tx in X : hatmL applytx tx != bot and sans("outputs")(tx) inter U_alpha = emptyset and sans("fits")(hatmL applytx tx,U_alpha,sans("outputs")(tx_omega))$
                 #nst[
                   $hatmT <- hatmT union {tx}$ \
                   $hatmL <- hatmL applytx tx$
@@ -1193,13 +1293,9 @@ preventing inconsistency between the on-chain and off-chain state.
                   #nst[
                     #kw("if") $tx_alpha = bot and tx_omega = bot and macron(mc(S)).U_alpha = emptyset$
                     #nst[
-                      $tx_alpha <-$ oldest $D in mc(D)$ with $D.sans("status") = sans("Active") and D.U inter macron(mc(S)).U = emptyset and D.U inter sans("outputs")(hatmT) = emptyset$
+                      $tx_alpha <-$ oldest $D in mc(D)$ with $D.sans("status") = sans("Active") and D.U inter macron(mc(S)).U = emptyset and D.U inter sans("outputs")(hatmT) = emptyset and sans("depositFits")(D)$
                     ]
-                    #kw("else if") $tx_alpha != bot$
-                    #nst[
-                      $hatmT <-$ longest prefix of $hatmT$ with $sans("outputs")(hatmT) inter mc(D)[tx_alpha].U = emptyset$ #text(size: 0.8em)[(only the settling commit is kept over a colliding transaction; nothing is requested if empty)]
-                    ]
-                    #kw("multicast") $(hpRS, hatv, macron(mc(S)).s + 1, hatmT, tx_alpha, tx_omega)$
+                    #kw("multicast") $(hpRS, hatv, macron(mc(S)).s + 1, sans("requestable")(hatmT, tx_alpha, tx_omega), tx_alpha, tx_omega)$
                   ]
                 ]
               ]
@@ -1219,7 +1315,7 @@ preventing inconsistency between the on-chain and off-chain state.
               $tx_omega <- bot$ \
               #kw("if") $hats = macron(mc(S)).s and hpLdr(macron(mc(S)).s + 1) = i and hatmT != emptyset$
               #nst[
-                #kw("multicast") $(hpRS, hatv, macron(mc(S)).s + 1, hatmT, tx_alpha, bot)$
+                #kw("multicast") $(hpRS, hatv, macron(mc(S)).s + 1, sans("requestable")(hatmT, tx_alpha, bot), tx_alpha, bot)$
               ]
             ]
 
@@ -1230,7 +1326,7 @@ preventing inconsistency between the on-chain and off-chain state.
               $hatmL <- hatmL union U$ \
               #kw("if") $hats = macron(mc(S)).s and hpLdr(macron(mc(S)).s + 1) = i and hatmT != emptyset$
               #nst[
-                #kw("multicast") $(hpRS, hatv, macron(mc(S)).s + 1, hatmT, bot, bot)$
+                #kw("multicast") $(hpRS, hatv, macron(mc(S)).s + 1, sans("requestable")(hatmT, bot, bot), bot, bot)$
               ]
             ]
 
@@ -1254,7 +1350,7 @@ preventing inconsistency between the on-chain and off-chain state.
               #nst[
                 #kw("if") $tx_alpha != bot and tx_omega = bot and hats = macron(mc(S)).s and hpLdr(macron(mc(S)).s + 1) = i$
                 #nst[
-                  #kw("multicast") $(hpRS, hatv, macron(mc(S)).s + 1, hatmT, tx_alpha, bot)$
+                  #kw("multicast") $(hpRS, hatv, macron(mc(S)).s + 1, sans("requestable")(hatmT, tx_alpha, bot), tx_alpha, bot)$
                 ]
               ]
             ]

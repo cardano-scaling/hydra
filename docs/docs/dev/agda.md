@@ -81,7 +81,7 @@ Three tiers, from strongest to weakest guarantee:
      friends, `primTrustMe`, `REWRITE`, and the `OPTIONS` flags that switch off
      termination, positivity or coverage checking. Agda's own `--safe` would be
      the obvious tool and is unavailable, because `--safe` *bans postulates* and
-     this specification rests on 65 of them by design (and `--safe` is contagious
+     this specification rests on 66 of them by design (and `--safe` is contagious
      through imports, so nothing downstream of `Prelude` could carry it). The
      enumerated list buys the same protection.
 

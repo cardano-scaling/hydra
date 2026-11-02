@@ -211,3 +211,29 @@ leaderRef m sn i = modSuc (sn + m) m == i
 {-# COMPILE GHC allSignedRef            as hsAllSignedRef            #-}
 {-# COMPILE GHC contestEligibleRef      as hsContestEligibleRef      #-}
 {-# COMPILE GHC leaderRef               as hsLeaderRef               #-}
+
+-- Capacity policy for the deployed 32768-power setup. Counts are over output
+-- references, after forming each union; overlapping entries count only once.
+accumulatorCapacityRef : Nat
+accumulatorCapacityRef = 32767
+
+snapshotCapacityRef : Nat → Nat → Bool
+snapshotCapacityRef withDecommit withCommit =
+  (withDecommit < suc accumulatorCapacityRef) && (withCommit < suc accumulatorCapacityRef)
+
+-- Admission counts include the decommit's outputs before they are excluded
+-- from the spendable ledger. Pending local merges cannot provide confirmed space.
+decommitCapacityRef : Nat → Nat → Nat → Bool
+decommitCapacityRef outputCount localAfter confirmedAfter =
+  (0 < outputCount) && snapshotCapacityRef localAfter confirmedAfter
+
+-- A ledger-valid pending transaction can still be pruned for a held-output
+-- collision or either fanout set exceeding the accumulator capacity.
+pendingTxFitsRef : Bool → Bool → Nat → Nat → Bool
+pendingTxFitsRef applicable outputsDisjoint withDecommit withCommit =
+  applicable && outputsDisjoint && snapshotCapacityRef withDecommit withCommit
+
+{-# COMPILE GHC accumulatorCapacityRef as hsAccumulatorCapacityRef #-}
+{-# COMPILE GHC snapshotCapacityRef    as hsSnapshotCapacityRef    #-}
+{-# COMPILE GHC decommitCapacityRef    as hsDecommitCapacityRef    #-}
+{-# COMPILE GHC pendingTxFitsRef       as hsPendingTxFitsRef       #-}

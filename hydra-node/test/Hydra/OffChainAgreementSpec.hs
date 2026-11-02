@@ -72,16 +72,20 @@ import Test.Hydra.Prelude
 
 import Data.Map.Strict qualified as Map
 import Data.Secret (Secret)
+import Data.Sequence qualified as Seq
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.API.ServerOutput (DecommitInvalidReason (..))
 import Hydra.Agda.OffChainReference (
   HsDepositStatus (..),
   HsPendingCommit (..),
+  accumulatorCapacityRef,
   allSignedRef,
   contestEligibleRef,
+  decommitCapacityRef,
   depositStatusRef,
   leaderRef,
   notAlreadySignedRef,
+  pendingTxFitsRef,
   reqDecEligibleRef,
   reqSnDecommitOutputsRef,
   reqSnDecommitSettledRef,
@@ -89,18 +93,22 @@ import Hydra.Agda.OffChainReference (
   reqSnDepositSettledRef,
   reqSnNotBothRef,
   signEligibleRef,
+  snapshotCapacityRef,
  )
 import Hydra.Chain (ChainEvent (..), OnChainTx (..), PostChainTx (..))
 import Hydra.HeadLogic (
   CoordinatedHeadState (..),
   Effect (..),
+  HeadState (..),
   Input (..),
   LogicError (..),
+  OpenState (..),
   Outcome (..),
   RequirementFailure (..),
   SeenSnapshot (..),
   StateChanged (..),
   WaitReason (..),
+  aggregateState,
   mkSeenSnapshot,
   update,
  )
@@ -113,10 +121,10 @@ import Hydra.Options (defaultContestationPeriod, defaultDepositActivation, defau
 import Hydra.Prelude qualified as Prelude
 import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Crypto (HydraKey, Signature, SigningKey, aggregate, sign)
-import Hydra.Tx.IsTx (TxIdType, UTxOType, txId)
+import Hydra.Tx.IsTx (TxIdType, UTxOType, applyTxTo, outputsOfUTxO, txId, utxoFromTx)
 import Hydra.Tx.Party (Party)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
-import Test.Hydra.Ledger.Simple (utxoRef)
+import Test.Hydra.Ledger.Simple (utxoRef, utxoRefs)
 import Test.Hydra.Tx.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, deriveOnChainId, testHeadId)
 import Test.QuickCheck (choose, conjoin, counterexample, elements, forAll, sublistOf, (===))
 
@@ -226,6 +234,38 @@ reqDecState commit decommitInFlight =
     CommitGoneP -> mempty
     CommitPendingP -> Map.singleton reqDecDepositTxId (mkReqDecDeposit Active)
     CommitExpiredP -> Map.singleton reqDecDepositTxId (mkReqDecDeposit Expired)
+
+-- Capacity fixtures vary the confirmed and optimistic ledgers independently;
+-- pending local transactions may have changed the available space.
+capacityState :: UTxOType SimpleTx -> UTxOType SimpleTx -> [SimpleTx] -> Maybe (UTxOType SimpleTx) -> NodeState SimpleTx
+capacityState optimisticUTxO confirmed pendingTxs mCommit =
+  (inOpenState' threeParties chs){deposits = trackedFromPending registry}
+ where
+  chs =
+    CoordinatedHeadState
+      { localUTxO = optimisticUTxO
+      , allTxs = Map.fromList [(txId tx, tx) | tx <- pendingTxs]
+      , localTxs = Seq.fromList pendingTxs
+      , confirmedSnapshot = ConfirmedSnapshot capacitySnapshot (aggregate [])
+      , seenSnapshot = LastSeenSnapshot 0
+      , currentDepositTxId = 7 <$ mCommit
+      , decommitTx = Nothing
+      , version = 0
+      , finalizedCommit = Nothing
+      , finalizedDecommit = Nothing
+      }
+  capacitySnapshot :: Snapshot SimpleTx
+  capacitySnapshot =
+    (testSnapshot 0 0 [] confirmed)
+      { utxoToCommit = mCommit
+      , depositTxId = 7 <$ mCommit
+      , accumulator = fst accumulators
+      , appliedAccumulator = snd accumulators
+      }
+  accumulators = Accumulator.buildFromSnapshotUTxOs @SimpleTx confirmed mCommit Nothing
+  registry = case mCommit of
+    Nothing -> mempty
+    Just deposited -> Map.singleton 7 Deposit{headId = testHeadId, deposited, created = time0, deadline = addUTCTime 3600 time0, status = Active}
 
 reqDecDepositTxId :: TxIdType SimpleTx
 reqDecDepositTxId = 7
@@ -641,6 +681,45 @@ spec = parallel $ do
               === reqDecAccepts (reqDecOutcome commit decommitInFlight)
           | commit <- [NoCommitP, CommitPendingP, CommitExpiredP, CommitGoneP]
           ]
+
+  describe "accumulator capacity: extracted guards vs real HeadLogic" $ do
+    let limit = fromIntegral Accumulator.maxAccumulatorSize
+    it "uses the deployed setup's capacity and checks both alternative fanouts" $ do
+      accumulatorCapacityRef `shouldBe` fromIntegral Accumulator.maxAccumulatorSize
+      snapshotCapacityRef limit limit `shouldBe` True
+      snapshotCapacityRef (limit + 1) limit `shouldBe` False
+      snapshotCapacityRef limit (limit + 1) `shouldBe` False
+
+    it "matches decommit admission at both ledger boundaries, before excluding outputs" $ do
+      forM_ [(limit - 1, limit - 1, False, 2), (limit, limit - 1, False, 2), (limit - 1, limit, False, 2), (limit, limit, False, 1), (limit, limit, False, 0), (limit - 2, limit - 1, True, 1)] $ \(localCount, confirmedCount, localOnly, outputCount) -> do
+        let inputRef = if localOnly then 0 else 1
+            optimisticUTxO = utxoRef inputRef <> utxoRefs [2 .. localCount]
+            confirmed = utxoRefs [1 .. confirmedCount]
+            tx = SimpleTx 99 (utxoRef inputRef) (utxoRefs [100000 .. 99999 + outputCount])
+            st = capacityState optimisticUTxO confirmed [] Nothing
+            outcome = update aliceEnv simpleLedger time0 st (receiveMessageFrom bob $ ReqDec tx)
+            confirmedAfter = confirmedCount - (if localOnly then 0 else 1) + outputCount
+        reqDecAccepts outcome `shouldBe` decommitCapacityRef outputCount (localCount - 1 + outputCount) confirmedAfter
+
+    it "matches pruning for capacity, ledger failure and held-output collisions" $ do
+      forM_ [(limit - 1, False, False, True, False), (limit, False, False, True, False), (limit - 1, True, False, True, False), (limit - 1, False, True, True, False), (limit - 1, True, False, True, True), (3, False, False, False, False)] $ \(count, commit, decommit, applicable, collision) -> do
+        let active = utxoRefs [1 .. count]
+            reserved = utxoRef 90000
+            mCommit = reserved <$ guard commit
+            mDecommit = SimpleTx 98 mempty reserved <$ guard decommit
+            outputs = if collision then reserved <> utxoRef 100001 else utxoRefs [100000, 100001]
+            tx = SimpleTx 99 (utxoRef $ if applicable then 1 else 999999) outputs
+            next = applyTxTo tx active
+            st = capacityState next active [tx] mCommit
+            request = ReqSn 0 1 [] mDecommit (7 <$ mCommit)
+            pruned = aggregateState st $ update aliceEnv simpleLedger time0 st (receiveMessageFrom alice request)
+            countOutputs :: UTxOType SimpleTx -> Integer
+            countOutputs = fromIntegral . length . outputsOfUTxO @SimpleTx
+            expected = pendingTxFitsRef applicable (not collision) (countOutputs $ next <> foldMap utxoFromTx mDecommit) (countOutputs $ next <> fold mCommit)
+        let retained = case headState pruned of
+              Open OpenState{coordinatedHeadState = CoordinatedHeadState{localTxs}} -> tx `elem` localTxs
+              _ -> False
+        retained `shouldBe` expected
 
   describe "reqSn incremental-action guards: extracted reqSn*Ref vs the real onOpenNetworkReqSn" $ do
     it "anchor: a deposit-only and a decommit-only request are both signed by the real node" $ do
