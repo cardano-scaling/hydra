@@ -73,7 +73,7 @@ policyFingerprint =
   -- Change the domain version if the encoding or interpretation changes.
   encode :: UserValidationRules -> Encoding
   encode UserValidationRules{policyRule, l2MintingRule, maxUTxOCount, maxOutputValueAssets, maxDatumSize, allowedScriptAddresses, allowedDeposits} =
-    toCBOR ("hydra-policy-v1" :: Text)
+    toCBOR ("hydra-policy-v2" :: Text)
       <> toCBOR allowedPolicies
       <> toCBOR (l2MintingRule == ForbidMinting)
       <> toCBOR maxUTxOCount

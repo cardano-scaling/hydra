@@ -110,12 +110,12 @@ data ClientMessage tx
     -- client.
     RejectedInputBecauseBroadcastStalled {clientInput :: ClientInput tx, pendingBroadcasts :: Natural, stallReason :: StallReason}
   | SideLoadSnapshotRejected {clientInput :: ClientInput tx, requirementFailure :: SideLoadRequirementFailure tx}
-  | -- | The node did not broadcast this snapshot request because an ordinary
-    -- transaction failed a configured user policy. The request is not in flight.
+  | -- | The node refuses to broadcast or sign a snapshot that violates its policy.
     SnapshotRequestRejectedByPolicy
       { headId :: HeadId
       , snapshotNumber :: SnapshotNumber
-      , transactionId :: TxIdType tx
+      , transactionId :: Maybe (TxIdType tx)
+      , depositTxId :: Maybe (TxIdType tx)
       , policyViolation :: PolicyViolation
       }
   deriving stock (Eq, Show, Generic)
@@ -135,7 +135,12 @@ instance IsChainState tx => FromJSON (ClientMessage tx) where
         }
 
 instance IsChainState tx => ToCBOR (ClientMessage tx) where
-  toCBOR = genericToCBOR
+  -- Keep the original layout for transaction-only policy rejections.
+  toCBOR SnapshotRequestRejectedByPolicy{headId, snapshotNumber, transactionId = Just transactionId, depositTxId = Nothing, policyViolation} =
+    toCBOR ("SnapshotRequestRejectedByPolicy" :: Text) <> toCBOR headId <> toCBOR snapshotNumber <> toCBOR transactionId <> toCBOR policyViolation
+  toCBOR SnapshotRequestRejectedByPolicy{headId, snapshotNumber, transactionId, depositTxId, policyViolation} =
+    toCBOR ("SnapshotRequestRejectedByPolicyV2" :: Text) <> toCBOR headId <> toCBOR snapshotNumber <> toCBOR transactionId <> toCBOR depositTxId <> toCBOR policyViolation
+  toCBOR message = genericToCBOR message
 
 instance IsChainState tx => FromCBOR (ClientMessage tx) where
   fromCBOR = fromCBOR >>= decodeClientMessageBody
@@ -149,7 +154,8 @@ decodeClientMessageBody = \case
   "RejectedInputBecauseUnsynced" -> RejectedInputBecauseUnsynced <$> fromCBOR <*> fromCBOR
   "RejectedInputBecauseBroadcastStalled" -> RejectedInputBecauseBroadcastStalled <$> fromCBOR <*> fromCBOR <*> fromCBOR
   "SideLoadSnapshotRejected" -> SideLoadSnapshotRejected <$> fromCBOR <*> fromCBOR
-  "SnapshotRequestRejectedByPolicy" -> SnapshotRequestRejectedByPolicy <$> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR
+  "SnapshotRequestRejectedByPolicy" -> SnapshotRequestRejectedByPolicy <$> fromCBOR <*> fromCBOR <*> (Just <$> fromCBOR) <*> pure Nothing <*> fromCBOR
+  "SnapshotRequestRejectedByPolicyV2" -> SnapshotRequestRejectedByPolicy <$> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR
   tag -> fail $ show tag <> " is not a proper CBOR-encoded ClientMessage"
 
 -- | A friendly welcome message which tells a client something about the

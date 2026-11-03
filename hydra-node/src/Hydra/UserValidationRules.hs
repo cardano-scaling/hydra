@@ -129,6 +129,7 @@ rejectUnknownKeys known object =
 -- | All potential policy violations
 data PolicyViolation
   = PolicyMintingViolation {invalidPolicyIds :: Set PolicyId, allowedPolicyIds :: Set PolicyId}
+  | PolicyAssetsViolation {invalidPolicyIds :: Set PolicyId, allowedPolicyIds :: Set PolicyId}
   | MaxUTxOCountExceeded
       { actualCount :: Natural
       , maximumCount :: Natural
@@ -194,8 +195,9 @@ validateUserActionWith ::
 validateUserActionWith rules resultingUTxO = \case
   ValidateL2Transaction tx ->
     validateUserTransactionWith (cardanoUserValidation rules) resultingUTxO tx
-  AdmitNewDeposit depositTxId ->
+  AdmitNewDeposit depositTxId -> do
     validateDeposit (cardanoUserValidation rules) depositTxId
+    validateResultingUTxO (cardanoUserValidation rules) resultingUTxO
 
 validateUserTransactionWith ::
   UserValidation tx ->
@@ -210,10 +212,7 @@ cardanoUserValidation :: UserValidationRules -> UserValidation Tx
 cardanoUserValidation rules =
   UserValidation
     { validateTransaction = preValidateUserTransactionWith rules
-    , validateResultingUTxO = \utxo ->
-        case rules.maxUTxOCount of
-          Nothing -> Right ()
-          Just limit -> checkMaxUTxOCount limit utxo
+    , validateResultingUTxO = validateUserUTxOWith rules
     , validateDeposit = \depositTxId ->
         for_ rules.allowedDeposits $ \allowed -> checkDeposit allowed depositTxId
     }
@@ -228,17 +227,27 @@ preValidateUserTransactionWith rules tx = do
   case rules.l2MintingRule of
     ForbidMinting -> checkPolicies mempty tx
     AllowMinting -> Right ()
-  case rules.maxOutputValueAssets of
-    Nothing -> Right ()
-    Just limit -> traverse_ (checkMaxOutputValueAssets limit) outputs
-  case rules.maxDatumSize of
-    Nothing -> Right ()
-    Just limit -> traverse_ (checkMaxDatumSize limit) outputs
-  case rules.allowedScriptAddresses of
-    Nothing -> Right ()
-    Just allowed -> traverse_ (checkAllowedScriptAddresses allowed) outputs
+  -- Supplemental datums become hashes in the UTxO, so check their payload here too.
+  for_ rules.maxDatumSize $ \limit -> traverse_ (checkMaxDatumSize limit) (txOuts' tx)
+
+-- | Check every output the Head holds, including pending settlement outputs.
+validateUserUTxOWith :: UserValidationRules -> UTxO -> Either PolicyViolation ()
+validateUserUTxOWith rules utxo = do
+  for_ rules.maxUTxOCount $ \limit -> checkMaxUTxOCount limit utxo
+  for_ rules.policyRule $ \rule -> do
+    let allowed = case rule of
+          ForbidAnyPolicy -> mempty
+          AllowOnlyPolicies policies -> policies
+        used = Set.fromList [policy | AssetId policy _ <- Set.toList assets]
+        rejected = used `Set.difference` allowed
+    unless (Set.null rejected) $
+      Left PolicyAssetsViolation{invalidPolicyIds = rejected, allowedPolicyIds = allowed}
+  for_ rules.maxOutputValueAssets $ \limit -> checkMaxOutputValueAssets limit outputs
+  for_ rules.maxDatumSize $ \limit -> traverse_ (checkMaxDatumSize limit) outputs
+  for_ rules.allowedScriptAddresses $ \allowed -> traverse_ (checkAllowedScriptAddresses allowed) outputs
  where
-  outputs = txOuts' tx
+  outputs = UTxO.txOutputs utxo
+  assets = outputAssets outputs
 
 checkPolicies :: Set PolicyId -> Tx -> Either PolicyViolation ()
 checkPolicies policies tx = do
@@ -271,24 +280,22 @@ checkMaxUTxOCount limit utxo =
               , maximumCount = limit
               }
 
-checkMaxOutputValueAssets :: Natural -> TxOut ctx -> Either PolicyViolation ()
-checkMaxOutputValueAssets limit (TxOut _ value _ _) =
-  let assets =
-        Set.fromList
-          [ assetId
-          | (assetId@(AssetId _ _), quantity) <-
-              toList value
-          , quantity /= 0
-          ]
-      actual = fromIntegral (Set.size assets)
+-- | Count distinct non-ADA assets across all outputs.
+checkMaxOutputValueAssets :: Natural -> [TxOut ctx] -> Either PolicyViolation ()
+checkMaxOutputValueAssets limit outputs =
+  let actual = fromIntegral $ Set.size $ outputAssets outputs
    in if actual <= limit
         then Right ()
-        else
-          Left
-            MaxOutputValueAssetsExceeded
-              { actualAssetCount = actual
-              , maximumAssetCount = limit
-              }
+        else Left MaxOutputValueAssetsExceeded{actualAssetCount = actual, maximumAssetCount = limit}
+
+outputAssets :: [TxOut ctx] -> Set AssetId
+outputAssets outputs =
+  Set.fromList
+    [ assetId
+    | TxOut _ value _ _ <- outputs
+    , (assetId@(AssetId _ _), quantity) <- toList value
+    , quantity /= 0
+    ]
 
 checkMaxDatumSize :: Natural -> TxOut ctx -> Either PolicyViolation ()
 checkMaxDatumSize limit (TxOut _ _ datum _) =

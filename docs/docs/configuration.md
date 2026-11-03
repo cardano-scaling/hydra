@@ -591,3 +591,30 @@ export RAYON_NUM_THREADS=2
 
 This trades some per-snapshot signing latency on large UTxO sets for less
 scheduler interference; with small UTxO sets the effect is negligible.
+
+### Head policy
+
+Use `--policy policy.yaml` to configure additional admission rules. Every participant must use the same policy. For example:
+
+```yaml
+head-policy:
+  allowed-assets: []
+  l2-minting: forbidden
+  max-utxo-count: 100
+  max-output-value-assets: 0
+  max-datum-bytes: 256
+  allowed-script-addresses: []
+  deposits: none-after-open
+```
+
+Omitted fields impose no restriction. An empty `allowed-assets` list permits only ADA. Otherwise, it lists allowed policy IDs; all asset names under those policies are allowed. `l2-minting: forbidden` rejects both minting and burning in ordinary L2 transactions. `deposits` accepts either `none-after-open` or a list of deposit transaction IDs.
+
+`max-utxo-count` limits the number of outputs in the **complete Head UTxO**. Despite its historical name, `max-output-value-assets` limits the number of **distinct non-ADA assets across that complete UTxO**, not the number in each output. An asset is identified by its policy ID and asset name. Holding the same asset in several outputs counts once.
+
+The complete UTxO includes active outputs, the deposit claimed by the snapshot, and decommit outputs still owed. These settlement outputs count toward limits but cannot be spent by ordinary transactions. Other pending deposits do not count until selected. After settlement, outputs count only where they remain in the active ledger.
+
+Asset allowlists, datum-size limits, and script-address rules apply to every output in this set. `max-datum-bytes` bounds serialized inline or supplemental datum bytes per output. A datum hash has no datum bytes to check. `allowed-script-addresses` restricts script payment addresses; it does not restrict key payment addresses.
+
+The node checks the resulting complete UTxO after every ordinary transaction, before ledger validation. It also checks snapshots with no ordinary transactions. New deposits must pass their ID and output checks before entering the pending registry. A deposit that fits on its own but exceeds the combined limits stays pending; the leader skips it until it fits. Followers check the combined limits before signing.
+
+A policy failure suppresses the whole outgoing snapshot request or the follower's signature. Clients receive `SnapshotRequestRejectedByPolicy` with the snapshot number, violation, and transaction or deposit ID when available. Closing and fanout remain available. These configurable bounds do not by themselves guarantee that every permitted output can be spent or that every fanout fits all L1 transaction limits.

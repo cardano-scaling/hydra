@@ -6,6 +6,7 @@
 
 module Hydra.UserValidationRulesSpec where
 
+import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Address qualified as Ledger
 import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Credential qualified as Ledger
@@ -34,6 +35,8 @@ import Hydra.Cardano.Api (
   pattern TxOutDatumNone,
   pattern TxOutSupplementalDatum,
  )
+import Hydra.Cardano.Api qualified as Api
+import Hydra.Ledger.Cardano.Builder (addTxInsSpending, unsafeBuildTransaction)
 import Hydra.Prelude hiding (toList)
 import Hydra.UserValidationRules (
   MintingOnL2Rule (..),
@@ -47,10 +50,10 @@ import Hydra.UserValidationRules (
   checkDeposit,
   checkMaxDatumSize,
   checkMaxOutputValueAssets,
-  checkMaxUTxOCount,
   checkPolicies,
   validateUserActionWith,
   validateUserTransactionWith,
+  validateUserUTxOWith,
  )
 import Test.Hydra.Prelude
 import Test.Hydra.Tx.Gen (genTxOut, genTxWithMint, genUTxO)
@@ -63,6 +66,7 @@ import Test.QuickCheck (
   coverTable,
   forAll,
   forAllBlind,
+  generate,
   listOf1,
   oneof,
   resize,
@@ -82,6 +86,66 @@ instance Arbitrary UserValidationRules where
 
 spec :: Spec
 spec = do
+  describe "complete UTxO policy" $ do
+    let unrestricted = UserValidationRules Nothing AllowMinting Nothing Nothing Nothing Nothing Nothing
+        check rules = validateResultingUTxO (cardanoUserValidation rules)
+        outputs :: [Api.Value] -> IO Api.UTxO
+        outputs values = do
+          TxOut address _ _ _ <- generate (genTxOut :: Gen (TxOut Api.CtxUTxO))
+          UTxO.fromList
+            <$> forM
+              values
+              ( \value -> do
+                  input <- generate arbitrary
+                  pure (input, TxOut address value TxOutDatumNone Api.ReferenceScriptNone)
+              )
+        assetValue :: AssetId -> Api.Value
+        assetValue asset = fromList [(AdaAssetId, Quantity 2000000), (asset, Quantity 1)]
+
+    it "rejects a forbidden asset already held in the UTxO" $ do
+      policy <- generate arbitrary
+      utxo <- outputs [assetValue $ AssetId policy (Api.UnsafeAssetName "token")]
+      check unrestricted{policyRule = Just $ AllowOnlyPolicies mempty} utxo `shouldSatisfy` isLeft
+      check unrestricted{policyRule = Just $ AllowOnlyPolicies $ Set.singleton policy} utxo `shouldBe` Right ()
+
+    it "counts distinct assets across all outputs" $ do
+      policy <- generate arbitrary
+      utxo <- outputs [assetValue $ AssetId policy (Api.UnsafeAssetName "one"), assetValue $ AssetId policy (Api.UnsafeAssetName "two")]
+      check unrestricted{maxOutputValueAssets = Just 1} utxo
+        `shouldBe` Left (MaxOutputValueAssetsExceeded 2 1)
+      check unrestricted{maxOutputValueAssets = Just 2} utxo `shouldBe` Right ()
+
+    it "counts a repeated asset only once and excludes ADA" $ do
+      policy <- generate arbitrary
+      utxo <- outputs $ replicate 2 (assetValue $ AssetId policy (Api.UnsafeAssetName "token"))
+      check unrestricted{maxOutputValueAssets = Just 1} utxo `shouldBe` Right ()
+      check unrestricted{maxUTxOCount = Just 1} utxo `shouldBe` Left (MaxUTxOCountExceeded 2 1)
+      ada <- outputs [fromList [(AdaAssetId, Quantity 2000000)]]
+      check unrestricted{maxOutputValueAssets = Just 0} ada `shouldBe` Right ()
+
+    it "checks datums on outputs already held in the UTxO" $ do
+      utxo <- outputs [fromList [(AdaAssetId, Quantity 2000000)]]
+      let datum = unsafeHashableScriptData $ ScriptDataBytes "too large"
+          withDatum = UTxO.map (\(TxOut address value _ script) -> TxOut address value (TxOutDatumInline datum) script) utxo
+      check unrestricted{maxDatumSize = Just 0} withDatum `shouldSatisfy` isLeft
+
+    it "keeps checking supplemental datum bytes carried by a transaction" $ do
+      input <- generate arbitrary
+      TxOut address _ _ _ <- generate (genTxOut :: Gen (TxOut CtxTx))
+      let datum = unsafeHashableScriptData $ ScriptDataBytes "too large"
+          output = TxOut address (Api.valueFromList [(AdaAssetId, 2000000)]) (TxOutSupplementalDatum datum) Api.ReferenceScriptNone
+          tx = unsafeBuildTransaction $ Api.defaultTxBodyContent & addTxInsSpending [input] & Api.addTxOuts [output]
+          validation = cardanoUserValidation unrestricted{maxDatumSize = Just 0}
+      validateTransaction validation tx `shouldBe` checkMaxDatumSize 0 output
+
+    it "checks script addresses on outputs already held in the UTxO" $ do
+      scriptHash <- generate arbitrary
+      utxo <- outputs [Api.valueFromList [(AdaAssetId, 2000000)]]
+      let address = fromLedgerAddr $ Ledger.Addr Ledger.Testnet (Ledger.ScriptHashObj scriptHash) Ledger.StakeRefNull
+          atScript = UTxO.map (\(TxOut _ value datum script) -> TxOut address value datum script) utxo
+      check unrestricted{allowedScriptAddresses = Just mempty} atScript `shouldBe` Left (ScriptAddressNotAllowed address)
+      check unrestricted{allowedScriptAddresses = Just $ Set.singleton address} atScript `shouldBe` Right ()
+
   describe "deposit policy handle" $ do
     prop "uses the configured deposit allowlist" $ \rules depositTxId ->
       validateDeposit (cardanoUserValidation rules) depositTxId
@@ -113,10 +177,10 @@ prop_validateUserActionWith =
               validateUserActionWith rules utxo (ValidateL2Transaction tx)
                 === validateUserTransactionWith (cardanoUserValidation rules) utxo tx
           , counterexample "deposit restriction disabled" $
-              checkAdmission Nothing (Right ())
+              checkAdmission Nothing (validateUserUTxOWith rules utxo)
           ]
             <> [ counterexample ("deposit delegation: " <> show rule) $
-                checkAdmission (Just rule) (checkDeposit rule depositTxId)
+                checkAdmission (Just rule) (checkDeposit rule depositTxId >> validateUserUTxOWith rules utxo)
                | rule <- enabledRules
                ]
  where
@@ -147,19 +211,8 @@ prop_validateUserTransactionWith =
     case l2MintingRule rules of
       ForbidMinting -> checkPolicies Set.empty tx
       AllowMinting -> Right ()
-    case maxOutputValueAssets rules of
-      Nothing -> Right ()
-      Just limit ->
-        traverse_ (checkMaxOutputValueAssets limit) (txOuts' tx)
-    case maxDatumSize rules of
-      Nothing -> Right ()
-      Just limit ->
-        traverse_ (checkMaxDatumSize limit) (txOuts' tx)
-    case allowedScriptAddresses rules of
-      Nothing -> Right ()
-      Just allowed ->
-        traverse_ (checkAllowedScriptAddresses allowed) (txOuts' tx)
-    maybe (Right ()) (`checkMaxUTxOCount` utxo) (maxUTxOCount rules)
+    for_ (maxDatumSize rules) $ \limit -> traverse_ (checkMaxDatumSize limit) (txOuts' tx)
+    validateUserUTxOWith rules utxo
 
 prop_checkMintedAssets :: Property
 prop_checkMintedAssets =
@@ -211,10 +264,10 @@ prop_checkMaxOutputValueAssets =
         count = fromIntegral (Set.size names)
      in tabulate "Output assets" [if count == 0 then "ADA only" else "tokens"] $
           conjoin $
-            [ checkMaxOutputValueAssets count output === Right ()
-            , checkMaxOutputValueAssets (count + 1) output === Right ()
+            [ checkMaxOutputValueAssets count [output] === Right ()
+            , checkMaxOutputValueAssets (count + 1) [output] === Right ()
             ]
-              <> [ checkMaxOutputValueAssets (count - 1) output
+              <> [ checkMaxOutputValueAssets (count - 1) [output]
                   === Left
                     MaxOutputValueAssetsExceeded
                       { actualAssetCount = count

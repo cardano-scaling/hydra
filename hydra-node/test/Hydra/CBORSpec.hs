@@ -75,7 +75,8 @@ import Hydra.Tx.Crypto (MultiSignature, Signature)
 import Hydra.Tx.DepositPeriod (DepositPeriod)
 import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Snapshot (snapshotCBORTag, snapshotCBORTagV1)
-import Hydra.UserValidationRules (PolicyViolation)
+import Hydra.Tx.Snapshot qualified as Snapshot
+import Hydra.UserValidationRules (PolicyViolation (..))
 import Test.Hydra.API.ClientInput ()
 import Test.Hydra.API.HTTPServer ()
 import Test.Hydra.API.ServerOutput ()
@@ -224,7 +225,7 @@ spec = parallel $ do
                 <> toCBOR utxo
                 <> toCBOR utxoToCommit
                 <> toCBOR utxoToDecommit
-      decodeFull' legacy `shouldBe` Right snapshot{depositTxId = Nothing}
+      decodeFull' legacy `shouldBe` Right snapshot{Snapshot.depositTxId = Nothing}
 
   -- 'CoordinatedHeadState' gained 'finalizedCommit' and 'finalizedDecommit'
   -- between two released layouts, same situation as 'Snapshot' above.
@@ -404,6 +405,12 @@ spec = parallel $ do
     goldenCBOR "PolicyValidationError" "golden/PolicyValidationError.cbor" (map PolicyValidationError <$> genGoldenSamples @PolicyViolation)
     goldenCBOR "SnapshotRequestRejectedByPolicy" "golden/SnapshotRequestRejectedByPolicy.cbor" $
       filter (\case SnapshotRequestRejectedByPolicy{} -> True; _ -> False) <$> genGoldenSamples @(ClientMessage Tx)
+    goldenCBOR "SnapshotRequestRejectedByPolicyV2" "golden/SnapshotRequestRejectedByPolicyV2.cbor" $ do
+      headId <- arbitrary
+      depositId <- arbitrary
+      pure [SnapshotRequestRejectedByPolicy headId 1 Nothing (Just depositId) (MaxUTxOCountExceeded 2 1) :: ClientMessage Tx]
+    goldenCBOR "PolicyAssetsViolation" "golden/PolicyAssetsViolation.cbor" $
+      filter (\case PolicyAssetsViolation{} -> True; _ -> False) <$> genGoldenSamples @PolicyViolation
     goldenCBOR "ApiTransactionTimeout" "golden/ApiTransactionTimeout.cbor" (genGoldenSample @ApiTransactionTimeout)
     goldenCBOR "UnsyncedPeriod" "golden/UnsyncedPeriod.cbor" (genGoldenSample @UnsyncedPeriod)
     goldenCBOR "ChainPointTime" "golden/ChainPointTime.cbor" (genGoldenSample @ChainPointTime)

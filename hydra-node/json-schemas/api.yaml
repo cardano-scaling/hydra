@@ -1632,7 +1632,7 @@ components:
     SnapshotRequestRejectedByPolicy:
       type: object
       additionalProperties: false
-      required: [tag, headId, snapshotNumber, transactionId, policyViolation]
+      required: [tag, headId, snapshotNumber, policyViolation]
       properties:
         tag:
           enum: [SnapshotRequestRejectedByPolicy]
@@ -1641,6 +1641,8 @@ components:
         snapshotNumber:
           $ref: "api.yaml#/components/schemas/SnapshotNumber"
         transactionId:
+          $ref: "api.yaml#/components/schemas/TxId"
+        depositTxId:
           $ref: "api.yaml#/components/schemas/TxId"
         policyViolation:
           $ref: "api.yaml#/components/schemas/PolicyViolation"
@@ -1652,7 +1654,7 @@ components:
           required: [tag, invalidPolicyIds, allowedPolicyIds]
           properties:
             tag:
-              enum: [PolicyMintingViolation]
+              enum: [PolicyMintingViolation, PolicyAssetsViolation]
             invalidPolicyIds:
               type: array
               uniqueItems: true

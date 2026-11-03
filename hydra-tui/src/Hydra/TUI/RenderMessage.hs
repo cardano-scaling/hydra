@@ -412,14 +412,15 @@ renderClientMessage now msg raw = case msg of
       , "Wait for the node to catch up with the chain before retrying."
       ]
       raw
-  SnapshotRequestRejectedByPolicy{headId, snapshotNumber, transactionId, policyViolation} ->
+  SnapshotRequestRejectedByPolicy{headId, snapshotNumber, transactionId, depositTxId, policyViolation} ->
     mk
       Error
       now
       "Snapshot request rejected by policy"
       [ fld "Head ID" (prettyHeadId headId)
       , fld "Snapshot" (show snapshotNumber)
-      , fld "Transaction ID" (prettyTxId transactionId)
+      , fld "Transaction ID" (maybe "None" prettyTxId transactionId)
+      , fld "Deposit transaction ID" (maybe "None" prettyTxId depositTxId)
       , fld "Policy violation" (show policyViolation)
       ]
       raw
