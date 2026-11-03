@@ -2506,6 +2506,11 @@ checkUserDeposit :: Ledger tx -> TxIdType tx -> Either PolicyViolation ()
 checkUserDeposit ledger depositTxId =
   for_ ledger.userValidation $ \validation -> validation.validateDeposit depositTxId
 
+checkDepositAdmission :: Ledger tx -> TxIdType tx -> UTxOType tx -> Either PolicyViolation ()
+checkDepositAdmission ledger depositTxId deposited = do
+  checkUserDeposit ledger depositTxId
+  checkUserUTxO ledger deposited
+
 -- | Deposits allowed by the policy and belonging to this head. Finalized
 -- deposits are handled separately by re-posting their increment.
 scopedDeposits :: IsTx tx => Ledger tx -> OpenState tx -> PendingDeposits tx -> PendingDeposits tx
@@ -2886,7 +2891,7 @@ handleChainInput env ledger now _chainPointTime pendingDeposits st ev syncStatus
     , ChainInput Observation{observedTx = OnDepositTx{headId, depositTxId, deposited, created, deadline}, newChainState}
     )
       | ourHeadId == headId
-      , isRight (checkUserDeposit ledger depositTxId >> checkUserUTxO ledger deposited) ->
+      , isRight (checkDepositAdmission ledger depositTxId deposited) ->
           newState DepositRecorded{chainState = newChainState, headId, depositTxId, deposited, created, deadline}
             -- The finalized deposit observed *again* means a rollback erased
             -- both the deposit and its finalized increment, and the deposit tx
@@ -2915,7 +2920,7 @@ handleChainInput env ledger now _chainPointTime pendingDeposits st ev syncStatus
           Continue [] []
   (Closed ClosedState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDepositTx{headId, depositTxId, deposited, created, deadline}, newChainState})
     | ourHeadId == headId
-    , isRight (checkUserDeposit ledger depositTxId >> checkUserUTxO ledger deposited) ->
+    , isRight (checkDepositAdmission ledger depositTxId deposited) ->
         newState DepositRecorded{chainState = newChainState, headId, depositTxId, deposited, created, deadline}
     | otherwise ->
         Continue [] []
@@ -2924,7 +2929,7 @@ handleChainInput env ledger now _chainPointTime pendingDeposits st ev syncStatus
   -- 'Recover'. Without this the input falls through to 'Error' and is dropped.
   (FanoutProgress PartialFanoutState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDepositTx{headId, depositTxId, deposited, created, deadline}, newChainState})
     | ourHeadId == headId
-    , isRight (checkUserDeposit ledger depositTxId >> checkUserUTxO ledger deposited) ->
+    , isRight (checkDepositAdmission ledger depositTxId deposited) ->
         newState DepositRecorded{chainState = newChainState, headId, depositTxId, deposited, created, deadline}
     | otherwise ->
         Continue [] []

@@ -170,28 +170,12 @@ data UserValidationRules = UserValidationRules
   }
   deriving stock (Eq, Show, Generic)
 
-data UserValidationAction
-  = ValidateL2Transaction Tx
-  | AdmitNewDeposit TxId
-
 -- | Abstract handle around utxo and tx types
 data UserValidation tx = UserValidation
   { validateTransaction :: tx -> Either PolicyViolation ()
   , validateResultingUTxO :: UTxOType tx -> Either PolicyViolation ()
   , validateDeposit :: TxIdType tx -> Either PolicyViolation ()
   }
-
-validateUserActionWith ::
-  UserValidationRules ->
-  UTxO ->
-  UserValidationAction ->
-  Either PolicyViolation ()
-validateUserActionWith rules resultingUTxO = \case
-  ValidateL2Transaction tx ->
-    validateUserTransactionWith (cardanoUserValidation rules) resultingUTxO tx
-  AdmitNewDeposit depositTxId -> do
-    validateDeposit (cardanoUserValidation rules) depositTxId
-    validateResultingUTxO (cardanoUserValidation rules) resultingUTxO
 
 validateUserTransactionWith ::
   UserValidation tx ->
@@ -236,7 +220,7 @@ validateUserUTxOWith rules utxo = do
         rejected = used `Set.difference` allowed
     unless (Set.null rejected) $
       Left PolicyAssetsViolation{invalidPolicyIds = rejected, allowedPolicyIds = allowed}
-  for_ rules.maxOutputValueAssets $ \limit -> checkMaxOutputValueAssets limit outputs
+  for_ rules.maxOutputValueAssets $ \limit -> checkMaxOutputValueAssets limit assets
   for_ rules.maxDatumSize $ \limit -> traverse_ (checkMaxDatumSize limit) outputs
   for_ rules.allowedScriptAddresses $ \allowed -> traverse_ (checkAllowedScriptAddresses allowed) outputs
  where
@@ -274,10 +258,10 @@ checkMaxUTxOCount limit utxo =
               , maximumCount = limit
               }
 
--- | Count distinct non-ADA assets across all outputs.
-checkMaxOutputValueAssets :: Natural -> [TxOut ctx] -> Either PolicyViolation ()
-checkMaxOutputValueAssets limit outputs =
-  let actual = fromIntegral $ Set.size $ outputAssets outputs
+-- | Check the distinct non-ADA assets collected from all outputs.
+checkMaxOutputValueAssets :: Natural -> Set AssetId -> Either PolicyViolation ()
+checkMaxOutputValueAssets limit assets =
+  let actual = fromIntegral $ Set.size assets
    in if actual <= limit
         then Right ()
         else Left MaxOutputValueAssetsExceeded{actualAssetCount = actual, maximumAssetCount = limit}
