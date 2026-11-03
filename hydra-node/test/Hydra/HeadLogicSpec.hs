@@ -16,6 +16,7 @@ import Data.Secret (Secret, mkSecret)
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
+import Cardano.Api qualified as Cardano
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Api (bodyTxL, inputsTxBodyL)
 import Cardano.Slotting.Time (SystemStart (SystemStart))
@@ -48,6 +49,7 @@ import Hydra.HeadLogic (ClosedState (..), CoordinatedHeadState (..), Effect (..)
 import Hydra.HeadLogic.State (FinalizedSnapshot (..), IdleState (..), SeenSnapshot (..), getHeadParameters, mkSeenSnapshot)
 import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano (cardanoLedger, mkSimpleTx)
+import Hydra.Ledger.Cardano.Builder (addTxInsSpending, unsafeBuildTransaction)
 import Hydra.Ledger.Cardano.Evaluate (renderEvaluationReport)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
 import Hydra.Ledger.Cardano.TimeSpec (genUTCTime)
@@ -338,21 +340,26 @@ spec =
           update aliceEnv (withValidation rejectTransactions) now st (receiveMessageFrom bob $ ReqSn 0 2 [txId tx] Nothing Nothing)
             `assertWait` WaitOnSnapshotNumber 1
 
-        it "rejects a ReqTx that violates the transaction policy" $ do
+        it "rejects a ReqTx transaction policy violation immediately with a positive TTL" $ do
           let st = inOpenState threeParties
           now <- nowFromSlot st.chainPointTime.currentSlot
           let outcome =
                 update aliceEnv (withValidation rejectTransactions) now st $
-                  NetworkInput 0 ReceivedMessage{sender = alice, msg = ReqTx tx}
+                  mkNetworkInput alice (ReqTx tx)
           outcome `hasStateChangedSatisfying` \case
             TxInvalid{transaction, validationError} -> transaction == tx && validationError == policyError
             _ -> False
           outcome `hasNoStateChangedSatisfying` \case
+            TransactionReceived{} -> True
             TransactionAppliedToLocalUTxO{} -> True
             _ -> False
           outcome `hasNoEffectSatisfying` \case
             NetworkEffect{} -> True
             _ -> False
+
+          case outcome of
+            Wait{} -> failure "definitive policy failures must not wait"
+            _ -> pure ()
 
         it "waits when a ReqTx exceeds the resulting UTxO policy" $ do
           let st = inOpenState' threeParties $ coordinatedHeadState{localUTxO = utxoRef 2}
@@ -5858,6 +5865,57 @@ spec =
               pure $ cardanoLedger (Just rules) Fixture.defaultGlobals Fixture.defaultLedgerEnv
             soloEnv = aliceEnv{otherParties = [], participants = [deriveOnChainId alice]}
 
+        forM_ [-1, 0, 1] $ \quantity ->
+          forM_ ["Decommit", "ReqDec", "ReqSn"] $ \entryPoint ->
+            it (entryPoint <> " checks a ledger-valid decommit with mint quantity " <> show quantity) $ do
+              (vk, sk) <- generate genKeyPair
+              txIn <- generate genTxIn
+              let script = Cardano.RequireSignature (Api.verificationKeyHash vk)
+                  policyId = Api.PolicyId $ Cardano.hashScript $ Cardano.SimpleScript script
+                  name = Api.UnsafeAssetName "token"
+                  address = mkVkAddress Fixture.testNetworkId vk
+                  output :: Api.Quantity -> Api.TxOut ctx
+                  output amount = Api.TxOut address (Api.valueFromList [(Api.AdaAssetId, 5000000), (Api.AssetId policyId name, amount)]) Api.TxOutDatumNone Api.ReferenceScriptNone
+                  seed = forceUTxO $ UTxO.singleton txIn (output 10)
+                  witness = Cardano.SimpleScriptWitness Cardano.SimpleScriptInConway (Cardano.SScript script)
+                  unsigned =
+                    unsafeBuildTransaction $
+                      Api.defaultTxBodyContent
+                        & addTxInsSpending [txIn]
+                        & Api.addTxOuts [output (10 + quantity)]
+                        & Api.addTxMintValue (if quantity == 0 then mempty else Map.singleton policyId (Api.PolicyAssets $ Map.singleton name quantity, Api.BuildTxWith witness))
+                  tx = Api.signShelleyTransaction (getTxBody unsigned) [Api.WitnessPaymentKey sk]
+                  st = openWith seed []
+                  input = case entryPoint of
+                    "Decommit" -> ClientInput $ Decommit tx
+                    "ReqDec" -> mkNetworkInput alice (ReqDec tx)
+                    _ -> receiveMessage $ ReqSn 0 1 [] (Just tx) Nothing
+              policyLedger <- ledgerWithPolicy $ object ["l2-minting" .= ("forbidden" :: Text)]
+              -- The ledger accepts this transaction; the policy must reject its mint or burn.
+              applyTransactions policyLedger st.chainPointTime.currentSlot seed [tx] `shouldSatisfy` isRight
+              now <- nowFromSlot st.chainPointTime.currentSlot
+              let outcome = update soloEnv policyLedger now st input
+                  violation = PolicyMintingViolation (Set.singleton policyId) mempty
+              if quantity == 0
+                then
+                  outcome `hasEffectSatisfying` \case
+                    NetworkEffect{} -> True
+                    _ -> False
+                else do
+                  outcome `hasNoEffectSatisfying` \case
+                    NetworkEffect{} -> True
+                    _ -> False
+                  outcome `hasNoStateChangedSatisfying` \case
+                    DecommitRecorded{} -> True
+                    SnapshotRequested{} -> True
+                    _ -> False
+                  if entryPoint == "ReqSn"
+                    then outcome `hasEffect` ClientEffect (SnapshotRequestRejectedByPolicy testHeadId 1 (Just $ txId tx) Nothing violation)
+                    else
+                      outcome `hasStateChangedSatisfying` \case
+                        DecommitInvalid{decommitInvalidReason = DecommitTxInvalid{validationError}} -> validationError == PolicyValidationError violation
+                        _ -> False
+
         forM_
           [ ("no transaction restriction", object [], True)
           , ("at the UTxO limit", object ["max-utxo-count" .= (1 :: Int)], True)
@@ -6002,6 +6060,45 @@ spec =
           update soloEnv permissive now st request `hasEffectSatisfying` \case
             NetworkEffect AckSn{} -> True
             _ -> False
+
+        forM_ ["deposit ID", "assets", "UTxO count", "asset count", "datum", "script address"] $ \rule ->
+          it ("checks deposit " <> rule <> " before signing a snapshot") $ do
+            depositId <- generate arbitrary
+            input <- generate genTxIn
+            let scriptHash = Cardano.hashScript $ Cardano.SimpleScript $ Cardano.RequireAllOf []
+                address = Cardano.makeShelleyAddressInEra Api.shelleyBasedEra Fixture.testNetworkId (Cardano.PaymentCredentialByScript scriptHash) Cardano.NoStakeAddress
+                asset = Api.AssetId (Api.PolicyId scriptHash) (Api.UnsafeAssetName "token")
+                value = Api.valueFromList [(Api.AdaAssetId, 5000000), (asset, 1)]
+                datum :: Api.TxOutDatum Api.CtxUTxO
+                datum = Api.TxOutDatumInline $ Api.unsafeHashableScriptData $ Api.ScriptDataBytes "datum"
+                deposited = forceUTxO $ UTxO.singleton input (Api.TxOut address value datum Api.ReferenceScriptNone)
+                fields = case rule of
+                  "deposit ID" -> object ["deposits" .= ([] :: [Api.TxId])]
+                  "assets" -> object ["allowed-assets" .= ([] :: [Api.PolicyId])]
+                  "UTxO count" -> object ["max-utxo-count" .= (0 :: Int)]
+                  "asset count" -> object ["max-output-value-assets" .= (0 :: Int)]
+                  "datum" -> object ["max-datum-bytes" .= (0 :: Int)]
+                  _ -> object ["allowed-script-addresses" .= ([] :: [Api.AddressInEra])]
+                initial = openWith mempty []
+            now <- nowFromSlot initial.chainPointTime.currentSlot
+            let deposit = Deposit{headId = testHeadId, deposited, created = now, deadline = addUTCTime 7200 now, status = Active}
+                st = initial{deposits = trackedFromPending $ Map.singleton depositId deposit}
+                request = receiveMessage $ ReqSn 0 1 [] Nothing (Just depositId)
+            restricted <- ledgerWithPolicy fields
+            permissive <- ledgerWithPolicy $ object ["deposits" .= [depositId]]
+            let rejected = update soloEnv restricted now st request
+            rejected `hasEffectSatisfying` \case
+              ClientEffect SnapshotRequestRejectedByPolicy{depositTxId = Just rejectedId} -> rejectedId == depositId
+              _ -> False
+            rejected `hasNoEffectSatisfying` \case
+              NetworkEffect{} -> True
+              _ -> False
+            rejected `hasNoStateChangedSatisfying` \case
+              SnapshotRequested{} -> True
+              _ -> False
+            update soloEnv permissive now st request `hasEffectSatisfying` \case
+              NetworkEffect AckSn{} -> True
+              _ -> False
 
         it "rejects an unlisted deposit and settles a listed deposit with the configured Cardano ledger" $ do
           (ctx, directOpen, listedTx, spendable, incrementTx, confirmed) <-

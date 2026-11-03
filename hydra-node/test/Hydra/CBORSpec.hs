@@ -403,12 +403,15 @@ spec = parallel $ do
     goldenCBOR "Host" "golden/Host.cbor" (genGoldenSample @Host)
     goldenCBOR "ValidationError" "golden/ValidationError.cbor" (genGoldenSample @ValidationError)
     goldenCBOR "PolicyValidationError" "golden/PolicyValidationError.cbor" (map PolicyValidationError <$> genGoldenSamples @PolicyViolation)
-    goldenCBOR "SnapshotRequestRejectedByPolicy" "golden/SnapshotRequestRejectedByPolicy.cbor" $
-      filter (\case SnapshotRequestRejectedByPolicy{} -> True; _ -> False) <$> genGoldenSamples @(ClientMessage Tx)
-    goldenCBOR "SnapshotRequestRejectedByPolicyV2" "golden/SnapshotRequestRejectedByPolicyV2.cbor" $ do
+    goldenCBOR "SnapshotRequestRejectedByPolicy" "golden/SnapshotRequestRejectedByPolicy.cbor" $ do
       headId <- arbitrary
+      transactionId <- arbitrary
       depositId <- arbitrary
-      pure [SnapshotRequestRejectedByPolicy headId 1 Nothing (Just depositId) (MaxUTxOCountExceeded 2 1) :: ClientMessage Tx]
+      pure
+        [ SnapshotRequestRejectedByPolicy headId 1 tx deposit (MaxUTxOCountExceeded 2 1) :: ClientMessage Tx
+        | tx <- [Nothing, Just transactionId]
+        , deposit <- [Nothing, Just depositId]
+        ]
     goldenCBOR "PolicyAssetsViolation" "golden/PolicyAssetsViolation.cbor" $
       filter (\case PolicyAssetsViolation{} -> True; _ -> False) <$> genGoldenSamples @PolicyViolation
     goldenCBOR "ApiTransactionTimeout" "golden/ApiTransactionTimeout.cbor" (genGoldenSample @ApiTransactionTimeout)
