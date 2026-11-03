@@ -81,13 +81,22 @@ spec = do
     now <- getCurrentTime
     transactionId <- either (failure . show) pure $ deserialiseFromRawBytes AsTxId (BS.replicate 32 2)
     let headId = UnsafeHeadId (BS.replicate 28 1)
-        rendered = renderMessage now $ ApiClientMessage $ SnapshotRequestRejectedByPolicy headId 7 transactionId (MaxUTxOCountExceeded 21 20)
+        rendered = renderMessage now $ ApiClientMessage $ SnapshotRequestRejectedByPolicy headId 7 (Just transactionId) Nothing (MaxUTxOCountExceeded 21 20)
     rmSeverity rendered `shouldBe` Error
     rmTime rendered `shouldBe` now
     rmSummary rendered `shouldBe` "Snapshot request rejected by policy"
     toString (rmDetail rendered) `shouldContain` "Snapshot: 7"
     toString (rmDetail rendered) `shouldContain` toString (prettyTxId transactionId)
     toString (rmDetail rendered) `shouldContain` "MaxUTxOCountExceeded"
+
+  it "renders a deposit-only snapshot policy failure" $ do
+    now <- getCurrentTime
+    depositId <- either (failure . show) pure $ deserialiseFromRawBytes AsTxId (BS.replicate 32 3)
+    let headId = UnsafeHeadId (BS.replicate 28 1)
+        rendered = renderMessage now $ ApiClientMessage $ SnapshotRequestRejectedByPolicy headId 7 Nothing (Just depositId) (MaxUTxOCountExceeded 21 20)
+    rmSeverity rendered `shouldBe` Error
+    toString (rmDetail rendered) `shouldContain` "Transaction ID: None"
+    toString (rmDetail rendered) `shouldContain` toString (prettyTxId depositId)
 
   context "end-to-end smoke tests" $ do
     it "can quit before connected" $
