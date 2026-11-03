@@ -70,7 +70,7 @@ parseHeadPolicy = Aeson.withObject "head-policy" $ \o -> do
   datumLimit <- optionalField "max-datum-bytes" Aeson.parseJSON o
   scriptAddresses <-
     optionalField "allowed-script-addresses" parseScriptAddresses o
-  deposits <- optionalField "deposits" parseDeposits o
+  deposits <- o Aeson..:? "deposits"
 
   pure
     UserValidationRules
@@ -88,12 +88,6 @@ parseHeadPolicy = Aeson.withObject "head-policy" $ \o -> do
     "forbidden" -> pure ForbidMinting
     "allowed" -> pure AllowMinting
     _ -> fail "l2-minting must be 'forbidden' or 'allowed'"
-
-  parseDeposits :: Aeson.Value -> Parser (Set TxId)
-  parseDeposits = \case
-    Aeson.String "none-after-open" -> pure Set.empty
-    value@(Aeson.Array _) -> Aeson.parseJSON value
-    _ -> fail "deposits must be 'none-after-open' or a list of transaction IDs"
 
   parseScriptAddresses :: Aeson.Value -> Parser (Set AddressInEra)
   parseScriptAddresses value = do

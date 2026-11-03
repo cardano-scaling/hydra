@@ -135,12 +135,7 @@ instance IsChainState tx => FromJSON (ClientMessage tx) where
         }
 
 instance IsChainState tx => ToCBOR (ClientMessage tx) where
-  -- Keep the original layout for transaction-only policy rejections.
-  toCBOR SnapshotRequestRejectedByPolicy{headId, snapshotNumber, transactionId = Just transactionId, depositTxId = Nothing, policyViolation} =
-    toCBOR ("SnapshotRequestRejectedByPolicy" :: Text) <> toCBOR headId <> toCBOR snapshotNumber <> toCBOR transactionId <> toCBOR policyViolation
-  toCBOR SnapshotRequestRejectedByPolicy{headId, snapshotNumber, transactionId, depositTxId, policyViolation} =
-    toCBOR ("SnapshotRequestRejectedByPolicyV2" :: Text) <> toCBOR headId <> toCBOR snapshotNumber <> toCBOR transactionId <> toCBOR depositTxId <> toCBOR policyViolation
-  toCBOR message = genericToCBOR message
+  toCBOR = genericToCBOR
 
 instance IsChainState tx => FromCBOR (ClientMessage tx) where
   fromCBOR = fromCBOR >>= decodeClientMessageBody
@@ -154,8 +149,7 @@ decodeClientMessageBody = \case
   "RejectedInputBecauseUnsynced" -> RejectedInputBecauseUnsynced <$> fromCBOR <*> fromCBOR
   "RejectedInputBecauseBroadcastStalled" -> RejectedInputBecauseBroadcastStalled <$> fromCBOR <*> fromCBOR <*> fromCBOR
   "SideLoadSnapshotRejected" -> SideLoadSnapshotRejected <$> fromCBOR <*> fromCBOR
-  "SnapshotRequestRejectedByPolicy" -> SnapshotRequestRejectedByPolicy <$> fromCBOR <*> fromCBOR <*> (Just <$> fromCBOR) <*> pure Nothing <*> fromCBOR
-  "SnapshotRequestRejectedByPolicyV2" -> SnapshotRequestRejectedByPolicy <$> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR
+  "SnapshotRequestRejectedByPolicy" -> SnapshotRequestRejectedByPolicy <$> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR
   tag -> fail $ show tag <> " is not a proper CBOR-encoded ClientMessage"
 
 -- | A friendly welcome message which tells a client something about the

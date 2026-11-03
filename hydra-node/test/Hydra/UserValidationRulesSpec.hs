@@ -10,8 +10,10 @@ import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Address qualified as Ledger
 import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Credential qualified as Ledger
+import Data.Aeson.Types (object, parseEither, (.=))
 import Data.ByteString qualified as BS
 import Data.Set qualified as Set
+import Data.Yaml qualified as Yaml
 import GHC.IsList (toList)
 import Hydra.Cardano.Api (
   AddressInEra,
@@ -51,6 +53,7 @@ import Hydra.UserValidationRules (
   checkMaxDatumSize,
   checkMaxOutputValueAssets,
   checkPolicies,
+  parsePolicyFile,
   validateUserActionWith,
   validateUserTransactionWith,
   validateUserUTxOWith,
@@ -71,6 +74,7 @@ import Test.QuickCheck (
   oneof,
   resize,
   sublistOf,
+  suchThat,
   tabulate,
   (===),
  )
@@ -86,6 +90,34 @@ instance Arbitrary UserValidationRules where
 
 spec :: Spec
 spec = do
+  describe "deposit policy configuration" $ do
+    let parse :: ByteString -> Either String UserValidationRules
+        parse bytes = first show (Yaml.decodeEither' bytes) >>= parseEither parsePolicyFile
+
+    forM_ ["head-policy: {}", "head-policy: {deposits: null}"] $ \config ->
+      it ("allows all deposits with " <> config) $ do
+        rules <- either failure pure $ parse $ encodeUtf8 config
+        depositId <- generate arbitrary
+        allowedDeposits rules `shouldBe` Nothing
+        validateDeposit (cardanoUserValidation rules) depositId `shouldBe` Right ()
+
+    it "rejects all deposits with an empty list" $ do
+      rules <- either failure pure $ parse "head-policy: {deposits: []}"
+      depositId <- generate arbitrary
+      validateDeposit (cardanoUserValidation rules) depositId `shouldBe` Left (DepositNotAllowed depositId)
+
+    it "accepts only listed deposit IDs and ignores duplicates" $ do
+      depositId <- generate arbitrary
+      otherId <- generate $ arbitrary `suchThat` (/= depositId)
+      rules <- either failure pure $ parse $ Yaml.encode $ object ["head-policy" .= object ["deposits" .= [depositId, depositId]]]
+      allowedDeposits rules `shouldBe` Just (Set.singleton depositId)
+      validateDeposit (cardanoUserValidation rules) depositId `shouldBe` Right ()
+      validateDeposit (cardanoUserValidation rules) otherId `shouldBe` Left (DepositNotAllowed otherId)
+
+    forM_ ["none-after-open", "true", "42", "{}", "[invalid-tx-id]"] $ \value ->
+      it ("rejects an invalid deposits setting: " <> value) $
+        parse (encodeUtf8 $ "head-policy: {deposits: " <> value <> "}") `shouldSatisfy` isLeft
+
   describe "complete UTxO policy" $ do
     let unrestricted = UserValidationRules Nothing AllowMinting Nothing Nothing Nothing Nothing Nothing
         check rules = validateResultingUTxO (cardanoUserValidation rules)
