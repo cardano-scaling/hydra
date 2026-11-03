@@ -45,7 +45,6 @@ import Hydra.UserValidationRules (
   PolicyRule (..),
   PolicyViolation (..),
   UserValidation (..),
-  UserValidationAction (..),
   UserValidationRules (..),
   cardanoUserValidation,
   checkAllowedScriptAddresses,
@@ -53,8 +52,8 @@ import Hydra.UserValidationRules (
   checkMaxDatumSize,
   checkMaxOutputValueAssets,
   checkPolicies,
+  outputAssets,
   parsePolicyFile,
-  validateUserActionWith,
   validateUserTransactionWith,
   validateUserUTxOWith,
  )
@@ -189,35 +188,6 @@ spec = do
     prop "checkAllowedScriptAddresses" prop_checkAllowedScriptAddresses
     prop "checkDeposit" prop_checkDeposit
     prop "validateUserTransactionWith" prop_validateUserTransactionWith
-    prop "validateUserActionWith" prop_validateUserActionWith
-
-prop_validateUserActionWith :: Property
-prop_validateUserActionWith =
-  forAll genCase $ \(tx, utxo, rules, depositTxId) ->
-    let checkAdmission rule expected =
-          validateUserActionWith
-            (rules{allowedDeposits = rule})
-            utxo
-            (AdmitNewDeposit depositTxId)
-            === expected
-        enabledRules =
-          [ Set.empty
-          , Set.singleton depositTxId
-          ]
-     in conjoin $
-          [ counterexample "L2 transaction delegation" $
-              validateUserActionWith rules utxo (ValidateL2Transaction tx)
-                === validateUserTransactionWith (cardanoUserValidation rules) utxo tx
-          , counterexample "deposit restriction disabled" $
-              checkAdmission Nothing (validateUserUTxOWith rules utxo)
-          ]
-            <> [ counterexample ("deposit delegation: " <> show rule) $
-                checkAdmission (Just rule) (checkDeposit rule depositTxId >> validateUserUTxOWith rules utxo)
-               | rule <- enabledRules
-               ]
- where
-  genCase =
-    (,,,) <$> genTxWithMint <*> genUTxO <*> arbitrary <*> arbitrary
 
 prop_validateUserTransactionWith :: Property
 prop_validateUserTransactionWith =
@@ -293,13 +263,14 @@ prop_checkMaxOutputValueAssets =
                 | name <- Set.toList names
                 ]
         output = TxOut address value datum refScript
+        assets = outputAssets [output]
         count = fromIntegral (Set.size names)
      in tabulate "Output assets" [if count == 0 then "ADA only" else "tokens"] $
           conjoin $
-            [ checkMaxOutputValueAssets count [output] === Right ()
-            , checkMaxOutputValueAssets (count + 1) [output] === Right ()
+            [ checkMaxOutputValueAssets count assets === Right ()
+            , checkMaxOutputValueAssets (count + 1) assets === Right ()
             ]
-              <> [ checkMaxOutputValueAssets (count - 1) [output]
+              <> [ checkMaxOutputValueAssets (count - 1) assets
                   === Left
                     MaxOutputValueAssetsExceeded
                       { actualAssetCount = count
