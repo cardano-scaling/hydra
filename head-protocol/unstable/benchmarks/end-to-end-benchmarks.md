@@ -13,7 +13,7 @@ Please note that these results are approximate  as they are currently produced f
 
 :::
 
-_Generated at_  2026-11-02 15:03:33.006483494 UTC
+_Generated at_  2026-11-03 09:29:45.717170682 UTC
 
 
 ## Baseline Scenario
@@ -24,17 +24,17 @@ _Generated at_  2026-11-02 15:03:33.006483494 UTC
 | -- | -- |
 | _Number of txs_ | 300 |
 | _Load mode_ | open-loop |
-| _Avg. Confirmation Time (ms)_ | 108.4 |
-| _P99_ | 110.2ms |
-| _P95_ | 110.0ms |
-| _P50_ | 108.6ms |
-| _Tx validation time p50 (ms)_ | 36.9 |
-| _End-to-end TPS_ | 2715.20 tx/s |
-| _Backlog drain time (s)_ | 0.1 |
+| _Avg. Confirmation Time (ms)_ | 177.4 |
+| _P99_ | 184.3ms |
+| _P95_ | 183.8ms |
+| _P50_ | 180.5ms |
+| _Tx validation time p50 (ms)_ | 79.3 |
+| _End-to-end TPS_ | 1623.51 tx/s |
+| _Backlog drain time (s)_ | 0.2 |
 | _Snapshots observed_ | 2 |
-| _Snapshots per second_ | 18.10 /s |
+| _Snapshots per second_ | 10.82 /s |
 | _Avg txs per snapshot_ | 150.0 |
-| _Peak node RSS (MB)_ | 172.1 |
+| _Peak node RSS (MB)_ | 171.0 |
 | _Number of Invalid txs_ | 0 |
 | _Refused submissions_ | 0 |
 | _Fanout outputs_        | 1 |
@@ -48,17 +48,17 @@ _Generated at_  2026-11-02 15:03:33.006483494 UTC
 | -- | -- |
 | _Number of txs_ | 900 |
 | _Load mode_ | open-loop |
-| _Avg. Confirmation Time (ms)_ | 509.7 |
-| _P99_ | 535.8ms |
-| _P95_ | 535.2ms |
-| _P50_ | 526.4ms |
-| _Tx validation time p50 (ms)_ | 247.0 |
-| _End-to-end TPS_ | 1628.83 tx/s |
-| _Backlog drain time (s)_ | 0.5 |
+| _Avg. Confirmation Time (ms)_ | 1032.3 |
+| _P99_ | 1071.1ms |
+| _P95_ | 1069.2ms |
+| _P50_ | 1061.1ms |
+| _Tx validation time p50 (ms)_ | 387.7 |
+| _End-to-end TPS_ | 831.15 tx/s |
+| _Backlog drain time (s)_ | 1.1 |
 | _Snapshots observed_ | 3 |
-| _Snapshots per second_ | 5.43 /s |
+| _Snapshots per second_ | 2.77 /s |
 | _Avg txs per snapshot_ | 300.0 |
-| _Peak node RSS (MB)_ | 173.4 |
+| _Peak node RSS (MB)_ | 172.4 |
 | _Number of Invalid txs_ | 0 |
 | _Refused submissions_ | 0 |
 | _Fanout outputs_        | 3 |
@@ -72,17 +72,17 @@ Each client splits its funds into 1000 outputs (1-in 10-out), then holds that pl
 | -- | -- |
 | _Number of txs_ | 600 |
 | _Load mode_ | open-loop |
-| _Avg. Confirmation Time (ms)_ | 426.6 |
-| _P99_ | 431.3ms |
-| _P95_ | 430.8ms |
-| _P50_ | 427.2ms |
-| _Tx validation time p50 (ms)_ | 128.2 |
-| _End-to-end TPS_ | 1389.96 tx/s |
-| _Backlog drain time (s)_ | 0.4 |
-| _Snapshots observed_ | 2 |
-| _Snapshots per second_ | 4.63 /s |
-| _Avg txs per snapshot_ | 300.0 |
-| _Peak node RSS (MB)_ | 181.8 |
+| _Avg. Confirmation Time (ms)_ | 819.6 |
+| _P99_ | 925.8ms |
+| _P95_ | 924.9ms |
+| _P50_ | 760.9ms |
+| _Tx validation time p50 (ms)_ | 203.9 |
+| _End-to-end TPS_ | 634.78 tx/s |
+| _Backlog drain time (s)_ | 0.9 |
+| _Snapshots observed_ | 3 |
+| _Snapshots per second_ | 3.17 /s |
+| _Avg txs per snapshot_ | 200.0 |
+| _Peak node RSS (MB)_ | 182.1 |
 | _Number of Invalid txs_ | 0 |
 | _Refused submissions_ | 0 |
 | _Fanout outputs_        | 1000 |
