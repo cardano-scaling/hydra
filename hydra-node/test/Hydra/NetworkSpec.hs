@@ -45,6 +45,7 @@ import Hydra.Network.Message (Message (..))
 import Hydra.Network.Policy (policyFingerprint)
 import Hydra.Node.Network (NetworkConfiguration (..))
 import Hydra.Node.Network qualified as NodeNetwork
+import Hydra.UserValidationRules (MintingOnL2Rule (..), UserValidationRules (..))
 import Network.GRPC.Client (Address (..), Server (..), ServerDisconnected (..), withConnection)
 import Network.GRPC.Common (GrpcError (..), GrpcException (..))
 import Network.GRPC.Common.Exception (ExactException (..))
@@ -235,7 +236,8 @@ etcdSpec =
           (recordAlice, receiveAlice, _) <- newRecordingCallback
           (recordBob, receiveBob, _) <- newRecordingCallback
           bobReceived <- newEmptyTMVarIO
-          let fingerprint = policyFingerprint Nothing
+          let rules = UserValidationRules Nothing AllowMinting Nothing Nothing Nothing Nothing Nothing
+              fingerprint = Just $ policyFingerprint rules
               message = ReqTx (SimpleTx 1 mempty mempty)
           concurrentlyLabelled_
             ( "alice-policy-startup"

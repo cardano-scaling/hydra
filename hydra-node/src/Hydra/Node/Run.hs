@@ -114,7 +114,7 @@ run opts = do
           let eventSinks :: [EventSink (StateEvent Tx) IO] = []
           wetHydraNode <- hydrate (contramap Node tracer) env ledger initialChainState eventStore eventSinks
           traceWith tracer NodeHydrated
-          -- Agree on the policy before starting the chain, API, or main loop.
+          -- When configured, agree on the policy before starting the chain, API, or main loop.
           let networkConfiguration =
                 NetworkConfiguration
                   { persistenceDir
@@ -129,7 +129,7 @@ run opts = do
           withNetwork
             (contramap Network tracer)
             networkConfiguration
-            (policyFingerprint rules)
+            (policyFingerprint <$> rules)
             (wireNetworkInput wetHydraNode)
             $ \network -> do
               traceWith tracer NetworkStarted

@@ -68,7 +68,7 @@ withNetwork ::
   Tracer IO NetworkLog ->
   -- | The network configuration
   NetworkConfiguration ->
-  PolicyFingerprint ->
+  Maybe PolicyFingerprint ->
   -- | Produces a `NetworkComponent` that can send `msg` and consumes `Authenticated` @msg@.
   NetworkComponent IO (Authenticated (Message tx)) (Message tx) ()
 withNetwork tracer conf fingerprint callback action = do
