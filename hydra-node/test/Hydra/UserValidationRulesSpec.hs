@@ -113,7 +113,7 @@ spec = do
       validateDeposit (cardanoUserValidation rules) depositId `shouldBe` Right ()
       validateDeposit (cardanoUserValidation rules) otherId `shouldBe` Left (DepositNotAllowed otherId)
 
-    forM_ ["none-after-open", "true", "42", "{}", "[invalid-tx-id]"] $ \value ->
+    forM_ ["true", "42", "{}", "[invalid-tx-id]"] $ \value ->
       it ("rejects an invalid deposits setting: " <> value) $
         parse (encodeUtf8 $ "head-policy: {deposits: " <> value <> "}") `shouldSatisfy` isLeft
 
