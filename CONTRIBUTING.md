@@ -77,13 +77,16 @@ releasing.
 We use and require [Nix](https://nixos.org/download.html) to provide a
 consistent development environment via our `flake.nix`.
 
-Make sure that you have activated flakes in your `nix.conf`:
+Enable flakes and add the Hydra binary caches in your `nix.conf`:
 
 ```
-substituters = https://cache.iog.io https://cache.nixos.org
-trusted-public-keys = hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
 experimental-features = nix-command flakes
+extra-substituters = https://cache.iog.io https://cardano-scaling.cachix.org
+extra-trusted-public-keys = hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= cardano-scaling.cachix.org-1:QNK4nFrowZ/aIJMCBsE35m+O70fV6eewsBNdQnCSMKA=
 ```
+
+The `extra-` settings preserve your existing caches and trusted keys,
+including the default `cache.nixos.org` cache.
 
 <details>
 <summary>For macOS users</summary>
@@ -92,17 +95,19 @@ Daemon mode is the recommended way to install and run Nix on macOS. Therefore, y
 
 ```
 build-users-group = nixbld
-trusted-users = root pascal
+trusted-users = root <your-username>
 ```
+
+Replace `<your-username>` with your macOS username.
 
 </details>
 
-Then `nix build` will ask you about using our caches and download or build the
+Then `nix build` will download or build the
 `hydra-node` into `result/bin/hydra-node`. You might also be interested in the following:
 
 - Build the `hydra-node` using Nix: `nix build .#hydra-node`
-- Build a statically linked `hydra-node` using Nix: `nix build .#hydra-node-static`
-- Build the `hydra-node` Docker image `nix build .#docker-hydra-node` and load it with `docker load < result`
+- Build a statically linked `hydra-node` on `x86_64-linux`: `nix build .#hydra-node-static`
+- Build the `hydra-node` Docker image on Linux: `nix build .#docker-hydra-node` and load it with `docker load < result`
 - Build the specification as a PDF: `nix build .#spec`.
 
 For development, a call to `nix develop` will set up the environment so you can:
@@ -117,6 +122,37 @@ For development, a call to `nix develop` will set up the environment so you can:
 Some of us use [direnv](https://direnv.net/) and [nix-direnv](https://github.com/nix-community/nix-direnv) to automatically import the Nix environment into our preferred shell or editor, eliminating the need for an explicit call to enter the Nix shell.
 
 In addition to these general build instructions, individual components might have additional steps and useful tools documented in their `README.md` files. For example, see the documentation for [docs](./docs/README.md) or [hydra-cluster](./hydra-cluster/README.md).
+
+#### Fast development loop
+
+Run these commands from the repository root inside `nix develop`.
+
+For changes within one package, load its test suite in a REPL:
+
+```shell
+cabal repl hydra-tx:test:tests
+```
+
+Run the relevant tests, then reload and rerun them after each edit:
+
+```text
+:main -p "/hashing/"
+:reload
+:main -p "/hashing/"
+```
+
+Replace `hydra-tx` and `hashing` with the package and test name you are working
+on. The `/.../` pattern selects tests whose paths contain that substring.
+
+For changes across packages, use `just test` so Cabal rebuilds dependencies:
+
+```shell
+just test hydra-tx "hashing"
+```
+
+`:reload` does not rebuild dependencies in other packages and can leave tests
+running against old code. If you continue using the REPL after changing a
+dependency, quit with `:quit` and restart `cabal repl`.
 
 Nix builds of our own packages (`nix build`, `nix develop .#*-tests`,
 `nix-fast-build`) treat warnings as errors (`-Werror`). Plain `cabal build` /
@@ -138,13 +174,21 @@ allowed when another requested suite contains selected tests. Results are in
 
 #### Code quality
 
-You can run the code quality check locally with
-[`nix-fast-build`](https://github.com/Mic92/nix-fast-build/tree/main) from the
-default devShell:
+After finishing code changes, run `just lint` and fix any findings. Run
+`just check` as the final check before submitting your changes:
 
+```shell
+just lint
+just check
 ```
-nix-fast-build
-```
+
+`just lint` formats the code and builds with strict warnings. `just check`
+runs the Nix flake checks using
+[`nix-fast-build`](https://github.com/Mic92/nix-fast-build/tree/main).
+It is resource-intensive, so use focused tests while editing. If you change
+hydra-cluster or hydra-tui, also run its suite with `just test hydra-cluster`
+or `just test hydra-tui`, respectively, because the flake checks do not cover
+these suites.
 
 ### Coding standards
 
@@ -185,7 +229,7 @@ Since we use Nix to manage our Haskell build, you will also need to update the N
 
 #### From Cardano Haskell packages (CHaP)
 
-Many Cardano packages are not available on Hackage but are instead hosted in the [Cardano Haskell packages (CHaP)](https://github.com/input-output-hk/cardano-haskell-packages). For more information, refer to the README there. Adding new packages from CHaP is similar to adding them from Hackage. However, there are a few differences: CHaP has its own independent `index-state`, and you will need to update the `CHaP` flake input using `nix flake lock --update-input CHaP`.
+Many Cardano packages are not available on Hackage but are instead hosted in the [Cardano Haskell packages (CHaP)](https://github.com/IntersectMBO/cardano-haskell-packages). For more information, refer to the README there. Adding new packages from CHaP is similar to adding them from Hackage. However, there are a few differences: CHaP has its own independent `index-state`, and you will need to update the `CHaP` flake input using `nix flake lock --update-input CHaP`.
 
 #### Using unreleased versions of dependencies
 
@@ -197,7 +241,7 @@ During development:
 - Ensure `CHANGELOG.md` is updated with a high-level, technical, yet user-focused list of changes, following the [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) guidelines.
 - Bump the `UNRELEASED` version in `CHANGELOG.md` according to [Semantic Versioning](https://semver.org/).
 - Use the `unstable` version of Docker images for demos:
-  - Update the Docker image tag using: `sed -i.bak -e "s,\(ghcr.io/cardano-scaling/hydra-[^:]*\):[^[:space:]]*,\1:unstable," demo/*`.
+  - Update the Docker image tag using: `sed -i.bak -e "s,\(ghcr.io/cardano-scaling/hydra-[^:]*\):[^[:space:]]*,\1:unstable," demo/docker-compose.yaml demo/seed-devnet.sh`.
 - Ensure all `hydra-` packages are versioned identically and that their versions are aligned with the latest release.
 - Version other packages independently from `hydra-` packages, and maintain a separate changelog for them.
 
@@ -228,10 +272,12 @@ To perform a release of the next `<version>`:
    push the branches `master`, `release` and the `<version>` tag.
 7. Create a GitHub release page containing:
    * The released changes (formatted) and giving credit where credit is due
-   * Built Hydra (and `cardano-node`) binaries to the release using the naming scheme:
+   * Built Hydra binaries to the release using the naming scheme:
      `hydra-<platform>-<version>.zip` where `platform` is `x86_64-linux`,
-     `aarch64-linux` or `aarch64-darwin` (the same for `cardano-node` instead
-     of `hydra`)
+     `aarch64-linux`, `aarch64-darwin`, or `x86_64-windows`. The Windows
+     archive contains only `hydra-node`. Attach corresponding `cardano-node`
+     archives where available, using `cardano-node` instead of `hydra` in
+     the filename.
    * The just published `hydra-scripts-tx-id` from step 2.
 
 [smoke-test]: https://github.com/cardano-scaling/hydra/actions/workflows/smoke-test.yaml
