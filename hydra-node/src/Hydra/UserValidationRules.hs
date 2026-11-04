@@ -70,7 +70,7 @@ parseHeadPolicy = Aeson.withObject "head-policy" $ \o -> do
   datumLimit <- optionalField "max-datum-bytes" Aeson.parseJSON o
   scriptAddresses <-
     optionalField "allowed-script-addresses" parseScriptAddresses o
-  deposits <- o Aeson..:? "deposits"
+  deposits <- o Aeson..:? "deposits" >>= traverse parseDeposits
 
   pure
     UserValidationRules
@@ -100,6 +100,11 @@ parseHeadPolicy = Aeson.withObject "head-policy" $ \o -> do
             "allowed-script-addresses requires script payment addresses: "
               <> show address
     pure $ Set.fromList addresses
+
+  parseDeposits :: Aeson.Value -> Parser (Set TxId)
+  parseDeposits value = do
+    deposits <- Aeson.parseJSON value :: Parser [TxId]
+    pure $ Set.fromList deposits
 
 -- Missing fields are optional; explicit null values are rejected.
 optionalField ::
