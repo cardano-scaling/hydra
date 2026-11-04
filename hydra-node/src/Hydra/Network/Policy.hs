@@ -63,12 +63,10 @@ data PolicyLog
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
 
-policyFingerprint :: Maybe UserValidationRules -> PolicyFingerprint
+policyFingerprint :: UserValidationRules -> PolicyFingerprint
 policyFingerprint =
-  PolicyFingerprint . toText . hashToStringAsHex . hashWithSerialiser @Blake2b_256 encode . fromMaybe unrestricted
+  PolicyFingerprint . toText . hashToStringAsHex . hashWithSerialiser @Blake2b_256 encode
  where
-  unrestricted = UserValidationRules Nothing AllowMinting Nothing Nothing Nothing Nothing Nothing
-
   -- Fixed field order and sorted sets make this independent of YAML formatting.
   -- Change the domain version if the encoding or interpretation changes.
   encode :: UserValidationRules -> Encoding
@@ -92,12 +90,13 @@ withPolicyAgreement ::
   Tracer m PolicyLog ->
   Secret (SigningKey HydraKey) ->
   [Party] ->
-  PolicyFingerprint ->
+  Maybe PolicyFingerprint ->
   Text ->
   PolicyStore m ->
   m a ->
   m a
-withPolicyAgreement tracer signingKey otherParties fingerprint session PolicyStore{publish, load} action = do
+withPolicyAgreement _ _ _ Nothing _ _ action = action
+withPolicyAgreement tracer signingKey otherParties (Just fingerprint) session PolicyStore{publish, load} action = do
   observed <- newLabelledTVarIO "peer-policies" Map.empty
   traceWith tracer $ WaitingForPolicyAgreement fingerprint (Set.toList expected)
   let announce acknowledgements =

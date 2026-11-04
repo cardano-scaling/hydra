@@ -24,12 +24,9 @@ spec :: Spec
 spec = do
   describe "policy fingerprint" $ do
     it "is a 32-byte hash rendered as lowercase hexadecimal" $ do
-      let PolicyFingerprint digest = policyFingerprint Nothing
+      let PolicyFingerprint digest = policyFingerprint unrestricted
       Text.length digest `shouldBe` 64
       digest `shouldSatisfy` Text.all (`elem` ("0123456789abcdef" :: String))
-
-    it "treats a missing policy as the unrestricted policy" $
-      policyFingerprint Nothing `shouldBe` policyFingerprint (Just unrestricted)
 
     it "includes every policy field" $ do
       let variants =
@@ -42,11 +39,11 @@ spec = do
             , unrestricted{allowedDeposits = Just Set.empty}
             ]
       forM_ variants $ \rules ->
-        policyFingerprint (Just rules) `shouldNotBe` policyFingerprint Nothing
+        policyFingerprint rules `shouldNotBe` policyFingerprint unrestricted
 
     it "normalizes the two ways to forbid policy IDs" $
-      policyFingerprint (Just unrestricted{policyRule = Just ForbidAnyPolicy})
-        `shouldBe` policyFingerprint (Just unrestricted{policyRule = Just $ AllowOnlyPolicies Set.empty})
+      policyFingerprint unrestricted{policyRule = Just ForbidAnyPolicy}
+        `shouldBe` policyFingerprint unrestricted{policyRule = Just $ AllowOnlyPolicies Set.empty}
 
     it "ignores YAML formatting, set order, and explicit defaults" $ do
       let a = Text.replicate 56 "a"
@@ -55,22 +52,36 @@ spec = do
           secondPolicy = decodePolicy $ encodeUtf8 $ "# Same policy\nhead-policy: {allowed-assets: [" <> b <> ", " <> a <> "], l2-minting: allowed, max-utxo-count: 2}\n"
       firstPolicy `shouldSatisfy` isRight
       secondPolicy `shouldSatisfy` isRight
-      (policyFingerprint . Just <$> firstPolicy) `shouldBe` (policyFingerprint . Just <$> secondPolicy)
+      (policyFingerprint <$> firstPolicy) `shouldBe` (policyFingerprint <$> secondPolicy)
 
     it "changes when a configured limit changes" $
-      policyFingerprint (Just unrestricted{maxUTxOCount = Just 1})
-        `shouldNotBe` policyFingerprint (Just unrestricted{maxUTxOCount = Just 2})
+      policyFingerprint unrestricted{maxUTxOCount = Just 1}
+        `shouldNotBe` policyFingerprint unrestricted{maxUTxOCount = Just 2}
 
   it "roundtrips signed declarations through CBOR" $ do
     let declaration = response bobSk bob policy "alice-new"
     decodeFull' (serialize' declaration) `shouldBe` Right declaration
 
   describe "startup agreement" $ do
+    it "starts without reading or publishing policies when none is configured" $ do
+      (elapsed, accesses) <- shouldRunInSim $ do
+        accessed <- newLabelledTVarIO "policy-store-accesses" (0 :: Int)
+        let recordAccess = atomically $ modifyTVar' accessed (+ 1)
+            store = PolicyStore{publish = const recordAccess, load = recordAccess >> pure []}
+        start <- getMonotonicTime
+        started <- withPolicyAgreement nullTracer aliceSk [bob] Nothing "alice-new" store $ do
+          started <- getMonotonicTime
+          threadDelay 2
+          pure started
+        (diffTime started start,) <$> readTVarIO accessed
+      elapsed `shouldBe` 0
+      accesses `shouldBe` 0
+
     it "starts a single-party node immediately" $ do
       elapsed <- shouldRunInSim $ do
         store <- newStore []
         start <- getMonotonicTime
-        withPolicyAgreement nullTracer aliceSk [] policy "alice-new" store $ do
+        withPolicyAgreement nullTracer aliceSk [] (Just policy) "alice-new" store $ do
           end <- getMonotonicTime
           pure $ diffTime end start
       elapsed `shouldBe` 0
@@ -81,7 +92,7 @@ spec = do
         started <- newLabelledTVarIO "started" False
         concurrentlyLabelled
           ( "alice"
-          , withPolicyAgreement nullTracer aliceSk [bob, carol] policy "alice-new" store $
+          , withPolicyAgreement nullTracer aliceSk [bob, carol] (Just policy) "alice-new" store $
               atomically $
                 writeTVar started True
           )
@@ -104,7 +115,7 @@ spec = do
         start <- getMonotonicTime
         result <-
           try $
-            withPolicyAgreement nullTracer aliceSk [bob] policy "alice-new" store $
+            withPolicyAgreement nullTracer aliceSk [bob] (Just policy) "alice-new" store $
               atomically $
                 writeTVar started True
         end <- getMonotonicTime
@@ -119,7 +130,7 @@ spec = do
         start <- getMonotonicTime
         result <-
           try $
-            withPolicyAgreement nullTracer aliceSk [bob] policy "alice-new" store $
+            withPolicyAgreement nullTracer aliceSk [bob] (Just policy) "alice-new" store $
               pure ()
         end <- getMonotonicTime
         pure (result, diffTime end start)
@@ -132,7 +143,7 @@ spec = do
         start <- getMonotonicTime
         result <-
           try $
-            withPolicyAgreement nullTracer aliceSk [bob] policy "alice-new" store{publish = const $ atomically retry} $
+            withPolicyAgreement nullTracer aliceSk [bob] (Just policy) "alice-new" store{publish = const $ atomically retry} $
               pure ()
         end <- getMonotonicTime
         pure (result, diffTime end start)
@@ -147,7 +158,7 @@ spec = do
           concurrentlyLabelled
             ("align", threadDelay 290 >> publish store (response bobSk bob policy "alice-new"))
             ( "alice"
-            , withPolicyAgreement nullTracer aliceSk [bob] policy "alice-new" store $ do
+            , withPolicyAgreement nullTracer aliceSk [bob] (Just policy) "alice-new" store $ do
                 end <- getMonotonicTime
                 pure $ diffTime end start
             )
@@ -164,7 +175,7 @@ spec = do
                 _ -> response carolSk bob policy "alice-new"
           store <- newStore [declaration]
           try $
-            withPolicyAgreement nullTracer aliceSk [bob] policy "alice-new" store $
+            withPolicyAgreement nullTracer aliceSk [bob] (Just policy) "alice-new" store $
               pure ()
         result `shouldBe` Left (PolicyAgreementTimedOut policy [bob] [])
 
@@ -175,8 +186,8 @@ spec = do
         let mark party = atomically $ modifyTVar' started (Set.insert party)
         void $
           concurrentlyLabelled
-            ("alice", withPolicyAgreement nullTracer aliceSk [bob] otherPolicy "alice-new" store $ mark alice >> threadDelay 3)
-            ("bob", withPolicyAgreement nullTracer bobSk [alice] otherPolicy "bob-new" store $ mark bob >> threadDelay 3)
+            ("alice", withPolicyAgreement nullTracer aliceSk [bob] (Just otherPolicy) "alice-new" store $ mark alice >> threadDelay 3)
+            ("bob", withPolicyAgreement nullTracer bobSk [alice] (Just otherPolicy) "bob-new" store $ mark bob >> threadDelay 3)
         readTVarIO started
       completed `shouldBe` Set.fromList [alice, bob]
 
@@ -186,11 +197,11 @@ spec = do
         started <- newLabelledTVarIO "started" False
         void $
           concurrentlyLabelled
-            ("alice", withPolicyAgreement nullTracer aliceSk [bob] policy "alice-new" store $ threadDelay 20)
+            ("alice", withPolicyAgreement nullTracer aliceSk [bob] (Just policy) "alice-new" store $ threadDelay 20)
             ( "bob"
             , do
-                withPolicyAgreement nullTracer bobSk [alice] policy "bob-first" store $ threadDelay 3
-                withPolicyAgreement nullTracer bobSk [alice] policy "bob-second" store $
+                withPolicyAgreement nullTracer bobSk [alice] (Just policy) "bob-first" store $ threadDelay 3
+                withPolicyAgreement nullTracer bobSk [alice] (Just policy) "bob-second" store $
                   atomically $
                     writeTVar started True
             )
