@@ -89,7 +89,7 @@ import Hydra.Cluster.Util (chainConfigFor, depositTimeout, keysFor, mkTestTiming
 import Hydra.Ledger.Cardano (mkSimpleTx)
 import Hydra.Options
 import Hydra.Tx.IsTx (txId)
-import HydraNode (allocateHydraNodePortsFor, getSnapshotUTxO, input, output, prepareHydraNode, requestCommitTx, send, waitFor, waitForAllMatch, waitForNodesConnected, waitForNodesSynced, waitMatch, withHydraCluster, withHydraNode, withPreparedHydraNode, withSoloHydraNode, withUnsyncedSoloHydraNode)
+import HydraNode (allocateHydraNodePortsFor, getSnapshotUTxO, input, output, prepareHydraNode, requestCommitTx, send, waitFor, waitForAllMatch, waitForNodesConnected, waitForNodesSynced, waitForSnapshotUTxO, waitMatch, withHydraCluster, withHydraNode, withHydraNodes, withPreparedHydraNode, withSoloHydraNode, withUnsyncedSoloHydraNode)
 import System.Directory (doesDirectoryExist, listDirectory, removeDirectoryRecursive)
 import System.FilePath ((</>))
 import Test.Hydra.Cluster.Utils (chainPointToSlot)
@@ -220,18 +220,25 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
         let blockTime = 5
         nodePorts <- allocateHydraNodePortsFor [1, 2]
         -- Start two hydra-nodes in offline mode and submit a transaction from alice to bob
-        withHydraNode tr blockTime offlineConfig tmpDir 1 aliceSk [bobVk] nodePorts $ \aliceNode -> do
-          withHydraNode tr blockTime offlineConfig tmpDir 2 bobSk [aliceVk] nodePorts $ \bobNode -> do
-            waitForNodesConnected tr 20 $ aliceNode :| [bobNode]
-            let Just (aliceSeedTxIn, aliceSeedTxOut) = UTxO.find (isVkTxOut aliceCardanoVk) initialUTxO
-            let Right aliceToBob =
-                  mkSimpleTx
-                    (aliceSeedTxIn, aliceSeedTxOut)
-                    (mkVkAddress testNetworkId bobCardanoVk, txOutValue aliceSeedTxOut)
-                    aliceCardanoSk
-            send aliceNode $ input "NewTx" ["transaction" .= aliceToBob]
-            waitMatch 10 bobNode $ \v -> do
-              guard $ v ^? key "tag" == Just "SnapshotConfirmed"
+        withHydraNodes
+          [ withHydraNode tr blockTime offlineConfig tmpDir 1 aliceSk [bobVk] nodePorts
+          , withHydraNode tr blockTime offlineConfig tmpDir 2 bobSk [aliceVk] nodePorts
+          ]
+          $ \case
+            [aliceNode, bobNode] -> do
+              waitForNodesConnected tr 20 $ aliceNode :| [bobNode]
+              waitForSnapshotUTxO 20 aliceNode initialUTxO
+              let Just (aliceSeedTxIn, aliceSeedTxOut) = UTxO.find (isVkTxOut aliceCardanoVk) initialUTxO
+              let Right aliceToBob =
+                    mkSimpleTx
+                      (aliceSeedTxIn, aliceSeedTxOut)
+                      (mkVkAddress testNetworkId bobCardanoVk, txOutValue aliceSeedTxOut)
+                      aliceCardanoSk
+              send aliceNode $ input "NewTx" ["transaction" .= aliceToBob]
+              waitMatch 10 bobNode $ \v -> do
+                guard $ v ^? key "tag" == Just "SnapshotConfirmed"
+                guard $ v ^? key "snapshot" . key "confirmed" == Just (toJSON [aliceToBob])
+            _ -> failure "expected two connected nodes"
 
   describe "Cardano devnet" $ do
     describe "single party hydra head" $ do

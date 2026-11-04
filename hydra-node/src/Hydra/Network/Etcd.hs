@@ -142,7 +142,17 @@ withEtcdNetwork ::
   -- TODO: check if all of these needed?
   NetworkConfiguration ->
   NetworkComponent IO msg msg ()
-withEtcdNetwork tracer protocolVersion config originalCallback action = do
+withEtcdNetwork = withEtcdNetworkSetup (\_ action -> action)
+
+-- | Run setup before starting message delivery or the node's action.
+withEtcdNetworkSetup ::
+  (ToCBOR msg, FromCBOR msg) =>
+  (Connection -> IO () -> IO ()) ->
+  Tracer IO EtcdLog ->
+  ProtocolVersion ->
+  NetworkConfiguration ->
+  NetworkComponent IO msg msg ()
+withEtcdNetworkSetup setup tracer protocolVersion config originalCallback action = do
   etcdBinPath <- getEtcdBinary persistenceDir whichEtcd
   -- TODO: fail if cluster config / members do not match --peer
   -- configuration? That would be similar to the 'acks' persistence
@@ -176,7 +186,7 @@ withEtcdNetwork tracer protocolVersion config originalCallback action = do
           , do
               -- NOTE: The connection to the server is set up asynchronously; the
               -- first rpc call will block until the connection has been established.
-              withConnection (connParams tracer Nothing) (grpcServer config) $ \conn -> do
+              withConnection (connParams tracer Nothing) (grpcServer config) $ \conn -> setup conn $ do
                 -- REVIEW: checkVersion blocks if used on main thread - why?
                 withAsyncLabelled ("etcd-checkVersion", checkVersion tracer conn protocolVersion callback) $ \_ -> do
                   raceLabelled_

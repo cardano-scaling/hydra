@@ -40,7 +40,7 @@ import Hydra.API.HTTPServer (
  )
 import Hydra.API.ServerOutput (
   ApiMessage,
-  ClientMessage,
+  ClientMessage (..),
   DecommitInvalidReason,
   FanoutProgressMode,
   Greetings,
@@ -59,7 +59,7 @@ import Hydra.HeadLogic.Error (RequirementFailure, SideLoadRequirementFailure)
 import Hydra.HeadLogic.Outcome (StateChanged)
 import Hydra.HeadLogic.State (ClosedState (..), CoordinatedHeadState (..), FanoutMode, HeadState, SeenSnapshot, closedStateCBORTag, closedStateCBORTagV1, coordinatedHeadStateCBORTag, coordinatedHeadStateCBORTagV1)
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
-import Hydra.Ledger (ValidationError)
+import Hydra.Ledger (ValidationError (..))
 import Hydra.Ledger.Cardano (Tx)
 import Hydra.Ledger.Simple (SimpleChainState, SimpleTx)
 import Hydra.Network (Connectivity, Host, NodeId, ProtocolVersion, StallReason, WhichEtcd)
@@ -75,6 +75,8 @@ import Hydra.Tx.Crypto (MultiSignature, Signature)
 import Hydra.Tx.DepositPeriod (DepositPeriod)
 import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Snapshot (snapshotCBORTag, snapshotCBORTagV1)
+import Hydra.Tx.Snapshot qualified as Snapshot
+import Hydra.UserValidationRules (PolicyViolation (..))
 import Test.Hydra.API.ClientInput ()
 import Test.Hydra.API.HTTPServer ()
 import Test.Hydra.API.ServerOutput ()
@@ -98,6 +100,7 @@ import Test.QuickCheck.Arbitrary.ADT (ADTArbitrary (..), ConstructorArbitraryPai
 -- * ToADTArbitrary instances for per-constructor golden samples
 
 instance ToADTArbitrary (ClientMessage Tx)
+instance ToADTArbitrary PolicyViolation
 instance ToADTArbitrary (TimedServerOutput Tx)
 instance ToADTArbitrary InvalidInput
 instance ToADTArbitrary HeadStatus
@@ -222,7 +225,7 @@ spec = parallel $ do
                 <> toCBOR utxo
                 <> toCBOR utxoToCommit
                 <> toCBOR utxoToDecommit
-      decodeFull' legacy `shouldBe` Right snapshot{depositTxId = Nothing}
+      decodeFull' legacy `shouldBe` Right snapshot{Snapshot.depositTxId = Nothing}
 
   -- 'CoordinatedHeadState' gained 'finalizedCommit' and 'finalizedDecommit'
   -- between two released layouts, same situation as 'Snapshot' above.
@@ -330,6 +333,7 @@ spec = parallel $ do
     roundtripCBOR $ Proxy @ProtocolVersion
     roundtripCBOR $ Proxy @Host
     roundtripCBOR $ Proxy @ValidationError
+    roundtripCBOR $ Proxy @PolicyViolation
     roundtripCBOR $ Proxy @ApiTransactionTimeout
     roundtripCBOR $ Proxy @UnsyncedPeriod
     roundtripCBOR $ Proxy @ChainPointTime
@@ -398,6 +402,18 @@ spec = parallel $ do
     goldenCBOR "ProtocolVersion" "golden/ProtocolVersion.cbor" (genGoldenSample @ProtocolVersion)
     goldenCBOR "Host" "golden/Host.cbor" (genGoldenSample @Host)
     goldenCBOR "ValidationError" "golden/ValidationError.cbor" (genGoldenSample @ValidationError)
+    goldenCBOR "PolicyValidationError" "golden/PolicyValidationError.cbor" (map PolicyValidationError <$> genGoldenSamples @PolicyViolation)
+    goldenCBOR "SnapshotRequestRejectedByPolicy" "golden/SnapshotRequestRejectedByPolicy.cbor" $ do
+      headId <- arbitrary
+      transactionId <- arbitrary
+      depositId <- arbitrary
+      pure
+        [ SnapshotRequestRejectedByPolicy headId 1 tx deposit (MaxUTxOCountExceeded 2 1) :: ClientMessage Tx
+        | tx <- [Nothing, Just transactionId]
+        , deposit <- [Nothing, Just depositId]
+        ]
+    goldenCBOR "PolicyAssetsViolation" "golden/PolicyAssetsViolation.cbor" $
+      filter (\case PolicyAssetsViolation{} -> True; _ -> False) <$> genGoldenSamples @PolicyViolation
     goldenCBOR "ApiTransactionTimeout" "golden/ApiTransactionTimeout.cbor" (genGoldenSample @ApiTransactionTimeout)
     goldenCBOR "UnsyncedPeriod" "golden/UnsyncedPeriod.cbor" (genGoldenSample @UnsyncedPeriod)
     goldenCBOR "ChainPointTime" "golden/ChainPointTime.cbor" (genGoldenSample @ChainPointTime)

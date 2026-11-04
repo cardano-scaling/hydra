@@ -16,8 +16,7 @@
                 ],
                 "chainBackendOptions": {
                     "contents": {
-                        "projectPath": "blockfrost-project.txt",
-                        "retryTimeout": 300
+                        "projectPath": "blockfrost-project.txt"
                     },
                     "tag": "Blockfrost"
                 },
@@ -68,6 +67,7 @@
             ],
             "persistenceDir": "c",
             "persistenceRotateAfter": null,
+            "policy": null,
             "tlsCertPath": "c/b.pem",
             "tlsKeyPath": "b/b.key",
             "verbosity": {
@@ -159,6 +159,7 @@
             ],
             "persistenceDir": "c/b/b/a/c/a",
             "persistenceRotateAfter": null,
+            "policy": null,
             "tlsCertPath": "c/a/b/a/c/a.pem",
             "tlsKeyPath": null,
             "verbosity": {
@@ -218,6 +219,7 @@
             ],
             "persistenceDir": "b/a/b/a/b/b",
             "persistenceRotateAfter": null,
+            "policy": null,
             "tlsCertPath": null,
             "tlsKeyPath": null,
             "verbosity": {
@@ -269,6 +271,7 @@
             ],
             "persistenceDir": "c/a/b/a",
             "persistenceRotateAfter": null,
+            "policy": null,
             "tlsCertPath": "c/b/c/c/c.pem",
             "tlsKeyPath": "b/c/b/b/b.key",
             "verbosity": {
@@ -332,6 +335,7 @@
             ],
             "persistenceDir": "c/a/c/b",
             "persistenceRotateAfter": 26728,
+            "policy": null,
             "tlsCertPath": "a/a/a/b/b.pem",
             "tlsKeyPath": null,
             "verbosity": {

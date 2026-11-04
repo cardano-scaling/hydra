@@ -591,3 +591,32 @@ export RAYON_NUM_THREADS=2
 
 This trades some per-snapshot signing latency on large UTxO sets for less
 scheduler interference; with small UTxO sets the effect is negligible.
+
+### Head policy
+
+Without a policy file, the node starts normally and does not exchange policy announcements or check other nodes' policies. With a policy file, the node waits up to five minutes for all configured parties to agree before starting the chain layer and API. A party without a policy file does not participate in this agreement. Even an empty policy file (`head-policy: {}`) enables the agreement check.
+
+Use `--policy policy.yaml` to configure additional admission rules. Every participant must use the same policy. For example:
+
+```yaml
+head-policy:
+  allowed-assets: []
+  l2-minting: forbidden
+  max-utxo-count: 100
+  max-output-value-assets: 0
+  max-datum-bytes: 256
+  allowed-script-addresses: []
+  deposits: []
+```
+
+Omitted fields impose no restriction. An empty `allowed-assets` list permits only ADA. Otherwise, it lists allowed policy IDs; all asset names under those policies are allowed. `l2-minting: forbidden` rejects both minting and burning in ordinary L2 transactions and decommit transactions. `deposits` accepts a list of allowed deposit transaction IDs. An empty list rejects all deposits. Setting `deposits: null` or omitting the field allows all deposit IDs; other configured policy checks still apply.
+
+`max-utxo-count` limits the number of outputs in the **complete Head UTxO**. Despite its historical name, `max-output-value-assets` limits the number of **distinct non-ADA assets across that complete UTxO**, not the number in each output. An asset is identified by its policy ID and asset name. Holding the same asset in several outputs counts once.
+
+The complete UTxO includes active outputs, the deposit claimed by the snapshot, and decommit outputs still owed. These settlement outputs count toward limits but cannot be spent by ordinary transactions. Other pending deposits do not count until selected. After settlement, outputs count only where they remain in the active ledger.
+
+Asset allowlists, datum-size limits, and script-address rules apply to every output in this set. `max-datum-bytes` bounds serialized inline or supplemental datum bytes per output. A datum hash has no datum bytes to check. `allowed-script-addresses` restricts script payment addresses; it does not restrict key payment addresses.
+
+The node checks transaction rules before admitting an ordinary transaction or decommit. Ordinary transaction admission also checks the resulting complete UTxO. Definitive transaction-rule failures are rejected immediately; failures that depend on the current UTxO may be retried. Every ordinary transaction in a snapshot must leave a valid complete UTxO, and the decommit transaction must also pass its transaction rules before signing. It also checks snapshots with no ordinary transactions. New deposits must pass their ID and output checks before entering the pending registry. A deposit that fits on its own but exceeds the combined limits stays pending; the leader skips it until it fits. Followers check the combined limits before signing.
+
+A policy failure suppresses the whole outgoing snapshot request or the follower's signature. Clients receive `SnapshotRequestRejectedByPolicy` with the snapshot number, violation, and transaction or deposit ID when available. Closing and fanout remain available. These configurable bounds do not by themselves guarantee that every permitted output can be spent or that every fanout fits all L1 transaction limits.
