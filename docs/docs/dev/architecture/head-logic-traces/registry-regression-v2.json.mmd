@@ -1,0 +1,30 @@
+flowchart TD
+  n0["duplicate ReqTx 1 from party 0 to 1 (TTL 2)"]
+  n1["deliver ReqTx 1 from party 0 to 1 (TTL 2)"]
+  n2["transaction is already applied locally: False"]
+  n3["stage: remember transaction"]
+  n4["outputs do not collide with the local UTxO: True"]
+  n5["primitive: apply transaction"]
+  n6["outputs do not collide with pending deposits: True"]
+  n7["stage: validated transaction"]
+  n8["snapshot request has useful work: True"]
+  n9["no snapshot is in flight: True"]
+  n10["this party leads the next snapshot: False"]
+  n11["finish"]
+  n12["deliver ReqTx 1 from party 0 to 1 (TTL 2)"]
+  n13["transaction is already applied locally: True"]
+  n14["finish"]
+  n0 --> n1
+  n1 --> n2
+  n2 --> n3
+  n3 --> n4
+  n4 --> n5
+  n5 --> n6
+  n6 --> n7
+  n7 --> n8
+  n8 --> n9
+  n9 --> n10
+  n10 --> n11
+  n11 --> n12
+  n12 --> n13
+  n13 --> n14

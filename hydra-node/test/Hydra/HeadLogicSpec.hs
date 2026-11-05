@@ -81,6 +81,7 @@ import Test.Hydra.Chain ()
 import Test.Hydra.Chain.Direct.State (ctxParticipants, genDecrementTxWithSnapshot, genDepositTx, genIncrementTxWithSnapshot, pickChainContext, unsafeClose, unsafeContest, unsafeFanout)
 import Test.Hydra.Chain.Direct.TimeHandle (safeZone)
 import Test.Hydra.HeadLogic.Input ()
+import Test.Hydra.HeadLogic.LegacyReqTx (legacyOnOpenNetworkReqTx)
 import Test.Hydra.HeadLogic.State ()
 import Test.Hydra.Ledger.Cardano (mkRangedTx)
 import Test.Hydra.Ledger.Cardano.Fixtures (eraHistoryWithHorizonAt, evaluateTx)
@@ -5304,6 +5305,36 @@ spec =
             _ -> False
         update aliceEnv ledger now withDeposit (receiveMessage $ ReqSn 0 1 [txId tx] Nothing (Just depositTxId))
           `shouldBe` Error (RequireFailed ReqSnDepositOutputsHeld{depositTxId})
+
+      it "ignores a witness-stripped duplicate and preserves the validated registry entry" $ do
+        (validTx, seed, _) <- paymentWithCollision
+        let withoutWitness = makeSignedTransaction [] (getTxBody validTx)
+            initial = openWith seed []
+        now <- nowFromSlot initial.chainPointTime.currentSlot
+        txId withoutWitness `shouldBe` txId validTx
+        applyTransactions ledger (ChainSlot 0) seed [withoutWitness] `shouldSatisfy` isLeft
+        let accepted = aggregateState initial $ update aliceEnv ledger now initial (receiveMessage $ ReqTx validTx)
+            snapshotRequest = receiveMessage $ ReqSn 0 1 [txId validTx] Nothing Nothing
+            replacement = NetworkInput 1 $ ReceivedMessage alice (ReqTx withoutWitness)
+            ignored = update aliceEnv ledger now accepted replacement
+            afterDuplicate = aggregateState accepted ignored
+        -- The same request succeeds before and after the invalid duplicate.
+        -- The frozen handler still demonstrates the old replacement behavior.
+        update aliceEnv ledger now accepted snapshotRequest `hasEffectSatisfying` \case
+          NetworkEffect AckSn{} -> True
+          _ -> False
+        ignored `shouldBe` Continue [] []
+        case headState accepted of
+          Open st -> legacyOnOpenNetworkReqTx aliceEnv ledger accepted.chainPointTime st 1 mempty withoutWitness `shouldSatisfy` \case Wait{} -> True; _ -> False
+          _ -> failure "expected an open head after accepting the transaction"
+        case headState afterDuplicate of
+          Open OpenState{coordinatedHeadState} -> do
+            coordinatedHeadState.localTxs `shouldBe` Seq.singleton validTx
+            Map.lookup (txId validTx) coordinatedHeadState.allTxs `shouldBe` Just validTx
+          _ -> failure "expected an open head after the duplicate"
+        update aliceEnv ledger now afterDuplicate snapshotRequest `shouldSatisfy` \case
+          Continue{effects} -> any (\case NetworkEffect AckSn{} -> True; _ -> False) effects
+          _ -> False
 
       it "rejects a tx producing an output under a name a settled deposit already holds" $ do
         (tx, seed, deposited) <- paymentWithCollision

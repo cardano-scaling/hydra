@@ -1,0 +1,919 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-11-03",
+  "ghc": "9.6.7",
+  "criterion": "1.6.5.0",
+  "cpu": "Intel Core Ultra 7 258V",
+  "pinnedCPU": 1,
+  "rtsCapabilities": 1,
+  "runs": {
+    "round-a": {
+      "round/simple/utxo-100/backlog-0/legacy": {
+        "seconds": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 5.848195814007941e-06,
+            "confIntUDX": 5.8791441669360685e-06
+          },
+          "estPoint": 0.003111054270684456
+        },
+        "allocatedBytes": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 47.28510288812686,
+            "confIntUDX": 67.1795961719472
+          },
+          "estPoint": 628543.6996047436
+        }
+      },
+      "round/simple/utxo-100/backlog-0/program": {
+        "seconds": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 5.748308390991861e-06,
+            "confIntUDX": 4.379282881221153e-06
+          },
+          "estPoint": 0.003126741728266235
+        },
+        "allocatedBytes": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 9.486166008631699,
+            "confIntUDX": 16.897471763426438
+          },
+          "estPoint": 630217.486166008
+        }
+      },
+      "round/cardano/utxo-100/backlog-0/legacy": {
+        "seconds": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 3.148876228659201e-06,
+            "confIntUDX": 4.321587177693893e-06
+          },
+          "estPoint": 0.003450836252443503
+        },
+        "allocatedBytes": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 10.14025974040851,
+            "confIntUDX": 13.947680359473452
+          },
+          "estPoint": 1188754.1402597397
+        }
+      },
+      "round/cardano/utxo-100/backlog-0/program": {
+        "seconds": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 2.2371342868262624e-05,
+            "confIntUDX": 4.565255201062187e-05
+          },
+          "estPoint": 0.0034876501647554264
+        },
+        "allocatedBytes": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 12.633766233921051,
+            "confIntUDX": 19.025437446078286
+          },
+          "estPoint": 1243028.6337662332
+        }
+      },
+      "round/simple/utxo-100/backlog-1000/legacy": {
+        "seconds": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 7.649017355928524e-06,
+            "confIntUDX": 8.705999581345991e-06
+          },
+          "estPoint": 0.004026040104580522
+        },
+        "allocatedBytes": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 12.631578948814422,
+            "confIntUDX": 21.93810056336224
+          },
+          "estPoint": 3963244.6315789456
+        }
+      },
+      "round/simple/utxo-100/backlog-1000/program": {
+        "seconds": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 8.512120269037367e-06,
+            "confIntUDX": 6.944714866375344e-06
+          },
+          "estPoint": 0.004187292141042871
+        },
+        "allocatedBytes": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 10.947368422523141,
+            "confIntUDX": 18.449402504600585
+          },
+          "estPoint": 5228890.947368418
+        }
+      },
+      "round/cardano/utxo-100/backlog-1000/legacy": {
+        "seconds": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 0.0001847217426984571,
+            "confIntUDX": 0.00025332602793545766
+          },
+          "estPoint": 0.13596315294732145
+        },
+        "allocatedBytes": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 237.60000014305115,
+            "confIntUDX": 554.4000002145767
+          },
+          "estPoint": 314608133.59999967
+        }
+      },
+      "round/cardano/utxo-100/backlog-1000/program": {
+        "seconds": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 7.433591720959476e-05,
+            "confIntUDX": 0.00013255531909331375
+          },
+          "estPoint": 0.13658773015898382
+        },
+        "allocatedBytes": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 182.40000015497208,
+            "confIntUDX": 425.6000002026558
+          },
+          "estPoint": 315930782.3999996
+        }
+      },
+      "round/simple/utxo-10000/backlog-0/legacy": {
+        "seconds": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 0.00034831837547244504,
+            "confIntUDX": 0.0003285644609908045
+          },
+          "estPoint": 0.20721082428887408
+        },
+        "allocatedBytes": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 127.19999999552965,
+            "confIntUDX": 264.8000002428889
+          },
+          "estPoint": 43830095.19999996
+        }
+      },
+      "round/simple/utxo-10000/backlog-0/program": {
+        "seconds": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 0.0006764794464591828,
+            "confIntUDX": 0.0004345860349227737
+          },
+          "estPoint": 0.20824520945582967
+        },
+        "allocatedBytes": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 151.19999979436398,
+            "confIntUDX": 272.8000000938773
+          },
+          "estPoint": 43832255.19999995
+        }
+      },
+      "round/cardano/utxo-10000/backlog-0/legacy": {
+        "seconds": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 0.0007175705153107115,
+            "confIntUDX": 0.0012564145702829987
+          },
+          "estPoint": 0.21644012534913296
+        },
+        "allocatedBytes": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 3901.599999882281,
+            "confIntUDX": null
+          },
+          "estPoint": 59955613.59999994
+        }
+      },
+      "round/cardano/utxo-10000/backlog-0/program": {
+        "seconds": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 0.0012465385213241975,
+            "confIntUDX": 0.0023525514031158823
+          },
+          "estPoint": 0.21881328823049748
+        },
+        "allocatedBytes": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 3901.5999998375773,
+            "confIntUDX": 5138.400000207126
+          },
+          "estPoint": 65672365.599999934
+        }
+      },
+      "round/simple/utxo-10000/backlog-1000/legacy": {
+        "seconds": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 0.0004988372456864454,
+            "confIntUDX": 0.0004595915052050259
+          },
+          "estPoint": 0.20854366558463275
+        },
+        "allocatedBytes": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 2712.80000013113,
+            "confIntUDX": 1167.2000000327826
+          },
+          "estPoint": 48603640.799999945
+        }
+      },
+      "round/simple/utxo-10000/backlog-1000/program": {
+        "seconds": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 0.00042649427268770523,
+            "confIntUDX": 0.0006396639400918502
+          },
+          "estPoint": 0.20592415840292233
+        },
+        "allocatedBytes": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 194.39999996870756,
+            "confIntUDX": 261.60000029206276
+          },
+          "estPoint": 49870938.39999995
+        }
+      },
+      "round/cardano/utxo-10000/backlog-1000/legacy": {
+        "seconds": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 0.05798786099330755,
+            "confIntUDX": 0.034695192243816564
+          },
+          "estPoint": 4.59141555107999
+        },
+        "allocatedBytes": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 1578.3999919891357,
+            "confIntUDX": 2669.6000843048096
+          },
+          "estPoint": 15497334578.399982
+        }
+      },
+      "round/cardano/utxo-10000/backlog-1000/program": {
+        "seconds": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 0.011647959587814505,
+            "confIntUDX": 0.017524046544470373
+          },
+          "estPoint": 4.4249867848254025
+        },
+        "allocatedBytes": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 1578.3999919891357,
+            "confIntUDX": 2669.6000785827637
+          },
+          "estPoint": 15504404274.399984
+        }
+      }
+    },
+    "round-b": {
+      "round/simple/utxo-100/backlog-0/program": {
+        "seconds": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 7.176064690112005e-06,
+            "confIntUDX": 8.172070465612379e-06
+          },
+          "estPoint": 0.0029749971026270536
+        },
+        "allocatedBytes": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 45.26449384144507,
+            "confIntUDX": 71.07250459713396
+          },
+          "estPoint": 630231.6996047436
+        }
+      },
+      "round/simple/utxo-100/backlog-0/legacy": {
+        "seconds": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 8.683294846989053e-06,
+            "confIntUDX": 1.0099489292667106e-05
+          },
+          "estPoint": 0.002980041676822875
+        },
+        "allocatedBytes": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 8.695652175112627,
+            "confIntUDX": 15.754303821711801
+          },
+          "estPoint": 628528.6956521745
+        }
+      },
+      "round/cardano/utxo-100/backlog-0/program": {
+        "seconds": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 8.177823318797958e-06,
+            "confIntUDX": 9.025894589493374e-06
+          },
+          "estPoint": 0.003297849316609297
+        },
+        "allocatedBytes": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 9.269339357269928,
+            "confIntUDX": 12.478880820563063
+          },
+          "estPoint": 1243025.2693393566
+        }
+      },
+      "round/cardano/utxo-100/backlog-0/legacy": {
+        "seconds": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 1.720079299234213e-05,
+            "confIntUDX": 1.8125307248459226e-05
+          },
+          "estPoint": 0.003311983444284673
+        },
+        "allocatedBytes": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 11.546019199537113,
+            "confIntUDX": 17.841735903639346
+          },
+          "estPoint": 1188755.5460191986
+        }
+      },
+      "round/simple/utxo-100/backlog-1000/program": {
+        "seconds": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 3.409792388679028e-05,
+            "confIntUDX": 4.9524917941645014e-05
+          },
+          "estPoint": 0.004025635263762952
+        },
+        "allocatedBytes": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 12.631578949280083,
+            "confIntUDX": 21.569164550863206
+          },
+          "estPoint": 5228892.631578946
+        }
+      },
+      "round/simple/utxo-100/backlog-1000/legacy": {
+        "seconds": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 9.567160537961653e-06,
+            "confIntUDX": 5.071584049069246e-06
+          },
+          "estPoint": 0.003997233235569009
+        },
+        "allocatedBytes": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 9.852631580550224,
+            "confIntUDX": 16.706003814470023
+          },
+          "estPoint": 3963241.8526315778
+        }
+      },
+      "round/cardano/utxo-100/backlog-1000/program": {
+        "seconds": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 0.0022841017416794784,
+            "confIntUDX": 0.0011713981803040951
+          },
+          "estPoint": 0.1322107974337996
+        },
+        "allocatedBytes": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 237.6000002026558,
+            "confIntUDX": 554.4000002145767
+          },
+          "estPoint": 315930837.59999967
+        }
+      },
+      "round/cardano/utxo-100/backlog-1000/legacy": {
+        "seconds": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 0.0029332428675843403,
+            "confIntUDX": 0.005638377751893131
+          },
+          "estPoint": 0.13136238291311506
+        },
+        "allocatedBytes": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 182.40000015497208,
+            "confIntUDX": 425.6000002026558
+          },
+          "estPoint": 314608078.3999997
+        }
+      },
+      "round/simple/utxo-10000/backlog-0/program": {
+        "seconds": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 0.00048725683518568985,
+            "confIntUDX": 0.00024539316655136645
+          },
+          "estPoint": 0.19485401583006023
+        },
+        "allocatedBytes": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 127.19999997317791,
+            "confIntUDX": 264.8000002503395
+          },
+          "estPoint": 43832263.19999995
+        }
+      },
+      "round/simple/utxo-10000/backlog-0/legacy": {
+        "seconds": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 0.00018916556291515008,
+            "confIntUDX": 0.00017858455248642713
+          },
+          "estPoint": 0.194215735537
+        },
+        "allocatedBytes": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 194.39999998360872,
+            "confIntUDX": 261.6000002473593
+          },
+          "estPoint": 43830098.399999954
+        }
+      },
+      "round/cardano/utxo-10000/backlog-0/program": {
+        "seconds": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 0.0001680749289031669,
+            "confIntUDX": 0.00017396436063185639
+          },
+          "estPoint": 0.20171470806477979
+        },
+        "allocatedBytes": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 3901.5999998375773,
+            "confIntUDX": 5138.400000303984
+          },
+          "estPoint": 65672365.599999934
+        }
+      },
+      "round/cardano/utxo-10000/backlog-0/legacy": {
+        "seconds": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 0.0004268677827591605,
+            "confIntUDX": 0.0005656329497772672
+          },
+          "estPoint": 0.19917705853974135
+        },
+        "allocatedBytes": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 5918.400000043213,
+            "confIntUDX": 3953.60000012815
+          },
+          "estPoint": 59957622.39999994
+        }
+      },
+      "round/simple/utxo-10000/backlog-1000/program": {
+        "seconds": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 0.0001879651717899833,
+            "confIntUDX": 0.00011088966857641935
+          },
+          "estPoint": 0.1947163532859122
+        },
+        "allocatedBytes": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 194.39999998360872,
+            "confIntUDX": null
+          },
+          "estPoint": 49870938.39999995
+        }
+      },
+      "round/simple/utxo-10000/backlog-1000/legacy": {
+        "seconds": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 0.00040866558750471405,
+            "confIntUDX": 0.00031648458874164453
+          },
+          "estPoint": 0.1942604980916561
+        },
+        "allocatedBytes": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 151.19999984651804,
+            "confIntUDX": 272.80000027269125
+          },
+          "estPoint": 48604799.19999995
+        }
+      },
+      "round/cardano/utxo-10000/backlog-1000/program": {
+        "seconds": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 0.009052150729985442,
+            "confIntUDX": 0.013164919982955325
+          },
+          "estPoint": 4.451352442335822
+        },
+        "allocatedBytes": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 1578.399995803833,
+            "confIntUDX": 2669.6000785827637
+          },
+          "estPoint": 15504404274.399984
+        }
+      },
+      "round/cardano/utxo-10000/backlog-1000/legacy": {
+        "seconds": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 0.01582978369333432,
+            "confIntUDX": 0.012577070353775532
+          },
+          "estPoint": 4.464533922013895
+        },
+        "allocatedBytes": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 1578.3999919891357,
+            "confIntUDX": 2669.6000843048096
+          },
+          "estPoint": 15497334578.399982
+        }
+      }
+    },
+    "round-repeat": {
+      "round/simple/utxo-100/backlog-1000/legacy": {
+        "seconds": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 5.4328189823481775e-06,
+            "confIntUDX": 1.537943639135864e-05
+          },
+          "estPoint": 0.0038099081590260097
+        },
+        "allocatedBytes": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 2.5610710666514933,
+            "confIntUDX": 1.148657032288611
+          },
+          "estPoint": 3963230.8513429696
+        }
+      },
+      "round/simple/utxo-100/backlog-1000/program": {
+        "seconds": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 3.5767367689131663e-06,
+            "confIntUDX": 3.98226700469486e-06
+          },
+          "estPoint": 0.003923627151174147
+        },
+        "allocatedBytes": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 1.3138495665043592,
+            "confIntUDX": 2.9807023033499718
+          },
+          "estPoint": 5228881.313849564
+        }
+      },
+      "round/cardano/utxo-10000/backlog-0/legacy": {
+        "seconds": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 0.0004074984511438229,
+            "confIntUDX": 0.0008287836107127855
+          },
+          "estPoint": 0.19935498420818476
+        },
+        "allocatedBytes": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 1650.1714284792542,
+            "confIntUDX": 1172.7824176475406
+          },
+          "estPoint": 59957062.171428576
+        }
+      },
+      "round/cardano/utxo-10000/backlog-0/program": {
+        "seconds": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 0.0004678768729920457,
+            "confIntUDX": 0.0007514586911485099
+          },
+          "estPoint": 0.20127996393065486
+        },
+        "allocatedBytes": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 956.7999999597669,
+            "confIntUDX": 1509.786466151476
+          },
+          "estPoint": 65672921.37142857
+        }
+      },
+      "round/cardano/utxo-10000/backlog-1000/legacy": {
+        "seconds": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 0.013927836754494827,
+            "confIntUDX": 0.01046657418798258
+          },
+          "estPoint": 4.424870174561268
+        },
+        "allocatedBytes": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 1593.599952697754,
+            "confIntUDX": 2918.40008354187
+          },
+          "estPoint": 15497334329.599983
+        }
+      },
+      "round/cardano/utxo-10000/backlog-1000/program": {
+        "seconds": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 0.02682580843975302,
+            "confIntUDX": 0.02074588089453755
+          },
+          "estPoint": 4.456654117697326
+        },
+        "allocatedBytes": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 1578.399995803833,
+            "confIntUDX": 2669.600034713745
+          },
+          "estPoint": 15504404274.399984
+        }
+      }
+    },
+    "resolved": {
+      "background-100/construct-delta": {
+        "seconds": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 2.0234634633444158e-09,
+            "confIntUDX": 1.496913822096541e-09
+          },
+          "estPoint": 1.2097824837640986e-06
+        },
+        "allocatedBytes": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 0.01636752204032632,
+            "confIntUDX": 0.019772776720728302
+          },
+          "estPoint": 127.99843437598004
+        }
+      },
+      "background-100/resolved-recovery": {
+        "seconds": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 1.8692740623231653e-10,
+            "confIntUDX": 1.5990052813732856e-10
+          },
+          "estPoint": 1.553788376494304e-07
+        },
+        "allocatedBytes": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 0.002610846328025218,
+            "confIntUDX": 0.0028267598258935323
+          },
+          "estPoint": 1232.0005379297802
+        }
+      },
+      "background-100/compatibility-recovery": {
+        "seconds": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 2.005797567078132e-10,
+            "confIntUDX": 2.721007397729893e-10
+          },
+          "estPoint": 1.3021443711398284e-07
+        },
+        "allocatedBytes": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 0.0017394923361280235,
+            "confIntUDX": 0.001959678383627761
+          },
+          "estPoint": 1135.9994962518415
+        }
+      },
+      "background-100/decode-and-recover": {
+        "seconds": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 8.880150032387389e-10,
+            "confIntUDX": 9.680292616643974e-10
+          },
+          "estPoint": 1.0241833519165374e-06
+        },
+        "allocatedBytes": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 0.016455063803732628,
+            "confIntUDX": 0.018495362117391778
+          },
+          "estPoint": 9504.001704384144
+        }
+      },
+      "background-10000/construct-delta": {
+        "seconds": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 1.456623399422166e-07,
+            "confIntUDX": 1.536484108707691e-07
+          },
+          "estPoint": 0.00011684474394733464
+        },
+        "allocatedBytes": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 1.8566617856062209,
+            "confIntUDX": 2.1961732378098446
+          },
+          "estPoint": 127.45633742674069
+        }
+      },
+      "background-10000/resolved-recovery": {
+        "seconds": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 3.6408292679057094e-10,
+            "confIntUDX": 3.007146772325854e-10
+          },
+          "estPoint": 2.3247632122536862e-07
+        },
+        "allocatedBytes": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 0.003206940085874521,
+            "confIntUDX": 0.004019408042722716
+          },
+          "estPoint": 1711.999983784953
+        }
+      },
+      "background-10000/compatibility-recovery": {
+        "seconds": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 4.725982727768802e-10,
+            "confIntUDX": 4.1491118517007327e-10
+          },
+          "estPoint": 1.9216019312756505e-07
+        },
+        "allocatedBytes": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 0.0032042866855590546,
+            "confIntUDX": 0.0034512728550453176
+          },
+          "estPoint": 1616.000291665796
+        }
+      },
+      "background-10000/decode-and-recover": {
+        "seconds": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 1.5107499212209984e-09,
+            "confIntUDX": 1.1979970406041366e-09
+          },
+          "estPoint": 1.1185443780189293e-06
+        },
+        "allocatedBytes": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 0.019256143388702185,
+            "confIntUDX": 0.02020370255013404
+          },
+          "estPoint": 9984.001125616262
+        }
+      },
+      "background-30000/construct-delta": {
+        "seconds": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 2.959874749432147e-07,
+            "confIntUDX": 3.552922673363151e-07
+          },
+          "estPoint": 0.00035481558058048296
+        },
+        "allocatedBytes": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 8.089559158240505,
+            "confIntUDX": 8.508374576001472
+          },
+          "estPoint": 128.12010155033207
+        }
+      },
+      "background-30000/resolved-recovery": {
+        "seconds": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 2.6812181730405123e-10,
+            "confIntUDX": 3.859522588113394e-10
+          },
+          "estPoint": 2.528312506316006e-07
+        },
+        "allocatedBytes": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 0.003816142873120043,
+            "confIntUDX": 0.0041191748098299286
+          },
+          "estPoint": 1871.9999145753466
+        }
+      },
+      "background-30000/compatibility-recovery": {
+        "seconds": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 3.251821831065497e-10,
+            "confIntUDX": 2.8507874272046653e-10
+          },
+          "estPoint": 2.1422185874478843e-07
+        },
+        "allocatedBytes": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 0.003141615620961602,
+            "confIntUDX": 0.0035625368873297703
+          },
+          "estPoint": 1776.000087077436
+        }
+      },
+      "background-30000/decode-and-recover": {
+        "seconds": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 1.3503780769886148e-09,
+            "confIntUDX": 2.1056851373662196e-09
+          },
+          "estPoint": 1.1395930874776036e-06
+        },
+        "allocatedBytes": {
+          "estError": {
+            "confIntCL": 0.05,
+            "confIntLDX": 0.01646874639845919,
+            "confIntUDX": 0.020263956308554043
+          },
+          "estPoint": 10144.00031894852
+        }
+      }
+    }
+  }
+}

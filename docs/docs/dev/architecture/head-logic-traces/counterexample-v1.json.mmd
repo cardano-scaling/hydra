@@ -1,0 +1,182 @@
+flowchart TD
+  n0["primitive: Deliver (Delivery {senderIndex = 0, recipientIndex = 0, remainingTTL = 2, message = ReqTx {transaction = SimpleTx {txSimpleId = 1, txInputs = fromList [1], txOutputs = fromList [2]}}})"]
+  n1["primitive: stage: remember transaction"]
+  n2["primitive: outputs do not collide with the local UTxO: True"]
+  n3["primitive: primitive: apply transaction"]
+  n4["primitive: outputs do not collide with pending deposits: True"]
+  n5["primitive: stage: validated transaction"]
+  n6["primitive: snapshot request has useful work: True"]
+  n7["primitive: no snapshot is in flight: True"]
+  n8["primitive: this party leads the next snapshot: True"]
+  n9["primitive: stage: record snapshot request"]
+  n10["primitive: buffer: broadcast ReqSn"]
+  n11["primitive: finish"]
+  n12["primitive: Deliver (Delivery {senderIndex = 0, recipientIndex = 1, remainingTTL = 2, message = ReqTx {transaction = SimpleTx {txSimpleId = 1, txInputs = fromList [1], txOutputs = fromList [2]}}})"]
+  n13["primitive: stage: remember transaction"]
+  n14["primitive: outputs do not collide with the local UTxO: True"]
+  n15["primitive: primitive: apply transaction"]
+  n16["primitive: outputs do not collide with pending deposits: True"]
+  n17["primitive: stage: validated transaction"]
+  n18["primitive: snapshot request has useful work: True"]
+  n19["primitive: no snapshot is in flight: True"]
+  n20["primitive: this party leads the next snapshot: False"]
+  n21["primitive: finish"]
+  n22["primitive: Deliver (Delivery {senderIndex = 0, recipientIndex = 2, remainingTTL = 2, message = ReqTx {transaction = SimpleTx {txSimpleId = 1, txInputs = fromList [1], txOutputs = fromList [2]}}})"]
+  n23["primitive: stage: remember transaction"]
+  n24["primitive: outputs do not collide with the local UTxO: True"]
+  n25["primitive: primitive: apply transaction"]
+  n26["primitive: outputs do not collide with pending deposits: True"]
+  n27["primitive: stage: validated transaction"]
+  n28["primitive: snapshot request has useful work: True"]
+  n29["primitive: no snapshot is in flight: True"]
+  n30["primitive: this party leads the next snapshot: False"]
+  n31["primitive: finish"]
+  n32["primitive: Deliver (Delivery {senderIndex = 0, recipientIndex = 0, remainingTTL = 2, message = ReqSn {snapshotVersion = 0, snapshotNumber = 1, transactionIds = [1], decommitTx = Nothing, depositTxId = Nothing}})"]
+  n33["primitive: request is the next snapshot: True"]
+  n34["primitive: sender leads this snapshot: True"]
+  n35["primitive: previous snapshot is confirmed: True"]
+  n36["primitive: snapshot version matches: True"]
+  n37["primitive: snapshot transaction outputs are fresh: True"]
+  n38["primitive: primitive: apply transaction"]
+  n39["primitive: primitive: sign snapshot"]
+  n40["primitive: buffer: broadcast AckSn"]
+  n41["primitive: snapshot transaction outputs are fresh: False"]
+  n42["primitive: stage: record requested snapshot and prune local transactions"]
+  n43["primitive: finish"]
+  n44["primitive: Corrupt (Delivery {senderIndex = 0, recipientIndex = 0, remainingTTL = 2, message = AckSn {signed = HydraSignature &quot;c1ff38cce7f760bd248077d540b1147eda9f7246cd8b000d8cadf97d3c69a0cbcbe7631d873e36c2bebfb717b29fdcadd3d8d1a3804496a437629c047176f20d&quot;, snapshotNumber = 1}})"]
+  n45["primitive: Deliver (Delivery {senderIndex = 0, recipientIndex = 1, remainingTTL = 2, message = ReqSn {snapshotVersion = 0, snapshotNumber = 1, transactionIds = [1], decommitTx = Nothing, depositTxId = Nothing}})"]
+  n46["primitive: request is the next snapshot: True"]
+  n47["primitive: sender leads this snapshot: True"]
+  n48["primitive: previous snapshot is confirmed: True"]
+  n49["primitive: snapshot version matches: True"]
+  n50["primitive: snapshot transaction outputs are fresh: True"]
+  n51["primitive: primitive: apply transaction"]
+  n52["primitive: primitive: sign snapshot"]
+  n53["primitive: buffer: broadcast AckSn"]
+  n54["primitive: snapshot transaction outputs are fresh: False"]
+  n55["primitive: stage: record requested snapshot and prune local transactions"]
+  n56["primitive: finish"]
+  n57["primitive: Deliver (Delivery {senderIndex = 0, recipientIndex = 2, remainingTTL = 2, message = ReqSn {snapshotVersion = 0, snapshotNumber = 1, transactionIds = [1], decommitTx = Nothing, depositTxId = Nothing}})"]
+  n58["primitive: request is the next snapshot: True"]
+  n59["primitive: sender leads this snapshot: True"]
+  n60["primitive: previous snapshot is confirmed: True"]
+  n61["primitive: snapshot version matches: True"]
+  n62["primitive: snapshot transaction outputs are fresh: True"]
+  n63["primitive: primitive: apply transaction"]
+  n64["primitive: primitive: sign snapshot"]
+  n65["primitive: buffer: broadcast AckSn"]
+  n66["primitive: snapshot transaction outputs are fresh: False"]
+  n67["primitive: stage: record requested snapshot and prune local transactions"]
+  n68["primitive: finish"]
+  n69["primitive: Deliver (Delivery {senderIndex = 0, recipientIndex = 0, remainingTTL = 2, message = AckSn {signed = HydraSignature &quot;214ff7fc7ad34c3e650c012a8e9d259e3e85a8ab517d2817d0169c9a71b7c609fa2c776ccd87d220bc32faa64928e29cbc90b4ed8053cf40478746f8db5cee06&quot;, snapshotNumber = 1}})"]
+  n70["primitive: acknowledgement number is admissible: True"]
+  n71["primitive: party has not signed this snapshot: True"]
+  n72["primitive: stage: record snapshot signature"]
+  n73["primitive: all parties have signed: False"]
+  n74["primitive: stage: record snapshot signature"]
+  n75["primitive: finish"]
+  n76["primitive: Deliver (Delivery {senderIndex = 1, recipientIndex = 0, remainingTTL = 2, message = AckSn {signed = HydraSignature &quot;70faf5bb51813d1ccb337b601ecae1ed692f21db974a8032eae0e5091da8d604e5221a32e23cf8150c3c89338b392617524e4529e5a1387bc820ced0136aa90b&quot;, snapshotNumber = 1}})"]
+  n77["primitive: acknowledgement number is admissible: True"]
+  n78["primitive: party has not signed this snapshot: True"]
+  n79["primitive: stage: record snapshot signature"]
+  n80["primitive: all parties have signed: False"]
+  n81["primitive: stage: record snapshot signature"]
+  n82["primitive: finish"]
+  n83["primitive: Deliver (Delivery {senderIndex = 2, recipientIndex = 0, remainingTTL = 2, message = AckSn {signed = HydraSignature &quot;be2b7d9941ddf81d1435c40248b8381adbe87c95e51a2c57a46cc0b64ade552eaf573b4acef2519d0b71f2f79f15d0404504414e7022ada19067cd102db8e402&quot;, snapshotNumber = 1}})"]
+  n84["primitive: acknowledgement number is admissible: True"]
+  n85["primitive: party has not signed this snapshot: True"]
+  n86["primitive: stage: record snapshot signature"]
+  n87["primitive: all parties have signed: True"]
+  n88["primitive: TEST ONLY: bypass multisignature verification: True"]
+  n89["primitive: stage: confirm snapshot"]
+  n90["primitive: finish"]
+  n0 --> n1
+  n1 --> n2
+  n2 --> n3
+  n3 --> n4
+  n4 --> n5
+  n5 --> n6
+  n6 --> n7
+  n7 --> n8
+  n8 --> n9
+  n9 --> n10
+  n10 --> n11
+  n11 --> n12
+  n12 --> n13
+  n13 --> n14
+  n14 --> n15
+  n15 --> n16
+  n16 --> n17
+  n17 --> n18
+  n18 --> n19
+  n19 --> n20
+  n20 --> n21
+  n21 --> n22
+  n22 --> n23
+  n23 --> n24
+  n24 --> n25
+  n25 --> n26
+  n26 --> n27
+  n27 --> n28
+  n28 --> n29
+  n29 --> n30
+  n30 --> n31
+  n31 --> n32
+  n32 --> n33
+  n33 --> n34
+  n34 --> n35
+  n35 --> n36
+  n36 --> n37
+  n37 --> n38
+  n38 --> n39
+  n39 --> n40
+  n40 --> n41
+  n41 --> n42
+  n42 --> n43
+  n43 --> n44
+  n44 --> n45
+  n45 --> n46
+  n46 --> n47
+  n47 --> n48
+  n48 --> n49
+  n49 --> n50
+  n50 --> n51
+  n51 --> n52
+  n52 --> n53
+  n53 --> n54
+  n54 --> n55
+  n55 --> n56
+  n56 --> n57
+  n57 --> n58
+  n58 --> n59
+  n59 --> n60
+  n60 --> n61
+  n61 --> n62
+  n62 --> n63
+  n63 --> n64
+  n64 --> n65
+  n65 --> n66
+  n66 --> n67
+  n67 --> n68
+  n68 --> n69
+  n69 --> n70
+  n70 --> n71
+  n71 --> n72
+  n72 --> n73
+  n73 --> n74
+  n74 --> n75
+  n75 --> n76
+  n76 --> n77
+  n77 --> n78
+  n78 --> n79
+  n79 --> n80
+  n80 --> n81
+  n81 --> n82
+  n82 --> n83
+  n83 --> n84
+  n84 --> n85
+  n85 --> n86
+  n86 --> n87
+  n87 --> n88
+  n88 --> n89
+  n89 --> n90

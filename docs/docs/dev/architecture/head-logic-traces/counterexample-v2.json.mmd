@@ -1,0 +1,188 @@
+flowchart TD
+  n0["deliver ReqTx 1 from party 0 to 0 (TTL 2)"]
+  n1["transaction is already applied locally: False"]
+  n2["stage: remember transaction"]
+  n3["outputs do not collide with the local UTxO: True"]
+  n4["primitive: apply transaction"]
+  n5["outputs do not collide with pending deposits: True"]
+  n6["stage: validated transaction"]
+  n7["snapshot request has useful work: True"]
+  n8["no snapshot is in flight: True"]
+  n9["this party leads the next snapshot: True"]
+  n10["stage: record snapshot request"]
+  n11["buffer: broadcast ReqSn"]
+  n12["finish"]
+  n13["deliver ReqTx 1 from party 0 to 1 (TTL 2)"]
+  n14["transaction is already applied locally: False"]
+  n15["stage: remember transaction"]
+  n16["outputs do not collide with the local UTxO: True"]
+  n17["primitive: apply transaction"]
+  n18["outputs do not collide with pending deposits: True"]
+  n19["stage: validated transaction"]
+  n20["snapshot request has useful work: True"]
+  n21["no snapshot is in flight: True"]
+  n22["this party leads the next snapshot: False"]
+  n23["finish"]
+  n24["deliver ReqTx 1 from party 0 to 2 (TTL 2)"]
+  n25["transaction is already applied locally: False"]
+  n26["stage: remember transaction"]
+  n27["outputs do not collide with the local UTxO: True"]
+  n28["primitive: apply transaction"]
+  n29["outputs do not collide with pending deposits: True"]
+  n30["stage: validated transaction"]
+  n31["snapshot request has useful work: True"]
+  n32["no snapshot is in flight: True"]
+  n33["this party leads the next snapshot: False"]
+  n34["finish"]
+  n35["deliver ReqSn 0/1 txs [1] from party 0 to 0 (TTL 2)"]
+  n36["request is the next snapshot: True"]
+  n37["sender leads this snapshot: True"]
+  n38["previous snapshot is confirmed: True"]
+  n39["snapshot version matches: True"]
+  n40["snapshot transaction outputs are fresh: True"]
+  n41["primitive: apply transaction"]
+  n42["primitive: sign snapshot"]
+  n43["buffer: broadcast AckSn"]
+  n44["snapshot transaction outputs are fresh: False"]
+  n45["stage: record requested snapshot and prune local transactions"]
+  n46["finish"]
+  n47["corrupt acknowledgement AckSn 1 from party 0 to 0 (TTL 2)"]
+  n48["deliver ReqSn 0/1 txs [1] from party 0 to 1 (TTL 2)"]
+  n49["request is the next snapshot: True"]
+  n50["sender leads this snapshot: True"]
+  n51["previous snapshot is confirmed: True"]
+  n52["snapshot version matches: True"]
+  n53["snapshot transaction outputs are fresh: True"]
+  n54["primitive: apply transaction"]
+  n55["primitive: sign snapshot"]
+  n56["buffer: broadcast AckSn"]
+  n57["snapshot transaction outputs are fresh: False"]
+  n58["stage: record requested snapshot and prune local transactions"]
+  n59["finish"]
+  n60["deliver ReqSn 0/1 txs [1] from party 0 to 2 (TTL 2)"]
+  n61["request is the next snapshot: True"]
+  n62["sender leads this snapshot: True"]
+  n63["previous snapshot is confirmed: True"]
+  n64["snapshot version matches: True"]
+  n65["snapshot transaction outputs are fresh: True"]
+  n66["primitive: apply transaction"]
+  n67["primitive: sign snapshot"]
+  n68["buffer: broadcast AckSn"]
+  n69["snapshot transaction outputs are fresh: False"]
+  n70["stage: record requested snapshot and prune local transactions"]
+  n71["finish"]
+  n72["deliver AckSn 1 from party 0 to 0 (TTL 2)"]
+  n73["acknowledgement number is admissible: True"]
+  n74["party has not signed this snapshot: True"]
+  n75["stage: record snapshot signature"]
+  n76["all parties have signed: False"]
+  n77["stage: record snapshot signature"]
+  n78["finish"]
+  n79["deliver AckSn 1 from party 1 to 0 (TTL 2)"]
+  n80["acknowledgement number is admissible: True"]
+  n81["party has not signed this snapshot: True"]
+  n82["stage: record snapshot signature"]
+  n83["all parties have signed: False"]
+  n84["stage: record snapshot signature"]
+  n85["finish"]
+  n86["deliver AckSn 1 from party 2 to 0 (TTL 2)"]
+  n87["acknowledgement number is admissible: True"]
+  n88["party has not signed this snapshot: True"]
+  n89["stage: record snapshot signature"]
+  n90["all parties have signed: True"]
+  n91["TEST ONLY: bypass multisignature verification: True"]
+  n92["stage: confirm snapshot"]
+  n93["finish"]
+  n0 --> n1
+  n1 --> n2
+  n2 --> n3
+  n3 --> n4
+  n4 --> n5
+  n5 --> n6
+  n6 --> n7
+  n7 --> n8
+  n8 --> n9
+  n9 --> n10
+  n10 --> n11
+  n11 --> n12
+  n12 --> n13
+  n13 --> n14
+  n14 --> n15
+  n15 --> n16
+  n16 --> n17
+  n17 --> n18
+  n18 --> n19
+  n19 --> n20
+  n20 --> n21
+  n21 --> n22
+  n22 --> n23
+  n23 --> n24
+  n24 --> n25
+  n25 --> n26
+  n26 --> n27
+  n27 --> n28
+  n28 --> n29
+  n29 --> n30
+  n30 --> n31
+  n31 --> n32
+  n32 --> n33
+  n33 --> n34
+  n34 --> n35
+  n35 --> n36
+  n36 --> n37
+  n37 --> n38
+  n38 --> n39
+  n39 --> n40
+  n40 --> n41
+  n41 --> n42
+  n42 --> n43
+  n43 --> n44
+  n44 --> n45
+  n45 --> n46
+  n46 --> n47
+  n47 --> n48
+  n48 --> n49
+  n49 --> n50
+  n50 --> n51
+  n51 --> n52
+  n52 --> n53
+  n53 --> n54
+  n54 --> n55
+  n55 --> n56
+  n56 --> n57
+  n57 --> n58
+  n58 --> n59
+  n59 --> n60
+  n60 --> n61
+  n61 --> n62
+  n62 --> n63
+  n63 --> n64
+  n64 --> n65
+  n65 --> n66
+  n66 --> n67
+  n67 --> n68
+  n68 --> n69
+  n69 --> n70
+  n70 --> n71
+  n71 --> n72
+  n72 --> n73
+  n73 --> n74
+  n74 --> n75
+  n75 --> n76
+  n76 --> n77
+  n77 --> n78
+  n78 --> n79
+  n79 --> n80
+  n80 --> n81
+  n81 --> n82
+  n82 --> n83
+  n83 --> n84
+  n84 --> n85
+  n85 --> n86
+  n86 --> n87
+  n87 --> n88
+  n88 --> n89
+  n89 --> n90
+  n90 --> n91
+  n91 --> n92
+  n92 --> n93

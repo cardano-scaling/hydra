@@ -128,7 +128,9 @@
           ${nativePkgs.hydra-cluster.components.exes.hydra-cluster}/bin/hydra-cluster "$@"
         '';
 
-        inherit (nativePkgs.hydra-node.components.benchmarks) tx-cost;
+        inherit (nativePkgs.hydra-node.components.exes) head-logic-lab;
+
+        inherit (nativePkgs.hydra-node.components.benchmarks) tx-cost head-logic-program;
 
         hydra-tui =
           embedRevision
