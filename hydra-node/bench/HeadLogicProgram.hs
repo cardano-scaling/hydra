@@ -48,23 +48,30 @@ import Hydra.HeadLogic (
   onOpenNetworkReqTx,
   onOpenNetworkReqTxProgram,
   ruleEnvironment,
+  update,
  )
-import Hydra.HeadLogic.Input (TTL)
+import Hydra.HeadLogic.Input (Input (..), TTL)
 import Hydra.HeadLogic.Interpreter qualified as Interpreter
 import Hydra.Ledger (Ledger (..))
 import Hydra.Ledger.Cardano (cardanoLedger)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), SimpleTxOut (..), simpleLedger)
-import Hydra.Network.Message (Message (AckSn, ReqSn))
+import Hydra.Network.Message (Message (AckSn, ReqSn, ReqTx), NetworkEvent (..))
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.State (ChainPointTime (..), NodeState (..), PendingDeposits)
-import Hydra.Tx (HeadParameters (..), IsTx (..), Snapshot (..), UTxOType)
+import Hydra.Tx (HeadParameters (..), IsTx (..), Snapshot (..), TxIdType, UTxOType)
 import Hydra.Tx.Accumulator (buildFromUTxO)
-import Hydra.Tx.Crypto (sign)
-import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), getSnapshot)
+import Hydra.Tx.Crypto (Signature, sign)
+import Hydra.Tx.Party (Party)
+import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), SnapshotNumber, SnapshotVersion, getSnapshot)
 import System.Directory (createDirectoryIfMissing)
 import System.FilePath ((<.>), (</>))
+import Test.Hydra.HeadLogic.LegacyHandlers qualified as FrozenInput
+import Test.Hydra.HeadLogic.LegacyPrograms qualified as Free
 import Test.Hydra.HeadLogic.LegacyReqTx (legacyOnOpenNetworkReqTx)
-import Test.Hydra.HeadLogic.LegacySnapshot
+import Test.Hydra.HeadLogic.LegacySnapshot (
+  legacyOnOpenNetworkAckSn,
+  legacyOnOpenNetworkReqSn,
+ )
 import Test.Hydra.HeadLogic.LegacyState (legacyAggregateNodeState)
 import Test.Hydra.HeadLogic.Mermaid qualified as Mermaid
 import Test.Hydra.Ledger.Cardano (genFixedSizeSequenceOfSimplePaymentTransactions)
@@ -366,9 +373,12 @@ makeFixture ledger chainState utxoSize initial txs leads =
 -- Trace observers are disabled. Equivalence checks are outside the timed region.
 benchmarkRound :: IsChainState tx => Bool -> String -> Int -> Int -> Fixture tx -> IO Benchmark
 benchmarkRound reverseOrder ledgerName n backlog fixture = do
-  let old = runRound True fixture fixture.incoming
-      new = runRound False fixture fixture.incoming
-      beforeCrem = runRoundWith legacyAggregateState False fixture fixture.incoming
+  let old = runRound LegacyRules fixture fixture.incoming
+      new = runRound CremPrograms fixture fixture.incoming
+      free = runRound FreePrograms fixture fixture.incoming
+      beforeCrem = runRoundWith legacyAggregateState CremPrograms fixture fixture.incoming
+  unless (runRound FullInputRules fixture fixture.incoming == new && runRound FrozenInputRules fixture fixture.incoming == new) $ Prelude.error "full input round differs"
+  unless (free == new) $ Prelude.error "workflow round differs from frozen free programs"
   unless (beforeCrem == new) $ Prelude.error "crem round differs from frozen event reducer"
   unless (old == new) $ Prelude.error "snapshot round outcomes or states differ"
   -- Equality alone also accepts two equally broken rounds. Force a successful
@@ -381,13 +391,13 @@ benchmarkRound reverseOrder ledgerName n backlog fixture = do
           pure ()
     _ -> Prelude.error "snapshot round benchmark does not confirm the next snapshot"
   let pair =
-        [ bench "legacy" $ whnf (roundChecksum . runRound True fixture) fixture.incoming
-        , bench "program" $ whnf (roundChecksum . runRound False fixture) fixture.incoming
+        [ bench "legacy" $ whnf (roundChecksum . runRound LegacyRules fixture) fixture.incoming
+        , bench "program" $ whnf (roundChecksum . runRound CremPrograms fixture) fixture.incoming
         ]
   let name = ledgerName <> "/utxo-" <> show n <> "/backlog-" <> show backlog
       cremPair =
-        [ bench "legacy-reducer" $ whnf (roundChecksum . runRoundWith legacyAggregateState False fixture) fixture.incoming
-        , bench "crem" $ whnf (roundChecksum . runRoundWith aggregateState False fixture) fixture.incoming
+        [ bench "legacy-reducer" $ whnf (roundChecksum . runRoundWith legacyAggregateState CremPrograms fixture) fixture.incoming
+        , bench "crem" $ whnf (roundChecksum . runRoundWith aggregateState CremPrograms fixture) fixture.incoming
         ]
       ordered xs = if reverseOrder then reverse xs else xs
       events = concatMap retained (fst new)
@@ -400,7 +410,17 @@ benchmarkRound reverseOrder ledgerName n backlog fixture = do
   pure $
     bgroup ("round/" <> name) $
       ordered pair
-        <> [ bgroup "aggregation" (ordered cremPair)
+        <> [ bgroup "workflow" $
+              ordered
+                [ bench "free-program" $ whnf (roundChecksum . runRound FreePrograms fixture) fixture.incoming
+                , bench "crem-program" $ whnf (roundChecksum . runRound CremPrograms fixture) fixture.incoming
+                ]
+           , bgroup "input" $
+              ordered
+                [ bench "frozen-handlers" $ whnf (roundChecksum . runRound FrozenInputRules fixture) fixture.incoming
+                , bench "crem-program" $ whnf (roundChecksum . runRound FullInputRules fixture) fixture.incoming
+                ]
+           , bgroup "aggregation" (ordered cremPair)
            , bgroup "event-replay-crem" (ordered replayPair)
            ]
  where
@@ -412,18 +432,31 @@ benchmarkRound reverseOrder ledgerName n backlog fixture = do
             ConfirmedSnapshot{snapshot} -> fromIntegral snapshot.number + length snapshot.confirmed
     _ -> Prelude.error "round leaves open head"
 
-runRound :: IsChainState tx => Bool -> Fixture tx -> tx -> ([Outcome tx], NodeState tx)
+data RuleImplementation = LegacyRules | FreePrograms | CremPrograms | FrozenInputRules | FullInputRules
+
+freeReqTx :: IsTx tx => Handler tx
+freeReqTx env ledger time st ttl pending tx = Interpreter.runProgram ledger $ Free.onOpenNetworkReqTxProgram (ruleEnvironment env) time st ttl pending tx
+
+freeReqSn :: IsTx tx => Environment -> Ledger tx -> PendingDeposits tx -> ChainPointTime -> OpenState tx -> TTL -> Party -> SnapshotVersion -> SnapshotNumber -> [TxIdType tx] -> Maybe tx -> Maybe (TxIdType tx) -> Outcome tx
+freeReqSn env ledger pending time st ttl sender sv sn ids decommit deposit =
+  Interpreter.runProgramWith (Interpreter.snapshotConfig env ledger) $ Free.onOpenNetworkReqSnProgram (ruleEnvironment env) pending time st ttl sender sv sn ids decommit deposit
+
+freeAckSn :: IsTx tx => Environment -> ChainPointTime -> PendingDeposits tx -> OpenState tx -> Party -> Signature (Snapshot tx) -> SnapshotNumber -> Outcome tx
+freeAckSn env time pending st sender signature sn =
+  Interpreter.runProgramWith Interpreter.basicConfig $ Free.onOpenNetworkAckSnProgram (ruleEnvironment env) time pending st sender signature sn
+
+runRound :: IsChainState tx => RuleImplementation -> Fixture tx -> tx -> ([Outcome tx], NodeState tx)
 runRound = runRoundWith aggregateState
 
-runRoundWith :: IsChainState tx => (NodeState tx -> Outcome tx -> NodeState tx) -> Bool -> Fixture tx -> tx -> ([Outcome tx], NodeState tx)
-runRoundWith aggregate legacy fixture incoming =
+runRoundWith :: IsChainState tx => (NodeState tx -> Outcome tx -> NodeState tx) -> RuleImplementation -> Fixture tx -> tx -> ([Outcome tx], NodeState tx)
+runRoundWith aggregate implementation fixture incoming =
   case fixture.state.headState of
     Open os ->
-      let txOutcome = (if legacy then legacyOnOpenNetworkReqTx else onOpenNetworkReqTx) fixture.environment fixture.ledger fixture.state.chainPointTime os fixture.ttl mempty incoming
+      let txOutcome = inputOr fixture.state fixture.environment.party (ReqTx incoming) $ (case implementation of LegacyRules -> legacyOnOpenNetworkReqTx; FreePrograms -> freeReqTx; _ -> onOpenNetworkReqTx) fixture.environment fixture.ledger fixture.state.chainPointTime os fixture.ttl mempty incoming
           afterTx = aggregate fixture.state txOutcome
        in case (txOutcome, afterTx.headState) of
             (Continue{effects = [NetworkEffect (ReqSn sv sn ids decommit deposit)]}, Open requestedOpen) ->
-              let reqOutcome = (if legacy then legacyOnOpenNetworkReqSn else onOpenNetworkReqSn) fixture.environment fixture.ledger mempty fixture.state.chainPointTime requestedOpen fixture.ttl fixture.environment.party sv sn ids decommit deposit
+              let reqOutcome = inputOr afterTx fixture.environment.party (ReqSn sv sn ids decommit deposit) $ (case implementation of LegacyRules -> legacyOnOpenNetworkReqSn; FreePrograms -> freeReqSn; _ -> onOpenNetworkReqSn) fixture.environment fixture.ledger mempty fixture.state.chainPointTime requestedOpen fixture.ttl fixture.environment.party sv sn ids decommit deposit
                   afterRequest = aggregate afterTx reqOutcome
                in case (reqOutcome, afterRequest.headState) of
                     (Continue{effects = [NetworkEffect (AckSn localSignature _)]}, Open OpenState{coordinatedHeadState = CoordinatedHeadState{seenSnapshot = SeenSnapshot{snapshot}}}) ->
@@ -432,9 +465,16 @@ runRoundWith aggregate legacy fixture incoming =
             _ -> Prelude.error "round fixture does not request a snapshot"
     _ -> Prelude.error "round fixture is not open"
  where
+  inputOr st sender message fallback = case implementation of
+    FullInputRules -> update fixture.environment fixture.ledger st.chainPointTime.currentChainTime st input
+    FrozenInputRules -> FrozenInput.update fixture.environment fixture.ledger st.chainPointTime.currentChainTime st input
+    _ -> fallback
+   where
+    input = NetworkInput fixture.ttl ReceivedMessage{sender, msg = message}
   ack snapshot sn localSignature (outcomes, st) (sender, sk) = case st.headState of
     Open os ->
-      let outcome = (if legacy then legacyOnOpenNetworkAckSn else onOpenNetworkAckSn) fixture.environment st.chainPointTime mempty os sender (if sender == fixture.environment.party then localSignature else sign sk snapshot) sn
+      let signature = if sender == fixture.environment.party then localSignature else sign sk snapshot
+          outcome = inputOr st sender (AckSn signature sn) $ (case implementation of LegacyRules -> legacyOnOpenNetworkAckSn; FreePrograms -> freeAckSn; _ -> onOpenNetworkAckSn) fixture.environment st.chainPointTime mempty os sender signature sn
        in (outcomes <> [outcome], aggregate st outcome)
     _ -> Prelude.error "acknowledgement leaves open head"
 

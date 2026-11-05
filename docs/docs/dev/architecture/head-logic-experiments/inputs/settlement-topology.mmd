@@ -1,0 +1,12 @@
+stateDiagram-v2
+
+RecordSettlement
+ChooseCandidate
+CheckVerification
+RequestNext
+Finished
+RecordSettlement --> ChooseCandidate
+ChooseCandidate --> CheckVerification
+ChooseCandidate --> RequestNext
+CheckVerification --> RequestNext
+RequestNext --> Finished

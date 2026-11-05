@@ -1,0 +1,19 @@
+%%{init: {"sequence": {"wrap": true}}}%%
+sequenceDiagram
+  participant logic as Head logic
+  rect rgb(245, 247, 250)
+    Note over logic: Frozen free program: req-sn-version-wait
+    Note over logic: request is the next snapshot: yes
+    Note over logic: sender leads this snapshot: yes
+    Note over logic: previous snapshot is confirmed: yes
+    Note over logic: snapshot version matches: no
+    Note over logic: wait: commit changes and discard buffered effects
+  end
+  rect rgb(245, 247, 250)
+    Note over logic: Production crem with program actions: req-sn-version-wait
+    Note over logic: request is the next snapshot: yes
+    Note over logic: sender leads this snapshot: yes
+    Note over logic: previous snapshot is confirmed: yes
+    Note over logic: snapshot version matches: no
+    Note over logic: wait: commit changes and discard buffered effects
+  end

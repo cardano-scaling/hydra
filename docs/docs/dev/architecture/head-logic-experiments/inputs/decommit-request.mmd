@@ -1,0 +1,15 @@
+%%{init: {"sequence": {"wrap": true}}}%%
+sequenceDiagram
+  participant logic as Head logic
+  participant ledger as Ledger
+  participant effects as Buffered effects
+  rect rgb(245, 247, 250)
+    Note over logic,effects: decommit-request
+    Note over logic: client input fits the accumulator: yes
+    Note over logic: input is admitted while at this sync status: yes
+    Note over logic: no decommit is in flight: yes
+    ledger-->>logic: ledger application: valid
+    Note over logic: decommit produces outputs: yes
+    logic->>effects: buffer: broadcast ReqDec
+    Note over logic,effects: finish: commit changes and release effects
+  end

@@ -1,0 +1,23 @@
+%%{init: {"sequence": {"wrap": true}}}%%
+sequenceDiagram
+  participant logic as Head logic
+  participant crypto as Cryptography
+  participant changes as Staged changes
+  rect rgb(245, 247, 250)
+    Note over logic,changes: Frozen free program: ack-invalid
+    Note over logic: acknowledgement number is admissible: yes
+    Note over logic: party has not signed this snapshot: yes
+    logic->>changes: stage: record snapshot signature
+    Note over logic: all parties have signed: yes
+    crypto-->>logic: primitive: verify multisignature
+    Note over logic,changes: reject: discard changes and effects
+  end
+  rect rgb(245, 247, 250)
+    Note over logic,changes: Production crem with program actions: ack-invalid
+    Note over logic: acknowledgement number is admissible: yes
+    Note over logic: party has not signed this snapshot: yes
+    logic->>changes: stage: record snapshot signature
+    Note over logic: all parties have signed: yes
+    crypto-->>logic: primitive: verify multisignature
+    Note over logic,changes: reject: discard changes and effects
+  end

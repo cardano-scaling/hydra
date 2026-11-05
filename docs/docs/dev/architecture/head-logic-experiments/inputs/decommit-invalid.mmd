@@ -1,0 +1,14 @@
+%%{init: {"sequence": {"wrap": true}}}%%
+sequenceDiagram
+  participant logic as Head logic
+  participant ledger as Ledger
+  participant changes as Staged changes
+  rect rgb(245, 247, 250)
+    Note over logic,changes: decommit-invalid
+    Note over logic: client input fits the accumulator: yes
+    Note over logic: input is admitted while at this sync status: yes
+    Note over logic: no decommit is in flight: yes
+    ledger-->>logic: ledger application: invalid
+    logic->>changes: stage: record invalid decommit
+    Note over logic,changes: finish: commit changes and release effects
+  end

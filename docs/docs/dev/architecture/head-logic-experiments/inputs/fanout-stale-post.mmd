@@ -1,0 +1,8 @@
+%%{init: {"sequence": {"wrap": true}}}%%
+sequenceDiagram
+  participant logic as Head logic
+  rect rgb(245, 247, 250)
+    Note over logic: fanout-stale-post
+    Note over logic: input is admitted while at this sync status: yes
+    Note over logic: finish: commit changes and release effects
+  end

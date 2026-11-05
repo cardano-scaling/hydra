@@ -150,6 +150,7 @@ lint PKG="all":
   rc=0
   nix fmt || rc=1
   python3 scripts/test_bench_e2e_diff.py || rc=1
+  python3 scripts/head-logic-diagrams.py --check || rc=1
   python3 demo/lifecycle/test_record.py || rc=1
   bash spec/check-error-codes.sh || rc=1
   cabal build {{PKG}} \

@@ -12,6 +12,8 @@ import Test.Hspec (Spec, describe, it, shouldBe)
 import Hydra.Agda.OffChainReference (
   HsDepositStatus (..),
   HsPendingCommit (..),
+  HsRecoverOutcome (..),
+  HsReqDecOutcome (..),
   HsReqTxChange (..),
   HsReqTxEffect (..),
   HsReqTxOutcome (..),
@@ -28,7 +30,9 @@ import Hydra.Agda.OffChainReference (
   depositStatusRef,
   leaderRef,
   notAlreadySignedRef,
+  recoverOutcomeRef,
   reqDecEligibleRef,
+  reqDecOutcomeRef,
   reqSnDecommitOutputsRef,
   reqSnDecommitSettledRef,
   reqSnDepositDisjointRef,
@@ -41,6 +45,15 @@ import Hydra.Agda.OffChainReference (
 
 spec :: Spec
 spec = do
+  describe "incremental workflow outcomes" $ do
+    it "gives a selected commit priority over a pending decommit and ledger failure" $ do
+      reqDecOutcomeRef True True False False 1 False 2 1 0 `shouldBe` ReqDecWaitCommit
+      reqDecOutcomeRef False False True False 1 False 2 1 0 `shouldBe` ReqDecEmptyOutputs
+      reqDecOutcomeRef False False True True 1 False 2 1 0 `shouldBe` ReqDecRequested
+    it "checks deposit registration before finalized ownership" $ do
+      recoverOutcomeRef False True `shouldBe` RecoveryMissing
+      recoverOutcomeRef True True `shouldBe` RecoveryBlocked
+      recoverOutcomeRef True False `shouldBe` RecoveryPosted
   -- created deadline T_deposit T_activate t
   describe "depositStatusRef" $ do
     let status = depositStatusRef 1_000 100_000

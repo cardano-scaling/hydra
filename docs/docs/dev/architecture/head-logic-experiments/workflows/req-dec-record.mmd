@@ -1,0 +1,18 @@
+%%{init: {"sequence": {"wrap": true}}}%%
+sequenceDiagram
+  participant logic as Head logic
+  participant ledger as Ledger
+  participant changes as Staged changes
+  participant effects as Buffered effects
+  rect rgb(245, 247, 250)
+    Note over logic,effects: Production crem with program actions: req-dec-record
+    Note over logic: next snapshot carries a deposit: no
+    Note over logic: no decommit is in flight: yes
+    ledger-->>logic: ledger application: valid
+    Note over logic: decommit produces outputs: yes
+    logic->>changes: stage: reserve decommit
+    Note over logic: no snapshot is in flight: yes
+    Note over logic: this party leads the next snapshot: yes
+    logic->>effects: buffer: broadcast ReqSn
+    Note over logic,effects: finish: commit changes and release effects
+  end

@@ -478,3 +478,97 @@ pendingIncrementPhaseRef true true true = 4
 {-# COMPILE GHC coordinationPhaseRef as hsCoordinationPhaseRef #-}
 {-# COMPILE GHC trackedDepositPhaseRef as hsTrackedDepositPhaseRef #-}
 {-# COMPILE GHC pendingIncrementPhaseRef as hsPendingIncrementPhaseRef #-}
+
+-- ReqTx, ReqSn and AckSn comparisons run against the frozen free programs and
+-- the production crem phase machines with program actions. This reference is
+-- independent of either control-flow encoding. Phase typing adds no coverage
+-- of primitive correctness, payloads or Haskell evaluation to this projection.
+
+-- ReqDec terminal and event/effect projection. The selected-commit flag is
+-- supplied after snapshot/deposit selection; this model excludes that selection,
+-- ledger payloads and validation, and the contents of the requested snapshot.
+-- Each result names the whole ordered outcome: invalidation has one change and
+-- no effects; acceptance records one decommit and optionally sends one ReqSn.
+-- In particular ReqDec does not record SnapshotRequestDecided.
+data ReqDecOutcomeᶜ : Set where
+  decWaitCommitᶜ decInvalidCommitᶜ decWaitExistingᶜ decInvalidExistingᶜ
+    decWaitLedgerᶜ decInvalidLedgerᶜ decEmptyOutputsᶜ decRecordedᶜ decRequestedᶜ : ReqDecOutcomeᶜ
+{-# FOREIGN GHC data HsReqDecOutcome = ReqDecWaitCommit | ReqDecInvalidCommit
+                   | ReqDecWaitExisting | ReqDecInvalidExisting | ReqDecWaitLedger
+                   | ReqDecInvalidLedger | ReqDecEmptyOutputs | ReqDecRecorded
+                   | ReqDecRequested deriving (Eq, Show) #-}
+{-# COMPILE GHC ReqDecOutcomeᶜ = data HsReqDecOutcome
+    (ReqDecWaitCommit | ReqDecInvalidCommit | ReqDecWaitExisting | ReqDecInvalidExisting
+    | ReqDecWaitLedger | ReqDecInvalidLedger | ReqDecEmptyOutputs | ReqDecRecorded | ReqDecRequested) #-}
+
+-- Selected commit, existing decommit, applicability, nonempty outputs, TTL,
+-- snapshot in flight, party count minus one, next number and local party index.
+reqDecOutcomeRef : Bool → Bool → Bool → Bool → Nat → Bool → Nat → Nat → Nat → ReqDecOutcomeᶜ
+reqDecOutcomeRef true _ _ _ zero _ _ _ _ = decInvalidCommitᶜ
+reqDecOutcomeRef true _ _ _ (suc _) _ _ _ _ = decWaitCommitᶜ
+reqDecOutcomeRef false true _ _ zero _ _ _ _ = decInvalidExistingᶜ
+reqDecOutcomeRef false true _ _ (suc _) _ _ _ _ = decWaitExistingᶜ
+reqDecOutcomeRef false false false _ zero _ _ _ _ = decInvalidLedgerᶜ
+reqDecOutcomeRef false false false _ (suc _) _ _ _ _ = decWaitLedgerᶜ
+reqDecOutcomeRef false false true false _ _ _ _ _ = decEmptyOutputsᶜ
+reqDecOutcomeRef false false true true _ inFlight m sn party =
+  if not inFlight && leaderRef m sn party then decRequestedᶜ else decRecordedᶜ
+
+-- Recover checks registration before the finalized-increment guard. Deposit
+-- status is not an admission guard here; the chain enforces the deadline.
+data RecoverOutcomeᶜ : Set where
+  recoveryMissingᶜ recoveryBlockedᶜ recoveryPostedᶜ : RecoverOutcomeᶜ
+{-# FOREIGN GHC data HsRecoverOutcome = RecoveryMissing | RecoveryBlocked | RecoveryPosted deriving (Eq, Show) #-}
+{-# COMPILE GHC RecoverOutcomeᶜ = data HsRecoverOutcome (RecoveryMissing | RecoveryBlocked | RecoveryPosted) #-}
+recoverOutcomeRef : Bool → Bool → RecoverOutcomeᶜ
+recoverOutcomeRef false _ = recoveryMissingᶜ
+recoverOutcomeRef true true = recoveryBlockedᶜ
+recoverOutcomeRef true false = recoveryPostedᶜ
+
+{-# COMPILE GHC reqDecOutcomeRef as hsReqDecOutcomeRef #-}
+{-# COMPILE GHC recoverOutcomeRef as hsRecoverOutcomeRef #-}
+
+-- Complete-input migration: bounded decisions outside the snapshot round.
+-- These projections check admission ordering and scalar guards, not the full
+-- routing table, fanout multiset arithmetic, ledger/crypto, or chain validity.
+-- Input kind: client=0, network=1, chain=2. Result: dispatch=0, unsafe=1,
+-- unsynced client=2, wait for sync=3. Only client inputs have a size guard.
+inputAdmissionRef : Nat → Bool → Bool → Nat
+inputAdmissionRef 0 false _ = 1
+inputAdmissionRef 0 true false = 2
+inputAdmissionRef 1 _ false = 3
+inputAdmissionRef _ _ _ = 0
+
+-- Existing decommit, ledger applicability, nonempty outputs. Results follow
+-- the client's priority: already pending=0, ledger invalid=1, empty=2, send=3.
+clientDecommitRef : Bool → Bool → Bool → Nat
+clientDecommitRef true _ _ = 0
+clientDecommitRef false false _ = 1
+clientDecommitRef false true false = 2
+clientDecommitRef false true true = 3
+
+-- An observed settlement can adopt a seen snapshot only at that number, with
+-- its version exactly one behind the new version, matching incremental action,
+-- and valid multisignature. Finalization itself does not depend on adoption.
+adoptSettlementRef : Nat → Nat → Nat → Nat → Bool → Bool → Bool
+adoptSettlementRef observed seen snapshotVersion newVersion actionMatches signaturesValid =
+  (observed == seen) && ((suc snapshotVersion == newVersion) && (actionMatches && signaturesValid))
+
+-- When no still-pending settlement can be reposted, retained finalized work is
+-- reposted only for a rollback strictly before its observation slot.
+repostFinalizedRef : Bool → Nat → Nat → Bool
+repostFinalizedRef pending rolledBack observed = pending || (rolledBack < observed)
+
+-- Remaining set empty; mode auto=0, selection=1, awaiting=2.
+-- Action: wait=0, post remainder=1, post selection=2. Empty always burns tokens.
+fanoutContinuationRef : Bool → Nat → Nat
+fanoutContinuationRef true _ = 1
+fanoutContinuationRef false 0 = 1
+fanoutContinuationRef false 1 = 2
+fanoutContinuationRef false _ = 0
+
+{-# COMPILE GHC inputAdmissionRef as hsInputAdmissionRef #-}
+{-# COMPILE GHC clientDecommitRef as hsClientDecommitRef #-}
+{-# COMPILE GHC adoptSettlementRef as hsAdoptSettlementRef #-}
+{-# COMPILE GHC repostFinalizedRef as hsRepostFinalizedRef #-}
+{-# COMPILE GHC fanoutContinuationRef as hsFanoutContinuationRef #-}

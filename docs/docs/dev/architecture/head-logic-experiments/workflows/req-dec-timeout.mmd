@@ -1,0 +1,14 @@
+%%{init: {"sequence": {"wrap": true}}}%%
+sequenceDiagram
+  participant logic as Head logic
+  participant ledger as Ledger
+  participant changes as Staged changes
+  rect rgb(245, 247, 250)
+    Note over logic,changes: Production crem with program actions: req-dec-timeout
+    Note over logic: next snapshot carries a deposit: no
+    Note over logic: no decommit is in flight: yes
+    ledger-->>logic: ledger application: invalid
+    Note over logic: retry budget remains: no
+    logic->>changes: stage: record invalid decommit
+    Note over logic,changes: finish: commit changes and release effects
+  end

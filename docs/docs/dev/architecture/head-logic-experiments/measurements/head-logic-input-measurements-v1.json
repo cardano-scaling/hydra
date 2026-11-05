@@ -1,0 +1,3670 @@
+{
+  "schemaVersion": 1,
+  "method": {
+    "measuredAtUTC": "2026-11-05T19:24:03.398461+00:00",
+    "compiler": "GHC 9.6.7",
+    "optimization": "-O1",
+    "criterion": "1.6.5.0",
+    "crem": "0.1.1.0",
+    "cpu": 0,
+    "cpuModel": "Intel(R) Core(TM) Ultra 7 258V",
+    "capabilities": 1,
+    "backgroundUTxO": [
+      100,
+      10000
+    ],
+    "backlog": 0,
+    "traceEnabled": false,
+    "baseline": "Test.Hydra.HeadLogic.LegacyHandlers.update with frozen network programs",
+    "implementation": "Hydra.HeadLogic.update via Rules.Input.machine",
+    "aggregation": "same production crem event machines in both paths",
+    "binarySHA256": "b2ba9421a428fb182806d007cd1a9413fa7df560ea035b83b0a7e3005d8def26"
+  },
+  "notes": [
+    "One local ReqTx, ReqSn and three AckSn inputs, with admission checks, signatures and state aggregation; zero pre-applied backlog.",
+    "Complete ordered outcome/state equality and successful confirmation are checked before timing. The timed checksum forces structural projections, not every state field.",
+    "This compares the complete input conversion to frozen handlers/programs; it does not isolate input admission overhead. Both paths use crem event aggregation.",
+    "No network, persistence, API projection, saturated TPS or chain actions are measured. Earlier cluster measurements predate crem.",
+    "Four balanced grid runs, then ten-second repeats for large UTxOs, which have only four samples per implementation in the grid. Builds and tests were stopped.",
+    "Time changes are paired estimates, not confidence bounds. Drift and limited samples prevent claiming a general 5% bound.",
+    "Allocation rises about 56 KiB per round, including 8.6% in the small Simple fixture. Criterion reports some unavailable allocation interval bounds as null."
+  ],
+  "summary": [
+    {
+      "name": "round/simple/utxo-100/backlog-0/input",
+      "pairs": [
+        {
+          "run": 1,
+          "frozenMeanSeconds": 0.0030096600541393236,
+          "cremMeanSeconds": 0.0030408385296546423,
+          "deltaPercent": 1.035946749947314,
+          "frozenBytesPerRound": 667938.732647252,
+          "cremBytesPerRound": 725107.3765936558
+        },
+        {
+          "run": 2,
+          "frozenMeanSeconds": 0.0032223039098469458,
+          "cremMeanSeconds": 0.0032099799467022825,
+          "deltaPercent": -0.3824581259080806,
+          "frozenBytesPerRound": 667946.688259109,
+          "cremBytesPerRound": 725100.8645189544
+        },
+        {
+          "run": 3,
+          "frozenMeanSeconds": 0.00329290198736301,
+          "cremMeanSeconds": 0.003333083446533652,
+          "deltaPercent": 1.2202446147757895,
+          "frozenBytesPerRound": 667946.688259109,
+          "cremBytesPerRound": 725099.1780389056
+        },
+        {
+          "run": 4,
+          "frozenMeanSeconds": 0.003128103709408297,
+          "cremMeanSeconds": 0.003134007617503366,
+          "deltaPercent": 0.1887376073022029,
+          "frozenBytesPerRound": 667938.732647252,
+          "cremBytesPerRound": 725107.3765936558
+        }
+      ]
+    },
+    {
+      "name": "round/cardano/utxo-100/backlog-0/input",
+      "pairs": [
+        {
+          "run": 1,
+          "frozenMeanSeconds": 0.003355207902617214,
+          "cremMeanSeconds": 0.003390135022682662,
+          "deltaPercent": 1.0409822901944032,
+          "frozenBytesPerRound": 1228603.5817122543,
+          "cremBytesPerRound": 1285812.453836279
+        },
+        {
+          "run": 2,
+          "frozenMeanSeconds": 0.003606256779469683,
+          "cremMeanSeconds": 0.003641123267468387,
+          "deltaPercent": 0.966833204923101,
+          "frozenBytesPerRound": 1228604.8402458793,
+          "cremBytesPerRound": 1285811.8920204455
+        },
+        {
+          "run": 3,
+          "frozenMeanSeconds": 0.0035595843875075323,
+          "cremMeanSeconds": 0.003610338684045702,
+          "deltaPercent": 1.4258489478798042,
+          "frozenBytesPerRound": 1228604.8402458793,
+          "cremBytesPerRound": 1285811.8920204455
+        },
+        {
+          "run": 4,
+          "frozenMeanSeconds": 0.003444016733382195,
+          "cremMeanSeconds": 0.0034521640198259345,
+          "deltaPercent": 0.2365634976383646,
+          "frozenBytesPerRound": 1228603.8920204458,
+          "cremBytesPerRound": 1285812.8402458793
+        }
+      ]
+    },
+    {
+      "name": "round/simple/utxo-10000/backlog-0/input",
+      "pairs": [
+        {
+          "run": 1,
+          "frozenMeanSeconds": 0.20125870895738748,
+          "cremMeanSeconds": 0.20223310264691463,
+          "deltaPercent": 0.48414982614912727,
+          "frozenBytesPerRound": 43869484.79999996,
+          "cremBytesPerRound": 43926565.59999996
+        },
+        {
+          "run": 2,
+          "frozenMeanSeconds": 0.21638003218716526,
+          "cremMeanSeconds": 0.21420689039390103,
+          "deltaPercent": -1.0043171596279654,
+          "frozenBytesPerRound": 43869406.399999954,
+          "cremBytesPerRound": 43926434.399999954
+        },
+        {
+          "run": 3,
+          "frozenMeanSeconds": 0.20859029406165064,
+          "cremMeanSeconds": 0.21026336206250562,
+          "deltaPercent": 0.8020833415961715,
+          "frozenBytesPerRound": 43869406.399999954,
+          "cremBytesPerRound": 43926434.399999954
+        },
+        {
+          "run": 4,
+          "frozenMeanSeconds": 0.2039368550626932,
+          "cremMeanSeconds": 0.2032251961233366,
+          "deltaPercent": -0.3489604363752008,
+          "frozenBytesPerRound": 43869484.79999996,
+          "cremBytesPerRound": 43926565.59999996
+        },
+        {
+          "run": 5,
+          "frozenMeanSeconds": 0.19777282283996786,
+          "cremMeanSeconds": 0.19286132958045085,
+          "deltaPercent": -2.483401505317673,
+          "frozenBytesPerRound": 43869206.66666662,
+          "cremBytesPerRound": 43925999.59999996
+        },
+        {
+          "run": 6,
+          "frozenMeanSeconds": 0.21279950690778995,
+          "cremMeanSeconds": 0.21585750882811436,
+          "deltaPercent": 1.4370343074382674,
+          "frozenBytesPerRound": 43868999.199999966,
+          "cremBytesPerRound": 43926190.66666663
+        }
+      ]
+    },
+    {
+      "name": "round/cardano/utxo-10000/backlog-0/input",
+      "pairs": [
+        {
+          "run": 1,
+          "frozenMeanSeconds": 0.209954796084124,
+          "cremMeanSeconds": 0.21155086233541928,
+          "deltaPercent": 0.7601951853749345,
+          "frozenBytesPerRound": 59995469.59999994,
+          "cremBytesPerRound": 60053786.39999994
+        },
+        {
+          "run": 2,
+          "frozenMeanSeconds": 0.22493228258281306,
+          "cremMeanSeconds": 0.223393904793132,
+          "deltaPercent": -0.6839293017509296,
+          "frozenBytesPerRound": 59995469.59999994,
+          "cremBytesPerRound": 60053567.999999925
+        },
+        {
+          "run": 3,
+          "frozenMeanSeconds": 0.21313629691712777,
+          "cremMeanSeconds": 0.21405801852142758,
+          "deltaPercent": 0.4324564223137539,
+          "frozenBytesPerRound": 59995469.59999994,
+          "cremBytesPerRound": 60053567.999999925
+        },
+        {
+          "run": 4,
+          "frozenMeanSeconds": 0.20968945222966795,
+          "cremMeanSeconds": 0.208848575791914,
+          "deltaPercent": -0.40101036500060916,
+          "frozenBytesPerRound": 59995469.59999994,
+          "cremBytesPerRound": 60053786.39999994
+        },
+        {
+          "run": 5,
+          "frozenMeanSeconds": 0.2135979208005649,
+          "cremMeanSeconds": 0.20861677799810815,
+          "deltaPercent": -2.3320183940870876,
+          "frozenBytesPerRound": 59996466.13333327,
+          "cremBytesPerRound": 60053857.86666662
+        },
+        {
+          "run": 6,
+          "frozenMeanSeconds": 0.22538210400101608,
+          "cremMeanSeconds": 0.22266467405614293,
+          "deltaPercent": -1.205699075761979,
+          "frozenBytesPerRound": 59996227.333333276,
+          "cremBytesPerRound": 60053835.73333328
+        }
+      ]
+    }
+  ],
+  "runs": [
+    {
+      "run": 1,
+      "order": "legacy-first",
+      "timeLimitSeconds": 2,
+      "resamples": 1000,
+      "reports": [
+        {
+          "name": "round/simple/utxo-100/backlog-0/input/frozen-handlers",
+          "meanSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 1.3294603934867893e-05,
+              "confIntUDX": 1.912835415131091e-05
+            },
+            "estPoint": 0.0030096600541393236
+          },
+          "stddevSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 1.3868173942467767e-05,
+              "confIntUDX": 1.5028945555898037e-05
+            },
+            "estPoint": 4.1812455629734664e-05
+          },
+          "regressions": [
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 1.602032944380584e-05,
+                    "confIntUDX": 1.0930100491858465e-05
+                  },
+                  "estPoint": 0.0029722489317782295
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 0.0003028254213946172,
+                    "confIntUDX": 0.0004480446188419144
+                  },
+                  "estPoint": 0.0004881106662076487
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 0.00016754439757560302,
+                  "confIntUDX": 0.00011320596249120296
+                },
+                "estPoint": 0.9997875628258103
+              },
+              "regResponder": "time"
+            },
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 19.34290748310741,
+                    "confIntUDX": 29.08333583478816
+                  },
+                  "estPoint": 667938.732647252
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 712.5329649444084,
+                    "confIntUDX": 506.8821780611506
+                  },
+                  "estPoint": 3154.473396103351
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 1.217655654084382e-08,
+                  "confIntUDX": 7.172219929074686e-09
+                },
+                "estPoint": 0.9999999928277801
+              },
+              "regResponder": "allocated"
+            }
+          ],
+          "outlierVariance": {
+            "ovDesc": "a slight",
+            "ovEffect": "Slight",
+            "ovFraction": 0.028546712802768166
+          },
+          "samples": 34
+        },
+        {
+          "name": "round/simple/utxo-100/backlog-0/input/crem-program",
+          "meanSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 1.3072369172532645e-05,
+              "confIntUDX": 2.708405618652779e-05
+            },
+            "estPoint": 0.0030408385296546423
+          },
+          "stddevSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 1.8097551284388998e-05,
+              "confIntUDX": 2.6723184037882388e-05
+            },
+            "estPoint": 4.638447017719381e-05
+          },
+          "regressions": [
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 2.2566161546776296e-05,
+                    "confIntUDX": 1.2581322928371334e-05
+                  },
+                  "estPoint": 0.0030018082923471603
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 0.00035859216280301686,
+                    "confIntUDX": 0.0005874916656382412
+                  },
+                  "estPoint": 0.0005587426845729863
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 0.00020000755986715468,
+                  "confIntUDX": 0.00014545239384367026
+                },
+                "estPoint": 0.9997485290257836
+              },
+              "regResponder": "time"
+            },
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 25.760916405008174,
+                    "confIntUDX": 12.623406344675459
+                  },
+                  "estPoint": 725107.3765936558
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 320.9890872217617,
+                    "confIntUDX": 629.3907541311137
+                  },
+                  "estPoint": -31.010912788665557
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 5.98232963167078e-09,
+                  "confIntUDX": 3.750892707543585e-09
+                },
+                "estPoint": 0.9999999962491073
+              },
+              "regResponder": "allocated"
+            }
+          ],
+          "outlierVariance": {
+            "ovDesc": "a slight",
+            "ovEffect": "Slight",
+            "ovFraction": 0.028546712802768444
+          },
+          "samples": 34
+        },
+        {
+          "name": "round/cardano/utxo-100/backlog-0/input/frozen-handlers",
+          "meanSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 1.4689743964912266e-05,
+              "confIntUDX": 2.20713046731897e-05
+            },
+            "estPoint": 0.003355207902617214
+          },
+          "stddevSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 1.414372756963112e-05,
+              "confIntUDX": 1.6404979123751858e-05
+            },
+            "estPoint": 4.505359874504069e-05
+          },
+          "regressions": [
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 1.7490744041804077e-05,
+                    "confIntUDX": 1.2979899211638512e-05
+                  },
+                  "estPoint": 0.003310782675367324
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 0.0003418293670074086,
+                    "confIntUDX": 0.00043956291252487717
+                  },
+                  "estPoint": 0.0006125394823566978
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 0.00012068108867246963,
+                  "confIntUDX": 9.79836406569401e-05
+                },
+                "estPoint": 0.9998195802147992
+              },
+              "regResponder": "time"
+            },
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 3.5817122547887266,
+                    "confIntUDX": 5.131989258574322
+                  },
+                  "estPoint": 1228603.5817122543
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 129.46833428173113,
+                    "confIntUDX": 87.73641420945296
+                  },
+                  "estPoint": 3376.2635857997525
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 8.988954025568319e-11,
+                  "confIntUDX": 6.114619921504527e-11
+                },
+                "estPoint": 0.9999999999388538
+              },
+              "regResponder": "allocated"
+            }
+          ],
+          "outlierVariance": {
+            "ovDesc": "a slight",
+            "ovEffect": "Slight",
+            "ovFraction": 0.029384756657483756
+          },
+          "samples": 33
+        },
+        {
+          "name": "round/cardano/utxo-100/backlog-0/input/crem-program",
+          "meanSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 1.383020711637423e-05,
+              "confIntUDX": 2.6235988436516984e-05
+            },
+            "estPoint": 0.003390135022682662
+          },
+          "stddevSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 1.9905696091366792e-05,
+              "confIntUDX": 3.442293604297898e-05
+            },
+            "estPoint": 4.740540553583582e-05
+          },
+          "regressions": [
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 2.0841597926429464e-05,
+                    "confIntUDX": 1.4946340992565837e-05
+                  },
+                  "estPoint": 0.003351885006285094
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 0.00037434429161437824,
+                    "confIntUDX": 0.00047248575320232877
+                  },
+                  "estPoint": 0.0005471559786334266
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 0.0001922690913170877,
+                  "confIntUDX": 0.00014270343385458517
+                },
+                "estPoint": 0.9997691449238738
+              },
+              "regResponder": "time"
+            },
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 4.453836279455572,
+                    "confIntUDX": 7.557347319088876
+                  },
+                  "estPoint": 1285812.453836279
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 174.234100501777,
+                    "confIntUDX": 109.01497646765438
+                  },
+                  "estPoint": 3346.9850235409162
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 1.4911416545970724e-10,
+                  "confIntUDX": 9.427669755979196e-11
+                },
+                "estPoint": 0.9999999999057233
+              },
+              "regResponder": "allocated"
+            }
+          ],
+          "outlierVariance": {
+            "ovDesc": "a slight",
+            "ovEffect": "Slight",
+            "ovFraction": 0.029384756657483767
+          },
+          "samples": 33
+        },
+        {
+          "name": "round/simple/utxo-10000/backlog-0/input/frozen-handlers",
+          "meanSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 0.0008068505423276806,
+              "confIntUDX": 0.0013437502927141909
+            },
+            "estPoint": 0.20125870895738748
+          },
+          "stddevSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 0.001188057065476635,
+              "confIntUDX": 0.00031708738893232013
+            },
+            "estPoint": 0.0012810265295474473
+          },
+          "regressions": [
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 0.002730417104612498,
+                    "confIntUDX": 0.002036175898684822
+                  },
+                  "estPoint": 0.20033374709892068
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 0.007039835494653214,
+                    "confIntUDX": 0.004008845506177433
+                  },
+                  "estPoint": 0.0015271835000027273
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 6.359489639895521e-06,
+                  "confIntUDX": 2.905569001920849e-05
+                },
+                "estPoint": 0.9999709443099808
+              },
+              "regResponder": "time"
+            },
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 76.7999998703599,
+                    "confIntUDX": 171.2000002041459
+                  },
+                  "estPoint": 43869484.79999996
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 612.0000007373228,
+                    "confIntUDX": 131.99999967402664
+                  },
+                  "estPoint": 2228.000000117864
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 2.1577184483589917e-12,
+                  "confIntUDX": 1.836975016544784e-12
+                },
+                "estPoint": 0.999999999998163
+              },
+              "regResponder": "allocated"
+            }
+          ],
+          "outlierVariance": {
+            "ovDesc": "a moderate",
+            "ovEffect": "Moderate",
+            "ovFraction": 0.18749999999999994
+          },
+          "samples": 4
+        },
+        {
+          "name": "round/simple/utxo-10000/backlog-0/input/crem-program",
+          "meanSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 0.0013523916045414808,
+              "confIntUDX": 0.001923477479522262
+            },
+            "estPoint": 0.20223310264691463
+          },
+          "stddevSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 0.001674338797596903,
+              "confIntUDX": 0.00047293693501476264
+            },
+            "estPoint": 0.0018218682947030147
+          },
+          "regressions": [
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 0.0011603333987290076,
+                    "confIntUDX": 0.0008598646018072309
+                  },
+                  "estPoint": 0.19929911439976403
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 0.0025987519875379206,
+                    "confIntUDX": 0.002943987998149637
+                  },
+                  "estPoint": 0.005665095002769357
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 9.059059125959834e-06,
+                  "confIntUDX": 3.803771883581497e-06
+                },
+                "estPoint": 0.9999961962281164
+              },
+              "regResponder": "time"
+            },
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 69.59999986737967,
+                    "confIntUDX": 82.40000002086163
+                  },
+                  "estPoint": 43926565.59999996
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 112.00000006308801,
+                    "confIntUDX": 191.99999969327655
+                  },
+                  "estPoint": 2072.0000001256894
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 1.0834666497316903e-12,
+                  "confIntUDX": 4.1322500976548326e-13
+                },
+                "estPoint": 0.9999999999995868
+              },
+              "regResponder": "allocated"
+            }
+          ],
+          "outlierVariance": {
+            "ovDesc": "a moderate",
+            "ovEffect": "Moderate",
+            "ovFraction": 0.18749999999999997
+          },
+          "samples": 4
+        },
+        {
+          "name": "round/cardano/utxo-10000/backlog-0/input/frozen-handlers",
+          "meanSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 0.0015507056679477105,
+              "confIntUDX": 0.0015899422519396467
+            },
+            "estPoint": 0.209954796084124
+          },
+          "stddevSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 0.0010240504053781446,
+              "confIntUDX": 0.0004870200558218158
+            },
+            "estPoint": 0.0019848014894481136
+          },
+          "regressions": [
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 0.005724781701428483,
+                    "confIntUDX": 0.006523917306186594
+                  },
+                  "estPoint": 0.20970686669825206
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 0.022933602522244845,
+                    "confIntUDX": 0.008687064502737128
+                  },
+                  "estPoint": -0.00012442349543497722
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 1.8723497351103013e-05,
+                  "confIntUDX": 0.00017145683193009464
+                },
+                "estPoint": 0.9998285431680699
+              },
+              "regResponder": "time"
+            },
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 3901.5999998748302,
+                    "confIntUDX": 5138.400000274181
+                  },
+                  "estPoint": 59995469.59999994
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 12608.000000469288,
+                    "confIntUDX": 14511.999999578673
+                  },
+                  "estPoint": 6224.000000185211
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 2.010300814703214e-09,
+                  "confIntUDX": 8.276247465133224e-10
+                },
+                "estPoint": 0.9999999991723753
+              },
+              "regResponder": "allocated"
+            }
+          ],
+          "outlierVariance": {
+            "ovDesc": "a moderate",
+            "ovEffect": "Moderate",
+            "ovFraction": 0.1875
+          },
+          "samples": 4
+        },
+        {
+          "name": "round/cardano/utxo-10000/backlog-0/input/crem-program",
+          "meanSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 0.0015122519172715843,
+              "confIntUDX": 0.0015122519172715843
+            },
+            "estPoint": 0.21155086233541928
+          },
+          "stddevSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 0.0008787803724817846,
+              "confIntUDX": 0.00040507040728475713
+            },
+            "estPoint": 0.0019037698719376263
+          },
+          "regressions": [
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 0.005165506698540323,
+                    "confIntUDX": 0.007221014305833995
+                  },
+                  "estPoint": 0.211345770700427
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 0.025530488521330302,
+                    "confIntUDX": 0.00800519849872193
+                  },
+                  "estPoint": -0.0001947174969239798
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 4.544204983170097e-05,
+                  "confIntUDX": 0.00017762439620727655
+                },
+                "estPoint": 0.9998223756037927
+              },
+              "regResponder": "time"
+            },
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 1658.3999998122454,
+                    "confIntUDX": 3861.6000000089407
+                  },
+                  "estPoint": 60053786.39999994
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 5516.0000000838245,
+                    "confIntUDX": 5523.999999555571
+                  },
+                  "estPoint": 2676.000000177729
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 5.501147315456478e-10,
+                  "confIntUDX": 5.059521690498059e-10
+                },
+                "estPoint": 0.9999999994940478
+              },
+              "regResponder": "allocated"
+            }
+          ],
+          "outlierVariance": {
+            "ovDesc": "a moderate",
+            "ovEffect": "Moderate",
+            "ovFraction": 0.1875
+          },
+          "samples": 4
+        }
+      ],
+      "rawSHA256": "818f8d4e27d12104b1f21c31db40f937de992620911231bb23118804183ecde2"
+    },
+    {
+      "run": 2,
+      "order": "program-first",
+      "timeLimitSeconds": 2,
+      "resamples": 1000,
+      "reports": [
+        {
+          "name": "round/simple/utxo-100/backlog-0/input/crem-program",
+          "meanSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 1.9336525037562044e-05,
+              "confIntUDX": 3.202117622717014e-05
+            },
+            "estPoint": 0.0032099799467022825
+          },
+          "stddevSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 2.38460421400592e-05,
+              "confIntUDX": 3.2986214817653126e-05
+            },
+            "estPoint": 6.312442471284003e-05
+          },
+          "regressions": [
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 2.0463943007966497e-05,
+                    "confIntUDX": 1.356028648704993e-05
+                  },
+                  "estPoint": 0.003161921875965345
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 0.00039109378916758677,
+                    "confIntUDX": 0.000594191171851503
+                  },
+                  "estPoint": 0.000616979779365205
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 0.0003848530361399982,
+                  "confIntUDX": 0.00024262036347855176
+                },
+                "estPoint": 0.9996392234751699
+              },
+              "regResponder": "time"
+            },
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 41.17681246902794,
+                    "confIntUDX": 19.13548104604706
+                  },
+                  "estPoint": 725100.8645189544
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 486.57869570223056,
+                    "confIntUDX": 1044.96025861802
+                  },
+                  "estPoint": 134.5786956929298
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 1.4899236178145259e-08,
+                  "confIntUDX": 8.619222335859433e-09
+                },
+                "estPoint": 0.9999999913807777
+              },
+              "regResponder": "allocated"
+            }
+          ],
+          "outlierVariance": {
+            "ovDesc": "a slight",
+            "ovEffect": "Slight",
+            "ovFraction": 0.02854671280276816
+          },
+          "samples": 34
+        },
+        {
+          "name": "round/simple/utxo-100/backlog-0/input/frozen-handlers",
+          "meanSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 2.1510925727535185e-05,
+              "confIntUDX": 3.438933043882746e-05
+            },
+            "estPoint": 0.0032223039098469458
+          },
+          "stddevSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 2.8647995685079184e-05,
+              "confIntUDX": 3.333032696637613e-05
+            },
+            "estPoint": 6.873626451057657e-05
+          },
+          "regressions": [
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 2.6157670105389323e-05,
+                    "confIntUDX": 2.2397575383584917e-05
+                  },
+                  "estPoint": 0.0031706107801527557
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 0.00047236610482840626,
+                    "confIntUDX": 0.0006570771746834012
+                  },
+                  "estPoint": 0.000624627199613718
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 0.000467046779556779,
+                  "confIntUDX": 0.00031594251904787374
+                },
+                "estPoint": 0.9995254946000107
+              },
+              "regResponder": "time"
+            },
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 18.688259108923376,
+                    "confIntUDX": 33.051560330204666
+                  },
+                  "estPoint": 667946.688259109
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 804.2584382322075,
+                    "confIntUDX": 469.4736842049665
+                  },
+                  "estPoint": 2970.5263157926856
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 1.192700660457291e-08,
+                  "confIntUDX": 7.373721855330473e-09
+                },
+                "estPoint": 0.9999999926262781
+              },
+              "regResponder": "allocated"
+            }
+          ],
+          "outlierVariance": {
+            "ovDesc": "a slight",
+            "ovEffect": "Slight",
+            "ovFraction": 0.029384756657483857
+          },
+          "samples": 33
+        },
+        {
+          "name": "round/cardano/utxo-100/backlog-0/input/crem-program",
+          "meanSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 3.4485509103442894e-05,
+              "confIntUDX": 5.733963182121254e-05
+            },
+            "estPoint": 0.003641123267468387
+          },
+          "stddevSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 3.29669841008334e-05,
+              "confIntUDX": 4.327462116241471e-05
+            },
+            "estPoint": 0.00011073323810530277
+          },
+          "regressions": [
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 3.542510873531628e-05,
+                    "confIntUDX": 2.4891297700877814e-05
+                  },
+                  "estPoint": 0.0035096259928596015
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 0.000634019553549226,
+                    "confIntUDX": 0.0008559077661032975
+                  },
+                  "estPoint": 0.0017380905588643986
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 0.0004334887500038187,
+                  "confIntUDX": 0.00030985340792744065
+                },
+                "estPoint": 0.9994601904667155
+              },
+              "regResponder": "time"
+            },
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 3.892020446015522,
+                    "confIntUDX": 6.091898622456938
+                  },
+                  "estPoint": 1285811.8920204455
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 141.81081401525535,
+                    "confIntUDX": 91.5292245020787
+                  },
+                  "estPoint": 3364.4707755096524
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 8.980294285976242e-11,
+                  "confIntUDX": 6.25808294074659e-11
+                },
+                "estPoint": 0.9999999999374192
+              },
+              "regResponder": "allocated"
+            }
+          ],
+          "outlierVariance": {
+            "ovDesc": "a moderate",
+            "ovEffect": "Moderate",
+            "ovFraction": 0.11675093287351818
+          },
+          "samples": 32
+        },
+        {
+          "name": "round/cardano/utxo-100/backlog-0/input/frozen-handlers",
+          "meanSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 1.8957169035000842e-05,
+              "confIntUDX": 2.543983922440778e-05
+            },
+            "estPoint": 0.003606256779469683
+          },
+          "stddevSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 1.3947317385883587e-05,
+              "confIntUDX": 2.213214781149686e-05
+            },
+            "estPoint": 5.386473284004872e-05
+          },
+          "regressions": [
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 1.918869335074732e-05,
+                    "confIntUDX": 1.4735892603774843e-05
+                  },
+                  "estPoint": 0.0035508654631781094
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 0.00036078883333463216,
+                    "confIntUDX": 0.0005028709432383685
+                  },
+                  "estPoint": 0.0006889752701340262
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 0.00016745101106363514,
+                  "confIntUDX": 0.00010660105777193785
+                },
+                "estPoint": 0.9997847898252578
+              },
+              "regResponder": "time"
+            },
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 4.8402458797208965,
+                    "confIntUDX": 7.89335689577274
+                  },
+                  "estPoint": 1228604.8402458793
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 175.39505813775577,
+                    "confIntUDX": 113.73795300805932
+                  },
+                  "estPoint": 3350.262047002381
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 1.6639989386391107e-10,
+                  "confIntUDX": 1.1583123349367952e-10
+                },
+                "estPoint": 0.9999999998841688
+              },
+              "regResponder": "allocated"
+            }
+          ],
+          "outlierVariance": {
+            "ovDesc": "a slight",
+            "ovEffect": "Slight",
+            "ovFraction": 0.030273437500000003
+          },
+          "samples": 32
+        },
+        {
+          "name": "round/simple/utxo-10000/backlog-0/input/crem-program",
+          "meanSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 0.0016254084569785332,
+              "confIntUDX": 0.0028897919766374403
+            },
+            "estPoint": 0.21420689039390103
+          },
+          "stddevSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 0.0024824371535656065,
+              "confIntUDX": 0.0007154486344979343
+            },
+            "estPoint": 0.002760354279893129
+          },
+          "regressions": [
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 0.0013392361943259934,
+                    "confIntUDX": 0.0006353837961806386
+                  },
+                  "estPoint": 0.2103022152004994
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 0.0020462829888881935,
+                    "confIntUDX": 0.001902956992125466
+                  },
+                  "estPoint": 0.007392703995720435
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 6.251441144744518e-06,
+                  "confIntUDX": 4.8056099414273135e-06
+                },
+                "estPoint": 0.9999951943900586
+              },
+              "regResponder": "time"
+            },
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 218.39999992400408,
+                    "confIntUDX": 93.60000014305115
+                  },
+                  "estPoint": 43926434.399999954
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 156.00000034603227,
+                    "confIntUDX": 779.9999997924965
+                  },
+                  "estPoint": 2356.000000122258
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 3.2791547255328624e-12,
+                  "confIntUDX": 3.0270230766404893e-12
+                },
+                "estPoint": 0.999999999996973
+              },
+              "regResponder": "allocated"
+            }
+          ],
+          "outlierVariance": {
+            "ovDesc": "a moderate",
+            "ovEffect": "Moderate",
+            "ovFraction": 0.18749999999999997
+          },
+          "samples": 4
+        },
+        {
+          "name": "round/simple/utxo-10000/backlog-0/input/frozen-handlers",
+          "meanSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 0.0017982703123683164,
+              "confIntUDX": 0.0034820476863993977
+            },
+            "estPoint": 0.21638003218716526
+          },
+          "stddevSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 0.003362326755750815,
+              "confIntUDX": 0.0006261353093515339
+            },
+            "estPoint": 0.0034386553813089485
+          },
+          "regressions": [
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 0.00433015220260119,
+                    "confIntUDX": 0.0026105978024145993
+                  },
+                  "estPoint": 0.21249300520212247
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 0.008922148008427336,
+                    "confIntUDX": 0.006280284003878185
+                  },
+                  "estPoint": 0.007090260995028673
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 3.1253167480205235e-05,
+                  "confIntUDX": 5.743449735640116e-05
+                },
+                "estPoint": 0.9999425655026436
+              },
+              "regResponder": "time"
+            },
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": null,
+                    "confIntUDX": 105.60000001639128
+                  },
+                  "estPoint": 43869406.399999954
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 164.00000074254694,
+                    "confIntUDX": 291.99999965917686
+                  },
+                  "estPoint": 2388.000000127883
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 2.220224004645388e-12,
+                  "confIntUDX": 8.101297410689767e-13
+                },
+                "estPoint": 0.9999999999991899
+              },
+              "regResponder": "allocated"
+            }
+          ],
+          "outlierVariance": {
+            "ovDesc": "a moderate",
+            "ovEffect": "Moderate",
+            "ovFraction": 0.1875
+          },
+          "samples": 4
+        },
+        {
+          "name": "round/cardano/utxo-10000/backlog-0/input/crem-program",
+          "meanSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 0.002179071667645388,
+              "confIntUDX": 0.0018177969592822196
+            },
+            "estPoint": 0.223393904793132
+          },
+          "stddevSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 0.0011173050210375938,
+              "confIntUDX": 0.0010111071412573914
+            },
+            "estPoint": 0.0025692741676871882
+          },
+          "regressions": [
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 0.006967974897269635,
+                    "confIntUDX": 0.012400473099115156
+                  },
+                  "estPoint": 0.22225687189857102
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 0.04456298499645035,
+                    "confIntUDX": 0.013542358992706987
+                  },
+                  "estPoint": 0.0015469470054092476
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 0.0005730413278283164,
+                  "confIntUDX": 0.0003525860878155207
+                },
+                "estPoint": 0.9996474139121845
+              },
+              "regResponder": "time"
+            },
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 1775.9999997988343,
+                    "confIntUDX": 2840.000000052154
+                  },
+                  "estPoint": 60053567.999999925
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 3964.0000001404724,
+                    "confIntUDX": 5267.999999533582
+                  },
+                  "estPoint": 2980.000000181253
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 4.892519722687894e-10,
+                  "confIntUDX": 2.4925783659313083e-10
+                },
+                "estPoint": 0.9999999997507422
+              },
+              "regResponder": "allocated"
+            }
+          ],
+          "outlierVariance": {
+            "ovDesc": "a moderate",
+            "ovEffect": "Moderate",
+            "ovFraction": 0.18749999999999997
+          },
+          "samples": 4
+        },
+        {
+          "name": "round/cardano/utxo-10000/backlog-0/input/frozen-handlers",
+          "meanSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 0.0018712247492658207,
+              "confIntUDX": 0.003239152665628353
+            },
+            "estPoint": 0.22493228258281306
+          },
+          "stddevSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 0.002932834282591755,
+              "confIntUDX": 0.0007299803243825641
+            },
+            "estPoint": 0.003087707722430411
+          },
+          "regressions": [
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 0.005729313697520361,
+                    "confIntUDX": 0.005982485296409018
+                  },
+                  "estPoint": 0.22251325269971833
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 0.020970344987294647,
+                    "confIntUDX": 0.008625616996141287
+                  },
+                  "estPoint": 0.00406274499982897
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 5.33888201936783e-06,
+                  "confIntUDX": 0.00013857946236239815
+                },
+                "estPoint": 0.9998614205376376
+              },
+              "regResponder": "time"
+            },
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 3901.5999998748302,
+                    "confIntUDX": 5138.400000192225
+                  },
+                  "estPoint": 59995469.59999994
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 12608.000000718406,
+                    "confIntUDX": 14511.999999578673
+                  },
+                  "estPoint": 6224.000000185211
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 2.010300814703214e-09,
+                  "confIntUDX": 8.276247465133224e-10
+                },
+                "estPoint": 0.9999999991723753
+              },
+              "regResponder": "allocated"
+            }
+          ],
+          "outlierVariance": {
+            "ovDesc": "a moderate",
+            "ovEffect": "Moderate",
+            "ovFraction": 0.1875
+          },
+          "samples": 4
+        }
+      ],
+      "rawSHA256": "6eca175ceaf9733fb632328e9b56bef73bde52230cc79f083ee121823dd9fbd2"
+    },
+    {
+      "run": 3,
+      "order": "program-first",
+      "timeLimitSeconds": 2,
+      "resamples": 1000,
+      "reports": [
+        {
+          "name": "round/simple/utxo-100/backlog-0/input/crem-program",
+          "meanSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 1.706288938964004e-05,
+              "confIntUDX": 2.394377406880104e-05
+            },
+            "estPoint": 0.003333083446533652
+          },
+          "stddevSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 1.507829068197529e-05,
+              "confIntUDX": 1.2479697995633054e-05
+            },
+            "estPoint": 5.3284156920116156e-05
+          },
+          "regressions": [
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 2.1562453856439987e-05,
+                    "confIntUDX": 2.0765185343757982e-05
+                  },
+                  "estPoint": 0.003277031141830018
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 0.0003339525627792486,
+                    "confIntUDX": 0.00045415384136997304
+                  },
+                  "estPoint": 0.0007623934243574569
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 0.0001626540934788201,
+                  "confIntUDX": 0.0001072713233594147
+                },
+                "estPoint": 0.9997212536870026
+              },
+              "regResponder": "time"
+            },
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 41.009918196243234,
+                    "confIntUDX": 20.821961094858125
+                  },
+                  "estPoint": 725099.1780389056
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 508.02567395418635,
+                    "confIntUDX": 970.7189767134405
+                  },
+                  "estPoint": 156.02567394467638
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 1.4974673834267094e-08,
+                  "confIntUDX": 9.699425929099448e-09
+                },
+                "estPoint": 0.9999999903005741
+              },
+              "regResponder": "allocated"
+            }
+          ],
+          "outlierVariance": {
+            "ovDesc": "a slight",
+            "ovEffect": "Slight",
+            "ovFraction": 0.029384756657483954
+          },
+          "samples": 33
+        },
+        {
+          "name": "round/simple/utxo-100/backlog-0/input/frozen-handlers",
+          "meanSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 2.536735015823237e-05,
+              "confIntUDX": 4.137717419865463e-05
+            },
+            "estPoint": 0.00329290198736301
+          },
+          "stddevSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 2.4228828445770398e-05,
+              "confIntUDX": 3.3064856090078514e-05
+            },
+            "estPoint": 8.527066158973204e-05
+          },
+          "regressions": [
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 3.4729369115933835e-05,
+                    "confIntUDX": 2.235204524282013e-05
+                  },
+                  "estPoint": 0.003200504010521432
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 0.0005524126981789009,
+                    "confIntUDX": 0.0008593132070272799
+                  },
+                  "estPoint": 0.0011689136013862131
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 0.00043566861248267585,
+                  "confIntUDX": 0.00030423273191337863
+                },
+                "estPoint": 0.9993865981847703
+              },
+              "regResponder": "time"
+            },
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 18.68825910880696,
+                    "confIntUDX": 31.932397842872888
+                  },
+                  "estPoint": 667946.688259109
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 746.1305531386715,
+                    "confIntUDX": 469.4736842029206
+                  },
+                  "estPoint": 2970.5263157926856
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 1.3635179985094226e-08,
+                  "confIntUDX": 7.373721855330473e-09
+                },
+                "estPoint": 0.9999999926262781
+              },
+              "regResponder": "allocated"
+            }
+          ],
+          "outlierVariance": {
+            "ovDesc": "a slight",
+            "ovEffect": "Slight",
+            "ovFraction": 0.08507357766416918
+          },
+          "samples": 33
+        },
+        {
+          "name": "round/cardano/utxo-100/backlog-0/input/crem-program",
+          "meanSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 2.089443655383912e-05,
+              "confIntUDX": 2.4050749580800928e-05
+            },
+            "estPoint": 0.003610338684045702
+          },
+          "stddevSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 1.1051212284340042e-05,
+              "confIntUDX": 1.2856890967604992e-05
+            },
+            "estPoint": 5.6185800190767276e-05
+          },
+          "regressions": [
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 2.4261418671186075e-05,
+                    "confIntUDX": 2.2971577992896702e-05
+                  },
+                  "estPoint": 0.0035379251669398057
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 0.0004122128292123839,
+                    "confIntUDX": 0.0005836635298907329
+                  },
+                  "estPoint": 0.0009383225202935986
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 0.0001780745123405314,
+                  "confIntUDX": 0.00012988568845806459
+                },
+                "estPoint": 0.9996709392172214
+              },
+              "regResponder": "time"
+            },
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 3.892020446015522,
+                    "confIntUDX": 5.899091384373605
+                  },
+                  "estPoint": 1285811.8920204455
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 128.5956385675886,
+                    "confIntUDX": 91.52922449812195
+                  },
+                  "estPoint": 3364.4707755096524
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 9.245282317493775e-11,
+                  "confIntUDX": 6.25808294074659e-11
+                },
+                "estPoint": 0.9999999999374192
+              },
+              "regResponder": "allocated"
+            }
+          ],
+          "outlierVariance": {
+            "ovDesc": "a slight",
+            "ovEffect": "Slight",
+            "ovFraction": 0.030273437500000003
+          },
+          "samples": 32
+        },
+        {
+          "name": "round/cardano/utxo-100/backlog-0/input/frozen-handlers",
+          "meanSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 2.3095088122702164e-05,
+              "confIntUDX": 3.245438127551627e-05
+            },
+            "estPoint": 0.0035595843875075323
+          },
+          "stddevSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 2.219329159956508e-05,
+              "confIntUDX": 3.054552715954006e-05
+            },
+            "estPoint": 6.743951626896527e-05
+          },
+          "regressions": [
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 2.5760000217315854e-05,
+                    "confIntUDX": 1.7293034136627375e-05
+                  },
+                  "estPoint": 0.0034942953941915988
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 0.00042874728145161716,
+                    "confIntUDX": 0.0006714130626616756
+                  },
+                  "estPoint": 0.0008147701056376521
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 0.000249708741138166,
+                  "confIntUDX": 0.00018948269314456034
+                },
+                "estPoint": 0.9997020732767168
+              },
+              "regResponder": "time"
+            },
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 4.8402458797208965,
+                    "confIntUDX": 7.629543452756479
+                  },
+                  "estPoint": 1228604.8402458793
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 179.5381557480141,
+                    "confIntUDX": 113.73795300754409
+                  },
+                  "estPoint": 3350.262047002381
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 1.7626711201756962e-10,
+                  "confIntUDX": 1.1583123349367952e-10
+                },
+                "estPoint": 0.9999999998841688
+              },
+              "regResponder": "allocated"
+            }
+          ],
+          "outlierVariance": {
+            "ovDesc": "a slight",
+            "ovEffect": "Slight",
+            "ovFraction": 0.0302734375000003
+          },
+          "samples": 32
+        },
+        {
+          "name": "round/simple/utxo-10000/backlog-0/input/crem-program",
+          "meanSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 0.001936493187713495,
+              "confIntUDX": 0.0028563120640683337
+            },
+            "estPoint": 0.21026336206250562
+          },
+          "stddevSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 0.0026431176829360436,
+              "confIntUDX": 0.0006296408169501311
+            },
+            "estPoint": 0.0026939708394814062
+          },
+          "regressions": [
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 0.0017744837932689994,
+                    "confIntUDX": 0.0018518121978570723
+                  },
+                  "estPoint": 0.2061667757989196
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 0.00677708999137549,
+                    "confIntUDX": 0.00410179798200116
+                  },
+                  "estPoint": 0.007834053001716416
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 2.8320295685557717e-05,
+                  "confIntUDX": 1.0335933491867344e-05
+                },
+                "estPoint": 0.9999896640665081
+              },
+              "regResponder": "time"
+            },
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 218.39999992400408,
+                    "confIntUDX": 93.60000014305115
+                  },
+                  "estPoint": 43926434.399999954
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 156.00000034603227,
+                    "confIntUDX": 779.9999997924965
+                  },
+                  "estPoint": 2356.000000122258
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 3.2791547255328624e-12,
+                  "confIntUDX": 3.0270230766404893e-12
+                },
+                "estPoint": 0.999999999996973
+              },
+              "regResponder": "allocated"
+            }
+          ],
+          "outlierVariance": {
+            "ovDesc": "a moderate",
+            "ovEffect": "Moderate",
+            "ovFraction": 0.1875
+          },
+          "samples": 4
+        },
+        {
+          "name": "round/simple/utxo-10000/backlog-0/input/frozen-handlers",
+          "meanSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 0.001952459686435759,
+              "confIntUDX": 0.003070569810915913
+            },
+            "estPoint": 0.20859029406165064
+          },
+          "stddevSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 0.0023621311670707296,
+              "confIntUDX": 0.0009001917228519591
+            },
+            "estPoint": 0.002928662614816715
+          },
+          "regressions": [
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 0.0008167651059909353,
+                    "confIntUDX": 0.0007521429040941441
+                  },
+                  "estPoint": 0.20402018510067113
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 0.0017226890086037344,
+                    "confIntUDX": 0.00298403502165321
+                  },
+                  "estPoint": 0.00879109999732528
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 5.40632936529839e-06,
+                  "confIntUDX": 1.9879023994695544e-06
+                },
+                "estPoint": 0.9999980120976005
+              },
+              "regResponder": "time"
+            },
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 110.39999986439943,
+                    "confIntUDX": 105.60000001639128
+                  },
+                  "estPoint": 43869406.399999954
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 164.0000003587338,
+                    "confIntUDX": 291.99999965917686
+                  },
+                  "estPoint": 2388.000000127883
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 2.220224004645388e-12,
+                  "confIntUDX": 8.101297410689767e-13
+                },
+                "estPoint": 0.9999999999991899
+              },
+              "regResponder": "allocated"
+            }
+          ],
+          "outlierVariance": {
+            "ovDesc": "a moderate",
+            "ovEffect": "Moderate",
+            "ovFraction": 0.18749999999999997
+          },
+          "samples": 4
+        },
+        {
+          "name": "round/cardano/utxo-10000/backlog-0/input/crem-program",
+          "meanSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 0.0013187427721277345,
+              "confIntUDX": 0.0014768529190405388
+            },
+            "estPoint": 0.21405801852142758
+          },
+          "stddevSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 0.0009184104544677613,
+              "confIntUDX": 0.0006349994251998005
+            },
+            "estPoint": 0.001610894663607127
+          },
+          "regressions": [
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 0.0038656298966082414,
+                    "confIntUDX": 0.005419431105111672
+                  },
+                  "estPoint": 0.21239156990122843
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 0.019612280517325588,
+                    "confIntUDX": 0.008242902487835005
+                  },
+                  "estPoint": 0.002992659497977642
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 0.00016447972671251865,
+                  "confIntUDX": 7.261976024663941e-05
+                },
+                "estPoint": 0.9999273802397534
+              },
+              "regResponder": "time"
+            },
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 1775.9999997243285,
+                    "confIntUDX": 2840.000000052154
+                  },
+                  "estPoint": 60053567.999999925
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 3964.0000001404724,
+                    "confIntUDX": 5267.999999304489
+                  },
+                  "estPoint": 2980.000000181253
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 4.892519722687894e-10,
+                  "confIntUDX": 2.4925783659313083e-10
+                },
+                "estPoint": 0.9999999997507422
+              },
+              "regResponder": "allocated"
+            }
+          ],
+          "outlierVariance": {
+            "ovDesc": "a moderate",
+            "ovEffect": "Moderate",
+            "ovFraction": 0.1875
+          },
+          "samples": 4
+        },
+        {
+          "name": "round/cardano/utxo-10000/backlog-0/input/frozen-handlers",
+          "meanSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 0.001340870918284054,
+              "confIntUDX": 0.0015989898352017917
+            },
+            "estPoint": 0.21313629691712777
+          },
+          "stddevSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 0.000928192492365404,
+              "confIntUDX": 0.0006448764592875715
+            },
+            "estPoint": 0.001655901508434707
+          },
+          "regressions": [
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 0.0031746387037850377,
+                    "confIntUDX": 0.005878877301438934
+                  },
+                  "estPoint": 0.21181968369710355
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 0.021105177005667036,
+                    "confIntUDX": 0.00605537101000516
+                  },
+                  "estPoint": 0.002215145006630981
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 0.0001373653574682221,
+                  "confIntUDX": 8.80518861607893e-05
+                },
+                "estPoint": 0.9999119481138392
+              },
+              "regResponder": "time"
+            },
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 3901.5999998748302,
+                    "confIntUDX": 5138.400000192225
+                  },
+                  "estPoint": 59995469.59999994
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 12608.000000469288,
+                    "confIntUDX": 14511.999999578673
+                  },
+                  "estPoint": 6224.000000185211
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 2.010300814703214e-09,
+                  "confIntUDX": 8.276247465133224e-10
+                },
+                "estPoint": 0.9999999991723753
+              },
+              "regResponder": "allocated"
+            }
+          ],
+          "outlierVariance": {
+            "ovDesc": "a moderate",
+            "ovEffect": "Moderate",
+            "ovFraction": 0.18749999999999997
+          },
+          "samples": 4
+        }
+      ],
+      "rawSHA256": "c245441b7538d5cd61226d39b939f3fd47dca3810ae7c89b1caf4c75acdd708a"
+    },
+    {
+      "run": 4,
+      "order": "legacy-first",
+      "timeLimitSeconds": 2,
+      "resamples": 1000,
+      "reports": [
+        {
+          "name": "round/simple/utxo-100/backlog-0/input/frozen-handlers",
+          "meanSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 9.280749270005814e-06,
+              "confIntUDX": 1.167804420176442e-05
+            },
+            "estPoint": 0.003128103709408297
+          },
+          "stddevSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 5.437841378000331e-06,
+              "confIntUDX": 6.841970455192898e-06
+            },
+            "estPoint": 2.754385349522448e-05
+          },
+          "regressions": [
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 1.1081045819808042e-05,
+                    "confIntUDX": 9.490369394977733e-06
+                  },
+                  "estPoint": 0.0030970881270169
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 0.00021327763850095553,
+                    "confIntUDX": 0.00029596564031062655
+                  },
+                  "estPoint": 0.0004128500485048135
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 6.188632873138644e-05,
+                  "confIntUDX": 4.4396546174274576e-05
+                },
+                "estPoint": 0.9999062558525335
+              },
+              "regResponder": "time"
+            },
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 18.37963447079528,
+                    "confIntUDX": 31.268258408410475
+                  },
+                  "estPoint": 667938.732647252
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 800.1038475989667,
+                    "confIntUDX": 479.76956425356866
+                  },
+                  "estPoint": 3154.473396103351
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 1.243724201405172e-08,
+                  "confIntUDX": 7.172219929074686e-09
+                },
+                "estPoint": 0.9999999928277801
+              },
+              "regResponder": "allocated"
+            }
+          ],
+          "outlierVariance": {
+            "ovDesc": "a slight",
+            "ovEffect": "Slight",
+            "ovFraction": 0.028546712802768166
+          },
+          "samples": 34
+        },
+        {
+          "name": "round/simple/utxo-100/backlog-0/input/crem-program",
+          "meanSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 1.0663000417497799e-05,
+              "confIntUDX": 1.2289593008479958e-05
+            },
+            "estPoint": 0.003134007617503366
+          },
+          "stddevSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 6.445115329996973e-06,
+              "confIntUDX": 9.081495835100229e-06
+            },
+            "estPoint": 2.9745685277048893e-05
+          },
+          "regressions": [
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 1.3537234702516634e-05,
+                    "confIntUDX": 1.2659897547548371e-05
+                  },
+                  "estPoint": 0.0030993152818781376
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 0.00025131807042392726,
+                    "confIntUDX": 0.00033092840723200265
+                  },
+                  "estPoint": 0.000525808583446751
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 6.266269509491718e-05,
+                  "confIntUDX": 4.995878064573134e-05
+                },
+                "estPoint": 0.9998787332232998
+              },
+              "regResponder": "time"
+            },
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 26.55713446752634,
+                    "confIntUDX": 12.623406344675459
+                  },
+                  "estPoint": 725107.3765936558
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 320.98908722124486,
+                    "confIntUDX": 630.8692647645786
+                  },
+                  "estPoint": -31.010912788665557
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 5.5389040021225355e-09,
+                  "confIntUDX": 3.750892707543585e-09
+                },
+                "estPoint": 0.9999999962491073
+              },
+              "regResponder": "allocated"
+            }
+          ],
+          "outlierVariance": {
+            "ovDesc": "a slight",
+            "ovEffect": "Slight",
+            "ovFraction": 0.028546712802768135
+          },
+          "samples": 34
+        },
+        {
+          "name": "round/cardano/utxo-100/backlog-0/input/frozen-handlers",
+          "meanSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 1.4186783383634237e-05,
+              "confIntUDX": 1.919071281244935e-05
+            },
+            "estPoint": 0.003444016733382195
+          },
+          "stddevSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 1.3868915996715476e-05,
+              "confIntUDX": 1.596073838247293e-05
+            },
+            "estPoint": 4.312164150402904e-05
+          },
+          "regressions": [
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 1.5250050749935143e-05,
+                    "confIntUDX": 1.0447758914385562e-05
+                  },
+                  "estPoint": 0.003401918070969292
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 0.0002609005919924306,
+                    "confIntUDX": 0.0004034385280625247
+                  },
+                  "estPoint": 0.0005296820995879572
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 0.00010282109461168254,
+                  "confIntUDX": 7.12971490153258e-05
+                },
+                "estPoint": 0.9998701871531882
+              },
+              "regResponder": "time"
+            },
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 3.892020446481183,
+                    "confIntUDX": 5.610962425591424
+                  },
+                  "estPoint": 1228603.8920204458
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 133.4834804403681,
+                    "confIntUDX": 91.52922450163578
+                  },
+                  "estPoint": 3372.470775509559
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 8.851364086126523e-11,
+                  "confIntUDX": 6.854450340654239e-11
+                },
+                "estPoint": 0.9999999999314555
+              },
+              "regResponder": "allocated"
+            }
+          ],
+          "outlierVariance": {
+            "ovDesc": "a slight",
+            "ovEffect": "Slight",
+            "ovFraction": 0.0302734375
+          },
+          "samples": 32
+        },
+        {
+          "name": "round/cardano/utxo-100/backlog-0/input/crem-program",
+          "meanSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 1.1064418029615563e-05,
+              "confIntUDX": 1.875908127641282e-05
+            },
+            "estPoint": 0.0034521640198259345
+          },
+          "stddevSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 1.0645007962591165e-05,
+              "confIntUDX": 1.7667072192947657e-05
+            },
+            "estPoint": 3.799499396114498e-05
+          },
+          "regressions": [
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 1.4456279663995018e-05,
+                    "confIntUDX": 8.537414956174758e-06
+                  },
+                  "estPoint": 0.0034126061176597933
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 0.0002157228249262316,
+                    "confIntUDX": 0.00034902461904787305
+                  },
+                  "estPoint": 0.0005289038013986913
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 0.00010879653536943756,
+                  "confIntUDX": 6.393865027398693e-05
+                },
+                "estPoint": 0.9998931875496837
+              },
+              "regResponder": "time"
+            },
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 4.8402458797208965,
+                    "confIntUDX": 7.390330561669543
+                  },
+                  "estPoint": 1285812.8402458793
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 174.96231225087604,
+                    "confIntUDX": 113.73795300634538
+                  },
+                  "estPoint": 3342.2620470024744
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 1.519466774624334e-10,
+                  "confIntUDX": 1.0575351705455205e-10
+                },
+                "estPoint": 0.9999999998942465
+              },
+              "regResponder": "allocated"
+            }
+          ],
+          "outlierVariance": {
+            "ovDesc": "a slight",
+            "ovEffect": "Slight",
+            "ovFraction": 0.030273437499999997
+          },
+          "samples": 32
+        },
+        {
+          "name": "round/simple/utxo-10000/backlog-0/input/frozen-handlers",
+          "meanSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 0.0013792665004075388,
+              "confIntUDX": 0.002275936437854398
+            },
+            "estPoint": 0.2039368550626932
+          },
+          "stddevSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 0.0020999391202279603,
+              "confIntUDX": 0.0004990516142613505
+            },
+            "estPoint": 0.0021580077114641966
+          },
+          "regressions": [
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 0.0007963550975545741,
+                    "confIntUDX": 0.0012719538994144242
+                  },
+                  "estPoint": 0.20090846809907795
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 0.004511288498182891,
+                    "confIntUDX": 0.0012539824965639426
+                  },
+                  "estPoint": 0.00571822150232102
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 2.527606578150987e-06,
+                  "confIntUDX": 5.649334929636041e-06
+                },
+                "estPoint": 0.9999943506650704
+              },
+              "regResponder": "time"
+            },
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 76.7999998703599,
+                    "confIntUDX": 171.2000002041459
+                  },
+                  "estPoint": 43869484.79999996
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 612.0000002953454,
+                    "confIntUDX": 131.99999967402664
+                  },
+                  "estPoint": 2228.000000117864
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 2.1577184483589917e-12,
+                  "confIntUDX": 1.836975016544784e-12
+                },
+                "estPoint": 0.999999999998163
+              },
+              "regResponder": "allocated"
+            }
+          ],
+          "outlierVariance": {
+            "ovDesc": "a moderate",
+            "ovEffect": "Moderate",
+            "ovFraction": 0.18749999999999997
+          },
+          "samples": 4
+        },
+        {
+          "name": "round/simple/utxo-10000/backlog-0/input/crem-program",
+          "meanSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 0.0009481793743665035,
+              "confIntUDX": 0.0016654691229026353
+            },
+            "estPoint": 0.2032251961233366
+          },
+          "stddevSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 0.001244449463535178,
+              "confIntUDX": 0.0005137256623330083
+            },
+            "estPoint": 0.0016347087136363023
+          },
+          "regressions": [
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 0.0012889441015426495,
+                    "confIntUDX": 0.0016900898961476618
+                  },
+                  "estPoint": 0.20083414609980518
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 0.004144115988313221,
+                    "confIntUDX": 0.0047929860047573195
+                  },
+                  "estPoint": 0.004573235997668808
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 1.9448658164611388e-05,
+                  "confIntUDX": 7.999099906563778e-06
+                },
+                "estPoint": 0.9999920009000934
+              },
+              "regResponder": "time"
+            },
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 69.59999986737967,
+                    "confIntUDX": 82.40000002086163
+                  },
+                  "estPoint": 43926565.59999996
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 112.00000006308801,
+                    "confIntUDX": 191.99999969327655
+                  },
+                  "estPoint": 2072.0000001256894
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 1.0834666497316903e-12,
+                  "confIntUDX": 4.1322500976548326e-13
+                },
+                "estPoint": 0.9999999999995868
+              },
+              "regResponder": "allocated"
+            }
+          ],
+          "outlierVariance": {
+            "ovDesc": "a moderate",
+            "ovEffect": "Moderate",
+            "ovFraction": 0.18749999999999997
+          },
+          "samples": 4
+        },
+        {
+          "name": "round/cardano/utxo-10000/backlog-0/input/frozen-handlers",
+          "meanSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 0.000964877146998333,
+              "confIntUDX": 0.001643789960326103
+            },
+            "estPoint": 0.20968945222966795
+          },
+          "stddevSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 0.0014877511755938089,
+              "confIntUDX": 0.00036775059281006234
+            },
+            "estPoint": 0.001572917943127986
+          },
+          "regressions": [
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 0.0031720118058728153,
+                    "confIntUDX": 0.0023295261999014827
+                  },
+                  "estPoint": 0.20846149379940448
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 0.008048030998908447,
+                    "confIntUDX": 0.004652707008062527
+                  },
+                  "estPoint": 0.0020699660017277177
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 8.202799480994116e-06,
+                  "confIntUDX": 3.584417786894889e-05
+                },
+                "estPoint": 0.999964155822131
+              },
+              "regResponder": "time"
+            },
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 3901.5999998748302,
+                    "confIntUDX": 5138.400000274181
+                  },
+                  "estPoint": 59995469.59999994
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 12608.000000718406,
+                    "confIntUDX": 14511.999999578673
+                  },
+                  "estPoint": 6224.000000185211
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 2.010300814703214e-09,
+                  "confIntUDX": 8.276247465133224e-10
+                },
+                "estPoint": 0.9999999991723753
+              },
+              "regResponder": "allocated"
+            }
+          ],
+          "outlierVariance": {
+            "ovDesc": "a moderate",
+            "ovEffect": "Moderate",
+            "ovFraction": 0.18749999999999997
+          },
+          "samples": 4
+        },
+        {
+          "name": "round/cardano/utxo-10000/backlog-0/input/crem-program",
+          "meanSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 0.000752122165674024,
+              "confIntUDX": 0.0010062517070158206
+            },
+            "estPoint": 0.208848575791914
+          },
+          "stddevSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 0.0007722290637756674,
+              "confIntUDX": 0.0003646694553420889
+            },
+            "estPoint": 0.0010722556738475694
+          },
+          "regressions": [
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 0.001742101599665924,
+                    "confIntUDX": 0.003517994397407742
+                  },
+                  "estPoint": 0.20815088860181252
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 0.01253496699064442,
+                    "confIntUDX": 0.0028351389992163417
+                  },
+                  "estPoint": 0.0011031929971074498
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 3.067132713863163e-05,
+                  "confIntUDX": 3.647823789487692e-05
+                },
+                "estPoint": 0.9999635217621051
+              },
+              "regResponder": "time"
+            },
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": null,
+                    "confIntUDX": 3861.6000000089407
+                  },
+                  "estPoint": 60053786.39999994
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 5516.0000000838245,
+                    "confIntUDX": 5524.0000000936425
+                  },
+                  "estPoint": 2676.000000177729
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 5.501147315456478e-10,
+                  "confIntUDX": 5.059521690498059e-10
+                },
+                "estPoint": 0.9999999994940478
+              },
+              "regResponder": "allocated"
+            }
+          ],
+          "outlierVariance": {
+            "ovDesc": "a moderate",
+            "ovEffect": "Moderate",
+            "ovFraction": 0.1875
+          },
+          "samples": 4
+        }
+      ],
+      "rawSHA256": "cd534485dcde5f390e415d3d856c713ef71e4b318088d80b5f29a6b349b72246"
+    },
+    {
+      "run": 5,
+      "order": "program-first",
+      "timeLimitSeconds": 10,
+      "resamples": 10000,
+      "reports": [
+        {
+          "name": "round/simple/utxo-10000/backlog-0/input/crem-program",
+          "meanSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 0.0009157593843330813,
+              "confIntUDX": 0.0009714665627953423
+            },
+            "estPoint": 0.19286132958045085
+          },
+          "stddevSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 0.00033577480443368834,
+              "confIntUDX": 0.00045134615501006407
+            },
+            "estPoint": 0.0015523652679153355
+          },
+          "regressions": [
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 0.00224428597595136,
+                    "confIntUDX": 0.0020907060589152315
+                  },
+                  "estPoint": 0.19548051256691282
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 0.014211261686483592,
+                    "confIntUDX": 0.007731271852160895
+                  },
+                  "estPoint": -0.01038415427845106
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 0.00010605377284489403,
+                  "confIntUDX": 0.00010397815938112398
+                },
+                "estPoint": 0.9998791044236492
+              },
+              "regResponder": "time"
+            },
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 521.3199999630451,
+                    "confIntUDX": 445.7793103456497
+                  },
+                  "estPoint": 43925999.59999996
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 2180.3247874514345,
+                    "confIntUDX": 2017.3455434535613
+                  },
+                  "estPoint": 3557.5555557666753
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 3.1888836016236155e-10,
+                  "confIntUDX": 1.8416945746224656e-10
+                },
+                "estPoint": 0.9999999997985681
+              },
+              "regResponder": "allocated"
+            }
+          ],
+          "outlierVariance": {
+            "ovDesc": "a slight",
+            "ovEffect": "Slight",
+            "ovFraction": 0.09876543209876543
+          },
+          "samples": 9
+        },
+        {
+          "name": "round/simple/utxo-10000/backlog-0/input/frozen-handlers",
+          "meanSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 0.000737899575910389,
+              "confIntUDX": 0.0006319545863185116
+            },
+            "estPoint": 0.19777282283996786
+          },
+          "stddevSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 0.00022613368144961126,
+              "confIntUDX": 0.000226282389702193
+            },
+            "estPoint": 0.0011044347640488668
+          },
+          "regressions": [
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 0.0011791085436735627,
+                    "confIntUDX": 0.0012677789913649318
+                  },
+                  "estPoint": 0.19933044505002404
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 0.008649622901405094,
+                    "confIntUDX": 0.004856826362014021
+                  },
+                  "estPoint": -0.006167048139912276
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 7.56166134555647e-05,
+                  "confIntUDX": 4.395300699633342e-05
+                },
+                "estPoint": 0.9999447502550931
+              },
+              "regResponder": "time"
+            },
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 609.8454745337367,
+                    "confIntUDX": 437.93939378112555
+                  },
+                  "estPoint": 43869206.66666662
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 2804.8888893493304,
+                    "confIntUDX": 1997.259558988134
+                  },
+                  "estPoint": 2218.2222224247234
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 4.440083856138699e-10,
+                  "confIntUDX": 2.491815642713391e-10
+                },
+                "estPoint": 0.9999999997498359
+              },
+              "regResponder": "allocated"
+            }
+          ],
+          "outlierVariance": {
+            "ovDesc": "a slight",
+            "ovEffect": "Slight",
+            "ovFraction": 0.09876543209876544
+          },
+          "samples": 9
+        },
+        {
+          "name": "round/cardano/utxo-10000/backlog-0/input/crem-program",
+          "meanSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 0.000979171531003492,
+              "confIntUDX": 0.0010409710950894935
+            },
+            "estPoint": 0.20861677799810815
+          },
+          "stddevSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 0.000429162980143069,
+              "confIntUDX": 0.0006519154604445738
+            },
+            "estPoint": 0.0016404646719543376
+          },
+          "regressions": [
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 0.0020446997080540708,
+                    "confIntUDX": 0.0022613738757513158
+                  },
+                  "estPoint": 0.21057718396659747
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 0.014709400891728916,
+                    "confIntUDX": 0.007947691784221302
+                  },
+                  "estPoint": -0.008444012388684705
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 4.6121751894001584e-05,
+                  "confIntUDX": 7.235059725174686e-05
+                },
+                "estPoint": 0.9999063699177398
+              },
+              "regResponder": "time"
+            },
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 345.23809519410133,
+                    "confIntUDX": 317.38839408010244
+                  },
+                  "estPoint": 60053857.86666662
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 1577.8628017628528,
+                    "confIntUDX": 2088.130219152553
+                  },
+                  "estPoint": 2508.8888891518845
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 1.0898071334253245e-10,
+                  "confIntUDX": 4.753297755399899e-11
+                },
+                "estPoint": 0.9999999999398129
+              },
+              "regResponder": "allocated"
+            }
+          ],
+          "outlierVariance": {
+            "ovDesc": "a slight",
+            "ovEffect": "Slight",
+            "ovFraction": 0.09876543209876543
+          },
+          "samples": 9
+        },
+        {
+          "name": "round/cardano/utxo-10000/backlog-0/input/frozen-handlers",
+          "meanSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 0.0010331314789339963,
+              "confIntUDX": 0.0015476697451195232
+            },
+            "estPoint": 0.2135979208005649
+          },
+          "stddevSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 0.0008568663960202981,
+              "confIntUDX": 0.0006489412517247154
+            },
+            "estPoint": 0.002033762910089607
+          },
+          "regressions": [
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 0.00409841353626339,
+                    "confIntUDX": 0.0036975593899498393
+                  },
+                  "estPoint": 0.21597676686748532
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 0.023358212360824887,
+                    "confIntUDX": 0.01328717085501957
+                  },
+                  "estPoint": -0.01066036511555265
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 0.00031116748209503164,
+                  "confIntUDX": 0.0003113163901992122
+                },
+                "estPoint": 0.9996627498820647
+              },
+              "regResponder": "time"
+            },
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 683.1241588667035,
+                    "confIntUDX": 680.7123043015599
+                  },
+                  "estPoint": 59996466.13333327
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 4173.07317086626,
+                    "confIntUDX": 3049.999999834214
+                  },
+                  "estPoint": 3992.0000002709935
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 3.8281799952244455e-10,
+                  "confIntUDX": 1.6413603809439792e-10
+                },
+                "estPoint": 0.999999999772132
+              },
+              "regResponder": "allocated"
+            }
+          ],
+          "outlierVariance": {
+            "ovDesc": "a slight",
+            "ovEffect": "Slight",
+            "ovFraction": 0.09876543209876529
+          },
+          "samples": 9
+        }
+      ],
+      "rawSHA256": "ab028536c36e703dfe6970130822fd55331562876c67dabf3c1aa5539a95849d"
+    },
+    {
+      "run": 6,
+      "order": "legacy-first",
+      "timeLimitSeconds": 10,
+      "resamples": 10000,
+      "reports": [
+        {
+          "name": "round/simple/utxo-10000/backlog-0/input/frozen-handlers",
+          "meanSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 0.0009848914923404062,
+              "confIntUDX": 0.0018457864612919372
+            },
+            "estPoint": 0.21279950690778995
+          },
+          "stddevSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 0.001088404105403167,
+              "confIntUDX": 0.0013335216666703277
+            },
+            "estPoint": 0.002141600027687881
+          },
+          "regressions": [
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 0.0021435150479679477,
+                    "confIntUDX": 0.002043527988901256
+                  },
+                  "estPoint": 0.21202278293312682
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 0.009682999422642582,
+                    "confIntUDX": 0.008005524323786269
+                  },
+                  "estPoint": 0.0017381757798940916
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 0.0002709035707255669,
+                  "confIntUDX": 0.00013476044704829881
+                },
+                "estPoint": 0.9998454490432285
+              },
+              "regResponder": "time"
+            },
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 372.10322576761246,
+                    "confIntUDX": 428.3789473474026
+                  },
+                  "estPoint": 43868999.199999966
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 1577.3605443965507,
+                    "confIntUDX": 1300.0000002169322
+                  },
+                  "estPoint": 3878.6666668629127
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 4.402127551372814e-10,
+                  "confIntUDX": 1.7169599075828046e-10
+                },
+                "estPoint": 0.9999999998251259
+              },
+              "regResponder": "allocated"
+            }
+          ],
+          "outlierVariance": {
+            "ovDesc": "a slight",
+            "ovEffect": "Slight",
+            "ovFraction": 0.09876543209876543
+          },
+          "samples": 9
+        },
+        {
+          "name": "round/simple/utxo-10000/backlog-0/input/crem-program",
+          "meanSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 0.0008516552448833425,
+              "confIntUDX": 0.0012721896291286172
+            },
+            "estPoint": 0.21585750882811436
+          },
+          "stddevSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 0.0008060679968678741,
+              "confIntUDX": 0.000986067218619658
+            },
+            "estPoint": 0.0016418053736494446
+          },
+          "regressions": [
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 0.0016855175282869672,
+                    "confIntUDX": 0.0015656516688193345
+                  },
+                  "estPoint": 0.21561425996696906
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 0.010328864926112485,
+                    "confIntUDX": 0.004989530037164973
+                  },
+                  "estPoint": -0.00033472027967442527
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 0.00017777120606865537,
+                  "confIntUDX": 8.147697171256851e-05
+                },
+                "estPoint": 0.9999121844326765
+              },
+              "regResponder": "time"
+            },
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 352.44444440305233,
+                    "confIntUDX": 288.06349209696054
+                  },
+                  "estPoint": 43926190.66666663
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 970.9333338759398,
+                    "confIntUDX": 1854.8336040716122
+                  },
+                  "estPoint": 3208.444444641209
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 1.0816181283956894e-10,
+                  "confIntUDX": 8.083500535605026e-11
+                },
+                "estPoint": 0.9999999999189018
+              },
+              "regResponder": "allocated"
+            }
+          ],
+          "outlierVariance": {
+            "ovDesc": "a slight",
+            "ovEffect": "Slight",
+            "ovFraction": 0.0987654320987652
+          },
+          "samples": 9
+        },
+        {
+          "name": "round/cardano/utxo-10000/backlog-0/input/frozen-handlers",
+          "meanSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 0.0014122225910796204,
+              "confIntUDX": 0.0026361689994397752
+            },
+            "estPoint": 0.22538210400101608
+          },
+          "stddevSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 0.0015811917444193046,
+              "confIntUDX": 0.0014859564078719516
+            },
+            "estPoint": 0.002879369543534468
+          },
+          "regressions": [
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 0.00319686013335288,
+                    "confIntUDX": 0.002148033920330278
+                  },
+                  "estPoint": 0.22506355147639343
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 0.012771201468306983,
+                    "confIntUDX": 0.02057937406907222
+                  },
+                  "estPoint": 0.0010376176061472856
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 0.0013950043515867927,
+                  "confIntUDX": 0.00040442279788777125
+                },
+                "estPoint": 0.9995825508907289
+              },
+              "regResponder": "time"
+            },
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 633.833333350718,
+                    "confIntUDX": 888.6666667610407
+                  },
+                  "estPoint": 59996227.333333276
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 4319.428571902243,
+                    "confIntUDX": 3272.032697088539
+                  },
+                  "estPoint": 4788.000000282438
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 5.179660034215772e-10,
+                  "confIntUDX": 2.1396850957700053e-10
+                },
+                "estPoint": 0.9999999997272797
+              },
+              "regResponder": "allocated"
+            }
+          ],
+          "outlierVariance": {
+            "ovDesc": "a moderate",
+            "ovEffect": "Moderate",
+            "ovFraction": 0.10937499999999996
+          },
+          "samples": 8
+        },
+        {
+          "name": "round/cardano/utxo-10000/backlog-0/input/crem-program",
+          "meanSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 0.0017899634336903114,
+              "confIntUDX": 0.0021179118777350514
+            },
+            "estPoint": 0.22266467405614293
+          },
+          "stddevSeconds": {
+            "estError": {
+              "confIntCL": 0.05,
+              "confIntLDX": 0.0010663150684003236,
+              "confIntUDX": 0.0016251680055201908
+            },
+            "estPoint": 0.003118494388083629
+          },
+          "regressions": [
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 0.0033540962238478023,
+                    "confIntUDX": 0.003292378640442295
+                  },
+                  "estPoint": 0.21744757169993417
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 0.010518781737920868,
+                    "confIntUDX": 0.023091112025923025
+                  },
+                  "estPoint": 0.019179608608991518
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 0.00018887122928901157,
+                  "confIntUDX": 0.00018722219389633032
+                },
+                "estPoint": 0.9997693552747002
+              },
+              "regResponder": "time"
+            },
+            {
+              "regCoeffs": {
+                "iters": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 437.3228529021144,
+                    "confIntUDX": 367.69523814320564
+                  },
+                  "estPoint": 60053835.73333328
+                },
+                "y": {
+                  "estError": {
+                    "confIntCL": 0.05,
+                    "confIntLDX": 2038.4297925598398,
+                    "confIntUDX": 2649.999999822546
+                  },
+                  "estPoint": 2727.111111378845
+                }
+              },
+              "regRSquare": {
+                "estError": {
+                  "confIntCL": 0.05,
+                  "confIntLDX": 1.1221956697227142e-10,
+                  "confIntUDX": 5.943856518086932e-11
+                },
+                "estPoint": 0.9999999999220479
+              },
+              "regResponder": "allocated"
+            }
+          ],
+          "outlierVariance": {
+            "ovDesc": "a slight",
+            "ovEffect": "Slight",
+            "ovFraction": 0.09876543209876529
+          },
+          "samples": 9
+        }
+      ],
+      "rawSHA256": "95065a0b717d274aa25c1dff5ad719f1f26b6cfa0e1958a4d912321eab7140a2"
+    }
+  ]
+}

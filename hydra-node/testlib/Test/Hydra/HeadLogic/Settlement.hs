@@ -10,8 +10,32 @@ import Data.List ((!!))
 import Data.Map.Strict qualified as Map
 import Data.Set qualified as Set
 import Hydra.Chain (ChainEvent (..), OnChainTx (..), PostChainTx (..))
-import Hydra.HeadLogic hiding (changes, error)
-import Hydra.Ledger.Simple
+import Hydra.HeadLogic (
+  CoordinatedHeadState (
+    allTxs,
+    confirmedSnapshot,
+    finalizedCommit,
+    localTxs,
+    localUTxO,
+    seenSnapshot,
+    version
+  ),
+  Effect (NetworkEffect, OnChainEffect, postChainTx),
+  FinalizedSnapshot (observedAtSlot, snapshot),
+  Input (ChainInput, NetworkInput),
+  OpenState (coordinatedHeadState),
+  Outcome (Continue, Error, Wait, effects),
+  StateChanged,
+  aggregateNodeState,
+  aggregateState,
+  update,
+ )
+import Hydra.Ledger.Simple (
+  SimpleChainState (SimpleChainState),
+  SimpleTx (SimpleTx),
+  SimpleTxOut,
+  simpleLedger,
+ )
 import Hydra.Network.Message (Message (..), NetworkEvent (..))
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.State (NodeState (..), initialChainTime)
@@ -19,6 +43,7 @@ import Hydra.Prelude hiding (label, state)
 import Hydra.Tx.Crypto (MultiSignature, Verified (..), verifyMultiSignature)
 import Hydra.Tx.Party (vkey)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, getSnapshot)
+import Test.Hydra.HeadLogic.InputComparison (compareInput)
 import Test.Hydra.HeadLogic.Scenario (Delivery (..), environment, initialNode, openState, scenarioParties)
 import Test.Hydra.Node.Fixture (alice, testHeadId)
 
@@ -93,6 +118,7 @@ settlementSequence confirmBeforeRollback rollbackSlot recipients = do
         after = aggregateState before outcome
         changes = case outcome of Continue events _ -> events; Wait _ events -> events; Error{} -> []
         emitted = [Delivery recipient target 2 msg | Continue{effects} <- [outcome], NetworkEffect msg <- effects, target <- [0 .. 2]]
+    void $ compareInput env now before input
     case outcome of Error err -> Left $ "settlement sequence rejected " <> label <> ": " <> show err; Wait reason _ -> Left $ "settlement sequence waited " <> label <> ": " <> show reason; _ -> pure ()
     decoded <- first show $ decodeFull' @[StateChanged SimpleTx] $ serialize' changes
     unless (foldl' aggregateNodeState before decoded == after) $ Left "settlement event replay differs"

@@ -6,7 +6,18 @@ module Hydra.HeadLogic.ProgramSpec (spec) where
 
 import Hydra.Prelude hiding (trace)
 import Hydra.Prelude qualified as Prelude
-import Test.Hydra.Prelude hiding (pending)
+import Test.Hydra.Prelude (
+  Arbitrary (arbitrary),
+  Gen,
+  Spec,
+  describe,
+  failure,
+  it,
+  prop,
+  shouldBe,
+  shouldNotContain,
+  shouldSatisfy,
+ )
 
 import Data.Map.Strict qualified as Map
 import Data.Sequence qualified as Seq
@@ -26,29 +37,32 @@ import Hydra.HeadLogic (
   LogicError (..),
   OpenState (..),
   Outcome (..),
+  RuleEnvironment,
   SeenSnapshot (..),
   StateChanged (..),
   TTL,
   WaitReason (..),
   aggregateState,
   onOpenNetworkReqTx,
-  onOpenNetworkReqTxProgram,
   ruleEnvironment,
  )
 import Hydra.HeadLogic.Interpreter qualified as Interpreter
 import Hydra.HeadLogic.Program qualified as Program
+import Hydra.HeadLogic.Rules.ReqTx qualified as CremReqTx
 import Hydra.HeadLogic.Trace qualified as Trace
+import Hydra.HeadLogic.Workflow qualified as Workflow
 import Hydra.HeadLogicSpec (inOpenState, testSnapshot, withAccumulators, zeroChainPointTime)
 import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Ledger.Simple (SimpleTx, simpleLedger)
 import Hydra.Network.Message (Message (..))
 import Hydra.Node.Environment (Environment (..))
-import Hydra.Node.State (Deposit (..), DepositStatus (..), NodeState (..), PendingDeposits, initialChainTime)
+import Hydra.Node.State (ChainPointTime, Deposit (..), DepositStatus (..), NodeState (..), PendingDeposits, initialChainTime)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.IsTx (UTxOType, txId)
 import Hydra.Tx.Party (Party)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
 import Test.Hydra.HeadLogic.Debugger qualified as Debug
+import Test.Hydra.HeadLogic.LegacyPrograms qualified as LegacyPrograms
 import Test.Hydra.HeadLogic.LegacyReqTx (legacyOnOpenNetworkReqTx)
 import Test.Hydra.HeadLogic.Mermaid qualified as Mermaid
 import Test.Hydra.HeadLogic.State ()
@@ -60,6 +74,13 @@ import Test.QuickCheck (choose, elements, forAll, resize, suchThat, (===))
 
 spec :: Spec
 spec = do
+  interpreterSpec
+  describe "free program" $ specWith LegacyPrograms.onOpenNetworkReqTxProgram
+  describe "crem phases with program actions" $ specWith $ \env time st ttl pending tx ->
+    Workflow.run $ CremReqTx.machine env time st ttl pending tx
+
+interpreterSpec :: Spec
+interpreterSpec = do
   describe "program termination" $ do
     it "does not force resolved UTxO endpoints in the compatibility interpreter" $ do
       let program :: Program.TransactionProgram SimpleTx ()
@@ -146,7 +167,7 @@ spec = do
             Program.reject rejection
           (outcome, trace) = Interpreter.traceProgram simpleLedger program
       outcome `shouldBe` Error rejection
-      trace `shouldBe` [Trace.Changed "remember transaction", Trace.Emitted "network effect", Trace.Rejected]
+      trace `shouldBe` [Trace.Changed "remember transaction", Trace.Emitted "broadcast ReqTx", Trace.Rejected]
 
     it "escapes decision labels when rendering a concrete trace" $ do
       let graph = Mermaid.renderTraces [("ReqTx", [Trace.Decided "guard \"<&>\"; #\nnext" False, Trace.Finished])]
@@ -163,8 +184,12 @@ spec = do
         Debug.Await (Program.Suspend actualReason) _ -> actualReason `shouldBe` waitReason
         _ -> failure "expected a suspended instruction" :: IO ()
 
+type ReqTxRule = RuleEnvironment -> ChainPointTime -> OpenState SimpleTx -> TTL -> PendingDeposits SimpleTx -> SimpleTx -> Program.TransactionProgram SimpleTx ()
+
+specWith :: ReqTxRule -> Spec
+specWith onOpenNetworkReqTxProgram = do
   describe "ReqTx program" $ do
-    it "the production wrapper interprets the exposed program" $ do
+    it "agrees with the production wrapper" $ do
       let program = reqTxProgram alice 1 emptyOpenState sampleTx
       onOpenNetworkReqTx testEnvironment simpleLedger zeroChainPointTime emptyOpenState 1 mempty sampleTx
         `shouldBe` Interpreter.runProgram simpleLedger program
@@ -342,6 +367,10 @@ spec = do
                     outcome = Interpreter.runProgram ledger (reqTxProgram actor (fromInteger ttl) st sampleTx)
                     expected = reqTxOutcomeRef applicable ttl inFlight 2 nextNumber partyIndex
                 projectReqTxOutcome outcome `shouldBe` Right expected
+ where
+  reqTxProgram :: Party -> TTL -> OpenState SimpleTx -> SimpleTx -> Program.TransactionProgram SimpleTx ()
+  reqTxProgram actor ttl st =
+    onOpenNetworkReqTxProgram (ruleEnvironment testEnvironment{party = actor}) zeroChainPointTime st ttl mempty
 
 testParties :: [Party]
 testParties = [alice, bob, carol]
@@ -390,10 +419,6 @@ rejectLedgerQuery :: Program.Instruction SimpleTx 'True 'False a -> Program.Tran
 rejectLedgerQuery = \case
   Program.ApplyTransaction{} -> pure $ Left ledgerFailure
   op -> Program.instruction op
-
-reqTxProgram :: Party -> TTL -> OpenState SimpleTx -> SimpleTx -> Program.TransactionProgram SimpleTx ()
-reqTxProgram actor ttl st =
-  onOpenNetworkReqTxProgram (ruleEnvironment testEnvironment{party = actor}) zeroChainPointTime st ttl mempty
 
 genLegacyCase :: Gen (Party, OpenState SimpleTx, TTL, PendingDeposits SimpleTx, SimpleTx)
 genLegacyCase = do

@@ -4,12 +4,63 @@
 module Hydra.HeadLogic.MachineSpec (spec) where
 
 import Hydra.Prelude
-import Test.Hydra.Prelude hiding (after, before)
+import Test.Hydra.Prelude (
+  Arbitrary (arbitrary),
+  Spec,
+  describe,
+  genericArbitrary,
+  it,
+  prop,
+  shouldBe,
+ )
 
 import Cardano.Binary (decodeFull', serialize')
 import Hydra.Agda.OffChainReference qualified as Agda
 import Hydra.Chain.ChainState (ChainSlot)
-import Hydra.HeadLogic
+import Hydra.HeadLogic (
+  CoordinatedHeadState (
+    CoordinatedHeadState,
+    confirmedSnapshot,
+    currentDepositTxId,
+    decommitTx,
+    version
+  ),
+  HeadState (FanoutProgress, Open),
+  OpenState (OpenState, coordinatedHeadState),
+  Outcome (Continue, Error, Wait, stateChanges),
+  PartialFanoutState (distributedOutputs),
+  StateChanged (
+    Checkpoint,
+    CommitApproved,
+    CommitFinalized,
+    DecommitApproved,
+    DecommitFinalized,
+    DecommitInvalid,
+    DecommitRecorded,
+    DepositRecorded,
+    HeadClosed,
+    HeadContested,
+    HeadFannedOut,
+    HeadFanoutInitiated,
+    HeadFanoutReverted,
+    HeadIsReadyToFanout,
+    HeadOpened,
+    HeadPartialFannedOut,
+    HeadPartialFanoutSelected,
+    LocalStateCleared,
+    SnapshotConfirmed,
+    SnapshotRequestDecided,
+    SnapshotRequested,
+    TransactionAppliedToLocalUTxO,
+    TxInvalid,
+    distributedOutputs,
+    newVersion,
+    snapshot
+  ),
+  eventHeadId,
+  headIdOf,
+  nullOutputs,
+ )
 import Hydra.HeadLogic.Machine qualified as Machine
 import Hydra.HeadLogic.Machine.Deposit qualified as Deposit
 import Hydra.HeadLogic.Machine.Incremental qualified as Incremental

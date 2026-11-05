@@ -1,0 +1,31 @@
+%%{init: {"sequence": {"wrap": true}}}%%
+sequenceDiagram
+  participant logic as Head logic
+  participant ledger as Ledger
+  participant crypto as Cryptography
+  participant changes as Staged changes
+  participant effects as Buffered effects
+  rect rgb(245, 247, 250)
+    Note over logic,effects: Frozen free program: req-sn-decommit
+    Note over logic: request is the next snapshot: yes
+    Note over logic: sender leads this snapshot: yes
+    Note over logic: previous snapshot is confirmed: yes
+    Note over logic: snapshot version matches: yes
+    ledger-->>logic: ledger application: valid
+    crypto-->>logic: primitive: sign snapshot
+    logic->>effects: buffer: broadcast AckSn
+    logic->>changes: stage: record requested snapshot and prune local transactions
+    Note over logic,effects: finish: commit changes and release effects
+  end
+  rect rgb(245, 247, 250)
+    Note over logic,effects: Production crem with program actions: req-sn-decommit
+    Note over logic: request is the next snapshot: yes
+    Note over logic: sender leads this snapshot: yes
+    Note over logic: previous snapshot is confirmed: yes
+    Note over logic: snapshot version matches: yes
+    ledger-->>logic: ledger application: valid
+    crypto-->>logic: primitive: sign snapshot
+    logic->>effects: buffer: broadcast AckSn
+    logic->>changes: stage: record requested snapshot and prune local transactions
+    Note over logic,effects: finish: commit changes and release effects
+  end

@@ -10,8 +10,25 @@ import Data.List ((!!))
 import Data.Map.Strict qualified as Map
 import Data.Set qualified as Set
 import Hydra.HeadLogic.Input (TTL)
-import Hydra.HeadLogic.State
-import Hydra.Ledger.Simple
+import Hydra.HeadLogic.State (
+  CoordinatedHeadState (
+    CoordinatedHeadState,
+    allTxs,
+    confirmedSnapshot,
+    currentDepositTxId,
+    decommitTx,
+    finalizedCommit,
+    finalizedDecommit,
+    localTxs,
+    localUTxO,
+    seenSnapshot,
+    version
+  ),
+  HeadState (Open),
+  OpenState (..),
+  SeenSnapshot (NoSeenSnapshot, SeenSnapshot, snapshot),
+ )
+import Hydra.Ledger.Simple (SimpleTx (SimpleTx))
 import Hydra.Network.Message (Message (..))
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.State (ChainPointTime (..), NodeState (..), initialChainTime)
@@ -23,7 +40,19 @@ import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.Party (Party)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), getSnapshot)
 import Test.Hydra.HeadLogic.Debugger qualified as Debug
-import Test.Hydra.Node.Fixture
+import Test.Hydra.Node.Fixture (
+  alice,
+  aliceSk,
+  bob,
+  bobSk,
+  carol,
+  carolSk,
+  cperiod,
+  dperiod,
+  testEnvironment,
+  testHeadId,
+  testHeadSeed,
+ )
 
 -- | There is one optional duplicate, one optional delay/release, and (only in
 -- the fault demonstration) one corrupted acknowledgement per path.

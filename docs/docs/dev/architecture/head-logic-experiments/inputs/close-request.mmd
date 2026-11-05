@@ -1,0 +1,11 @@
+%%{init: {"sequence": {"wrap": true}}}%%
+sequenceDiagram
+  participant logic as Head logic
+  participant effects as Buffered effects
+  rect rgb(245, 247, 250)
+    Note over logic,effects: close-request
+    Note over logic: client input fits the accumulator: yes
+    Note over logic: input is admitted while at this sync status: yes
+    logic->>effects: buffer: post close
+    Note over logic,effects: finish: commit changes and release effects
+  end

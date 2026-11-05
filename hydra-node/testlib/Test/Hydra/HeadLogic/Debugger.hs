@@ -6,8 +6,18 @@ module Test.Hydra.HeadLogic.Debugger where
 
 import Data.Aeson (Result (..), Value, fromJSON, object, (.=))
 import Data.ByteString qualified as BS
-import Hydra.HeadLogic.Interpreter
-import Hydra.HeadLogic.Program
+import Hydra.HeadLogic.Interpreter (
+  InterpreterConfig (snapshotSigner, transactionApplication),
+  SnapshotSigner (signOne, signingIdentity),
+  available,
+ )
+import Hydra.HeadLogic.Program (
+  Instruction (..),
+  Program (Program),
+  decide,
+  foldProgram,
+  instruction,
+ )
 import Hydra.HeadLogic.Trace (changeLabel, effectLabel)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Prelude hiding (keys, state)

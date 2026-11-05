@@ -1442,13 +1442,22 @@ preventing inconsistency between the on-chain and off-chain state.
 
 == Operational snapshot-round refinement
 
-The node exposes `reqSn` and `ackSn` as inspectable programs. Ledger application,
+The node executes `reqTx`, `reqSn`, `ackSn`, network `reqDec` and client
+`Recover` as typed crem phases whose actions are inspectable programs. Ledger application,
 signing and multisignature verification are primitives. Snapshot construction,
 incremental-action selection, transaction pruning and effect ordering remain
 protocol rules. Signing keys are interpreter configuration, never trace data.
 Completion commits the ordered changes and releases effects; waiting retains
 only the ordered change prefix; rejection discards both buffers. In particular,
 a failed multisignature check discards the preceding tentative signature record.
+
+Each input starts a fresh workflow; its phase is not persisted or resumed on
+retry. The workflow exposes instructions to the existing primitive interpreter
+and terminal semantics. Frozen handlers and free programs provide migration
+comparisons; independent Agda projections check the bounded outcomes. Crem constrains phase edges
+and payload types; it does not prove the guards or the primitive replies. Its
+static topology omits decisions inside actions and early wait/reject exits;
+concrete instruction traces retain those decisions and exits.
 
 The compatibility implementation records a partial `ackSn` signature twice and
 ignores an acknowledgement for the last confirmed snapshot only after its number
@@ -1462,9 +1471,13 @@ values with named phase, change, effect, wait and rejection constructors, includ
 waits, ledger rejection, early and duplicate acknowledgements, verification
 failure, confirmation and the next request. This projection excludes payloads,
 pruning contents, output collisions, accumulator overflow, incremental actions
-and scheduler behavior. Separate existing guard comparisons cover incremental
-actions; neither those comparisons nor the bounded explorer establish an
-unbounded protocol proof.
+and scheduler behavior. `reqDecOutcomeRef` separately checks selected-commit,
+existing-decommit, ledger and nonempty-output guard priority, retry expiry,
+recording and request selection. `recoverOutcomeRef` checks registration before
+the finalized-increment guard. These projections exclude deposit selection,
+ledger/cryptographic payloads and chain deadline validation. The Haskell tests
+also compare the complete ordered outcomes and serialized states. Neither these
+comparisons nor the bounded explorer establish an unbounded protocol proof.
 
 The development scheduler uses the node's retry eligibility: unsynced inputs
 park, unresolved-commit snapshot requests retain their budget, other network
@@ -1483,6 +1496,14 @@ They vary the rollback boundary, confirmation timing and re-observation order,
 and check serialized events and checkpoints after every transition. Chain inputs
 are assumed valid; these checks do not validate Cardano settlement transactions
 or extend the Agda model to rollback, crash recovery or general liveness.
+
+A fixed three-party Haskell sequence also records an existing decommit dependency
+failure. `reqDec` accepts a decommit against the optimistic local ledger, but
+`reqSn` applies it before the requested ordinary transactions against the
+confirmed ledger. A decommit spending an unconfirmed output can therefore strand
+the next round. Pruning an earlier snapshot also restores the reserved input
+while retaining the pending decommit. The migration preserves these behaviors;
+this witness is not covered by the bounded per-input Agda outcome projections.
 
 The development checks independently require exact registry payload equality for
 locally pending transactions, reconstruct the local UTxO from the current
@@ -1565,3 +1586,35 @@ transitions that admission guards exclude. They do not enumerate ledger
 contents, signature maps, versions, scheduler states or arbitrary history, and
 the comparison is not a proof of the complete node. Checkpoints restore all
 components together; foreign-head filtering precedes their execution.
+
+=== Complete input workflow
+
+Every Haskell input now enters a crem workflow with `Program` actions. Admission
+checks client accumulator bounds before echoing any input, then applies the
+synchronisation gate. Chain inputs remain admissible while catching up; client
+inputs report rejection and network inputs wait. Typed phases carry the Idle,
+Open, Closed or FanoutProgress state into dispatch. Multi-step transaction,
+snapshot, decommit and settlement rules have their own phases; small actions
+compose directly as programs. The interpreter supplies primitives and terminal
+semantics, not protocol decisions.
+
+Tick handling records time, updates synchronisation, changes deposit statuses,
+and finally selects head-specific work. Settlement records finalization before
+attempting snapshot adoption. Adoption requires a matching number, the seen
+snapshot version plus one, the matching incremental action, and valid signatures.
+A failed verification still retains finalization. Rollback reposts retained
+settlements only strictly before their observed slot; it preserves L2 state.
+Closing and contesting may adopt an unconfirmed signed snapshot. Side-loading
+checks snapshot number and L1-relevant fields before signature verification;
+failed requirements report to the client without staging changes.
+
+The independent reference additionally projects input admission, client decommit
+failure priority, settlement adoption, the strict repost boundary, and fanout
+continuation mode. Haskell differential tests compare the full input path with
+frozen handlers and retained-event reducers, including ordered outcomes and
+serialized replay at each prefix. These checks do not prove the routing table,
+fanout multiset arithmetic, chain validity, termination or distributed progress.
+
+A two-head recovery test checks that a recovery observation consumes a registered
+deposit from a previous head while another head is active. `DepositRecovered` is
+node-level and is explicitly exempt from the retained-event head-id filter.

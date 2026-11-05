@@ -2,6 +2,7 @@
 -- protocol behavior nor prescribe a rendering format.
 module Hydra.HeadLogic.Trace (TraceStep (..), traceLabel, changeLabel, effectLabel) where
 
+import Hydra.Chain (PostChainTx (..))
 import Hydra.HeadLogic.Outcome (Effect (..), StateChanged (..))
 import Hydra.Network.Message (Message (..))
 import Hydra.Prelude
@@ -17,8 +18,7 @@ data TraceStep
   | Rejected
   deriving stock (Eq, Show)
 
--- | Compact labels for the first migrated rule. Other instructions remain
--- visible without forcing potentially large payloads or cryptographic caches.
+-- | Labels inspect constructors only; tracing never forces payloads or caches.
 changeLabel :: StateChanged tx -> Text
 changeLabel = \case
   TransactionReceived{} -> "remember transaction"
@@ -30,15 +30,56 @@ changeLabel = \case
   CommitApproved{} -> "approve deposit"
   DecommitApproved{} -> "approve decommit"
   TxInvalid{} -> "record invalid transaction"
-  _ -> "state change"
+  HeadOpened{} -> "open head"
+  IgnoredHeadInitializing{} -> "ignore incompatible init"
+  LocalStateCleared{} -> "clear optimistic local state"
+  DepositRecorded{} -> "record deposit"
+  DepositActivated{} -> "activate deposit"
+  DepositExpired{} -> "expire deposit"
+  DepositRecovered{} -> "consume recovered deposit"
+  CommitFinalized{} -> "finalize increment"
+  DecommitRecorded{} -> "reserve decommit"
+  DecommitInvalid{} -> "record invalid decommit"
+  DecommitFinalized{} -> "finalize decrement"
+  HeadClosed{} -> "close head"
+  HeadContested{} -> "record contest"
+  HeadIsReadyToFanout{} -> "notify ready to fanout"
+  HeadFanoutInitiated{} -> "start automatic fanout"
+  HeadPartialFanoutSelected{} -> "select fanout outputs"
+  HeadPartialFannedOut{} -> "record distributed outputs"
+  HeadFannedOut{} -> "finish fanout"
+  HeadFanoutReverted{} -> "revert failed fanout initiation"
+  TickObserved{} -> "advance chain time"
+  ChainRolledBack{} -> "record chain rollback"
+  NodeSynced{} -> "mark node in sync"
+  NodeUnsynced{} -> "mark node catching up"
+  Checkpoint{} -> "restore checkpoint"
+  NetworkConnected -> "record network connected"
+  NetworkDisconnected -> "record network disconnected"
+  NetworkVersionMismatch{} -> "record network version mismatch"
+  NetworkClusterIDMismatch{} -> "record network cluster mismatch"
+  NetworkBroadcastStalled{} -> "record broadcast stalled"
+  NetworkBroadcastResumed -> "record broadcast resumed"
+  PeerConnected{} -> "record peer connected"
+  PeerDisconnected{} -> "record peer disconnected"
 
 effectLabel :: Effect tx -> Text
 effectLabel = \case
   NetworkEffect AckSn{} -> "broadcast AckSn"
   NetworkEffect ReqSn{} -> "broadcast ReqSn"
-  NetworkEffect{} -> "network effect"
+  NetworkEffect ReqTx{} -> "broadcast ReqTx"
+  NetworkEffect ReqDec{} -> "broadcast ReqDec"
   ClientEffect{} -> "client effect"
-  OnChainEffect{} -> "settlement effect"
+  OnChainEffect{postChainTx} -> case postChainTx of
+    InitTx{} -> "post init"
+    CloseTx{} -> "post close"
+    ContestTx{} -> "post contest"
+    IncrementTx{} -> "post increment"
+    DecrementTx{} -> "post decrement"
+    RecoverTx{} -> "post recovery"
+    FanoutTx{} -> "post full fanout"
+    PartialFanoutTx{} -> "post partial fanout"
+    FinalPartialFanoutTx{} -> "post final fanout"
 
 traceLabel :: TraceStep -> Text
 traceLabel = \case

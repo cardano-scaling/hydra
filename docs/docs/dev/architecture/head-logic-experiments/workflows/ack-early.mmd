@@ -1,0 +1,13 @@
+%%{init: {"sequence": {"wrap": true}}}%%
+sequenceDiagram
+  participant logic as Head logic
+  rect rgb(245, 247, 250)
+    Note over logic: Frozen free program: ack-early
+    Note over logic: acknowledgement number is admissible: yes
+    Note over logic: wait: commit changes and discard buffered effects
+  end
+  rect rgb(245, 247, 250)
+    Note over logic: Production crem with program actions: ack-early
+    Note over logic: acknowledgement number is admissible: yes
+    Note over logic: wait: commit changes and discard buffered effects
+  end

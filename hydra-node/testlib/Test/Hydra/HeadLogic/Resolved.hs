@@ -8,7 +8,25 @@ module Test.Hydra.HeadLogic.Resolved where
 
 import Data.Map.Strict qualified as Map
 import Data.Sequence qualified as Seq
-import Hydra.HeadLogic hiding (changes, error)
+import Hydra.HeadLogic (
+  CoordinatedHeadState (allTxs, localTxs, localUTxO, seenSnapshot),
+  HeadState (Open),
+  OpenState (coordinatedHeadState, headId),
+  SeenSnapshot (RequestedSnapshot),
+  StateChanged (
+    SnapshotRequestDecided,
+    TransactionAppliedToLocalUTxO,
+    TransactionReceived,
+    TxInvalid,
+    headId,
+    snapshotNumber,
+    transaction,
+    tx,
+    utxo,
+    validationError
+  ),
+  seenSnapshotNumber,
+ )
 import Hydra.HeadLogic.Interpreter qualified as Interpreter
 import Hydra.HeadLogic.Program qualified as Program
 import Hydra.Ledger (ValidationError)

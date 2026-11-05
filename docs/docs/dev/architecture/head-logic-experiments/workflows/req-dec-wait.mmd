@@ -1,0 +1,12 @@
+%%{init: {"sequence": {"wrap": true}}}%%
+sequenceDiagram
+  participant logic as Head logic
+  participant ledger as Ledger
+  rect rgb(245, 247, 250)
+    Note over logic,ledger: Production crem with program actions: req-dec-wait
+    Note over logic: next snapshot carries a deposit: no
+    Note over logic: no decommit is in flight: yes
+    ledger-->>logic: ledger application: invalid
+    Note over logic: retry budget remains: yes
+    Note over logic,ledger: wait: commit changes and discard buffered effects
+  end

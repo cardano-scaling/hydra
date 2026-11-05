@@ -10,7 +10,116 @@ import Data.Sequence qualified as Seq
 import Data.Set ((\\))
 import Data.Set qualified as Set
 import Hydra.Chain (PostChainTx (..))
-import Hydra.HeadLogic
+import Hydra.HeadLogic (
+  CoordinatedHeadState (
+    CoordinatedHeadState,
+    allTxs,
+    confirmedSnapshot,
+    currentDepositTxId,
+    decommitTx,
+    finalizedCommit,
+    localTxs,
+    seenSnapshot,
+    version
+  ),
+  Effect (NetworkEffect, OnChainEffect, postChainTx),
+  LogicError (RequireFailed),
+  OpenState (
+    OpenState,
+    coordinatedHeadState,
+    headId,
+    headSeed,
+    parameters
+  ),
+  Outcome (Error),
+  RequirementFailure (
+    AckSnNumberInvalid,
+    InvalidMultisignature,
+    ReqSnBothCommitAndDecommit,
+    ReqSnCommitNotSettled,
+    ReqSnDecommitNoOutputs,
+    ReqSnDecommitNotSettled,
+    ReqSnDepositBlockedByFinalizedCommit,
+    ReqSnDepositOutputsHeld,
+    ReqSnNotLeader,
+    ReqSnNumberInvalid,
+    ReqSnUTxOSetTooLarge,
+    RequestedDepositExpired,
+    RequestedDepositNotFoundLocally,
+    SnapshotAlreadySigned,
+    SnapshotDoesNotApply,
+    decommitTxId,
+    depositTxId,
+    knownSignatures,
+    lastSeenSn,
+    leader,
+    maxAllowed,
+    multisig,
+    receivedSignature,
+    requestedSn,
+    utxoCount,
+    vkeys
+  ),
+  SeenSnapshot (
+    LastSeenSnapshot,
+    SeenSnapshot,
+    lastSeen,
+    signableBytes,
+    signatories,
+    snapshot
+  ),
+  SettlingCommit (ContinueCommit),
+  SnapshotRequest (
+    SnapshotRequest,
+    requestDecommitTx,
+    requestDepositTxId,
+    requestTxs
+  ),
+  StateChanged (
+    CommitApproved,
+    DecommitApproved,
+    PartySignedSnapshot,
+    SnapshotConfirmed,
+    SnapshotRequestDecided,
+    SnapshotRequested,
+    decommitTxId,
+    headId,
+    newCurrentDepositTxId,
+    newLocalTxs,
+    party,
+    requestedSnapshot,
+    signature,
+    signatures,
+    snapshot,
+    snapshotNumber,
+    utxoToCommit,
+    utxoToDecommit
+  ),
+  TTL,
+  WaitReason (
+    WaitOnDepositActivation,
+    WaitOnDepositObserved,
+    WaitOnSeenSnapshot,
+    WaitOnSnapshotNumber,
+    WaitOnSnapshotVersion,
+    WaitOnTxs,
+    WaitOnUnresolvedCommit,
+    commitUTxO,
+    depositTxId
+  ),
+  absorbable,
+  applyTransactionsWithoutCollision,
+  cause,
+  chainedSnapshotRequest,
+  finalizedDepositTxId,
+  isLeader,
+  newState,
+  noop,
+  seenSnapshotNumber,
+  settledUTxO,
+  settlingCommitAt,
+  wait,
+ )
 import Hydra.Ledger (Ledger (..))
 import Hydra.Network.Message (Message (..))
 import Hydra.Node.Environment (Environment (..))

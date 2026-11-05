@@ -6,7 +6,21 @@ module Hydra.HeadLogic.State.Operations where
 
 import Hydra.Chain.ChainState (ChainSlot, IsChainState (..))
 import Hydra.HeadLogic.Outcome (StateChanged (..))
-import Hydra.HeadLogic.State
+import Hydra.HeadLogic.State (
+  ClosedState (..),
+  CoordinatedHeadState (
+    CoordinatedHeadState,
+    confirmedSnapshot,
+    seenSnapshot,
+    version
+  ),
+  FanoutMode (AutoDrain, DistributingSelection),
+  FinalizedSnapshot (..),
+  HeadState (..),
+  OpenState (OpenState, headId),
+  PartialFanoutState (..),
+  SeenSnapshot (LastSeenSnapshot, SeenSnapshot, lastSeen, snapshot),
+ )
 import Hydra.Prelude
 import Hydra.Tx (HeadId, IsTx (..), TxIdType, UTxOType, utxoFromTx, withoutUTxO)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotVersion, getSnapshot)

@@ -1,7 +1,7 @@
 module Test.Hydra.Cluster.UtilSpec where
 
 import Hydra.Prelude
-import Test.Hydra.Prelude
+import Test.Hydra.Prelude (Spec, describe, it, shouldBe, shouldNotReturn, shouldReturn, shouldSatisfy, withTempDir)
 
 import Hydra.Chain.Direct.Handlers (maxGraceTime)
 import Hydra.Cluster.Util (
@@ -93,7 +93,7 @@ smokeTimingSpec = describe "mkSmokeTiming" $ do
     min maxGraceTime (CP.toNominalDiffTime contestationPeriod)
       `shouldBe` maxGraceTime
  where
-  -- Mirrors 'Hydra.HeadLogic.determineNextDepositStatus' against the bounds
+  -- Mirrors 'Hydra.HeadLogic.Rules.Deposits.determineNextDepositStatus' against the bounds
   -- 'Hydra.Chain.Direct.Handlers.draftDepositTx' and
   -- 'Hydra.API.HTTPServer.handleDraftCommitUtxo' put on a deposit.
   activeWindow Timing{depositPeriod, depositActivation} =

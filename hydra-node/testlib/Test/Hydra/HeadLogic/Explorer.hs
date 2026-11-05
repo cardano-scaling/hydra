@@ -9,33 +9,78 @@ import Data.List (delete, (!!))
 import Data.Map.Strict qualified as Map
 import Data.Sequence qualified as Seq
 import Data.Set qualified as Set
-import Hydra.HeadLogic hiding (error)
+import Hydra.HeadLogic (
+  CoordinatedHeadState (
+    allTxs,
+    confirmedSnapshot,
+    localTxs,
+    localUTxO,
+    seenSnapshot
+  ),
+  Effect (NetworkEffect),
+  Input (NetworkInput),
+  OpenState (coordinatedHeadState),
+  Outcome (Continue, Wait, effects, reason),
+  SeenSnapshot (SeenSnapshot, snapshot),
+  aggregateState,
+  ruleEnvironment,
+  updateProgram,
+ )
 import Hydra.HeadLogic.Interpreter qualified as Interpreter
-import Hydra.HeadLogic.Retry
-import Hydra.Ledger.Simple
+import Hydra.HeadLogic.Retry (
+  RetryDecision (RetryInput),
+  retryDecision,
+ )
+import Hydra.Ledger.Simple (
+  SimpleTx (txInputs, txOutputs),
+  SimpleTxOut,
+  simpleLedger,
+ )
 import Hydra.Network.Message (Message (..), NetworkEvent (..))
-import Hydra.Node.State (NodeState (..))
+import Hydra.Node.State (ChainPointTime (..), NodeState (..))
 import Hydra.Prelude hiding (delete, local, state)
 import Hydra.Tx (txId)
 import Hydra.Tx.Crypto (Verified (..), sign, verifyMultiSignature)
 import Hydra.Tx.Party (vkey)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), getSnapshot)
 import Test.Hydra.HeadLogic.Debugger qualified as Debug
-import Test.Hydra.HeadLogic.Scenario
+import Test.Hydra.HeadLogic.Scenario (
+  Action (..),
+  Delivery (..),
+  Disturbances (AllowInvalidAcknowledgement),
+  ExecutionMode (..),
+  Exploration (..),
+  Limits (maxDeliveries, maxStates),
+  SearchOrder (BreadthFirst, RetriesFirst, RetryWindows),
+  SearchReport (SearchReport),
+  World (
+    confirmations,
+    corruptionUsed,
+    delayUsed,
+    delayed,
+    duplicateUsed,
+    nodes,
+    originSnapshot,
+    pending,
+    retries
+  ),
+  environment,
+  initialFor,
+  openState,
+  scenarioParties,
+  validateWorld,
+ )
 import Test.Hydra.Node.Fixture (aliceSk)
 
 programFor :: World -> Delivery -> Interpreter.Execution SimpleTx
 programFor world Delivery{senderIndex, recipientIndex, remainingTTL, message} =
-  case message of
-    ReqTx tx -> Interpreter.Execution (Interpreter.ledgerConfig simpleLedger) $ onOpenNetworkReqTxProgram (ruleEnvironment env) st.chainPointTime os remainingTTL mempty tx
-    ReqSn sv sn txs decommit deposit -> Interpreter.Execution (Interpreter.snapshotConfig env simpleLedger) $ onOpenNetworkReqSnProgram (ruleEnvironment env) mempty st.chainPointTime os remainingTTL sender sv sn txs decommit deposit
-    AckSn signature sn -> Interpreter.Execution Interpreter.acknowledgementConfig $ onOpenNetworkAckSnProgram (ruleEnvironment env) st.chainPointTime mempty os sender signature sn
-    _ -> error "message outside explorer domain"
+  Interpreter.Execution (Interpreter.snapshotConfig env simpleLedger) $
+    updateProgram (ruleEnvironment env) st.chainPointTime.currentChainTime st $
+      NetworkInput remainingTTL ReceivedMessage{sender, msg = message}
  where
   env = environment recipientIndex
   sender = scenarioParties !! senderIndex
   st = nodes world !! recipientIndex
-  os = openState st
 
 applyExecutionMode :: ExecutionMode -> Interpreter.Execution tx -> Interpreter.Execution tx
 applyExecutionMode mode (Interpreter.Execution config program) =

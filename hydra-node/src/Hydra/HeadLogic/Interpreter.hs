@@ -5,8 +5,16 @@ module Hydra.HeadLogic.Interpreter where
 import Hydra.Chain.ChainState (ChainSlot)
 import Hydra.HeadLogic.Error (LogicError)
 import Hydra.HeadLogic.Outcome (Effect, Outcome (..), StateChanged (..), WaitReason)
-import Hydra.HeadLogic.Program
-import Hydra.HeadLogic.Trace
+import Hydra.HeadLogic.Program (
+  Instruction (..),
+  Program (Program),
+  TransactionProgram,
+ )
+import Hydra.HeadLogic.Trace (
+  TraceStep (..),
+  changeLabel,
+  effectLabel,
+ )
 import Hydra.Ledger (Ledger (..), ValidationError)
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Prelude hiding (keys, label, trace)
@@ -47,8 +55,8 @@ snapshotConfig Environment{signingKey} ledger =
     , snapshotSigner = Available $ SnapshotSigner (sign signingKey) (getVerificationKey signingKey)
     }
 
-acknowledgementConfig :: InterpreterConfig tx 'False 'False
-acknowledgementConfig = InterpreterConfig Unavailable Unavailable
+basicConfig :: InterpreterConfig tx 'False 'False
+basicConfig = InterpreterConfig Unavailable Unavailable
 
 -- | Pair existential capabilities with their matching interpreter once, at a
 -- development dispatch boundary. The production wrappers use concrete types.

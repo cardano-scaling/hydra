@@ -8,15 +8,59 @@ module Hydra.HeadLogic.Machine.OffChain (Phase (..), OffChainTopology, offChainT
 
 import Crem.BaseMachine (ActionResult, BaseMachineT (..), InitialState (..), pureResult)
 import Crem.Render.RenderableVertices (AllVertices (..), RenderableVertices)
-import Crem.Topology
+import Crem.Topology (
+  AllowedTransition,
+  STopology (STopology),
+  Topology (Topology),
+  TopologySym0,
+ )
 import Data.Map.Strict qualified as Map
 import Data.Sequence qualified as Seq
-import Data.Singletons.Base.TH
+import Data.Singletons.Base.TH (
+  NilSym0,
+  SList (SCons, SNil),
+  STuple2 (STuple2),
+  Tuple2Sym0,
+  singletons,
+  type (:@#@$),
+ )
 import Hydra.Chain.ChainState (IsChainState (..), chainStateSlot)
-import Hydra.HeadLogic.Machine.Types
+import Hydra.HeadLogic.Machine.Types (
+  Transition (before, current, event),
+ )
 import Hydra.HeadLogic.Outcome (StateChanged (..))
-import Hydra.HeadLogic.State
-import Hydra.HeadLogic.State.Operations
+import Hydra.HeadLogic.State (
+  ClosedState (confirmedSnapshot, unconfirmedSnapshot),
+  CoordinatedHeadState (
+    CoordinatedHeadState,
+    allTxs,
+    confirmedSnapshot,
+    finalizedCommit,
+    finalizedDecommit,
+    localTxs,
+    localUTxO,
+    seenSnapshot,
+    version
+  ),
+  FinalizedSnapshot (FinalizedSnapshot, observedAtSlot, snapshot),
+  HeadState (Closed, Open),
+  OpenState (OpenState, chainState, coordinatedHeadState),
+  SeenSnapshot (
+    LastSeenSnapshot,
+    NoSeenSnapshot,
+    RequestedSnapshot,
+    SeenSnapshot,
+    signatories,
+    snapshot
+  ),
+  mkSeenSnapshot,
+  seenSnapshotNumber,
+ )
+import Hydra.HeadLogic.State.Operations (
+  isReobservation,
+  seenSnapshotAfterVersionBump,
+  settledUTxO,
+ )
 import Hydra.Node.State (NodeState (..))
 import Hydra.Prelude
 import Hydra.Tx (IsTx (..), txId)

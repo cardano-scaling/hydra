@@ -3,7 +3,7 @@
 module Bench.EndToEnd where
 
 import Hydra.Prelude
-import Test.Hydra.Prelude
+import Test.Hydra.Prelude (HUnitFailure (HUnitFailure), failAfter)
 
 import Bench.Summary (NodeRtsStats (..), Summary (..), SystemStats, makeQuantiles, nominalDiffTimeToMilliseconds)
 import Cardano.Api.UTxO qualified as UTxO

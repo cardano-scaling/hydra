@@ -1,0 +1,14 @@
+stateDiagram-v2
+
+CheckPending
+CheckLedgerResult
+CheckOutputs
+Broadcast
+Finished
+CheckPending --> CheckLedgerResult
+CheckPending --> Finished
+CheckLedgerResult --> CheckOutputs
+CheckLedgerResult --> Finished
+CheckOutputs --> Broadcast
+CheckOutputs --> Finished
+Broadcast --> Finished

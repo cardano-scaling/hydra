@@ -1,8 +1,9 @@
 # Composing head state transitions with crem
 
 The node applies retained events through [crem 0.1.1.0](https://hackage.haskell.org/package/crem-0.1.1.0).
-This extends the existing operational-program spike: `update` still decides
-which events and effects an input produces; crem executes the state changes.
+This page describes event application. All inputs use
+[crem workflows with program actions](./head-logic-crem-workflows.md) to decide
+which events and effects to produce.
 Wire messages, `StateChanged` encodings and checkpoint formats stay the same.
 
 ## Start here
@@ -29,7 +30,7 @@ This is in the normal execution path, with no opt-in switch:
 
 ```text
 Node.processNextInput
-  HeadLogic.update                   -- decides Outcome/events/effects
+  HeadLogic.update                   -- interprets the complete input workflow
   HeadLogic.aggregateState           -- folds the retained event prefix
     HeadLogic.aggregateNodeState
       Machine.apply / Machine.step
@@ -52,9 +53,8 @@ The API projection and checkpoint aggregate are additional consumers of the
 same events. The replay microbenchmark measures one aggregate, not all work
 performed by these consumers together.
 
-Admission decisions still live in `HeadLogic.update` and the existing programs:
-ledger applicability, signature verification, deadlines, retries and effect
-selection have not moved into crem. `Error` contributes no retained events;
+All input admission and protocol rules live in Program actions within crem
+workflows. `HeadLogic.update` interprets the complete input workflow. The event machines below do not repeat those guards. `Error` contributes no retained events;
 `Wait` contributes its saved prefix. A phase graph alone does not describe those
 input decisions.
 
@@ -114,7 +114,7 @@ Consumption retains its previous status. Rollback can undo consumption or
 remove the record; it does not recompute activation from time. Re-observation
 starts a new record, and repeated consumption stamps the new slot.
 
-The off-chain experiment covers the persistent coordination phases:
+The off-chain component covers the persistent coordination phases:
 
 | Phase | `SeenSnapshot` | Events that normally advance it |
 | --- | --- | --- |
@@ -131,6 +131,9 @@ fresh settlement preserves a snapshot collecting signatures and resets other
 coordination phases; a repeated settlement preserves the phase.
 
 ## Diagrams and their limits
+
+The [central diagram page](head-logic-diagrams.md) renders every machine graph
+and trace, including the files linked below.
 
 [Generated state and composition diagrams](head-logic-machines/README.md) come
 from the actual crem definitions:
@@ -179,13 +182,10 @@ After building the tests, reproduce the extended property run with:
 "$(cabal list-bin hydra-node:test:tests)" -p '/HeadLogic.Machine/' --quickcheck-tests=1000 +RTS -N2
 ```
 
-The extended run passed 1,000 generated histories of 40 events (40,000
-prefixes) and 1,000 tracked-deposit cases across four operations. All 24
-settlement schedules and the fanout/checkpoint examples passed. The five saved
-v2 scenarios replay successfully. The live three-party Init/transaction/close
-test and all 24 TUI tests passed with loopback proxy exclusions and `TERM=xterm`.
-`just lint` and `just check` passed, including all 1,328 node tests, 277 transaction
-tests, 114 Agda tests, and the specification, formatting and unused-code checks.
+The retained-event migration passed an extended run of 1,000 generated histories
+of 40 events (40,000 prefixes) and 1,000 tracked-deposit cases across four
+operations. See the [validation record](docs/dev/architecture/head-logic-experiments/lab.md#validation-record)
+for the complete branch checks, including input workflows and live-node coverage.
 
 The migration property compares every event prefix against the frozen reducer,
 continuous crem execution, reconstruction at each event, and CBOR recovery.
@@ -200,7 +200,7 @@ The benchmark adds two comparisons to the existing snapshot-round fixtures:
 full-state equality and success checks run outside timing. The timed round
 includes ledger work, signatures and snapshot confirmation, with tracing off;
 it excludes transport, disk I/O and a real chain. See the
-[measurement page](docs/dev/architecture/head-logic-benchmark.md) for results and
+[measurement page](docs/dev/architecture/head-logic-experiments/measurements.md) for results and
 commands. In these fixtures crem adds about 3–4 µs and 36 KiB per complete
 round of event replay; the longer full-round repeats measured −0.14% to +1.49%.
 A replay microbenchmark alone cannot establish the TPS impact.
@@ -247,13 +247,10 @@ crem's use of singleton-generated code are part of the adoption cost.
    component boundaries. Keep compatibility cases explicit rather than silently
    rejecting historical events. Component order is currently checked by the
    migration tests, not by the `Sequential` type.
-4. **Decide how much input dispatch belongs in crem.** This spike replaces event
-   application. If the aim is to make crem the main HeadLogic model, the next
-   part to migrate should be Init/close/fanout input handling, producing the
-   existing `Outcome` and calling the existing programs. Move each rule once;
-   avoid maintaining a second set of guards in the machine. Assess that smaller
-   change before extending it to snapshot coordination. The speculative Agda
-   generation proposal remains a separate line of work.
+4. **Review rule boundaries.** All input handling now runs through Crem/Program.
+   Multi-step rules have typed phases; short actions compose directly as programs.
+   Review that split alongside the event machines, particularly settlement,
+   rollback and fanout. Keep the Agda generation proposal as separate work.
 
 The adoption decision should weigh the explicit composition and generated
 structure against singleton boilerplate, replay graphs that admit more transitions than the protocol,

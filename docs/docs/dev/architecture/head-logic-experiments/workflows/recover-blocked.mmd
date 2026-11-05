@@ -1,0 +1,9 @@
+%%{init: {"sequence": {"wrap": true}}}%%
+sequenceDiagram
+  participant logic as Head logic
+  rect rgb(245, 247, 250)
+    Note over logic: Production crem with program actions: recover-blocked
+    Note over logic: deposit is registered: yes
+    Note over logic: deposit is not claimed by a finalized increment: no
+    Note over logic: reject: discard changes and effects
+  end

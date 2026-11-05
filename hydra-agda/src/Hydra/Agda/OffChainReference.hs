@@ -9,6 +9,16 @@
 -- As there, every 'Integer' stands for an Agda ℕ and callers must pass non-negative values; see that
 -- module's header for what a negative one does.
 module Hydra.Agda.OffChainReference (
+  HsReqDecOutcome (..),
+  HsRecoverOutcome (..),
+  inputAdmissionRef,
+  clientDecommitRef,
+  adoptSettlementRef,
+  repostFinalizedRef,
+  fanoutContinuationRef,
+  reqDecOutcomeRef,
+  recoverOutcomeRef,
+
   -- * deposit lifecycle (the @tick@ handler)
   HsLifecyclePhase (..),
   HsLifecycleEvent (..),
@@ -71,6 +81,8 @@ import MAlonzo.Code.Hydra.Protocol.OffChainReference (
   HsLifecycleEvent (..),
   HsLifecyclePhase (..),
   HsPendingCommit (..),
+  HsRecoverOutcome (..),
+  HsReqDecOutcome (..),
   HsReqTxChange (..),
   HsReqTxEffect (..),
   HsReqTxOutcome (..),
@@ -230,3 +242,33 @@ trackedDepositPhaseRef = M.hsTrackedDepositPhaseRef
 
 pendingIncrementPhaseRef :: Bool -> Bool -> Bool -> Integer
 pendingIncrementPhaseRef = M.hsPendingIncrementPhaseRef
+
+-- | Whole ReqDec outcome tags within the bounded domain of the Agda reference.
+reqDecOutcomeRef :: Bool -> Bool -> Bool -> Bool -> Integer -> Bool -> Integer -> Integer -> Integer -> HsReqDecOutcome
+reqDecOutcomeRef = M.hsReqDecOutcomeRef
+
+-- | Registration and finalized-increment guards, in their execution order.
+recoverOutcomeRef :: Bool -> Bool -> HsRecoverOutcome
+recoverOutcomeRef = M.hsRecoverOutcomeRef
+
+-- | Bounded input admission. Kind: client=0, network=1, chain=2. Result:
+-- dispatch=0, unsafe=1, unsynced client=2, wait for sync=3.
+inputAdmissionRef :: Integer -> Bool -> Bool -> Integer
+inputAdmissionRef = M.hsInputAdmissionRef
+
+-- | Existing decommit, applicability, nonempty outputs; failure priority or send.
+clientDecommitRef :: Bool -> Bool -> Bool -> Integer
+clientDecommitRef = M.hsClientDecommitRef
+
+-- | Observed/seen number, snapshot/new version, action matches, signatures valid.
+adoptSettlementRef :: Integer -> Integer -> Integer -> Integer -> Bool -> Bool -> Bool
+adoptSettlementRef = M.hsAdoptSettlementRef
+
+-- | Pending work, rollback slot, finalized observation slot. Naturals only.
+repostFinalizedRef :: Bool -> Integer -> Integer -> Bool
+repostFinalizedRef = M.hsRepostFinalizedRef
+
+-- | Empty remainder and mode (auto=0, selection=1, awaiting=2); wait=0,
+-- post remainder=1, post selection=2.
+fanoutContinuationRef :: Bool -> Integer -> Integer
+fanoutContinuationRef = M.hsFanoutContinuationRef

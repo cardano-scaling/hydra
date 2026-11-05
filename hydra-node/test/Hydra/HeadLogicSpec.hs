@@ -14,7 +14,23 @@ module Hydra.HeadLogicSpec where
 
 import Data.Secret (Secret, mkSecret)
 import Hydra.Prelude
-import Test.Hydra.Prelude
+import Test.Hydra.Prelude (
+  Arbitrary (arbitrary, shrink),
+  Gen,
+  Spec,
+  describe,
+  expectationFailure,
+  failure,
+  generateWith,
+  it,
+  parallel,
+  prop,
+  shouldBe,
+  shouldMatchList,
+  shouldNotBe,
+  shouldReturn,
+  shouldSatisfy,
+ )
 
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Api (bodyTxL, inputsTxBodyL)

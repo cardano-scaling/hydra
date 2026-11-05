@@ -10,8 +10,20 @@ module Hydra.HeadLogic.Machine.Lifecycle (Phase (..), LifecycleTopology, lifecyc
 
 import Crem.BaseMachine (ActionResult, BaseMachineT (..), InitialState (..), pureResult)
 import Crem.Render.RenderableVertices (AllVertices (..), RenderableVertices)
-import Crem.Topology
-import Data.Singletons.Base.TH
+import Crem.Topology (
+  AllowedTransition,
+  STopology (STopology),
+  Topology (Topology),
+  TopologySym0,
+ )
+import Data.Singletons.Base.TH (
+  NilSym0,
+  SList (SCons, SNil),
+  STuple2 (STuple2),
+  Tuple2Sym0,
+  singletons,
+  type (:@#@$),
+ )
 import Hydra.Chain.ChainState (IsChainState (..))
 import Hydra.HeadLogic.Machine.Types (Transition (..))
 import Hydra.HeadLogic.Outcome (StateChanged (..))

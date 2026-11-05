@@ -1,0 +1,18 @@
+stateDiagram-v2
+
+CheckNumber
+FindSnapshot
+CollectSignature
+CheckComplete
+CheckVerification
+ConfirmAndContinue
+Finished
+CheckNumber --> FindSnapshot
+FindSnapshot --> CollectSignature
+FindSnapshot --> Finished
+CollectSignature --> CheckComplete
+CheckComplete --> CheckVerification
+CheckComplete --> Finished
+CheckVerification --> ConfirmAndContinue
+CheckVerification --> Finished
+ConfirmAndContinue --> Finished

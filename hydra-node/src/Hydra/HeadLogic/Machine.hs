@@ -19,10 +19,19 @@ import Hydra.Chain.ChainState (IsChainState (..), chainStateSlot)
 import Hydra.HeadLogic.Machine.Incremental qualified as Incremental
 import Hydra.HeadLogic.Machine.Lifecycle qualified as Lifecycle
 import Hydra.HeadLogic.Machine.OffChain qualified as OffChain
-import Hydra.HeadLogic.Machine.Types
+import Hydra.HeadLogic.Machine.Types (Transition (..))
 import Hydra.HeadLogic.Outcome (StateChanged (..))
 import Hydra.HeadLogic.State.Operations (eventHeadId, headIdOf)
-import Hydra.Node.State
+import Hydra.Node.State (
+  ChainPointTime (ChainPointTime, currentChainTime, currentSlot),
+  Deposit (Deposit, created, deadline, deposited, headId, status),
+  DepositStatus (Inactive),
+  NodeState (..),
+  consumeDeposit,
+  recordDeposit,
+  rollbackDeposits,
+  updateDeposit,
+ )
 
 -- | The constructor is private so callers cannot separate a continuation from
 -- the state whose phases it tracks. Checkpoint restoration replaces both.

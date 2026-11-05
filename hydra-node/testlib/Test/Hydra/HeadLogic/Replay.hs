@@ -7,8 +7,30 @@ import Data.List (delete)
 import Hydra.HeadLogic.Interpreter qualified as Interpreter
 import Hydra.Prelude hiding (delete)
 import Test.Hydra.HeadLogic.Debugger qualified as Debug
-import Test.Hydra.HeadLogic.Explorer
-import Test.Hydra.HeadLogic.Scenario
+import Test.Hydra.HeadLogic.Explorer (
+  actions,
+  advance,
+  applyExecutionMode,
+  installOutcome,
+  programFor,
+ )
+import Test.Hydra.HeadLogic.Scenario (
+  Action (Deliver, Retry),
+  Disturbances (AllowInvalidAcknowledgement),
+  Exploration (executionMode),
+  Limits,
+  Scenario (
+    Scenario,
+    exploration,
+    primitiveTapes,
+    schedule,
+    schemaVersion,
+    startingWorld
+  ),
+  World (pending, retries),
+  actionLabel,
+  validateWorld,
+ )
 
 recordScenario :: Limits -> Exploration -> World -> [Action] -> Either Text (Scenario, [Debug.Step])
 recordScenario bounds settings start route = do

@@ -1,0 +1,13 @@
+%%{init: {"sequence": {"wrap": true}}}%%
+sequenceDiagram
+  participant logic as Head logic
+  rect rgb(245, 247, 250)
+    Note over logic: Frozen free program: req-tx-duplicate
+    Note over logic: transaction is already applied locally: yes
+    Note over logic: finish: commit changes and release effects
+  end
+  rect rgb(245, 247, 250)
+    Note over logic: Production crem with program actions: req-tx-duplicate
+    Note over logic: transaction is already applied locally: yes
+    Note over logic: finish: commit changes and release effects
+  end

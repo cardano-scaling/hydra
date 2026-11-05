@@ -1,0 +1,19 @@
+stateDiagram-v2
+
+CheckDuplicate
+CheckOutputs
+CheckLedgerResult
+CheckDeposits
+SelectSnapshot
+RetryOrInvalidate
+Finished
+CheckDuplicate --> CheckOutputs
+CheckDuplicate --> Finished
+CheckOutputs --> CheckLedgerResult
+CheckOutputs --> RetryOrInvalidate
+CheckLedgerResult --> CheckDeposits
+CheckLedgerResult --> RetryOrInvalidate
+CheckDeposits --> SelectSnapshot
+CheckDeposits --> RetryOrInvalidate
+SelectSnapshot --> Finished
+RetryOrInvalidate --> Finished

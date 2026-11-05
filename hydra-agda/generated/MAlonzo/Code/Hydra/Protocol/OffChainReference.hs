@@ -53,6 +53,11 @@ data HsLifecycleEvent = Opened | Closed | Ready | FanoutStarted | PartialObserve
 data HsCoordinationPhase = OutsideHead | NoRequestSeen | SnapshotIdle | RequestSent | Collecting deriving (Eq, Show, Enum, Bounded)
 data HsCoordinationEvent = HeadOpened | HeadClosed | RequestDecided | SnapshotRequested | SnapshotConfirmed | LocalCleared | SettlementObserved | OtherEvent deriving (Eq, Show, Enum, Bounded)
 data HsTrackedPhase = MissingDeposit | InactiveDeposit | ActiveDeposit | ExpiredDeposit | ConsumedDeposit deriving (Eq, Show, Enum, Bounded)
+data HsReqDecOutcome = ReqDecWaitCommit | ReqDecInvalidCommit
+   | ReqDecWaitExisting | ReqDecInvalidExisting | ReqDecWaitLedger
+   | ReqDecInvalidLedger | ReqDecEmptyOutputs | ReqDecRecorded
+   | ReqDecRequested deriving (Eq, Show)
+data HsRecoverOutcome = RecoveryMissing | RecoveryBlocked | RecoveryPosted deriving (Eq, Show)
 -- Hydra.Protocol.OffChainReference.DepositStatusᶜ
 d_DepositStatus'7580'_6 = ()
 type T_DepositStatus'7580'_6 = HsDepositStatus
@@ -1101,3 +1106,170 @@ d_pendingIncrementPhaseRef_432 v0 v1 v2
              then if coe v2 then coe (4 :: Integer) else coe (2 :: Integer)
              else (if coe v2 then coe (3 :: Integer) else coe (1 :: Integer))
       else coe (0 :: Integer)
+-- Hydra.Protocol.OffChainReference.ReqDecOutcomeᶜ
+d_ReqDecOutcome'7580'_434 = ()
+type T_ReqDecOutcome'7580'_434 = HsReqDecOutcome
+pattern C_decWaitCommit'7580'_436 = ReqDecWaitCommit
+pattern C_decInvalidCommit'7580'_438 = ReqDecInvalidCommit
+pattern C_decWaitExisting'7580'_440 = ReqDecWaitExisting
+pattern C_decInvalidExisting'7580'_442 = ReqDecInvalidExisting
+pattern C_decWaitLedger'7580'_444 = ReqDecWaitLedger
+pattern C_decInvalidLedger'7580'_446 = ReqDecInvalidLedger
+pattern C_decEmptyOutputs'7580'_448 = ReqDecEmptyOutputs
+pattern C_decRecorded'7580'_450 = ReqDecRecorded
+pattern C_decRequested'7580'_452 = ReqDecRequested
+check_decWaitCommit'7580'_436 :: T_ReqDecOutcome'7580'_434
+check_decWaitCommit'7580'_436 = ReqDecWaitCommit
+check_decInvalidCommit'7580'_438 :: T_ReqDecOutcome'7580'_434
+check_decInvalidCommit'7580'_438 = ReqDecInvalidCommit
+check_decWaitExisting'7580'_440 :: T_ReqDecOutcome'7580'_434
+check_decWaitExisting'7580'_440 = ReqDecWaitExisting
+check_decInvalidExisting'7580'_442 :: T_ReqDecOutcome'7580'_434
+check_decInvalidExisting'7580'_442 = ReqDecInvalidExisting
+check_decWaitLedger'7580'_444 :: T_ReqDecOutcome'7580'_434
+check_decWaitLedger'7580'_444 = ReqDecWaitLedger
+check_decInvalidLedger'7580'_446 :: T_ReqDecOutcome'7580'_434
+check_decInvalidLedger'7580'_446 = ReqDecInvalidLedger
+check_decEmptyOutputs'7580'_448 :: T_ReqDecOutcome'7580'_434
+check_decEmptyOutputs'7580'_448 = ReqDecEmptyOutputs
+check_decRecorded'7580'_450 :: T_ReqDecOutcome'7580'_434
+check_decRecorded'7580'_450 = ReqDecRecorded
+check_decRequested'7580'_452 :: T_ReqDecOutcome'7580'_434
+check_decRequested'7580'_452 = ReqDecRequested
+cover_ReqDecOutcome'7580'_434 :: HsReqDecOutcome -> ()
+cover_ReqDecOutcome'7580'_434 x
+  = case x of
+      ReqDecWaitCommit -> ()
+      ReqDecInvalidCommit -> ()
+      ReqDecWaitExisting -> ()
+      ReqDecInvalidExisting -> ()
+      ReqDecWaitLedger -> ()
+      ReqDecInvalidLedger -> ()
+      ReqDecEmptyOutputs -> ()
+      ReqDecRecorded -> ()
+      ReqDecRequested -> ()
+-- Hydra.Protocol.OffChainReference.reqDecOutcomeRef
+hsReqDecOutcomeRef ::
+  Bool ->
+  Bool ->
+  Bool ->
+  Bool ->
+  Integer ->
+  Bool -> Integer -> Integer -> Integer -> T_ReqDecOutcome'7580'_434
+hsReqDecOutcomeRef = coe d_reqDecOutcomeRef_454
+d_reqDecOutcomeRef_454 ::
+  Bool ->
+  Bool ->
+  Bool ->
+  Bool ->
+  Integer ->
+  Bool -> Integer -> Integer -> Integer -> T_ReqDecOutcome'7580'_434
+d_reqDecOutcomeRef_454 v0 v1 v2 v3 v4 v5 v6 v7 v8
+  = if coe v0
+      then case coe v4 of
+             0 -> coe C_decInvalidCommit'7580'_438
+             _ -> coe C_decWaitCommit'7580'_436
+      else (if coe v1
+              then case coe v4 of
+                     0 -> coe C_decInvalidExisting'7580'_442
+                     _ -> coe C_decWaitExisting'7580'_440
+              else (if coe v2
+                      then if coe v3
+                             then coe
+                                    du_if_then_else__16
+                                    (coe
+                                       d__'38''38'__34 (coe d_not_54 (coe v5))
+                                       (coe d_leaderRef_152 (coe v6) (coe v7) (coe v8)))
+                                    (coe C_decRequested'7580'_452) (coe C_decRecorded'7580'_450)
+                             else coe C_decEmptyOutputs'7580'_448
+                      else (case coe v4 of
+                              0 -> coe C_decInvalidLedger'7580'_446
+                              _ -> coe C_decWaitLedger'7580'_444)))
+-- Hydra.Protocol.OffChainReference.RecoverOutcomeᶜ
+d_RecoverOutcome'7580'_464 = ()
+type T_RecoverOutcome'7580'_464 = HsRecoverOutcome
+pattern C_recoveryMissing'7580'_466 = RecoveryMissing
+pattern C_recoveryBlocked'7580'_468 = RecoveryBlocked
+pattern C_recoveryPosted'7580'_470 = RecoveryPosted
+check_recoveryMissing'7580'_466 :: T_RecoverOutcome'7580'_464
+check_recoveryMissing'7580'_466 = RecoveryMissing
+check_recoveryBlocked'7580'_468 :: T_RecoverOutcome'7580'_464
+check_recoveryBlocked'7580'_468 = RecoveryBlocked
+check_recoveryPosted'7580'_470 :: T_RecoverOutcome'7580'_464
+check_recoveryPosted'7580'_470 = RecoveryPosted
+cover_RecoverOutcome'7580'_464 :: HsRecoverOutcome -> ()
+cover_RecoverOutcome'7580'_464 x
+  = case x of
+      RecoveryMissing -> ()
+      RecoveryBlocked -> ()
+      RecoveryPosted -> ()
+-- Hydra.Protocol.OffChainReference.recoverOutcomeRef
+hsRecoverOutcomeRef :: Bool -> Bool -> T_RecoverOutcome'7580'_464
+hsRecoverOutcomeRef = coe d_recoverOutcomeRef_472
+d_recoverOutcomeRef_472 ::
+  Bool -> Bool -> T_RecoverOutcome'7580'_464
+d_recoverOutcomeRef_472 v0 v1
+  = if coe v0
+      then if coe v1
+             then coe C_recoveryBlocked'7580'_468
+             else coe C_recoveryPosted'7580'_470
+      else coe C_recoveryMissing'7580'_466
+-- Hydra.Protocol.OffChainReference.inputAdmissionRef
+hsInputAdmissionRef :: Integer -> Bool -> Bool -> Integer
+hsInputAdmissionRef = coe d_inputAdmissionRef_474
+d_inputAdmissionRef_474 :: Integer -> Bool -> Bool -> Integer
+d_inputAdmissionRef_474 v0 v1 v2
+  = let v3 = 0 :: Integer in
+    coe
+      (case coe v0 of
+         0 -> if coe v1
+                then case coe v2 of
+                       MAlonzo.Code.Agda.Builtin.Bool.C_false_8 -> coe (2 :: Integer)
+                       _ -> coe v3
+                else coe (1 :: Integer)
+         1 -> case coe v2 of
+                MAlonzo.Code.Agda.Builtin.Bool.C_false_8 -> coe (3 :: Integer)
+                _ -> coe v3
+         _ -> coe v3)
+-- Hydra.Protocol.OffChainReference.clientDecommitRef
+hsClientDecommitRef :: Bool -> Bool -> Bool -> Integer
+hsClientDecommitRef = coe d_clientDecommitRef_476
+d_clientDecommitRef_476 :: Bool -> Bool -> Bool -> Integer
+d_clientDecommitRef_476 v0 v1 v2
+  = if coe v0
+      then coe (0 :: Integer)
+      else (if coe v1
+              then if coe v2 then coe (3 :: Integer) else coe (2 :: Integer)
+              else coe (1 :: Integer))
+-- Hydra.Protocol.OffChainReference.adoptSettlementRef
+hsAdoptSettlementRef ::
+  Integer -> Integer -> Integer -> Integer -> Bool -> Bool -> Bool
+hsAdoptSettlementRef = coe d_adoptSettlementRef_478
+d_adoptSettlementRef_478 ::
+  Integer -> Integer -> Integer -> Integer -> Bool -> Bool -> Bool
+d_adoptSettlementRef_478 v0 v1 v2 v3 v4 v5
+  = coe
+      d__'38''38'__34 (coe eqInt (coe v0) (coe v1))
+      (coe
+         d__'38''38'__34
+         (coe eqInt (coe addInt (coe (1 :: Integer)) (coe v2)) (coe v3))
+         (coe d__'38''38'__34 (coe v4) (coe v5)))
+-- Hydra.Protocol.OffChainReference.repostFinalizedRef
+hsRepostFinalizedRef :: Bool -> Integer -> Integer -> Bool
+hsRepostFinalizedRef = coe d_repostFinalizedRef_492
+d_repostFinalizedRef_492 :: Bool -> Integer -> Integer -> Bool
+d_repostFinalizedRef_492 v0 v1 v2
+  = coe d__'124''124'__50 (coe v0) (coe ltInt (coe v1) (coe v2))
+-- Hydra.Protocol.OffChainReference.fanoutContinuationRef
+hsFanoutContinuationRef :: Bool -> Integer -> Integer
+hsFanoutContinuationRef = coe d_fanoutContinuationRef_500
+d_fanoutContinuationRef_500 :: Bool -> Integer -> Integer
+d_fanoutContinuationRef_500 v0 v1
+  = if coe v0
+      then coe (1 :: Integer)
+      else (let v2 = 0 :: Integer in
+            coe
+              (case coe v1 of
+                 0 -> coe (1 :: Integer)
+                 1 -> coe (2 :: Integer)
+                 _ -> coe v2))

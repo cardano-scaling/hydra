@@ -1,0 +1,17 @@
+stateDiagram-v2
+
+CheckCommit
+CheckExistingDecommit
+CheckLedgerResult
+CheckOutputs
+RecordAndRequest
+Finished
+CheckCommit --> CheckExistingDecommit
+CheckCommit --> Finished
+CheckExistingDecommit --> CheckLedgerResult
+CheckExistingDecommit --> Finished
+CheckLedgerResult --> CheckOutputs
+CheckLedgerResult --> Finished
+CheckOutputs --> RecordAndRequest
+CheckOutputs --> Finished
+RecordAndRequest --> Finished

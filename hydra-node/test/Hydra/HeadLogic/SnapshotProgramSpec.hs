@@ -10,25 +10,87 @@ import Data.Map.Strict qualified as Map
 import Data.Sequence qualified as Seq
 import Data.Text qualified as Text
 import Hydra.Agda.OffChainReference (HsReqTxOutcome (..), HsReqTxTerminal (..), HsSnapshotChange (..), HsSnapshotEffect (..), HsSnapshotOutcome (..), HsSnapshotPhase (..), HsSnapshotRejection (..), HsSnapshotWait (..), ackSnOutcomeRef, reqSnOutcomeRef, reqTxKnownOutcomeRef)
-import Hydra.HeadLogic hiding (error)
+import Hydra.HeadLogic (
+  CoordinatedHeadState (
+    allTxs,
+    confirmedSnapshot,
+    decommitTx,
+    localTxs,
+    localUTxO,
+    seenSnapshot
+  ),
+  Effect (NetworkEffect, OnChainEffect),
+  HeadState (Idle, Open),
+  IdleState (IdleState, chainState),
+  LogicError (RequireFailed),
+  OpenState (coordinatedHeadState, headId),
+  Outcome (Continue, Error, Wait, effects, stateChanges),
+  RequirementFailure (
+    AckSnNumberInvalid,
+    InvalidMultisignature,
+    ReqSnNotLeader,
+    ReqSnNumberInvalid,
+    SnapshotAlreadySigned,
+    SnapshotDoesNotApply
+  ),
+  RuleEnvironment,
+  SeenSnapshot (
+    LastSeenSnapshot,
+    NoSeenSnapshot,
+    RequestedSnapshot,
+    SeenSnapshot,
+    signableBytes,
+    snapshot
+  ),
+  StateChanged (
+    PartySignedSnapshot,
+    SnapshotConfirmed,
+    SnapshotRequestDecided,
+    SnapshotRequested,
+    TransactionReceived
+  ),
+  WaitReason (
+    WaitOnNotApplicableTx,
+    WaitOnSeenSnapshot,
+    WaitOnSnapshotNumber,
+    WaitOnSnapshotVersion,
+    WaitOnTxs
+  ),
+  aggregateState,
+  mkSeenSnapshot,
+  onOpenNetworkReqSn,
+  onOpenNetworkReqSnProgram,
+  onOpenNetworkReqTx,
+  onOpenNetworkReqTxProgram,
+  ruleEnvironment,
+ )
+import Hydra.HeadLogic qualified as HeadLogic
 import Hydra.HeadLogic.Interpreter qualified as Interpreter
 import Hydra.HeadLogic.Program qualified as Program
+import Hydra.HeadLogic.Rules.AckSn qualified as CremAckSn
 import Hydra.HeadLogic.Trace qualified as Trace
+import Hydra.HeadLogic.Workflow qualified as Workflow
 import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Ledger.Simple (SimpleTx, SimpleTxOut, simpleLedger)
 import Hydra.Network.Message (Message (..))
 import Hydra.Node (defaultTxTTL)
 import Hydra.Node.Environment (Environment)
-import Hydra.Node.State (Deposit (..), DepositStatus (..), NodeState (..), initialChainTime)
+import Hydra.Node.State (ChainPointTime, Deposit (..), DepositStatus (..), NodeState (..), PendingDeposits, initialChainTime)
 import Hydra.Prelude hiding (state, trace)
 import Hydra.Tx (txId)
-import Hydra.Tx.Crypto (sign)
+import Hydra.Tx.Crypto (Signature, sign)
 import Hydra.Tx.HeadId (HeadId (..))
-import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), getSnapshot)
+import Hydra.Tx.Party (Party)
+import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, getSnapshot)
+import Test.Hydra.HeadLogic.Crem.Comparison (comparePrograms)
 import Test.Hydra.HeadLogic.Debugger qualified as Debug
 import Test.Hydra.HeadLogic.Explorer qualified as Explorer
+import Test.Hydra.HeadLogic.LegacyPrograms qualified as LegacyPrograms
 import Test.Hydra.HeadLogic.LegacyReqTx (legacyOnOpenNetworkReqTx)
-import Test.Hydra.HeadLogic.LegacySnapshot
+import Test.Hydra.HeadLogic.LegacySnapshot (
+  legacyOnOpenNetworkAckSn,
+  legacyOnOpenNetworkReqSn,
+ )
 import Test.Hydra.HeadLogic.Mermaid qualified as Mermaid
 import Test.Hydra.HeadLogic.RegistryDemo qualified as RegistryDemo
 import Test.Hydra.HeadLogic.Replay qualified as Replay
@@ -36,13 +98,39 @@ import Test.Hydra.HeadLogic.Resolved qualified as Resolved
 import Test.Hydra.HeadLogic.Scenario qualified as Scenario
 import Test.Hydra.HeadLogic.Settlement qualified as Settlement
 import Test.Hydra.Ledger.Simple (utxoRef)
-import Test.Hydra.Node.Fixture
-import Test.Hydra.Prelude hiding (pending)
+import Test.Hydra.Node.Fixture (
+  alice,
+  aliceSk,
+  bob,
+  bobSk,
+  carol,
+  carolSk,
+  testHeadId,
+ )
+import Test.Hydra.Prelude (
+  Spec,
+  describe,
+  failure,
+  it,
+  prop,
+  shouldBe,
+  shouldContain,
+  shouldNotBe,
+  shouldSatisfy,
+ )
 import Test.QuickCheck (chooseInt, counterexample, forAll, shuffle, vectorOf)
 
 spec :: Spec
 spec = do
-  describe "snapshot program migration" $ do
+  reqSnSpec
+  describe "free program" $ specWith LegacyPrograms.onOpenNetworkAckSnProgram
+  describe "crem phases with program actions" $ specWith $ \environment time pending st sender signature sn ->
+    Workflow.run $ CremAckSn.machine environment time pending st sender signature sn
+  integrationSpec
+
+reqSnSpec :: Spec
+reqSnSpec = do
+  describe "ReqSn program migration" $ do
     it "preserves complete ReqSn outcomes and states across waits, deposits, decommits and pruning" $ do
       forM_ [0, 1] $ \ttl ->
         forM_ [alice, bob] $ \sender ->
@@ -55,8 +143,34 @@ spec = do
                       let old = legacyOnOpenNetworkReqSn env simpleLedger pending initial.chainPointTime os ttl sender sv sn ids decommit deposit
                           new = onOpenNetworkReqSn env simpleLedger pending initial.chainPointTime os ttl sender sv sn ids decommit deposit
                       new `shouldBe` old
+                      comparePrograms
+                        (Interpreter.snapshotConfig env simpleLedger)
+                        initial
+                        (LegacyPrograms.onOpenNetworkReqSnProgram (ruleEnvironment env) pending initial.chainPointTime os ttl sender sv sn ids decommit deposit)
+                        (onOpenNetworkReqSnProgram (ruleEnvironment env) pending initial.chainPointTime os ttl sender sv sn ids decommit deposit)
+                        `shouldSatisfy` isRight
                       aggregateState initial new `shouldBe` aggregateState initial old
 
+  describe "bounded ReqSn Agda agreement" $ do
+    it "compares independent ReqSn ordered outcomes with declared exclusions" $ do
+      forM_ [0 .. 2] $ \seen ->
+        forM_ [0 .. seen] $ \confirmed ->
+          forM_ [0 .. 4] $ \sn ->
+            forM_ [0 .. 2] $ \sender ->
+              forM_ [0, 1] $ \sv ->
+                forM_ [False, True] $ \missing ->
+                  forM_ [False, True] $ \applicable -> do
+                    let predecessor = Scenario.initialSnapshot{number = fromIntegral confirmed}
+                        c = os.coordinatedHeadState{seenSnapshot = LastSeenSnapshot $ fromIntegral seen, confirmedSnapshot = ConfirmedSnapshot predecessor mempty}
+                        ledger = if applicable then simpleLedger else Ledger $ \_ _ _ -> Left (Scenario.transactionOne, ValidationError "controlled failure")
+                        outcome = onOpenNetworkReqSn env ledger mempty initial.chainPointTime os{coordinatedHeadState = c} 1 (Scenario.scenarioParties !! sender) sv (fromIntegral sn) [if missing then 99 else 1] Nothing Nothing
+                    projectSnapshotOutcome outcome `shouldBe` reqSnOutcomeRef seen confirmed 0 (fromIntegral sv) sn 2 (fromIntegral sender) (if missing then 1 else 0) applicable
+
+type AckRule = RuleEnvironment -> ChainPointTime -> PendingDeposits SimpleTx -> OpenState SimpleTx -> Party -> Signature (Snapshot SimpleTx) -> SnapshotNumber -> Program.AcknowledgementProgram SimpleTx ()
+
+specWith :: AckRule -> Spec
+specWith onOpenNetworkAckSnProgram = do
+  describe "AckSn program migration" $ do
     it "preserves complete AckSn outcomes, repeated records, early/duplicate acks and next requests" $ do
       forM_ [minBound .. maxBound] $ \phase ->
         forM_ (subsequences [0, 1, 2]) $ \signers ->
@@ -95,7 +209,7 @@ spec = do
     it "rejecting the last invalid signature discards its staged change" $ do
       let state = ackState CollectingSignatures [0, 1]
           program = onOpenNetworkAckSnProgram (ruleEnvironment env) initial.chainPointTime mempty (Scenario.openState state) carol (sign aliceSk snapshotFixture) 1
-          (outcome, trace) = Interpreter.traceProgramWith Interpreter.acknowledgementConfig program
+          (outcome, trace) = Interpreter.traceProgramWith Interpreter.basicConfig program
       trace `shouldContain` [Trace.Changed "record snapshot signature"]
       viaNonEmpty last trace `shouldBe` Just Trace.Rejected
       outcome `shouldSatisfy` \case Error (RequireFailed InvalidMultisignature{}) -> True; _ -> False
@@ -107,21 +221,7 @@ spec = do
           event = PartySignedSnapshot 1 alice signature
       outcome `shouldBe` Continue [event, event] []
 
-  describe "bounded snapshot Agda agreement" $ do
-    it "compares independent ReqSn ordered outcomes with declared exclusions" $ do
-      forM_ [0 .. 2] $ \seen ->
-        forM_ [0 .. seen] $ \confirmed ->
-          forM_ [0 .. 4] $ \sn ->
-            forM_ [0 .. 2] $ \sender ->
-              forM_ [0, 1] $ \sv ->
-                forM_ [False, True] $ \missing ->
-                  forM_ [False, True] $ \applicable -> do
-                    let predecessor = Scenario.initialSnapshot{number = fromIntegral confirmed}
-                        c = os.coordinatedHeadState{seenSnapshot = LastSeenSnapshot $ fromIntegral seen, confirmedSnapshot = ConfirmedSnapshot predecessor mempty}
-                        ledger = if applicable then simpleLedger else Ledger $ \_ _ _ -> Left (Scenario.transactionOne, ValidationError "controlled failure")
-                        outcome = onOpenNetworkReqSn env ledger mempty initial.chainPointTime os{coordinatedHeadState = c} 1 (Scenario.scenarioParties !! sender) sv (fromIntegral sn) [if missing then 99 else 1] Nothing Nothing
-                    projectSnapshotOutcome outcome `shouldBe` reqSnOutcomeRef seen confirmed 0 (fromIntegral sv) sn 2 (fromIntegral sender) (if missing then 1 else 0) applicable
-
+  describe "bounded AckSn Agda agreement" $ do
     it "compares independent AckSn outcomes including rejection after staging" $ do
       forM_ [minBound .. maxBound] $ \phase ->
         forM_ (subsequences [0, 1, 2]) $ \signers ->
@@ -133,7 +233,12 @@ spec = do
                     outcome = onOpenNetworkAckSn (Scenario.environment 1) initial.chainPointTime mempty (Scenario.openState state) (Scenario.scenarioParties !! sender) signature sn
                     seen = if phase == NeverSeen then 0 else 1
                 projectSnapshotOutcome outcome `shouldBe` ackSnOutcomeRef phase seen (fromIntegral sn) (fromIntegral <$> signers) (fromIntegral sender) 2 valid True 1
+ where
+  onOpenNetworkAckSn env' time pending st sender signature sn =
+    Interpreter.runProgramWith Interpreter.basicConfig $ onOpenNetworkAckSnProgram (ruleEnvironment env') time pending st sender signature sn
 
+integrationSpec :: Spec
+integrationSpec = do
   describe "registry regressions and bounded recovery policies" $ do
     prop "preserves registry payloads and reconciles local UTxO at every scheduled prefix" $
       forAll (vectorOf 40 $ chooseInt (0, 10000)) $ \choices ->
@@ -193,7 +298,7 @@ spec = do
 
     it "characterizes invalid early signatures blocking later valid replacements" $ do
       let start = ackState CollectingSignatures []
-          applyAck node sender signature = onOpenNetworkAckSn env node.chainPointTime mempty (Scenario.openState node) sender signature 1
+          applyAck node sender signature = HeadLogic.onOpenNetworkAckSn env node.chainPointTime mempty (Scenario.openState node) sender signature 1
           bad = sign aliceSk Scenario.initialSnapshot
           accepted = applyAck start alice bad
           poisoned = aggregateState start accepted

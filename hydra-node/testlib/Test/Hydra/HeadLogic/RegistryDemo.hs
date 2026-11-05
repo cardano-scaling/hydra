@@ -9,7 +9,33 @@ import Data.Aeson (Value, object, (.=))
 import Data.Map.Strict qualified as Map
 import Hydra.Cardano.Api (Tx, getTxBody, makeSignedTransaction)
 import Hydra.Chain.Direct.State (initialChainState)
-import Hydra.HeadLogic hiding (error)
+import Hydra.HeadLogic (
+  CoordinatedHeadState (
+    CoordinatedHeadState,
+    allTxs,
+    confirmedSnapshot,
+    currentDepositTxId,
+    decommitTx,
+    finalizedCommit,
+    finalizedDecommit,
+    localTxs,
+    localUTxO,
+    seenSnapshot,
+    version
+  ),
+  Effect (NetworkEffect),
+  HeadState (Open),
+  LogicError (RequireFailed),
+  OpenState (..),
+  Outcome (Continue, Error, Wait, effects),
+  RequirementFailure (SnapshotDoesNotApply),
+  SeenSnapshot (NoSeenSnapshot),
+  aggregateState,
+  onOpenNetworkReqSnProgram,
+  onOpenNetworkReqTx,
+  onOpenNetworkReqTxProgram,
+  ruleEnvironment,
+ )
 import Hydra.HeadLogic.Interpreter qualified as Interpreter
 import Hydra.HeadLogic.Trace (TraceStep)
 import Hydra.Ledger (Ledger (..))
@@ -23,7 +49,16 @@ import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
 import Test.Hydra.HeadLogic.LegacyReqTx (legacyOnOpenNetworkReqTx)
 import Test.Hydra.Ledger.Cardano (genFixedSizeSequenceOfSimplePaymentTransactions)
-import Test.Hydra.Node.Fixture
+import Test.Hydra.Node.Fixture (
+  alice,
+  cperiod,
+  defaultGlobals,
+  defaultLedgerEnv,
+  dperiod,
+  testEnvironment,
+  testHeadId,
+  testHeadSeed,
+ )
 import Test.QuickCheck.Gen (unGen)
 import Test.QuickCheck.Random (mkQCGen)
 

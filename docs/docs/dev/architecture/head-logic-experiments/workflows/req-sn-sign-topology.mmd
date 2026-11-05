@@ -1,0 +1,19 @@
+stateDiagram-v2
+
+CheckRequest
+ResolveDecommit
+ResolveDeposit
+ResolveTransactions
+ApplyTransactions
+BuildSnapshot
+SignAndAcknowledge
+PruneLocalTransactions
+Finished
+CheckRequest --> ResolveDecommit
+ResolveDecommit --> ResolveDeposit
+ResolveDeposit --> ResolveTransactions
+ResolveTransactions --> ApplyTransactions
+ApplyTransactions --> BuildSnapshot
+BuildSnapshot --> SignAndAcknowledge
+SignAndAcknowledge --> PruneLocalTransactions
+PruneLocalTransactions --> Finished

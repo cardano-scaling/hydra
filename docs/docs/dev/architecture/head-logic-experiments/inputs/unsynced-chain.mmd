@@ -1,0 +1,12 @@
+%%{init: {"sequence": {"wrap": true}}}%%
+sequenceDiagram
+  participant logic as Head logic
+  participant changes as Staged changes
+  rect rgb(245, 247, 250)
+    Note over logic,changes: unsynced-chain
+    Note over logic: input is admitted while at this sync status: yes
+    Note over logic: chain observation matches the unconfirmed snapshot number: no
+    logic->>changes: stage: close head
+    Note over logic: confirmed snapshot is newer than the on-chain snapshot: no
+    Note over logic,changes: finish: commit changes and release effects
+  end

@@ -1,0 +1,15 @@
+%%{init: {"sequence": {"wrap": true}}}%%
+sequenceDiagram
+  participant logic as Head logic
+  rect rgb(245, 247, 250)
+    Note over logic: Frozen free program: ack-duplicate
+    Note over logic: acknowledgement number is admissible: yes
+    Note over logic: party has not signed this snapshot: no
+    Note over logic: reject: discard changes and effects
+  end
+  rect rgb(245, 247, 250)
+    Note over logic: Production crem with program actions: ack-duplicate
+    Note over logic: acknowledgement number is admissible: yes
+    Note over logic: party has not signed this snapshot: no
+    Note over logic: reject: discard changes and effects
+  end
