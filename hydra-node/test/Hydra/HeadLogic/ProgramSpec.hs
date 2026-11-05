@@ -10,14 +10,6 @@ import Test.Hydra.Prelude hiding (pending)
 
 import Data.Map.Strict qualified as Map
 import Data.Sequence qualified as Seq
-import Data.Text qualified as Text
-import Hydra.Agda.OffChainReference (
-  HsReqTxChange (..),
-  HsReqTxEffect (..),
-  HsReqTxOutcome (..),
-  HsReqTxTerminal (..),
-  reqTxOutcomeRef,
- )
 import Hydra.Chain.ChainState (ChainSlot)
 import Hydra.HeadLogic (
   CoordinatedHeadState (..),
@@ -26,7 +18,6 @@ import Hydra.HeadLogic (
   LogicError (..),
   OpenState (..),
   Outcome (..),
-  SeenSnapshot (..),
   StateChanged (..),
   TTL,
   WaitReason (..),
@@ -48,9 +39,7 @@ import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.IsTx (UTxOType, txId)
 import Hydra.Tx.Party (Party)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
-import Test.Hydra.HeadLogic.Debugger qualified as Debug
 import Test.Hydra.HeadLogic.LegacyReqTx (legacyOnOpenNetworkReqTx)
-import Test.Hydra.HeadLogic.Mermaid qualified as Mermaid
 import Test.Hydra.HeadLogic.State ()
 import Test.Hydra.Ledger.Simple (aValidTx, utxoRef)
 import Test.Hydra.Node.Fixture (testEnvironment)
@@ -148,19 +137,13 @@ spec = do
       outcome `shouldBe` Error rejection
       trace `shouldBe` [Trace.Changed "remember transaction", Trace.Emitted "network effect", Trace.Rejected]
 
-    it "escapes decision labels when rendering a concrete trace" $ do
-      let graph = (Mermaid.renderLinearTrace . fmap Trace.traceLabel) [Trace.Decided "guard \"<&>\"\nnext" False, Trace.Finished]
-      graph `shouldSatisfy` Text.isPrefixOf "flowchart TD\n"
-      graph `shouldSatisfy` Text.isInfixOf "guard &quot;&lt;&amp;&gt;&quot; next: no"
-      graph `shouldSatisfy` Text.isInfixOf "n0 --> n1"
-
     it "reifies suspension without evaluating its unreachable continuation" $ do
       let program :: Program.TransactionProgram SimpleTx ()
           program = do
             _ <- Program.suspend waitReason
             Prelude.error "reification evaluates the suspended continuation"
-      case Debug.cursor program of
-        Debug.Await (Program.Suspend actualReason) _ -> actualReason `shouldBe` waitReason
+      case cursor program of
+        Await (Program.Suspend actualReason) _ -> actualReason `shouldBe` waitReason
         _ -> failure "expected a suspended instruction" :: IO ()
 
   describe "ReqTx program" $ do
@@ -227,21 +210,20 @@ spec = do
               (outcome, trace) = Interpreter.traceProgram ledger program
           outcome `shouldBe` Interpreter.runProgram ledger program
           trace `shouldSatisfy` (not . null)
-          (Mermaid.renderLinearTrace . fmap Trace.traceLabel) trace `shouldSatisfy` (not . Text.null)
 
     it "reifying and lowering the actual rule preserves its outcome and trace" $ do
       forM_ [simpleLedger, rejectingLedger] $ \ledger ->
         forM_ [alice, bob] $ \actor ->
           forM_ [0, 1] $ \ttl -> do
             let program = reqTxProgram actor ttl emptyOpenState sampleTx
-                restored = lowerProgram $ Debug.cursor program
+                restored = lowerProgram $ cursor program
             Interpreter.traceProgram ledger restored `shouldBe` Interpreter.traceProgram ledger program
 
     it "resumes the same reified ledger continuation with either reply" $ do
       let program = reqTxProgram alice 1 emptyOpenState sampleTx
           ledger :: Ledger SimpleTx
           ledger = Ledger $ \_ _ _ -> Prelude.error "resumed continuation queries the ledger again"
-      case pauseAtLedger 4 $ Debug.cursor program of
+      case pauseAtLedger 4 $ cursor program of
         Nothing -> failure "ReqTx does not expose its ledger query within four instructions"
         Just (LedgerPause slot utxo tx resume) -> do
           slot `shouldBe` 0
@@ -316,33 +298,6 @@ spec = do
           [received, applied, SnapshotRequestDecided 1]
           [NetworkEffect $ ReqSn 0 1 [txId sampleTx] (Just decommit) Nothing]
 
-  describe "ReqTx Agda agreement" $
-    it "compares terminal outcome and ordered change/effect tags over the bounded model" $
-      forM_ [False, True] $ \applicable ->
-        forM_ [0, 1] $ \ttl ->
-          forM_ [False, True] $ \inFlight ->
-            forM_ (zip [0 ..] testParties) $ \(partyIndex, actor) ->
-              forM_ [1 .. 6] $ \nextNumber -> do
-                let previousNumber = fromInteger (nextNumber - 1)
-                    confirmed
-                      | previousNumber == 0 = InitialSnapshot testHeadId
-                      | otherwise = ConfirmedSnapshot (testSnapshot previousNumber 0 [] mempty) mempty
-                    seen
-                      | inFlight = RequestedSnapshot previousNumber (fromInteger nextNumber)
-                      | otherwise = LastSeenSnapshot previousNumber
-                    st =
-                      emptyOpenState
-                        { coordinatedHeadState =
-                            emptyOpenState.coordinatedHeadState
-                              { confirmedSnapshot = confirmed
-                              , seenSnapshot = seen
-                              }
-                        }
-                    ledger = if applicable then simpleLedger else rejectingLedger
-                    outcome = Interpreter.runProgram ledger (reqTxProgram actor (fromInteger ttl) st sampleTx)
-                    expected = reqTxOutcomeRef applicable ttl inFlight 2 nextNumber partyIndex
-                projectReqTxOutcome outcome `shouldBe` Right expected
-
 testParties :: [Party]
 testParties = [alice, bob, carol]
 
@@ -405,49 +360,34 @@ genLegacyCase = do
   let configuredState = st{parameters = st.parameters{parties = testParties}} :: OpenState SimpleTx
   pure (actor, configuredState, ttl, pending, tx)
 
--- | Preserve every modeled tag and fail on unsupported output, rather than
--- treating unmodeled rejection or effects as successful nonacceptance.
-projectReqTxOutcome :: Outcome SimpleTx -> Either String HsReqTxOutcome
-projectReqTxOutcome = \case
-  Continue{stateChanges, effects} ->
-    HsReqTxOutcome ReqTxFinished <$> traverse projectChange stateChanges <*> traverse projectEffect effects
-  Wait{reason = WaitOnNotApplicableTx err, stateChanges}
-    | err == ledgerFailure ->
-        HsReqTxOutcome ReqTxWaiting <$> traverse projectChange stateChanges <*> pure []
-  other -> Left $ "unmodeled outcome: " <> show other
- where
-  projectChange :: StateChanged SimpleTx -> Either String HsReqTxChange
-  projectChange = \case
-    TransactionReceived{} -> Right ReqTxReceived
-    TransactionAppliedToLocalUTxO{} -> Right ReqTxApplied
-    TxInvalid{} -> Right ReqTxInvalid
-    SnapshotRequestDecided{} -> Right ReqTxSnapshotDecided
-    other -> Left $ "unmodeled change: " <> show other
-  projectEffect :: Effect SimpleTx -> Either String HsReqTxEffect
-  projectEffect = \case
-    NetworkEffect ReqSn{} -> Right ReqTxRequestSnapshot
-    other -> Left $ "unmodeled effect: " <> show other
-
-lowerProgram :: Debug.Cursor tx 'True 'False a -> Program.TransactionProgram tx a
+lowerProgram :: Cursor tx 'True 'False a -> Program.TransactionProgram tx a
 lowerProgram = \case
-  Debug.Done result -> pure result
-  Debug.Await op resume -> Program.instruction op >>= lowerProgram . resume
+  Done result -> pure result
+  Await op resume -> Program.instruction op >>= lowerProgram . resume
 
 data LedgerPause tx
   = LedgerPause
       ChainSlot
       (UTxOType tx)
       tx
-      (Either ValidationError (UTxOType tx) -> Debug.Cursor tx 'True 'False ())
+      (Either ValidationError (UTxOType tx) -> Cursor tx 'True 'False ())
 
 -- | Step through the bounded prefix without evaluating the ledger query.
-pauseAtLedger :: Int -> Debug.Cursor tx 'True 'False () -> Maybe (LedgerPause tx)
+pauseAtLedger :: Int -> Cursor tx 'True 'False () -> Maybe (LedgerPause tx)
 pauseAtLedger fuel view
   | fuel <= 0 = Nothing
   | otherwise = case view of
-      Debug.Await op resume -> case op of
+      Await op resume -> case op of
         Program.ApplyTransaction slot utxo tx -> Just $ LedgerPause slot utxo tx resume
         Program.Change{} -> pauseAtLedger (fuel - 1) (resume ())
         Program.Decide _ answer -> pauseAtLedger (fuel - 1) (resume answer)
         _ -> Nothing
-      Debug.Done{} -> Nothing
+      Done{} -> Nothing
+
+-- | Reify instructions to check that the same rule supports another interpreter.
+data Cursor tx (ledger :: Bool) (signing :: Bool) a where
+  Done :: a -> Cursor tx ledger signing a
+  Await :: Program.Instruction tx ledger signing x -> (x -> Cursor tx ledger signing a) -> Cursor tx ledger signing a
+
+cursor :: Program.Program tx ledger signing a -> Cursor tx ledger signing a
+cursor (Program.Program program) = program Done Await

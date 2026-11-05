@@ -1,6 +1,6 @@
 -- | Diagnostic descriptions of one execution. These values neither determine
 -- protocol behavior nor prescribe a rendering format.
-module Hydra.HeadLogic.Trace (TraceStep (..), traceLabel, changeLabel, effectLabel) where
+module Hydra.HeadLogic.Trace (TraceStep (..), changeLabel, effectLabel) where
 
 import Hydra.HeadLogic.Outcome (Effect (..), StateChanged (..))
 import Hydra.Network.Message (Message (..))
@@ -39,14 +39,3 @@ effectLabel = \case
   NetworkEffect{} -> "network effect"
   ClientEffect{} -> "client effect"
   OnChainEffect{} -> "settlement effect"
-
-traceLabel :: TraceStep -> Text
-traceLabel = \case
-  LedgerApplied ok -> "ledger application: " <> if ok then "valid" else "invalid"
-  PrimitiveCalled name -> "primitive: " <> name
-  Changed name -> "stage: " <> name
-  Emitted name -> "buffer: " <> name
-  Decided name answer -> name <> ": " <> if answer then "yes" else "no"
-  Finished -> "finish: commit changes and release effects"
-  Suspended -> "wait: commit changes and discard buffered effects"
-  Rejected -> "reject: discard changes and effects"

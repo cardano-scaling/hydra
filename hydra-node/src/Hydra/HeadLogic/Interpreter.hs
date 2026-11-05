@@ -11,7 +11,7 @@ import Hydra.Ledger (Ledger (..), ValidationError)
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Prelude hiding (keys, label, trace)
 import Hydra.Tx (HeadId, IsTx, UTxOType)
-import Hydra.Tx.Crypto (HydraKey, Signature, VerificationKey, getVerificationKey, sign, verifyMultiSignatureBytes)
+import Hydra.Tx.Crypto (Signature, sign, verifyMultiSignatureBytes)
 import Hydra.Tx.Snapshot (Snapshot)
 
 -- | The two indices say which primitive queries a program may issue. Disabled
@@ -23,9 +23,8 @@ data Capability (enabled :: Bool) a where
 available :: Capability 'True a -> a
 available (Available value) = value
 
-data SnapshotSigner tx = SnapshotSigner
+newtype SnapshotSigner tx = SnapshotSigner
   { signOne :: Snapshot tx -> Signature (Snapshot tx)
-  , signingIdentity :: VerificationKey HydraKey
   }
 
 data InterpreterConfig tx (ledger :: Bool) (signing :: Bool) = InterpreterConfig
@@ -44,19 +43,11 @@ snapshotConfig :: IsTx tx => Environment -> Ledger tx -> InterpreterConfig tx 'T
 snapshotConfig Environment{signingKey} ledger =
   InterpreterConfig
     { transactionApplication = transactionApplication $ ledgerConfig ledger
-    , snapshotSigner = Available $ SnapshotSigner (sign signingKey) (getVerificationKey signingKey)
+    , snapshotSigner = Available $ SnapshotSigner (sign signingKey)
     }
 
 acknowledgementConfig :: InterpreterConfig tx 'False 'False
 acknowledgementConfig = InterpreterConfig Unavailable Unavailable
-
--- | Pair existential capabilities with their matching interpreter once, at a
--- development dispatch boundary. The production wrappers use concrete types.
-data Execution tx where
-  Execution :: InterpreterConfig tx ledger signing -> Program tx ledger signing () -> Execution tx
-
-runExecution :: Execution tx -> Outcome tx
-runExecution (Execution config program) = runProgramWith config program
 
 -- | A rule supplies the validated endpoints; persistence interpreters choose the
 -- representation. This type is not part of the production event encoding.
@@ -69,7 +60,7 @@ compatibleChange = \case
   ExistingChange event -> event
   AppliedTransaction headId tx _ _ -> TransactionAppliedToLocalUTxO{headId, tx}
 
--- | Shared terminal semantics for compatibility and experimental interpreters.
+-- | Terminal results before conversion to the existing outcome format.
 data Result tx event
   = Completed [event] [Effect tx]
   | Waiting (WaitReason tx) [event]

@@ -11,7 +11,7 @@ import Data.Aeson ((.=))
 import Data.Aeson.Lens (key, members, _JSON)
 import Data.Aeson.Types (parseMaybe)
 import Data.Set qualified as Set
-import Hydra.Cardano.Api (Coin, UTxO, lovelaceToValue)
+import Hydra.Cardano.Api (UTxO, lovelaceToValue)
 import Hydra.Chain.Backend (ChainBackend (..))
 import Hydra.Cluster.Faucet (FaucetLog (..), seedFromFaucet)
 import Hydra.Cluster.Util (Timing (..), depositTimeout)
@@ -24,16 +24,12 @@ import Test.Hydra.Prelude (shouldBe)
 
 -- | Fund the dataset and node fuel, optionally reserving incremental deposits.
 fundDataset :: ChainBackendOptions -> Dataset -> Bool -> Tracer IO FaucetLog -> IO [UTxO]
-fundDataset = fundDatasetWithFuel 100_000_000
-
--- | Choose node fuel separately from funds deposited into the Head.
-fundDatasetWithFuel :: Coin -> ChainBackendOptions -> Dataset -> Bool -> Tracer IO FaucetLog -> IO [UTxO]
-fundDatasetWithFuel fuel opts Dataset{fundingTransaction, hydraNodeKeys, clientDatasets} incremental tracer = do
+fundDataset opts Dataset{fundingTransaction, hydraNodeKeys, clientDatasets} incremental tracer = do
   runBackend opts $ submitTransaction fundingTransaction
   forM_ hydraNodeKeys $ \sk -> do
     let vk = getVerificationKey sk
     void $ runBackend opts (awaitTransaction fundingTransaction vk)
-    void $ seedFromFaucet opts vk (lovelaceToValue fuel) tracer
+    void $ seedFromFaucet opts vk (lovelaceToValue 100_000_000) tracer
   if incremental
     then forM clientDatasets $ \ClientDataset{paymentKey} ->
       seedFromFaucet opts (getVerificationKey paymentKey) (lovelaceToValue 10_000_000) tracer

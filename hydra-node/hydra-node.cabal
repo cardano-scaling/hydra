@@ -206,18 +206,10 @@ library testlib
     Test.Hydra.Chain
     Test.Hydra.Chain.Direct.State
     Test.Hydra.Chain.Direct.TimeHandle
-    Test.Hydra.HeadLogic.Debugger
-    Test.Hydra.HeadLogic.Explorer
     Test.Hydra.HeadLogic.Input
     Test.Hydra.HeadLogic.LegacyReqTx
     Test.Hydra.HeadLogic.LegacySnapshot
-    Test.Hydra.HeadLogic.Mermaid
     Test.Hydra.HeadLogic.Outcome
-    Test.Hydra.HeadLogic.RegistryDemo
-    Test.Hydra.HeadLogic.Replay
-    Test.Hydra.HeadLogic.Resolved
-    Test.Hydra.HeadLogic.Scenario
-    Test.Hydra.HeadLogic.Settlement
     Test.Hydra.HeadLogic.State
     Test.Hydra.HeadLogic.StateEvent
     Test.Hydra.Ledger
@@ -384,30 +376,6 @@ benchmark snapshot
 
   ghc-options:    -threaded -rtsopts -with-rtsopts=-N4
 
-benchmark head-logic-program
-  import:         project-config
-  hs-source-dirs: bench
-  main-is:        HeadLogicProgram.hs
-  type:           exitcode-stdio-1.0
-  build-depends:
-    , bytestring
-    , cardano-api
-    , containers
-    , criterion
-    , directory
-    , filepath
-    , hydra-cardano-api
-    , hydra-node
-    , hydra-node:testlib
-    , hydra-prelude
-    , hydra-tx
-    , hydra-tx:testlib
-    , QuickCheck
-    , text
-    , time
-
-  ghc-options:    -threaded -rtsopts -with-rtsopts=-N1
-
 test-suite tests
   import:         project-config
 
@@ -560,22 +528,3 @@ test-suite tests
     , websockets
 
   ghc-options:    -threaded -rtsopts
-
-executable head-logic-lab
-  import:         project-config
-  hs-source-dirs: exe/head-logic-lab
-  main-is:        Main.hs
-  build-depends:
-    , aeson
-    , base
-    , bytestring
-    , cardano-binary
-    , containers
-    , criterion
-    , hydra-node
-    , hydra-node:testlib
-    , hydra-prelude
-    , hydra-tx
-    , text
-
-  ghc-options:    -threaded -rtsopts -with-rtsopts=-N1
