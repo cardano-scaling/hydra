@@ -25,6 +25,8 @@ import Hydra.Events.S3Spec qualified
 import Hydra.Events.SQLiteBasedSpec qualified
 import Hydra.Events.UDPSpec qualified
 import Hydra.HeadLogic.OutcomeSpec qualified
+import Hydra.HeadLogic.ProgramSpec qualified
+import Hydra.HeadLogic.SnapshotProgramSpec qualified
 import Hydra.HeadLogicSnapshotSpec qualified
 import Hydra.HeadLogicSpec qualified
 import Hydra.JSONSchemaSpec qualified
@@ -81,6 +83,8 @@ main =
     , testSpec "Events.SQLiteBased" Hydra.Events.SQLiteBasedSpec.spec
     , testSpec "Events.UDP" Hydra.Events.UDPSpec.spec
     , testSpec "HeadLogic.Outcome" Hydra.HeadLogic.OutcomeSpec.spec
+    , testSpec "HeadLogic.Program" Hydra.HeadLogic.ProgramSpec.spec
+    , testSpec "HeadLogic.SnapshotProgram" Hydra.HeadLogic.SnapshotProgramSpec.spec
     , testSpec "HeadLogicSnapshot" Hydra.HeadLogicSnapshotSpec.spec
     , testSpec "HeadLogic" Hydra.HeadLogicSpec.spec
     , testSpec "JSONSchema" Hydra.JSONSchemaSpec.spec

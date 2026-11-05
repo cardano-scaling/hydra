@@ -1,0 +1,50 @@
+flowchart TD
+  n0["Valid Cardano transaction applied; snapshot request succeeds"]
+  n1["Frozen handler retains witness-stripped payload on Wait"]
+  n2["Current ReqSn program on the corrupted state"]
+  n3["request is the next snapshot: yes"]
+  n4["sender leads this snapshot: yes"]
+  n5["previous snapshot is confirmed: yes"]
+  n6["snapshot version matches: yes"]
+  n7["snapshot transaction outputs are fresh: yes"]
+  n8["ledger application: invalid"]
+  n9["reject: discard changes and effects"]
+  n10["Restart from the same accepted state; current ReqTx program"]
+  n11["transaction is already applied locally: yes"]
+  n12["finish: commit changes and release effects"]
+  n13["Current ReqSn program with the preserved valid payload"]
+  n14["request is the next snapshot: yes"]
+  n15["sender leads this snapshot: yes"]
+  n16["previous snapshot is confirmed: yes"]
+  n17["snapshot version matches: yes"]
+  n18["snapshot transaction outputs are fresh: yes"]
+  n19["ledger application: valid"]
+  n20["primitive: sign snapshot"]
+  n21["buffer: broadcast AckSn"]
+  n22["snapshot transaction outputs are fresh: no"]
+  n23["stage: record requested snapshot and prune local transactions"]
+  n24["finish: commit changes and release effects"]
+  n0 --> n1
+  n1 --> n2
+  n2 --> n3
+  n3 --> n4
+  n4 --> n5
+  n5 --> n6
+  n6 --> n7
+  n7 --> n8
+  n8 --> n9
+  n9 --> n10
+  n10 --> n11
+  n11 --> n12
+  n12 --> n13
+  n13 --> n14
+  n14 --> n15
+  n15 --> n16
+  n16 --> n17
+  n17 --> n18
+  n18 --> n19
+  n19 --> n20
+  n20 --> n21
+  n21 --> n22
+  n22 --> n23
+  n23 --> n24

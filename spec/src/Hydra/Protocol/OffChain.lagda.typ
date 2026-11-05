@@ -6,6 +6,7 @@ open import Hydra.Protocol.Preliminaries
 open import Hydra.Protocol.Setup
 open import Hydra.Protocol.OnChain using (outputRef-eqᵇ)
 open import Hydra.Protocol.OffChainReference using (snapshotCapacityRef; decommitCapacityRef; pendingTxFitsRef)
+import Hydra.Protocol.OffChainReference as ReqTxRef
 -- Extra list/nat helpers for the off-chain handler model (the deposit registry + tick).
 open import Data.List using (map; _++_)
 open import Data.List.Properties using (length-map)
@@ -461,13 +462,64 @@ was configurable, the Coordinated Head protocol does specify a snapshot to be
 created after each transaction.\
 \
 #dparagraph[$hpRT$.]#h(1em) Upon receiving request $(hpRT,tx)$, the transaction
-is applied to the _local_ ledger state $hatmL applytx tx$. If not
+is ignored if its identifier already names a locally applied transaction with a
+retained registry entry; otherwise it is applied to the _local_ ledger state $hatmL applytx tx$. If not
 applicable yet, the protocol does #kw("wait") to retry later or eventually marks
 this transaction as invalid (see assumption about events piling up). After
 applying and if there is no current snapshot in flight ($hats = macron(mc(S)).s$)
 and the receiving party $party_(i)$ is the next snapshot leader, a message to
 request snapshot signatures $hpRS$ is sent. \
 \
+#dparagraph[Bounded reqTx execution model.]#h(1em)
+`OffChainReference.reqTxOutcomeRef` records the terminal result and ordered
+committed-change and effect tags of one attempt. Its domain has no deposits or
+decommit, no previously pending local transactions, fresh transaction output
+names, and a local ledger equal to the settled confirmed ledger. Ledger
+applicability is an explicit primitive answer; the model computes leader
+eligibility from the party count, next
+snapshot number, and local party index. A successful transaction is therefore
+requestable in this domain. Payloads, collision checks, and retry scheduling are
+outside this projection.
+
+The received-transaction change survives a wait. Exhausting the retry budget
+records an invalid transaction and finishes normally; it is not a rejection.
+A successful attempt records application before deciding and emitting a snapshot
+request, and emits no request when another snapshot is in flight. The relation
+below uses the extracted computation directly, so these outcome rules have one
+Agda definition. Differential tests bind this bounded result to the Haskell
+handler; these lemmas do not establish equivalence of the complete node or a
+refinement of the broader `_handles_↝_` relation.
+
+```
+-- The bounded duplicate policy protects validated registry payloads. This is
+-- a one-attempt lemma, not a theorem about arbitrary registry histories.
+reqTx-applied-is-idempotent : ∀ applicable ttl inFlight m nextSn partyIndex →
+  ReqTxRef.reqTxKnownOutcomeRef true applicable ttl inFlight m nextSn partyIndex ≡
+    ReqTxRef.reqTxOutcomeᶜ ReqTxRef.reqTxFinishedᶜ [] []
+reqTx-applied-is-idempotent _ _ _ _ _ _ = refl
+
+ReqTxAttempt : Bool → ℕ → Bool → ℕ → ℕ → ℕ → ReqTxRef.ReqTxOutcomeᶜ → Set
+ReqTxAttempt applicable ttl inFlight m nextSn partyIndex result =
+  ReqTxRef.reqTxOutcomeRef applicable ttl inFlight m nextSn partyIndex ≡ result
+
+reqTx-wait-retains-received : ∀ ttl inFlight m nextSn partyIndex →
+  ReqTxAttempt false (suc ttl) inFlight m nextSn partyIndex
+    (ReqTxRef.reqTxOutcomeᶜ ReqTxRef.reqTxWaitingᶜ (ReqTxRef.reqTxReceivedᶜ ∷ []) [])
+reqTx-wait-retains-received _ _ _ _ _ = refl
+
+reqTx-timeout-finishes : ∀ inFlight m nextSn partyIndex →
+  ReqTxAttempt false zero inFlight m nextSn partyIndex
+    (ReqTxRef.reqTxOutcomeᶜ ReqTxRef.reqTxFinishedᶜ
+      (ReqTxRef.reqTxReceivedᶜ ∷ ReqTxRef.reqTxInvalidᶜ ∷ []) [])
+reqTx-timeout-finishes _ _ _ _ = refl
+
+reqTx-inflight-does-not-propose : ∀ ttl m nextSn partyIndex →
+  ReqTxAttempt true ttl true m nextSn partyIndex
+    (ReqTxRef.reqTxOutcomeᶜ ReqTxRef.reqTxFinishedᶜ
+      (ReqTxRef.reqTxReceivedᶜ ∷ ReqTxRef.reqTxAppliedᶜ ∷ []) [])
+reqTx-inflight-does-not-propose _ _ _ _ = refl
+```
+
 #dparagraph[$hpRD$.]#h(1em) Upon receiving request $(hpRD,tx_omega)$, the
 transaction is checked against the _local_ ledger state and if it is not
 applicable yet or another deposit or decommit is pending still, the protocol does
@@ -1387,3 +1439,88 @@ preventing inconsistency between the on-chain and off-chain state.
   },
   caption: [Head-protocol machine for the _coordinated head_ from the perspective of party $party_i$.],
 ) <fig:off-chain-prot>
+
+== Operational snapshot-round refinement
+
+The node exposes `reqSn` and `ackSn` as inspectable programs. Ledger application,
+signing and multisignature verification are primitives. Snapshot construction,
+incremental-action selection, transaction pruning and effect ordering remain
+protocol rules. Signing keys are interpreter configuration, never trace data.
+Completion commits the ordered changes and releases effects; waiting retains
+only the ordered change prefix; rejection discards both buffers. In particular,
+a failed multisignature check discards the preceding tentative signature record.
+
+The compatibility implementation records a partial `ackSn` signature twice and
+ignores an acknowledgement for the last confirmed snapshot only after its number
+guard succeeds. These observable event details are preserved by migration tests;
+the duplicate record is a potential cleanup, outside this behavior-preserving
+increment. The abstract transition relation continues to describe one signature
+map assignment.
+
+`OffChainReference.agda` independently computes bounded ordered snapshot outcome
+values with named phase, change, effect, wait and rejection constructors, including number/leader rejection, predecessor/version/missing-transaction
+waits, ledger rejection, early and duplicate acknowledgements, verification
+failure, confirmation and the next request. This projection excludes payloads,
+pruning contents, output collisions, accumulator overflow, incremental actions
+and scheduler behavior. Separate existing guard comparisons cover incremental
+actions; neither those comparisons nor the bounded explorer establish an
+unbounded protocol proof.
+
+The development scheduler uses the node's retry eligibility: unsynced inputs
+park, unresolved-commit snapshot requests retain their budget, other network
+inputs decrement a positive budget, and exhausted inputs drop. Delivery order
+and delay are explored only within explicit limits.
+
+A focused retry-window search receives an initial message prefix, varies each
+party's retry budget independently, then drains remaining messages. It finds the
+finite-expiry progress witness within the default limits. This is a restricted
+schedule family, not exhaustive exploration of all delivery orders or a model of
+the node queue's wall-clock timing.
+
+Separate Haskell sequences exercise three parties through deposit activation,
+signed confirmation, increment, spending the deposit, rollback and re-observation.
+They vary the rollback boundary, confirmation timing and re-observation order,
+and check serialized events and checkpoints after every transition. Chain inputs
+are assumed valid; these checks do not validate Cardano settlement transactions
+or extend the Agda model to rollback, crash recovery or general liveness.
+
+The development checks independently require exact registry payload equality for
+locally pending transactions, reconstruct the local UTxO from the current
+snapshot and pending sequence, and check for stranded work when an honest
+scenario has no queued deliveries or retries. Random scheduled prefixes check
+safety; fair delivery before retry exhaustion checks confirmation of dependent
+work. None is a proof of chain progress or Byzantine liveness.
+
+The implemented duplicate policy ignores a transaction identifier already in the
+local sequence and registry before staging receipt or consulting the ledger.
+It prevents an invalid same-ID witness variant replacing a validated payload and
+a duplicate timeout deleting it. `reqTxKnownOutcomeRef` models this guard; the
+lemma above establishes its no-change outcome independently of the primitive
+answer. The original one-attempt projection remains for fresh IDs. This does not
+repair a registry already corrupted by historical events.
+
+Finite retry expiry still drops a missing dependency; progress then requires
+client re-submission. The normal-interpreter witness and recovery test make this
+policy explicit. An invalid early acknowledgement is still retained until the
+aggregate check and blocks replacement from that party. Rejection is safe, but
+there is no automatic recovery or Byzantine progress guarantee; closing the head
+remains the protocol exit. Altering this acknowledgement policy requires a
+separate protocol decision. Migration tests preserve its ordered events.
+
+The experimental transaction log records removal/addition deltas derived from
+the validated before/after UTxOs. Its separate versioned format is not production
+persistence. Existing replay already avoids validation but reconstructs the UTxO
+with `applyTxTo`; experimental recovery removes that reconstruction as well.
+The compatibility interpreter does not force the supplied before/after UTxO
+values: it needs only the transaction to emit the existing event. Experimental
+delta construction forces those values. This evaluation distinction preserves
+the protocol outcomes on defined inputs; Haskell strictness and conversion costs
+are outside the independent Agda projection.
+
+The experimental v2 envelope binds the log to an open head and retains the
+original invalidation diagnostics. Wrong phase/head, inconsistent removals and
+unsupported changes fail explicitly. It is not a replacement for production
+persistence. The instruction language, evaluator and trace vocabulary are separate
+modules; Mermaid rendering belongs only to the development library. A rule's
+public environment excludes signing keys, and ledger/signing capability indices
+rule out unsupported primitive configurations.

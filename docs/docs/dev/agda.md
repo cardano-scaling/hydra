@@ -151,6 +151,25 @@ Two layers bind the extracted spec to the real implementation:
   decisions (snapshot-signing eligibility, decommit recording, deposit status,
   ack counting, contest eligibility, leader election) against the real
   `HeadLogic.update` outcomes.
+  The `reqTxOutcomeRef` slice additionally compares the terminal outcome and
+  ordered committed-change/effect tags for an isolated transaction request:
+  no deposits, decommit, or previous pending transactions; fresh output names;
+  and equal local and settled confirmed UTxO. The ledger's applicability answer
+  remains an explicit primitive boundary. Payload correctness, deposit collisions,
+  and retry scheduling are outside this projection. The literate model uses the
+  same extracted computation to state and prove receipt retention on wait,
+  normal completion on timeout, and suppression of a new proposal while another
+  snapshot is in flight. `reqTxKnownOutcomeRef` adds the already-applied-ID
+  no-op branch, with an independent idempotence lemma. Registry lifetime and
+  scheduler progress remain outside that one-attempt proof.
+  `reqSnOutcomeRef` and `ackSnOutcomeRef` additionally compare ordered bounded
+  snapshot outcomes in `Hydra.HeadLogic.SnapshotProgramSpec`, using named phases,
+  changes, effects and terminal constructors: waits and errors,
+  partial signature collection, verification rejection, confirmation and the
+  next request. Ledger applicability and verification are supplied primitive
+  answers. Incremental actions, pruning payloads, output collisions, accumulator
+  overflow and scheduling are explicitly excluded from this projection; the
+  existing incremental-action guard comparisons remain separate.
 
 ## How do I ...
 

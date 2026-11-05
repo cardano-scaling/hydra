@@ -1,0 +1,12 @@
+flowchart TD
+  n0["transaction is already applied locally: no"]
+  n1["stage: remember transaction"]
+  n2["outputs do not collide with the local UTxO: yes"]
+  n3["ledger application: invalid"]
+  n4["retry budget remains: yes"]
+  n5["wait: commit changes and discard buffered effects"]
+  n0 --> n1
+  n1 --> n2
+  n2 --> n3
+  n3 --> n4
+  n4 --> n5

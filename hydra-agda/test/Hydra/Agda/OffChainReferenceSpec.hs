@@ -12,6 +12,17 @@ import Test.Hspec (Spec, describe, it, shouldBe)
 import Hydra.Agda.OffChainReference (
   HsDepositStatus (..),
   HsPendingCommit (..),
+  HsReqTxChange (..),
+  HsReqTxEffect (..),
+  HsReqTxOutcome (..),
+  HsReqTxTerminal (..),
+  HsSnapshotChange (..),
+  HsSnapshotEffect (..),
+  HsSnapshotOutcome (..),
+  HsSnapshotPhase (..),
+  HsSnapshotRejection (..),
+  HsSnapshotWait (..),
+  ackSnOutcomeRef,
   allSignedRef,
   contestEligibleRef,
   depositStatusRef,
@@ -23,6 +34,8 @@ import Hydra.Agda.OffChainReference (
   reqSnDepositDisjointRef,
   reqSnDepositSettledRef,
   reqSnNotBothRef,
+  reqSnOutcomeRef,
+  reqTxOutcomeRef,
   signEligibleRef,
  )
 
@@ -146,3 +159,33 @@ spec = do
       leaderRef 2 0 0 `shouldBe` False
     it "elects exactly one party in a single-party head" $
       leaderRef 0 7 0 `shouldBe` True
+
+  describe "reqTxOutcomeRef" $ do
+    it "retains receipt when an inapplicable transaction waits" $
+      reqTxOutcomeRef False 1 False 2 1 0
+        `shouldBe` HsReqTxOutcome ReqTxWaiting [ReqTxReceived] []
+    it "finishes with an invalid transaction when its budget is exhausted" $
+      reqTxOutcomeRef False 0 False 2 1 0
+        `shouldBe` HsReqTxOutcome ReqTxFinished [ReqTxReceived, ReqTxInvalid] []
+    it "applies before requesting a snapshot as the next leader" $
+      reqTxOutcomeRef True 0 False 2 1 0
+        `shouldBe` HsReqTxOutcome ReqTxFinished [ReqTxReceived, ReqTxApplied, ReqTxSnapshotDecided] [ReqTxRequestSnapshot]
+    it "applies without proposing when another snapshot is in flight" $
+      reqTxOutcomeRef True 1 True 2 1 0
+        `shouldBe` HsReqTxOutcome ReqTxFinished [ReqTxReceived, ReqTxApplied] []
+    it "applies without proposing as a follower" $
+      reqTxOutcomeRef True 1 False 2 1 1
+        `shouldBe` HsReqTxOutcome ReqTxFinished [ReqTxReceived, ReqTxApplied] []
+    it "computes the next leader from snapshot number and party index" $
+      reqTxOutcomeRef True 1 False 2 2 1
+        `shouldBe` HsReqTxOutcome ReqTxFinished [ReqTxReceived, ReqTxApplied, ReqTxSnapshotDecided] [ReqTxRequestSnapshot]
+
+  describe "snapshot outcome references" $ do
+    it "distinguishes version and transaction waits" $ do
+      reqSnOutcomeRef 0 0 0 1 1 2 0 1 True `shouldBe` SnapshotWaiting VersionMismatch
+      reqSnOutcomeRef 0 0 0 0 1 2 0 1 True `shouldBe` SnapshotWaiting MissingTransactions
+    it "retains partial signature ordering and discards rejected prefixes" $ do
+      ackSnOutcomeRef CollectingSignatures 1 1 [] 0 2 True False 0 `shouldBe` SnapshotCompleted [RecordSignature, RecordSignature] []
+      ackSnOutcomeRef CollectingSignatures 1 1 [0, 1] 2 2 False True 1 `shouldBe` SnapshotRejected InvalidSignatureSet
+    it "confirms and requests the next round as its leader" $
+      ackSnOutcomeRef CollectingSignatures 1 1 [0, 1] 2 2 True True 1 `shouldBe` SnapshotCompleted [RecordSignature, ConfirmSnapshot, DecideNextSnapshot] [SendSnapshotRequest]

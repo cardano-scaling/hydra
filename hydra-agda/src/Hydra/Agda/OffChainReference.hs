@@ -38,9 +38,37 @@ module Hydra.Agda.OffChainReference (
   snapshotCapacityRef,
   decommitCapacityRef,
   pendingTxFitsRef,
+  -- * bounded reqTx outcomes, including committed changes and effects
+  HsReqTxTerminal (..),
+  HsReqTxChange (..),
+  HsReqTxEffect (..),
+  HsReqTxOutcome (..),
+  reqTxOutcomeRef,
+  HsSnapshotPhase (..),
+  HsSnapshotChange (..),
+  HsSnapshotEffect (..),
+  HsSnapshotWait (..),
+  HsSnapshotRejection (..),
+  HsSnapshotOutcome (..),
+  reqTxKnownOutcomeRef,
+  reqSnOutcomeRef,
+  ackSnOutcomeRef,
 ) where
 
-import MAlonzo.Code.Hydra.Protocol.OffChainReference (HsDepositStatus (..), HsPendingCommit (..))
+import MAlonzo.Code.Hydra.Protocol.OffChainReference (
+  HsDepositStatus (..),
+  HsPendingCommit (..),
+  HsReqTxChange (..),
+  HsReqTxEffect (..),
+  HsReqTxOutcome (..),
+  HsReqTxTerminal (..),
+  HsSnapshotChange (..),
+  HsSnapshotEffect (..),
+  HsSnapshotOutcome (..),
+  HsSnapshotPhase (..),
+  HsSnapshotRejection (..),
+  HsSnapshotWait (..),
+ )
 import MAlonzo.Code.Hydra.Protocol.OffChainReference qualified as M
 
 -- | Extracted decidable deposit-status decision of the §6 @tick@ handler: given a deposit's
@@ -151,3 +179,27 @@ decommitCapacityRef = M.hsDecommitCapacityRef
 -- | Ledger applicability, held-output disjointness and both fanout counts.
 pendingTxFitsRef :: Bool -> Bool -> Integer -> Integer -> Bool
 pendingTxFitsRef = M.hsPendingTxFitsRef
+-- | Outcome of one reqTx attempt with no deposits, decommit, or previously pending
+-- transactions, fresh transaction output names, and a local UTxO equal to the
+-- settled confirmed UTxO. Inputs are
+-- ledger applicability, TTL, snapshot-in-flight, party count minus one, next
+-- snapshot number, and the local party's zero-based index. The model decides
+-- leader eligibility itself and retains ordered committed change/effect tags.
+-- Payloads, collision checks, and retry scheduling are outside this projection.
+-- All Integer arguments represent naturals; the party index must be in range.
+reqTxOutcomeRef :: Bool -> Integer -> Bool -> Integer -> Integer -> Integer -> HsReqTxOutcome
+reqTxOutcomeRef = M.hsReqTxOutcomeRef
+
+-- | Named bounded snapshot outcomes, documented in OffChainReference.agda.
+-- No deposits/decommit, output collisions, oversized accumulators or payloads.
+reqSnOutcomeRef :: Integer -> Integer -> Integer -> Integer -> Integer -> Integer -> Integer -> Integer -> Bool -> HsSnapshotOutcome
+reqSnOutcomeRef = M.hsReqSnOutcomeRef
+
+-- | Phase, seen/requested numbers, signer indices, sender, party count minus one,
+-- verification reply, useful next work, and local party index. Naturals only.
+ackSnOutcomeRef :: HsSnapshotPhase -> Integer -> Integer -> [Integer] -> Integer -> Integer -> Bool -> Bool -> Integer -> HsSnapshotOutcome
+ackSnOutcomeRef = M.hsAckSnOutcomeRef
+
+-- | Extend the bounded receipt outcome with the already-applied-ID guard.
+reqTxKnownOutcomeRef :: Bool -> Bool -> Integer -> Bool -> Integer -> Integer -> Integer -> HsReqTxOutcome
+reqTxKnownOutcomeRef = M.hsReqTxKnownOutcomeRef

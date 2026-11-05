@@ -25,6 +25,29 @@ import qualified MAlonzo.Code.Agda.Builtin.Nat
 data HsDepositStatus = InactiveS | ActiveS | ExpiredS deriving (Eq, Show)
 data HsPendingCommit = NoCommitP | CommitPendingP | CommitExpiredP | CommitGoneP
    deriving (Eq, Show)
+data HsReqTxTerminal = ReqTxFinished | ReqTxWaiting deriving (Eq, Show)
+data HsReqTxChange = ReqTxReceived | ReqTxApplied | ReqTxInvalid | ReqTxSnapshotDecided
+   deriving (Eq, Show)
+data HsReqTxEffect = ReqTxRequestSnapshot deriving (Eq, Show)
+data HsReqTxOutcome = HsReqTxOutcome
+   { reqTxTerminal :: HsReqTxTerminal
+   , reqTxChanges :: [HsReqTxChange]
+   , reqTxEffects :: [HsReqTxEffect]
+   } deriving (Eq, Show)
+data HsSnapshotPhase = NeverSeen | RequestPending | CollectingSignatures | LastConfirmed
+   deriving (Eq, Show, Enum, Bounded)
+data HsSnapshotChange = RecordSignature | ConfirmSnapshot | DecideNextSnapshot | RecordSnapshot
+   deriving (Eq, Show)
+data HsSnapshotEffect = SendAcknowledgement | SendSnapshotRequest deriving (Eq, Show)
+data HsSnapshotWait = PreviousUnconfirmed | VersionMismatch | MissingTransactions | SnapshotNotSeen
+   deriving (Eq, Show)
+data HsSnapshotRejection = InvalidNumber | NotLeader | TransactionDoesNotApply | AlreadySigned | InvalidSignatureSet
+   deriving (Eq, Show)
+data HsSnapshotOutcome
+   = SnapshotCompleted [HsSnapshotChange] [HsSnapshotEffect]
+   | SnapshotWaiting HsSnapshotWait
+   | SnapshotRejected HsSnapshotRejection
+   deriving (Eq, Show)
 -- Hydra.Protocol.OffChainReference.DepositStatusᶜ
 d_DepositStatus'7580'_6 = ()
 type T_DepositStatus'7580'_6 = HsDepositStatus
@@ -235,42 +258,513 @@ d_leaderRef_152 v0 v1 v2
   = coe
       eqInt (coe d_modSuc_146 (coe addInt (coe v0) (coe v1)) (coe v0))
       (coe v2)
+-- Hydra.Protocol.OffChainReference.ReqTxTerminalᶜ
+d_ReqTxTerminal'7580'_160 = ()
+type T_ReqTxTerminal'7580'_160 = HsReqTxTerminal
+pattern C_reqTxFinished'7580'_162 = ReqTxFinished
+pattern C_reqTxWaiting'7580'_164 = ReqTxWaiting
+check_reqTxFinished'7580'_162 :: T_ReqTxTerminal'7580'_160
+check_reqTxFinished'7580'_162 = ReqTxFinished
+check_reqTxWaiting'7580'_164 :: T_ReqTxTerminal'7580'_160
+check_reqTxWaiting'7580'_164 = ReqTxWaiting
+cover_ReqTxTerminal'7580'_160 :: HsReqTxTerminal -> ()
+cover_ReqTxTerminal'7580'_160 x
+  = case x of
+      ReqTxFinished -> ()
+      ReqTxWaiting -> ()
+-- Hydra.Protocol.OffChainReference.ReqTxChangeᶜ
+d_ReqTxChange'7580'_166 = ()
+type T_ReqTxChange'7580'_166 = HsReqTxChange
+pattern C_reqTxReceived'7580'_168 = ReqTxReceived
+pattern C_reqTxApplied'7580'_170 = ReqTxApplied
+pattern C_reqTxInvalid'7580'_172 = ReqTxInvalid
+pattern C_reqTxSnapshotDecided'7580'_174 = ReqTxSnapshotDecided
+check_reqTxReceived'7580'_168 :: T_ReqTxChange'7580'_166
+check_reqTxReceived'7580'_168 = ReqTxReceived
+check_reqTxApplied'7580'_170 :: T_ReqTxChange'7580'_166
+check_reqTxApplied'7580'_170 = ReqTxApplied
+check_reqTxInvalid'7580'_172 :: T_ReqTxChange'7580'_166
+check_reqTxInvalid'7580'_172 = ReqTxInvalid
+check_reqTxSnapshotDecided'7580'_174 :: T_ReqTxChange'7580'_166
+check_reqTxSnapshotDecided'7580'_174 = ReqTxSnapshotDecided
+cover_ReqTxChange'7580'_166 :: HsReqTxChange -> ()
+cover_ReqTxChange'7580'_166 x
+  = case x of
+      ReqTxReceived -> ()
+      ReqTxApplied -> ()
+      ReqTxInvalid -> ()
+      ReqTxSnapshotDecided -> ()
+-- Hydra.Protocol.OffChainReference.ReqTxEffectᶜ
+d_ReqTxEffect'7580'_176 = ()
+type T_ReqTxEffect'7580'_176 = HsReqTxEffect
+pattern C_reqTxRequestSnapshot'7580'_178 = ReqTxRequestSnapshot
+check_reqTxRequestSnapshot'7580'_178 :: T_ReqTxEffect'7580'_176
+check_reqTxRequestSnapshot'7580'_178 = ReqTxRequestSnapshot
+cover_ReqTxEffect'7580'_176 :: HsReqTxEffect -> ()
+cover_ReqTxEffect'7580'_176 x
+  = case x of
+      ReqTxRequestSnapshot -> ()
+-- Hydra.Protocol.OffChainReference.ReqTxOutcomeᶜ
+d_ReqTxOutcome'7580'_180 = ()
+type T_ReqTxOutcome'7580'_180 = HsReqTxOutcome
+pattern C_reqTxOutcome'7580'_194 a0 a1 a2 = HsReqTxOutcome a0 a1 a2
+check_reqTxOutcome'7580'_194 ::
+  T_ReqTxTerminal'7580'_160 ->
+  MAlonzo.Code.Agda.Builtin.List.T_List_10
+    () T_ReqTxChange'7580'_166 ->
+  MAlonzo.Code.Agda.Builtin.List.T_List_10
+    () T_ReqTxEffect'7580'_176 ->
+  T_ReqTxOutcome'7580'_180
+check_reqTxOutcome'7580'_194 = HsReqTxOutcome
+cover_ReqTxOutcome'7580'_180 :: HsReqTxOutcome -> ()
+cover_ReqTxOutcome'7580'_180 x
+  = case x of
+      HsReqTxOutcome _ _ _ -> ()
+-- Hydra.Protocol.OffChainReference.ReqTxOutcomeᶜ.reqTxTerminalᶜ
+d_reqTxTerminal'7580'_188 ::
+  T_ReqTxOutcome'7580'_180 -> T_ReqTxTerminal'7580'_160
+d_reqTxTerminal'7580'_188 v0
+  = case coe v0 of
+      C_reqTxOutcome'7580'_194 v1 v2 v3 -> coe v1
+      _ -> MAlonzo.RTE.mazUnreachableError
+-- Hydra.Protocol.OffChainReference.ReqTxOutcomeᶜ.reqTxChangesᶜ
+d_reqTxChanges'7580'_190 ::
+  T_ReqTxOutcome'7580'_180 -> [T_ReqTxChange'7580'_166]
+d_reqTxChanges'7580'_190 v0
+  = case coe v0 of
+      C_reqTxOutcome'7580'_194 v1 v2 v3 -> coe v2
+      _ -> MAlonzo.RTE.mazUnreachableError
+-- Hydra.Protocol.OffChainReference.ReqTxOutcomeᶜ.reqTxEffectsᶜ
+d_reqTxEffects'7580'_192 ::
+  T_ReqTxOutcome'7580'_180 -> [T_ReqTxEffect'7580'_176]
+d_reqTxEffects'7580'_192 v0
+  = case coe v0 of
+      C_reqTxOutcome'7580'_194 v1 v2 v3 -> coe v3
+      _ -> MAlonzo.RTE.mazUnreachableError
+-- Hydra.Protocol.OffChainReference.reqTxOutcomeRef
+hsReqTxOutcomeRef ::
+  Bool ->
+  Integer ->
+  Bool -> Integer -> Integer -> Integer -> T_ReqTxOutcome'7580'_180
+hsReqTxOutcomeRef = coe d_reqTxOutcomeRef_196
+d_reqTxOutcomeRef_196 ::
+  Bool ->
+  Integer ->
+  Bool -> Integer -> Integer -> Integer -> T_ReqTxOutcome'7580'_180
+d_reqTxOutcomeRef_196 v0 v1 v2 v3 v4 v5
+  = if coe v0
+      then coe
+             du_if_then_else__16
+             (coe
+                d__'38''38'__34 (coe d_not_54 (coe v2))
+                (coe d_leaderRef_152 (coe v3) (coe v4) (coe v5)))
+             (coe
+                C_reqTxOutcome'7580'_194 (coe C_reqTxFinished'7580'_162)
+                (coe
+                   MAlonzo.Code.Agda.Builtin.List.C__'8759'__22
+                   (coe C_reqTxReceived'7580'_168)
+                   (coe
+                      MAlonzo.Code.Agda.Builtin.List.C__'8759'__22
+                      (coe C_reqTxApplied'7580'_170)
+                      (coe
+                         MAlonzo.Code.Agda.Builtin.List.C__'8759'__22
+                         (coe C_reqTxSnapshotDecided'7580'_174)
+                         (coe MAlonzo.Code.Agda.Builtin.List.C_'91''93'_16))))
+                (coe
+                   MAlonzo.Code.Agda.Builtin.List.C__'8759'__22
+                   (coe C_reqTxRequestSnapshot'7580'_178)
+                   (coe MAlonzo.Code.Agda.Builtin.List.C_'91''93'_16)))
+             (coe
+                C_reqTxOutcome'7580'_194 (coe C_reqTxFinished'7580'_162)
+                (coe
+                   MAlonzo.Code.Agda.Builtin.List.C__'8759'__22
+                   (coe C_reqTxReceived'7580'_168)
+                   (coe
+                      MAlonzo.Code.Agda.Builtin.List.C__'8759'__22
+                      (coe C_reqTxApplied'7580'_170)
+                      (coe MAlonzo.Code.Agda.Builtin.List.C_'91''93'_16)))
+                (coe MAlonzo.Code.Agda.Builtin.List.C_'91''93'_16))
+      else (case coe v1 of
+              0 -> coe
+                     C_reqTxOutcome'7580'_194 (coe C_reqTxFinished'7580'_162)
+                     (coe
+                        MAlonzo.Code.Agda.Builtin.List.C__'8759'__22
+                        (coe C_reqTxReceived'7580'_168)
+                        (coe
+                           MAlonzo.Code.Agda.Builtin.List.C__'8759'__22
+                           (coe C_reqTxInvalid'7580'_172)
+                           (coe MAlonzo.Code.Agda.Builtin.List.C_'91''93'_16)))
+                     (coe MAlonzo.Code.Agda.Builtin.List.C_'91''93'_16)
+              _ -> coe
+                     C_reqTxOutcome'7580'_194 (coe C_reqTxWaiting'7580'_164)
+                     (coe
+                        MAlonzo.Code.Agda.Builtin.List.C__'8759'__22
+                        (coe C_reqTxReceived'7580'_168)
+                        (coe MAlonzo.Code.Agda.Builtin.List.C_'91''93'_16))
+                     (coe MAlonzo.Code.Agda.Builtin.List.C_'91''93'_16))
 -- Hydra.Protocol.OffChainReference.accumulatorCapacityRef
 hsAccumulatorCapacityRef :: Integer
-hsAccumulatorCapacityRef = coe d_accumulatorCapacityRef_160
-d_accumulatorCapacityRef_160 :: Integer
-d_accumulatorCapacityRef_160 = coe (32767 :: Integer)
+hsAccumulatorCapacityRef = coe d_accumulatorCapacityRef_206
+d_accumulatorCapacityRef_206 :: Integer
+d_accumulatorCapacityRef_206 = coe (32767 :: Integer)
 -- Hydra.Protocol.OffChainReference.snapshotCapacityRef
 hsSnapshotCapacityRef :: Integer -> Integer -> Bool
-hsSnapshotCapacityRef = coe d_snapshotCapacityRef_162
-d_snapshotCapacityRef_162 :: Integer -> Integer -> Bool
-d_snapshotCapacityRef_162 v0 v1
+hsSnapshotCapacityRef = coe d_snapshotCapacityRef_208
+d_snapshotCapacityRef_208 :: Integer -> Integer -> Bool
+d_snapshotCapacityRef_208 v0 v1
   = coe
       d__'38''38'__34
       (coe
          ltInt (coe v0)
          (coe
-            addInt (coe (1 :: Integer)) (coe d_accumulatorCapacityRef_160)))
+            addInt (coe (1 :: Integer)) (coe d_accumulatorCapacityRef_206)))
       (coe
          ltInt (coe v1)
          (coe
-            addInt (coe (1 :: Integer)) (coe d_accumulatorCapacityRef_160)))
+            addInt (coe (1 :: Integer)) (coe d_accumulatorCapacityRef_206)))
 -- Hydra.Protocol.OffChainReference.decommitCapacityRef
 hsDecommitCapacityRef :: Integer -> Integer -> Integer -> Bool
-hsDecommitCapacityRef = coe d_decommitCapacityRef_168
-d_decommitCapacityRef_168 :: Integer -> Integer -> Integer -> Bool
-d_decommitCapacityRef_168 v0 v1 v2
+hsDecommitCapacityRef = coe d_decommitCapacityRef_214
+d_decommitCapacityRef_214 :: Integer -> Integer -> Integer -> Bool
+d_decommitCapacityRef_214 v0 v1 v2
   = coe
       d__'38''38'__34 (coe ltInt (coe (0 :: Integer)) (coe v0))
-      (coe d_snapshotCapacityRef_162 (coe v1) (coe v2))
+      (coe d_snapshotCapacityRef_208 (coe v1) (coe v2))
 -- Hydra.Protocol.OffChainReference.pendingTxFitsRef
 hsPendingTxFitsRef :: Bool -> Bool -> Integer -> Integer -> Bool
-hsPendingTxFitsRef = coe d_pendingTxFitsRef_176
-d_pendingTxFitsRef_176 ::
+hsPendingTxFitsRef = coe d_pendingTxFitsRef_222
+d_pendingTxFitsRef_222 ::
   Bool -> Bool -> Integer -> Integer -> Bool
-d_pendingTxFitsRef_176 v0 v1 v2 v3
+d_pendingTxFitsRef_222 v0 v1 v2 v3
   = coe
       d__'38''38'__34 (coe v0)
       (coe
          d__'38''38'__34 (coe v1)
-         (coe d_snapshotCapacityRef_162 (coe v2) (coe v3)))
+         (coe d_snapshotCapacityRef_208 (coe v2) (coe v3)))
+-- Hydra.Protocol.OffChainReference.SnapshotPhaseᶜ
+d_SnapshotPhase'7580'_232 = ()
+type T_SnapshotPhase'7580'_232 = HsSnapshotPhase
+pattern C_neverSeen'7580'_234 = NeverSeen
+pattern C_requestPending'7580'_236 = RequestPending
+pattern C_collectingSignatures'7580'_238 = CollectingSignatures
+pattern C_lastConfirmed'7580'_240 = LastConfirmed
+check_neverSeen'7580'_234 :: T_SnapshotPhase'7580'_232
+check_neverSeen'7580'_234 = NeverSeen
+check_requestPending'7580'_236 :: T_SnapshotPhase'7580'_232
+check_requestPending'7580'_236 = RequestPending
+check_collectingSignatures'7580'_238 :: T_SnapshotPhase'7580'_232
+check_collectingSignatures'7580'_238 = CollectingSignatures
+check_lastConfirmed'7580'_240 :: T_SnapshotPhase'7580'_232
+check_lastConfirmed'7580'_240 = LastConfirmed
+cover_SnapshotPhase'7580'_232 :: HsSnapshotPhase -> ()
+cover_SnapshotPhase'7580'_232 x
+  = case x of
+      NeverSeen -> ()
+      RequestPending -> ()
+      CollectingSignatures -> ()
+      LastConfirmed -> ()
+-- Hydra.Protocol.OffChainReference.SnapshotChangeᶜ
+d_SnapshotChange'7580'_242 = ()
+type T_SnapshotChange'7580'_242 = HsSnapshotChange
+pattern C_recordSignature'7580'_244 = RecordSignature
+pattern C_confirmSnapshot'7580'_246 = ConfirmSnapshot
+pattern C_decideNextSnapshot'7580'_248 = DecideNextSnapshot
+pattern C_recordSnapshot'7580'_250 = RecordSnapshot
+check_recordSignature'7580'_244 :: T_SnapshotChange'7580'_242
+check_recordSignature'7580'_244 = RecordSignature
+check_confirmSnapshot'7580'_246 :: T_SnapshotChange'7580'_242
+check_confirmSnapshot'7580'_246 = ConfirmSnapshot
+check_decideNextSnapshot'7580'_248 :: T_SnapshotChange'7580'_242
+check_decideNextSnapshot'7580'_248 = DecideNextSnapshot
+check_recordSnapshot'7580'_250 :: T_SnapshotChange'7580'_242
+check_recordSnapshot'7580'_250 = RecordSnapshot
+cover_SnapshotChange'7580'_242 :: HsSnapshotChange -> ()
+cover_SnapshotChange'7580'_242 x
+  = case x of
+      RecordSignature -> ()
+      ConfirmSnapshot -> ()
+      DecideNextSnapshot -> ()
+      RecordSnapshot -> ()
+-- Hydra.Protocol.OffChainReference.SnapshotEffectᶜ
+d_SnapshotEffect'7580'_252 = ()
+type T_SnapshotEffect'7580'_252 = HsSnapshotEffect
+pattern C_sendAcknowledgement'7580'_254 = SendAcknowledgement
+pattern C_sendSnapshotRequest'7580'_256 = SendSnapshotRequest
+check_sendAcknowledgement'7580'_254 :: T_SnapshotEffect'7580'_252
+check_sendAcknowledgement'7580'_254 = SendAcknowledgement
+check_sendSnapshotRequest'7580'_256 :: T_SnapshotEffect'7580'_252
+check_sendSnapshotRequest'7580'_256 = SendSnapshotRequest
+cover_SnapshotEffect'7580'_252 :: HsSnapshotEffect -> ()
+cover_SnapshotEffect'7580'_252 x
+  = case x of
+      SendAcknowledgement -> ()
+      SendSnapshotRequest -> ()
+-- Hydra.Protocol.OffChainReference.SnapshotWaitᶜ
+d_SnapshotWait'7580'_258 = ()
+type T_SnapshotWait'7580'_258 = HsSnapshotWait
+pattern C_previousUnconfirmed'7580'_260 = PreviousUnconfirmed
+pattern C_versionMismatch'7580'_262 = VersionMismatch
+pattern C_missingTransactions'7580'_264 = MissingTransactions
+pattern C_snapshotNotSeen'7580'_266 = SnapshotNotSeen
+check_previousUnconfirmed'7580'_260 :: T_SnapshotWait'7580'_258
+check_previousUnconfirmed'7580'_260 = PreviousUnconfirmed
+check_versionMismatch'7580'_262 :: T_SnapshotWait'7580'_258
+check_versionMismatch'7580'_262 = VersionMismatch
+check_missingTransactions'7580'_264 :: T_SnapshotWait'7580'_258
+check_missingTransactions'7580'_264 = MissingTransactions
+check_snapshotNotSeen'7580'_266 :: T_SnapshotWait'7580'_258
+check_snapshotNotSeen'7580'_266 = SnapshotNotSeen
+cover_SnapshotWait'7580'_258 :: HsSnapshotWait -> ()
+cover_SnapshotWait'7580'_258 x
+  = case x of
+      PreviousUnconfirmed -> ()
+      VersionMismatch -> ()
+      MissingTransactions -> ()
+      SnapshotNotSeen -> ()
+-- Hydra.Protocol.OffChainReference.SnapshotRejectionᶜ
+d_SnapshotRejection'7580'_268 = ()
+type T_SnapshotRejection'7580'_268 = HsSnapshotRejection
+pattern C_invalidNumber'7580'_270 = InvalidNumber
+pattern C_notLeader'7580'_272 = NotLeader
+pattern C_transactionDoesNotApply'7580'_274 = TransactionDoesNotApply
+pattern C_alreadySigned'7580'_276 = AlreadySigned
+pattern C_invalidSignatureSet'7580'_278 = InvalidSignatureSet
+check_invalidNumber'7580'_270 :: T_SnapshotRejection'7580'_268
+check_invalidNumber'7580'_270 = InvalidNumber
+check_notLeader'7580'_272 :: T_SnapshotRejection'7580'_268
+check_notLeader'7580'_272 = NotLeader
+check_transactionDoesNotApply'7580'_274 ::
+  T_SnapshotRejection'7580'_268
+check_transactionDoesNotApply'7580'_274 = TransactionDoesNotApply
+check_alreadySigned'7580'_276 :: T_SnapshotRejection'7580'_268
+check_alreadySigned'7580'_276 = AlreadySigned
+check_invalidSignatureSet'7580'_278 ::
+  T_SnapshotRejection'7580'_268
+check_invalidSignatureSet'7580'_278 = InvalidSignatureSet
+cover_SnapshotRejection'7580'_268 :: HsSnapshotRejection -> ()
+cover_SnapshotRejection'7580'_268 x
+  = case x of
+      InvalidNumber -> ()
+      NotLeader -> ()
+      TransactionDoesNotApply -> ()
+      AlreadySigned -> ()
+      InvalidSignatureSet -> ()
+-- Hydra.Protocol.OffChainReference.SnapshotOutcomeᶜ
+d_SnapshotOutcome'7580'_280 = ()
+type T_SnapshotOutcome'7580'_280 = HsSnapshotOutcome
+pattern C_snapshotCompleted'7580'_282 a0 a1 = SnapshotCompleted a0 a1
+pattern C_snapshotWaiting'7580'_284 a0 = SnapshotWaiting a0
+pattern C_snapshotRejected'7580'_286 a0 = SnapshotRejected a0
+check_snapshotCompleted'7580'_282 ::
+  MAlonzo.Code.Agda.Builtin.List.T_List_10
+    () T_SnapshotChange'7580'_242 ->
+  MAlonzo.Code.Agda.Builtin.List.T_List_10
+    () T_SnapshotEffect'7580'_252 ->
+  T_SnapshotOutcome'7580'_280
+check_snapshotCompleted'7580'_282 = SnapshotCompleted
+check_snapshotWaiting'7580'_284 ::
+  T_SnapshotWait'7580'_258 -> T_SnapshotOutcome'7580'_280
+check_snapshotWaiting'7580'_284 = SnapshotWaiting
+check_snapshotRejected'7580'_286 ::
+  T_SnapshotRejection'7580'_268 -> T_SnapshotOutcome'7580'_280
+check_snapshotRejected'7580'_286 = SnapshotRejected
+cover_SnapshotOutcome'7580'_280 :: HsSnapshotOutcome -> ()
+cover_SnapshotOutcome'7580'_280 x
+  = case x of
+      SnapshotCompleted _ _ -> ()
+      SnapshotWaiting _ -> ()
+      SnapshotRejected _ -> ()
+-- Hydra.Protocol.OffChainReference.reqSnOutcomeRef
+hsReqSnOutcomeRef ::
+  Integer ->
+  Integer ->
+  Integer ->
+  Integer ->
+  Integer ->
+  Integer ->
+  Integer -> Integer -> Bool -> T_SnapshotOutcome'7580'_280
+hsReqSnOutcomeRef = coe d_reqSnOutcomeRef_288
+d_reqSnOutcomeRef_288 ::
+  Integer ->
+  Integer ->
+  Integer ->
+  Integer ->
+  Integer ->
+  Integer ->
+  Integer -> Integer -> Bool -> T_SnapshotOutcome'7580'_280
+d_reqSnOutcomeRef_288 v0 v1 v2 v3 v4 v5 v6 v7 v8
+  = coe
+      du_if_then_else__16
+      (coe
+         d_not_54
+         (coe eqInt (coe v4) (coe addInt (coe (1 :: Integer)) (coe v0))))
+      (coe C_snapshotRejected'7580'_286 (coe C_invalidNumber'7580'_270))
+      (coe
+         du_if_then_else__16
+         (coe d_not_54 (coe d_leaderRef_152 (coe v5) (coe v4) (coe v6)))
+         (coe C_snapshotRejected'7580'_286 (coe C_notLeader'7580'_272))
+         (coe
+            du_if_then_else__16 (coe d_not_54 (coe eqInt (coe v1) (coe v0)))
+            (coe
+               C_snapshotWaiting'7580'_284 (coe C_previousUnconfirmed'7580'_260))
+            (coe
+               du_if_then_else__16 (coe d_not_54 (coe eqInt (coe v2) (coe v3)))
+               (coe C_snapshotWaiting'7580'_284 (coe C_versionMismatch'7580'_262))
+               (coe
+                  du_if_then_else__16 (coe ltInt (coe (0 :: Integer)) (coe v7))
+                  (coe
+                     C_snapshotWaiting'7580'_284 (coe C_missingTransactions'7580'_264))
+                  (coe
+                     du_if_then_else__16 (coe d_not_54 (coe v8))
+                     (coe
+                        C_snapshotRejected'7580'_286
+                        (coe C_transactionDoesNotApply'7580'_274))
+                     (coe
+                        C_snapshotCompleted'7580'_282
+                        (coe
+                           MAlonzo.Code.Agda.Builtin.List.C__'8759'__22
+                           (coe C_recordSnapshot'7580'_250)
+                           (coe MAlonzo.Code.Agda.Builtin.List.C_'91''93'_16))
+                        (coe
+                           MAlonzo.Code.Agda.Builtin.List.C__'8759'__22
+                           (coe C_sendAcknowledgement'7580'_254)
+                           (coe MAlonzo.Code.Agda.Builtin.List.C_'91''93'_16))))))))
+-- Hydra.Protocol.OffChainReference.isLastConfirmed
+d_isLastConfirmed_308 :: T_SnapshotPhase'7580'_232 -> Bool
+d_isLastConfirmed_308 v0
+  = let v1 = coe MAlonzo.Code.Agda.Builtin.Bool.C_false_8 in
+    coe
+      (case coe v0 of
+         C_lastConfirmed'7580'_240
+           -> coe MAlonzo.Code.Agda.Builtin.Bool.C_true_10
+         _ -> coe v1)
+-- Hydra.Protocol.OffChainReference.isCollecting
+d_isCollecting_310 :: T_SnapshotPhase'7580'_232 -> Bool
+d_isCollecting_310 v0
+  = let v1 = coe MAlonzo.Code.Agda.Builtin.Bool.C_false_8 in
+    coe
+      (case coe v0 of
+         C_collectingSignatures'7580'_238
+           -> coe MAlonzo.Code.Agda.Builtin.Bool.C_true_10
+         _ -> coe v1)
+-- Hydra.Protocol.OffChainReference.ackSnOutcomeRef
+hsAckSnOutcomeRef ::
+  T_SnapshotPhase'7580'_232 ->
+  Integer ->
+  Integer ->
+  MAlonzo.Code.Agda.Builtin.List.T_List_10 () Integer ->
+  Integer ->
+  Integer -> Bool -> Bool -> Integer -> T_SnapshotOutcome'7580'_280
+hsAckSnOutcomeRef = coe d_ackSnOutcomeRef_312
+d_ackSnOutcomeRef_312 ::
+  T_SnapshotPhase'7580'_232 ->
+  Integer ->
+  Integer ->
+  [Integer] ->
+  Integer ->
+  Integer -> Bool -> Bool -> Integer -> T_SnapshotOutcome'7580'_280
+d_ackSnOutcomeRef_312 v0 v1 v2 v3 v4 v5 v6 v7 v8
+  = coe
+      du_if_then_else__16
+      (coe
+         d_not_54
+         (coe
+            d__'124''124'__50 (coe eqInt (coe v2) (coe v1))
+            (coe eqInt (coe v2) (coe addInt (coe (1 :: Integer)) (coe v1)))))
+      (coe C_snapshotRejected'7580'_286 (coe C_invalidNumber'7580'_270))
+      (coe
+         du_if_then_else__16
+         (coe
+            d__'38''38'__34 (coe d_isLastConfirmed_308 (coe v0))
+            (coe eqInt (coe v2) (coe v1)))
+         (coe
+            C_snapshotCompleted'7580'_282
+            (coe MAlonzo.Code.Agda.Builtin.List.C_'91''93'_16)
+            (coe MAlonzo.Code.Agda.Builtin.List.C_'91''93'_16))
+         (coe
+            du_if_then_else__16
+            (coe
+               d_not_54
+               (coe
+                  d__'38''38'__34 (coe d_isCollecting_310 (coe v0))
+                  (coe eqInt (coe v2) (coe v1))))
+            (coe C_snapshotWaiting'7580'_284 (coe C_snapshotNotSeen'7580'_266))
+            (coe
+               du_if_then_else__16 (coe d_elem'7495'_56 (coe v4) (coe v3))
+               (coe C_snapshotRejected'7580'_286 (coe C_alreadySigned'7580'_276))
+               (coe
+                  du_if_then_else__16
+                  (coe
+                     d_not_54
+                     (coe
+                        d_allSignedRef_134 (coe addInt (coe (1 :: Integer)) (coe v5))
+                        (coe
+                           MAlonzo.Code.Agda.Builtin.List.C__'8759'__22 (coe v4) (coe v3))))
+                  (coe
+                     C_snapshotCompleted'7580'_282
+                     (coe
+                        MAlonzo.Code.Agda.Builtin.List.C__'8759'__22
+                        (coe C_recordSignature'7580'_244)
+                        (coe
+                           MAlonzo.Code.Agda.Builtin.List.C__'8759'__22
+                           (coe C_recordSignature'7580'_244)
+                           (coe MAlonzo.Code.Agda.Builtin.List.C_'91''93'_16)))
+                     (coe MAlonzo.Code.Agda.Builtin.List.C_'91''93'_16))
+                  (coe
+                     du_if_then_else__16 (coe d_not_54 (coe v6))
+                     (coe
+                        C_snapshotRejected'7580'_286 (coe C_invalidSignatureSet'7580'_278))
+                     (coe
+                        du_if_then_else__16
+                        (coe
+                           d__'38''38'__34 (coe v7)
+                           (coe
+                              d_leaderRef_152 (coe v5) (coe addInt (coe (1 :: Integer)) (coe v2))
+                              (coe v8)))
+                        (coe
+                           C_snapshotCompleted'7580'_282
+                           (coe
+                              MAlonzo.Code.Agda.Builtin.List.C__'8759'__22
+                              (coe C_recordSignature'7580'_244)
+                              (coe
+                                 MAlonzo.Code.Agda.Builtin.List.C__'8759'__22
+                                 (coe C_confirmSnapshot'7580'_246)
+                                 (coe
+                                    MAlonzo.Code.Agda.Builtin.List.C__'8759'__22
+                                    (coe C_decideNextSnapshot'7580'_248)
+                                    (coe MAlonzo.Code.Agda.Builtin.List.C_'91''93'_16))))
+                           (coe
+                              MAlonzo.Code.Agda.Builtin.List.C__'8759'__22
+                              (coe C_sendSnapshotRequest'7580'_256)
+                              (coe MAlonzo.Code.Agda.Builtin.List.C_'91''93'_16)))
+                        (coe
+                           C_snapshotCompleted'7580'_282
+                           (coe
+                              MAlonzo.Code.Agda.Builtin.List.C__'8759'__22
+                              (coe C_recordSignature'7580'_244)
+                              (coe
+                                 MAlonzo.Code.Agda.Builtin.List.C__'8759'__22
+                                 (coe C_confirmSnapshot'7580'_246)
+                                 (coe MAlonzo.Code.Agda.Builtin.List.C_'91''93'_16)))
+                           (coe MAlonzo.Code.Agda.Builtin.List.C_'91''93'_16))))))))
+-- Hydra.Protocol.OffChainReference.reqTxKnownOutcomeRef
+hsReqTxKnownOutcomeRef ::
+  Bool ->
+  Bool ->
+  Integer ->
+  Bool -> Integer -> Integer -> Integer -> T_ReqTxOutcome'7580'_180
+hsReqTxKnownOutcomeRef = coe d_reqTxKnownOutcomeRef_332
+d_reqTxKnownOutcomeRef_332 ::
+  Bool ->
+  Bool ->
+  Integer ->
+  Bool -> Integer -> Integer -> Integer -> T_ReqTxOutcome'7580'_180
+d_reqTxKnownOutcomeRef_332 v0 v1 v2 v3 v4 v5 v6
+  = if coe v0
+      then coe
+             C_reqTxOutcome'7580'_194 (coe C_reqTxFinished'7580'_162)
+             (coe MAlonzo.Code.Agda.Builtin.List.C_'91''93'_16)
+             (coe MAlonzo.Code.Agda.Builtin.List.C_'91''93'_16)
+      else coe
+             d_reqTxOutcomeRef_196 (coe v1) (coe v2) (coe v3) (coe v4) (coe v5)
+             (coe v6)
