@@ -24,7 +24,7 @@ recordScenario bounds settings start route = do
       Retry d -> record world d
       _ -> Right ([], [])
     (tapes, views) <- go next rest
-    pure (tape : tapes, Debug.Step (actionLabel action) Nothing (toJSON action) : view <> views)
+    pure (tape : tapes, Debug.Step Debug.InputStep (actionLabel action) Nothing (toJSON action) : view <> views)
   record world d = case applyExecutionMode settings.executionMode $ programFor world d of
     Interpreter.Execution config program -> do
       prepared <- Debug.prepare Debug.RecordReplies config program
@@ -47,7 +47,7 @@ replayScenario scenario
         next <- advance scenario.exploration.executionMode world action
         pure (next, [])
     (final, views) <- go next rest
-    pure (final, Debug.Step (actionLabel action) Nothing (toJSON action) : view <> views)
+    pure (final, Debug.Step Debug.InputStep (actionLabel action) Nothing (toJSON action) : view <> views)
   consume world d tape = case applyExecutionMode scenario.exploration.executionMode $ programFor world d of
     Interpreter.Execution config program -> do
       prepared <- Debug.prepare (Debug.RecordedReplies tape) config program

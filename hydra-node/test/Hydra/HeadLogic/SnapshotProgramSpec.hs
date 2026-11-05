@@ -8,6 +8,7 @@ import Data.Aeson (eitherDecode, encode, object, (.=))
 import Data.List ((!!))
 import Data.Map.Strict qualified as Map
 import Data.Sequence qualified as Seq
+import Data.Text qualified as Text
 import Hydra.Agda.OffChainReference (HsReqTxOutcome (..), HsReqTxTerminal (..), HsSnapshotChange (..), HsSnapshotEffect (..), HsSnapshotOutcome (..), HsSnapshotPhase (..), HsSnapshotRejection (..), HsSnapshotWait (..), ackSnOutcomeRef, reqSnOutcomeRef, reqTxKnownOutcomeRef)
 import Hydra.HeadLogic hiding (error)
 import Hydra.HeadLogic.Interpreter qualified as Interpreter
@@ -302,9 +303,21 @@ spec = do
       adapted.startingWorld `shouldBe` Scenario.legacyInitialWorldV1
       Scenario.validateWorld start{Scenario.nodes = []} `shouldSatisfy` isLeft
 
-    it "renders plain escaped labels and concise deliveries" $ do
-      Mermaid.renderLinearTrace ["stage: <change> & \"value\""] `shouldBe` "flowchart TD\n  n0[\"stage: &lt;change&gt; &amp; &quot;value&quot;\"]\n"
-      Debug.renderSteps [Debug.Step "stage: change" Nothing (toJSON ())] `shouldBe` Mermaid.renderLinearTrace ["stage: change"]
+    it "groups deliveries by component without reordering instructions" $ do
+      let step kind description = Debug.Step kind description Nothing (toJSON ())
+          graph = Mermaid.renderSteps [step Debug.InputStep "first delivery", step Debug.ChangeStep "stage signature", step Debug.CryptoStep "verify signature", step Debug.TerminalStep "reject", step Debug.InputStep "retry", step Debug.DecisionStep "guard"]
+      -- The signature is staged before verification, then discarded. Grouping
+      -- must preserve that order and keep the retry in a separate section.
+      filter (Text.isPrefixOf "    ") (Text.lines graph)
+        `shouldBe` [ "    Note over logic,changes: first delivery"
+                   , "    logic->>changes: stage signature"
+                   , "    crypto-->>logic: verify signature"
+                   , "    Note over logic,changes: reject"
+                   , "    Note over logic,changes: retry"
+                   , "    Note over logic: guard"
+                   ]
+      graph `shouldSatisfy` Text.isInfixOf "participant crypto as Cryptography"
+      graph `shouldSatisfy` (not . Text.isInfixOf "participant ledger")
       Scenario.actionLabel (Scenario.Deliver $ Scenario.Delivery 0 1 2 $ AckSn (sign aliceSk snapshotFixture) 1) `shouldBe` "deliver AckSn 1 from party 0 to 1 (TTL 2)"
 
     it "runs each declared family and search order deterministically within bounds" $ do

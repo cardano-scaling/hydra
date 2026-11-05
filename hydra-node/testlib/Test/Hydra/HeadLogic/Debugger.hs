@@ -12,7 +12,6 @@ import Hydra.HeadLogic.Trace (changeLabel, effectLabel)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Prelude hiding (keys, state)
 import Hydra.Tx.Crypto (HydraKey, VerificationKey, Verified (..), verifyMultiSignatureBytes)
-import Test.Hydra.HeadLogic.Mermaid (renderLinearTrace)
 
 -- | Exact query identity and complete public arguments precede every reply.
 data QueryRecord = QueryRecord
@@ -29,10 +28,15 @@ data VerificationReply = Valid | InvalidKeys [VerificationKey HydraKey] | Invali
 
 data ReplyMode = RecordReplies | RecordedReplies [QueryRecord]
 
+-- | Semantic categories for presentation; labels are not parsed for routing.
+data StepKind = InputStep | DecisionStep | LedgerStep | CryptoStep | ChangeStep | EffectStep | TerminalStep
+  deriving stock (Eq, Show)
+
 -- | Retained payloads let a debugger inspect each staged change, even when the
 -- final rejection discards it. No signing key enters this structure.
 data Step = Step
-  { description :: Text
+  { kind :: StepKind
+  , description :: Text
   , decisionName :: Maybe Text
   , payload :: Value
   }
@@ -58,29 +62,30 @@ prepare mode config program = consume (cursor program) mode
   done :: () -> ReplyMode -> Either Text (Prepared ledger signing)
   done () remaining = case remaining of
     RecordedReplies (_ : _) -> Left "unused recorded primitive replies"
-    _ -> Right $ Prepared (pure ()) [] [Step "finish" Nothing (toJSON ())]
+    _ -> Right $ Prepared (pure ()) [] [Step TerminalStep "finish: commit changes and release effects" Nothing (toJSON ())]
 
   step :: forall a. Instruction SimpleTx ledger signing a -> (a -> ReplyMode -> Either Text (Prepared ledger signing)) -> ReplyMode -> Either Text (Prepared ledger signing)
   step op next remaining = case op of
-    ApplyTransaction slot utxo tx -> query "apply transaction" (object ["slot" .= slot, "utxo" .= utxo, "tx" .= tx]) (available (transactionApplication config) slot utxo tx) id
-    SignSnapshot snapshot -> query "sign snapshot" (object ["signer" .= signingIdentity (available $ snapshotSigner config), "snapshot" .= snapshot]) (signOne (available $ snapshotSigner config) snapshot) id
+    ApplyTransaction slot utxo tx -> query LedgerStep "apply transaction" (object ["slot" .= slot, "utxo" .= utxo, "tx" .= tx]) (available (transactionApplication config) slot utxo tx) id
+    SignSnapshot snapshot -> query CryptoStep "sign snapshot" (object ["signer" .= signingIdentity (available $ snapshotSigner config), "snapshot" .= snapshot]) (signOne (available $ snapshotSigner config) snapshot) id
     VerifySnapshot keys signatures bytes ->
       query
+        CryptoStep
         "verify multisignature"
         (object ["keys" .= keys, "signatures" .= signatures, "bytes" .= BS.unpack bytes])
         (encodeVerified $ verifyMultiSignatureBytes keys signatures bytes)
         decodeVerified
     Suspend reason -> terminal "wait: retain prefix, discard effects" (toJSON reason)
     Reject err -> terminal "reject: discard staged changes and effects" (toJSON err)
-    Change event -> continue () (Step ("stage: " <> changeLabel event) Nothing (toJSON event))
-    RecordAppliedTransaction hid tx before after -> continue () (Step "stage: validated transaction" Nothing (object ["headId" .= hid, "tx" .= tx, "before" .= before, "after" .= after]))
-    Emit effect -> continue () (Step ("buffer: " <> effectLabel effect) Nothing (toJSON effect))
+    Change event -> continue () (Step ChangeStep ("stage: " <> changeLabel event) Nothing (toJSON event))
+    RecordAppliedTransaction hid tx before after -> continue () (Step ChangeStep "stage: validated transaction" Nothing (object ["headId" .= hid, "tx" .= tx, "before" .= before, "after" .= after]))
+    Emit effect -> continue () (Step EffectStep ("buffer: " <> effectLabel effect) Nothing (toJSON effect))
     Decide name answer -> do
       rest <- next answer remaining
-      pure rest{lowered = instruction op >> lowered rest, steps = Step (name <> ": " <> show answer) (Just name) (toJSON answer) : steps rest}
+      pure rest{lowered = instruction op >> lowered rest, steps = Step DecisionStep (name <> ": " <> show answer) (Just name) (toJSON answer) : steps rest}
    where
-    query :: (ToJSON b, FromJSON b) => Text -> Value -> b -> (b -> a) -> Either Text (Prepared ledger signing)
-    query name args actual decode = do
+    query :: (ToJSON b, FromJSON b) => StepKind -> Text -> Value -> b -> (b -> a) -> Either Text (Prepared ledger signing)
+    query kind name args actual decode = do
       (answer, record, remaining') <- case remaining of
         RecordReplies -> Right (actual, QueryRecord name args (toJSON actual), RecordReplies)
         RecordedReplies [] -> Left $ "missing primitive reply: " <> name
@@ -91,7 +96,7 @@ prepare mode config program = consume (cursor program) mode
               Error err -> Left $ "invalid typed reply for " <> name <> ": " <> toText err
               Success answer -> Right (answer, record, RecordedReplies records)
       rest <- next (decode answer) remaining'
-      pure rest{queries = record : queries rest, steps = Step ("primitive: " <> name) Nothing (toJSON record) : steps rest}
+      pure rest{queries = record : queries rest, steps = Step kind ("primitive: " <> name) Nothing (toJSON record) : steps rest}
 
     continue answer view = do
       rest <- next answer remaining
@@ -100,7 +105,7 @@ prepare mode config program = consume (cursor program) mode
     terminal :: Text -> Value -> Either Text (Prepared ledger signing)
     terminal name value = case remaining of
       RecordedReplies (_ : _) -> Left "unused recorded primitive replies at termination"
-      _ -> Right $ Prepared (void $ instruction op) [] [Step name Nothing value]
+      _ -> Right $ Prepared (void $ instruction op) [] [Step TerminalStep name Nothing value]
 
 encodeVerified :: Verified -> VerificationReply
 encodeVerified = \case
@@ -128,9 +133,6 @@ stepOnce = uncons
 
 breakAt :: Text -> [Step] -> ([Step], [Step])
 breakAt name = break ((== Just name) . decisionName)
-
-renderSteps :: [Step] -> Text
-renderSteps = renderLinearTrace . fmap description
 
 -- | A live instruction cursor retains the typed continuation. Supplying a reply
 -- advances exactly one instruction without running any later primitive.

@@ -11,7 +11,7 @@ import Hydra.Cardano.Api (Tx, getTxBody, makeSignedTransaction)
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.HeadLogic hiding (error)
 import Hydra.HeadLogic.Interpreter qualified as Interpreter
-import Hydra.HeadLogic.Trace (traceLabel)
+import Hydra.HeadLogic.Trace (TraceStep)
 import Hydra.Ledger (Ledger (..))
 import Hydra.Ledger.Cardano (cardanoLedger)
 import Hydra.Network.Message (Message (..))
@@ -28,9 +28,9 @@ import Test.QuickCheck.Gen (unGen)
 import Test.QuickCheck.Random (mkQCGen)
 
 -- | Fail unless both the historical failure and the corrected behavior occur.
--- The JSON contains complete outcomes and states; labels contain actual program
--- observations. No signing key is included in either output.
-registryDemo :: Either Text (Value, [Text])
+-- The JSON contains complete outcomes and states; diagram sections contain
+-- program observations. No signing key is included in either output.
+registryDemo :: Either Text (Value, [(Text, [TraceStep])])
 registryDemo = do
   valid <- maybe (Left "fixture has no transaction") Right $ listToMaybe transactions
   let invalid = makeSignedTransaction [] (getTxBody valid)
@@ -71,12 +71,13 @@ registryDemo = do
         , "legacy" .= object ["duplicateOutcome" .= old, "afterDuplicate" .= afterOld, "snapshotOutcome" .= oldRequest]
         , "program" .= object ["duplicateOutcome" .= new, "afterDuplicate" .= afterNew, "snapshotOutcome" .= newRequest]
         ]
-    , ["Valid Cardano transaction applied; snapshot request succeeds", "Frozen handler retains witness-stripped payload on Wait", "Current ReqSn program on the corrupted state"]
-        <> map traceLabel oldTrace
-        <> ["Restart from the same accepted state; current ReqTx program"]
-        <> map traceLabel duplicateTrace
-        <> ["Current ReqSn program with the preserved valid payload"]
-        <> map traceLabel newTrace
+    ,
+      [ ("Shared starting state: valid Cardano transaction applied; snapshot request succeeds", [])
+      , ("Frozen ReqTx outcome (summary): Wait retains witness-stripped payload", [])
+      , ("ReqSn after the frozen ReqTx: corrupted registry", oldTrace)
+      , ("Restart from the shared starting state: fixed ReqTx", duplicateTrace)
+      , ("ReqSn after the fixed ReqTx: valid payload preserved", newTrace)
+      ]
     )
  where
   (seed, transactions) = unGen (genFixedSizeSequenceOfSimplePaymentTransactions 1) (mkQCGen 42) 30

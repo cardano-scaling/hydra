@@ -5,6 +5,10 @@ with the simple test ledger. Each diagram covers one concrete input; unvisited
 branches are outside its scope. Every generated run checks its complete outcome
 against the frozen migration baseline.
 
+Read each sequence diagram from top to bottom. Lanes separate head logic,
+ledger replies, staged changes, and buffered effects within one node.
+The last note says whether changes and effects are committed or discarded.
+
 Regenerate this page and its `.mmd` files with:
 
 ```sh
@@ -14,127 +18,126 @@ cabal bench hydra-node:head-logic-program --benchmark-options='--trace docs/docs
 ## leader success
 
 ```mermaid
-flowchart TD
-  n0["transaction is already applied locally: no"]
-  n1["stage: remember transaction"]
-  n2["outputs do not collide with the local UTxO: yes"]
-  n3["ledger application: valid"]
-  n4["outputs do not collide with pending deposits: yes"]
-  n5["stage: apply transaction to local state"]
-  n6["snapshot request has useful work: yes"]
-  n7["no snapshot is in flight: yes"]
-  n8["this party leads the next snapshot: yes"]
-  n9["stage: record snapshot request"]
-  n10["buffer: broadcast ReqSn"]
-  n11["finish: commit changes and release effects"]
-  n0 --> n1
-  n1 --> n2
-  n2 --> n3
-  n3 --> n4
-  n4 --> n5
-  n5 --> n6
-  n6 --> n7
-  n7 --> n8
-  n8 --> n9
-  n9 --> n10
-  n10 --> n11
+%%{init: {"sequence": {"wrap": true}}}%%
+sequenceDiagram
+  participant logic as Head logic
+  participant ledger as Ledger
+  participant changes as Staged changes
+  participant effects as Buffered effects
+  rect rgb(245, 247, 250)
+    Note over logic,effects: ReqTx: leader-success
+    Note over logic: transaction is already applied locally: no
+    logic->>changes: stage: remember transaction
+    Note over logic: outputs do not collide with the local UTxO: yes
+    ledger-->>logic: ledger application: valid
+    Note over logic: outputs do not collide with pending deposits: yes
+    logic->>changes: stage: apply transaction to local state
+    Note over logic: snapshot request has useful work: yes
+    Note over logic: no snapshot is in flight: yes
+    Note over logic: this party leads the next snapshot: yes
+    logic->>changes: stage: record snapshot request
+    logic->>effects: buffer: broadcast ReqSn
+    Note over logic,effects: finish: commit changes and release effects
+  end
 ```
 
 ## follower
 
 ```mermaid
-flowchart TD
-  n0["transaction is already applied locally: no"]
-  n1["stage: remember transaction"]
-  n2["outputs do not collide with the local UTxO: yes"]
-  n3["ledger application: valid"]
-  n4["outputs do not collide with pending deposits: yes"]
-  n5["stage: apply transaction to local state"]
-  n6["snapshot request has useful work: yes"]
-  n7["no snapshot is in flight: yes"]
-  n8["this party leads the next snapshot: no"]
-  n9["finish: commit changes and release effects"]
-  n0 --> n1
-  n1 --> n2
-  n2 --> n3
-  n3 --> n4
-  n4 --> n5
-  n5 --> n6
-  n6 --> n7
-  n7 --> n8
-  n8 --> n9
+%%{init: {"sequence": {"wrap": true}}}%%
+sequenceDiagram
+  participant logic as Head logic
+  participant ledger as Ledger
+  participant changes as Staged changes
+  rect rgb(245, 247, 250)
+    Note over logic,changes: ReqTx: follower
+    Note over logic: transaction is already applied locally: no
+    logic->>changes: stage: remember transaction
+    Note over logic: outputs do not collide with the local UTxO: yes
+    ledger-->>logic: ledger application: valid
+    Note over logic: outputs do not collide with pending deposits: yes
+    logic->>changes: stage: apply transaction to local state
+    Note over logic: snapshot request has useful work: yes
+    Note over logic: no snapshot is in flight: yes
+    Note over logic: this party leads the next snapshot: no
+    Note over logic,changes: finish: commit changes and release effects
+  end
 ```
 
 ## wait
 
 ```mermaid
-flowchart TD
-  n0["transaction is already applied locally: no"]
-  n1["stage: remember transaction"]
-  n2["outputs do not collide with the local UTxO: yes"]
-  n3["ledger application: invalid"]
-  n4["retry budget remains: yes"]
-  n5["wait: commit changes and discard buffered effects"]
-  n0 --> n1
-  n1 --> n2
-  n2 --> n3
-  n3 --> n4
-  n4 --> n5
+%%{init: {"sequence": {"wrap": true}}}%%
+sequenceDiagram
+  participant logic as Head logic
+  participant ledger as Ledger
+  participant changes as Staged changes
+  rect rgb(245, 247, 250)
+    Note over logic,changes: ReqTx: wait
+    Note over logic: transaction is already applied locally: no
+    logic->>changes: stage: remember transaction
+    Note over logic: outputs do not collide with the local UTxO: yes
+    ledger-->>logic: ledger application: invalid
+    Note over logic: retry budget remains: yes
+    Note over logic,changes: wait: commit changes and discard buffered effects
+  end
 ```
 
 ## timeout
 
 ```mermaid
-flowchart TD
-  n0["transaction is already applied locally: no"]
-  n1["stage: remember transaction"]
-  n2["outputs do not collide with the local UTxO: yes"]
-  n3["ledger application: invalid"]
-  n4["retry budget remains: no"]
-  n5["stage: record invalid transaction"]
-  n6["finish: commit changes and release effects"]
-  n0 --> n1
-  n1 --> n2
-  n2 --> n3
-  n3 --> n4
-  n4 --> n5
-  n5 --> n6
+%%{init: {"sequence": {"wrap": true}}}%%
+sequenceDiagram
+  participant logic as Head logic
+  participant ledger as Ledger
+  participant changes as Staged changes
+  rect rgb(245, 247, 250)
+    Note over logic,changes: ReqTx: timeout
+    Note over logic: transaction is already applied locally: no
+    logic->>changes: stage: remember transaction
+    Note over logic: outputs do not collide with the local UTxO: yes
+    ledger-->>logic: ledger application: invalid
+    Note over logic: retry budget remains: no
+    logic->>changes: stage: record invalid transaction
+    Note over logic,changes: finish: commit changes and release effects
+  end
 ```
 
 ## output collision
 
 ```mermaid
-flowchart TD
-  n0["transaction is already applied locally: no"]
-  n1["stage: remember transaction"]
-  n2["outputs do not collide with the local UTxO: no"]
-  n3["retry budget remains: yes"]
-  n4["wait: commit changes and discard buffered effects"]
-  n0 --> n1
-  n1 --> n2
-  n2 --> n3
-  n3 --> n4
+%%{init: {"sequence": {"wrap": true}}}%%
+sequenceDiagram
+  participant logic as Head logic
+  participant changes as Staged changes
+  rect rgb(245, 247, 250)
+    Note over logic,changes: ReqTx: output-collision
+    Note over logic: transaction is already applied locally: no
+    logic->>changes: stage: remember transaction
+    Note over logic: outputs do not collide with the local UTxO: no
+    Note over logic: retry budget remains: yes
+    Note over logic,changes: wait: commit changes and discard buffered effects
+  end
 ```
 
 ## snapshot in flight
 
 ```mermaid
-flowchart TD
-  n0["transaction is already applied locally: no"]
-  n1["stage: remember transaction"]
-  n2["outputs do not collide with the local UTxO: yes"]
-  n3["ledger application: valid"]
-  n4["outputs do not collide with pending deposits: yes"]
-  n5["stage: apply transaction to local state"]
-  n6["snapshot request has useful work: yes"]
-  n7["no snapshot is in flight: no"]
-  n8["finish: commit changes and release effects"]
-  n0 --> n1
-  n1 --> n2
-  n2 --> n3
-  n3 --> n4
-  n4 --> n5
-  n5 --> n6
-  n6 --> n7
-  n7 --> n8
+%%{init: {"sequence": {"wrap": true}}}%%
+sequenceDiagram
+  participant logic as Head logic
+  participant ledger as Ledger
+  participant changes as Staged changes
+  rect rgb(245, 247, 250)
+    Note over logic,changes: ReqTx: snapshot-in-flight
+    Note over logic: transaction is already applied locally: no
+    logic->>changes: stage: remember transaction
+    Note over logic: outputs do not collide with the local UTxO: yes
+    ledger-->>logic: ledger application: valid
+    Note over logic: outputs do not collide with pending deposits: yes
+    logic->>changes: stage: apply transaction to local state
+    Note over logic: snapshot request has useful work: yes
+    Note over logic: no snapshot is in flight: no
+    Note over logic,changes: finish: commit changes and release effects
+  end
 ```

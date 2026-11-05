@@ -517,7 +517,7 @@ follow once imports demonstrate a useful boundary.
 | `Hydra.HeadLogic.Outcome` | Terminal decisions, effects, wait reasons, and retry instructions |
 | `Hydra.HeadLogic.Input` | Domain inputs, including recovery and operation results |
 | `Hydra.HeadLogic.Trace` | Trace observations; presentation remains in development modules |
-| `Test.Hydra.HeadLogic.Mermaid` | Escaped plain-label diagram rendering |
+| `Test.Hydra.HeadLogic.Mermaid` | Sequence diagrams with component lanes and handler sections |
 | `Hydra.Node` | Queue scheduling, persistence, and delivery of evaluated decisions |
 | `Hydra.API.Server` | Formatting resolved notices and shared state views |
 | `Hydra.Chain` | Settlement contract; Cardano construction/query code moves behind it |

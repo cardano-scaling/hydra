@@ -32,6 +32,22 @@ The checked-in [result](./docs/dev/architecture/head-logic-traces/registry-demo-
 and [diagram](./docs/dev/architecture/head-logic-traces/registry-demo-v1.json.mmd)
 come from this command.
 
+Read the diagram from top to bottom. Each shaded section is one handler call
+or a labelled outcome summary. The lanes separate **Head logic**, **Ledger**,
+**Cryptography**, **Staged changes** and **Buffered effects** within one node.
+Decisions stay on the head logic lane; primitive replies, staged changes and
+buffered effects cross to their respective lanes. The final note says what is
+committed or discarded. A buffered `AckSn` is released only when the handler
+finishes successfully.
+
+Start at **ReqSn after the frozen ReqTx**: the ledger rejects the replaced
+payload. Then follow **Restart from the shared starting state**: the fixed
+ReqTx recognises the already-applied transaction and leaves the state unchanged.
+The last section shows ReqSn validating the preserved payload, signing and
+buffering `AckSn`. Its later “outputs are fresh: no” decision is local transaction
+pruning, not a second snapshot rejection. The reset compares two runs from the
+same accepted state; it does not repair the corrupted state.
+
 Read [RegistryDemo.hs](../hydra-node/testlib/Test/Hydra/HeadLogic/RegistryDemo.hs),
 then `onOpenNetworkReqTxProgram` in
 [HeadLogic.hs](../hydra-node/src/Hydra/HeadLogic.hs). The existing

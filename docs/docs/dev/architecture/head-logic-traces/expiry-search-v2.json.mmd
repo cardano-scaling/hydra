@@ -1,390 +1,246 @@
-flowchart TD
-  n0["deliver ReqTx 2 from party 0 to 0 (TTL 2)"]
-  n1["transaction is already applied locally: False"]
-  n2["stage: remember transaction"]
-  n3["outputs do not collide with the local UTxO: True"]
-  n4["primitive: apply transaction"]
-  n5["retry budget remains: True"]
-  n6["wait: retain prefix, discard effects"]
-  n7["deliver ReqTx 2 from party 0 to 1 (TTL 2)"]
-  n8["transaction is already applied locally: False"]
-  n9["stage: remember transaction"]
-  n10["outputs do not collide with the local UTxO: True"]
-  n11["primitive: apply transaction"]
-  n12["retry budget remains: True"]
-  n13["wait: retain prefix, discard effects"]
-  n14["retry ReqTx 2 from party 0 to 1 (TTL 1)"]
-  n15["transaction is already applied locally: False"]
-  n16["stage: remember transaction"]
-  n17["outputs do not collide with the local UTxO: True"]
-  n18["primitive: apply transaction"]
-  n19["retry budget remains: True"]
-  n20["wait: retain prefix, discard effects"]
-  n21["retry ReqTx 2 from party 0 to 1 (TTL 0)"]
-  n22["transaction is already applied locally: False"]
-  n23["stage: remember transaction"]
-  n24["outputs do not collide with the local UTxO: True"]
-  n25["primitive: apply transaction"]
-  n26["retry budget remains: False"]
-  n27["stage: record invalid transaction"]
-  n28["finish"]
-  n29["deliver ReqTx 2 from party 0 to 2 (TTL 2)"]
-  n30["transaction is already applied locally: False"]
-  n31["stage: remember transaction"]
-  n32["outputs do not collide with the local UTxO: True"]
-  n33["primitive: apply transaction"]
-  n34["retry budget remains: True"]
-  n35["wait: retain prefix, discard effects"]
-  n36["deliver ReqTx 1 from party 0 to 0 (TTL 2)"]
-  n37["transaction is already applied locally: False"]
-  n38["stage: remember transaction"]
-  n39["outputs do not collide with the local UTxO: True"]
-  n40["primitive: apply transaction"]
-  n41["outputs do not collide with pending deposits: True"]
-  n42["stage: validated transaction"]
-  n43["snapshot request has useful work: True"]
-  n44["no snapshot is in flight: True"]
-  n45["this party leads the next snapshot: True"]
-  n46["stage: record snapshot request"]
-  n47["buffer: broadcast ReqSn"]
-  n48["finish"]
-  n49["deliver ReqTx 1 from party 0 to 1 (TTL 2)"]
-  n50["transaction is already applied locally: False"]
-  n51["stage: remember transaction"]
-  n52["outputs do not collide with the local UTxO: True"]
-  n53["primitive: apply transaction"]
-  n54["outputs do not collide with pending deposits: True"]
-  n55["stage: validated transaction"]
-  n56["snapshot request has useful work: True"]
-  n57["no snapshot is in flight: True"]
-  n58["this party leads the next snapshot: False"]
-  n59["finish"]
-  n60["deliver ReqTx 1 from party 0 to 2 (TTL 2)"]
-  n61["transaction is already applied locally: False"]
-  n62["stage: remember transaction"]
-  n63["outputs do not collide with the local UTxO: True"]
-  n64["primitive: apply transaction"]
-  n65["outputs do not collide with pending deposits: True"]
-  n66["stage: validated transaction"]
-  n67["snapshot request has useful work: True"]
-  n68["no snapshot is in flight: True"]
-  n69["this party leads the next snapshot: False"]
-  n70["finish"]
-  n71["deliver ReqSn 0/1 txs [1] from party 0 to 0 (TTL 2)"]
-  n72["request is the next snapshot: True"]
-  n73["sender leads this snapshot: True"]
-  n74["previous snapshot is confirmed: True"]
-  n75["snapshot version matches: True"]
-  n76["snapshot transaction outputs are fresh: True"]
-  n77["primitive: apply transaction"]
-  n78["primitive: sign snapshot"]
-  n79["buffer: broadcast AckSn"]
-  n80["snapshot transaction outputs are fresh: False"]
-  n81["stage: record requested snapshot and prune local transactions"]
-  n82["finish"]
-  n83["deliver ReqSn 0/1 txs [1] from party 0 to 1 (TTL 2)"]
-  n84["request is the next snapshot: True"]
-  n85["sender leads this snapshot: True"]
-  n86["previous snapshot is confirmed: True"]
-  n87["snapshot version matches: True"]
-  n88["snapshot transaction outputs are fresh: True"]
-  n89["primitive: apply transaction"]
-  n90["primitive: sign snapshot"]
-  n91["buffer: broadcast AckSn"]
-  n92["snapshot transaction outputs are fresh: False"]
-  n93["stage: record requested snapshot and prune local transactions"]
-  n94["finish"]
-  n95["deliver ReqSn 0/1 txs [1] from party 0 to 2 (TTL 2)"]
-  n96["request is the next snapshot: True"]
-  n97["sender leads this snapshot: True"]
-  n98["previous snapshot is confirmed: True"]
-  n99["snapshot version matches: True"]
-  n100["snapshot transaction outputs are fresh: True"]
-  n101["primitive: apply transaction"]
-  n102["primitive: sign snapshot"]
-  n103["buffer: broadcast AckSn"]
-  n104["snapshot transaction outputs are fresh: False"]
-  n105["stage: record requested snapshot and prune local transactions"]
-  n106["finish"]
-  n107["deliver AckSn 1 from party 0 to 0 (TTL 2)"]
-  n108["acknowledgement number is admissible: True"]
-  n109["party has not signed this snapshot: True"]
-  n110["stage: record snapshot signature"]
-  n111["all parties have signed: False"]
-  n112["stage: record snapshot signature"]
-  n113["finish"]
-  n114["deliver AckSn 1 from party 0 to 1 (TTL 2)"]
-  n115["acknowledgement number is admissible: True"]
-  n116["party has not signed this snapshot: True"]
-  n117["stage: record snapshot signature"]
-  n118["all parties have signed: False"]
-  n119["stage: record snapshot signature"]
-  n120["finish"]
-  n121["deliver AckSn 1 from party 0 to 2 (TTL 2)"]
-  n122["acknowledgement number is admissible: True"]
-  n123["party has not signed this snapshot: True"]
-  n124["stage: record snapshot signature"]
-  n125["all parties have signed: False"]
-  n126["stage: record snapshot signature"]
-  n127["finish"]
-  n128["deliver AckSn 1 from party 1 to 0 (TTL 2)"]
-  n129["acknowledgement number is admissible: True"]
-  n130["party has not signed this snapshot: True"]
-  n131["stage: record snapshot signature"]
-  n132["all parties have signed: False"]
-  n133["stage: record snapshot signature"]
-  n134["finish"]
-  n135["deliver AckSn 1 from party 1 to 1 (TTL 2)"]
-  n136["acknowledgement number is admissible: True"]
-  n137["party has not signed this snapshot: True"]
-  n138["stage: record snapshot signature"]
-  n139["all parties have signed: False"]
-  n140["stage: record snapshot signature"]
-  n141["finish"]
-  n142["deliver AckSn 1 from party 1 to 2 (TTL 2)"]
-  n143["acknowledgement number is admissible: True"]
-  n144["party has not signed this snapshot: True"]
-  n145["stage: record snapshot signature"]
-  n146["all parties have signed: False"]
-  n147["stage: record snapshot signature"]
-  n148["finish"]
-  n149["deliver AckSn 1 from party 2 to 0 (TTL 2)"]
-  n150["acknowledgement number is admissible: True"]
-  n151["party has not signed this snapshot: True"]
-  n152["stage: record snapshot signature"]
-  n153["all parties have signed: True"]
-  n154["primitive: verify multisignature"]
-  n155["stage: confirm snapshot"]
-  n156["finish"]
-  n157["deliver AckSn 1 from party 2 to 1 (TTL 2)"]
-  n158["acknowledgement number is admissible: True"]
-  n159["party has not signed this snapshot: True"]
-  n160["stage: record snapshot signature"]
-  n161["all parties have signed: True"]
-  n162["primitive: verify multisignature"]
-  n163["stage: confirm snapshot"]
-  n164["finish"]
-  n165["deliver AckSn 1 from party 2 to 2 (TTL 2)"]
-  n166["acknowledgement number is admissible: True"]
-  n167["party has not signed this snapshot: True"]
-  n168["stage: record snapshot signature"]
-  n169["all parties have signed: True"]
-  n170["primitive: verify multisignature"]
-  n171["stage: confirm snapshot"]
-  n172["finish"]
-  n173["retry ReqTx 2 from party 0 to 0 (TTL 1)"]
-  n174["transaction is already applied locally: False"]
-  n175["stage: remember transaction"]
-  n176["outputs do not collide with the local UTxO: True"]
-  n177["primitive: apply transaction"]
-  n178["outputs do not collide with pending deposits: True"]
-  n179["stage: validated transaction"]
-  n180["snapshot request has useful work: True"]
-  n181["no snapshot is in flight: True"]
-  n182["this party leads the next snapshot: False"]
-  n183["finish"]
-  n184["retry ReqTx 2 from party 0 to 2 (TTL 1)"]
-  n185["transaction is already applied locally: False"]
-  n186["stage: remember transaction"]
-  n187["outputs do not collide with the local UTxO: True"]
-  n188["primitive: apply transaction"]
-  n189["outputs do not collide with pending deposits: True"]
-  n190["stage: validated transaction"]
-  n191["snapshot request has useful work: True"]
-  n192["no snapshot is in flight: True"]
-  n193["this party leads the next snapshot: False"]
-  n194["finish"]
-  n0 --> n1
-  n1 --> n2
-  n2 --> n3
-  n3 --> n4
-  n4 --> n5
-  n5 --> n6
-  n6 --> n7
-  n7 --> n8
-  n8 --> n9
-  n9 --> n10
-  n10 --> n11
-  n11 --> n12
-  n12 --> n13
-  n13 --> n14
-  n14 --> n15
-  n15 --> n16
-  n16 --> n17
-  n17 --> n18
-  n18 --> n19
-  n19 --> n20
-  n20 --> n21
-  n21 --> n22
-  n22 --> n23
-  n23 --> n24
-  n24 --> n25
-  n25 --> n26
-  n26 --> n27
-  n27 --> n28
-  n28 --> n29
-  n29 --> n30
-  n30 --> n31
-  n31 --> n32
-  n32 --> n33
-  n33 --> n34
-  n34 --> n35
-  n35 --> n36
-  n36 --> n37
-  n37 --> n38
-  n38 --> n39
-  n39 --> n40
-  n40 --> n41
-  n41 --> n42
-  n42 --> n43
-  n43 --> n44
-  n44 --> n45
-  n45 --> n46
-  n46 --> n47
-  n47 --> n48
-  n48 --> n49
-  n49 --> n50
-  n50 --> n51
-  n51 --> n52
-  n52 --> n53
-  n53 --> n54
-  n54 --> n55
-  n55 --> n56
-  n56 --> n57
-  n57 --> n58
-  n58 --> n59
-  n59 --> n60
-  n60 --> n61
-  n61 --> n62
-  n62 --> n63
-  n63 --> n64
-  n64 --> n65
-  n65 --> n66
-  n66 --> n67
-  n67 --> n68
-  n68 --> n69
-  n69 --> n70
-  n70 --> n71
-  n71 --> n72
-  n72 --> n73
-  n73 --> n74
-  n74 --> n75
-  n75 --> n76
-  n76 --> n77
-  n77 --> n78
-  n78 --> n79
-  n79 --> n80
-  n80 --> n81
-  n81 --> n82
-  n82 --> n83
-  n83 --> n84
-  n84 --> n85
-  n85 --> n86
-  n86 --> n87
-  n87 --> n88
-  n88 --> n89
-  n89 --> n90
-  n90 --> n91
-  n91 --> n92
-  n92 --> n93
-  n93 --> n94
-  n94 --> n95
-  n95 --> n96
-  n96 --> n97
-  n97 --> n98
-  n98 --> n99
-  n99 --> n100
-  n100 --> n101
-  n101 --> n102
-  n102 --> n103
-  n103 --> n104
-  n104 --> n105
-  n105 --> n106
-  n106 --> n107
-  n107 --> n108
-  n108 --> n109
-  n109 --> n110
-  n110 --> n111
-  n111 --> n112
-  n112 --> n113
-  n113 --> n114
-  n114 --> n115
-  n115 --> n116
-  n116 --> n117
-  n117 --> n118
-  n118 --> n119
-  n119 --> n120
-  n120 --> n121
-  n121 --> n122
-  n122 --> n123
-  n123 --> n124
-  n124 --> n125
-  n125 --> n126
-  n126 --> n127
-  n127 --> n128
-  n128 --> n129
-  n129 --> n130
-  n130 --> n131
-  n131 --> n132
-  n132 --> n133
-  n133 --> n134
-  n134 --> n135
-  n135 --> n136
-  n136 --> n137
-  n137 --> n138
-  n138 --> n139
-  n139 --> n140
-  n140 --> n141
-  n141 --> n142
-  n142 --> n143
-  n143 --> n144
-  n144 --> n145
-  n145 --> n146
-  n146 --> n147
-  n147 --> n148
-  n148 --> n149
-  n149 --> n150
-  n150 --> n151
-  n151 --> n152
-  n152 --> n153
-  n153 --> n154
-  n154 --> n155
-  n155 --> n156
-  n156 --> n157
-  n157 --> n158
-  n158 --> n159
-  n159 --> n160
-  n160 --> n161
-  n161 --> n162
-  n162 --> n163
-  n163 --> n164
-  n164 --> n165
-  n165 --> n166
-  n166 --> n167
-  n167 --> n168
-  n168 --> n169
-  n169 --> n170
-  n170 --> n171
-  n171 --> n172
-  n172 --> n173
-  n173 --> n174
-  n174 --> n175
-  n175 --> n176
-  n176 --> n177
-  n177 --> n178
-  n178 --> n179
-  n179 --> n180
-  n180 --> n181
-  n181 --> n182
-  n182 --> n183
-  n183 --> n184
-  n184 --> n185
-  n185 --> n186
-  n186 --> n187
-  n187 --> n188
-  n188 --> n189
-  n189 --> n190
-  n190 --> n191
-  n191 --> n192
-  n192 --> n193
-  n193 --> n194
+%%{init: {"sequence": {"wrap": true}}}%%
+sequenceDiagram
+  participant logic as Head logic
+  participant ledger as Ledger
+  participant crypto as Cryptography
+  participant changes as Staged changes
+  participant effects as Buffered effects
+  rect rgb(245, 247, 250)
+    Note over logic,effects: deliver ReqTx 2 from party 0 to 0 (TTL 2)
+    Note over logic: transaction is already applied locally: False
+    logic->>changes: stage: remember transaction
+    Note over logic: outputs do not collide with the local UTxO: True
+    ledger-->>logic: primitive: apply transaction
+    Note over logic: retry budget remains: True
+    Note over logic,effects: wait: retain prefix, discard effects
+  end
+  rect rgb(245, 247, 250)
+    Note over logic,effects: deliver ReqTx 2 from party 0 to 1 (TTL 2)
+    Note over logic: transaction is already applied locally: False
+    logic->>changes: stage: remember transaction
+    Note over logic: outputs do not collide with the local UTxO: True
+    ledger-->>logic: primitive: apply transaction
+    Note over logic: retry budget remains: True
+    Note over logic,effects: wait: retain prefix, discard effects
+  end
+  rect rgb(245, 247, 250)
+    Note over logic,effects: retry ReqTx 2 from party 0 to 1 (TTL 1)
+    Note over logic: transaction is already applied locally: False
+    logic->>changes: stage: remember transaction
+    Note over logic: outputs do not collide with the local UTxO: True
+    ledger-->>logic: primitive: apply transaction
+    Note over logic: retry budget remains: True
+    Note over logic,effects: wait: retain prefix, discard effects
+  end
+  rect rgb(245, 247, 250)
+    Note over logic,effects: retry ReqTx 2 from party 0 to 1 (TTL 0)
+    Note over logic: transaction is already applied locally: False
+    logic->>changes: stage: remember transaction
+    Note over logic: outputs do not collide with the local UTxO: True
+    ledger-->>logic: primitive: apply transaction
+    Note over logic: retry budget remains: False
+    logic->>changes: stage: record invalid transaction
+    Note over logic,effects: finish: commit changes and release effects
+  end
+  rect rgb(245, 247, 250)
+    Note over logic,effects: deliver ReqTx 2 from party 0 to 2 (TTL 2)
+    Note over logic: transaction is already applied locally: False
+    logic->>changes: stage: remember transaction
+    Note over logic: outputs do not collide with the local UTxO: True
+    ledger-->>logic: primitive: apply transaction
+    Note over logic: retry budget remains: True
+    Note over logic,effects: wait: retain prefix, discard effects
+  end
+  rect rgb(245, 247, 250)
+    Note over logic,effects: deliver ReqTx 1 from party 0 to 0 (TTL 2)
+    Note over logic: transaction is already applied locally: False
+    logic->>changes: stage: remember transaction
+    Note over logic: outputs do not collide with the local UTxO: True
+    ledger-->>logic: primitive: apply transaction
+    Note over logic: outputs do not collide with pending deposits: True
+    logic->>changes: stage: validated transaction
+    Note over logic: snapshot request has useful work: True
+    Note over logic: no snapshot is in flight: True
+    Note over logic: this party leads the next snapshot: True
+    logic->>changes: stage: record snapshot request
+    logic->>effects: buffer: broadcast ReqSn
+    Note over logic,effects: finish: commit changes and release effects
+  end
+  rect rgb(245, 247, 250)
+    Note over logic,effects: deliver ReqTx 1 from party 0 to 1 (TTL 2)
+    Note over logic: transaction is already applied locally: False
+    logic->>changes: stage: remember transaction
+    Note over logic: outputs do not collide with the local UTxO: True
+    ledger-->>logic: primitive: apply transaction
+    Note over logic: outputs do not collide with pending deposits: True
+    logic->>changes: stage: validated transaction
+    Note over logic: snapshot request has useful work: True
+    Note over logic: no snapshot is in flight: True
+    Note over logic: this party leads the next snapshot: False
+    Note over logic,effects: finish: commit changes and release effects
+  end
+  rect rgb(245, 247, 250)
+    Note over logic,effects: deliver ReqTx 1 from party 0 to 2 (TTL 2)
+    Note over logic: transaction is already applied locally: False
+    logic->>changes: stage: remember transaction
+    Note over logic: outputs do not collide with the local UTxO: True
+    ledger-->>logic: primitive: apply transaction
+    Note over logic: outputs do not collide with pending deposits: True
+    logic->>changes: stage: validated transaction
+    Note over logic: snapshot request has useful work: True
+    Note over logic: no snapshot is in flight: True
+    Note over logic: this party leads the next snapshot: False
+    Note over logic,effects: finish: commit changes and release effects
+  end
+  rect rgb(245, 247, 250)
+    Note over logic,effects: deliver ReqSn 0/1 txs [1] from party 0 to 0 (TTL 2)
+    Note over logic: request is the next snapshot: True
+    Note over logic: sender leads this snapshot: True
+    Note over logic: previous snapshot is confirmed: True
+    Note over logic: snapshot version matches: True
+    Note over logic: snapshot transaction outputs are fresh: True
+    ledger-->>logic: primitive: apply transaction
+    crypto-->>logic: primitive: sign snapshot
+    logic->>effects: buffer: broadcast AckSn
+    Note over logic: snapshot transaction outputs are fresh: False
+    logic->>changes: stage: record requested snapshot and prune local transactions
+    Note over logic,effects: finish: commit changes and release effects
+  end
+  rect rgb(245, 247, 250)
+    Note over logic,effects: deliver ReqSn 0/1 txs [1] from party 0 to 1 (TTL 2)
+    Note over logic: request is the next snapshot: True
+    Note over logic: sender leads this snapshot: True
+    Note over logic: previous snapshot is confirmed: True
+    Note over logic: snapshot version matches: True
+    Note over logic: snapshot transaction outputs are fresh: True
+    ledger-->>logic: primitive: apply transaction
+    crypto-->>logic: primitive: sign snapshot
+    logic->>effects: buffer: broadcast AckSn
+    Note over logic: snapshot transaction outputs are fresh: False
+    logic->>changes: stage: record requested snapshot and prune local transactions
+    Note over logic,effects: finish: commit changes and release effects
+  end
+  rect rgb(245, 247, 250)
+    Note over logic,effects: deliver ReqSn 0/1 txs [1] from party 0 to 2 (TTL 2)
+    Note over logic: request is the next snapshot: True
+    Note over logic: sender leads this snapshot: True
+    Note over logic: previous snapshot is confirmed: True
+    Note over logic: snapshot version matches: True
+    Note over logic: snapshot transaction outputs are fresh: True
+    ledger-->>logic: primitive: apply transaction
+    crypto-->>logic: primitive: sign snapshot
+    logic->>effects: buffer: broadcast AckSn
+    Note over logic: snapshot transaction outputs are fresh: False
+    logic->>changes: stage: record requested snapshot and prune local transactions
+    Note over logic,effects: finish: commit changes and release effects
+  end
+  rect rgb(245, 247, 250)
+    Note over logic,effects: deliver AckSn 1 from party 0 to 0 (TTL 2)
+    Note over logic: acknowledgement number is admissible: True
+    Note over logic: party has not signed this snapshot: True
+    logic->>changes: stage: record snapshot signature
+    Note over logic: all parties have signed: False
+    logic->>changes: stage: record snapshot signature
+    Note over logic,effects: finish: commit changes and release effects
+  end
+  rect rgb(245, 247, 250)
+    Note over logic,effects: deliver AckSn 1 from party 0 to 1 (TTL 2)
+    Note over logic: acknowledgement number is admissible: True
+    Note over logic: party has not signed this snapshot: True
+    logic->>changes: stage: record snapshot signature
+    Note over logic: all parties have signed: False
+    logic->>changes: stage: record snapshot signature
+    Note over logic,effects: finish: commit changes and release effects
+  end
+  rect rgb(245, 247, 250)
+    Note over logic,effects: deliver AckSn 1 from party 0 to 2 (TTL 2)
+    Note over logic: acknowledgement number is admissible: True
+    Note over logic: party has not signed this snapshot: True
+    logic->>changes: stage: record snapshot signature
+    Note over logic: all parties have signed: False
+    logic->>changes: stage: record snapshot signature
+    Note over logic,effects: finish: commit changes and release effects
+  end
+  rect rgb(245, 247, 250)
+    Note over logic,effects: deliver AckSn 1 from party 1 to 0 (TTL 2)
+    Note over logic: acknowledgement number is admissible: True
+    Note over logic: party has not signed this snapshot: True
+    logic->>changes: stage: record snapshot signature
+    Note over logic: all parties have signed: False
+    logic->>changes: stage: record snapshot signature
+    Note over logic,effects: finish: commit changes and release effects
+  end
+  rect rgb(245, 247, 250)
+    Note over logic,effects: deliver AckSn 1 from party 1 to 1 (TTL 2)
+    Note over logic: acknowledgement number is admissible: True
+    Note over logic: party has not signed this snapshot: True
+    logic->>changes: stage: record snapshot signature
+    Note over logic: all parties have signed: False
+    logic->>changes: stage: record snapshot signature
+    Note over logic,effects: finish: commit changes and release effects
+  end
+  rect rgb(245, 247, 250)
+    Note over logic,effects: deliver AckSn 1 from party 1 to 2 (TTL 2)
+    Note over logic: acknowledgement number is admissible: True
+    Note over logic: party has not signed this snapshot: True
+    logic->>changes: stage: record snapshot signature
+    Note over logic: all parties have signed: False
+    logic->>changes: stage: record snapshot signature
+    Note over logic,effects: finish: commit changes and release effects
+  end
+  rect rgb(245, 247, 250)
+    Note over logic,effects: deliver AckSn 1 from party 2 to 0 (TTL 2)
+    Note over logic: acknowledgement number is admissible: True
+    Note over logic: party has not signed this snapshot: True
+    logic->>changes: stage: record snapshot signature
+    Note over logic: all parties have signed: True
+    crypto-->>logic: primitive: verify multisignature
+    logic->>changes: stage: confirm snapshot
+    Note over logic,effects: finish: commit changes and release effects
+  end
+  rect rgb(245, 247, 250)
+    Note over logic,effects: deliver AckSn 1 from party 2 to 1 (TTL 2)
+    Note over logic: acknowledgement number is admissible: True
+    Note over logic: party has not signed this snapshot: True
+    logic->>changes: stage: record snapshot signature
+    Note over logic: all parties have signed: True
+    crypto-->>logic: primitive: verify multisignature
+    logic->>changes: stage: confirm snapshot
+    Note over logic,effects: finish: commit changes and release effects
+  end
+  rect rgb(245, 247, 250)
+    Note over logic,effects: deliver AckSn 1 from party 2 to 2 (TTL 2)
+    Note over logic: acknowledgement number is admissible: True
+    Note over logic: party has not signed this snapshot: True
+    logic->>changes: stage: record snapshot signature
+    Note over logic: all parties have signed: True
+    crypto-->>logic: primitive: verify multisignature
+    logic->>changes: stage: confirm snapshot
+    Note over logic,effects: finish: commit changes and release effects
+  end
+  rect rgb(245, 247, 250)
+    Note over logic,effects: retry ReqTx 2 from party 0 to 0 (TTL 1)
+    Note over logic: transaction is already applied locally: False
+    logic->>changes: stage: remember transaction
+    Note over logic: outputs do not collide with the local UTxO: True
+    ledger-->>logic: primitive: apply transaction
+    Note over logic: outputs do not collide with pending deposits: True
+    logic->>changes: stage: validated transaction
+    Note over logic: snapshot request has useful work: True
+    Note over logic: no snapshot is in flight: True
+    Note over logic: this party leads the next snapshot: False
+    Note over logic,effects: finish: commit changes and release effects
+  end
+  rect rgb(245, 247, 250)
+    Note over logic,effects: retry ReqTx 2 from party 0 to 2 (TTL 1)
+    Note over logic: transaction is already applied locally: False
+    logic->>changes: stage: remember transaction
+    Note over logic: outputs do not collide with the local UTxO: True
+    ledger-->>logic: primitive: apply transaction
+    Note over logic: outputs do not collide with pending deposits: True
+    logic->>changes: stage: validated transaction
+    Note over logic: snapshot request has useful work: True
+    Note over logic: no snapshot is in flight: True
+    Note over logic: this party leads the next snapshot: False
+    Note over logic,effects: finish: commit changes and release effects
+  end

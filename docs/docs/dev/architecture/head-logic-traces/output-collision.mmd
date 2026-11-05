@@ -1,10 +1,12 @@
-flowchart TD
-  n0["transaction is already applied locally: no"]
-  n1["stage: remember transaction"]
-  n2["outputs do not collide with the local UTxO: no"]
-  n3["retry budget remains: yes"]
-  n4["wait: commit changes and discard buffered effects"]
-  n0 --> n1
-  n1 --> n2
-  n2 --> n3
-  n3 --> n4
+%%{init: {"sequence": {"wrap": true}}}%%
+sequenceDiagram
+  participant logic as Head logic
+  participant changes as Staged changes
+  rect rgb(245, 247, 250)
+    Note over logic,changes: ReqTx: output-collision
+    Note over logic: transaction is already applied locally: no
+    logic->>changes: stage: remember transaction
+    Note over logic: outputs do not collide with the local UTxO: no
+    Note over logic: retry budget remains: yes
+    Note over logic,changes: wait: commit changes and discard buffered effects
+  end

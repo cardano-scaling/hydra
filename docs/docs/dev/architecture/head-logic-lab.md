@@ -83,6 +83,16 @@ Retries use the same `retryDecision` as the production queue. Delaying other
 pending messages needs no clock advancement: the scenario has a fixed chain slot
 and contains no timed settlement actions.
 
+The generated sequence diagrams have lanes for head logic, ledger replies,
+cryptography, staged changes and buffered effects. Unused lanes are omitted.
+Read downward for execution order; each shaded section names the delivery,
+retry or scheduler action. These are responsibilities within the recipient node,
+not separate services. Changes and effects remain tentative until the terminal
+note says what is committed or discarded. The settlement diagram instead uses
+one lane per party, because it records whole updates rather than instructions.
+Rendering lives in `Test.Hydra.HeadLogic.Mermaid`; the debugger supplies semantic
+step categories, so changing a label cannot move an instruction to another lane.
+
 Defaults are 24 deliveries per path and 100,000 visited states. `--deliveries N`
 and `--states N` override them. Reports include both limits, visited counts,
 depth cutoffs and truncation. A truncated or failure-stopped search is not

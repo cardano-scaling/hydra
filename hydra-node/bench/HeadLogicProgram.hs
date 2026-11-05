@@ -50,7 +50,6 @@ import Hydra.HeadLogic (
  )
 import Hydra.HeadLogic.Input (TTL)
 import Hydra.HeadLogic.Interpreter qualified as Interpreter
-import Hydra.HeadLogic.Trace qualified as Trace
 import Hydra.Ledger (Ledger (..))
 import Hydra.Ledger.Cardano (cardanoLedger)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), SimpleTxOut (..), simpleLedger)
@@ -124,7 +123,7 @@ writeTraces directory = do
             (outcome, trace) = Interpreter.traceProgram fixture.ledger program
             expected = runHandler legacyOnOpenNetworkReqTx fixture fixture.incoming
             destination = directory </> name <.> "mmd"
-            diagram = (Mermaid.renderLinearTrace . fmap Trace.traceLabel) trace
+            diagram = Mermaid.renderTraces [("ReqTx: " <> toText name, trace)]
         unless (outcome == expected) $ Prelude.error $ "trace disagrees with legacy handler: " <> toText name
         TextIO.writeFile destination diagram
         putStrLn destination
@@ -139,6 +138,10 @@ writeTraces directory = do
       , "with the simple test ledger. Each diagram covers one concrete input; unvisited"
       , "branches are outside its scope. Every generated run checks its complete outcome"
       , "against the frozen migration baseline."
+      , ""
+      , "Read each sequence diagram from top to bottom. Lanes separate head logic,"
+      , "ledger replies, staged changes, and buffered effects within one node."
+      , "The last note says whether changes and effects are committed or discarded."
       , ""
       , "Regenerate this page and its `.mmd` files with:"
       , ""

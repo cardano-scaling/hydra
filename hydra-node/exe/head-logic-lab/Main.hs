@@ -15,6 +15,7 @@ import Data.Text qualified as Text
 import Data.Text.IO qualified as Text
 import Hydra.HeadLogic hiding (error)
 import Hydra.HeadLogic.Interpreter qualified as Interpreter
+import Hydra.HeadLogic.Trace (traceLabel)
 import Hydra.Ledger.Simple (SimpleTx (..), SimpleTxOut (..), simpleLedger)
 import Hydra.Node.State (NodeState (..))
 import Hydra.Prelude hiding (size, state)
@@ -39,13 +40,13 @@ main =
         pure $ object ["confirmedBeforeRollback" .= confirmed, "rollbackSlot" .= slot, "reobservationOrder" .= recipients, "steps" .= steps]
       LBS.writeFile file $ encode $ object ["schemaVersion" .= (1 :: Int), "cases" .= cases]
       steps <- demand $ Settlement.settlementSequence True 2 [0, 1, 2]
-      Text.writeFile (file <> ".mmd") $ Mermaid.renderLinearTrace [step.label <> " at party " <> show step.recipient | step <- steps]
+      Text.writeFile (file <> ".mmd") $ Mermaid.renderTimeline [("Party " <> show step.recipient, step.label) | step <- steps]
       putStrLn ("All 24 settlement schedules passed, including event and checkpoint replay." :: String)
     ["registry-demo", file] -> do
-      (report, labels) <- demand RegistryDemo.registryDemo
+      (report, sections) <- demand RegistryDemo.registryDemo
       LBS.writeFile file $ encode report
-      Text.writeFile (file <> ".mmd") $ Mermaid.renderLinearTrace labels
-      mapM_ Text.putStrLn labels
+      Text.writeFile (file <> ".mmd") $ Mermaid.renderTraces sections
+      forM_ sections $ \(title, observations) -> mapM_ Text.putStrLn $ title : map traceLabel observations
       putStrLn $ "All registry checks passed. Complete outcomes and states: " <> file
     "explore" : file : options -> do
       (bounds, settings) <- either fail pure $ exploreOptions options
@@ -57,7 +58,7 @@ main =
         let minimized = Explorer.minimize settings.executionMode start report.path
         (scenario, views) <- demand $ Replay.recordScenario bounds settings start minimized
         LBS.writeFile file $ encode scenario
-        Text.writeFile (file <> ".mmd") $ Debug.renderSteps views
+        Text.writeFile (file <> ".mmd") $ Mermaid.renderSteps views
         putStrLn $ "Saved " <> show (length minimized) <> " actions, minimized under single-action deletion: " <> file
     "replay" : file : options -> do
       scenario <- either (fail . toString) pure . first toText =<< eitherDecodeFileStrict' file
@@ -72,7 +73,7 @@ main =
         else do
           (world, views) <- demand $ Replay.replayScenario scenario
           print $ Explorer.invariantFailure world
-          Text.writeFile (file <> ".replay.mmd") $ Debug.renderSteps views
+          Text.writeFile (file <> ".replay.mmd") $ Mermaid.renderSteps views
           if "--step" `elem` options
             then do
               putStrLn ("Stepping the prepared trace; primitive replies were validated before inspection." :: String)
@@ -84,7 +85,7 @@ main =
       let route = honestRoute 40 Scenario.initialWorld
       (scenario, views) <- demand $ Replay.recordScenario (Scenario.Limits 40 1) Scenario.defaultExploration Scenario.initialWorld route
       LBS.writeFile file $ encode scenario
-      Text.writeFile (file <> ".mmd") $ Debug.renderSteps views
+      Text.writeFile (file <> ".mmd") $ Mermaid.renderSteps views
       putStrLn file
     "resolved" : options -> withArgs options resolvedBenchmarks
     _ ->

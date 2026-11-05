@@ -149,10 +149,10 @@ spec = do
       trace `shouldBe` [Trace.Changed "remember transaction", Trace.Emitted "network effect", Trace.Rejected]
 
     it "escapes decision labels when rendering a concrete trace" $ do
-      let graph = (Mermaid.renderLinearTrace . fmap Trace.traceLabel) [Trace.Decided "guard \"<&>\"\nnext" False, Trace.Finished]
-      graph `shouldSatisfy` Text.isPrefixOf "flowchart TD\n"
-      graph `shouldSatisfy` Text.isInfixOf "guard &quot;&lt;&amp;&gt;&quot; next: no"
-      graph `shouldSatisfy` Text.isInfixOf "n0 --> n1"
+      let graph = Mermaid.renderTraces [("ReqTx", [Trace.Decided "guard \"<&>\"; #\nnext" False, Trace.Finished])]
+      graph `shouldSatisfy` Text.isInfixOf "sequenceDiagram\n"
+      graph `shouldSatisfy` Text.isInfixOf "guard #34;#60;#38;#62;#34;#59; #35; next: no"
+      graph `shouldSatisfy` Text.isInfixOf "Note over logic: finish: commit changes and release effects"
 
     it "reifies suspension without evaluating its unreachable continuation" $ do
       let program :: Program.TransactionProgram SimpleTx ()
@@ -227,7 +227,7 @@ spec = do
               (outcome, trace) = Interpreter.traceProgram ledger program
           outcome `shouldBe` Interpreter.runProgram ledger program
           trace `shouldSatisfy` (not . null)
-          (Mermaid.renderLinearTrace . fmap Trace.traceLabel) trace `shouldSatisfy` (not . Text.null)
+          Mermaid.renderTraces [("ReqTx", trace)] `shouldSatisfy` (not . Text.null)
 
     it "reifying and lowering the actual rule preserves its outcome and trace" $ do
       forM_ [simpleLedger, rejectingLedger] $ \ledger ->

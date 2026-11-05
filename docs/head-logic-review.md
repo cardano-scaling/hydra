@@ -40,7 +40,7 @@ Cardano transaction. The table below covers the remaining entry points.
 | [RegistryDemo.hs](../hydra-node/testlib/Test/Hydra/HeadLogic/RegistryDemo.hs) | Checked Cardano witness-replacement demonstration; full outcomes and states. |
 | [Settlement.hs](../hydra-node/testlib/Test/Hydra/HeadLogic/Settlement.hs) | Three-party deposit/spend/rollback sequences through `update`, with serialized replay checks. |
 | [Debugger.hs](../hydra-node/testlib/Test/Hydra/HeadLogic/Debugger.hs) | `prepare`, live `Cursor`, prepared trace inspection, controlled primitive replies and test-only verification bypass. |
-| [Mermaid.hs](../hydra-node/testlib/Test/Hydra/HeadLogic/Mermaid.hs) | Escaped plain-label diagrams; no protocol dependency. |
+| [Mermaid.hs](../hydra-node/testlib/Test/Hydra/HeadLogic/Mermaid.hs) | `renderSteps`, `renderTraces`, `renderTimeline`: component lanes and handler sections, or party lanes for settlement. Rendering stays outside the rules and debugger. |
 | [Resolved.hs](../hydra-node/testlib/Test/Hydra/HeadLogic/Resolved.hs) | UTxO differences, experimental CBOR log, replay and diagnostic events. |
 | [head-logic-lab/Main.hs](../hydra-node/exe/head-logic-lab/Main.hs) | Development CLI, options and resolved benchmarks. |
 | [HeadLogicProgram.hs](../hydra-node/bench/HeadLogicProgram.hs) | ReqTx and complete-round benchmarks; confirmation/equality prerequisites run outside timing. |
