@@ -2,7 +2,8 @@
 
 This spike moves the `ReqTx`, `ReqSn` and `AckSn` handlers into programs that
 describe their ledger queries, state changes and effects. `hydra-node` runs them
-through a shared interpreter. The same programs drive the explorer and debugger.
+through a shared interpreter. The same programs drive the explorer and debugger. Retained events then run
+through composed crem machines in the node.
 
 Network messages and persisted `StateChanged` encodings are unchanged. One rule
 changes: `ReqTx` ignores a transaction ID already applied locally. This prevents
@@ -20,6 +21,7 @@ a duplicate from replacing or deleting the valid transaction in `allTxs`.
 | [Design sketch](./docs/dev/architecture/head-logic-refactor.md) | Broader proposal; distinguishes implemented work from future extensions |
 | [Agda orientation](./docs/dev/agda.md) | Specification and independent reference extraction |
 | [Generating head logic from Agda](./head-logic-agda-generated.md) | Proposal for generated rules and their proofs; documentation only |
+| [Composing transitions with crem](./head-logic-crem.md) | Operational call sites, code map, phase diagrams, measurements and next steps for crem |
 
 ## Code to read
 
@@ -33,6 +35,7 @@ Cardano transaction. The table below covers the remaining entry points.
 | [Interpreter.hs](../hydra-node/src/Hydra/HeadLogic/Interpreter.hs) | `InterpreterConfig`, `evaluateChanges`, `compatibleChange`, `runProgramWith`. Runs primitives and commits or discards buffered events/effects. |
 | [Trace.hs](../hydra-node/src/Hydra/HeadLogic/Trace.hs) | `TraceStep`, `traceLabel`, `changeLabel`, `effectLabel`. Trace events and labels. |
 | [HeadLogic.hs](../hydra-node/src/Hydra/HeadLogic.hs) | `RuleEnvironment`, `onOpenNetworkReqTxProgram`, `onOpenNetworkReqSnProgram`, `onOpenNetworkAckSnProgram`, `applyTransactionsProgram`. Actual protocol decisions. |
+| [Machine.hs](../hydra-node/src/Hydra/HeadLogic/Machine.hs) | `components`, `apply`, `step`: composed lifecycle, incremental action, snapshot coordination and node metadata. |
 | [Retry.hs](../hydra-node/src/Hydra/HeadLogic/Retry.hs) | `retryDecision`, shared by the node queue and development scheduler. |
 | [Scenario.hs](../hydra-node/testlib/Test/Hydra/HeadLogic/Scenario.hs) | Test heads and transactions, message queues, scenario selection and JSON. |
 | [Explorer.hs](../hydra-node/testlib/Test/Hydra/HeadLogic/Explorer.hs) | `programFor`, `advance`, `safetyFailure`, `progressFailure`, `explore`, `exploreRetryWindows`, `minimize`. |
@@ -66,7 +69,7 @@ flowchart TD
     Rules --> Eval[Interpreter.evaluateChanges]
     Config[Typed ledger and signing configuration] --> Eval
     Eval --> Compat[Existing Outcome and StateChanged]
-    Compat --> Aggregate[Existing aggregateState]
+    Compat --> Aggregate[aggregateState: composed crem machines]
     Compat --> Effects[Existing persistence and effect delivery]
     Eval --> Trace[Optional TraceStep observations]
     Trace --> Mermaid[Development Mermaid renderer]

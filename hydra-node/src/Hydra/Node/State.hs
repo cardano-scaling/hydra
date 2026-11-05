@@ -1,6 +1,6 @@
 {-# LANGUAGE UndecidableInstances #-}
 
-module Hydra.Node.State where
+module Hydra.Node.State (module Hydra.Node.State, module Deposit) where
 
 import Hydra.Prelude
 
@@ -10,42 +10,15 @@ import Data.Map.Strict qualified as Map
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import GHC.Records (HasField (..))
 import Hydra.Chain.ChainState (ChainSlot (..), IsChainState (..), chainStateSlot)
+import Hydra.HeadLogic.Machine.Deposit qualified as DepositMachine
 import Hydra.HeadLogic.State (HeadState (Idle), IdleState (..))
+import Hydra.Node.Deposit as Deposit (Deposit (..), DepositStatus (..), TrackedDeposit (..))
 import Hydra.Tx (
   HeadId,
   IsTx (..),
  )
 
 type PendingDeposits tx = Map (TxIdType tx) (Deposit tx)
-
--- | A deposit with its L1 lifecycle slots. Deposits are L1-derived state, so a
--- rollback must rewind the view ('rollbackDeposits'): a deposit recorded after
--- the rolled-back slot vanishes (its deposit transaction was erased), and a
--- consumption after it is undone (the erased increment or recover resurfaces
--- the deposit). Forward re-observation of the new chain then converges the view
--- again. Only L1-derived state may rewind like this; L2 state (snapshots,
--- signatures) never rolls back.
-data TrackedDeposit tx = TrackedDeposit
-  { deposit :: Deposit tx
-  , recordedAt :: ChainSlot
-  -- ^ Slot at which the deposit transaction was observed.
-  , consumedAt :: Maybe ChainSlot
-  -- ^ Slot at which a consuming transaction (increment or recover) was
-  -- observed, if any. A consumed deposit is no longer pending, but is retained
-  -- for 'depositRetentionHorizon' so a rollback can resurface it.
-  }
-  deriving stock (Generic)
-
-deriving stock instance IsTx tx => Eq (TrackedDeposit tx)
-deriving stock instance IsTx tx => Show (TrackedDeposit tx)
-deriving anyclass instance IsTx tx => ToJSON (TrackedDeposit tx)
-deriving anyclass instance IsTx tx => FromJSON (TrackedDeposit tx)
-
-instance IsTx tx => ToCBOR (TrackedDeposit tx) where
-  toCBOR = genericToCBOR
-
-instance IsTx tx => FromCBOR (TrackedDeposit tx) where
-  fromCBOR = genericFromCBOR
 
 type TrackedDeposits tx = Map (TxIdType tx) (TrackedDeposit tx)
 
@@ -72,7 +45,7 @@ recordDeposit :: IsTx tx => ChainSlot -> TxIdType tx -> Deposit tx -> NodeState 
 recordDeposit slot depositTxId deposit nodeState =
   nodeState
     { deposits =
-        Map.insert depositTxId TrackedDeposit{deposit, recordedAt = slot, consumedAt = Nothing} $
+        Map.alter (DepositMachine.transition $ DepositMachine.Observe slot deposit) depositTxId $
           pruneConsumedDeposits slot (deposits nodeState)
     }
 
@@ -80,7 +53,7 @@ recordDeposit slot depositTxId deposit nodeState =
 -- unaffected. Unknown ids are ignored.
 updateDeposit :: IsTx tx => TxIdType tx -> Deposit tx -> NodeState tx -> NodeState tx
 updateDeposit depositTxId deposit nodeState =
-  nodeState{deposits = Map.adjust (\tracked -> tracked{deposit}) depositTxId (deposits nodeState)}
+  nodeState{deposits = Map.alter (DepositMachine.transition $ DepositMachine.Update deposit) depositTxId (deposits nodeState)}
 
 -- | Mark a deposit consumed at the given slot: its increment or recover was
 -- observed on chain. Re-consuming (the consuming transaction re-landed after a
@@ -90,7 +63,7 @@ consumeDeposit :: IsTx tx => ChainSlot -> TxIdType tx -> NodeState tx -> NodeSta
 consumeDeposit slot depositTxId nodeState =
   nodeState
     { deposits =
-        Map.adjust (\tracked -> tracked{consumedAt = Just slot}) depositTxId $
+        Map.alter (DepositMachine.transition $ DepositMachine.Consume slot) depositTxId $
           pruneConsumedDeposits slot (deposits nodeState)
     }
 
@@ -98,11 +71,7 @@ consumeDeposit slot depositTxId nodeState =
 -- 'TrackedDeposit'.
 rollbackDeposits :: ChainSlot -> NodeState tx -> NodeState tx
 rollbackDeposits slot nodeState =
-  nodeState{deposits = Map.mapMaybe rollbackOne (deposits nodeState)}
- where
-  rollbackOne tracked@TrackedDeposit{recordedAt, consumedAt}
-    | recordedAt > slot = Nothing
-    | otherwise = Just tracked{consumedAt = mfilter (<= slot) consumedAt}
+  nodeState{deposits = Map.mapMaybe (DepositMachine.transition (DepositMachine.Rollback slot) . Just) (deposits nodeState)}
 
 -- | Drop consumed deposits beyond 'depositRetentionHorizon': no rollback can
 -- resurface them anymore, so retaining them would only grow persisted state
@@ -263,38 +232,6 @@ instance FromCBOR SyncedStatus where
 syncedStatus :: NodeState tx -> SyncedStatus
 syncedStatus NodeInSync{} = InSync
 syncedStatus NodeCatchingUp{} = CatchingUp
-
--- | A deposit tracked by the protocol. The 'DepositStatus' determines whether
--- it may be used for an incremental commit or not.
-data Deposit tx = Deposit
-  { headId :: HeadId
-  , deposited :: UTxOType tx
-  , created :: UTCTime
-  , deadline :: UTCTime
-  , status :: DepositStatus
-  }
-  deriving stock (Generic)
-
-deriving stock instance IsTx tx => Eq (Deposit tx)
-deriving stock instance IsTx tx => Show (Deposit tx)
-deriving anyclass instance IsTx tx => ToJSON (Deposit tx)
-deriving anyclass instance IsTx tx => FromJSON (Deposit tx)
-
-instance IsTx tx => ToCBOR (Deposit tx) where
-  toCBOR = genericToCBOR
-
-instance IsTx tx => FromCBOR (Deposit tx) where
-  fromCBOR = genericFromCBOR
-
-data DepositStatus = Inactive | Active | Expired
-  deriving stock (Generic, Eq, Show)
-  deriving anyclass (ToJSON, FromJSON)
-
-instance ToCBOR DepositStatus where
-  toCBOR = genericToCBOR
-
-instance FromCBOR DepositStatus where
-  fromCBOR = genericFromCBOR
 
 depositsForHead :: HeadId -> PendingDeposits tx -> PendingDeposits tx
 depositsForHead targetHeadId =

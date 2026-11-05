@@ -10,6 +10,11 @@
 -- module's header for what a negative one does.
 module Hydra.Agda.OffChainReference (
   -- * deposit lifecycle (the @tick@ handler)
+  HsLifecyclePhase (..),
+  HsLifecycleEvent (..),
+  HsCoordinationPhase (..),
+  HsCoordinationEvent (..),
+  HsTrackedPhase (..),
   HsDepositStatus (..),
   depositStatusRef,
 
@@ -53,10 +58,18 @@ module Hydra.Agda.OffChainReference (
   reqTxKnownOutcomeRef,
   reqSnOutcomeRef,
   ackSnOutcomeRef,
+  lifecyclePhaseRef,
+  coordinationPhaseRef,
+  trackedDepositPhaseRef,
+  pendingIncrementPhaseRef,
 ) where
 
 import MAlonzo.Code.Hydra.Protocol.OffChainReference (
+  HsCoordinationEvent (..),
+  HsCoordinationPhase (..),
   HsDepositStatus (..),
+  HsLifecycleEvent (..),
+  HsLifecyclePhase (..),
   HsPendingCommit (..),
   HsReqTxChange (..),
   HsReqTxEffect (..),
@@ -68,6 +81,7 @@ import MAlonzo.Code.Hydra.Protocol.OffChainReference (
   HsSnapshotPhase (..),
   HsSnapshotRejection (..),
   HsSnapshotWait (..),
+  HsTrackedPhase (..),
  )
 import MAlonzo.Code.Hydra.Protocol.OffChainReference qualified as M
 
@@ -203,3 +217,16 @@ ackSnOutcomeRef = M.hsAckSnOutcomeRef
 -- | Extend the bounded receipt outcome with the already-applied-ID guard.
 reqTxKnownOutcomeRef :: Bool -> Bool -> Integer -> Bool -> Integer -> Integer -> Integer -> HsReqTxOutcome
 reqTxKnownOutcomeRef = M.hsReqTxKnownOutcomeRef
+
+-- | Phase projections of retained events; guards and payloads are outside these abstractions.
+lifecyclePhaseRef :: HsLifecyclePhase -> HsLifecycleEvent -> Bool -> HsLifecyclePhase
+lifecyclePhaseRef = M.hsLifecyclePhaseRef
+
+coordinationPhaseRef :: HsCoordinationPhase -> HsCoordinationEvent -> Bool -> Bool -> Bool -> HsCoordinationPhase
+coordinationPhaseRef = M.hsCoordinationPhaseRef
+
+trackedDepositPhaseRef :: HsTrackedPhase -> Integer -> HsDepositStatus -> Bool -> Bool -> HsTrackedPhase
+trackedDepositPhaseRef = M.hsTrackedDepositPhaseRef
+
+pendingIncrementPhaseRef :: Bool -> Bool -> Bool -> Integer
+pendingIncrementPhaseRef = M.hsPendingIncrementPhaseRef

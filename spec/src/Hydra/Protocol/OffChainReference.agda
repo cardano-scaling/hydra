@@ -381,3 +381,100 @@ reqTxKnownOutcomeRef false applicable ttl inFlight m sn party = reqTxOutcomeRef 
 {-# COMPILE GHC reqSnOutcomeRef as hsReqSnOutcomeRef #-}
 {-# COMPILE GHC ackSnOutcomeRef as hsAckSnOutcomeRef #-}
 {-# COMPILE GHC reqTxKnownOutcomeRef as hsReqTxKnownOutcomeRef #-}
+
+-- Retained-event phase projections for the crem migration. These are replay
+-- semantics, not admission rules. Checkpoints replace the complete machine;
+-- foreign-head filtering occurs before these functions. Payloads, signature
+-- maps, versions and slot history are compared separately against the frozen
+-- reducer. The Booleans below are explicit abstraction inputs, not proofs.
+data LifecyclePhaseᶜ : Set where
+  idleHeadᶜ openHeadᶜ closedHeadᶜ readyHeadᶜ pendingFanoutᶜ fanoutProgressᶜ : LifecyclePhaseᶜ
+{-# FOREIGN GHC data HsLifecyclePhase = IdleHead | OpenHead | ClosedHead | ReadyHead | PendingFanout | FanoutProgress deriving (Eq, Show, Enum, Bounded) #-}
+{-# COMPILE GHC LifecyclePhaseᶜ = data HsLifecyclePhase (IdleHead | OpenHead | ClosedHead | ReadyHead | PendingFanout | FanoutProgress) #-}
+
+data LifecycleEventᶜ : Set where
+  openedᶜ closedᶜ readyᶜ fanoutStartedᶜ partialObservedᶜ fanoutRevertedᶜ fannedOutᶜ unchangedᶜ : LifecycleEventᶜ
+{-# FOREIGN GHC data HsLifecycleEvent = Opened | Closed | Ready | FanoutStarted | PartialObserved | FanoutReverted | FannedOut | Unchanged deriving (Eq, Show, Enum, Bounded) #-}
+{-# COMPILE GHC LifecycleEventᶜ = data HsLifecycleEvent (Opened | Closed | Ready | FanoutStarted | PartialObserved | FanoutReverted | FannedOut | Unchanged) #-}
+
+-- distributed means the accumulated outputs after this observation are nonempty.
+lifecyclePhaseRef : LifecyclePhaseᶜ → LifecycleEventᶜ → Bool → LifecyclePhaseᶜ
+lifecyclePhaseRef _ openedᶜ _ = openHeadᶜ
+lifecyclePhaseRef openHeadᶜ closedᶜ _ = closedHeadᶜ
+lifecyclePhaseRef closedHeadᶜ readyᶜ _ = readyHeadᶜ
+lifecyclePhaseRef closedHeadᶜ fanoutStartedᶜ _ = pendingFanoutᶜ
+lifecyclePhaseRef readyHeadᶜ fanoutStartedᶜ _ = pendingFanoutᶜ
+lifecyclePhaseRef closedHeadᶜ partialObservedᶜ distributed = if distributed then fanoutProgressᶜ else pendingFanoutᶜ
+lifecyclePhaseRef readyHeadᶜ partialObservedᶜ distributed = if distributed then fanoutProgressᶜ else pendingFanoutᶜ
+lifecyclePhaseRef pendingFanoutᶜ partialObservedᶜ distributed = if distributed then fanoutProgressᶜ else pendingFanoutᶜ
+lifecyclePhaseRef fanoutProgressᶜ partialObservedᶜ distributed = if distributed then fanoutProgressᶜ else pendingFanoutᶜ
+lifecyclePhaseRef pendingFanoutᶜ fanoutRevertedᶜ _ = readyHeadᶜ
+lifecyclePhaseRef fanoutProgressᶜ fanoutRevertedᶜ _ = readyHeadᶜ
+lifecyclePhaseRef closedHeadᶜ fannedOutᶜ _ = idleHeadᶜ
+lifecyclePhaseRef readyHeadᶜ fannedOutᶜ _ = idleHeadᶜ
+lifecyclePhaseRef pendingFanoutᶜ fannedOutᶜ _ = idleHeadᶜ
+lifecyclePhaseRef fanoutProgressᶜ fannedOutᶜ _ = idleHeadᶜ
+lifecyclePhaseRef phase _ _ = phase
+
+-- Coordination is absent outside Open. A request can replace an in-flight
+-- snapshot in raw replay; protocol guards normally prevent that replacement.
+data CoordinationPhaseᶜ : Set where
+  outsideHeadᶜ noRequestSeenᶜ snapshotIdleᶜ requestSentᶜ collectingᶜ : CoordinationPhaseᶜ
+{-# FOREIGN GHC data HsCoordinationPhase = OutsideHead | NoRequestSeen | SnapshotIdle | RequestSent | Collecting deriving (Eq, Show, Enum, Bounded) #-}
+{-# COMPILE GHC CoordinationPhaseᶜ = data HsCoordinationPhase (OutsideHead | NoRequestSeen | SnapshotIdle | RequestSent | Collecting) #-}
+
+data CoordinationEventᶜ : Set where
+  headOpenedᶜ headClosedᶜ requestDecidedᶜ snapshotRequestedᶜ snapshotConfirmedᶜ localClearedᶜ settlementObservedᶜ otherEventᶜ : CoordinationEventᶜ
+{-# FOREIGN GHC data HsCoordinationEvent = HeadOpened | HeadClosed | RequestDecided | SnapshotRequested | SnapshotConfirmed | LocalCleared | SettlementObserved | OtherEvent deriving (Eq, Show, Enum, Bounded) #-}
+{-# COMPILE GHC CoordinationEventᶜ = data HsCoordinationEvent (HeadOpened | HeadClosed | RequestDecided | SnapshotRequested | SnapshotConfirmed | LocalCleared | SettlementObserved | OtherEvent) #-}
+
+coordinationPhaseRef : CoordinationPhaseᶜ → CoordinationEventᶜ → Bool → Bool → Bool → CoordinationPhaseᶜ
+coordinationPhaseRef _ headOpenedᶜ _ _ _ = noRequestSeenᶜ
+coordinationPhaseRef _ headClosedᶜ _ _ _ = outsideHeadᶜ
+coordinationPhaseRef outsideHeadᶜ _ _ _ _ = outsideHeadᶜ
+coordinationPhaseRef _ requestDecidedᶜ _ _ _ = requestSentᶜ
+coordinationPhaseRef _ snapshotRequestedᶜ _ _ _ = collectingᶜ
+coordinationPhaseRef collectingᶜ snapshotConfirmedᶜ _ _ _ = snapshotIdleᶜ
+coordinationPhaseRef phase snapshotConfirmedᶜ _ explicit _ = if explicit then snapshotIdleᶜ else phase
+coordinationPhaseRef _ localClearedᶜ initial _ _ = if initial then noRequestSeenᶜ else snapshotIdleᶜ
+coordinationPhaseRef collectingᶜ settlementObservedᶜ _ _ _ = collectingᶜ
+coordinationPhaseRef phase settlementObservedᶜ _ _ fresh = if fresh then snapshotIdleᶜ else phase
+coordinationPhaseRef phase _ _ _ _ = phase
+
+-- The tracked deposit has a status and a separate consuming observation. A
+-- rollback restores the stored status; it does not recompute it from time.
+data TrackedPhaseᶜ : Set where
+  missingDepositᶜ inactiveDepositᶜ activeDepositᶜ expiredDepositᶜ consumedDepositᶜ : TrackedPhaseᶜ
+{-# FOREIGN GHC data HsTrackedPhase = MissingDeposit | InactiveDeposit | ActiveDeposit | ExpiredDeposit | ConsumedDeposit deriving (Eq, Show, Enum, Bounded) #-}
+{-# COMPILE GHC TrackedPhaseᶜ = data HsTrackedPhase (MissingDeposit | InactiveDeposit | ActiveDeposit | ExpiredDeposit | ConsumedDeposit) #-}
+
+statusPhase : DepositStatusᶜ → TrackedPhaseᶜ
+statusPhase inactiveᶜ = inactiveDepositᶜ
+statusPhase activeᶜ = activeDepositᶜ
+statusPhase expiredᶜ = expiredDepositᶜ
+
+-- action: 0 observe, 1 update, 2 consume, 3 rollback. status is the new
+-- payload status for observe/update, otherwise the retained payload status.
+trackedDepositPhaseRef : TrackedPhaseᶜ → Nat → DepositStatusᶜ → Bool → Bool → TrackedPhaseᶜ
+trackedDepositPhaseRef _ 0 status _ _ = statusPhase status
+trackedDepositPhaseRef missingDepositᶜ _ _ _ _ = missingDepositᶜ
+trackedDepositPhaseRef consumedDepositᶜ 1 _ _ _ = consumedDepositᶜ
+trackedDepositPhaseRef _ 1 status _ _ = statusPhase status
+trackedDepositPhaseRef _ 2 _ _ _ = consumedDepositᶜ
+trackedDepositPhaseRef _ 3 _ true _ = missingDepositᶜ
+trackedDepositPhaseRef consumedDepositᶜ 3 status false true = statusPhase status
+trackedDepositPhaseRef phase _ _ _ _ = phase
+
+-- Pending action projection: outside=0, none=1, deposit=2, decommit=3, both=4.
+-- The last case is representable in persisted data; admission prevents it.
+pendingIncrementPhaseRef : Bool → Bool → Bool → Nat
+pendingIncrementPhaseRef false _ _ = 0
+pendingIncrementPhaseRef true false false = 1
+pendingIncrementPhaseRef true true false = 2
+pendingIncrementPhaseRef true false true = 3
+pendingIncrementPhaseRef true true true = 4
+
+{-# COMPILE GHC lifecyclePhaseRef as hsLifecyclePhaseRef #-}
+{-# COMPILE GHC coordinationPhaseRef as hsCoordinationPhaseRef #-}
+{-# COMPILE GHC trackedDepositPhaseRef as hsTrackedDepositPhaseRef #-}
+{-# COMPILE GHC pendingIncrementPhaseRef as hsPendingIncrementPhaseRef #-}

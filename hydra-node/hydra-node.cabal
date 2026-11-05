@@ -77,10 +77,17 @@ library
     Hydra.HeadLogic.Error
     Hydra.HeadLogic.Input
     Hydra.HeadLogic.Interpreter
+    Hydra.HeadLogic.Machine
+    Hydra.HeadLogic.Machine.Deposit
+    Hydra.HeadLogic.Machine.Incremental
+    Hydra.HeadLogic.Machine.Lifecycle
+    Hydra.HeadLogic.Machine.OffChain
+    Hydra.HeadLogic.Machine.Types
     Hydra.HeadLogic.Outcome
     Hydra.HeadLogic.Program
     Hydra.HeadLogic.Retry
     Hydra.HeadLogic.State
+    Hydra.HeadLogic.State.Operations
     Hydra.HeadLogic.StateEvent
     Hydra.HeadLogic.Trace
     Hydra.Ledger
@@ -99,6 +106,7 @@ library
     Hydra.NetworkVersions
     Hydra.Node
     Hydra.Node.ApiTransactionTimeout
+    Hydra.Node.Deposit
     Hydra.Node.EmbedTH
     Hydra.Node.Environment
     Hydra.Node.InputQueue
@@ -140,6 +148,7 @@ library
     , containers
     , contra-tracer
     , contra-tracer-json
+    , crem                         ==0.1.1.0
     , crypton
     , data-default
     , directory
@@ -172,6 +181,7 @@ library
     , safe-money
     , secret
     , serialise
+    , singletons-base
     , sop-extras
     , stm
     , template-haskell
@@ -211,6 +221,8 @@ library testlib
     Test.Hydra.HeadLogic.Input
     Test.Hydra.HeadLogic.LegacyReqTx
     Test.Hydra.HeadLogic.LegacySnapshot
+    Test.Hydra.HeadLogic.LegacyState
+    Test.Hydra.HeadLogic.MachineDiagrams
     Test.Hydra.HeadLogic.Mermaid
     Test.Hydra.HeadLogic.Outcome
     Test.Hydra.HeadLogic.RegistryDemo
@@ -250,6 +262,7 @@ library testlib
     , cborg
     , containers
     , contra-tracer-json
+    , crem
     , directory
     , filepath
     , hydra-cardano-api
@@ -439,6 +452,7 @@ test-suite tests
     Hydra.Events.S3Spec
     Hydra.Events.SQLiteBasedSpec
     Hydra.Events.UDPSpec
+    Hydra.HeadLogic.MachineSpec
     Hydra.HeadLogic.OutcomeSpec
     Hydra.HeadLogic.ProgramSpec
     Hydra.HeadLogic.SnapshotProgramSpec

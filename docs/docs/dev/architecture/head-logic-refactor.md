@@ -19,7 +19,9 @@ This proposal now has executable `ReqTx`, `ReqSn`, and `AckSn` programs, a bound
 scheduler/debugger, and a resolved transaction log experiment. Existing protocol
 behavior remains the migration baseline except for the applied-ID registry fix
 described in `docs/head-logic-bug-audit.md`. Wire encodings and production
-persistence are unchanged.
+persistence are unchanged. Retained events now execute through composed crem
+machines for the head lifecycle, incremental actions and snapshot coordination;
+see [the implementation guide](../../../head-logic-crem.md).
 
 See [the snapshot lab](./head-logic-lab.md) for the review boundaries, independent
 Agda coverage and exclusions, counterexample/replay commands, resolved-recovery
@@ -47,7 +49,7 @@ and state calculations are still repeated during aggregation:
 | --- | --- |
 | The ReqTx program supplies validated UTxO endpoints, but production compatibility events discard them; aggregation later calls `applyTxTo` | Production replay still reconstructs the ledger change; the experimental log measures explicit deltas. |
 | `pruneTransactions` computes the remaining transactions and their resulting UTxO, then returns only the transactions | `SnapshotRequested` replay reconstructs the UTxO again. |
-| `onOpenChainIncrementTx` predicts the state after settlement when constructing another snapshot request | `aggregateNodeState` separately implements settlement, version, and retention decisions. |
+| `onOpenChainIncrementTx` predicts the state after settlement when constructing another snapshot request | `Machine.Incremental` and `Machine.OffChain` implement settlement, version, and retention updates separately from the input rule. |
 | `retryDecision` distinguishes several protocol wait reasons and is shared by `Node.maybeReenqueue` and the explorer | Retry eligibility has one definition; scheduling remains outside the programs. |
 | Startup calls `repostFanoutStep` directly | Recovery bypasses the normal input path. |
 | API event projection tracks the seen snapshot because a confirmation event can omit it | Another component reconstructs information already available when the decision was made. |

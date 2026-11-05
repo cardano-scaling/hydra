@@ -40,6 +40,7 @@ import Hydra.HeadLogic (
   SeenSnapshot (..),
   StateChanged (TxInvalid),
   WaitReason (WaitOnNotApplicableTx),
+  aggregateNodeState,
   aggregateState,
   isLeader,
   onOpenNetworkAckSn,
@@ -64,6 +65,7 @@ import System.Directory (createDirectoryIfMissing)
 import System.FilePath ((<.>), (</>))
 import Test.Hydra.HeadLogic.LegacyReqTx (legacyOnOpenNetworkReqTx)
 import Test.Hydra.HeadLogic.LegacySnapshot
+import Test.Hydra.HeadLogic.LegacyState (legacyAggregateNodeState)
 import Test.Hydra.HeadLogic.Mermaid qualified as Mermaid
 import Test.Hydra.Ledger.Cardano (genFixedSizeSequenceOfSimplePaymentTransactions)
 import Test.Hydra.Node.Fixture (defaultGlobals, defaultLedgerEnv, testEnvironment)
@@ -366,6 +368,8 @@ benchmarkRound :: IsChainState tx => Bool -> String -> Int -> Int -> Fixture tx 
 benchmarkRound reverseOrder ledgerName n backlog fixture = do
   let old = runRound True fixture fixture.incoming
       new = runRound False fixture fixture.incoming
+      beforeCrem = runRoundWith legacyAggregateState False fixture fixture.incoming
+  unless (beforeCrem == new) $ Prelude.error "crem round differs from frozen event reducer"
   unless (old == new) $ Prelude.error "snapshot round outcomes or states differ"
   -- Equality alone also accepts two equally broken rounds. Force a successful
   -- confirmation before measuring either implementation.
@@ -380,7 +384,25 @@ benchmarkRound reverseOrder ledgerName n backlog fixture = do
         [ bench "legacy" $ whnf (roundChecksum . runRound True fixture) fixture.incoming
         , bench "program" $ whnf (roundChecksum . runRound False fixture) fixture.incoming
         ]
-  pure $ bgroup ("round/" <> ledgerName <> "/utxo-" <> show n <> "/backlog-" <> show backlog) (if reverseOrder then reverse pair else pair)
+  let name = ledgerName <> "/utxo-" <> show n <> "/backlog-" <> show backlog
+      cremPair =
+        [ bench "legacy-reducer" $ whnf (roundChecksum . runRoundWith legacyAggregateState False fixture) fixture.incoming
+        , bench "crem" $ whnf (roundChecksum . runRoundWith aggregateState False fixture) fixture.incoming
+        ]
+      ordered xs = if reverseOrder then reverse xs else xs
+      events = concatMap retained (fst new)
+      replay aggregate = foldl' aggregate fixture.state
+      replayChecksum node = roundChecksum ([], node)
+      replayPair =
+        [ bench "legacy-reducer" $ whnf (replayChecksum . replay legacyAggregateNodeState) events
+        , bench "crem" $ whnf (replayChecksum . replay aggregateNodeState) events
+        ]
+  pure $
+    bgroup ("round/" <> name) $
+      ordered pair
+        <> [ bgroup "aggregation" (ordered cremPair)
+           , bgroup "event-replay-crem" (ordered replayPair)
+           ]
  where
   roundChecksum (outcomes, st) = case st.headState of
     Open os ->
@@ -391,15 +413,18 @@ benchmarkRound reverseOrder ledgerName n backlog fixture = do
     _ -> Prelude.error "round leaves open head"
 
 runRound :: IsChainState tx => Bool -> Fixture tx -> tx -> ([Outcome tx], NodeState tx)
-runRound legacy fixture incoming =
+runRound = runRoundWith aggregateState
+
+runRoundWith :: IsChainState tx => (NodeState tx -> Outcome tx -> NodeState tx) -> Bool -> Fixture tx -> tx -> ([Outcome tx], NodeState tx)
+runRoundWith aggregate legacy fixture incoming =
   case fixture.state.headState of
     Open os ->
       let txOutcome = (if legacy then legacyOnOpenNetworkReqTx else onOpenNetworkReqTx) fixture.environment fixture.ledger fixture.state.chainPointTime os fixture.ttl mempty incoming
-          afterTx = aggregateState fixture.state txOutcome
+          afterTx = aggregate fixture.state txOutcome
        in case (txOutcome, afterTx.headState) of
             (Continue{effects = [NetworkEffect (ReqSn sv sn ids decommit deposit)]}, Open requestedOpen) ->
               let reqOutcome = (if legacy then legacyOnOpenNetworkReqSn else onOpenNetworkReqSn) fixture.environment fixture.ledger mempty fixture.state.chainPointTime requestedOpen fixture.ttl fixture.environment.party sv sn ids decommit deposit
-                  afterRequest = aggregateState afterTx reqOutcome
+                  afterRequest = aggregate afterTx reqOutcome
                in case (reqOutcome, afterRequest.headState) of
                     (Continue{effects = [NetworkEffect (AckSn localSignature _)]}, Open OpenState{coordinatedHeadState = CoordinatedHeadState{seenSnapshot = SeenSnapshot{snapshot}}}) ->
                       foldl' (ack snapshot sn localSignature) ([txOutcome, reqOutcome], afterRequest) [(alice, aliceSk), (bob, bobSk), (carol, carolSk)]
@@ -410,5 +435,14 @@ runRound legacy fixture incoming =
   ack snapshot sn localSignature (outcomes, st) (sender, sk) = case st.headState of
     Open os ->
       let outcome = (if legacy then legacyOnOpenNetworkAckSn else onOpenNetworkAckSn) fixture.environment st.chainPointTime mempty os sender (if sender == fixture.environment.party then localSignature else sign sk snapshot) sn
-       in (outcomes <> [outcome], aggregateState st outcome)
+       in (outcomes <> [outcome], aggregate st outcome)
     _ -> Prelude.error "acknowledgement leaves open head"
+
+legacyAggregateState :: IsChainState tx => NodeState tx -> Outcome tx -> NodeState tx
+legacyAggregateState node outcome = foldl' legacyAggregateNodeState node (retained outcome)
+
+retained :: Outcome tx -> [Hydra.HeadLogic.StateChanged tx]
+retained = \case
+  Continue{stateChanges} -> stateChanges
+  Wait{stateChanges} -> stateChanges
+  Error{} -> []

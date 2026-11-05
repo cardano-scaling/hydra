@@ -1524,3 +1524,44 @@ persistence. The instruction language, evaluator and trace vocabulary are separa
 modules; Mermaid rendering belongs only to the development library. A rule's
 public environment excludes signing keys, and ledger/signing capability indices
 rule out unsupported primitive configurations.
+
+=== Retained-event machines
+
+The Haskell crem experiment applies retained `StateChanged` events through
+four sequential components: head lifecycle, pending incremental action,
+snapshot coordination, and node metadata (including tracked deposits).
+The input rules above still choose events and effects. A rejected input commits
+no events; a waiting input commits its retained prefix. Event replay performs
+neither admission checks nor signature verification.
+
+The lifecycle projection distinguishes Idle, Open, Closed, ReadyToFanout,
+PendingFanout and FanoutProgress. Init opens the head directly in this branch.
+ReadyToFanout records that a notification was sent; contestation can extend the
+deadline without resetting that flag. PendingFanout represents optimistic
+fanout with no distributed output observed. Reverting it restores Closed with
+the notification flag set. Rollback updates chain state and tracked deposit
+history; it does not undo off-chain transactions or snapshot versions.
+
+An open head separately tracks a selected deposit and a pending decommit. Raw
+persisted events can represent both, so the replay machine includes that state;
+the mutual-exclusion guards above remain necessary. A deposit's recorded,
+active, expired and consumed phases are distinct from its selection for a
+snapshot. Re-observation resets its record slot; rollback can remove the record
+or undo its consumption while retaining its stored activation status.
+
+Snapshot coordination has no request seen, idle after a snapshot, request sent,
+and collecting signatures phases. Outside Open the coordination component is
+inactive, although a closed head can adopt the signed snapshot of a contest.
+Transaction receipt and partial acknowledgement do not create new coordination
+phases. A fresh settlement preserves a snapshot collecting signatures and resets
+other coordination phases to the last confirmed number. A repeated settlement
+preserves the phase. Retry queues and waiting inputs are scheduler state.
+
+`OffChainReference.agda` defines independent lifecycle, coordination and tracked
+deposit phase functions, plus the pending-action projection. Differential tests
+compare these abstractions with event application and compare complete states
+with the frozen Haskell reducer. The finite phase graphs permit raw replay
+transitions that admission guards exclude. They do not enumerate ledger
+contents, signature maps, versions, scheduler states or arbitrary history, and
+the comparison is not a proof of the complete node. Checkpoints restore all
+components together; foreign-head filtering precedes their execution.

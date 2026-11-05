@@ -24,6 +24,7 @@ import Hydra.Events.RotationSpec qualified
 import Hydra.Events.S3Spec qualified
 import Hydra.Events.SQLiteBasedSpec qualified
 import Hydra.Events.UDPSpec qualified
+import Hydra.HeadLogic.MachineSpec qualified
 import Hydra.HeadLogic.OutcomeSpec qualified
 import Hydra.HeadLogic.ProgramSpec qualified
 import Hydra.HeadLogic.SnapshotProgramSpec qualified
@@ -82,6 +83,7 @@ main =
     , testSpec "Events.S3" Hydra.Events.S3Spec.spec
     , testSpec "Events.SQLiteBased" Hydra.Events.SQLiteBasedSpec.spec
     , testSpec "Events.UDP" Hydra.Events.UDPSpec.spec
+    , testSpec "HeadLogic.Machine" Hydra.HeadLogic.MachineSpec.spec
     , testSpec "HeadLogic.Outcome" Hydra.HeadLogic.OutcomeSpec.spec
     , testSpec "HeadLogic.Program" Hydra.HeadLogic.ProgramSpec.spec
     , testSpec "HeadLogic.SnapshotProgram" Hydra.HeadLogic.SnapshotProgramSpec.spec

@@ -48,6 +48,11 @@ data HsSnapshotOutcome
    | SnapshotWaiting HsSnapshotWait
    | SnapshotRejected HsSnapshotRejection
    deriving (Eq, Show)
+data HsLifecyclePhase = IdleHead | OpenHead | ClosedHead | ReadyHead | PendingFanout | FanoutProgress deriving (Eq, Show, Enum, Bounded)
+data HsLifecycleEvent = Opened | Closed | Ready | FanoutStarted | PartialObserved | FanoutReverted | FannedOut | Unchanged deriving (Eq, Show, Enum, Bounded)
+data HsCoordinationPhase = OutsideHead | NoRequestSeen | SnapshotIdle | RequestSent | Collecting deriving (Eq, Show, Enum, Bounded)
+data HsCoordinationEvent = HeadOpened | HeadClosed | RequestDecided | SnapshotRequested | SnapshotConfirmed | LocalCleared | SettlementObserved | OtherEvent deriving (Eq, Show, Enum, Bounded)
+data HsTrackedPhase = MissingDeposit | InactiveDeposit | ActiveDeposit | ExpiredDeposit | ConsumedDeposit deriving (Eq, Show, Enum, Bounded)
 -- Hydra.Protocol.OffChainReference.DepositStatusᶜ
 d_DepositStatus'7580'_6 = ()
 type T_DepositStatus'7580'_6 = HsDepositStatus
@@ -768,3 +773,331 @@ d_reqTxKnownOutcomeRef_332 v0 v1 v2 v3 v4 v5 v6
       else coe
              d_reqTxOutcomeRef_196 (coe v1) (coe v2) (coe v3) (coe v4) (coe v5)
              (coe v6)
+-- Hydra.Protocol.OffChainReference.LifecyclePhaseᶜ
+d_LifecyclePhase'7580'_320 = ()
+type T_LifecyclePhase'7580'_320 = HsLifecyclePhase
+pattern C_idleHead'7580'_322 = IdleHead
+pattern C_openHead'7580'_324 = OpenHead
+pattern C_closedHead'7580'_326 = ClosedHead
+pattern C_readyHead'7580'_328 = ReadyHead
+pattern C_pendingFanout'7580'_330 = PendingFanout
+pattern C_fanoutProgress'7580'_332 = FanoutProgress
+check_idleHead'7580'_322 :: T_LifecyclePhase'7580'_320
+check_idleHead'7580'_322 = IdleHead
+check_openHead'7580'_324 :: T_LifecyclePhase'7580'_320
+check_openHead'7580'_324 = OpenHead
+check_closedHead'7580'_326 :: T_LifecyclePhase'7580'_320
+check_closedHead'7580'_326 = ClosedHead
+check_readyHead'7580'_328 :: T_LifecyclePhase'7580'_320
+check_readyHead'7580'_328 = ReadyHead
+check_pendingFanout'7580'_330 :: T_LifecyclePhase'7580'_320
+check_pendingFanout'7580'_330 = PendingFanout
+check_fanoutProgress'7580'_332 :: T_LifecyclePhase'7580'_320
+check_fanoutProgress'7580'_332 = FanoutProgress
+cover_LifecyclePhase'7580'_320 :: HsLifecyclePhase -> ()
+cover_LifecyclePhase'7580'_320 x
+  = case x of
+      IdleHead -> ()
+      OpenHead -> ()
+      ClosedHead -> ()
+      ReadyHead -> ()
+      PendingFanout -> ()
+      FanoutProgress -> ()
+-- Hydra.Protocol.OffChainReference.LifecycleEventᶜ
+d_LifecycleEvent'7580'_334 = ()
+type T_LifecycleEvent'7580'_334 = HsLifecycleEvent
+pattern C_opened'7580'_336 = Opened
+pattern C_closed'7580'_338 = Closed
+pattern C_ready'7580'_340 = Ready
+pattern C_fanoutStarted'7580'_342 = FanoutStarted
+pattern C_partialObserved'7580'_344 = PartialObserved
+pattern C_fanoutReverted'7580'_346 = FanoutReverted
+pattern C_fannedOut'7580'_348 = FannedOut
+pattern C_unchanged'7580'_350 = Unchanged
+check_opened'7580'_336 :: T_LifecycleEvent'7580'_334
+check_opened'7580'_336 = Opened
+check_closed'7580'_338 :: T_LifecycleEvent'7580'_334
+check_closed'7580'_338 = Closed
+check_ready'7580'_340 :: T_LifecycleEvent'7580'_334
+check_ready'7580'_340 = Ready
+check_fanoutStarted'7580'_342 :: T_LifecycleEvent'7580'_334
+check_fanoutStarted'7580'_342 = FanoutStarted
+check_partialObserved'7580'_344 :: T_LifecycleEvent'7580'_334
+check_partialObserved'7580'_344 = PartialObserved
+check_fanoutReverted'7580'_346 :: T_LifecycleEvent'7580'_334
+check_fanoutReverted'7580'_346 = FanoutReverted
+check_fannedOut'7580'_348 :: T_LifecycleEvent'7580'_334
+check_fannedOut'7580'_348 = FannedOut
+check_unchanged'7580'_350 :: T_LifecycleEvent'7580'_334
+check_unchanged'7580'_350 = Unchanged
+cover_LifecycleEvent'7580'_334 :: HsLifecycleEvent -> ()
+cover_LifecycleEvent'7580'_334 x
+  = case x of
+      Opened -> ()
+      Closed -> ()
+      Ready -> ()
+      FanoutStarted -> ()
+      PartialObserved -> ()
+      FanoutReverted -> ()
+      FannedOut -> ()
+      Unchanged -> ()
+-- Hydra.Protocol.OffChainReference.lifecyclePhaseRef
+hsLifecyclePhaseRef ::
+  T_LifecyclePhase'7580'_320 ->
+  T_LifecycleEvent'7580'_334 -> Bool -> T_LifecyclePhase'7580'_320
+hsLifecyclePhaseRef = coe d_lifecyclePhaseRef_352
+d_lifecyclePhaseRef_352 ::
+  T_LifecyclePhase'7580'_320 ->
+  T_LifecycleEvent'7580'_334 -> Bool -> T_LifecyclePhase'7580'_320
+d_lifecyclePhaseRef_352 v0 v1 v2
+  = case coe v1 of
+      C_opened'7580'_336 -> coe C_openHead'7580'_324
+      C_closed'7580'_338
+        -> case coe v0 of
+             C_openHead'7580'_324 -> coe C_closedHead'7580'_326
+             _ -> coe v0
+      C_ready'7580'_340
+        -> case coe v0 of
+             C_closedHead'7580'_326 -> coe C_readyHead'7580'_328
+             _ -> coe v0
+      C_fanoutStarted'7580'_342
+        -> case coe v0 of
+             C_closedHead'7580'_326 -> coe C_pendingFanout'7580'_330
+             C_readyHead'7580'_328 -> coe C_pendingFanout'7580'_330
+             _ -> coe v0
+      C_partialObserved'7580'_344
+        -> case coe v0 of
+             C_closedHead'7580'_326
+               -> coe
+                    du_if_then_else__16 (coe v2) (coe C_fanoutProgress'7580'_332)
+                    (coe C_pendingFanout'7580'_330)
+             C_readyHead'7580'_328
+               -> coe
+                    du_if_then_else__16 (coe v2) (coe C_fanoutProgress'7580'_332)
+                    (coe C_pendingFanout'7580'_330)
+             C_pendingFanout'7580'_330
+               -> coe
+                    du_if_then_else__16 (coe v2) (coe C_fanoutProgress'7580'_332)
+                    (coe v0)
+             C_fanoutProgress'7580'_332
+               -> coe
+                    du_if_then_else__16 (coe v2) (coe v0)
+                    (coe C_pendingFanout'7580'_330)
+             _ -> coe v0
+      C_fanoutReverted'7580'_346
+        -> case coe v0 of
+             C_pendingFanout'7580'_330 -> coe C_readyHead'7580'_328
+             C_fanoutProgress'7580'_332 -> coe C_readyHead'7580'_328
+             _ -> coe v0
+      C_fannedOut'7580'_348
+        -> case coe v0 of
+             C_closedHead'7580'_326 -> coe C_idleHead'7580'_322
+             C_readyHead'7580'_328 -> coe C_idleHead'7580'_322
+             C_pendingFanout'7580'_330 -> coe C_idleHead'7580'_322
+             C_fanoutProgress'7580'_332 -> coe C_idleHead'7580'_322
+             _ -> coe v0
+      _ -> coe v0
+-- Hydra.Protocol.OffChainReference.CoordinationPhaseᶜ
+d_CoordinationPhase'7580'_364 = ()
+type T_CoordinationPhase'7580'_364 = HsCoordinationPhase
+pattern C_outsideHead'7580'_366 = OutsideHead
+pattern C_noRequestSeen'7580'_368 = NoRequestSeen
+pattern C_snapshotIdle'7580'_370 = SnapshotIdle
+pattern C_requestSent'7580'_372 = RequestSent
+pattern C_collecting'7580'_374 = Collecting
+check_outsideHead'7580'_366 :: T_CoordinationPhase'7580'_364
+check_outsideHead'7580'_366 = OutsideHead
+check_noRequestSeen'7580'_368 :: T_CoordinationPhase'7580'_364
+check_noRequestSeen'7580'_368 = NoRequestSeen
+check_snapshotIdle'7580'_370 :: T_CoordinationPhase'7580'_364
+check_snapshotIdle'7580'_370 = SnapshotIdle
+check_requestSent'7580'_372 :: T_CoordinationPhase'7580'_364
+check_requestSent'7580'_372 = RequestSent
+check_collecting'7580'_374 :: T_CoordinationPhase'7580'_364
+check_collecting'7580'_374 = Collecting
+cover_CoordinationPhase'7580'_364 :: HsCoordinationPhase -> ()
+cover_CoordinationPhase'7580'_364 x
+  = case x of
+      OutsideHead -> ()
+      NoRequestSeen -> ()
+      SnapshotIdle -> ()
+      RequestSent -> ()
+      Collecting -> ()
+-- Hydra.Protocol.OffChainReference.CoordinationEventᶜ
+d_CoordinationEvent'7580'_376 = ()
+type T_CoordinationEvent'7580'_376 = HsCoordinationEvent
+pattern C_headOpened'7580'_378 = HeadOpened
+pattern C_headClosed'7580'_380 = HeadClosed
+pattern C_requestDecided'7580'_382 = RequestDecided
+pattern C_snapshotRequested'7580'_384 = SnapshotRequested
+pattern C_snapshotConfirmed'7580'_386 = SnapshotConfirmed
+pattern C_localCleared'7580'_388 = LocalCleared
+pattern C_settlementObserved'7580'_390 = SettlementObserved
+pattern C_otherEvent'7580'_392 = OtherEvent
+check_headOpened'7580'_378 :: T_CoordinationEvent'7580'_376
+check_headOpened'7580'_378 = HeadOpened
+check_headClosed'7580'_380 :: T_CoordinationEvent'7580'_376
+check_headClosed'7580'_380 = HeadClosed
+check_requestDecided'7580'_382 :: T_CoordinationEvent'7580'_376
+check_requestDecided'7580'_382 = RequestDecided
+check_snapshotRequested'7580'_384 :: T_CoordinationEvent'7580'_376
+check_snapshotRequested'7580'_384 = SnapshotRequested
+check_snapshotConfirmed'7580'_386 :: T_CoordinationEvent'7580'_376
+check_snapshotConfirmed'7580'_386 = SnapshotConfirmed
+check_localCleared'7580'_388 :: T_CoordinationEvent'7580'_376
+check_localCleared'7580'_388 = LocalCleared
+check_settlementObserved'7580'_390 :: T_CoordinationEvent'7580'_376
+check_settlementObserved'7580'_390 = SettlementObserved
+check_otherEvent'7580'_392 :: T_CoordinationEvent'7580'_376
+check_otherEvent'7580'_392 = OtherEvent
+cover_CoordinationEvent'7580'_376 :: HsCoordinationEvent -> ()
+cover_CoordinationEvent'7580'_376 x
+  = case x of
+      HeadOpened -> ()
+      HeadClosed -> ()
+      RequestDecided -> ()
+      SnapshotRequested -> ()
+      SnapshotConfirmed -> ()
+      LocalCleared -> ()
+      SettlementObserved -> ()
+      OtherEvent -> ()
+-- Hydra.Protocol.OffChainReference.coordinationPhaseRef
+hsCoordinationPhaseRef ::
+  T_CoordinationPhase'7580'_364 ->
+  T_CoordinationEvent'7580'_376 ->
+  Bool -> Bool -> Bool -> T_CoordinationPhase'7580'_364
+hsCoordinationPhaseRef = coe d_coordinationPhaseRef_394
+d_coordinationPhaseRef_394 ::
+  T_CoordinationPhase'7580'_364 ->
+  T_CoordinationEvent'7580'_376 ->
+  Bool -> Bool -> Bool -> T_CoordinationPhase'7580'_364
+d_coordinationPhaseRef_394 v0 v1 v2 v3 v4
+  = case coe v1 of
+      C_headOpened'7580'_378 -> coe C_noRequestSeen'7580'_368
+      C_headClosed'7580'_380 -> coe C_outsideHead'7580'_366
+      C_requestDecided'7580'_382
+        -> let v5 = coe C_requestSent'7580'_372 in
+           coe
+             (case coe v0 of
+                C_outsideHead'7580'_366 -> coe v0
+                _ -> coe v5)
+      C_snapshotRequested'7580'_384
+        -> let v5 = coe C_collecting'7580'_374 in
+           coe
+             (case coe v0 of
+                C_outsideHead'7580'_366 -> coe v0
+                _ -> coe v5)
+      C_snapshotConfirmed'7580'_386
+        -> let v5
+                 = coe
+                     du_if_then_else__16 (coe v3) (coe C_snapshotIdle'7580'_370)
+                     (coe v0) in
+           coe
+             (case coe v0 of
+                C_outsideHead'7580'_366 -> coe v0
+                C_collecting'7580'_374 -> coe C_snapshotIdle'7580'_370
+                _ -> coe v5)
+      C_localCleared'7580'_388
+        -> let v5
+                 = coe
+                     du_if_then_else__16 (coe v2) (coe C_noRequestSeen'7580'_368)
+                     (coe C_snapshotIdle'7580'_370) in
+           coe
+             (case coe v0 of
+                C_outsideHead'7580'_366 -> coe v0
+                _ -> coe v5)
+      C_settlementObserved'7580'_390
+        -> let v5
+                 = coe
+                     du_if_then_else__16 (coe v4) (coe C_snapshotIdle'7580'_370)
+                     (coe v0) in
+           coe
+             (case coe v0 of
+                C_outsideHead'7580'_366 -> coe v0
+                C_collecting'7580'_374 -> coe v0
+                _ -> coe v5)
+      _ -> coe v0
+-- Hydra.Protocol.OffChainReference.TrackedPhaseᶜ
+d_TrackedPhase'7580'_408 = ()
+type T_TrackedPhase'7580'_408 = HsTrackedPhase
+pattern C_missingDeposit'7580'_410 = MissingDeposit
+pattern C_inactiveDeposit'7580'_412 = InactiveDeposit
+pattern C_activeDeposit'7580'_414 = ActiveDeposit
+pattern C_expiredDeposit'7580'_416 = ExpiredDeposit
+pattern C_consumedDeposit'7580'_418 = ConsumedDeposit
+check_missingDeposit'7580'_410 :: T_TrackedPhase'7580'_408
+check_missingDeposit'7580'_410 = MissingDeposit
+check_inactiveDeposit'7580'_412 :: T_TrackedPhase'7580'_408
+check_inactiveDeposit'7580'_412 = InactiveDeposit
+check_activeDeposit'7580'_414 :: T_TrackedPhase'7580'_408
+check_activeDeposit'7580'_414 = ActiveDeposit
+check_expiredDeposit'7580'_416 :: T_TrackedPhase'7580'_408
+check_expiredDeposit'7580'_416 = ExpiredDeposit
+check_consumedDeposit'7580'_418 :: T_TrackedPhase'7580'_408
+check_consumedDeposit'7580'_418 = ConsumedDeposit
+cover_TrackedPhase'7580'_408 :: HsTrackedPhase -> ()
+cover_TrackedPhase'7580'_408 x
+  = case x of
+      MissingDeposit -> ()
+      InactiveDeposit -> ()
+      ActiveDeposit -> ()
+      ExpiredDeposit -> ()
+      ConsumedDeposit -> ()
+-- Hydra.Protocol.OffChainReference.statusPhase
+d_statusPhase_420 ::
+  T_DepositStatus'7580'_6 -> T_TrackedPhase'7580'_408
+d_statusPhase_420 v0
+  = case coe v0 of
+      C_inactive'7580'_8 -> coe C_inactiveDeposit'7580'_412
+      C_active'7580'_10 -> coe C_activeDeposit'7580'_414
+      C_expired'7580'_12 -> coe C_expiredDeposit'7580'_416
+      _ -> MAlonzo.RTE.mazUnreachableError
+-- Hydra.Protocol.OffChainReference.trackedDepositPhaseRef
+hsTrackedDepositPhaseRef ::
+  T_TrackedPhase'7580'_408 ->
+  Integer ->
+  T_DepositStatus'7580'_6 -> Bool -> Bool -> T_TrackedPhase'7580'_408
+hsTrackedDepositPhaseRef = coe d_trackedDepositPhaseRef_422
+d_trackedDepositPhaseRef_422 ::
+  T_TrackedPhase'7580'_408 ->
+  Integer ->
+  T_DepositStatus'7580'_6 -> Bool -> Bool -> T_TrackedPhase'7580'_408
+d_trackedDepositPhaseRef_422 v0 v1 v2 v3 v4
+  = case coe v1 of
+      0 -> coe d_statusPhase_420 (coe v2)
+      _ -> let v5
+                 = case coe v1 of
+                     1 -> coe d_statusPhase_420 (coe v2)
+                     2 -> coe C_consumedDeposit'7580'_418
+                     3 -> case coe v3 of
+                            MAlonzo.Code.Agda.Builtin.Bool.C_true_10
+                              -> coe C_missingDeposit'7580'_410
+                            _ -> coe v0
+                     _ | coe geqInt (coe v1) (coe (3 :: Integer)) -> coe v0
+                     _ -> coe v0 in
+           coe
+             (case coe v0 of
+                C_missingDeposit'7580'_410 -> coe v0
+                C_consumedDeposit'7580'_418
+                  -> case coe v1 of
+                       1 -> coe v0
+                       2 -> coe v0
+                       3 -> if coe v3
+                              then coe C_missingDeposit'7580'_410
+                              else (case coe v4 of
+                                      MAlonzo.Code.Agda.Builtin.Bool.C_true_10
+                                        -> coe d_statusPhase_420 (coe v2)
+                                      _ -> coe v5)
+                       _ | coe geqInt (coe v1) (coe (3 :: Integer)) -> coe v5
+                       _ -> coe v0
+                _ -> coe v5)
+-- Hydra.Protocol.OffChainReference.pendingIncrementPhaseRef
+hsPendingIncrementPhaseRef :: Bool -> Bool -> Bool -> Integer
+hsPendingIncrementPhaseRef = coe d_pendingIncrementPhaseRef_432
+d_pendingIncrementPhaseRef_432 :: Bool -> Bool -> Bool -> Integer
+d_pendingIncrementPhaseRef_432 v0 v1 v2
+  = if coe v0
+      then if coe v1
+             then if coe v2 then coe (4 :: Integer) else coe (2 :: Integer)
+             else (if coe v2 then coe (3 :: Integer) else coe (1 :: Integer))
+      else coe (0 :: Integer)

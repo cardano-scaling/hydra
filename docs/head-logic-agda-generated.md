@@ -16,7 +16,7 @@ Haskell.
 | --- | --- | --- |
 | Guards, snapshots, transaction ordering, deposit/decommit selection and effects | Agda rules | [HeadLogic.hs](../hydra-node/src/Hydra/HeadLogic.hs): the three `onOpenNetwork…Program` functions and their helpers |
 | Completion, waiting, rejection and effect buffering | Agda interpreter | [Interpreter.hs](../hydra-node/src/Hydra/HeadLogic/Interpreter.hs): `evaluateChanges` |
-| Event application, chain observations, rollback and recovery | Agda transition functions | [HeadLogic.hs](../hydra-node/src/Hydra/HeadLogic.hs): `aggregateNodeState`, `aggregateState`, `applyEvent` and chain handlers |
+| Event application, chain observations, rollback and recovery | Agda transition functions | [HeadLogic.hs](../hydra-node/src/Hydra/HeadLogic.hs): `aggregateNodeState`, `aggregateState` and chain handlers; [Machine.hs](../hydra-node/src/Hydra/HeadLogic/Machine.hs) executes retained events |
 | Whether to retry an input, and with which budget | Agda retry policy | [Retry.hs](../hydra-node/src/Hydra/HeadLogic/Retry.hs): `retryDecision` |
 | Ledger application, hashing, signing and verification | Haskell implementations of Agda primitives | [Program.hs](../hydra-node/src/Hydra/HeadLogic/Program.hs): `Instruction`; [Interpreter.hs](../hydra-node/src/Hydra/HeadLogic/Interpreter.hs): configuration and primitive calls |
 | Serialisation, sockets, persistence and queue execution | Haskell adapters | [Node.hs](../hydra-node/src/Hydra/Node.hs), message/event codecs and chain components |

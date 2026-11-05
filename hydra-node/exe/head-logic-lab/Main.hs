@@ -24,6 +24,7 @@ import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
 import System.Environment (withArgs)
 import Test.Hydra.HeadLogic.Debugger qualified as Debug
 import Test.Hydra.HeadLogic.Explorer qualified as Explorer
+import Test.Hydra.HeadLogic.MachineDiagrams qualified as MachineDiagrams
 import Test.Hydra.HeadLogic.Mermaid qualified as Mermaid
 import Test.Hydra.HeadLogic.RegistryDemo qualified as RegistryDemo
 import Test.Hydra.HeadLogic.Replay qualified as Replay
@@ -34,6 +35,7 @@ import Test.Hydra.HeadLogic.Settlement qualified as Settlement
 main :: IO ()
 main =
   getArgs >>= \case
+    ["machines", directory] -> MachineDiagrams.writeDiagrams directory
     ["settlement", file] -> do
       cases <- forM [(confirmed, slot, recipients) | confirmed <- [False, True], slot <- [2, 3], recipients <- permutations [0, 1, 2]] $ \(confirmed, slot, recipients) -> do
         steps <- demand $ Settlement.settlementSequence confirmed slot recipients
@@ -91,7 +93,8 @@ main =
     _ ->
       mapM_
         putStrLn
-        [ "head-logic-lab registry-demo FILE"
+        [ "head-logic-lab machines DIRECTORY"
+        , "head-logic-lab registry-demo FILE"
         , "head-logic-lab settlement FILE"
         , "head-logic-lab explore FILE [--fault | --invalid-ack] [--scenario dependent|duplicate|expiry] [--search deliveries-first|retries-first|breadth-first|retry-windows] [--states N] [--deliveries N]"
         , "head-logic-lab replay FILE [--normal | --step | --break NAME]"

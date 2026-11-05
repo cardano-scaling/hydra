@@ -1,13 +1,19 @@
 # Head logic program benchmark
 
 The repository guide at `docs/head-logic-review.md` explains the implementation
-and links to the measured code. This report covers four workloads:
+and links to the measured code. This report covers five workloads:
 [the original ReqTx slice](#original-reqtx-measurements),
 [complete snapshot rounds](#complete-snapshot-rounds),
-[resolved transaction recovery](#resolved-transaction-experiment), and
-[a three-node cluster](#end-to-end-cluster-comparison). Each section records its
-inputs, measurement method and limits. The in-process results predate the lazy
-UTxO-field fix described with the cluster comparison.
+[resolved transaction recovery](#resolved-transaction-experiment),
+[a three-node cluster](#end-to-end-cluster-comparison), and
+[crem event application](#crem-event-application). Each section records its
+inputs, measurement method and limits. The earlier in-process results predate the lazy
+UTxO-field fix described with the cluster comparison; the crem measurements use
+the current implementation.
+
+The cluster results below predate the crem integration. They measure the
+operational programs, not the additional event machines. The crem comparison
+is described [separately](#crem-event-application).
 
 ## What does this cost in TPS?
 
@@ -570,3 +576,62 @@ python3 scripts/bench-e2e-diff.py \
 The adjacent JSON files supply the raw observations. Repeat for pair 1 and the
 large case. The report's usual highlighting thresholds differ from this spike's
 provisional 5% investigation threshold; neither is a statistical guarantee.
+
+## crem event application
+
+**crem adds about 3–4 µs and 36 KiB of allocation to replaying a complete
+round's ten events in these fixtures.** That roughly doubles the reducer's
+microbenchmark time. In the longer complete-round repeats, elapsed time changed
+by **−0.14% to +1.49%**. This is a small local-round cost; it is not a new
+measurement of Hydra's TPS.
+
+[Measurement data](./head-logic-crem-measurements-v1.json) records all eight runs,
+confidence estimates, allocation regressions, CPU and source fingerprints.
+GHC 9.6.7, `-O1`, criterion 1.6.5.0, crem 0.1.1.0; one pinned CPU, `-N1`,
+tracing disabled. Each fixture has one incoming transaction and no backlog.
+
+| Ledger / background UTxO | Replay before → crem, µs | Added replay, µs | Complete-round change: forward / reverse |
+| --- | ---: | ---: | ---: |
+| Simple / 100 | 2.63 → 5.97 | 3.36 | +1.10% / +0.09% |
+| Simple / 10,000 | 2.77 → 6.11 | 3.09 | +0.70% / +0.38% |
+| Cardano / 100 | 3.74 → 7.92 | 4.17 | +1.14% / approximately 0% |
+| Cardano / 10,000 | 4.03 → 7.60 | 3.55 | +1.49% / −0.14% |
+
+Replay figures are medians across six alternating runs with a 0.5-second sampling
+budget; added time is the median paired difference. Their added allocation is 35.75 KiB per round in every fixture. The
+short complete-round timings were noisy, ranging from apparent improvements to
+a 31.8% slowdown. Two further round runs used a 5-second budget and reversed the
+measurement order; the table reports those separately. Combining their marginal
+interval endpoints gives diagnostic bounds within −0.79% to +3.06%; those bounds
+are not a joint confidence interval or a general 5% guarantee. The earlier
+noise remains in the data rather than being discarded.
+
+The allocation increase warrants attention for cheap, heavily batched workloads.
+It is about 5.8% of the small Simple round's allocation and 3.1% of the small
+Cardano round's allocation, falling below 0.1% for the large-UTxO rounds. A
+cluster comparison with crem is still needed before assigning it a TPS impact.
+
+The additional machine comparison uses the same `ReqTx`, `ReqSn` and `AckSn`
+programs on both sides. Only event application changes: the frozen reducer
+versus crem composition. Both must produce the same complete outcomes and
+final state and confirm the next snapshot before timing starts.
+
+`aggregation` measures a complete local round, including ledger application,
+signing and verification, but excluding network and disk I/O. The adjacent
+`event-replay-crem` group applies that round's already-computed events. This
+separates event-application overhead from the rest of the round. The existing
+checksum forces transaction collections, local UTxO size and confirmed snapshot
+contents; equivalence checks compare complete states outside timing.
+
+```sh
+HEADLOGIC_BENCH_MAX_BACKLOG=0 HEADLOGIC_BENCH_ORDER=legacy-first cabal bench hydra-node:head-logic-program \
+  --benchmark-options='-L 5 --resamples 1000 -m glob "round/*/utxo-*/backlog-*/aggregation/*" --regress allocated:iters --json /tmp/crem-forward.json +RTS -T -N1'
+HEADLOGIC_BENCH_MAX_BACKLOG=0 HEADLOGIC_BENCH_ORDER=program-first cabal bench hydra-node:head-logic-program \
+  --benchmark-options='-L 5 --resamples 1000 -m glob "round/*/utxo-*/backlog-*/aggregation/*" --regress allocated:iters --json /tmp/crem-reverse.json +RTS -T -N1'
+# For replay alone, select round/*/utxo-*/backlog-*/event-replay-crem/* and use -L 0.5.
+# Repeat each order three times; use the same CPU affinity for all runs.
+```
+
+Alternate the order and repeat noisy cases. Keep the 5% investigation threshold
+from the earlier measurements; overlapping uncertainty is not evidence of
+meeting it. These in-process measurements do not establish a change in Hydra TPS.

@@ -1,0 +1,27 @@
+stateDiagram-v2
+
+Idle
+Open
+Closed
+ReadyToFanout
+PendingFanout
+FanoutProgress
+Idle --> Open: HeadOpened (Init observed)
+Open --> Closed: HeadClosed
+Closed --> Open: HeadOpened (replay reset)
+Closed --> ReadyToFanout: HeadIsReadyToFanout
+Closed --> PendingFanout: fanout starts or empty partial observation
+Closed --> FanoutProgress: HeadPartialFannedOut
+Closed --> Idle: HeadFannedOut (observed on chain)
+ReadyToFanout --> Open: HeadOpened (replay reset)
+ReadyToFanout --> PendingFanout: fanout starts or empty partial observation
+ReadyToFanout --> FanoutProgress: HeadPartialFannedOut
+ReadyToFanout --> Idle: HeadFannedOut (observed on chain)
+PendingFanout --> Open: HeadOpened (replay reset)
+PendingFanout --> ReadyToFanout: HeadFanoutReverted
+PendingFanout --> FanoutProgress: HeadPartialFannedOut
+PendingFanout --> Idle: HeadFannedOut (observed on chain)
+FanoutProgress --> Open: HeadOpened (replay reset)
+FanoutProgress --> ReadyToFanout: HeadFanoutReverted
+FanoutProgress --> PendingFanout: HeadPartialFannedOut (empty total)
+FanoutProgress --> Idle: HeadFannedOut (observed on chain)
