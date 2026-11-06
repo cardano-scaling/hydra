@@ -429,16 +429,12 @@ runHydraNode node@HydraNode{tracer, networkOutbox, nodeStateHandler = NodeStateH
   -- ('StalePartialFanoutTx' is silently ignored) and catch-up observations
   -- re-drive; a passive observer ('AwaitingSelection') posts nothing.
   --
-  -- Taking only the effects loses nothing: re-posting is not a new decision, so
-  -- 'repostFanoutStep' emits no state changes. That matters here because they
-  -- could not be applied anyway - 'processStateChanges' writes to the event
-  -- sinks, while the in-memory state is updated by 'processNextInput' as it
-  -- computes an outcome, and this calls 'repostFanoutStep' directly rather than
-  -- going through an input.
+  -- Startup recovery constructs only the transaction. State-changing handlers
+  -- are interpreted by 'HeadLogic.update' in the input loop.
   atomically queryNodeState >>= \ns -> case headState ns of
-    FanoutProgress pfs -> case HeadLogic.repostFanoutStep pfs of
-      Continue{effects} -> processEffects node tracer 0 effects
-      _ -> pure ()
+    FanoutProgress pfs ->
+      forM_ (HeadLogic.repostFanoutTx pfs) $ \tx ->
+        processEffects node tracer 0 [OnChainEffect tx]
     _ -> pure ()
   -- NOTE(SN): here we could introduce concurrent head processing, e.g. with
   -- something like 'forM_ [0..1] $ async'

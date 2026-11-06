@@ -109,6 +109,7 @@ evaluateChanges resolve observe initialTrace InterpreterConfig{transactionApplic
     Change event -> next () (resolve (ExistingChange event) : changes) effects (observe trace $ Changed $ changeLabel event)
     Emit effect -> next () changes (effect : effects) (observe trace $ Emitted $ effectLabel effect)
     Decide label answer -> next answer changes effects (observe trace $ Decided label answer)
+    Finish -> done () changes effects trace
     Suspend reason -> (Waiting reason (reverse changes), observe trace Suspended)
     Reject err -> (RejectedWith err, observe trace Rejected)
 {-# INLINE evaluateChanges #-}

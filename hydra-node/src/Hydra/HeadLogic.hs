@@ -10,7 +10,7 @@
 -- a single 'NodeState'.
 --
 -- As the specification is using a more imperative way of specifying the protocol
--- behavior, one would find the decision logic in 'update' while state updates
+-- behavior, one would find the decision logic in 'updateProgram' while state updates
 -- can be found in the corresponding 'applyEvent' branch.
 module Hydra.HeadLogic (
   module Hydra.HeadLogic,
@@ -61,7 +61,7 @@ import Hydra.HeadLogic.Outcome (
   noop,
   wait,
  )
-import Hydra.HeadLogic.Program (AcknowledgementProgram, SnapshotProgram, TransactionProgram)
+import Hydra.HeadLogic.Program (AcknowledgementProgram, HeadProgram, SnapshotProgram, TransactionProgram)
 import Hydra.HeadLogic.Program qualified as Program
 import Hydra.HeadLogic.State (
   ClosedState (..),
@@ -80,7 +80,7 @@ import Hydra.HeadLogic.State (
   setChainState,
   snapshotInFlight,
  )
-import Hydra.Ledger (Ledger (..), ValidationError (..), applyTransactions)
+import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Network qualified as Network
 import Hydra.Network.Message (Message (..), NetworkEvent (..))
 import Hydra.Node.Environment (Environment (..), mkHeadParameters)
@@ -104,8 +104,7 @@ import Hydra.Tx.Crypto (
   Signature,
   Verified (..),
   aggregateInOrder,
-  verifyMultiSignature,
-  verifyMultiSignatureBytes,
+  getSignableRepresentation,
  )
 import Hydra.Tx.DepositPeriod (DepositPeriod (..))
 import Hydra.Tx.HeadParameters (HeadParameters (..))
@@ -140,9 +139,9 @@ maxTxsPerSnapshot = 4000
 -- __Transition__: 'IdleState' → 'IdleState'
 onIdleClientInit ::
   Environment ->
-  Outcome tx
+  HeadProgram tx ()
 onIdleClientInit env =
-  cause OnChainEffect{postChainTx = InitTx{participants, headParameters}}
+  Program.emit OnChainEffect{postChainTx = InitTx{participants, headParameters}}
  where
   headParameters = mkHeadParameters env
 
@@ -159,30 +158,31 @@ onIdleChainInitTx ::
   HeadSeed ->
   HeadParameters ->
   [OnChainId] ->
-  Outcome tx
-onIdleChainInitTx env newChainState headId headSeed headParameters participants
-  | configuredParties == initializedParties
-      && party `member` initializedParties
-      && configuredContestationPeriod == contestationPeriod
-      && configuredDepositPeriod == depositPeriod
-      && Set.fromList configuredParticipants == Set.fromList participants =
-      newState
-        HeadOpened
-          { parameters = headParameters
-          , chainState = newChainState
-          , headId
-          , headSeed
-          , parties
-          }
-  | otherwise =
-      newState
-        IgnoredHeadInitializing
-          { headId
-          , contestationPeriod
-          , parties
-          , participants
-          }
+  HeadProgram tx ()
+onIdleChainInitTx env newChainState headId headSeed headParameters participants = decision
  where
+  decision
+    | configuredParties == initializedParties
+        && party `member` initializedParties
+        && configuredContestationPeriod == contestationPeriod
+        && configuredDepositPeriod == depositPeriod
+        && Set.fromList configuredParticipants == Set.fromList participants =
+        Program.change
+          HeadOpened
+            { parameters = headParameters
+            , chainState = newChainState
+            , headId
+            , headSeed
+            , parties
+            }
+    | otherwise =
+        Program.change
+          IgnoredHeadInitializing
+            { headId
+            , contestationPeriod
+            , parties
+            , participants
+            }
   initializedParties = Set.fromList parties
 
   configuredParties = Set.fromList (party : otherParties)
@@ -205,9 +205,10 @@ onIdleChainInitTx env newChainState headId headSeed headParameters participants
 onOpenClientNewTx ::
   -- | The transaction to be submitted to the head.
   tx ->
-  Outcome tx
+  HeadProgram tx ()
 onOpenClientNewTx tx =
-  cause . NetworkEffect $ ReqTx tx
+  Program.emit . NetworkEffect $
+    ReqTx tx
 
 -- | Process a transaction request ('ReqTx') from a party.
 --
@@ -221,16 +222,15 @@ onOpenNetworkReqTx ::
   forall tx.
   IsTx tx =>
   Environment ->
-  Ledger tx ->
   ChainPointTime ->
   OpenState tx ->
   TTL ->
   PendingDeposits tx ->
   -- | The transaction to be submitted to the head.
   tx ->
-  Outcome tx
-onOpenNetworkReqTx env ledger chainTime st ttl pendingDeposits tx =
-  Interpreter.runProgram ledger $ onOpenNetworkReqTxProgram (ruleEnvironment env) chainTime st ttl pendingDeposits tx
+  HeadProgram tx ()
+onOpenNetworkReqTx env chainTime st ttl pendingDeposits tx =
+  Program.promoteProgram $ onOpenNetworkReqTxProgram (ruleEnvironment env) chainTime st ttl pendingDeposits tx
 
 -- | Public inputs used by the interpreted rules. Signing keys belong only to
 -- the interpreter configuration supplied by the production wrappers.
@@ -318,6 +318,27 @@ onOpenNetworkReqTxProgram env ChainPointTime{currentSlot, currentChainTime} st t
   settlingCommit = settlingCommitAtPeriod env.depositPeriod version currentChainTime pendingDeposits (getSnapshot confirmedSnapshot)
 {-# INLINE onOpenNetworkReqTxProgram #-}
 
+data ReqSnFunding tx = ReqSnFunding
+  { reqSnActiveUTxO :: UTxOType tx
+  , reqSnCommitUTxO :: Maybe (UTxOType tx)
+  , reqSnDecommitUTxO :: Maybe (UTxOType tx)
+  }
+
+data ReqSnResolved tx = ReqSnResolved
+  { reqSnFunding :: ReqSnFunding tx
+  , reqSnTransactions :: [tx]
+  }
+
+data ReqSnApplied tx = ReqSnApplied
+  { reqSnResolved :: ReqSnResolved tx
+  , reqSnNextUTxO :: UTxOType tx
+  }
+
+data ReqSnReady tx = ReqSnReady
+  { reqSnSnapshot :: Snapshot tx
+  , reqSnSignature :: Signature (Snapshot tx)
+  }
+
 -- | Process a snapshot request ('ReqSn') from party.
 --
 -- This checks that s is the next snapshot number and that the party is
@@ -334,7 +355,6 @@ onOpenNetworkReqSn ::
   forall tx.
   IsTx tx =>
   Environment ->
-  Ledger tx ->
   PendingDeposits tx ->
   ChainPointTime ->
   OpenState tx ->
@@ -351,10 +371,9 @@ onOpenNetworkReqSn ::
   Maybe tx ->
   -- | Optional commit of additional funds into the head.
   Maybe (TxIdType tx) ->
-  Outcome tx
-onOpenNetworkReqSn env ledger pendingDeposits chainTime st ttl otherParty sv sn txs decommit deposit =
-  Interpreter.runProgramWith (Interpreter.snapshotConfig env ledger) $
-    onOpenNetworkReqSnProgram (ruleEnvironment env) pendingDeposits chainTime st ttl otherParty sv sn txs decommit deposit
+  HeadProgram tx ()
+onOpenNetworkReqSn env =
+  onOpenNetworkReqSnProgram (ruleEnvironment env)
 
 -- | Snapshot selection, validation order, pruning and effect selection remain in
 -- the rule. The interpreter only supplies ledger and cryptographic primitives.
@@ -380,118 +399,106 @@ onOpenNetworkReqSnProgram ::
   Maybe (TxIdType tx) ->
   SnapshotProgram tx ()
 onOpenNetworkReqSnProgram env pendingDeposits ChainPointTime{currentSlot, currentChainTime} st ttl otherParty sv sn requestedTxIds mDecommitTx mDepositTxId =
-  -- Spec: require v = v̂ ∧ s = ŝ + 1 ∧ leader(s) = j
-  requireReqSn $
-    -- Spec: wait ŝ = ̅S.s
-    waitNoSnapshotInFlight $
-      -- Spec: wait v = v̂
-      -- NOTE: must be a Wait, not a require: a follower can receive ReqSn for
-      -- the bumped version before its own chain handler has processed the
-      -- triggering OnIncrementTx/OnDecrementTx. Erroring here would drop the
-      -- message permanently (Error outcomes are not re-enqueued), leaving the
-      -- head stuck until the deposit expires.
-      waitOnSnapshotVersion $
-        -- Require any pending utxo to decommit to be consistent
-        requireApplicableDecommitTx $ \(activeUTxO, mUtxoToDecommit) ->
-          -- Wait for the deposit and require any pending commit to be consistent
-          waitForDeposit $ \mUtxoToCommit ->
-            -- Resolve transactions by-id
-            waitResolvableTxs $ \requestedTxs -> do
-              -- Spec: require 𝑈_𝛼 ∩ 𝑈_active = ∅ ∧ 𝑈_𝛼 ∩ outputs(Treq) = ∅
-              --       require 𝑈_active ◦ Treq ≠ ⊥
-              --       𝑈 ← 𝑈_active ◦ Treq
-              requireApplyTxs activeUTxO mUtxoToCommit requestedTxs $ \nextUTxO ->
-                -- The predecessor is confirmed at this point (see
-                -- requireReqSn and waitNoSnapshotInFlight), so its two
-                -- accumulators cover exactly its own two owed sets (see
-                -- 'Accumulator.buildFromSnapshotUTxOs') and can be updated by
-                -- the UTxO delta instead of re-serializing and re-hashing
-                -- every output.
-                let prevSnapshot = getSnapshot confirmedSnapshot
-                    accumulator =
-                      Accumulator.applyUTxODelta
-                        prevSnapshot.accumulator
-                        (combinedUTxO prevSnapshot.utxo Nothing prevSnapshot.utxoToDecommit)
-                        (combinedUTxO nextUTxO Nothing mUtxoToDecommit)
-                    appliedAccumulator
-                      -- Nothing pending: both accumulators are the same value,
-                      -- share the thunk so the commitment is computed once.
-                      | isNothing mUtxoToCommit && isNothing mUtxoToDecommit = accumulator
-                      | otherwise =
-                          Accumulator.applyUTxODelta
-                            prevSnapshot.appliedAccumulator
-                            (combinedUTxO prevSnapshot.utxo prevSnapshot.utxoToCommit Nothing)
-                            (combinedUTxO nextUTxO mUtxoToCommit Nothing)
-                 in requireValidAccumulatorSize accumulator $ requireValidAccumulatorSize appliedAccumulator $ do
-                      -- Spec: ŝ ← ̅S.s + 1
-                      -- NOTE: confSn == seenSn == sn here
-                      let nextSnapshot =
-                            Snapshot
-                              { headId
-                              , version = version
-                              , number = sn
-                              , confirmed = requestedTxs
-                              , utxo = nextUTxO
-                              , utxoToCommit = mUtxoToCommit
-                              , utxoToDecommit = mUtxoToDecommit
-                              , -- Bound into the signature so the increment can only
-                                -- claim this very deposit, see 'Hydra.Tx.Snapshot'.
-                                depositTxId = mDepositTxId
-                              , accumulator
-                              , appliedAccumulator
-                              }
-
-                      -- Spec: 𝜂 ← combine(𝑈)
-                      --       σᵢ ← MS-Sign(kₕˢⁱᵍ, (cid‖v‖ŝ‖η))
-                      snapshotSignature <- Program.signSnapshot nextSnapshot
-                      -- Spec: multicast (ackSn, ŝ, σᵢ)
-                      do
-                        Program.emit (NetworkEffect $ AckSn snapshotSignature sn)
-                        -- Spec: ̂Σ ← ∅
-                        --       L̂ ← 𝑈
-                        --       𝑋 ← T
-                        --       T̂ ← ∅
-                        --       for tx ∈ 𝑋 : L̂ ◦ tx ≠ ⊥
-                        --         T̂ ← T̂ ⋃ {tx}
-                        --         L̂ ← L̂ ◦ tx
-                        --
-                        -- NOTE: 'SnapshotRequested' rebuilds 'localUTxO' from
-                        -- 'nextUTxO', so every kept tx applies there.
-                        newLocalTxs <- pruneTransactions nextUTxO
-                        Program.change
-                          SnapshotRequested
-                            { requestedSnapshot = nextSnapshot
-                            , newLocalTxs
-                            , newCurrentDepositTxId = mDepositTxId
-                            }
+  decide
  where
-  requireReqSn continue = do
+  decide :: SnapshotProgram tx ()
+  decide = do
+    checkHeader
+    funding <- resolveFunding
+    resolved <- resolveTransactions funding
+    applied <- applyRequestedTransactions resolved
+    ready <- buildSignedSnapshot applied
+    acknowledge ready
+
+  checkHeader :: SnapshotProgram tx ()
+  checkHeader = do
     validNumber <- Program.decide "request is the next snapshot" (sn == seenSn + 1)
     unless validNumber $ Program.reject $ RequireFailed $ ReqSnNumberInvalid{requestedSn = sn, lastSeenSn = seenSn}
     leader <- Program.decide "sender leads this snapshot" (isLeader parameters otherParty sn)
     unless leader $ Program.reject $ RequireFailed $ ReqSnNotLeader{requestedSn = sn, leader = otherParty}
-    continue
-
-  waitNoSnapshotInFlight continue = do
     confirmed <- Program.decide "previous snapshot is confirmed" (confSn == seenSn)
     unless confirmed $ Program.suspend $ WaitOnSnapshotNumber seenSn
-    continue
-
-  waitOnSnapshotVersion continue = do
+    -- A version bump may reach this follower after the request, so wait.
     matches <- Program.decide "snapshot version matches" (version == sv)
     unless matches $ Program.suspend $ WaitOnSnapshotVersion sv
-    continue
 
-  waitResolvableTxs continue =
+  resolveFunding :: SnapshotProgram tx (ReqSnFunding tx)
+  resolveFunding = do
+    (reqSnActiveUTxO, reqSnDecommitUTxO) <- requireApplicableDecommitTx
+    reqSnCommitUTxO <- waitForDeposit
+    pure ReqSnFunding{reqSnActiveUTxO, reqSnCommitUTxO, reqSnDecommitUTxO}
+
+  resolveTransactions :: ReqSnFunding tx -> SnapshotProgram tx (ReqSnResolved tx)
+  resolveTransactions reqSnFunding = do
+    reqSnTransactions <- waitResolvableTxs
+    pure ReqSnResolved{reqSnFunding, reqSnTransactions}
+
+  applyRequestedTransactions :: ReqSnResolved tx -> SnapshotProgram tx (ReqSnApplied tx)
+  applyRequestedTransactions reqSnResolved@ReqSnResolved{reqSnFunding = ReqSnFunding{reqSnActiveUTxO, reqSnCommitUTxO}, reqSnTransactions} = do
+    reqSnNextUTxO <- requireApplyTxs reqSnActiveUTxO reqSnCommitUTxO reqSnTransactions
+    pure ReqSnApplied{reqSnResolved, reqSnNextUTxO}
+
+  buildSignedSnapshot :: ReqSnApplied tx -> SnapshotProgram tx (ReqSnReady tx)
+  buildSignedSnapshot ReqSnApplied{reqSnResolved = ReqSnResolved{reqSnFunding = ReqSnFunding{reqSnCommitUTxO, reqSnDecommitUTxO}, reqSnTransactions}, reqSnNextUTxO} = do
+    -- The predecessor is confirmed (checkHeader), so its accumulators can be
+    -- updated by the UTxO delta instead of rebuilding from every output.
+    let prevSnapshot = getSnapshot confirmedSnapshot
+        accumulator =
+          Accumulator.applyUTxODelta
+            prevSnapshot.accumulator
+            (combinedUTxO prevSnapshot.utxo Nothing prevSnapshot.utxoToDecommit)
+            (combinedUTxO reqSnNextUTxO Nothing reqSnDecommitUTxO)
+        appliedAccumulator
+          -- Nothing pending: both accumulators share the same commitment.
+          | isNothing reqSnCommitUTxO && isNothing reqSnDecommitUTxO = accumulator
+          | otherwise =
+              Accumulator.applyUTxODelta
+                prevSnapshot.appliedAccumulator
+                (combinedUTxO prevSnapshot.utxo prevSnapshot.utxoToCommit Nothing)
+                (combinedUTxO reqSnNextUTxO reqSnCommitUTxO Nothing)
+    requireValidAccumulatorSize accumulator
+    requireValidAccumulatorSize appliedAccumulator
+    let reqSnSnapshot =
+          Snapshot
+            { headId
+            , version
+            , number = sn
+            , confirmed = reqSnTransactions
+            , utxo = reqSnNextUTxO
+            , utxoToCommit = reqSnCommitUTxO
+            , utxoToDecommit = reqSnDecommitUTxO
+            , depositTxId = mDepositTxId
+            , accumulator
+            , appliedAccumulator
+            }
+    reqSnSignature <- Program.signSnapshot reqSnSnapshot
+    pure ReqSnReady{reqSnSnapshot, reqSnSignature}
+
+  acknowledge :: ReqSnReady tx -> SnapshotProgram tx ()
+  acknowledge ReqSnReady{reqSnSnapshot, reqSnSignature} = do
+    Program.emit (NetworkEffect $ AckSn reqSnSignature sn)
+    -- Prune after staging the acknowledgement to preserve instruction order.
+    -- Aggregation rebuilds localUTxO from the snapshot and retained transactions.
+    newLocalTxs <- pruneTransactions reqSnSnapshot.utxo
+    Program.change
+      SnapshotRequested
+        { requestedSnapshot = reqSnSnapshot
+        , newLocalTxs
+        , newCurrentDepositTxId = mDepositTxId
+        }
+
+  waitResolvableTxs :: SnapshotProgram tx [tx]
+  waitResolvableTxs =
     case toList (fromList requestedTxIds \\ Map.keysSet allTxs) of
-      [] -> continue $ mapMaybe (`Map.lookup` allTxs) requestedTxIds
+      [] -> pure $ mapMaybe (`Map.lookup` allTxs) requestedTxIds
       unseen -> Program.suspend $ WaitOnTxs unseen
 
   -- Resolve the requested deposit into the snapshot's 'utxoToCommit'. It is
   -- not added to the active UTxO: a deposit is not spendable on L2 until its
   -- increment lands, otherwise a requested tx could spend it and the snapshot
   -- would count its value twice.
-  waitForDeposit cont =
+  waitForDeposit :: SnapshotProgram tx (Maybe (UTxOType tx))
+  waitForDeposit =
     case mDepositTxId of
       -- A request without a deposit drops the commit the confirmed snapshot is
       -- settling. Allow that only once its increment can no longer land
@@ -501,7 +508,7 @@ onOpenNetworkReqSnProgram env pendingDeposits ChainPointTime{currentSlot, curren
       Nothing ->
         case settlingCommitAtPeriod env.depositPeriod version currentChainTime pendingDeposits (getSnapshot confirmedSnapshot) of
           Just (ContinueCommit (_, Deposit{deposited})) -> Program.suspend WaitOnUnresolvedCommit{commitUTxO = deposited}
-          _ -> cont Nothing
+          _ -> pure Nothing
       Just depositTxId
         -- The deposit is already claimed by a signed snapshot whose increment
         -- settled on-chain: it only resurfaces in 'pendingDeposits' when a
@@ -527,7 +534,7 @@ onOpenNetworkReqSnProgram env pendingDeposits ChainPointTime{currentSlot, curren
             | status == Inactive -> Program.suspend WaitOnDepositActivation{depositTxId}
             -- NOTE: this makes the commits sequential in a sense that you can't
             -- commit unless the previous commit is settled.
-            | sv == confVersion && isJust confUTxOToCommit ->
+            | hasPendingSnapshotAction sv confVersion confUTxOToCommit ->
                 -- NOTE: identity, not just content. Two deposits can record
                 -- the same UTxO, and only the one bound into the confirmed
                 -- snapshot is the pending commit being settled.
@@ -535,12 +542,13 @@ onOpenNetworkReqSnProgram env pendingDeposits ChainPointTime{currentSlot, curren
                 -- Accepted even if the deposit is 'Expired': its increment
                 -- may still land.
                 if confUTxOToCommit == Just deposited && confDepositTxId == Just depositTxId
-                  then cont confUTxOToCommit
+                  then pure confUTxOToCommit
                   else Program.reject $ RequireFailed ReqSnCommitNotSettled
             | status == Expired -> Program.reject $ RequireFailed RequestedDepositExpired{depositTxId}
-            | otherwise -> cont (Just deposited)
+            | otherwise -> pure (Just deposited)
 
-  requireApplicableDecommitTx cont =
+  requireApplicableDecommitTx :: SnapshotProgram tx (UTxOType tx, Maybe (UTxOType tx))
+  requireApplicableDecommitTx =
     case mDecommitTx of
       -- A request without a decommit drops the one the confirmed snapshot is
       -- settling. Unlike a settling commit (see 'waitForDeposit'), a decommit
@@ -552,9 +560,9 @@ onOpenNetworkReqSnProgram env pendingDeposits ChainPointTime{currentSlot, curren
       -- for the version bump), so the head could not be closed and fanned
       -- out from any snapshot the honest nodes hold.
       Nothing
-        | sv == confVersion && isJust confUTxOToDecommit ->
+        | hasPendingSnapshotAction sv confVersion confUTxOToDecommit ->
             Program.reject $ RequireFailed ReqSnDecommitNotSettled
-        | otherwise -> cont (confirmedUTxO, Nothing)
+        | otherwise -> pure (confirmedUTxO, Nothing)
       -- Spec: require tx𝜔 = ⊥ ∨ tx𝛼 = ⊥
       --
       -- A snapshot settling both a commit and a decommit cannot be closed:
@@ -575,10 +583,10 @@ onOpenNetworkReqSnProgram env pendingDeposits ChainPointTime{currentSlot, curren
         -- Spec:
         -- require 𝑣 = 𝑣 ̂ ∧ 𝑠 = 𝑠 ̂ + 1 ∧ leader(𝑠) = 𝑗
         -- wait 𝑠 ̂ = 𝒮.𝑠
-        if sv == confVersion && isJust confUTxOToDecommit
+        if hasPendingSnapshotAction sv confVersion confUTxOToDecommit
           then
             if confUTxOToDecommit == Just (utxoFromTx decommitTx)
-              then cont (confirmedUTxO, confUTxOToDecommit)
+              then pure (confirmedUTxO, confUTxOToDecommit)
               else Program.reject $ RequireFailed ReqSnDecommitNotSettled
           else do
             result <- Program.applyTransaction currentSlot confirmedUTxO decommitTx
@@ -588,7 +596,7 @@ onOpenNetworkReqSnProgram env pendingDeposits ChainPointTime{currentSlot, curren
               Right newConfirmedUTxO -> do
                 let utxoToDecommit = utxoFromTx decommitTx
                 let activeUTxO = newConfirmedUTxO `withoutUTxO` utxoToDecommit
-                cont (activeUTxO, Just utxoToDecommit)
+                pure (activeUTxO, Just utxoToDecommit)
 
   -- The snapshot can contain fewer transactions than the ones we have seen at
   -- this stage, but they all _must_ apply correctly to the latest snapshot's
@@ -603,8 +611,8 @@ onOpenNetworkReqSnProgram env pendingDeposits ChainPointTime{currentSlot, curren
   -- guarantees a confirmed snapshot never contains an unvalidated transaction.
   --
   -- A claimed deposit must also be 'absorbable' next to the requested txs.
-  requireApplyTxs :: UTxOType tx -> Maybe (UTxOType tx) -> [tx] -> (UTxOType tx -> SnapshotProgram tx ()) -> SnapshotProgram tx ()
-  requireApplyTxs utxo mUtxoToCommit' requestedTxs cont
+  requireApplyTxs :: UTxOType tx -> Maybe (UTxOType tx) -> [tx] -> SnapshotProgram tx (UTxOType tx)
+  requireApplyTxs utxo mUtxoToCommit' requestedTxs
     | Just depositTxId <- mDepositTxId
     , Just deposited <- mUtxoToCommit'
     , not (absorbable utxo requestedTxs deposited) =
@@ -614,14 +622,14 @@ onOpenNetworkReqSnProgram env pendingDeposits ChainPointTime{currentSlot, curren
         case result of
           Left (tx, err) ->
             Program.reject $ RequireFailed $ SnapshotDoesNotApply sn (txId tx) err
-          Right u -> cont u
+          Right u -> pure u
 
-  requireValidAccumulatorSize :: Accumulator.HydraAccumulator -> SnapshotProgram tx () -> SnapshotProgram tx ()
-  requireValidAccumulatorSize accumulator continue =
+  requireValidAccumulatorSize :: Accumulator.HydraAccumulator -> SnapshotProgram tx ()
+  requireValidAccumulatorSize accumulator =
     case Accumulator.checkAccumulatorSize accumulator of
       Left AccumulatorTooLarge{utxoCount, maxAllowed} ->
         Program.reject $ RequireFailed ReqSnUTxOSetTooLarge{utxoCount, maxAllowed}
-      Right () -> continue
+      Right () -> pure ()
 
   -- \| Filter 'localTxs' to those that still apply against the running UTxO
   -- after each previous successful tx. The post-snapshot UTxO is not returned:
@@ -661,6 +669,18 @@ onOpenNetworkReqSnProgram env pendingDeposits ChainPointTime{currentSlot, curren
   OpenState{parameters, coordinatedHeadState, headId} = st
 {-# INLINE onOpenNetworkReqSnProgram #-}
 
+data AckSeen tx = AckSeen
+  { ackSnapshot :: Snapshot tx
+  , ackSignatures :: Map.Map Party (Signature (Snapshot tx))
+  , ackBytes :: ByteString
+  }
+
+data AckComplete tx = AckComplete
+  { ackConfirmedSnapshot :: Snapshot tx
+  , ackMultiSignature :: MultiSignature (Snapshot tx)
+  , ackSignedBytes :: ByteString
+  }
+
 -- | Process a snapshot acknowledgement ('AckSn') from a party.
 --
 -- We do require that the is from the last seen or next expected snapshot, and
@@ -684,12 +704,13 @@ onOpenNetworkAckSn ::
   Signature (Snapshot tx) ->
   -- | Snapshot number of this AckSn.
   SnapshotNumber ->
-  Outcome tx
+  HeadProgram tx ()
 onOpenNetworkAckSn env chainTime pendingDeposits st otherParty signature sn =
-  Interpreter.runProgramWith Interpreter.acknowledgementConfig $
+  Program.promoteProgram $
     onOpenNetworkAckSnProgram (ruleEnvironment env) chainTime pendingDeposits st otherParty signature sn
 
 onOpenNetworkAckSnProgram ::
+  forall tx.
   IsTx tx =>
   RuleEnvironment ->
   ChainPointTime ->
@@ -703,90 +724,76 @@ onOpenNetworkAckSnProgram ::
   SnapshotNumber ->
   AcknowledgementProgram tx ()
 onOpenNetworkAckSnProgram env@RuleEnvironment{party} ChainPointTime{currentChainTime} pendingDeposits openState otherParty snapshotSignature sn =
-  -- Spec: require s ∈ {ŝ, ŝ + 1}
-  requireValidAckSn $ do
-    -- Spec: wait ŝ = s
-    waitOnSeenSnapshot $ \snapshot sigs snapshotBytes -> do
-      -- Spec: require (j,⋅) ∉ ̂Σ
-      requireNotSignedYet sigs $ do
-        -- Spec: ̂Σ[j] ← σⱼ
-        (Program.change PartySignedSnapshot{snapshotNumber = snapshot.number, party = otherParty, signature = snapshotSignature} >>) $
-          --       if ∀k ∈ [1..n] : (k,·) ∈ ̂Σ
-          ifAllMembersHaveSigned snapshot sigs $ \sigs' -> do
-            -- Spec: σ̃ ← MS-ASig(kₕˢᵉᵗᵘᵖ,̂Σ)
-            let multisig = aggregateInOrder sigs' parties
-            -- Spec: η ← combine(𝑈ˆ)
-            --       require MS-Verify(k ̃H, (cid‖v̂‖ŝ‖η), σ̃)
-            requireVerifiedMultisignature multisig snapshotBytes $
-              do
-                -- NOTE: Fix all the spec comments once specification is in place
-                -- Spec: ̅S ← snObj(v̂, ŝ, Û, T̂, 𝑈𝛼, 𝑈𝜔)
-                --       ̅S.σ ← ̃σ
-                Program.change SnapshotConfirmed{headId, snapshot = Nothing, signatures = multisig}
-                -- Spec: if 𝑈𝛼 ≠ ⊥
-                --         postTx (increment, v̂, ŝ, η)
-                & maybePostIncrementTx snapshot multisig
-                -- Spec: if txω ≠ ⊥
-                --         postTx (decrement, v̂, ŝ, η)
-                & maybePostDecrementTx snapshot multisig
-                -- Spec: if leader(s + 1) = i ∧ T̂ ≠ ∅
-                -- REVIEW: multicast (reqSn, v, ̅S.s + 1, T̂, S.𝑈𝛼, S.txω)
-                & maybeRequestNextSnapshot snapshot
+  Program.handler decide
  where
-  seenSn = seenSnapshotNumber seenSnapshot
+  decide :: AcknowledgementProgram tx ()
+  decide = do
+    checkAckNumber
+    seen <- findSeenSnapshot
+    checkNewSigner seen
+    complete <- collectSignatures seen
+    verifySignatures complete
+    confirmSnapshot complete
 
-  requireValidAckSn continue =
-    do
-      valid <- Program.decide "acknowledgement number is admissible" (sn `elem` [seenSn, seenSn + 1])
-      if valid
-        then continue
-        else Program.reject $ RequireFailed $ AckSnNumberInvalid{requestedSn = sn, lastSeenSn = seenSn}
+  checkAckNumber :: AcknowledgementProgram tx ()
+  checkAckNumber = do
+    valid <- Program.decide "acknowledgement number is admissible" (sn `elem` [seenSn, seenSn + 1])
+    unless valid $ Program.reject $ RequireFailed $ AckSnNumberInvalid{requestedSn = sn, lastSeenSn = seenSn}
 
-  waitOnSeenSnapshot continue =
+  findSeenSnapshot :: AcknowledgementProgram tx (AckSeen tx)
+  findSeenSnapshot =
     case seenSnapshot of
-      -- NOTE: Ignore any redundant AckSn for snapshots we have already seen as
-      -- confirmed. This is for example happening if a party runs multiple
-      -- instances of hydra-node using the same keys.
+      -- Ignore redundant acknowledgements for already confirmed snapshots.
       LastSeenSnapshot{lastSeen}
-        | sn <= lastSeen -> pure ()
-      SeenSnapshot{snapshot, signatories = sigs, signableBytes}
-        | seenSn == sn -> continue snapshot sigs signableBytes
+        | sn <= lastSeen -> Program.finish
+      SeenSnapshot{snapshot, signatories, signableBytes}
+        | seenSn == sn -> pure AckSeen{ackSnapshot = snapshot, ackSignatures = signatories, ackBytes = signableBytes}
       _ -> Program.suspend WaitOnSeenSnapshot
 
-  requireNotSignedYet sigs continue =
-    do
-      fresh <- Program.decide "party has not signed this snapshot" (not $ Map.member otherParty sigs)
-      if fresh
-        then continue
-        else Program.reject $ RequireFailed $ SnapshotAlreadySigned{knownSignatures = Map.keys sigs, receivedSignature = otherParty}
+  checkNewSigner :: AckSeen tx -> AcknowledgementProgram tx ()
+  checkNewSigner AckSeen{ackSignatures} = do
+    fresh <- Program.decide "party has not signed this snapshot" (not $ Map.member otherParty ackSignatures)
+    unless fresh $ Program.reject $ RequireFailed $ SnapshotAlreadySigned{knownSignatures = Map.keys ackSignatures, receivedSignature = otherParty}
 
-  ifAllMembersHaveSigned snapshot sigs cont =
-    let sigs' = Map.insert otherParty snapshotSignature sigs
-     in do
-          complete <- Program.decide "all parties have signed" (Map.keysSet sigs' == Set.fromList parties)
-          if complete
-            then cont sigs'
-            else
-              Program.change
-                PartySignedSnapshot
-                  { snapshotNumber = snapshot.number
-                  , party = otherParty
-                  , signature = snapshotSignature
-                  }
+  collectSignatures :: AckSeen tx -> AcknowledgementProgram tx (AckComplete tx)
+  collectSignatures AckSeen{ackSnapshot, ackSignatures, ackBytes} = do
+    let signatureChange = PartySignedSnapshot{snapshotNumber = ackSnapshot.number, party = otherParty, signature = snapshotSignature}
+        signatures = Map.insert otherParty snapshotSignature ackSignatures
+    Program.change signatureChange
+    complete <- Program.decide "all parties have signed" (Map.keysSet signatures == Set.fromList parties)
+    unless complete $ do
+      -- Preserve the two signature events emitted for a partial acknowledgement.
+      Program.change signatureChange
+      Program.finish
+    pure
+      AckComplete
+        { ackConfirmedSnapshot = ackSnapshot
+        , ackMultiSignature = aggregateInOrder signatures parties
+        , ackSignedBytes = ackBytes
+        }
 
-  requireVerifiedMultisignature multisig msg cont =
-    do
-      verified <- Program.verifySnapshot vkeys multisig msg
-      case verified of
-        Verified -> cont
-        FailedKeys failures ->
-          Program.reject $
-            RequireFailed $
-              InvalidMultisignature{multisig = show multisig, vkeys = failures}
-        KeyNumberMismatch ->
-          Program.reject $
-            RequireFailed $
-              InvalidMultisignature{multisig = show multisig, vkeys}
+  verifySignatures :: AckComplete tx -> AcknowledgementProgram tx ()
+  verifySignatures AckComplete{ackMultiSignature, ackSignedBytes} = do
+    verified <- Program.verifySnapshot vkeys ackMultiSignature ackSignedBytes
+    case verified of
+      Verified -> pure ()
+      FailedKeys failures ->
+        Program.reject $
+          RequireFailed $
+            InvalidMultisignature{multisig = show ackMultiSignature, vkeys = failures}
+      KeyNumberMismatch ->
+        Program.reject $
+          RequireFailed $
+            InvalidMultisignature{multisig = show ackMultiSignature, vkeys}
+
+  confirmSnapshot :: AckComplete tx -> AcknowledgementProgram tx ()
+  confirmSnapshot AckComplete{ackConfirmedSnapshot, ackMultiSignature} =
+    Program.change SnapshotConfirmed{headId, snapshot = Nothing, signatures = ackMultiSignature}
+      & maybePostIncrementTx ackConfirmedSnapshot ackMultiSignature
+      & maybePostDecrementTx ackConfirmedSnapshot ackMultiSignature
+      & maybeRequestNextSnapshot ackConfirmedSnapshot
+
+  seenSn = seenSnapshotNumber seenSnapshot
 
   maybeRequestNextSnapshot previous outcome =
     -- Checked against the snapshot just confirmed: the followers check the
@@ -879,20 +886,21 @@ onClientRecover ::
   -- any (see 'openFinalizedDeposit').
   Maybe (TxIdType tx) ->
   TxIdType tx ->
-  Outcome tx
+  HeadProgram tx ()
 onClientRecover currentSlot pendingDeposits finalizedDeposit recoverTxId =
   case Map.lookup recoverTxId pendingDeposits of
     Nothing ->
-      Error $ RequireFailed NoMatchingDeposit
+      Program.reject $ RequireFailed NoMatchingDeposit
     Just Deposit{headId, deposited}
       -- The deposit resurfaced because its finalized increment was rolled
       -- back: the deposited funds are already merged into the head, so
       -- recovering them on-chain would corrupt the L2 ledger. Only re-posting
       -- the increment settles this deposit, see #2741.
       | finalizedDeposit == Just recoverTxId ->
-          Error $ RequireFailed RecoverBlockedByFinalizedCommit{depositTxId = recoverTxId}
+          Program.reject $ RequireFailed RecoverBlockedByFinalizedCommit{depositTxId = recoverTxId}
       | otherwise ->
-          causes
+          traverse_
+            Program.emit
             [ OnChainEffect
                 { postChainTx =
                     RecoverTx
@@ -914,22 +922,21 @@ onClientRecover currentSlot pendingDeposits finalizedDeposit recoverTxId =
 onOpenClientDecommit ::
   IsTx tx =>
   HeadId ->
-  Ledger tx ->
   ChainSlot ->
   CoordinatedHeadState tx ->
   -- | Decommit transaction.
   tx ->
-  Outcome tx
-onOpenClientDecommit headId ledger currentSlot coordinatedHeadState decommitTx =
+  HeadProgram tx ()
+onOpenClientDecommit headId currentSlot coordinatedHeadState decommitTx =
   checkNoDecommitInFlight $
     checkValidDecommitTx $
       requireDecommitOutputs headId localUTxO decommitTx $
-        cause (NetworkEffect ReqDec{transaction = decommitTx})
+        Program.emit (NetworkEffect ReqDec{transaction = decommitTx})
  where
   checkNoDecommitInFlight continue =
     case mExistingDecommitTx of
       Just existingDecommitTx ->
-        newState
+        Program.change
           DecommitInvalid
             { headId
             , decommitTx
@@ -940,10 +947,11 @@ onOpenClientDecommit headId ledger currentSlot coordinatedHeadState decommitTx =
             }
       Nothing -> continue
 
-  checkValidDecommitTx cont =
-    case applyTransactions ledger currentSlot localUTxO [decommitTx] of
-      Left (_, err) ->
-        newState
+  checkValidDecommitTx cont = do
+    result <- Program.applyTransaction currentSlot localUTxO decommitTx
+    case result of
+      Left err ->
+        Program.change
           DecommitInvalid
             { headId
             , decommitTx
@@ -971,23 +979,22 @@ onOpenClientDecommit headId ledger currentSlot coordinatedHeadState decommitTx =
 onOpenNetworkReqDec ::
   IsTx tx =>
   Environment ->
-  Ledger tx ->
   TTL ->
   ChainPointTime ->
   PendingDeposits tx ->
   OpenState tx ->
   tx ->
-  Outcome tx
-onOpenNetworkReqDec env ledger ttl ChainPointTime{currentSlot, currentChainTime} pendingDeposits openState decommitTx =
+  HeadProgram tx ()
+onOpenNetworkReqDec env ttl ChainPointTime{currentSlot, currentChainTime} pendingDeposits openState decommitTx =
   -- Spec: wait 𝑈𝛼 = ∅ ^ txω =⊥ ∧ L̂ ◦ tx ≠ ⊥
   waitOnApplicableDecommit $
     requireDecommitOutputs headId localUTxO decommitTx $
       -- Spec: L̂ ← L̂ ◦ tx \ outputs(tx)
       -- Spec: txω ← tx
-      newState DecommitRecorded{headId, decommitTx}
+      Program.change DecommitRecorded{headId, decommitTx}
         -- Spec: if ŝ = ̅S.s ∧ leader(̅S.s + 1) = i
         --         multicast (reqSn, v, ̅S.s + 1, T̂ , 𝑈𝛼, txω )
-        <> maybeRequestSnapshot
+        >> maybeRequestSnapshot
  where
   -- Spec: wait 𝑈𝛼 = ∅. A pending commit (deposit) must settle before a
   -- decommit can be recorded, otherwise a later snapshot would carry both (see
@@ -1003,9 +1010,9 @@ onOpenNetworkReqDec env ledger ttl ChainPointTime{currentSlot, currentChainTime}
     | Just depositTxId <- requestDepositTxId
     , Just Deposit{deposited = commitUTxO} <- Map.lookup depositTxId pendingDeposits =
         if ttl > 0
-          then wait $ WaitOnUnresolvedCommit{commitUTxO}
+          then Program.suspend $ WaitOnUnresolvedCommit{commitUTxO}
           else
-            newState
+            Program.change
               DecommitInvalid
                 { headId
                 , decommitTx
@@ -1013,16 +1020,17 @@ onOpenNetworkReqDec env ledger ttl ChainPointTime{currentSlot, currentChainTime}
                 }
     | otherwise =
         case mExistingDecommitTx of
-          Nothing ->
-            case applyTransactions currentSlot localUTxO [decommitTx] of
+          Nothing -> do
+            result <- Program.applyTransaction currentSlot localUTxO decommitTx
+            case result of
               Right _ -> cont
-              Left (_, validationError)
+              Left validationError
                 | ttl > 0 ->
-                    wait $
+                    Program.suspend $
                       WaitOnNotApplicableDecommitTx
                         ServerOutput.DecommitTxInvalid{localUTxO, validationError}
                 | otherwise ->
-                    newState
+                    Program.change
                       DecommitInvalid
                         { headId
                         , decommitTx
@@ -1031,11 +1039,11 @@ onOpenNetworkReqDec env ledger ttl ChainPointTime{currentSlot, currentChainTime}
                         }
           Just existingDecommitTx
             | ttl > 0 ->
-                wait $
+                Program.suspend $
                   WaitOnNotApplicableDecommitTx
                     DecommitAlreadyInFlight{otherDecommitTxId = txId existingDecommitTx}
             | otherwise ->
-                newState
+                Program.change
                   DecommitInvalid
                     { headId
                     , decommitTx
@@ -1045,16 +1053,13 @@ onOpenNetworkReqDec env ledger ttl ChainPointTime{currentSlot, currentChainTime}
 
   -- May carry a settling commit instead of the decommit.
   maybeRequestSnapshot =
-    if not (snapshotInFlight seenSnapshot) && isLeader parameters party nextSn
-      then cause (NetworkEffect (ReqSn version nextSn (txId <$> requestTxs) requestDecommitTx requestDepositTxId))
-      else noop
+    when (canRequestSnapshot parameters party nextSn seenSnapshot) $
+      Program.emit (NetworkEffect (ReqSn version nextSn (txId <$> requestTxs) requestDecommitTx requestDepositTxId))
 
   SnapshotRequest{requestTxs, requestDecommitTx, requestDepositTxId} =
     nextSnapshotRequest confirmedUTxO localTxs pendingDeposits currentDepositTxId (Just decommitTx) (settlingCommitAt env version currentChainTime pendingDeposits (getSnapshot confirmedSnapshot))
 
   Environment{party} = env
-
-  Ledger{applyTransactions} = ledger
 
   Snapshot{number} = getSnapshot confirmedSnapshot
 
@@ -1078,6 +1083,10 @@ onOpenNetworkReqDec env ledger ttl ChainPointTime{currentSlot, currentChainTime}
     , coordinatedHeadState
     } = openState
 
+-- | Select deposits in the given lifecycle status.
+depositsWithStatus :: DepositStatus -> PendingDeposits tx -> PendingDeposits tx
+depositsWithStatus expected = Map.filter (\Deposit{status} -> status == expected)
+
 determineNextDepositStatus :: Environment -> PendingDeposits tx -> UTCTime -> PendingDeposits tx
 determineNextDepositStatus env pendingDeposits chainTime =
   (\deposit -> deposit{status = determineStatus deposit}) <$> pendingDeposits
@@ -1098,30 +1107,30 @@ determineNextDepositStatus env pendingDeposits chainTime =
 -- __Transition__: 'AnyState' → 'AnyState'
 --
 -- This is primarily used to track deposits status changes.
-onChainTick :: IsTx tx => Environment -> PendingDeposits tx -> UTCTime -> Outcome tx
+onChainTick :: IsTx tx => Environment -> PendingDeposits tx -> UTCTime -> HeadProgram tx ()
 onChainTick env pendingDeposits chainTime =
-  mkDepositActivated newActive <> mkDepositExpired newExpired
+  mkDepositActivated newActive >> mkDepositExpired newExpired
  where
   -- XXX: This is a bit messy
   newActive = Map.difference nextActive pendingActive
 
   newExpired = Map.difference nextExpired pendingExpired
 
-  pendingActive = Map.filter (\Deposit{status} -> status == Active) pendingDeposits
+  pendingActive = depositsWithStatus Active pendingDeposits
 
-  pendingExpired = Map.filter (\Deposit{status} -> status == Expired) pendingDeposits
+  pendingExpired = depositsWithStatus Expired pendingDeposits
 
   nextDeposits = determineNextDepositStatus env pendingDeposits chainTime
 
-  nextActive = Map.filter (\Deposit{status} -> status == Active) nextDeposits
+  nextActive = depositsWithStatus Active nextDeposits
 
-  nextExpired = Map.filter (\Deposit{status} -> status == Expired) nextDeposits
+  nextExpired = depositsWithStatus Expired nextDeposits
 
-  mkDepositActivated m = changes . (`Map.foldMapWithKey` m) $ \depositTxId deposit ->
-    pure DepositActivated{depositTxId, chainTime, deposit}
+  mkDepositActivated m = traverse_ Program.change . (`Map.foldMapWithKey` m) $ \depositTxId deposit ->
+    [DepositActivated{depositTxId, chainTime, deposit}]
 
-  mkDepositExpired m = changes . (`Map.foldMapWithKey` m) $ \depositTxId deposit ->
-    pure DepositExpired{depositTxId, chainTime, deposit}
+  mkDepositExpired m = traverse_ Program.change . (`Map.foldMapWithKey` m) $ \depositTxId deposit ->
+    [DepositExpired{depositTxId, chainTime, deposit}]
 
 -- | Process the chain (and time) advancing in an open head.
 --
@@ -1129,36 +1138,37 @@ onChainTick env pendingDeposits chainTime =
 --
 -- This is primarily used to track deposits and either drop them or request
 -- snapshots for inclusion.
-onOpenChainTick :: forall tx. IsTx tx => Environment -> UTCTime -> PendingDeposits tx -> OpenState tx -> Outcome tx
-onOpenChainTick env chainTime pendingDeposits st
-  | snapshotInFlight seenSnapshot || not (isLeader parameters party nextSn) = noop
-  | otherwise =
-      let settling = settlingCommitAt env version chainTime deposits confirmed
-          built = nextSnapshotRequest (settledUTxO version (getSnapshot confirmedSnapshot)) localTxs deposits currentDepositTxId decommitTx settling
-       in case (settling, built) of
-            -- The commit is still settling; requests carrying txs continue it.
-            (Just (ContinueCommit _), _) -> noop
-            -- The commit can no longer land: drop it so other deposits can be claimed.
-            (Just DropCommit, SnapshotRequest{requestTxs, requestDecommitTx, requestDepositTxId}) -> request requestTxs requestDecommitTx requestDepositTxId
-            -- Spec: wait txω = ⊥ ∧ Uα = ∅.
-            (Nothing, SnapshotRequest{requestTxs, requestDecommitTx, requestDepositTxId = Just depositTxId})
-              | isNothing decommitTx -> request requestTxs requestDecommitTx (Just depositTxId)
-            _ -> noop
+onOpenChainTick :: forall tx. IsTx tx => Environment -> UTCTime -> PendingDeposits tx -> OpenState tx -> HeadProgram tx ()
+onOpenChainTick env chainTime pendingDeposits st = decision
  where
+  decision
+    | not (canRequestSnapshot parameters party nextSn seenSnapshot) = pure ()
+    | otherwise =
+        let settling = settlingCommitAt env version chainTime deposits confirmed
+            built = nextSnapshotRequest (settledUTxO version (getSnapshot confirmedSnapshot)) localTxs deposits currentDepositTxId decommitTx settling
+         in case (settling, built) of
+              -- The commit is still settling; requests carrying txs continue it.
+              (Just (ContinueCommit _), _) -> pure ()
+              -- The commit can no longer land: drop it so other deposits can be claimed.
+              (Just DropCommit, SnapshotRequest{requestTxs, requestDecommitTx, requestDepositTxId}) -> request requestTxs requestDecommitTx requestDepositTxId
+              -- Spec: wait txω = ⊥ ∧ Uα = ∅.
+              (Nothing, SnapshotRequest{requestTxs, requestDecommitTx, requestDepositTxId = Just depositTxId})
+                | isNothing decommitTx -> request requestTxs requestDecommitTx (Just depositTxId)
+              _ -> pure ()
   nextDeposits = determineNextDepositStatus env pendingDeposits chainTime
 
-  newActive = Map.filter (\Deposit{status} -> status == Active) nextDeposits
+  newActive = depositsWithStatus Active nextDeposits
 
-  newExpired = Map.filter (\Deposit{status} -> status == Expired) nextDeposits
+  newExpired = depositsWithStatus Expired nextDeposits
 
   -- All deposits, with their status updated to this tick's time. Empty
   -- deposits are ignored, because an empty increment cannot be posted.
   deposits = Map.filter (\Deposit{deposited} -> deposited /= mempty) (newActive <> newExpired <> pendingDeposits)
 
-  request :: [tx] -> Maybe tx -> Maybe (TxIdType tx) -> Outcome tx
+  request :: [tx] -> Maybe tx -> Maybe (TxIdType tx) -> HeadProgram tx ()
   request txs mDecommitTx mDepositTxId =
-    newState SnapshotRequestDecided{snapshotNumber = nextSn}
-      <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> txs) mDecommitTx mDepositTxId)
+    Program.change SnapshotRequestDecided{snapshotNumber = nextSn}
+      >> Program.emit (NetworkEffect $ ReqSn version nextSn (txId <$> txs) mDecommitTx mDepositTxId)
 
   confirmed@Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
 
@@ -1211,14 +1221,19 @@ maybeRequestSnapshotAfterVersionBump ::
   SnapshotVersion ->
   SnapshotVersion ->
   SeenSnapshot tx ->
-  Outcome tx
+  HeadProgram tx ()
 maybeRequestSnapshotAfterVersionBump parameters party nextSn mRequest version newVersion seenSnapshot =
   case mRequest of
     Just SnapshotRequest{requestTxs, requestDepositTxId}
       | isLeader parameters party nextSn && newVersion > version && not (isCollectingAcks seenSnapshot) ->
-          newState SnapshotRequestDecided{snapshotNumber = nextSn}
-            <> cause (NetworkEffect $ ReqSn newVersion nextSn (txId <$> requestTxs) Nothing requestDepositTxId)
-    _ -> noop
+          Program.change SnapshotRequestDecided{snapshotNumber = nextSn}
+            >> Program.emit (NetworkEffect $ ReqSn newVersion nextSn (txId <$> requestTxs) Nothing requestDepositTxId)
+    _ -> pure ()
+
+-- | A settlement identifies a snapshot by number and advances its version once.
+matchesSettledSnapshot :: SnapshotNumber -> SnapshotVersion -> Snapshot tx -> Bool
+matchesSettledSnapshot observedNumber newVersion Snapshot{number, version} =
+  observedNumber == number && version + 1 == newVersion
 
 -- | Observe a increment transaction. If the outputs match the ones of the
 -- pending commit UTxO, then we consider the deposit/increment finalized, and remove the
@@ -1240,25 +1255,30 @@ onOpenChainIncrementTx ::
   TxIdType tx ->
   SnapshotNumber ->
   MultiSignature (Snapshot tx) ->
-  Outcome tx
+  HeadProgram tx ()
 onOpenChainIncrementTx env pendingDeposits openState newChainState newVersion depositTxId observedSnapshotNumber observedSignatures =
-  newState CommitFinalized{chainState = newChainState, headId, newVersion, depositTxId}
-    <> adoptObservedSnapshotOrRequestNext
+  Program.change CommitFinalized{chainState = newChainState, headId, newVersion, depositTxId}
+    >> adoptObservedSnapshotOrRequestNext
  where
   -- The increment proves on-chain that the snapshot it settled is fully
   -- signed. If that is the one we are still collecting AckSns for, adopt it
   -- with the on-chain multisignature instead of waiting on a peer.
   adoptObservedSnapshotOrRequestNext =
     case seenSnapshot of
-      SeenSnapshot{snapshot = snapshot@Snapshot{number = seenSnNumber, version = seenSnapshotVersion, depositTxId = seenDepositTxId}, signableBytes}
-        | observedSnapshotNumber == seenSnNumber
-        , seenSnapshotVersion + 1 == newVersion
-        , seenDepositTxId == Just depositTxId
-        , Verified <- verifyMultiSignatureBytes vkeys observedSignatures signableBytes ->
-            newState SnapshotConfirmed{headId, snapshot = Just snapshot, signatures = observedSignatures}
-              <> maybeRequestSnapshotAfterVersionBump parameters party (seenSnNumber + 1) (requestOn snapshot) version newVersion (LastSeenSnapshot seenSnNumber)
-      _ ->
-        maybeRequestSnapshotAfterVersionBump parameters party nextSn (requestOn (getSnapshot confirmedSnapshot)) version newVersion seenSnapshot
+      SeenSnapshot{snapshot = snapshot@Snapshot{number = seenSnNumber, depositTxId = seenDepositTxId}, signableBytes}
+        | matchesSettledSnapshot observedSnapshotNumber newVersion snapshot
+        , seenDepositTxId == Just depositTxId ->
+            do
+              verified <- Program.verifySnapshot vkeys observedSignatures signableBytes
+              case verified of
+                Verified -> do
+                  Program.change SnapshotConfirmed{headId, snapshot = Just snapshot, signatures = observedSignatures}
+                  maybeRequestSnapshotAfterVersionBump parameters party (seenSnNumber + 1) (requestOn snapshot) version newVersion (LastSeenSnapshot seenSnNumber)
+                _ -> requestNext
+      _ -> requestNext
+
+  requestNext =
+    maybeRequestSnapshotAfterVersionBump parameters party nextSn (requestOn (getSnapshot confirmedSnapshot)) version newVersion seenSnapshot
 
   OpenState{headId, parameters, coordinatedHeadState} = openState
 
@@ -1302,30 +1322,35 @@ onOpenChainDecrementTx ::
   SnapshotNumber ->
   -- | Multisignature carried by the decrement redeemer
   MultiSignature (Snapshot tx) ->
-  Outcome tx
+  HeadProgram tx ()
 onOpenChainDecrementTx env pendingDeposits openState newChainState newVersion distributedUTxO observedSnapshotNumber observedSignatures =
-  newState
+  Program.change
     DecommitFinalized
       { chainState = newChainState
       , headId
       , newVersion
       , distributedUTxO
       }
-    <> adoptObservedSnapshotOrRequestNext
+    >> adoptObservedSnapshotOrRequestNext
  where
   -- Same reasoning as in 'onOpenChainIncrementTx': the decrement proves the
   -- snapshot it settled is fully signed, so adopt it if it is the one in flight.
   adoptObservedSnapshotOrRequestNext =
     case seenSnapshot of
-      SeenSnapshot{snapshot = snapshot@Snapshot{number = seenSnNumber, version = seenSnapshotVersion, utxoToDecommit = seenDecommit}, signableBytes}
-        | observedSnapshotNumber == seenSnNumber
-        , seenSnapshotVersion + 1 == newVersion
-        , isJust seenDecommit
-        , Verified <- verifyMultiSignatureBytes vkeys observedSignatures signableBytes ->
-            newState SnapshotConfirmed{headId, snapshot = Just snapshot, signatures = observedSignatures}
-              <> maybeRequestSnapshotAfterVersionBump parameters party (seenSnNumber + 1) (requestOn snapshot) version newVersion (LastSeenSnapshot seenSnNumber)
-      _ ->
-        maybeRequestSnapshotAfterVersionBump parameters party nextSn (requestOn (getSnapshot confirmedSnapshot)) version newVersion seenSnapshot
+      SeenSnapshot{snapshot = snapshot@Snapshot{number = seenSnNumber, utxoToDecommit = seenDecommit}, signableBytes}
+        | matchesSettledSnapshot observedSnapshotNumber newVersion snapshot
+        , isJust seenDecommit ->
+            do
+              verified <- Program.verifySnapshot vkeys observedSignatures signableBytes
+              case verified of
+                Verified -> do
+                  Program.change SnapshotConfirmed{headId, snapshot = Just snapshot, signatures = observedSignatures}
+                  maybeRequestSnapshotAfterVersionBump parameters party (seenSnNumber + 1) (requestOn snapshot) version newVersion (LastSeenSnapshot seenSnNumber)
+                _ -> requestNext
+      _ -> requestNext
+
+  requestNext =
+    maybeRequestSnapshotAfterVersionBump parameters party nextSn (requestOn (getSnapshot confirmedSnapshot)) version newVersion seenSnapshot
 
   OpenState{headId, parameters, coordinatedHeadState} = openState
 
@@ -1367,7 +1392,7 @@ maybeRepostIncrementTx ::
   Maybe (FinalizedSnapshot tx) ->
   -- | Slot rolled back to
   ChainSlot ->
-  Outcome tx
+  HeadProgram tx ()
 maybeRepostIncrementTx headSeed headId parameters pendingDeposits confirmedSnapshot finalizedCommit rolledBackSlot =
   -- NOTE: the deposit comes from the confirmed snapshot itself, not from
   -- 'currentDepositTxId'. Only the deposit bound into the signed snapshot can be
@@ -1385,10 +1410,10 @@ maybeRepostIncrementTx headSeed headId parameters pendingDeposits confirmedSnaps
           | rolledBackSlot < observedAtSlot
           , Just depositTxId <- (getSnapshot snapshot).depositTxId ->
               repost snapshot depositTxId
-        _ -> noop
+        _ -> pure ()
  where
   repost incrementingSnapshot depositTxId =
-    cause
+    Program.emit
       OnChainEffect
         { postChainTx =
             IncrementTx
@@ -1417,7 +1442,7 @@ maybeRepostDecrementTx ::
   Maybe (FinalizedSnapshot tx) ->
   -- | Slot rolled back to
   ChainSlot ->
-  Outcome tx
+  HeadProgram tx ()
 maybeRepostDecrementTx headSeed headId parameters mDecommitTx confirmedSnapshot finalizedDecommit rolledBackSlot =
   case (mDecommitTx, confirmedSnapshot) of
     (Just _, ConfirmedSnapshot{snapshot = snapshot@Snapshot{utxoToDecommit = Just _}, signatures}) ->
@@ -1427,10 +1452,10 @@ maybeRepostDecrementTx headSeed headId parameters mDecommitTx confirmedSnapshot 
         Just FinalizedSnapshot{snapshot, observedAtSlot}
           | rolledBackSlot < observedAtSlot ->
               repost snapshot
-        _ -> noop
+        _ -> pure ()
  where
   repost decrementingSnapshot =
-    cause
+    Program.emit
       OnChainEffect
         { postChainTx =
             DecrementTx
@@ -1440,6 +1465,11 @@ maybeRepostDecrementTx headSeed headId parameters mDecommitTx confirmedSnapshot 
               , decrementingSnapshot
               }
         }
+
+-- | Start a snapshot while idle only when this party leads its number.
+canRequestSnapshot :: HeadParameters -> Party -> SnapshotNumber -> SeenSnapshot tx -> Bool
+canRequestSnapshot parameters party number seen =
+  not (snapshotInFlight seen) && isLeader parameters party number
 
 isLeader :: HeadParameters -> Party -> SnapshotNumber -> Bool
 isLeader HeadParameters{parties} p sn =
@@ -1455,12 +1485,12 @@ isLeader HeadParameters{parties} p sn =
 -- __Transition__: 'OpenState' → 'OpenState'
 onOpenClientClose ::
   OpenState tx ->
-  Outcome tx
+  HeadProgram tx ()
 onOpenClientClose st =
   -- Spec: η# ← ̅S.(η')#  (the confirmed snapshot's stored accumulator hash; not recomputed at close/contest)
   --       ξ ← ̅S.σ
   --       postTx (close, ̅S.v, ̅S.s, η, ξ)
-  cause
+  Program.emit
     OnChainEffect
       { postChainTx =
           CloseTx
@@ -1495,10 +1525,10 @@ onOpenChainCloseTx ::
   UTCTime ->
   -- | Multisignature carried by the close redeemer.
   MultiSignature (Snapshot tx) ->
-  Outcome tx
+  HeadProgram tx ()
 onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDeadline observedSignatures =
   adoptClosedSnapshot
-    <> newState HeadClosed{headId, snapshotNumber = closedSnapshotNumber, chainState = newChainState, contestationDeadline}
+    >> Program.change HeadClosed{headId, snapshotNumber = closedSnapshotNumber, chainState = newChainState, contestationDeadline}
     & maybePostContest
  where
   -- The multisignature verifying over our own signable bytes proves the head
@@ -1507,10 +1537,12 @@ onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDead
   adoptClosedSnapshot =
     case seenSnapshot of
       SeenSnapshot{snapshot = snapshot@Snapshot{number = seenSnNumber}, signableBytes}
-        | seenSnNumber == closedSnapshotNumber
-        , Verified <- verifyMultiSignatureBytes vkeys observedSignatures signableBytes ->
-            newState SnapshotConfirmed{headId, snapshot = Just snapshot, signatures = observedSignatures}
-      _ -> noop
+        | seenSnNumber == closedSnapshotNumber -> do
+            verified <- Program.verifySnapshot vkeys observedSignatures signableBytes
+            case verified of
+              Verified -> Program.change SnapshotConfirmed{headId, snapshot = Just snapshot, signatures = observedSignatures}
+              _ -> pure ()
+      _ -> pure ()
 
   HeadParameters{parties} = headParameters
 
@@ -1524,7 +1556,7 @@ onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDead
           -- Spec: η# ← ̅S.(η')#  (the confirmed snapshot's stored accumulator hash; not recomputed at close/contest)
           --       ξ ← ̅S.σ
           --       postTx (contest, ̅S.v, ̅S.s, η, ξ)
-          <> cause
+          >> Program.emit
             OnChainEffect
               { postChainTx =
                   ContestTx
@@ -1551,17 +1583,18 @@ onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDead
 -- Besides the above, it is expected to work very much like the confirmed snapshot.
 --
 -- __Transition__: 'OpenState' → 'OpenState'
-onOpenClientSideLoadSnapshot :: IsTx tx => OpenState tx -> ConfirmedSnapshot tx -> Outcome tx
+onOpenClientSideLoadSnapshot :: IsTx tx => OpenState tx -> ConfirmedSnapshot tx -> HeadProgram tx ()
 onOpenClientSideLoadSnapshot openState requestedConfirmedSnapshot =
   case requestedConfirmedSnapshot of
     InitialSnapshot{} ->
       requireVerifiedSameSnapshot $
-        newState LocalStateCleared{headId, snapshotNumber = requestedSn}
+        Program.change LocalStateCleared{headId, snapshotNumber = requestedSn}
     ConfirmedSnapshot{snapshot, signatures} ->
       requireVerifiedSnapshotNumber $
         requireVerifiedL1Snapshot $
           requireVerifiedMultisignature snapshot signatures $
-            changes
+            traverse_
+              Program.change
               [ SnapshotConfirmed{headId, snapshot = Just snapshot, signatures}
               , LocalStateCleared{headId, snapshotNumber = requestedSn}
               ]
@@ -1597,7 +1630,7 @@ onOpenClientSideLoadSnapshot openState requestedConfirmedSnapshot =
   clientInput = SideLoadSnapshot requestedConfirmedSnapshot
 
   sideLoadFailed requirementFailure =
-    cause . ClientEffect $
+    Program.emit . ClientEffect $
       ServerOutput.SideLoadSnapshotRejected{clientInput, requirementFailure}
 
   requireVerifiedSameSnapshot cont =
@@ -1619,8 +1652,9 @@ onOpenClientSideLoadSnapshot openState requestedConfirmedSnapshot =
     | requestedSd /= lastSeenSd = sideLoadFailed SideLoadUTxOToDecommitInvalid{requestedSd, lastSeenSd}
     | otherwise = cont
 
-  requireVerifiedMultisignature snapshot signatories cont =
-    case verifyMultiSignature vkeys signatories snapshot of
+  requireVerifiedMultisignature snapshot signatories cont = do
+    verified <- Program.verifySnapshot vkeys signatories (getSignableRepresentation snapshot)
+    case verified of
       Verified -> cont
       FailedKeys failures ->
         sideLoadFailed SideLoadInvalidMultisignature{multisig = show signatories, vkeys = failures}
@@ -1646,38 +1680,30 @@ onClosedChainContestTx ::
   UTCTime ->
   -- | Multisignature carried by the contest redeemer.
   MultiSignature (Snapshot tx) ->
-  Outcome tx
-onClosedChainContestTx closedState newChainState snapshotNumber contestationDeadline observedSignatures =
-  if
-    | -- The multisignature verifying over our own signable bytes proves the
-      -- head was contested with exactly the snapshot we saw.
-      Just snapshot@Snapshot{number = unconfirmedSn} <- unconfirmedSnapshot
-    , unconfirmedSn == snapshotNumber
-    , Verified <- verifyMultiSignature vkeys observedSignatures snapshot ->
-        newState SnapshotConfirmed{headId, snapshot = Just snapshot, signatures = observedSignatures}
-          <> newState HeadContested{headId, chainState = newChainState, contestationDeadline, snapshotNumber}
-    | -- Spec: if ̅S.s > sc
-      number (getSnapshot confirmedSnapshot) > snapshotNumber ->
-        -- Spec: η# ← ̅S.(η')#  (the confirmed snapshot's stored accumulator hash; not recomputed at close/contest)
-        --       ξ ← ̅S.σ
-        --       postTx (contest, ̅S.v, ̅S.s, η, ξ)
-        newState HeadContested{headId, chainState = newChainState, contestationDeadline, snapshotNumber}
-          <> cause
-            OnChainEffect
-              { postChainTx =
-                  ContestTx
-                    { headId
-                    , headParameters
-                    , openVersion = version
-                    , contestingSnapshot = confirmedSnapshot
-                    }
+  HeadProgram tx ()
+onClosedChainContestTx closedState newChainState snapshotNumber contestationDeadline observedSignatures = do
+  adopted <- case unconfirmedSnapshot of
+    Just snapshot@Snapshot{number = unconfirmedSn}
+      | unconfirmedSn == snapshotNumber -> do
+          verified <- Program.verifySnapshot vkeys observedSignatures (getSignableRepresentation snapshot)
+          case verified of
+            Verified -> do
+              Program.change SnapshotConfirmed{headId, snapshot = Just snapshot, signatures = observedSignatures}
+              pure True
+            _ -> pure False
+    _ -> pure False
+  Program.change HeadContested{headId, chainState = newChainState, contestationDeadline, snapshotNumber}
+  when (not adopted && number (getSnapshot confirmedSnapshot) > snapshotNumber) $
+    Program.emit
+      OnChainEffect
+        { postChainTx =
+            ContestTx
+              { headId
+              , headParameters
+              , openVersion = version
+              , contestingSnapshot = confirmedSnapshot
               }
-    | snapshotNumber > number (getSnapshot confirmedSnapshot) ->
-        -- TODO: A more recent snapshot number was successfully contested, we will
-        -- not be able to fanout! We might want to communicate that to the client!
-        newState HeadContested{headId, chainState = newChainState, contestationDeadline, snapshotNumber}
-    | otherwise ->
-        newState HeadContested{headId, chainState = newChainState, contestationDeadline, snapshotNumber}
+        }
  where
   ClosedState{parameters = headParameters, confirmedSnapshot, headId, version, unconfirmedSnapshot} = closedState
 
@@ -1701,12 +1727,12 @@ onClosedChainContestTx closedState newChainState snapshotNumber contestationDead
 onClosedClientFanout ::
   IsTx tx =>
   ClosedState tx ->
-  Outcome tx
+  HeadProgram tx ()
 onClosedClientFanout closedState =
   -- A plain 'Fanout' is a full fanout by definition, and is only reachable from
   -- 'Closed'.
   fanoutStepStateChange headId FullFanoutStep fullUTxO
-    <> emitFanoutStep FullFanoutStep confirmedSnapshot version headSeed contestationDeadline
+    >> emitFanoutStep FullFanoutStep confirmedSnapshot version headSeed contestationDeadline
  where
   fullUTxO = computeFullFanoutUTxO closedState
 
@@ -1723,19 +1749,19 @@ fanoutStepStateChange ::
   NextFanoutStep tx ->
   -- | The head's full remaining set
   UTxOType tx ->
-  Outcome tx
+  HeadProgram tx ()
 fanoutStepStateChange headId step remainingOutputs =
   case step of
     -- The selection is not distributed as one: it becomes a full fanout, and this
     -- node drives the rest of it.
-    FullFanoutStep -> newState HeadFanoutInitiated{headId, remainingOutputs}
+    FullFanoutStep -> Program.change HeadFanoutInitiated{headId, remainingOutputs}
     -- 'FinalStep' posts a transaction and nothing else, so the selection has to
     -- be recorded for it too: a rollback or restart before that transaction
     -- lands otherwise leaves the driver with no selection to resume from.
     FinalStep{stepDistribute} -> recordSelection stepDistribute
     PartialStep{stepDistribute} -> recordSelection stepDistribute
  where
-  recordSelection selection = newState HeadPartialFanoutSelected{headId, remainingOutputs, selection}
+  recordSelection selection = Program.change HeadPartialFanoutSelected{headId, remainingOutputs, selection}
 
 -- | Which transaction the next fanout step has to be, carrying the sets that
 -- transaction needs. Decided once by 'nextFanoutStep' so that callers deciding
@@ -1838,17 +1864,18 @@ onClosedClientPartialFanout ::
   IsTx tx =>
   ClosedState tx ->
   UTxOType tx ->
-  Outcome tx
-onClosedClientPartialFanout closedState selection
-  | nullOutputs selection || not (selection `isSubMultisetOf` fullUTxO) =
-      cause . ClientEffect $ ServerOutput.CommandFailed (PartialFanout selection) (Closed closedState)
-  | otherwise =
-      -- A selection covering the whole head becomes a full fanout - what the user
-      -- means by "fan out everything", and the only option for a head holding a
-      -- single UTxO, since a non-final batch has to leave one behind.
-      fanoutStepStateChange headId step fullUTxO
-        <> emitFanoutStep step confirmedSnapshot version headSeed contestationDeadline
+  HeadProgram tx ()
+onClosedClientPartialFanout closedState selection = decision
  where
+  decision
+    | nullOutputs selection || not (selection `isSubMultisetOf` fullUTxO) =
+        Program.emit . ClientEffect $ ServerOutput.CommandFailed (PartialFanout selection) (Closed closedState)
+    | otherwise =
+        -- A selection covering the whole head becomes a full fanout - what the user
+        -- means by "fan out everything", and the only option for a head holding a
+        -- single UTxO, since a non-final batch has to leave one behind.
+        fanoutStepStateChange headId step fullUTxO
+          >> emitFanoutStep step confirmedSnapshot version headSeed contestationDeadline
   -- Fresh head: the on-chain datum is still @Closed@.
   step = nextFanoutStep confirmedSnapshot version selection fullUTxO DatumClosed
 
@@ -1866,14 +1893,15 @@ onPartialFanoutClientPartialFanout ::
   IsTx tx =>
   PartialFanoutState tx ->
   UTxOType tx ->
-  Outcome tx
-onPartialFanoutClientPartialFanout pfs selection
-  | nullOutputs selection || not (selection `isSubMultisetOf` remainingOutputs) =
-      cause . ClientEffect $ ServerOutput.CommandFailed (PartialFanout selection) (FanoutProgress pfs)
-  | otherwise =
-      fanoutStepStateChange headId step remainingOutputs
-        <> emitFanoutStep step confirmedSnapshot version headSeed contestationDeadline
+  HeadProgram tx ()
+onPartialFanoutClientPartialFanout pfs selection = decision
  where
+  decision
+    | nullOutputs selection || not (selection `isSubMultisetOf` remainingOutputs) =
+        Program.emit . ClientEffect $ ServerOutput.CommandFailed (PartialFanout selection) (FanoutProgress pfs)
+    | otherwise =
+        fanoutStepStateChange headId step remainingOutputs
+          >> emitFanoutStep step confirmedSnapshot version headSeed contestationDeadline
   -- The on-chain datum is only @FanoutProgress@ once a partial fanout has
   -- actually landed (some outputs distributed); until then it is still @Closed@
   -- and a 'FinalPartialFanoutTx' is not yet valid. Compute this the same way as
@@ -1890,9 +1918,9 @@ onClosedChainFanoutTx ::
   -- | New chain state
   ChainStateType tx ->
   UTxOType tx ->
-  Outcome tx
+  HeadProgram tx ()
 onClosedChainFanoutTx closedState newChainState fanoutUTxO =
-  newState HeadFannedOut{headId, finalizedOutputs = fanoutUTxO, chainState = newChainState}
+  Program.change HeadFannedOut{headId, finalizedOutputs = fanoutUTxO, chainState = newChainState}
  where
   ClosedState{headId} = closedState
 
@@ -1914,12 +1942,12 @@ onClosedChainPartialFanoutTx ::
   ChainStateType tx ->
   -- | UTxO distributed in this partial fanout (keyed by new TxIn; values preserve duplicates)
   UTxOType tx ->
-  Outcome tx
+  HeadProgram tx ()
 onClosedChainPartialFanoutTx closedState newChainState observedDistributed =
   let fullUTxO = computeFullFanoutUTxO closedState
       remaining = removeDistributedOutputs (outputsOfUTxO observedDistributed) fullUTxO
       distributedUTxO = withoutUTxO fullUTxO remaining
-   in newState
+   in Program.change
         HeadPartialFannedOut
           { headId
           , distributedOutputs = distributedUTxO
@@ -1943,7 +1971,7 @@ onPartialFanoutChainPartialFanoutTx ::
   ChainStateType tx ->
   -- | UTxO distributed in this partial fanout
   UTxOType tx ->
-  Outcome tx
+  HeadProgram tx ()
 onPartialFanoutChainPartialFanoutTx pfs newChainState observedDistributed =
   let observedOutputs = outputsOfUTxO observedDistributed
       remaining = removeDistributedOutputs observedOutputs remainingOutputs
@@ -1955,7 +1983,7 @@ onPartialFanoutChainPartialFanoutTx pfs newChainState observedDistributed =
           let sel' = removeDistributedOutputs observedOutputs sel
            in if nullOutputs sel' then AwaitingSelection else DistributingSelection sel'
       record =
-        newState
+        Program.change
           HeadPartialFannedOut
             { headId
             , distributedOutputs = distributedUTxO
@@ -1975,8 +2003,8 @@ onPartialFanoutChainPartialFanoutTx pfs newChainState observedDistributed =
             AutoDrain -> finalize
             DistributingSelection sel' ->
               emitStep (nextFanoutStep confirmedSnapshot version sel' remaining DatumFanoutProgress)
-            AwaitingSelection -> noop
-   in record <> continue
+            AwaitingSelection -> pure ()
+   in record >> continue
  where
   emitStep step = emitFanoutStep step confirmedSnapshot version headSeed contestationDeadline
 
@@ -1992,9 +2020,9 @@ onPartialFanoutChainFanoutTx ::
   -- | New chain state
   ChainStateType tx ->
   UTxOType tx ->
-  Outcome tx
+  HeadProgram tx ()
 onPartialFanoutChainFanoutTx pfs newChainState fanoutUTxO =
-  newState HeadFannedOut{headId, finalizedOutputs = distributedOutputs <> fanoutUTxO, chainState = newChainState}
+  Program.change HeadFannedOut{headId, finalizedOutputs = distributedOutputs <> fanoutUTxO, chainState = newChainState}
  where
   PartialFanoutState{headId, distributedOutputs} = pfs
 
@@ -2166,8 +2194,8 @@ recordedSelectionMode distributed remaining selection
 --
 -- Transactions only: any accompanying state change belongs to the caller that
 -- owns the head state, via 'fanoutStepStateChange'. That keeps this safe to call
--- where effects can be applied but state changes cannot, as in the startup
--- re-post in 'Hydra.Node.runHydraNode'.
+-- where the caller owns the event ordering. Startup recovery uses the pure
+-- transaction constructor 'fanoutStepTx'.
 emitFanoutStep ::
   IsTx tx =>
   -- | The step to emit, from 'nextFanoutStep'.
@@ -2176,32 +2204,20 @@ emitFanoutStep ::
   SnapshotVersion ->
   HeadSeed ->
   UTCTime ->
-  Outcome tx
+  HeadProgram tx ()
 emitFanoutStep step confirmedSnapshot version headSeed contestationDeadline =
+  Program.emit $ OnChainEffect $ fanoutStepTx step confirmedSnapshot version headSeed contestationDeadline
+
+-- | Construct the same fanout transaction for input handling and startup recovery.
+fanoutStepTx :: IsTx tx => NextFanoutStep tx -> ConfirmedSnapshot tx -> SnapshotVersion -> HeadSeed -> UTCTime -> PostChainTx tx
+fanoutStepTx step confirmedSnapshot version headSeed contestationDeadline =
   case step of
     FinalStep{stepDistribute} ->
-      cause
-        OnChainEffect
-          { postChainTx =
-              FinalPartialFanoutTx
-                { utxoToDistribute = stepDistribute
-                , headSeed
-                , contestationDeadline
-                }
-          }
+      FinalPartialFanoutTx{utxoToDistribute = stepDistribute, headSeed, contestationDeadline}
     FullFanoutStep ->
-      cause OnChainEffect{postChainTx = mkFullFanoutTx confirmedSnapshot version headSeed contestationDeadline}
+      mkFullFanoutTx confirmedSnapshot version headSeed contestationDeadline
     PartialStep{stepDistribute, stepProof} ->
-      cause
-        OnChainEffect
-          { postChainTx =
-              PartialFanoutTx
-                { utxoToDistribute = stepDistribute
-                , utxoForProof = stepProof
-                , headSeed
-                , contestationDeadline
-                }
-          }
+      PartialFanoutTx{utxoToDistribute = stepDistribute, utxoForProof = stepProof, headSeed, contestationDeadline}
 
 -- | Re-post the next fanout step after a chain rollback while in
 -- 'FanoutProgress', so the fanout resumes instead of stalling with the
@@ -2214,18 +2230,16 @@ emitFanoutStep step confirmedSnapshot version headSeed contestationDeadline =
 --
 -- Which step that is comes from 'currentFanoutStep', the same derivation the
 -- revert guard uses to tell this step's failure from a superseded one's.
-repostFanoutStep :: IsTx tx => PartialFanoutState tx -> Outcome tx
+repostFanoutStep :: IsTx tx => PartialFanoutState tx -> HeadProgram tx ()
 repostFanoutStep pfs =
-  case currentFanoutStep pfs of
-    -- Manual mode paused on the user: nothing to re-post, wait for the next
-    -- 'PartialFanout' command.
-    Nothing -> noop
-    -- Only the transaction is re-posted: this node is the driver already, and
-    -- re-posting is not a new decision to record. So this emits no state
-    -- changes, which is what lets 'Hydra.Node.runHydraNode' apply its effects
-    -- alone at startup.
-    Just step ->
-      emitFanoutStep step confirmedSnapshot version headSeed contestationDeadline
+  traverse_ (Program.emit . OnChainEffect) (repostFanoutTx pfs)
+
+-- | Startup recovery needs only the transaction, without interpreting a handler
+-- or producing state changes outside the input loop.
+repostFanoutTx :: IsTx tx => PartialFanoutState tx -> Maybe (PostChainTx tx)
+repostFanoutTx pfs = do
+  step <- currentFanoutStep pfs
+  pure $ fanoutStepTx step confirmedSnapshot version headSeed contestationDeadline
  where
   PartialFanoutState{confirmedSnapshot, version, headSeed, contestationDeadline} = pfs
 
@@ -2241,15 +2255,15 @@ handleOutOfSync ::
   -- | Latest Chain point time representation observed
   UTCTime ->
   SyncedStatus ->
-  Outcome tx
+  HeadProgram tx ()
 handleOutOfSync Environment{unsyncedPeriod} now chainPoint chainTime syncStatus =
   -- Emit only on an actual sync-status transition, rather than on every tick, so
   -- clients are not flooded (see issue #2749). The continuous drift value is
   -- exposed as a metric ('hydra_chain_drift_seconds') instead.
   case (syncStatus, newSyncStatus) of
-    (InSync, CatchingUp) -> newState NodeUnsynced{chainSlot, chainTime, drift}
-    (CatchingUp, InSync) -> newState NodeSynced{chainSlot, chainTime, drift}
-    _ -> noop
+    (InSync, CatchingUp) -> Program.change NodeUnsynced{chainSlot, chainTime, drift}
+    (CatchingUp, InSync) -> Program.change NodeSynced{chainSlot, chainTime, drift}
+    _ -> pure ()
  where
   plus = flip addUTCTime
   chainSlot = chainPointSlot chainPoint
@@ -2328,11 +2342,11 @@ requireDecommitOutputs ::
   HeadId ->
   UTxOType tx ->
   tx ->
-  Outcome tx ->
-  Outcome tx
+  HeadProgram tx () ->
+  HeadProgram tx ()
 requireDecommitOutputs headId localUTxO decommitTx continue
   | utxoFromTx decommitTx == mempty =
-      newState
+      Program.change
         DecommitInvalid
           { headId
           , decommitTx
@@ -2469,12 +2483,17 @@ data SettlingCommit tx
     -- 'Expired' is not enough: it is set before the deadline.
     DropCommit
 
+-- | A carried incremental action remains pending at the snapshot's version.
+hasPendingSnapshotAction :: SnapshotVersion -> SnapshotVersion -> Maybe a -> Bool
+hasPendingSnapshotAction headVersion snapshotVersion action =
+  headVersion == snapshotVersion && isJust action
+
 settlingCommitAt :: IsTx tx => Environment -> SnapshotVersion -> UTCTime -> PendingDeposits tx -> Snapshot tx -> Maybe (SettlingCommit tx)
 settlingCommitAt Environment{depositPeriod} = settlingCommitAtPeriod depositPeriod
 
 settlingCommitAtPeriod :: IsTx tx => DepositPeriod -> SnapshotVersion -> UTCTime -> PendingDeposits tx -> Snapshot tx -> Maybe (SettlingCommit tx)
 settlingCommitAtPeriod depositPeriod version chainTime pendingDeposits Snapshot{utxoToCommit, depositTxId, version = snapshotVersion}
-  | version /= snapshotVersion || isNothing utxoToCommit = Nothing
+  | not (hasPendingSnapshotAction version snapshotVersion utxoToCommit) = Nothing
   | otherwise = Just $ case (\claimed -> (claimed,) <$> Map.lookup claimed pendingDeposits) =<< depositTxId of
       Just claimed@(_, Deposit{deadline})
         | chainTime <= addUTCTime (toNominalDiffTime depositPeriod) deadline -> ContinueCommit claimed
@@ -2613,7 +2632,21 @@ update ::
   -- | Input to be processed.
   Input tx ->
   Outcome tx
-update env ledger now nodeState ev
+update env ledger now nodeState ev =
+  Interpreter.runProgramWith (Interpreter.snapshotConfig env ledger) $
+    updateProgram env now nodeState ev
+
+updateProgram ::
+  IsChainState tx =>
+  Environment ->
+  -- | Current system time.
+  UTCTime ->
+  -- | Current NodeState to validate the command against.
+  NodeState tx ->
+  -- | Input to be processed.
+  Input tx ->
+  HeadProgram tx ()
+updateProgram env now nodeState ev
   -- SECURITY: before anything else, in every head state and whether or not the
   -- node is in sync. An accumulator over more elements than the trusted setup
   -- supports has no commitment at all -- forcing it calls 'error', see
@@ -2635,18 +2668,17 @@ update env ledger now nodeState ev
   -- client message, which echoes the input.
   | ClientInput clientInput <- ev
   , Left AccumulatorTooLarge{utxoCount, maxAllowed} <- validateClientInput clientInput =
-      Error . SideLoadSnapshotFailed $ SideLoadUTxOSetTooLarge{utxoCount, maxAllowed}
+      Program.reject . SideLoadSnapshotFailed $ SideLoadUTxOSetTooLarge{utxoCount, maxAllowed}
   | otherwise =
       case nodeState of
         NodeCatchingUp{headState, chainPointTime} ->
-          updateCatchingUpHead env ledger now chainPointTime nodeState.pendingDeposits headState ev (syncedStatus nodeState)
+          updateCatchingUpHead env now chainPointTime nodeState.pendingDeposits headState ev (syncedStatus nodeState)
         NodeInSync{headState, chainPointTime} ->
-          updateInSyncHead env ledger now chainPointTime nodeState.pendingDeposits headState ev (syncedStatus nodeState)
+          updateInSyncHead env now chainPointTime nodeState.pendingDeposits headState ev (syncedStatus nodeState)
 
 updateCatchingUpHead ::
   IsChainState tx =>
   Environment ->
-  Ledger tx ->
   -- | Current system time.
   UTCTime ->
   -- | Last known chain point time
@@ -2657,22 +2689,21 @@ updateCatchingUpHead ::
   -- | Input to be processed.
   Input tx ->
   SyncedStatus ->
-  Outcome tx
-updateCatchingUpHead env ledger now chainPointTime pendingDeposits st ev syncStatus =
+  HeadProgram tx ()
+updateCatchingUpHead env now chainPointTime pendingDeposits st ev syncStatus =
   case ev of
     ChainInput{} ->
-      handleChainInput env ledger now chainPointTime pendingDeposits st ev syncStatus
+      handleChainInput env now chainPointTime pendingDeposits st ev syncStatus
     ClientInput{clientInput} ->
-      cause . ClientEffect $ ServerOutput.RejectedInputBecauseUnsynced clientInput drift
+      Program.emit . ClientEffect $ ServerOutput.RejectedInputBecauseUnsynced clientInput drift
     NetworkInput{} ->
-      wait WaitOnNodeInSync{currentSlot}
+      Program.suspend WaitOnNodeInSync{currentSlot}
  where
   ChainPointTime{currentSlot, drift} = chainPointTime
 
 updateInSyncHead ::
   IsChainState tx =>
   Environment ->
-  Ledger tx ->
   -- | Current system time.
   UTCTime ->
   -- | Last known chain point time
@@ -2683,22 +2714,21 @@ updateInSyncHead ::
   -- | Input to be processed.
   Input tx ->
   SyncedStatus ->
-  Outcome tx
-updateInSyncHead env ledger now chainPointTime pendingDeposits st ev syncStatus =
+  HeadProgram tx ()
+updateInSyncHead env now chainPointTime pendingDeposits st ev syncStatus =
   case ev of
     ChainInput{} ->
-      handleChainInput env ledger now chainPointTime pendingDeposits st ev syncStatus
+      handleChainInput env now chainPointTime pendingDeposits st ev syncStatus
     ClientInput{} ->
-      handleClientInput env ledger chainPointTime pendingDeposits st ev
+      handleClientInput env chainPointTime pendingDeposits st ev
     NetworkInput{} ->
-      handleNetworkInput env ledger chainPointTime pendingDeposits st ev
+      handleNetworkInput env chainPointTime pendingDeposits st ev
 
 -- * Input Handlers
 
 handleChainInput ::
   IsChainState tx =>
   Environment ->
-  Ledger tx ->
   -- | Current system time.
   UTCTime ->
   -- | Last known chain point time
@@ -2709,8 +2739,8 @@ handleChainInput ::
   -- | Input to be processed.
   Input tx ->
   SyncedStatus ->
-  Outcome tx
-handleChainInput env _ledger now _chainPointTime pendingDeposits st ev syncStatus = case (st, ev) of
+  HeadProgram tx ()
+handleChainInput env now _chainPointTime pendingDeposits st ev syncStatus = case (st, ev) of
   (Idle _, ChainInput Observation{observedTx = OnInitTx{headId, headSeed, headParameters, participants}, newChainState}) ->
     onIdleChainInitTx env newChainState headId headSeed headParameters participants
   -- Open
@@ -2720,64 +2750,64 @@ handleChainInput env _ledger now _chainPointTime pendingDeposits st ev syncStatu
       | ourHeadId == headId ->
           onOpenChainCloseTx openState newChainState closedSnapshotNumber contestationDeadline signatures
       | otherwise ->
-          Error NotOurHead{ourHeadId, otherHeadId = headId}
+          Program.reject NotOurHead{ourHeadId, otherHeadId = headId}
   (Open openState, ChainInput Tick{chainTime, chainPoint}) ->
     -- XXX: We originally forgot the normal TickObserved state event here and so
     -- time did not advance in an open head anymore. This is a hint that we
     -- should compose event handling better.
-    newState TickObserved{chainPoint, chainTime}
-      <> handleOutOfSync env now chainPoint chainTime syncStatus
-      <> onChainTick env pendingDeposits chainTime
-      <> onOpenChainTick env chainTime (scopedDeposits openState pendingDeposits) openState
+    Program.change TickObserved{chainPoint, chainTime}
+      >> handleOutOfSync env now chainPoint chainTime syncStatus
+      >> onChainTick env pendingDeposits chainTime
+      >> onOpenChainTick env chainTime (scopedDeposits openState pendingDeposits) openState
   (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnIncrementTx{headId, newVersion, depositTxId, snapshotNumber, signatures}, newChainState})
     | ourHeadId == headId ->
         onOpenChainIncrementTx env (scopedDeposits openState pendingDeposits) openState newChainState newVersion depositTxId snapshotNumber signatures
     | otherwise ->
-        Error NotOurHead{ourHeadId, otherHeadId = headId}
+        Program.reject NotOurHead{ourHeadId, otherHeadId = headId}
   (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDecrementTx{headId, newVersion, distributedUTxO, snapshotNumber, signatures}, newChainState})
     -- TODO: What happens if observed decrement tx get's rolled back?
     | ourHeadId == headId ->
         onOpenChainDecrementTx env (scopedDeposits openState pendingDeposits) openState newChainState newVersion distributedUTxO snapshotNumber signatures
     | otherwise ->
-        Error NotOurHead{ourHeadId, otherHeadId = headId}
+        Program.reject NotOurHead{ourHeadId, otherHeadId = headId}
   -- Closed
   (Closed closedState@ClosedState{headId = ourHeadId}, ChainInput Observation{observedTx = OnContestTx{headId, snapshotNumber, contestationDeadline, signatures}, newChainState})
     | ourHeadId == headId ->
         onClosedChainContestTx closedState newChainState snapshotNumber contestationDeadline signatures
     | otherwise ->
-        Error NotOurHead{ourHeadId, otherHeadId = headId}
+        Program.reject NotOurHead{ourHeadId, otherHeadId = headId}
   (Closed ClosedState{contestationDeadline, readyToFanoutSent, headId}, ChainInput Tick{chainTime, chainPoint})
     | chainTime > contestationDeadline && not readyToFanoutSent ->
-        newState TickObserved{chainPoint, chainTime}
-          <> handleOutOfSync env now chainPoint chainTime syncStatus
-          <> onChainTick env pendingDeposits chainTime
-          <> newState HeadIsReadyToFanout{headId}
+        Program.change TickObserved{chainPoint, chainTime}
+          >> handleOutOfSync env now chainPoint chainTime syncStatus
+          >> onChainTick env pendingDeposits chainTime
+          >> Program.change HeadIsReadyToFanout{headId}
   (Closed closedState@ClosedState{headId = ourHeadId}, ChainInput Observation{observedTx = OnFanoutTx{headId, fanoutUTxO}, newChainState})
     | ourHeadId == headId ->
         onClosedChainFanoutTx closedState newChainState fanoutUTxO
     | otherwise ->
-        Error NotOurHead{ourHeadId, otherHeadId = headId}
+        Program.reject NotOurHead{ourHeadId, otherHeadId = headId}
   (Closed closedState@ClosedState{headId = ourHeadId}, ChainInput Observation{observedTx = OnPartialFanoutTx{headId, distributedOutputs}, newChainState})
     | ourHeadId == headId ->
         onClosedChainPartialFanoutTx closedState newChainState distributedOutputs
     | otherwise ->
-        Error NotOurHead{ourHeadId, otherHeadId = headId}
+        Program.reject NotOurHead{ourHeadId, otherHeadId = headId}
   (FanoutProgress partialFanoutState@PartialFanoutState{headId = ourHeadId}, ChainInput Observation{observedTx = OnPartialFanoutTx{headId, distributedOutputs}, newChainState})
     | ourHeadId == headId ->
         onPartialFanoutChainPartialFanoutTx partialFanoutState newChainState distributedOutputs
     | otherwise ->
-        Error NotOurHead{ourHeadId, otherHeadId = headId}
+        Program.reject NotOurHead{ourHeadId, otherHeadId = headId}
   (FanoutProgress partialFanoutState@PartialFanoutState{headId = ourHeadId}, ChainInput Observation{observedTx = OnFanoutTx{headId, fanoutUTxO}, newChainState})
     | ourHeadId == headId ->
         onPartialFanoutChainFanoutTx partialFanoutState newChainState fanoutUTxO
     | otherwise ->
-        Error NotOurHead{ourHeadId, otherHeadId = headId}
+        Program.reject NotOurHead{ourHeadId, otherHeadId = headId}
   -- Node-level: deposit/recover observations scoped to our head
   ( Open OpenState{headId = ourHeadId, headSeed, parameters, coordinatedHeadState = CoordinatedHeadState{finalizedCommit}}
     , ChainInput Observation{observedTx = OnDepositTx{headId, depositTxId, deposited, created, deadline}, newChainState}
     )
       | ourHeadId == headId ->
-          newState DepositRecorded{chainState = newChainState, headId, depositTxId, deposited, created, deadline}
+          Program.change DepositRecorded{chainState = newChainState, headId, depositTxId, deposited, created, deadline}
             -- The finalized deposit observed *again* means a rollback erased
             -- both the deposit and its finalized increment, and the deposit tx
             -- just re-landed on the new chain. The increment re-post issued at
@@ -2786,10 +2816,10 @@ handleChainInput env _ledger now _chainPointTime pendingDeposits st ev syncStatu
             -- every alternative settlement of this deposit is deliberately
             -- blocked (see 'finalizedDepositTxId'): re-post the increment
             -- now that the deposit is on chain again, see #2741.
-            <> case finalizedCommit of
+            >> case finalizedCommit of
               Just FinalizedSnapshot{snapshot}
                 | finalizedDepositTxId finalizedCommit == Just depositTxId ->
-                    cause
+                    Program.emit
                       OnChainEffect
                         { postChainTx =
                             IncrementTx
@@ -2800,33 +2830,33 @@ handleChainInput env _ledger now _chainPointTime pendingDeposits st ev syncStatu
                               , depositTxId
                               }
                         }
-              _ -> Continue [] []
+              _ -> pure ()
       | otherwise ->
-          Continue [] []
+          pure ()
   (Closed ClosedState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDepositTx{headId, depositTxId, deposited, created, deadline}, newChainState})
     | ourHeadId == headId ->
-        newState DepositRecorded{chainState = newChainState, headId, depositTxId, deposited, created, deadline}
+        Program.change DepositRecorded{chainState = newChainState, headId, depositTxId, deposited, created, deadline}
     | otherwise ->
-        Continue [] []
+        pure ()
   -- Mirror the 'Closed' case while mid-fanout: a deposit observed during a
   -- (partial) fanout must still be recorded so it remains recoverable via
   -- 'Recover'. Without this the input falls through to 'Error' and is dropped.
   (FanoutProgress PartialFanoutState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDepositTx{headId, depositTxId, deposited, created, deadline}, newChainState})
     | ourHeadId == headId ->
-        newState DepositRecorded{chainState = newChainState, headId, depositTxId, deposited, created, deadline}
+        Program.change DepositRecorded{chainState = newChainState, headId, depositTxId, deposited, created, deadline}
     | otherwise ->
-        Continue [] []
+        pure ()
   (Idle _, ChainInput Observation{observedTx = OnDepositTx{}}) ->
-    Continue [] []
+    pure ()
   -- Deposit recovery is node-level: emit DepositRecovered for any tracked deposit
   -- regardless of which head is currently active. Previous-head deposits survive
   -- fanout in 'pendingDeposits', so recovery works even while a new head is Open.
   -- Unrelated deposits (never in pendingDeposits) are silently ignored.
   (_, ChainInput Observation{observedTx = OnRecoverTx{headId, recoveredTxId, recoveredUTxO}, newChainState})
     | Map.member recoveredTxId pendingDeposits ->
-        newState DepositRecovered{chainState = newChainState, headId, depositTxId = recoveredTxId, recovered = recoveredUTxO}
+        Program.change DepositRecovered{chainState = newChainState, headId, depositTxId = recoveredTxId, recovered = recoveredUTxO}
     | otherwise ->
-        Continue [] []
+        pure ()
   -- Open + Rollback: re-post IncrementTx/DecrementTx if they were in-flight
   -- or already finalized past the rolled-back slot (#2741)
   ( Open
@@ -2844,30 +2874,30 @@ handleChainInput env _ledger now _chainPointTime pendingDeposits st ev syncStatu
         }
     , ChainInput Rollback{rolledBackChainState, chainTime}
     ) ->
-      newState ChainRolledBack{chainState = rolledBackChainState}
-        <> handleOutOfSync env now (chainStatePoint rolledBackChainState) chainTime syncStatus
-        <> maybeRepostIncrementTx headSeed headId parameters (depositsForHead headId pendingDeposits) confirmedSnapshot finalizedCommit (chainStateSlot rolledBackChainState)
-        <> maybeRepostDecrementTx headSeed headId parameters decommitTx confirmedSnapshot finalizedDecommit (chainStateSlot rolledBackChainState)
+      Program.change ChainRolledBack{chainState = rolledBackChainState}
+        >> handleOutOfSync env now (chainStatePoint rolledBackChainState) chainTime syncStatus
+        >> maybeRepostIncrementTx headSeed headId parameters (depositsForHead headId pendingDeposits) confirmedSnapshot finalizedCommit (chainStateSlot rolledBackChainState)
+        >> maybeRepostDecrementTx headSeed headId parameters decommitTx confirmedSnapshot finalizedDecommit (chainStateSlot rolledBackChainState)
   -- FanoutProgress + Rollback: re-post the next fanout step so the fanout
   -- resumes rather than stalling (the in-flight fanout tx may have been rolled
   -- back). Mirrors the Open re-post above.
   (FanoutProgress partialFanoutState, ChainInput Rollback{rolledBackChainState, chainTime}) ->
-    newState ChainRolledBack{chainState = rolledBackChainState}
-      <> handleOutOfSync env now (chainStatePoint rolledBackChainState) chainTime syncStatus
-      <> repostFanoutStep partialFanoutState
+    Program.change ChainRolledBack{chainState = rolledBackChainState}
+      >> handleOutOfSync env now (chainStatePoint rolledBackChainState) chainTime syncStatus
+      >> repostFanoutStep partialFanoutState
   -- General
   (_, ChainInput Rollback{rolledBackChainState, chainTime}) ->
-    newState ChainRolledBack{chainState = rolledBackChainState}
-      <> handleOutOfSync env now (chainStatePoint rolledBackChainState) chainTime syncStatus
+    Program.change ChainRolledBack{chainState = rolledBackChainState}
+      >> handleOutOfSync env now (chainStatePoint rolledBackChainState) chainTime syncStatus
   (_, ChainInput Tick{chainTime, chainPoint}) ->
-    newState TickObserved{chainPoint, chainTime}
-      <> handleOutOfSync env now chainPoint chainTime syncStatus
-      <> onChainTick env pendingDeposits chainTime
+    Program.change TickObserved{chainPoint, chainTime}
+      >> handleOutOfSync env now chainPoint chainTime syncStatus
+      >> onChainTick env pendingDeposits chainTime
   (_, ChainInput PostTxError{postTxError = StalePartialFanoutTx}) ->
     -- The chain advanced past this step before we could post it (another node
     -- was faster). The chain observation loop already emitted the correct next
     -- step, so this is safe to ignore.
-    noop
+    pure ()
   (FanoutProgress pfs, ChainInput PostTxError{postChainTx, postTxError})
     -- We optimistically moved 'Closed' → 'PartialFanout' when the fanout was
     -- initiated. If posting the initiating fanout tx fails terminally before
@@ -2885,17 +2915,16 @@ handleChainInput env _ledger now _chainPointTime pendingDeposits st ev syncStatu
     | PartialFanoutState{headId, distributedOutputs} <- pfs
     , nullOutputs distributedOutputs
     , maybe False (`matchesFanoutStep` postChainTx) (currentFanoutStep pfs) ->
-        newState HeadFanoutReverted{headId}
-          <> cause (ClientEffect ServerOutput.PostTxOnChainFailed{postChainTx, postTxError})
+        Program.change HeadFanoutReverted{headId}
+          >> Program.emit (ClientEffect ServerOutput.PostTxOnChainFailed{postChainTx, postTxError})
   (_, ChainInput PostTxError{postChainTx, postTxError}) ->
-    cause . ClientEffect $ ServerOutput.PostTxOnChainFailed{postChainTx, postTxError}
+    Program.emit . ClientEffect $ ServerOutput.PostTxOnChainFailed{postChainTx, postTxError}
   _ ->
-    Error $ UnhandledInput ev st
+    Program.reject $ UnhandledInput ev st
 
 handleNetworkInput ::
   IsChainState tx =>
   Environment ->
-  Ledger tx ->
   -- | Last known chain point time
   ChainPointTime ->
   PendingDeposits tx ->
@@ -2903,48 +2932,47 @@ handleNetworkInput ::
   HeadState tx ->
   -- | Input to be processed.
   Input tx ->
-  Outcome tx
-handleNetworkInput env ledger chainPointTime pendingDeposits st ev = case (st, ev) of
+  HeadProgram tx ()
+handleNetworkInput env chainPointTime pendingDeposits st ev = case (st, ev) of
   (_, NetworkInput _ (ConnectivityEvent conn)) ->
     onConnectionEvent env.configuredPeers conn
   -- Open
   (Open openState, NetworkInput ttl (ReceivedMessage{msg = ReqTx tx})) ->
-    onOpenNetworkReqTx env ledger chainPointTime openState ttl (scopedDeposits openState pendingDeposits) tx
+    onOpenNetworkReqTx env chainPointTime openState ttl (scopedDeposits openState pendingDeposits) tx
   -- NOTE: 'ReqSn' gets the unfiltered (per-head) deposits: it distinguishes a
   -- requested deposit that is blocked by a finalized increment (hard error)
   -- from one that is simply not known locally (wait).
   (Open openState@OpenState{headId = ourHeadId}, NetworkInput ttl (ReceivedMessage{sender, msg = ReqSn sv sn txIds decommitTx depositTxId})) ->
-    onOpenNetworkReqSn env ledger (depositsForHead ourHeadId pendingDeposits) chainPointTime openState ttl sender sv sn txIds decommitTx depositTxId
+    onOpenNetworkReqSn env (depositsForHead ourHeadId pendingDeposits) chainPointTime openState ttl sender sv sn txIds decommitTx depositTxId
   (Open openState, NetworkInput _ (ReceivedMessage{sender, msg = AckSn snapshotSignature sn})) ->
     onOpenNetworkAckSn env chainPointTime (scopedDeposits openState pendingDeposits) openState sender snapshotSignature sn
   (Open openState, NetworkInput ttl (ReceivedMessage{msg = ReqDec{transaction}})) ->
-    onOpenNetworkReqDec env ledger ttl chainPointTime (scopedDeposits openState pendingDeposits) openState transaction
+    onOpenNetworkReqDec env ttl chainPointTime (scopedDeposits openState pendingDeposits) openState transaction
   _ ->
-    Error $ UnhandledInput ev st
+    Program.reject $ UnhandledInput ev st
 
-onConnectionEvent :: Text -> Network.Connectivity -> Outcome tx
-onConnectionEvent misconfiguredPeers = \case
+onConnectionEvent :: Text -> Network.Connectivity -> HeadProgram tx ()
+onConnectionEvent misconfiguredPeers event = case event of
   Network.NetworkConnected ->
-    newState NetworkConnected
+    Program.change NetworkConnected
   Network.NetworkDisconnected ->
-    newState NetworkDisconnected
+    Program.change NetworkDisconnected
   Network.VersionMismatch{ourVersion, theirVersion} ->
-    newState NetworkVersionMismatch{ourVersion, theirVersion}
+    Program.change NetworkVersionMismatch{ourVersion, theirVersion}
   Network.ClusterIDMismatch{clusterPeers} ->
-    newState NetworkClusterIDMismatch{clusterPeers, misconfiguredPeers}
+    Program.change NetworkClusterIDMismatch{clusterPeers, misconfiguredPeers}
   Network.PeerConnected{peer} ->
-    newState PeerConnected{peer}
+    Program.change PeerConnected{peer}
   Network.PeerDisconnected{peer} ->
-    newState PeerDisconnected{peer}
+    Program.change PeerDisconnected{peer}
   Network.BroadcastStalled{pendingBroadcasts, stallReason} ->
-    newState NetworkBroadcastStalled{pendingBroadcasts, stallReason}
+    Program.change NetworkBroadcastStalled{pendingBroadcasts, stallReason}
   Network.BroadcastResumed ->
-    newState NetworkBroadcastResumed
+    Program.change NetworkBroadcastResumed
 
 handleClientInput ::
   IsChainState tx =>
   Environment ->
-  Ledger tx ->
   -- | Last known chain point time
   ChainPointTime ->
   PendingDeposits tx ->
@@ -2952,8 +2980,8 @@ handleClientInput ::
   HeadState tx ->
   -- | Input to be processed.
   Input tx ->
-  Outcome tx
-handleClientInput env ledger ChainPointTime{currentSlot} pendingDeposits st ev = case (st, ev) of
+  HeadProgram tx ()
+handleClientInput env ChainPointTime{currentSlot} pendingDeposits st ev = case (st, ev) of
   (Idle _, ClientInput Init) ->
     onIdleClientInit env
   -- Open
@@ -2967,9 +2995,9 @@ handleClientInput env ledger ChainPointTime{currentSlot} pendingDeposits st ev =
     let Snapshot{headId = otherHeadId} = getSnapshot confirmedSnapshot
      in if ourHeadId == otherHeadId
           then onOpenClientSideLoadSnapshot openState confirmedSnapshot
-          else Error NotOurHead{ourHeadId, otherHeadId}
+          else Program.reject NotOurHead{ourHeadId, otherHeadId}
   (Open OpenState{headId, coordinatedHeadState}, ClientInput Decommit{decommitTx}) -> do
-    onOpenClientDecommit headId ledger currentSlot coordinatedHeadState decommitTx
+    onOpenClientDecommit headId currentSlot coordinatedHeadState decommitTx
   -- Closed
   (Closed closedState, ClientInput Fanout) ->
     onClosedClientFanout closedState
@@ -2985,9 +3013,9 @@ handleClientInput env ledger ChainPointTime{currentSlot} pendingDeposits st ev =
     onClientRecover currentSlot pendingDeposits (openFinalizedDeposit st) recoverTxId
   -- General
   (_, ClientInput{clientInput}) ->
-    cause . ClientEffect $ ServerOutput.CommandFailed clientInput st
+    Program.emit . ClientEffect $ ServerOutput.CommandFailed clientInput st
   _ ->
-    Error $ UnhandledInput ev st
+    Program.reject $ UnhandledInput ev st
 
 -- * NodeState aggregate
 

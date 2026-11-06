@@ -233,10 +233,10 @@ wait :: WaitReason tx -> Outcome tx
 wait reason = Wait reason []
 
 newState :: StateChanged tx -> Outcome tx
-newState change = Continue [change] []
+newState change = changes [change]
 
 cause :: Effect tx -> Outcome tx
-cause e = Continue [] [e]
+cause e = causes [e]
 
 causes :: [Effect tx] -> Outcome tx
 causes = Continue []

@@ -67,6 +67,8 @@ import Hydra.Contract.HeadTokens qualified as HeadTokens
 import Hydra.Data.ContestationPeriod qualified as OnChainContestationPeriod
 import Hydra.Data.DepositPeriod qualified as OnChainDepositPeriod
 import Hydra.HeadLogic qualified as HL
+import Hydra.HeadLogic.Interpreter qualified as Interpreter
+import Hydra.Ledger (Ledger (..))
 import Hydra.Ledger.Cardano.Evaluate (renderEvaluationReport)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
 import Hydra.Tx (ConfirmedSnapshot (..), HeadId, Snapshot (..), SnapshotVersion, confirmedSignatures, getSnapshot, hasPendingAction, registryUTxO, txInToHeadSeed)
@@ -136,6 +138,7 @@ import Test.Hydra.Chain.Direct.State (
  )
 import Test.Hydra.Chain.Direct.State qualified as Transition
 import Test.Hydra.Ledger.Cardano.Fixtures (evaluateTx, evaluateTx', maxCpu, maxMem, maxTxSize, pparamsWithMainnetValueLimit)
+import Test.Hydra.Node.Fixture (testEnvironment)
 import Test.Hydra.Tx.Fixture (defaultPParams, slotLength, systemStart, testNetworkId)
 import Test.Hydra.Tx.Gen (genConfirmedSnapshot, genOutputFor, genPointInTimeBefore, genTxOutAdaOnly, genUTxOAdaOnlyOfSize, genUTxOWithUniquePolicyTokensOfSize, genValidityBoundsFromContestationPeriod, propTransactionEvaluates)
 import Test.Hydra.Tx.Mutation (
@@ -513,7 +516,9 @@ spec = parallel $ do
                           , version = 0
                           , unconfirmedSnapshot = Nothing
                           }
-                      outcome = HL.onClosedChainPartialFanoutTx hlClosedState initialChainState distributedOutputs
+                      ledger :: Ledger Tx
+                      ledger = Ledger $ \_ _ _ -> error "fanout observation unexpectedly applies a transaction"
+                      outcome = Interpreter.runProgramWith (Interpreter.snapshotConfig testEnvironment ledger) $ HL.onClosedChainPartialFanoutTx hlClosedState initialChainState distributedOutputs
                       expectedRemaining = UTxO.fromList . drop chunkSize . UTxO.toList $ u0WithDups
                       -- A node observing a partial fanout it didn't initiate is a
                       -- passive observer: it records the remaining set (by content)

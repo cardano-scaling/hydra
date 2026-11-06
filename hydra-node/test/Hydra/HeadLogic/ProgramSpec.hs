@@ -49,11 +49,68 @@ import Test.QuickCheck (choose, elements, forAll, resize, suchThat, (===))
 
 spec :: Spec
 spec = do
+  describe "handler boundaries" $ do
+    it "finishes only the nearest handler and resumes its caller" $ do
+      let program :: Program.TransactionProgram SimpleTx ()
+          program = do
+            Program.handler $ do
+              Program.change received
+              Program.handler $ do
+                Program.emit firstEffect
+                _ <- Program.finish
+                Prelude.error "inner handler continued after finish"
+              Program.change applied
+              _ <- Program.finish
+              Prelude.error "outer handler continued after finish"
+            Program.emit secondEffect
+      Interpreter.runProgram simpleLedger program
+        `shouldBe` Continue [received, applied] [firstEffect, secondEffect]
+
+    it "suspends the whole update across a handler boundary" $ do
+      let program :: Program.TransactionProgram SimpleTx ()
+          program = do
+            Program.change received
+            Program.handler $ do
+              Program.change applied
+              Program.emit firstEffect
+              Program.suspend waitReason
+            Prelude.error "caller continued after suspension"
+      Interpreter.runProgram simpleLedger program `shouldBe` Wait waitReason [received, applied]
+
+    it "rejects the whole update across a handler boundary" $ do
+      let program :: Program.TransactionProgram SimpleTx ()
+          program = do
+            Program.change received
+            Program.emit firstEffect
+            Program.handler $ Program.reject rejection
+            Prelude.error "caller continued after rejection"
+      Interpreter.runProgram simpleLedger program `shouldBe` Error rejection
+
+    it "keeps finished handler buffers subject to a later wait or rejection" $ do
+      forM_ [(Program.suspend waitReason, Wait waitReason [received]), (Program.reject rejection, Error rejection)] $ \(ending, expected) -> do
+        let program :: Program.TransactionProgram SimpleTx ()
+            program = do
+              Program.handler $ do
+                Program.change received
+                Program.emit firstEffect
+                Program.finish
+              ending
+        Interpreter.runProgram simpleLedger program `shouldBe` expected
+
+    it "promotes narrow programs without changing their outcomes or traces" $ do
+      forM_ [0, 1] $ \ttl ->
+        forM_ [simpleLedger, rejectingLedger] $ \ledger -> do
+          let program = reqTxProgram alice ttl emptyOpenState sampleTx
+          Interpreter.traceProgramWith (Interpreter.snapshotConfig testEnvironment ledger) (Program.promoteProgram program)
+            `shouldBe` Interpreter.traceProgram ledger program
+
   describe "program termination" $ do
     it "does not force resolved UTxO endpoints in the compatibility interpreter" $ do
       let program :: Program.TransactionProgram SimpleTx ()
           program = Program.recordAppliedTransaction testHeadId sampleTx (Prelude.error "before UTxO forced") (Prelude.error "after UTxO forced")
       Interpreter.runProgram simpleLedger program `shouldBe` Continue [applied] []
+      Interpreter.runProgramWith (Interpreter.snapshotConfig testEnvironment simpleLedger) (Program.promoteProgram program)
+        `shouldBe` Continue [applied] []
 
     it "preserves change and effect order on completion" $ do
       let program :: Program.TransactionProgram SimpleTx ()
@@ -64,6 +121,28 @@ spec = do
             Program.emit secondEffect
       Interpreter.runProgram simpleLedger program
         `shouldBe` Continue [received, applied] [firstEffect, secondEffect]
+
+    it "finishes early with ordered changes and effects without evaluating the continuation" $ do
+      let program :: Program.TransactionProgram SimpleTx ()
+          program = do
+            Program.change received
+            Program.emit firstEffect
+            Program.change applied
+            Program.emit secondEffect
+            _ <- Program.finish
+            Prelude.error "completion evaluates its continuation"
+          (outcome, trace) = Interpreter.traceProgram simpleLedger program
+      outcome `shouldBe` Continue [received, applied] [firstEffect, secondEffect]
+      trace `shouldBe` [Trace.Changed "remember transaction", Trace.Emitted "network effect", Trace.Changed "apply transaction to local state", Trace.Emitted "network effect", Trace.Finished]
+
+    it "reifies successful early completion without evaluating its continuation" $ do
+      let program :: Program.TransactionProgram SimpleTx ()
+          program = do
+            _ <- Program.finish
+            Prelude.error "reification evaluates the finished continuation"
+      case cursor program of
+        Await Program.Finish _ -> pure ()
+        _ -> failure "expected a finish instruction" :: IO ()
 
     it "commits the change prefix and discards effects when suspended" $ do
       let program :: Program.TransactionProgram SimpleTx ()
@@ -147,9 +226,9 @@ spec = do
         _ -> failure "expected a suspended instruction" :: IO ()
 
   describe "ReqTx program" $ do
-    it "the production wrapper interprets the exposed program" $ do
+    it "the promoted handler preserves the narrow program outcome" $ do
       let program = reqTxProgram alice 1 emptyOpenState sampleTx
-      onOpenNetworkReqTx testEnvironment simpleLedger zeroChainPointTime emptyOpenState 1 mempty sampleTx
+      Interpreter.runProgramWith (Interpreter.snapshotConfig testEnvironment simpleLedger) (onOpenNetworkReqTx testEnvironment zeroChainPointTime emptyOpenState 1 mempty sampleTx)
         `shouldBe` Interpreter.runProgram simpleLedger program
 
     it "a follower applies the transaction without requesting a snapshot" $ do

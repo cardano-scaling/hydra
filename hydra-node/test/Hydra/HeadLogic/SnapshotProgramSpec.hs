@@ -8,19 +8,23 @@ import Data.Map.Strict qualified as Map
 import Data.Sequence qualified as Seq
 import Data.Set qualified as Set
 import Hydra.HeadLogic hiding (error)
+import Hydra.HeadLogic qualified as HeadLogic
 import Hydra.HeadLogic.Interpreter qualified as Interpreter
+import Hydra.HeadLogic.Program qualified as Program
 import Hydra.HeadLogic.Trace qualified as Trace
+import Hydra.Ledger (Ledger)
 import Hydra.Ledger.Simple (SimpleTx (..), simpleLedger)
+import Hydra.Network.Message (Message (..))
 import Hydra.Node (defaultTxTTL)
 import Hydra.Node.Environment (Environment (..))
-import Hydra.Node.State (ChainPointTime (..), Deposit (..), DepositStatus (..), NodeState (..), initialChainTime)
+import Hydra.Node.State (ChainPointTime (..), Deposit (..), DepositStatus (..), NodeState (..), PendingDeposits, initialChainTime)
 import Hydra.Prelude hiding (state, trace)
-import Hydra.Tx (txId)
+import Hydra.Tx (IsTx, TxIdType, txId)
 import Hydra.Tx.Accumulator qualified as Accumulator
-import Hydra.Tx.Crypto (aggregateInOrder, sign)
+import Hydra.Tx.Crypto (Signature, aggregateInOrder, sign)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.Party (Party)
-import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
+import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, SnapshotVersion)
 import Test.Hydra.HeadLogic.LegacyReqTx (legacyOnOpenNetworkReqTx)
 import Test.Hydra.HeadLogic.LegacySnapshot
 import Test.Hydra.Ledger.Simple (utxoRef)
@@ -40,7 +44,7 @@ spec = do
                   forM_ [Nothing, Just 7] $ \deposit ->
                     forM_ [mempty, Map.singleton 7 (depositFixture Active), Map.singleton 7 (depositFixture Inactive), Map.singleton 7 (depositFixture Expired)] $ \pending -> do
                       let old = legacyOnOpenNetworkReqSn env simpleLedger pending initial.chainPointTime os ttl sender sv sn ids decommit deposit
-                          new = onOpenNetworkReqSn env simpleLedger pending initial.chainPointTime os ttl sender sv sn ids decommit deposit
+                          new = runReqSn env simpleLedger pending initial.chainPointTime os ttl sender sv sn ids decommit deposit
                       new `shouldBe` old
                       aggregateState initial new `shouldBe` aggregateState initial old
 
@@ -53,7 +57,7 @@ spec = do
                 let state = ackState phase signers
                     signature = sign ([aliceSk, bobSk, carolSk] !! sender) (if valid then snapshotFixture else initialSnapshot)
                     old = legacyOnOpenNetworkAckSn (environment 1) initial.chainPointTime mempty (openState state) (scenarioParties !! sender) signature sn
-                    new = onOpenNetworkAckSn (environment 1) initial.chainPointTime mempty (openState state) (scenarioParties !! sender) signature sn
+                    new = runAckSn (environment 1) initial.chainPointTime mempty (openState state) (scenarioParties !! sender) signature sn
                 new `shouldBe` old
                 aggregateState state new `shouldBe` aggregateState state old
 
@@ -62,7 +66,7 @@ spec = do
         let pending = if decommitting then mempty else Map.singleton 7 (depositFixture Active)
             base = os{coordinatedHeadState = os.coordinatedHeadState{decommitTx = if decommitting then Just transactionOne else Nothing}}
             ids = [1 | not decommitting]
-            req = onOpenNetworkReqSn env simpleLedger pending initial.chainPointTime base 1 alice 0 1 ids (if decommitting then Just transactionOne else Nothing) (if decommitting then Nothing else Just 7)
+            req = runReqSn env simpleLedger pending initial.chainPointTime base 1 alice 0 1 ids (if decommitting then Just transactionOne else Nothing) (if decommitting then Nothing else Just 7)
             afterRequest = aggregateState initial{headState = Open base} req
             afterOpen = openState afterRequest
         case afterOpen.coordinatedHeadState.seenSnapshot of
@@ -70,7 +74,7 @@ spec = do
             let seen = mkSeenSnapshot snapshot (Map.fromList [(alice, sign aliceSk snapshot), (bob, sign bobSk snapshot)])
                 ready = afterOpen{coordinatedHeadState = afterOpen.coordinatedHeadState{seenSnapshot = seen}}
                 old = legacyOnOpenNetworkAckSn (environment 1) initial.chainPointTime pending ready carol (sign carolSk snapshot) 1
-                new = onOpenNetworkAckSn (environment 1) initial.chainPointTime pending ready carol (sign carolSk snapshot) 1
+                new = runAckSn (environment 1) initial.chainPointTime pending ready carol (sign carolSk snapshot) 1
                 beforeAck = afterRequest{headState = Open ready}
             new `shouldBe` old
             aggregateState beforeAck new `shouldBe` aggregateState beforeAck old
@@ -88,17 +92,36 @@ spec = do
       outcome `shouldSatisfy` \case Error (RequireFailed InvalidMultisignature{}) -> True; _ -> False
       aggregateState state outcome `shouldBe` state
 
+    it "continues after a narrow or promoted rule finishes a partial or redundant acknowledgement" $ do
+      forM_ [CollectingSignatures, LastConfirmed] $ \phase -> do
+        let signature = sign aliceSk snapshotFixture
+            event = PartySignedSnapshot 1 alice signature
+            afterHandler = NetworkEffect $ ReqTx transactionTwo
+            program = do
+              HeadLogic.onOpenNetworkAckSn env initial.chainPointTime mempty (openState $ ackState phase []) alice signature 1
+              Program.emit afterHandler
+            narrowProgram = do
+              onOpenNetworkAckSnProgram (ruleEnvironment env) initial.chainPointTime mempty (openState $ ackState phase []) alice signature 1
+              Program.emit afterHandler
+            expectedChanges = case phase of
+              CollectingSignatures -> [event, event]
+              _ -> []
+        Interpreter.runProgramWith (Interpreter.snapshotConfig env simpleLedger) program
+          `shouldBe` Continue expectedChanges [afterHandler]
+        Interpreter.runProgramWith Interpreter.acknowledgementConfig narrowProgram
+          `shouldBe` Continue expectedChanges [afterHandler]
+
     it "pins two ordered records on a partial acknowledgement" $ do
       let signature = sign aliceSk snapshotFixture
-          outcome = onOpenNetworkAckSn env initial.chainPointTime mempty (openState $ ackState CollectingSignatures []) alice signature 1
+          outcome = runAckSn env initial.chainPointTime mempty (openState $ ackState CollectingSignatures []) alice signature 1
           event = PartySignedSnapshot 1 alice signature
       outcome `shouldBe` Continue [event, event] []
 
   describe "registry and acknowledgement regressions" $ do
     it "preserves the validated payload and ignores every retry of an applied transaction" $ do
-      let node = aggregateState initialNode $ onOpenNetworkReqTx (environment 1) simpleLedger initialNode.chainPointTime (openState initialNode) 2 mempty transactionOne
+      let node = aggregateState initialNode $ runReqTx (environment 1) simpleLedger initialNode.chainPointTime (openState initialNode) 2 mempty transactionOne
           c = (openState node).coordinatedHeadState
-          request = onOpenNetworkReqSn (environment 1) simpleLedger mempty node.chainPointTime (openState node) 2 alice 0 1 [1] Nothing Nothing
+          request = runReqSn (environment 1) simpleLedger mempty node.chainPointTime (openState node) 2 alice 0 1 [1] Nothing Nothing
       c.localTxs `shouldBe` Seq.singleton transactionOne
       c.localUTxO `shouldBe` utxoRef 2
       Map.lookup 1 c.allTxs `shouldBe` Just transactionOne
@@ -114,7 +137,7 @@ spec = do
 
     it "characterizes invalid early signatures blocking later valid replacements" $ do
       let start = ackState CollectingSignatures []
-          applyAck node sender signature = onOpenNetworkAckSn env node.chainPointTime mempty (openState node) sender signature 1
+          applyAck node sender signature = runAckSn env node.chainPointTime mempty (openState node) sender signature 1
           bad = sign aliceSk initialSnapshot
           accepted = applyAck start alice bad
           poisoned = aggregateState start accepted
@@ -140,7 +163,7 @@ env :: Environment
 env = environment 0
 
 snapshotFixture :: Snapshot SimpleTx
-snapshotFixture = case (openState $ aggregateState initial $ onOpenNetworkReqSn env simpleLedger mempty initial.chainPointTime os 1 alice 0 1 [1] Nothing Nothing).coordinatedHeadState.seenSnapshot of
+snapshotFixture = case (openState $ aggregateState initial $ runReqSn env simpleLedger mempty initial.chainPointTime os 1 alice 0 1 [1] Nothing Nothing).coordinatedHeadState.seenSnapshot of
   SeenSnapshot{snapshot} -> snapshot
   _ -> error "snapshot fixture did not request"
 
@@ -219,3 +242,61 @@ openState :: NodeState SimpleTx -> OpenState SimpleTx
 openState st = case st.headState of
   Open opened -> opened
   _ -> error "snapshot fixture leaves the open phase"
+
+runReqTx ::
+  forall tx.
+  IsTx tx =>
+  Environment ->
+  Ledger tx ->
+  ChainPointTime ->
+  OpenState tx ->
+  TTL ->
+  PendingDeposits tx ->
+  -- | The transaction to be submitted to the head.
+  tx ->
+  Outcome tx
+runReqTx handlerEnv ledger chainTime st ttl pending tx =
+  Interpreter.runProgramWith (Interpreter.snapshotConfig handlerEnv ledger) $
+    HeadLogic.onOpenNetworkReqTx handlerEnv chainTime st ttl pending tx
+
+runReqSn ::
+  forall tx.
+  IsTx tx =>
+  Environment ->
+  Ledger tx ->
+  PendingDeposits tx ->
+  ChainPointTime ->
+  OpenState tx ->
+  TTL ->
+  -- | Party which sent the ReqSn.
+  Party ->
+  -- | Requested snapshot version.
+  SnapshotVersion ->
+  -- | Requested snapshot number.
+  SnapshotNumber ->
+  -- | List of transactions to snapshot.
+  [TxIdType tx] ->
+  -- | Optional decommit transaction of removing funds from the head.
+  Maybe tx ->
+  -- | Optional commit of additional funds into the head.
+  Maybe (TxIdType tx) ->
+  Outcome tx
+runReqSn handlerEnv ledger pending chainTime st ttl sender sv sn txs decommit deposit =
+  Interpreter.runProgramWith (Interpreter.snapshotConfig handlerEnv ledger) $
+    HeadLogic.onOpenNetworkReqSn handlerEnv pending chainTime st ttl sender sv sn txs decommit deposit
+
+runAckSn ::
+  Environment ->
+  ChainPointTime ->
+  PendingDeposits SimpleTx ->
+  OpenState SimpleTx ->
+  -- | Party which sent the AckSn.
+  Party ->
+  -- | Signature from other party.
+  Signature (Snapshot SimpleTx) ->
+  -- | Snapshot number of this AckSn.
+  SnapshotNumber ->
+  Outcome SimpleTx
+runAckSn handlerEnv chainTime pending st sender signature sn =
+  Interpreter.runProgramWith (Interpreter.snapshotConfig handlerEnv simpleLedger) $
+    HeadLogic.onOpenNetworkAckSn handlerEnv chainTime pending st sender signature sn

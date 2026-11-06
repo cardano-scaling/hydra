@@ -8,6 +8,9 @@ module Hydra.HeadLogic.Program (
   TransactionProgram,
   SnapshotProgram,
   AcknowledgementProgram,
+  HeadProgram,
+  promoteProgram,
+  handler,
   instruction,
   change,
   emit,
@@ -16,6 +19,7 @@ module Hydra.HeadLogic.Program (
   signSnapshot,
   verifySnapshot,
   recordAppliedTransaction,
+  finish,
   suspend,
   reject,
   foldProgram,
@@ -47,6 +51,7 @@ data Instruction tx (ledger :: Bool) (signing :: Bool) a where
   Change :: StateChanged tx -> Instruction tx ledger signing ()
   Emit :: Effect tx -> Instruction tx ledger signing ()
   Decide :: Text -> Bool -> Instruction tx ledger signing Bool
+  Finish :: Instruction tx ledger signing Void
   Suspend :: WaitReason tx -> Instruction tx ledger signing Void
   Reject :: LogicError tx -> Instruction tx ledger signing Void
 
@@ -100,6 +105,34 @@ recordAppliedTransaction hid tx before after = instruction $ RecordAppliedTransa
 type TransactionProgram tx = Program tx 'True 'False
 type SnapshotProgram tx = Program tx 'True 'True
 type AcknowledgementProgram tx = Program tx 'False 'False
+type HeadProgram tx = Program tx 'True 'True
+
+-- | Run a narrower program with the capabilities available at the input boundary.
+promoteProgram :: Program tx ledger signing a -> HeadProgram tx a
+promoteProgram = foldProgram $ \case
+  ApplyTransaction slot utxo tx -> instruction $ ApplyTransaction slot utxo tx
+  SignSnapshot snapshot -> instruction $ SignSnapshot snapshot
+  VerifySnapshot keys signatures bytes -> instruction $ VerifySnapshot keys signatures bytes
+  RecordAppliedTransaction hid tx before after -> instruction $ RecordAppliedTransaction hid tx before after
+  Change event -> change event
+  Emit effect -> emit effect
+  Decide label answer -> decide label answer
+  Finish -> instruction Finish
+  Suspend reason -> instruction $ Suspend reason
+  Reject err -> instruction $ Reject err
+
+-- | Delimit successful early completion. Waiting and rejection still end the
+-- entire update; finishing resumes the caller after this handler.
+handler :: Program tx ledger signing () -> Program tx ledger signing ()
+handler (Program program) = Program $ \done step ->
+  program done $ \op next -> case op of
+    Finish -> done ()
+    _ -> step op next
+
+-- | Complete the nearest handler, or the whole program when outside a handler.
+finish :: Program tx ledger signing a
+finish = absurd <$> instruction Finish
+{-# INLINE finish #-}
 
 suspend :: WaitReason tx -> Program tx ledger signing a
 suspend reason = absurd <$> instruction (Suspend reason)
