@@ -1230,9 +1230,10 @@ sequenceDiagram
     ledger-->>logic: primitive: apply transaction
     Note over logic: outputs do not collide with pending deposits: True
     logic->>changes: stage: validated transaction
-    Note over logic: snapshot request has useful work: True
     Note over logic: no snapshot is in flight: True
     Note over logic: this party leads the next snapshot: True
+    Note over logic: snapshot request has useful work: True
+    Note over logic: proposal matches the current snapshot context: True
     logic->>changes: stage: record snapshot request
     logic->>effects: buffer: broadcast ReqSn
     Note over logic,effects: finish: commit changes and release effects
@@ -1246,7 +1247,6 @@ sequenceDiagram
     ledger-->>logic: primitive: apply transaction
     Note over logic: outputs do not collide with pending deposits: True
     logic->>changes: stage: validated transaction
-    Note over logic: snapshot request has useful work: True
     Note over logic: no snapshot is in flight: True
     Note over logic: this party leads the next snapshot: False
     Note over logic,effects: finish: commit changes and release effects
@@ -1260,7 +1260,6 @@ sequenceDiagram
     ledger-->>logic: primitive: apply transaction
     Note over logic: outputs do not collide with pending deposits: True
     logic->>changes: stage: validated transaction
-    Note over logic: snapshot request has useful work: True
     Note over logic: no snapshot is in flight: True
     Note over logic: this party leads the next snapshot: False
     Note over logic,effects: finish: commit changes and release effects
@@ -1274,6 +1273,8 @@ sequenceDiagram
     Note over logic: snapshot version matches: True
     Note over logic: snapshot transaction outputs are fresh: True
     ledger-->>logic: primitive: apply transaction
+    Note over logic: unsettled fanout fits accumulator capacity: True
+    Note over logic: settled fanout fits accumulator capacity: True
     crypto-->>logic: primitive: sign snapshot
     logic->>effects: buffer: broadcast AckSn
     Note over logic: snapshot transaction outputs are fresh: False
@@ -1292,6 +1293,8 @@ sequenceDiagram
     Note over logic: snapshot version matches: True
     Note over logic: snapshot transaction outputs are fresh: True
     ledger-->>logic: primitive: apply transaction
+    Note over logic: unsettled fanout fits accumulator capacity: True
+    Note over logic: settled fanout fits accumulator capacity: True
     crypto-->>logic: primitive: sign snapshot
     logic->>effects: buffer: broadcast AckSn
     Note over logic: snapshot transaction outputs are fresh: False
@@ -1307,6 +1310,8 @@ sequenceDiagram
     Note over logic: snapshot version matches: True
     Note over logic: snapshot transaction outputs are fresh: True
     ledger-->>logic: primitive: apply transaction
+    Note over logic: unsettled fanout fits accumulator capacity: True
+    Note over logic: settled fanout fits accumulator capacity: True
     crypto-->>logic: primitive: sign snapshot
     logic->>effects: buffer: broadcast AckSn
     Note over logic: snapshot transaction outputs are fresh: False
@@ -1708,9 +1713,10 @@ sequenceDiagram
     ledger-->>logic: primitive: apply transaction
     Note over logic: outputs do not collide with pending deposits: True
     logic->>changes: stage: validated transaction
-    Note over logic: snapshot request has useful work: True
     Note over logic: no snapshot is in flight: True
     Note over logic: this party leads the next snapshot: True
+    Note over logic: snapshot request has useful work: True
+    Note over logic: proposal matches the current snapshot context: True
     logic->>changes: stage: record snapshot request
     logic->>effects: buffer: broadcast ReqSn
     Note over logic,effects: finish: commit changes and release effects
@@ -1724,7 +1730,6 @@ sequenceDiagram
     ledger-->>logic: primitive: apply transaction
     Note over logic: outputs do not collide with pending deposits: True
     logic->>changes: stage: validated transaction
-    Note over logic: snapshot request has useful work: True
     Note over logic: no snapshot is in flight: True
     Note over logic: this party leads the next snapshot: False
     Note over logic,effects: finish: commit changes and release effects
@@ -1738,7 +1743,6 @@ sequenceDiagram
     ledger-->>logic: primitive: apply transaction
     Note over logic: outputs do not collide with pending deposits: True
     logic->>changes: stage: validated transaction
-    Note over logic: snapshot request has useful work: True
     Note over logic: no snapshot is in flight: True
     Note over logic: this party leads the next snapshot: False
     Note over logic,effects: finish: commit changes and release effects
@@ -1752,6 +1756,8 @@ sequenceDiagram
     Note over logic: snapshot version matches: True
     Note over logic: snapshot transaction outputs are fresh: True
     ledger-->>logic: primitive: apply transaction
+    Note over logic: unsettled fanout fits accumulator capacity: True
+    Note over logic: settled fanout fits accumulator capacity: True
     crypto-->>logic: primitive: sign snapshot
     logic->>effects: buffer: broadcast AckSn
     Note over logic: snapshot transaction outputs are fresh: False
@@ -1767,6 +1773,8 @@ sequenceDiagram
     Note over logic: snapshot version matches: True
     Note over logic: snapshot transaction outputs are fresh: True
     ledger-->>logic: primitive: apply transaction
+    Note over logic: unsettled fanout fits accumulator capacity: True
+    Note over logic: settled fanout fits accumulator capacity: True
     crypto-->>logic: primitive: sign snapshot
     logic->>effects: buffer: broadcast AckSn
     Note over logic: snapshot transaction outputs are fresh: False
@@ -1782,6 +1790,8 @@ sequenceDiagram
     Note over logic: snapshot version matches: True
     Note over logic: snapshot transaction outputs are fresh: True
     ledger-->>logic: primitive: apply transaction
+    Note over logic: unsettled fanout fits accumulator capacity: True
+    Note over logic: settled fanout fits accumulator capacity: True
     crypto-->>logic: primitive: sign snapshot
     logic->>effects: buffer: broadcast AckSn
     Note over logic: snapshot transaction outputs are fresh: False
@@ -1890,7 +1900,6 @@ sequenceDiagram
     ledger-->>logic: primitive: apply transaction
     Note over logic: outputs do not collide with pending deposits: True
     logic->>changes: stage: validated transaction
-    Note over logic: snapshot request has useful work: True
     Note over logic: no snapshot is in flight: True
     Note over logic: this party leads the next snapshot: False
     Note over logic,effects: finish: commit changes and release effects
@@ -1904,7 +1913,6 @@ sequenceDiagram
     ledger-->>logic: primitive: apply transaction
     Note over logic: outputs do not collide with pending deposits: True
     logic->>changes: stage: validated transaction
-    Note over logic: snapshot request has useful work: True
     Note over logic: no snapshot is in flight: True
     Note over logic: this party leads the next snapshot: False
     Note over logic,effects: finish: commit changes and release effects
@@ -1985,9 +1993,10 @@ sequenceDiagram
     ledger-->>logic: primitive: apply transaction
     Note over logic: outputs do not collide with pending deposits: True
     logic->>changes: stage: validated transaction
-    Note over logic: snapshot request has useful work: True
     Note over logic: no snapshot is in flight: True
     Note over logic: this party leads the next snapshot: True
+    Note over logic: snapshot request has useful work: True
+    Note over logic: proposal matches the current snapshot context: True
     logic->>changes: stage: record snapshot request
     logic->>effects: buffer: broadcast ReqSn
     Note over logic,effects: finish: commit changes and release effects
@@ -2001,7 +2010,6 @@ sequenceDiagram
     ledger-->>logic: primitive: apply transaction
     Note over logic: outputs do not collide with pending deposits: True
     logic->>changes: stage: validated transaction
-    Note over logic: snapshot request has useful work: True
     Note over logic: no snapshot is in flight: True
     Note over logic: this party leads the next snapshot: False
     Note over logic,effects: finish: commit changes and release effects
@@ -2015,7 +2023,6 @@ sequenceDiagram
     ledger-->>logic: primitive: apply transaction
     Note over logic: outputs do not collide with pending deposits: True
     logic->>changes: stage: validated transaction
-    Note over logic: snapshot request has useful work: True
     Note over logic: no snapshot is in flight: True
     Note over logic: this party leads the next snapshot: False
     Note over logic,effects: finish: commit changes and release effects
@@ -2029,6 +2036,8 @@ sequenceDiagram
     Note over logic: snapshot version matches: True
     Note over logic: snapshot transaction outputs are fresh: True
     ledger-->>logic: primitive: apply transaction
+    Note over logic: unsettled fanout fits accumulator capacity: True
+    Note over logic: settled fanout fits accumulator capacity: True
     crypto-->>logic: primitive: sign snapshot
     logic->>effects: buffer: broadcast AckSn
     Note over logic: snapshot transaction outputs are fresh: False
@@ -2044,6 +2053,8 @@ sequenceDiagram
     Note over logic: snapshot version matches: True
     Note over logic: snapshot transaction outputs are fresh: True
     ledger-->>logic: primitive: apply transaction
+    Note over logic: unsettled fanout fits accumulator capacity: True
+    Note over logic: settled fanout fits accumulator capacity: True
     crypto-->>logic: primitive: sign snapshot
     logic->>effects: buffer: broadcast AckSn
     Note over logic: snapshot transaction outputs are fresh: False
@@ -2059,6 +2070,8 @@ sequenceDiagram
     Note over logic: snapshot version matches: True
     Note over logic: snapshot transaction outputs are fresh: True
     ledger-->>logic: primitive: apply transaction
+    Note over logic: unsettled fanout fits accumulator capacity: True
+    Note over logic: settled fanout fits accumulator capacity: True
     crypto-->>logic: primitive: sign snapshot
     logic->>effects: buffer: broadcast AckSn
     Note over logic: snapshot transaction outputs are fresh: False
@@ -2167,7 +2180,6 @@ sequenceDiagram
     ledger-->>logic: primitive: apply transaction
     Note over logic: outputs do not collide with pending deposits: True
     logic->>changes: stage: validated transaction
-    Note over logic: snapshot request has useful work: True
     Note over logic: no snapshot is in flight: True
     Note over logic: this party leads the next snapshot: False
     Note over logic,effects: finish: commit changes and release effects
@@ -2181,7 +2193,6 @@ sequenceDiagram
     ledger-->>logic: primitive: apply transaction
     Note over logic: outputs do not collide with pending deposits: True
     logic->>changes: stage: validated transaction
-    Note over logic: snapshot request has useful work: True
     Note over logic: no snapshot is in flight: True
     Note over logic: this party leads the next snapshot: False
     Note over logic,effects: finish: commit changes and release effects
@@ -2263,7 +2274,6 @@ sequenceDiagram
     ledger-->>logic: primitive: apply transaction
     Note over logic: outputs do not collide with pending deposits: True
     logic->>changes: stage: validated transaction
-    Note over logic: snapshot request has useful work: True
     Note over logic: no snapshot is in flight: True
     Note over logic: this party leads the next snapshot: False
     Note over logic,changes: finish: commit changes and release effects
@@ -2854,9 +2864,10 @@ sequenceDiagram
     ledger-->>logic: primitive: apply transaction
     Note over logic: outputs do not collide with pending deposits: True
     logic->>changes: stage: validated transaction
-    Note over logic: snapshot request has useful work: True
     Note over logic: no snapshot is in flight: True
     Note over logic: this party leads the next snapshot: True
+    Note over logic: snapshot request has useful work: True
+    Note over logic: proposal matches the current snapshot context: True
     logic->>changes: stage: record snapshot request
     logic->>effects: buffer: broadcast ReqSn
     Note over logic,effects: finish: commit changes and release effects
@@ -2870,7 +2881,6 @@ sequenceDiagram
     ledger-->>logic: primitive: apply transaction
     Note over logic: outputs do not collide with pending deposits: True
     logic->>changes: stage: validated transaction
-    Note over logic: snapshot request has useful work: True
     Note over logic: no snapshot is in flight: True
     Note over logic: this party leads the next snapshot: False
     Note over logic,effects: finish: commit changes and release effects
@@ -2884,7 +2894,6 @@ sequenceDiagram
     ledger-->>logic: primitive: apply transaction
     Note over logic: outputs do not collide with pending deposits: True
     logic->>changes: stage: validated transaction
-    Note over logic: snapshot request has useful work: True
     Note over logic: no snapshot is in flight: True
     Note over logic: this party leads the next snapshot: False
     Note over logic,effects: finish: commit changes and release effects
@@ -2898,7 +2907,6 @@ sequenceDiagram
     ledger-->>logic: primitive: apply transaction
     Note over logic: outputs do not collide with pending deposits: True
     logic->>changes: stage: validated transaction
-    Note over logic: snapshot request has useful work: True
     Note over logic: no snapshot is in flight: False
     Note over logic,effects: finish: commit changes and release effects
   end
@@ -2911,7 +2919,6 @@ sequenceDiagram
     ledger-->>logic: primitive: apply transaction
     Note over logic: outputs do not collide with pending deposits: True
     logic->>changes: stage: validated transaction
-    Note over logic: snapshot request has useful work: True
     Note over logic: no snapshot is in flight: True
     Note over logic: this party leads the next snapshot: False
     Note over logic,effects: finish: commit changes and release effects
@@ -2925,7 +2932,6 @@ sequenceDiagram
     ledger-->>logic: primitive: apply transaction
     Note over logic: outputs do not collide with pending deposits: True
     logic->>changes: stage: validated transaction
-    Note over logic: snapshot request has useful work: True
     Note over logic: no snapshot is in flight: True
     Note over logic: this party leads the next snapshot: False
     Note over logic,effects: finish: commit changes and release effects
@@ -2939,11 +2945,15 @@ sequenceDiagram
     Note over logic: snapshot version matches: True
     Note over logic: snapshot transaction outputs are fresh: True
     ledger-->>logic: primitive: apply transaction
+    Note over logic: unsettled fanout fits accumulator capacity: True
+    Note over logic: settled fanout fits accumulator capacity: True
     crypto-->>logic: primitive: sign snapshot
     logic->>effects: buffer: broadcast AckSn
     Note over logic: snapshot transaction outputs are fresh: False
     Note over logic: snapshot transaction outputs are fresh: True
     ledger-->>logic: primitive: apply transaction
+    Note over logic: pending transaction outputs avoid the carried deposit: True
+    Note over logic: pending transaction fits both fanout alternatives: True
     logic->>changes: stage: record requested snapshot and prune local transactions
     Note over logic,effects: finish: commit changes and release effects
   end
@@ -2956,11 +2966,15 @@ sequenceDiagram
     Note over logic: snapshot version matches: True
     Note over logic: snapshot transaction outputs are fresh: True
     ledger-->>logic: primitive: apply transaction
+    Note over logic: unsettled fanout fits accumulator capacity: True
+    Note over logic: settled fanout fits accumulator capacity: True
     crypto-->>logic: primitive: sign snapshot
     logic->>effects: buffer: broadcast AckSn
     Note over logic: snapshot transaction outputs are fresh: False
     Note over logic: snapshot transaction outputs are fresh: True
     ledger-->>logic: primitive: apply transaction
+    Note over logic: pending transaction outputs avoid the carried deposit: True
+    Note over logic: pending transaction fits both fanout alternatives: True
     logic->>changes: stage: record requested snapshot and prune local transactions
     Note over logic,effects: finish: commit changes and release effects
   end
@@ -2973,11 +2987,15 @@ sequenceDiagram
     Note over logic: snapshot version matches: True
     Note over logic: snapshot transaction outputs are fresh: True
     ledger-->>logic: primitive: apply transaction
+    Note over logic: unsettled fanout fits accumulator capacity: True
+    Note over logic: settled fanout fits accumulator capacity: True
     crypto-->>logic: primitive: sign snapshot
     logic->>effects: buffer: broadcast AckSn
     Note over logic: snapshot transaction outputs are fresh: False
     Note over logic: snapshot transaction outputs are fresh: True
     ledger-->>logic: primitive: apply transaction
+    Note over logic: pending transaction outputs avoid the carried deposit: True
+    Note over logic: pending transaction fits both fanout alternatives: True
     logic->>changes: stage: record requested snapshot and prune local transactions
     Note over logic,effects: finish: commit changes and release effects
   end
@@ -3061,6 +3079,7 @@ sequenceDiagram
     Note over logic: all parties have signed: True
     crypto-->>logic: primitive: verify multisignature
     logic->>changes: stage: confirm snapshot
+    Note over logic: proposal matches the current snapshot context: True
     logic->>changes: stage: record snapshot request
     logic->>effects: buffer: broadcast ReqSn
     Note over logic,effects: finish: commit changes and release effects
@@ -3085,6 +3104,8 @@ sequenceDiagram
     Note over logic: snapshot version matches: True
     Note over logic: snapshot transaction outputs are fresh: True
     ledger-->>logic: primitive: apply transaction
+    Note over logic: unsettled fanout fits accumulator capacity: True
+    Note over logic: settled fanout fits accumulator capacity: True
     crypto-->>logic: primitive: sign snapshot
     logic->>effects: buffer: broadcast AckSn
     Note over logic: snapshot transaction outputs are fresh: False
@@ -3100,6 +3121,8 @@ sequenceDiagram
     Note over logic: snapshot version matches: True
     Note over logic: snapshot transaction outputs are fresh: True
     ledger-->>logic: primitive: apply transaction
+    Note over logic: unsettled fanout fits accumulator capacity: True
+    Note over logic: settled fanout fits accumulator capacity: True
     crypto-->>logic: primitive: sign snapshot
     logic->>effects: buffer: broadcast AckSn
     Note over logic: snapshot transaction outputs are fresh: False
@@ -3115,6 +3138,8 @@ sequenceDiagram
     Note over logic: snapshot version matches: True
     Note over logic: snapshot transaction outputs are fresh: True
     ledger-->>logic: primitive: apply transaction
+    Note over logic: unsettled fanout fits accumulator capacity: True
+    Note over logic: settled fanout fits accumulator capacity: True
     crypto-->>logic: primitive: sign snapshot
     logic->>effects: buffer: broadcast AckSn
     Note over logic: snapshot transaction outputs are fresh: False
@@ -3293,9 +3318,10 @@ sequenceDiagram
     ledger-->>logic: ledger application: valid
     Note over logic: outputs do not collide with pending deposits: yes
     logic->>changes: stage: apply transaction to local state
-    Note over logic: snapshot request has useful work: yes
     Note over logic: no snapshot is in flight: yes
     Note over logic: this party leads the next snapshot: yes
+    Note over logic: snapshot request has useful work: yes
+    Note over logic: proposal matches the current snapshot context: yes
     logic->>changes: stage: record snapshot request
     logic->>effects: buffer: broadcast ReqSn
     Note over logic,effects: finish: commit changes and release effects
@@ -3322,7 +3348,6 @@ sequenceDiagram
     ledger-->>logic: ledger application: valid
     Note over logic: outputs do not collide with pending deposits: yes
     logic->>changes: stage: apply transaction to local state
-    Note over logic: snapshot request has useful work: yes
     Note over logic: no snapshot is in flight: yes
     Note over logic: this party leads the next snapshot: no
     Note over logic,changes: finish: commit changes and release effects
@@ -3349,7 +3374,6 @@ sequenceDiagram
     ledger-->>logic: ledger application: valid
     Note over logic: outputs do not collide with pending deposits: yes
     logic->>changes: stage: apply transaction to local state
-    Note over logic: snapshot request has useful work: yes
     Note over logic: no snapshot is in flight: no
     Note over logic,changes: finish: commit changes and release effects
   end

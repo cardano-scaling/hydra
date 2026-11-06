@@ -31,6 +31,11 @@ Read these in order:
 5. [`Machine/Coordinated.hs`](../hydra-node/src/Hydra/HeadLogic/Machine/Coordinated.hs) composes the snapshot and transaction owners. ReqTx, snapshot, settlement and side-load rules stage their changes through these same transitions.
 6. [`Machine.hs`](../hydra-node/src/Hydra/HeadLogic/Machine.hs) connects deposit ownership, lifecycle and clock; the open lifecycle state contains the snapshot/transaction composition. Recovery uses these machines without re-running input rules or cryptography.
 
+For the capacity fix, read [`SnapshotRequest`](../hydra-node/src/Hydra/HeadLogic/Rules/SnapshotRequest.hs),
+[`SendSnapshot`](../hydra-node/src/Hydra/HeadLogic/Rules/SendSnapshot.hs), and
+[`CapacitySpec`](../hydra-node/test/Hydra/HeadLogic/CapacitySpec.hs) together: selection,
+owner acceptance, and an independent check of the resulting request.
+
 For a larger rule, read [`ReqSn.hs`](../hydra-node/src/Hydra/HeadLogic/Rules/ReqSn.hs)
 and [`AckSn.hs`](../hydra-node/src/Hydra/HeadLogic/Rules/AckSn.hs). For chain interaction,
 read [`Settlement.hs`](../hydra-node/src/Hydra/HeadLogic/Rules/Settlement.hs) and
@@ -52,9 +57,11 @@ Agda independently checks the bounded decisions described in the
 Haskell implementation or distributed progress.
 
 The [measurements](docs/dev/architecture/head-logic-experiments/measurements.md)
-separate instruction interpretation, crem workflows, event aggregation, and
-whole-node throughput. Earlier cluster results predate the crem conversion;
-they are not a TPS measurement of the final design.
+cover the complete input and state-owner composition, retained-event application,
+and three-node throughput. They separate the current design from earlier stages
+of the spike and report allocation costs as well as elapsed time. The current
+design adds allocations and reduces TPS in the small controlled workload; this
+cost belongs in the merge decision.
 
 Before a merge, decide which frozen migration fixtures to keep and review the
 remaining recovery policies separately. Wider workload and deployment testing

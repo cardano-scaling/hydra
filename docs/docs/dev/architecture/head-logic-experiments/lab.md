@@ -288,6 +288,36 @@ capacity reports have their own schema and are not generic replay tapes.
 
 ## Validation record
 
+### Composed owners and capacity (2026-11-06)
+
+| Check | Result |
+| --- | --- |
+| Full `just check` | Passed: 1,437 node, 278 transaction, 116 Agda and 18 chain-observer tests; unchanged Plutus checks reused |
+| Specification and extraction | Agda typechecking, PDF, trust-ledger checks and extraction drift passed |
+| Focused capacity/workflow tests | 123 passed in a fresh test REPL; four compatibility properties also passed 1,000 cases each |
+| Capacity demonstration | Frozen rules stall after nine deliveries; current rules confirm snapshot 5 after 30; independent audits and serialized replay hold at each prefix |
+| Bounded capacity search | 100 states, limit 40 deliveries, no failure found; truncated at the state limit |
+| Saved replay tapes | All five v2 tapes validate; their current instruction diagrams are regenerated |
+| TUI | All 24 tests pass against the current Nix-built node with `TERM=xterm-256color TASTY_NUM_THREADS=1` |
+| Complete-design measurements | Six local-round grids, four retained-event grids, and 16 three-node runs; all 60,000 cluster transactions confirm with no invalid/refused submissions and complete fanout |
+| Diagram rendering | All 89 diagrams parse and render; the central page includes every `.mmd` |
+| Imports | All 93 changed handwritten Haskell files use explicit or qualified imports, except the permitted Preludes |
+
+The first TUI attempt failed because the shell lacked the `xterm-ghostty`
+terminfo entry. The rerun selects an available terminal and the current node
+binary explicitly; no test assertion or timeout changed.
+
+The arbitrary-state comparisons now align the open Head's ID with its confirmed
+snapshot. The checked request boundary deliberately rejects mismatched contexts;
+separate regressions cover those rejections. Compatibility comparisons continue
+to exclude the corrected decommit paths, and capacity decisions have independent
+regressions. Frozen implementations remain unchanged.
+
+The [performance report](measurements.md) records the regressions as well as the
+passing runs. The small-Head and burst results do not meet a general 5% claim.
+The local frozen-input baseline already uses free Programs; the whole-node
+comparison against PR #2927 measures the complete design.
+
 ### Complete input conversion (2026-11-05)
 
 | Check | Result |

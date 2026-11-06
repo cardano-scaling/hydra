@@ -250,9 +250,11 @@ and `RulesSpec`'s recovery assertion. This is regression coverage, not a defect.
 
 [Upstream PR #2927](capacity.md) identifies another gap at this boundary: an
 honest leader can persist a request that every follower rejects for accumulator
-capacity. This branch still has that behavior. The investigation maps the fix to
-the shared selector and owners, and proposes independent request/progress checks.
-The upstream fix is not applied before the requested rebase.
+capacity. The shared selector now checks capacity before constructing a proposal;
+the owner requires that proposal for a live request. Capacity-aware pruning lets
+later independent work proceed. The frozen demonstration retains the failure,
+and independent request/progress checks cover the repair. The policy is ported
+from the reviewed PR revision; the branch has not been rebased.
 
 The [coordinated owners](../../../../head-logic-coordinated.md) expose where each
 fix belongs. `reservationHeld` first fails at historical rebase;

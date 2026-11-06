@@ -131,8 +131,10 @@ observations, reservation release and rollback at every prefix. The independent
 Agda model additionally checks version and reservation changes over bounded
 versions; it does not model settlement payload identity.
 
-Measure complete rounds and whole-node workloads before drawing a TPS conclusion;
-earlier measurements predate these owners.
+The [measurement report](docs/dev/architecture/head-logic-experiments/measurements.md)
+covers complete rounds, retained-event application and three-node workloads with
+these owners. Event application adds a few microseconds per round; the full
+comparison also includes allocation costs and the capacity checks.
 
 The [capacity port](docs/dev/architecture/head-logic-experiments/capacity.md) adds
 the analogous request contract: follower capacity rejection must not leave an

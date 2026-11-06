@@ -15,7 +15,6 @@ sequenceDiagram
     ledger-->>logic: primitive: apply transaction
     Note over logic: outputs do not collide with pending deposits: True
     logic->>changes: stage: validated transaction
-    Note over logic: snapshot request has useful work: True
     Note over logic: no snapshot is in flight: True
     Note over logic: this party leads the next snapshot: False
     Note over logic,changes: finish: commit changes and release effects

@@ -14,7 +14,8 @@ HeadLogic.update
       Workflow.run (Rules.Input.machine ...)
         input admission → phase-specific dispatch → rule actions
   aggregateState
-    Machine.apply: lifecycle → incremental action → snapshot coordination → metadata
+    Machine.apply: DepositRegistry → Lifecycle → Clock
+      Open: Snapshots → Transactions
 ```
 
 [`Rules/Input.hs`](../hydra-node/src/Hydra/HeadLogic/Rules/Input.hs) checks accumulator

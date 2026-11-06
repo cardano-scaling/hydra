@@ -32,9 +32,10 @@ sequenceDiagram
     ledger-->>logic: ledger application: valid
     Note over logic: outputs do not collide with pending deposits: yes
     logic->>changes: stage: apply transaction to local state
-    Note over logic: snapshot request has useful work: yes
     Note over logic: no snapshot is in flight: yes
     Note over logic: this party leads the next snapshot: yes
+    Note over logic: snapshot request has useful work: yes
+    Note over logic: proposal matches the current snapshot context: yes
     logic->>changes: stage: record snapshot request
     logic->>effects: buffer: broadcast ReqSn
     Note over logic,effects: finish: commit changes and release effects
@@ -57,7 +58,6 @@ sequenceDiagram
     ledger-->>logic: ledger application: valid
     Note over logic: outputs do not collide with pending deposits: yes
     logic->>changes: stage: apply transaction to local state
-    Note over logic: snapshot request has useful work: yes
     Note over logic: no snapshot is in flight: yes
     Note over logic: this party leads the next snapshot: no
     Note over logic,changes: finish: commit changes and release effects
@@ -136,18 +136,7 @@ sequenceDiagram
     ledger-->>logic: ledger application: valid
     Note over logic: outputs do not collide with pending deposits: yes
     logic->>changes: stage: apply transaction to local state
-    Note over logic: snapshot request has useful work: yes
     Note over logic: no snapshot is in flight: no
     Note over logic,changes: finish: commit changes and release effects
   end
 ```
-
-## Capacity boundary
-
-`capacity-historical-v1.json` and `capacity-fixed-v1.json` are compact checked
-reports from `head-logic-lab capacity`, with corresponding instruction diagrams.
-They record the historical stall and corrected split/prune/merge sequence at
-32,767 outputs. Use `trace FILE --scenario capacity` for a full scenario that
-`replay` accepts. `capacity-before-rebase.mmd` preserves the original production
-witness at revision `386e95947`; its original REPL script has been replaced by
-the maintained frozen/current demonstration. See [the code and commands](../capacity.md).
