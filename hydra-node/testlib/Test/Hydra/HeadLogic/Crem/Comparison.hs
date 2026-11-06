@@ -10,7 +10,7 @@ import Data.Map.Strict qualified as Map
 import Data.Text qualified as Text
 import Data.Text.IO qualified as Text
 import Hydra.HeadLogic (
-  CoordinatedHeadState (localUTxO, seenSnapshot),
+  CoordinatedHeadState (allTxs, localUTxO, seenSnapshot),
   HeadState (Open),
   OpenState (coordinatedHeadState, headId),
   Outcome,
@@ -64,7 +64,7 @@ examples =
   , reqSn "req-sn-sign" applied 0 [1] Nothing
   , reqSn "req-sn-version-wait" applied 1 [1] Nothing
   , reqSn "req-sn-missing-transaction" initial 0 [2] Nothing
-  , reqSn "req-sn-decommit" initial 0 [] (Just Scenario.transactionOne)
+  , reqSn "req-sn-decommit" knownDecommit 0 [] (Just Scenario.transactionOne)
   , decommit "req-dec-record" Scenario.transactionOne 1
   , decommit "req-dec-wait" Scenario.transactionTwo 1
   , decommit "req-dec-timeout" Scenario.transactionTwo 0
@@ -87,6 +87,8 @@ examples =
     SeenSnapshot{snapshot = value} -> value
     _ -> error "comparison fixture did not request a snapshot"
   collision = setCoordinated initial $ os.coordinatedHeadState{localUTxO = utxoRef 1 <> utxoRef 2}
+  -- Missing payload retention is an intentional correction, tested separately.
+  knownDecommit = setCoordinated initial $ os.coordinatedHeadState{allTxs = Map.singleton 1 Scenario.transactionOne}
   inFlight = setCoordinated initial $ os.coordinatedHeadState{seenSnapshot = RequestedSnapshot 0 1}
   duplicate = setCoordinated requested $ (Scenario.openState requested).coordinatedHeadState{seenSnapshot = mkSeenSnapshot snapshot $ Map.singleton carol $ sign carolSk snapshot}
   ready = setCoordinated requested $ (Scenario.openState requested).coordinatedHeadState{seenSnapshot = mkSeenSnapshot snapshot $ Map.fromList [(alice, sign aliceSk snapshot), (bob, sign bobSk snapshot)]}

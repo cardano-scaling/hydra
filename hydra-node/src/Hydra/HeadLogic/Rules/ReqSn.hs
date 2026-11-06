@@ -166,7 +166,8 @@ machine env pendingDeposits ChainPointTime{currentSlot, currentChainTime} st ttl
       -- The acknowledgement is buffered before pruning; SnapshotRequested then
       -- reconstructs localUTxO by applying the retained transactions in order.
       newLocalTxs <- pruneTransactions currentSlot snapshot.utxoToCommit snapshot.utxoToDecommit snapshot.utxo localTxs
-      void $ Coordinated.stage (Coordinated.start st) $ Coordinated.acceptSnapshot snapshot newLocalTxs mDepositTxId
+      runtime <- maybe (pure $ Coordinated.start st) (Coordinated.stage (Coordinated.start st) . Coordinated.retainSnapshotDecommit) mDecommitTx
+      void $ Coordinated.stage runtime $ Coordinated.acceptSnapshot snapshot newLocalTxs mDepositTxId
     Done -> finish Done
 
   resolveDecommit :: SnapshotProgram tx (UTxOType tx, Maybe (UTxOType tx))

@@ -16,6 +16,7 @@ module Hydra.HeadLogic.Machine.Coordinated (
   confirmSnapshot,
   requestSnapshot,
   receiveTransaction,
+  retainSnapshotDecommit,
   applyTransaction,
   forgetTransaction,
   adoptSnapshot,
@@ -102,6 +103,11 @@ stage runtime command = case advance runtime command of
 
 receiveTransaction :: tx -> Command tx
 receiveTransaction = Transactions . ReceiveTransaction
+
+-- | Keep the accepted request's payload without replacing a local reservation.
+-- Confirmation promotes it; the existing TransactionReceived event persists it.
+retainSnapshotDecommit :: tx -> Command tx
+retainSnapshotDecommit = Transactions . RetainSnapshotDecommit
 
 -- | The live ledger reply supplies the new UTxO; replay reconstructs it from
 -- the existing event. Experimental resolved replay uses the same endpoints.

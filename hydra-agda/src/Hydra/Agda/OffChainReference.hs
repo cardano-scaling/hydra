@@ -21,6 +21,8 @@ module Hydra.Agda.OffChainReference (
   reservationHeldRef,
   retainReservationRef,
   decommitAdmissionRef,
+  carriedDecommitPayloadRef,
+  carriedDecommitRequestRef,
   verificationContextRef,
   decommitReadyRef,
   reserveRebaseRef,
@@ -329,3 +331,12 @@ decommitAdmissionRef = M.hsDecommitAdmissionRef
 -- | Head identity and ordered committee must match the verification context.
 verificationContextRef :: Integer -> Integer -> [Integer] -> [Integer] -> Bool
 verificationContextRef = M.hsVerificationContextRef
+
+-- | Zero selects the reservation, positive indices select registry entries.
+-- Output identities are finite sets; empty outputs identify no transaction.
+carriedDecommitPayloadRef :: Bool -> [Integer] -> [Integer] -> [[Integer]] -> Maybe Integer
+carriedDecommitPayloadRef = M.hsCarriedDecommitPayloadRef
+
+-- | A same-version certificate requires a matching carried transaction.
+carriedDecommitRequestRef :: Bool -> Bool -> Bool -> Bool
+carriedDecommitRequestRef = M.hsCarriedDecommitRequestRef

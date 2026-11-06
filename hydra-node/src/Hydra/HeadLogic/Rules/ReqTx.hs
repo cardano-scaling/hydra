@@ -50,9 +50,11 @@ import Hydra.HeadLogic.State (
     version
   ),
   OpenState (OpenState, coordinatedHeadState, parameters),
+  SeenSnapshot (SeenSnapshot),
   snapshotInFlight,
  )
 import Hydra.HeadLogic.State.Operations (
+  matchesSnapshotDecommit,
   namesNoneOf,
  )
 import Hydra.HeadLogic.Workflow (
@@ -105,6 +107,11 @@ machine env ChainPointTime{currentSlot, currentChainTime} st ttl pendingDeposits
   step :: State tx from -> Transition tx 'True signing ReqTxTopology (State tx) from
   step = \case
     DuplicateCheck
+      | SeenSnapshot snapshot _ _ <- seenSnapshot
+      , Just{} <- snapshot.utxoToDecommit
+      , Just known <- Map.lookup (txId tx) allTxs
+      , matchesSnapshotDecommit snapshot known ->
+          continue (const Done) $ Program.decide "transaction is retained by the candidate decommit" True
       | Map.member (txId tx) allTxs && any ((== txId tx) . txId) localTxs ->
           continue (const Done) $ Program.decide "transaction is already applied locally" True
       | otherwise -> continue OutputCheck $ do

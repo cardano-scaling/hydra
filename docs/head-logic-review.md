@@ -6,7 +6,7 @@ the decisions, ledger and signature queries, staged events, and effects. One
 interpreter runs those instructions. Separate crem machines apply the retained
 events to `NodeState`.
 
-Network messages, persisted event encodings, and checkpoint formats are
+Network message formats, persisted event encodings, and checkpoint formats are
 unchanged. [Protocol checks and recovery limits](head-logic/checks.md) describe
 the guarantees enforced by the rules and the recovery policies they retain.
 
@@ -49,6 +49,11 @@ Rendering lives in the development library's
 The production rules have no rendering code, debugger configuration, or fault
 injection switch. Signing keys belong to interpreter configuration, outside the
 public rule environment and traces.
+
+The [ReqSn-before-ReqDec regression](head-logic/state-transitions.md#fixed-a-certificate-without-its-carried-transaction)
+shows a bug exposed by the ownership analysis, the repair, and a component trace.
+It also explains why this supports using Crem without establishing that Crem is
+necessary.
 
 ## What the evidence establishes
 

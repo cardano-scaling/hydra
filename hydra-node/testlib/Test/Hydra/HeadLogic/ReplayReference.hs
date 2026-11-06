@@ -7,12 +7,13 @@ module Test.Hydra.HeadLogic.ReplayReference (replayWithReservationFix) where
 
 import Hydra.Prelude
 
+import Data.Map.Strict qualified as Map
 import Data.Set qualified as Set
-import Hydra.HeadLogic.Outcome (StateChanged (SnapshotConfirmed, SnapshotRequested, headId, snapshot))
+import Hydra.HeadLogic.Outcome (StateChanged (LocalStateCleared, SnapshotConfirmed, SnapshotRequested, headId, snapshot))
 import Hydra.HeadLogic.State (CoordinatedHeadState (..), HeadState (Open), OpenState (..), SeenSnapshot (SeenSnapshot))
 import Hydra.Ledger.Simple (SimpleTx (..))
 import Hydra.Node.State (NodeState (..))
-import Hydra.Tx.Snapshot (Snapshot (..), getSnapshot)
+import Hydra.Tx.Snapshot (ConfirmedSnapshot (ConfirmedSnapshot), Snapshot (..), getSnapshot)
 import Test.Hydra.HeadLogic.LegacyState (legacyAggregateNodeState)
 
 replayWithReservationFix :: NodeState SimpleTx -> StateChanged SimpleTx -> NodeState SimpleTx
@@ -23,17 +24,29 @@ replayWithReservationFix before event = case (event, legacy.headState) of
          in legacy{headState = Open os{coordinatedHeadState = chs{localUTxO = chs.localUTxO `Set.difference` tx.txInputs}}}
   (SnapshotConfirmed{headId, snapshot = adopted}, Open os)
     | headId == os.headId
-    , isJust adopted || collecting
-    , Just tx <- os.coordinatedHeadState.decommitTx ->
+    , isJust adopted || collecting ->
         let chs = os.coordinatedHeadState
             snapshot = getSnapshot chs.confirmedSnapshot
             settling = chs.version == snapshot.version && isJust snapshot.utxoToDecommit
-            carried = settling && snapshot.utxoToDecommit == Just tx.txOutputs
             base = snapshot.utxo <> if chs.version > snapshot.version then fold snapshot.utxoToCommit else mempty
             available = foldl' (\utxo pending -> (utxo `Set.difference` pending.txInputs) <> pending.txOutputs) base chs.localTxs
-         in if carried || (not settling && tx.txInputs `Set.isSubsetOf` available)
-              then legacy
-              else legacy{headState = Open os{coordinatedHeadState = chs{localUTxO = available, decommitTx = Nothing}}}
+            matches tx = not (Set.null tx.txOutputs) && snapshot.utxoToDecommit == Just tx.txOutputs
+            payload = find matches chs.decommitTx <|> find matches (Map.elems chs.allTxs)
+            keep tx = (settling && matches tx) || (not settling && tx.txInputs `Set.isSubsetOf` available)
+            released = not $ all keep chs.decommitTx
+            retained = if settling then payload else mfilter keep chs.decommitTx
+            next = chs{localUTxO = if released then available else chs.localUTxO, decommitTx = retained, allTxs = maybe chs.allTxs (\tx -> Map.delete tx.txSimpleId chs.allTxs) payload}
+         in legacy{headState = Open os{coordinatedHeadState = next}}
+  (LocalStateCleared{headId}, Open os)
+    | headId == os.headId
+    , Open prior <- before.headState
+    , ConfirmedSnapshot{} <- prior.coordinatedHeadState.confirmedSnapshot ->
+        let chs = os.coordinatedHeadState
+            old = prior.coordinatedHeadState
+            snapshot = getSnapshot old.confirmedSnapshot
+            matches tx = not (Set.null tx.txOutputs) && snapshot.utxoToDecommit == Just tx.txOutputs
+            retained = (find matches old.decommitTx <|> find matches (Map.elems old.allTxs)) <* guard (old.version == snapshot.version)
+         in legacy{headState = Open os{coordinatedHeadState = chs{decommitTx = retained}}}
   _ -> legacy
  where
   legacy = legacyAggregateNodeState before event

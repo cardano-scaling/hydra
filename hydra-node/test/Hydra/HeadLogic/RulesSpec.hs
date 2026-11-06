@@ -18,7 +18,7 @@ import Test.Hydra.Prelude (
 import Data.Map.Strict qualified as Map
 import Hydra.HeadLogic (
   ClosedState (parameters),
-  CoordinatedHeadState (confirmedSnapshot, decommitTx),
+  CoordinatedHeadState (confirmedSnapshot, decommitTx, seenSnapshot, version),
   HeadState (Closed, FanoutProgress, Idle, Open),
   Input (NetworkInput),
   LogicError (RequireFailed),
@@ -26,6 +26,7 @@ import Hydra.HeadLogic (
   Outcome (Continue, Error),
   PartialFanoutState (parameters),
   RequirementFailure (InvalidMultisignature),
+  SeenSnapshot (SeenSnapshot),
   StateChanged (DepositRecovered, SnapshotConfirmed),
   aggregateState,
   ruleEnvironment,
@@ -33,12 +34,13 @@ import Hydra.HeadLogic (
  )
 import Hydra.HeadLogic.Interpreter qualified as Interpreter
 import Hydra.HeadLogic.Rules.ReqTx qualified as ReqTx
+import Hydra.HeadLogic.State.Operations (settlingDecommit)
 import Hydra.HeadLogic.Workflow qualified as Workflow
 import Hydra.Ledger.Simple (SimpleTx, simpleLedger)
-import Hydra.Network.Message (Message (ReqDec), NetworkEvent (ReceivedMessage))
+import Hydra.Network.Message (Message (ReqDec, ReqSn, decommitTx), NetworkEvent (ReceivedMessage))
 import Hydra.Node.State (NodeState (..), initialChainTime, trackedFromPending)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
-import Hydra.Tx.Snapshot (Snapshot (headId), getSnapshot)
+import Hydra.Tx.Snapshot (Snapshot (headId, utxoToDecommit), getSnapshot)
 import Test.Hydra.HeadLogic.CoordinatedAudit qualified as Audit
 import Test.Hydra.HeadLogic.Crem.Comparison (Example (..), Reference (..), compareExample, comparePrograms, examples)
 import Test.Hydra.HeadLogic.Debugger qualified as Debug
@@ -110,7 +112,7 @@ spec = describe "free programs and crem phases" $ do
                 before
                 (LegacyPrograms.onOpenNetworkReqTxProgram env before.chainPointTime st ttl pending tx)
                 (Workflow.run $ ReqTx.machine env before.chainPointTime st ttl pending tx)
-         in isNothing st.coordinatedHeadState.decommitTx ==> counterexample (show result) (isRight result)
+         in unchangedDecommitDomain st.coordinatedHeadState ==> counterexample (show result) (isRight result)
 
   prop "dependent transactions, expiry and duplicates agree at every input prefix" $
     forAll (vectorOf 20 $ (,) <$> elements [Scenario.transactionOne, Scenario.transactionTwo] <*> elements [0, 1]) $ \inputs ->
@@ -122,10 +124,18 @@ spec = describe "free programs and crem phases" $ do
   compatibleWithLegacy :: NodeState SimpleTx -> Input SimpleTx -> Bool
   compatibleWithLegacy node input = case node.headState of
     Open os ->
-      isNothing os.coordinatedHeadState.decommitTx && case input of
+      unchangedDecommitDomain os.coordinatedHeadState && case input of
         NetworkInput _ (ReceivedMessage _ (ReqDec tx)) -> Audit.newDecommitReady os.coordinatedHeadState tx
+        NetworkInput _ (ReceivedMessage _ ReqSn{decommitTx}) -> isNothing decommitTx
         _ -> True
     _ -> True
+  unchangedDecommitDomain :: CoordinatedHeadState SimpleTx -> Bool
+  unchangedDecommitDomain chs =
+    isNothing chs.decommitTx
+      && not (settlingDecommit chs.version chs.confirmedSnapshot)
+      && case chs.seenSnapshot of
+        SeenSnapshot snapshot _ _ -> isNothing snapshot.utxoToDecommit
+        _ -> True
   withParties :: NodeState SimpleTx -> NodeState SimpleTx
   withParties node =
     node

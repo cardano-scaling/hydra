@@ -20,7 +20,7 @@ import Hydra.API.ServerOutput (DecommitInvalidReason (DecommitTxInvalid))
 import Hydra.HeadLogic.Machine.Coordinated.Types (LedgerUpdate (..), SnapshotOutput (..), SnapshotState (..), TransactionCommand (..))
 import Hydra.HeadLogic.Outcome (StateChanged (..))
 import Hydra.HeadLogic.State (SeenSnapshot (..))
-import Hydra.HeadLogic.State.Operations (absorbable, finalizedDepositTxId, maxTxsPerSnapshot, settledUTxO, settlingDecommit)
+import Hydra.HeadLogic.State.Operations (absorbable, finalizedDepositTxId, matchesSnapshotDecommit, maxTxsPerSnapshot, settledUTxO, settlingDecommit)
 import Hydra.Ledger (ValidationError (ValidationError))
 import Hydra.Node.Deposit (Deposit (..))
 import Hydra.Tx (HeadId, IsTx (..))
@@ -120,24 +120,23 @@ machine headId snapshots0 initial initialDecommit = BaseMachineT initialState ac
        in unchanged next
     ConfirmTransactions -> case reserved of
       Nothing
-        | settling snapshots -> output local Nothing (Settling local Nothing) events
-        | otherwise -> unchanged local
+        | settling snapshots -> output confirmedLocal authorised (Settling confirmedLocal authorised) events
+        | otherwise -> unchanged confirmedLocal
       Just tx
-        | carries tx -> output local reserved (Settling local reserved) events
-        | not (settling snapshots) && txInputsAvailable tx rebuilt -> unchanged local
+        | carries tx -> output confirmedLocal reserved (Settling confirmedLocal reserved) events
+        | not (settling snapshots) && txInputsAvailable tx rebuilt -> unchanged confirmedLocal
         | otherwise ->
-            let next = local{localUTxO = rebuilt}
+            let next = confirmedLocal{localUTxO = rebuilt}
                 invalid = DecommitInvalid headId tx $ DecommitTxInvalid rebuilt (ValidationError "decommit superseded by confirmed snapshot")
              in if settling snapshots
-                  then output next Nothing (Settling next Nothing) (events <> [invalid])
+                  then output next authorised (Settling next authorised) (events <> [invalid])
                   else output next Nothing (Available next) (events <> [invalid])
     ClearTransactions -> case snapshots.confirmed of
       InitialSnapshot{} -> unchanged local{localUTxO = mempty, localTxs = mempty, allTxs = mempty}
       ConfirmedSnapshot{snapshot} ->
         let next = TransactionState (settledUTxO snapshots.version snapshot) mempty mempty Nothing
-            retained = reserved >>= \tx -> tx <$ guard (carries tx)
          in if settling snapshots
-              then output next retained (Settling next retained) events
+              then output next authorised (Settling next authorised) events
               else output next Nothing (Available next) events
     SelectDeposit depositId deposit
       | deposit.headId == headId
@@ -158,6 +157,9 @@ machine headId snapshots0 initial initialDecommit = BaseMachineT initialState ac
     Transaction command -> case command of
       ReceiveTransaction tx ->
         changed local{allTxs = Map.insert (txId tx) tx local.allTxs} $ TransactionReceived tx
+      RetainSnapshotDecommit tx
+        | any ((== utxoFromTx tx) . utxoFromTx) reserved || Map.lookup (txId tx) local.allTxs == Just tx -> unchanged local
+        | otherwise -> changed local{allTxs = Map.insert (txId tx) tx local.allTxs} $ TransactionReceived tx
       ApplyTransaction tx ->
         changed local{localUTxO = applyTxTo tx local.localUTxO, localTxs = local.localTxs Seq.|> tx} $ TransactionAppliedToLocalUTxO headId tx
       ApplyValidatedTransaction tx _ after ->
@@ -172,7 +174,17 @@ machine headId snapshots0 initial initialDecommit = BaseMachineT initialState ac
     reserveInputs = maybe id withoutTxInputs reserved
     rebuild snapshot = foldl' (flip applyTxTo) (settledUTxO snapshots.version snapshot)
     rebuilt = rebuild (getSnapshot snapshots.confirmed) local.localTxs
-    carries tx = settling snapshots && (getSnapshot snapshots.confirmed).utxoToDecommit == Just (utxoFromTx tx)
+    carries tx = settling snapshots && matchesSnapshotDecommit (getSnapshot snapshots.confirmed) tx
+    -- Prefer the local reservation; a missing or different reservation needs a
+    -- registry search. A later version retires the payload without promoting it.
+    payload = case (getSnapshot snapshots.confirmed).utxoToDecommit of
+      Just outputs
+        | outputs /= mempty ->
+            find (matchesSnapshotDecommit $ getSnapshot snapshots.confirmed) reserved
+              <|> find (matchesSnapshotDecommit $ getSnapshot snapshots.confirmed) (Map.elems local.allTxs)
+      _ -> Nothing
+    authorised = payload <* guard (settling snapshots)
+    confirmedLocal = maybe local (\tx -> local{allTxs = Map.delete (txId tx) local.allTxs}) payload
     requestUTxO = settledUTxO snapshots.version $ case snapshots.seen of
       SeenSnapshot{snapshot} -> snapshot
       _ -> getSnapshot snapshots.confirmed

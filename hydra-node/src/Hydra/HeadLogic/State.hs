@@ -143,7 +143,8 @@ data CoordinatedHeadState tx = CoordinatedHeadState
   -- application. Spec: T̂
   , allTxs :: !(Map.Map (TxIdType tx) tx)
   -- ^ Map containing all the transactions ever seen by this node and not yet
-  -- included in a snapshot. Spec: Tall
+  -- included as ordinary transactions in a snapshot. Also retains a candidate
+  -- decommit until confirmation promotes it into 'decommitTx'. Spec: Tall
   , confirmedSnapshot :: ConfirmedSnapshot tx
   -- ^ The latest confirmed snapshot. Spec: S̅
   , seenSnapshot :: SeenSnapshot tx

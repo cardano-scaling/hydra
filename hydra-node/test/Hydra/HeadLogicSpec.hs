@@ -5473,6 +5473,26 @@ spec =
           Continue{effects} -> any (\case NetworkEffect AckSn{} -> True; _ -> False) effects
           _ -> False
 
+      it "protects a candidate decommit from witness-stripped and expired ReqTx duplicates" $ do
+        (validTx, seed, _) <- paymentWithCollision
+        let withoutWitness = makeSignedTransaction [] (getTxBody validTx)
+            initial = openWith seed []
+        now <- nowFromSlot initial.chainPointTime.currentSlot
+        txId withoutWitness `shouldBe` txId validTx
+        applyTransactions ledger (ChainSlot 0) seed [withoutWitness] `shouldSatisfy` isLeft
+        let request = receiveMessage $ ReqSn 0 1 [] (Just validTx) Nothing
+            outcome = update aliceEnv ledger now initial request
+            accepted = aggregateState initial outcome
+        outcome `hasEffectSatisfying` \case NetworkEffect AckSn{} -> True; _ -> False
+        forM_ [0, 1] $ \ttl -> do
+          let duplicate = NetworkInput ttl $ ReceivedMessage alice $ ReqTx withoutWitness
+          update aliceEnv ledger now accepted duplicate `shouldBe` Continue [] []
+        case headState accepted of
+          Open OpenState{coordinatedHeadState} -> do
+            coordinatedHeadState.decommitTx `shouldBe` Nothing
+            Map.lookup (txId validTx) coordinatedHeadState.allTxs `shouldBe` Just validTx
+          _ -> failure "expected an open head after accepting the decommit candidate"
+
       it "confirms Cardano decommit dependencies before requesting the decommit" $ do
         (seed, [parent, child, dec]) <- generate $ genFixedSizeSequenceOfSimplePaymentTransactions 3
         let initial = openWith seed []

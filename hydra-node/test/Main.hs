@@ -32,6 +32,7 @@ import Hydra.HeadLogic.MachineSpec qualified
 import Hydra.HeadLogic.OutcomeSpec qualified
 import Hydra.HeadLogic.ProgramSpec qualified
 import Hydra.HeadLogic.RulesSpec qualified
+import Hydra.HeadLogic.SnapshotDecommitSpec qualified
 import Hydra.HeadLogic.SnapshotProgramSpec qualified
 import Hydra.HeadLogicSnapshotSpec qualified
 import Hydra.HeadLogicSpec qualified
@@ -97,6 +98,7 @@ main =
     , testSpec "HeadLogic.Rules" Hydra.HeadLogic.RulesSpec.spec
     , testSpec "HeadLogic.InputWorkflow" Hydra.HeadLogic.InputWorkflowSpec.spec
     , testSpec "HeadLogic.SnapshotProgram" Hydra.HeadLogic.SnapshotProgramSpec.spec
+    , testSpec "HeadLogic.SnapshotDecommit" Hydra.HeadLogic.SnapshotDecommitSpec.spec
     , testSpec "HeadLogicSnapshot" Hydra.HeadLogicSnapshotSpec.spec
     , testSpec "HeadLogic" Hydra.HeadLogicSpec.spec
     , testSpec "JSONSchema" Hydra.JSONSchemaSpec.spec

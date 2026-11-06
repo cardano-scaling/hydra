@@ -668,7 +668,11 @@ requires `SnapshotFits`. After this rebuild,
 the spending inputs of the locally pending decommit are removed again. This
 reservation survives while the requested snapshot is unconfirmed, even when
 that snapshot does not carry the decommit. A signed candidate alone does not
-authorise releasing the reservation. \
+authorise releasing the reservation. An accepted request also retains its decommit
+transaction in $T_(sans("all"))$ if it is not already held locally. This payload
+is separate from the local reservation: `ReqSn` can arrive before `ReqDec`, or
+carry a different decommit. While the candidate is collecting signatures, a
+duplicate `ReqTx` cannot overwrite or evict this payload. \
 \
 #dparagraph[$hpAS$.]#h(1em) Upon receiving acknowledgment $(hpAS,s,msSig_j)$, all
 participants #kw("require") that it is from an expected snapshot (either the last seen
@@ -707,7 +711,20 @@ any still-unspent reserved inputs), and report `DecommitInvalid`. This step runs
 on confirmation, not on signing a candidate. Required inputs include spending,
 reference and collateral inputs; retaining a dependency in the ordinary sequence
 therefore preserves a still-possible decommit. The next proposal uses the updated
-reservation, not the pre-confirmation value.
+reservation, not the pre-confirmation value. When the certificate authorises a
+decommit at the current version, transfer its matching retained transaction into
+$tx_omega$ and remove that registry entry. Prefer a matching local reservation;
+otherwise find the payload retained from `ReqSn`. Identity here is the non-empty
+output UTxO, as in the receiver's carry check; Cardano output references include
+the transaction body hash. If settlement already advanced the version, remove
+the retained payload without reviving the decommit.
+
+A request at the same version must carry the authorised decommit and no deposit.
+If an older checkpoint has the certificate but lacks its transaction, request
+selection waits for settlement; it cannot emit a request that omits the decommit
+or retain a marker for that request. The persistence encoding is unchanged:
+`TransactionReceived` retains the accepted payload before `SnapshotRequested`,
+and `SnapshotConfirmed` transfers it to the decommit slot.
 
 A current-version confirmed snapshot with decommit outputs blocks a new decommit
 even at a party that never received its `ReqDec`. Settlement advances the version
@@ -1541,6 +1558,11 @@ pruning contents, output collisions, accumulator overflow, incremental actions
 and scheduler behavior. `reqDecOutcomeRef` separately checks selected-commit,
 existing-decommit, ledger and nonempty-output guard priority, retry expiry,
 recording and request selection for decommits whose inputs are confirmed.
+`carriedDecommitPayloadRef` separately selects a matching reservation or registry
+entry using bounded output-reference sets. `carriedDecommitRequestRef` checks the
+same-version carry obligation. Neither models transaction witnesses, ledger
+validity, registry key integrity or serialization; Haskell sequence tests cover
+reordering, invalid signatures, hostile duplicates and event/checkpoint recovery.
 Deferred work and the decommit-only wake-up are checked by the separate readiness
 projection. `recoverOutcomeRef` checks registration before
 the finalized-increment guard. These projections exclude deposit selection,

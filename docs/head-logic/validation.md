@@ -11,6 +11,7 @@ Haskell implementation or distributed progress.
 | [ProgramSpec](../../hydra-node/test/Hydra/HeadLogic/ProgramSpec.hs), [SnapshotProgramSpec](../../hydra-node/test/Hydra/HeadLogic/SnapshotProgramSpec.hs) | Ordered outcomes, wait/reject boundaries, primitive replies, snapshot rounds, and bounded Agda comparisons. |
 | [RulesSpec](../../hydra-node/test/Hydra/HeadLogic/RulesSpec.hs), [InputWorkflowSpec](../../hydra-node/test/Hydra/HeadLogic/InputWorkflowSpec.hs) | Full-input dispatch, admission, client commands, settlement adoption, rollback, and fanout. |
 | [MachineSpec](../../hydra-node/test/Hydra/HeadLogic/MachineSpec.hs), [CoordinatedSpec](../../hydra-node/test/Hydra/HeadLogic/CoordinatedSpec.hs) | Ownership, uninterrupted versus reconstructed runtime, confirmation evidence, reservation, settlement, and serialized recovery. |
+| [SnapshotDecommitSpec](../../hydra-node/test/Hydra/HeadLogic/SnapshotDecommitSpec.hs) | ReqSn before ReqDec, payload promotion, competing reservations, invalid signatures, duplicate protection, settlement ordering, side-loading, serialized recovery and bounded Agda agreement. |
 | [CapacitySpec](../../hydra-node/test/Hydra/HeadLogic/CapacitySpec.hs), [IncrementalWorkflowSpec](../../hydra-node/test/Hydra/HeadLogic/IncrementalWorkflowSpec.hs) | Bounded selection/pruning, stale proposals, carried capacity, decommit dependencies, and real Cardano regressions. |
 | [HeadLogicSpec](../../hydra-node/test/Hydra/HeadLogicSpec.hs), [HeadLogicSnapshotSpec](../../hydra-node/test/Hydra/HeadLogicSnapshotSpec.hs) | Production dispatcher behavior, transaction registry integrity, and snapshot acceptance. |
 
@@ -26,53 +27,50 @@ tests also run against the node.
 
 ## Recorded verification
 
-Verification on 2026-11-06, after the confirmation and phase repairs:
+Verification on 2026-11-06, including the carried-decommit repair:
 
 | Check | Result |
 | --- | --- |
-| Full `just check` | 1,456 node, 278 transaction, 116 Agda, and 18 chain-observer tests pass; unchanged Plutus checks reused. |
-| Specification and extraction | Agda typechecking, PDF, trust-ledger checks, and extraction drift pass. |
-| Focused checks | All 471 HeadLogic tests pass, including 17 owner tests and the merged capacity regressions. |
-| Forbidden transition | `NoDecommit → DecommitPending` typechecks; `AwaitingSettlement → DecommitPending` fails with the missing Crem edge. |
-| Diagrams | All 59 current and 32 archived sources are indexed; the changed owner graph and both conflict traces render. |
-| Imports and links | Changed handwritten Haskell imports are explicit or qualified, except the permitted Preludes; changed Markdown links resolve. |
-| Final checks | `just lint` and `just check` pass. |
+| `just test hydra-node HeadLogic` | All 482 tests pass, including 10 carried-decommit tests, the Cardano witness-stripped duplicate regression, 17 owner tests and the merged capacity regressions. |
+| Full `just check` | 1,467 node, 278 transaction, 116 Agda and 18 chain-observer tests pass; unchanged Plutus checks reused. |
+| Specification and extraction | Agda typechecking, PDF, trust-ledger checks and extraction drift pass. |
+| Diagrams | All 60 current and 32 archived sources are indexed. The new carried-decommit trace renders in Chromium. |
+| Imports and links | All 20 changed handwritten Haskell files use explicit or qualified imports, except the permitted Preludes; changed Markdown links resolve. |
+| Final checks | `just lint` and `just check` pass. Existing golden files are unchanged. |
 
-The earlier cluster/TUI runs and performance measurements belong to the revisions
-identified in [measurements](measurements.md); they are not reruns of this repair.
+The branch includes master `0aa8987dc` (PR #2927) and its 12 capacity regressions.
+The [state-transition analysis](state-transitions.md) records the earlier
+reservation and committee-binding repairs, the decommit phase relation and the
+compiler check rejecting `AwaitingSettlement → DecommitPending`. The topology is
+unchanged by the carried-payload repair.
 
-## Confirmation and phase repairs
+## Carried-decommit regression
 
-The branch is rebased onto master `0aa8987dc` (PR #2927), including its 12
-capacity regressions. The follow-up repairs the conflicting reservation and
-committee-binding findings, separates the trusted replay adapter from live
-commands, and introduces the three decommit phases described in
-[state transitions](state-transitions.md).
+The new regression first failed by emitting `ReqSn 0 2 [20] Nothing Nothing`:
+confirmation had lost the decommit received through ReqSn. It now confirms
+snapshot 2 with that transaction carried forward. The
+[repair and executable example](state-transitions.md#fixed-a-certificate-without-its-carried-transaction)
+use the normal dispatcher, ledger and verifier.
 
-- All 471 compiled HeadLogic tests pass, including the 17 owner tests and the
-  upstream capacity regressions. The owner tests cover 24 conflicting delivery
-  orders, serialized recovery, retained dependencies, multi-input release,
-  context-bound evidence and certificate-based admission.
-- Agda extraction and the full specification build pass, including the decommit
-  transition relation, forbidden-edge proof, admission premise and independent
-  bounded predicates.
-- The positive Crem edge compiles; changing only its source to
-  `AwaitingSettlement` fails with the missing `AllowedTransition` instance.
-- All 91 Mermaid sources are indexed: 59 current and 32 archived. The updated
-  owner graph and both conflict traces render in Chromium. Local links and
-  explicit imports in the changed handwritten Haskell files are checked.
-- The normal-interpreter example for the additional
-  [missing carried transaction](state-transitions.md#unresolved-a-certificate-without-its-carried-transaction)
-  reproduces the rejected next request. It characterises an unresolved defect.
-- `just lint` and the complete `just check` pass, including persistence, golden,
-  simulation and specification checks. Existing golden files are unchanged.
+Tests also cover competing reservations, invalid final signatures, duplicate and
+expired ReqTx, a witness-stripped Cardano duplicate, settlement before the last
+acknowledgement, side-loading and old checkpoints missing the payload. Every
+retained event prefix in the sequence tests checks independently corrected replay
+and serialized events and checkpoints. Bounded Agda comparisons cover payload
+selection and the same-version carry obligation; their exclusions are explicit.
 
-Earlier interpreted-mode runs reported a `TxIn` thunk in the snapshot UTxO
-strictness test. The compiled test passes, including in the current 471-test run;
-the earlier mode discrepancy remains unexplained. Existing golden files are
-unchanged. The new confirmation work has not been benchmarked end to end; the
-[measurement page](measurements.md#cost-of-the-confirmation-repairs) states its
-additional cost separately from earlier results.
+Frozen handlers remain unchanged. Compatibility tests use known decommit
+payloads or exclude the corrected paths; the regressions assert the new behavior
+independently. The earlier 24 conflicting-decommit delivery schedules still pass.
+
+The REPL reports a `TxIn` thunk in the existing snapshot UTxO strictness test. The
+compiled test passes in both the 482-test run and the full node suite. This mode
+discrepancy remains unexplained; it is not introduced by this repair.
+
+The confirmation and carried-payload repairs have not been benchmarked end to
+end. [Measurements](measurements.md#cost-of-the-confirmation-repairs) records their
+additional work separately from the earlier throughput results. Earlier cluster
+and TUI runs also belong to the revisions identified there.
 
 ## Commands
 
@@ -85,10 +83,11 @@ cabal repl hydra-node:test:tests
 ```text
 :main -p "/Capacity/"
 :main -p "/coordinated state owners/"
+:main -p "/snapshot decommit retention/"
 ```
 
-For cross-package changes, restart the REPL or use `just test`; reloading does
-not rebuild its dependencies. Finish with the repository checks:
+Restart the test REPL when the node library, test library or another package
+changes: `:reload` does not rebuild those dependencies. `just test` also rebuilds them. Finish with the repository checks:
 
 ```sh
 just test hydra-node HeadLogic

@@ -31,6 +31,12 @@ settlingDecommit version confirmed =
   let snapshot = getSnapshot confirmed
    in snapshot.version == version && isJust snapshot.utxoToDecommit
 
+-- | ReqSn identifies a carried decommit by its non-empty output UTxO. On
+-- Cardano these output references include the transaction's body hash.
+matchesSnapshotDecommit :: IsTx tx => Snapshot tx -> tx -> Bool
+matchesSnapshotDecommit snapshot tx =
+  utxoFromTx tx /= mempty && snapshot.utxoToDecommit == Just (utxoFromTx tx)
+
 -- | A confirmation can arrive after its increment/decrement observation. Keep
 -- it for reposting if that observation rolls back. Shared with side-loading.
 retainConfirmedSettlement :: IsTx tx => ChainSlot -> SnapshotVersion -> ConfirmedSnapshot tx -> Bool -> Maybe (FinalizedSnapshot tx) -> Maybe (FinalizedSnapshot tx)

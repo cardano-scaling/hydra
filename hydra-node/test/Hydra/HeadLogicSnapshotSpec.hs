@@ -94,7 +94,7 @@ spec = do
         mkSeenSnapshot poisoned mempty `seq` pure @IO ()
 
     describe "On ReqTx" $ do
-      prop "always emit ReqSn given head has 1 member" prop_singleMemberHeadAlwaysSnapshotOnReqTx
+      prop "emits ReqSn in a single-member Head without an unsettled decommit" prop_singleMemberHeadAlwaysSnapshotOnReqTx
 
       it "sends ReqSn when leader and no snapshot in flight" $ do
         let tx = aValidTx 1
@@ -204,10 +204,10 @@ spec = do
 
 prop_singleMemberHeadAlwaysSnapshotOnReqTx :: ConfirmedSnapshot SimpleTx -> Property
 prop_singleMemberHeadAlwaysSnapshotOnReqTx original = monadicIO $ do
-  -- The open Head and its confirmed snapshot share their identity.
+  -- No unsettled decommit needs carrying; the Head and snapshot share identity.
   let sn = case original of
         InitialSnapshot{} -> InitialSnapshot testHeadId
-        ConfirmedSnapshot snapshot signatures -> ConfirmedSnapshot snapshot{headId = testHeadId} signatures
+        ConfirmedSnapshot snapshot signatures -> ConfirmedSnapshot snapshot{headId = testHeadId, utxoToDecommit = Nothing} signatures
   (seenSnapshot, version) <-
     pick $
       oneof

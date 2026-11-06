@@ -9,6 +9,7 @@ need independent checks in addition to those types.
 | Requirement | Code and evidence |
 | --- | --- |
 | A locally applied transaction retains its validated registry payload. Duplicate receipt is a no-op before ledger application. | [ReqTx](../../hydra-node/src/Hydra/HeadLogic/Rules/ReqTx.hs); the witness-stripped duplicate regression in [HeadLogicSpec](../../hydra-node/test/Hydra/HeadLogicSpec.hs). |
+| An accepted candidate retains its decommit until confirmation, independently of a local reservation. The next same-version request carries it. | [Repair](state-transitions.md#fixed-a-certificate-without-its-carried-transaction) and [SnapshotDecommitSpec](../../hydra-node/test/Hydra/HeadLogic/SnapshotDecommitSpec.hs). |
 | Snapshot rebase preserves pending decommit spending-input reservations. | [Transaction owner](../../hydra-node/src/Hydra/HeadLogic/Machine/Coordinated/Transactions.hs), [CoordinatedAudit](../../hydra-node/testlib/Test/Hydra/HeadLogic/CoordinatedAudit.hs), and [CoordinatedSpec](../../hydra-node/test/Hydra/HeadLogic/CoordinatedSpec.hs). |
 | A decommit request waits for its required inputs in the confirmed base. A newly ready decommit can start its own round. | [Shared selection](../../hydra-node/src/Hydra/HeadLogic/Rules/SnapshotRequest.hs); SimpleTx and real Cardano checks in [IncrementalWorkflowSpec](../../hydra-node/test/Hydra/HeadLogic/IncrementalWorkflowSpec.hs). |
 | A live snapshot request has checked capacity and matches the owner's head, version, number, and idle phase. | [Capacity contract](capacity.md) and [CapacitySpec](../../hydra-node/test/Hydra/HeadLogic/CapacitySpec.hs). |
@@ -33,12 +34,11 @@ the corrected 24-delivery trace and bounded Agda coverage.
 
 ## Recovery limits
 
-**ReqSn can overtake ReqDec and lose the carried transaction.** Confirmation
-retains the decommit outputs but may lack the transaction needed by the next
-request. The next leader can then issue a request that ReqSn rejects, retaining a
-request marker until settlement advances the version. The
-[phase analysis and executable example](state-transitions.md#unresolved-a-certificate-without-its-carried-transaction)
-record this unresolved case.
+**Old checkpoints may already lack a carried transaction.** Accepted ReqSn
+payloads now survive confirmation and recovery. A checkpoint written before this
+repair may contain only the authorised outputs. Without the transaction bytes,
+selection waits for settlement rather than broadcasting an invalid request. See
+the [repair and regression](state-transitions.md#fixed-a-certificate-without-its-carried-transaction).
 
 **Retry expiry can strand work.** A leader can exhaust a dependent transaction's
 retry budget before receiving its parent. Other parties may retain the child
@@ -58,11 +58,10 @@ checks, and restoring a checkpoint does not repair inconsistent contents.
 Live request and confirmation evidence are intentionally absent from persisted
 event encodings.
 
-**Confirmation evidence trusts the caller's key selection.** The opaque token
-binds signed bytes to the candidate, but not the verification keys to the Head's
-parties. Current rules supply the correct keys. The
-[API witness](adversarial-review.md#verification-evidence-has-an-incomplete-context)
-shows why this remains an in-process trust boundary.
+**Live verification depends on the interpreter and cached bytes.** The owner
+checks the Head, ordered committee and candidate bytes against the verification
+evidence. An incorrect primitive reply or an inconsistent in-memory signing-byte
+cache remains outside that guarantee. Decoding rebuilds the cache.
 
 The retained retry and acknowledgement policies are recorded beside [ReqTx](../../hydra-node/src/Hydra/HeadLogic/Rules/ReqTx.hs)
 and [AckSn](../../hydra-node/src/Hydra/HeadLogic/Rules/AckSn.hs). Changing them needs

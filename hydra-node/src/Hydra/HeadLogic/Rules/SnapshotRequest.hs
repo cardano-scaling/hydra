@@ -36,6 +36,7 @@ import Hydra.HeadLogic.State (
 import Hydra.HeadLogic.State.Operations (
   absorbable,
   finalizedDepositTxId,
+  matchesSnapshotDecommit,
   maxTxsPerSnapshot,
   namesNoneOf,
   settledUTxO,
@@ -194,20 +195,24 @@ buildSnapshotRequest ::
   DecommitStatus tx ->
   Maybe (SettlingCommit tx) ->
   Maybe (SnapshotRequest tx, Bool)
-buildSnapshotRequest version previous localTxs pendingDeposits currentDepositTxId decommit settling =
-  case settling of
-    Just (ContinueCommit (depositId, Deposit{deposited})) ->
-      build (Just (depositId, deposited)) Nothing hasPending
-    Just DropCommit -> withoutDeposit
-    Nothing -> case selectNextDeposit canAbsorb pendingDeposits currentDepositTxId (pendingDecommit decommit) of
-      Just depositId
-        | Just Deposit{deposited} <- Map.lookup depositId pendingDeposits ->
-            -- A new deposit can use space freed by this request's transactions.
-            -- It is not part of the active ledger on which those transactions run.
-            let (txs, after) = ordinaryRequest
-             in (makeRequest txs Nothing (Just depositId), True)
-                  <$ guard (isRight $ checkSnapshotCapacity after (Just deposited) Nothing)
-      _ -> withoutDeposit
+buildSnapshotRequest version previous localTxs pendingDeposits currentDepositTxId decommit settling
+  | version == previous.version
+  , isJust previous.utxoToDecommit = case decommit of
+      CarryDecommit tx | matchesSnapshotDecommit previous tx -> build Nothing (Just tx) hasPending
+      _ -> Nothing
+  | otherwise = case settling of
+      Just (ContinueCommit (depositId, Deposit{deposited})) ->
+        build (Just (depositId, deposited)) Nothing hasPending
+      Just DropCommit -> withoutDeposit
+      Nothing -> case selectNextDeposit canAbsorb pendingDeposits currentDepositTxId (pendingDecommit decommit) of
+        Just depositId
+          | Just Deposit{deposited} <- Map.lookup depositId pendingDeposits ->
+              -- A new deposit can use space freed by this request's transactions.
+              -- It is not part of the active ledger on which those transactions run.
+              let (txs, after) = ordinaryRequest
+               in (makeRequest txs Nothing (Just depositId), True)
+                    <$ guard (isRight $ checkSnapshotCapacity after (Just deposited) Nothing)
+        _ -> withoutDeposit
  where
   utxo = settledUTxO version previous
   candidates = toList (Seq.take maxTxsPerSnapshot localTxs)
@@ -260,9 +265,16 @@ requestMessage request =
 
 -- | A proposal is consumed in the invocation that selects it. These coordinates
 -- also prevent retaining it across a confirmation, version change or new Head.
-requestMatches :: HeadId -> SnapshotVersion -> SnapshotNumber -> SnapshotRequest tx -> Bool
-requestMatches headId version confirmedNumber request =
-  request.selectedHeadId == headId && request.selectedVersion == version && request.selectedNumber == confirmedNumber + 1
+-- Its decommit must still satisfy the current certificate's carry obligation.
+requestMatches :: IsTx tx => HeadId -> SnapshotVersion -> Snapshot tx -> SnapshotRequest tx -> Bool
+requestMatches headId version previous request =
+  request.selectedHeadId == headId
+    && request.selectedVersion == version
+    && request.selectedNumber == previous.number + 1
+    && ( version /= previous.version
+          || isNothing previous.utxoToDecommit
+          || (isNothing request.selectedDeposit && maybe False (matchesSnapshotDecommit previous) request.selectedDecommit)
+       )
 
 -- | The deposits the handlers of an open head may act on: scoped to the head,
 -- excluding the deposit claimed by the retained finalized increment (see

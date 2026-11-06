@@ -58,7 +58,7 @@ import Hydra.Network.Message (Message (..))
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.State (ChainPointTime, Deposit (..), DepositStatus (..), NodeState (..), PendingDeposits, initialChainTime)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
-import Hydra.Tx.IsTx (UTxOType, txId)
+import Hydra.Tx.IsTx (UTxOType, txId, utxoFromTx)
 import Hydra.Tx.Party (Party)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), getSnapshot)
 import Test.Hydra.HeadLogic.CoordinatedAudit qualified as Audit
@@ -301,12 +301,15 @@ specWith onOpenNetworkReqTxProgram = do
           Interpreter.runProgram ledger (lowerProgram $ resume $ Left ledgerFailure)
             `shouldBe` Wait (WaitOnNotApplicableTx ledgerFailure) []
 
-    prop "matches legacy with a consistent head ID, fresh IDs and snapshot-ready decommits" $
+    prop "matches legacy with a consistent head ID, fresh IDs and valid carried decommits" $
       forAll genLegacyCase $ \(actor, st, ttl, pending, tx) ->
         let env :: Environment
             env = testEnvironment{party = actor}
             program = onOpenNetworkReqTxProgram (ruleEnvironment env) zeroChainPointTime st ttl pending tx
-         in maybe True (Audit.decommitReady st.coordinatedHeadState) st.coordinatedHeadState.decommitTx ==>
+            chs = st.coordinatedHeadState
+            previous = getSnapshot chs.confirmedSnapshot
+            canCarry = previous.version /= chs.version || isNothing previous.utxoToDecommit || maybe False (\dec -> utxoFromTx dec /= mempty && previous.utxoToDecommit == Just (utxoFromTx dec)) chs.decommitTx
+         in canCarry && maybe True (Audit.decommitReady chs) chs.decommitTx ==>
               Interpreter.runProgram simpleLedger program === legacyOnOpenNetworkReqTx env simpleLedger zeroChainPointTime st ttl pending tx
 
     it "matches legacy deposit collisions across status, settlement, and retry budget" $

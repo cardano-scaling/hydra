@@ -16,23 +16,24 @@ remaining limits; [validation](validation.md) records the checks.
 | Confirmation refusal is an empty event list that callers can overlook. | Refused confirmation, adoption and decommit reservation reject staging. An earlier staged signature is discarded. Request selection still deliberately uses event presence through `SendSnapshot`. |
 | A node with a decommit certificate but no local `ReqDec` admits another decommit. | Found while refining the phases. Client and network admission now check the certificate; the owner also refuses replacement. |
 
-The [missing carried transaction](state-transitions.md#unresolved-a-certificate-without-its-carried-transaction)
-is an additional unresolved finding from the phase analysis. ReqSn can overtake
-ReqDec; the next leader then emits a request omitting the authorised decommit,
-which its own validator rejects. The example uses the normal dispatcher and real
-signatures. It needs a separate repair to candidate/request retention and proposal
-admission; the two requested fixes do not resolve it.
+The [missing carried transaction](state-transitions.md#fixed-a-certificate-without-its-carried-transaction)
+is also repaired. The regression first reproduced a leader omitting an authorised
+decommit from its own next request. Accepted ReqSn payloads now survive until
+confirmation; selection requires the carried transaction. The tests cover
+competing reservations, invalid signatures, hostile duplicates and recovery.
+Older checkpoints that already lost the bytes must wait for settlement.
 
-The conflict is an inherited protocol defect, reproduced with real signatures.
-The empty-committee case is an in-process API misuse: production AckSn already
-supplied the correct keys. No network signature bypass was demonstrated.
+The conflicting reservation and lost payload are inherited protocol defects,
+reproduced with real signatures. The empty-committee case is an in-process API
+misuse: production AckSn already supplied the correct keys. No network signature
+bypass was demonstrated.
 
 The [historical conflict trace](../prior-spike/diagrams.md#historical-conflicting-decommit-reservation)
 and [corrected trace](../head-logic-diagrams.md#conflicting-decommit-released-at-confirmation)
-show the same schedule before and after the repair. The automated tests vary the
-remaining initial deliveries in 24 ways, compare independently corrected replay,
-round-trip serialized state, and admit a subsequent valid decommit. Separate
-cases preserve dependencies and restore unspent inputs of multi-input reservations.
+show the same schedule before and after the reservation repair. Tests vary the
+remaining initial deliveries in 24 ways, check independently corrected replay and
+serialized recovery, and admit a subsequent decommit. Separate cases preserve
+dependencies and restore unspent inputs of multi-input reservations.
 
 ## Correctness limits
 

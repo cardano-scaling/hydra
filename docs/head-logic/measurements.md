@@ -251,3 +251,13 @@ The pending-decommit case needs a separate large-background/small-transaction
 measurement before making a throughput claim for the repaired code. The existing
 no-reconstruction staging regression remains in the suite, but that is a laziness
 check, not an end-to-end performance bound.
+
+The carried-decommit repair also retains a missing accepted payload through an
+existing `TransactionReceived` event. Confirmation first checks the local
+reservation; if it does not match, it searches the transaction registry by output
+UTxO and removes the matching entry after promotion. That search is linear in
+registry size, with an output-UTxO comparison per candidate. Ordinary snapshots
+without a decommit skip it. Duplicate ReqTx admission adds a comparison only when
+that ID is already known and the current candidate carries a decommit. These
+costs have not been measured end to end; the earlier TPS results do not cover
+this repair.

@@ -26,6 +26,8 @@ module Hydra.Protocol.OffChainReference where
 open import Agda.Builtin.Bool
 open import Agda.Builtin.Nat
 open import Agda.Builtin.List
+open import Agda.Builtin.Maybe using (Maybe; just; nothing)
+open import Agda.Builtin.Equality using (_≡_; refl)
 
 -- ── boundary types, bound to clean Haskell at extraction ──────────────────────────────────
 
@@ -721,3 +723,44 @@ verificationContextRef head verifiedHead committee verifiedCommittee =
 {-# COMPILE GHC retainReservationRef as hsRetainReservationRef #-}
 {-# COMPILE GHC decommitAdmissionRef as hsDecommitAdmissionRef #-}
 {-# COMPILE GHC verificationContextRef as hsVerificationContextRef #-}
+
+-- Candidate payloads outlive local ReqDec ordering. Outputs are finite sets of
+-- natural-number references. Result 0 selects the local reservation; suc n
+-- selects registry entry n. Empty outputs do not identify a decommit. Ledger
+-- validity, witnesses, persistence bytes and registry key integrity are excluded.
+sameDecommitOutputs : List Nat → List Nat → Bool
+sameDecommitOutputs [] _ = false
+sameDecommitOutputs expected actual =
+  decommitReadyRef false expected actual && decommitReadyRef false actual expected
+
+findDecommitPayload : Nat → List Nat → List (List Nat) → Maybe Nat
+findDecommitPayload index outputs [] = nothing
+findDecommitPayload index outputs (candidate ∷ rest) =
+  if sameDecommitOutputs outputs candidate then just index
+  else findDecommitPayload (suc index) outputs rest
+
+carriedDecommitPayloadRef : Bool → List Nat → List Nat → List (List Nat) → Maybe Nat
+carriedDecommitPayloadRef false _ _ _ = nothing
+carriedDecommitPayloadRef true outputs reserved registry =
+  if sameDecommitOutputs outputs reserved then just zero
+  else findDecommitPayload 1 outputs registry
+
+-- Request selection must satisfy the same carry obligation as the receiver.
+carriedDecommitRequestRef : Bool → Bool → Bool → Bool
+carriedDecommitRequestRef sameVersion authorised matchingPayload =
+  not (sameVersion && authorised) || matchingPayload
+
+reqSn-before-reqDec-retains-payload :
+  carriedDecommitPayloadRef true (10 ∷ []) [] ((10 ∷ []) ∷ []) ≡ just 1
+reqSn-before-reqDec-retains-payload = refl
+
+settlement-does-not-revive-payload : ∀ outputs reserved registry →
+  carriedDecommitPayloadRef false outputs reserved registry ≡ nothing
+settlement-does-not-revive-payload _ _ _ = refl
+
+missing-carried-payload-blocks-request :
+  carriedDecommitRequestRef true true false ≡ false
+missing-carried-payload-blocks-request = refl
+
+{-# COMPILE GHC carriedDecommitPayloadRef as hsCarriedDecommitPayloadRef #-}
+{-# COMPILE GHC carriedDecommitRequestRef as hsCarriedDecommitRequestRef #-}

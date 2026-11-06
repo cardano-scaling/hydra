@@ -35,6 +35,7 @@ data Command tx
 
 data TransactionCommand tx
   = ReceiveTransaction tx
+  | RetainSnapshotDecommit tx
   | ApplyTransaction tx
   | ApplyValidatedTransaction tx ~(UTxOType tx) ~(UTxOType tx)
   | ForgetTransaction (UTxOType tx) tx ValidationError

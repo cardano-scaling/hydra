@@ -506,6 +506,7 @@ test-suite tests
     Hydra.HeadLogic.OutcomeSpec
     Hydra.HeadLogic.ProgramSpec
     Hydra.HeadLogic.RulesSpec
+    Hydra.HeadLogic.SnapshotDecommitSpec
     Hydra.HeadLogic.SnapshotProgramSpec
     Hydra.HeadLogicSnapshotSpec
     Hydra.HeadLogicSpec

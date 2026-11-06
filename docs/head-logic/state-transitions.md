@@ -116,43 +116,73 @@ the ReqSn rules into another machine. That is not implemented here. Cached signi
 bytes and valid recovery data remain assumptions; a new phase name cannot prove
 either invariant.
 
-### Unresolved: a certificate without its carried transaction
+### Fixed: a certificate without its carried transaction
 
-The missing-local-transaction case exposed another bug while reviewing these
-states. Start with UTxO `{1,2}`. Bob receives Alice's valid snapshot-1 request
-carrying decommit `1 → 10`, before receiving `ReqDec`. He validates it and confirms
-it with all three parties' real signatures. His confirmed snapshot has decommit
-outputs `{10}`, but `decommitTx` is still `Nothing`: ReqSn used the transaction
-without retaining it.
+`ReqSn` can arrive before `ReqDec`. Previously Bob could validate Alice's
+snapshot-1 request carrying decommit `1 → 10`, confirm it with all three
+signatures, then lose the transaction: the snapshot kept outputs `{10}`, but
+`decommitTx` stayed empty. As leader for snapshot 2, Bob would broadcast
+`ReqSn 0 2 [20] Nothing Nothing` and reject his own request with
+`ReqSnDecommitNotSettled`. Settlement could release the stuck request marker;
+the example demonstrated a stalled round, not lost funds.
 
-Bob leads snapshot 2. Applying ordinary transaction `2 → 20` makes him broadcast
-`ReqSn 0 2 [20] Nothing Nothing`. His own handler rejects that request with
-`ReqSnDecommitNotSettled`, since a current-version authorised decrement must be
-carried. The request marker has already been retained. Settlement can advance the
-version and release it; this demonstrates a stalled round before settlement, not
-an invalid confirmation or lost funds.
+The repair gives the payload an explicit lifetime without changing persistence
+formats:
 
-The [executable example](missing-decommit-example.hs) runs the normal dispatcher,
-ledger and verifier. In `cabal repl hydra-node:test:tests`:
+1. [ReqSn](../../hydra-node/src/Hydra/HeadLogic/Rules/ReqSn.hs) stages
+   `retainSnapshotDecommit` after validation and pruning. The transaction owner
+   emits an existing `TransactionReceived` event if it needs to retain the payload.
+   A different local reservation stays intact.
+2. [ReqTx](../../hydra-node/src/Hydra/HeadLogic/Rules/ReqTx.hs) ignores a duplicate
+   of that candidate transaction before receipt, validation or expiry can replace
+   or evict it. This includes a witness-stripped duplicate with the same body hash.
+3. [ConfirmTransactions](../../hydra-node/src/Hydra/HeadLogic/Machine/Coordinated/Transactions.hs)
+   promotes the matching payload into `decommitTx` and removes its registry entry.
+   A conflicting reservation is released at this point. If settlement already
+   advanced the version, the old payload is removed without being revived.
+4. [SnapshotRequest](../../hydra-node/src/Hydra/HeadLogic/Rules/SnapshotRequest.hs)
+   requires the matching carried transaction before constructing a proposal.
+   The snapshot owner checks this obligation again when consuming the proposal.
+
+Matching uses the non-empty output UTxO, just as ReqSn's carry check does. Cardano
+output references include the transaction body hash. Normal confirmation uses
+the local reservation; only a missing or different reservation needs a registry
+search. An old checkpoint that already lost the payload waits for settlement;
+these changes cannot recover transaction bytes it never retained.
+
+[SnapshotDecommitSpec](../../hydra-node/test/Hydra/HeadLogic/SnapshotDecommitSpec.hs)
+starts with the failing sequence and checks confirmation of snapshot 2 after the
+repair. It also checks competing reservations, rejected signatures, duplicates,
+settlement ordering, side-loading, and serialized events and checkpoints at every
+retained prefix. A real Cardano duplicate test is in
+[HeadLogicSpec](../../hydra-node/test/Hydra/HeadLogicSpec.hs).
+
+The [executable example](missing-decommit-example.hs) runs the corrected sequence
+through the normal dispatcher and verifier. In `cabal repl hydra-node:test:tests`:
 
 ```text
 :load ../docs/head-logic/missing-decommit-example.hs
 probe
+writeTrace "../docs/head-logic/traces/carried-decommit.mmd"
 ```
 
-It prints the confirmed number, missing local decommit and authorised outputs,
-then the emitted request and its rejection. This finding is **not fixed here**.
-The new admission guard prevents accepting a replacement decommit, but does not
-recover the missing transaction or stop this invalid proposal.
+It confirms snapshot 2 with UTxO `{20}` while retaining the unsettled decommit.
+The [component trace](traces/carried-decommit.mmd) is also embedded in the
+[central diagram page](../head-logic-diagrams.md).
 
-A stronger representation would retain the accepted request's incremental action
-with its candidate/certificate, and require a proposal to carry that action while
-its version remains current. Learning the certificate and retaining the data
-needed for the next round are distinct obligations. A recovery-compatible repair
-must also handle a different locally pending decommit without overwriting its
-reservation before confirmation. Merely adding a `Confirmed` vertex would miss
-that requirement. The checked-proposal boundary should reject a proposal missing
-its carried action before retaining a request marker.
+### What this says about Crem
+
+This is evidence for the usefulness of the ownership model, not a demonstration
+that Crem is necessary. Separating local intent from settlement authority made
+us ask how a party enters `AwaitingSettlement` without first seeing `ReqDec`.
+That question exposed the lost payload. The topology alone accepted this sequence;
+it could not prove that the payload survived.
+
+Crem gives us checked phase edges, composition and diagrams of the executable
+machines. Program keeps their decisions inspectable. Typed reducers could enforce
+the same requirements. The case for keeping Crem is the shared structure and the
+mistakes it prevents as rules change, weighed against its type-level machinery.
+The regression, payload ownership and checked proposal are what fix this bug.
 
 ## Settlement and rollback
 

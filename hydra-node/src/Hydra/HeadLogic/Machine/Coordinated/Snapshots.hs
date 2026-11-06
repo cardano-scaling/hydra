@@ -68,7 +68,7 @@ machine headId committee initial = BaseMachineT (restore initial) action
   action state command = case state of
     Idle context _ -> case command of
       RequestSnapshot request
-        | requestMatches headId context.version (getSnapshot context.confirmed).number request ->
+        | requestMatches headId context.version (getSnapshot context.confirmed) request ->
             output (Requested context (seenSnapshotNumber (view state).seen) (requestNumber request)) Unchanged [SnapshotRequestDecided (requestNumber request)]
       _ -> common state command
     Requested{} -> common state command

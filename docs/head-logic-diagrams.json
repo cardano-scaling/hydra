@@ -453,5 +453,10 @@
     "group": "Protocol investigations and superseded traces",
     "title": "Historical conflicting decommit reservation",
     "description": "Before the confirmation repair, all three parties confirmed the ordinary spend but party 1 retained the conflicting decommit. The 24-delivery trace used real signatures. The current corrected execution is indexed as Conflicting decommit released at confirmation."
+  },
+  "docs/head-logic/traces/carried-decommit.mmd": {
+    "group": "Decommit regressions",
+    "title": "ReqSn overtakes ReqDec: carried payload survives",
+    "description": "Bob accepts snapshot 1 without ReqDec, retains its decommit through confirmation, then leads and confirms snapshot 2 carrying that transaction. Generated with the normal rules and real signatures; lanes separate decisions, ledger queries, cryptography, staged changes and effects."
   }
 }

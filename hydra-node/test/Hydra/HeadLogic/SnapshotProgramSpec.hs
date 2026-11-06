@@ -131,7 +131,7 @@ spec = do
 reqSnSpec :: Spec
 reqSnSpec = do
   describe "ReqSn program migration" $ do
-    it "preserves complete ReqSn outcomes and states across waits, deposits, decommits and pruning" $ do
+    it "preserves complete ReqSn outcomes with known decommits across waits, deposits and pruning" $ do
       forM_ [0, 1] $ \ttl ->
         forM_ [alice, bob] $ \sender ->
           forM_ [0, 1, 2] $ \sn ->
@@ -140,16 +140,20 @@ reqSnSpec = do
                 forM_ [Nothing, Just Scenario.transactionOne] $ \decommit ->
                   forM_ [Nothing, Just 7] $ \deposit ->
                     forM_ [mempty, Map.singleton 7 (depositFixture Active), Map.singleton 7 (depositFixture Inactive), Map.singleton 7 (depositFixture Expired)] $ \pending -> do
-                      let old = legacyOnOpenNetworkReqSn env simpleLedger pending initial.chainPointTime os ttl sender sv sn ids decommit deposit
-                          new = onOpenNetworkReqSn env simpleLedger pending initial.chainPointTime os ttl sender sv sn ids decommit deposit
+                      -- Unknown decommit payload retention intentionally differs
+                      -- from the frozen handlers; SnapshotDecommitSpec covers it.
+                      let base = os{coordinatedHeadState = os.coordinatedHeadState{decommitTx = decommit}}
+                          before = initial{headState = Open base}
+                          old = legacyOnOpenNetworkReqSn env simpleLedger pending initial.chainPointTime base ttl sender sv sn ids decommit deposit
+                          new = onOpenNetworkReqSn env simpleLedger pending initial.chainPointTime base ttl sender sv sn ids decommit deposit
                       new `shouldBe` old
                       comparePrograms
                         (Interpreter.snapshotConfig env simpleLedger)
-                        initial
-                        (LegacyPrograms.onOpenNetworkReqSnProgram (ruleEnvironment env) pending initial.chainPointTime os ttl sender sv sn ids decommit deposit)
-                        (onOpenNetworkReqSnProgram (ruleEnvironment env) pending initial.chainPointTime os ttl sender sv sn ids decommit deposit)
+                        before
+                        (LegacyPrograms.onOpenNetworkReqSnProgram (ruleEnvironment env) pending initial.chainPointTime base ttl sender sv sn ids decommit deposit)
+                        (onOpenNetworkReqSnProgram (ruleEnvironment env) pending initial.chainPointTime base ttl sender sv sn ids decommit deposit)
                         `shouldSatisfy` isRight
-                      aggregateState initial new `shouldBe` aggregateState initial old
+                      aggregateState before new `shouldBe` aggregateState before old
 
   describe "bounded ReqSn Agda agreement" $ do
     it "compares independent ReqSn ordered outcomes with declared exclusions" $ do

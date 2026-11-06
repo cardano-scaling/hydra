@@ -79,7 +79,7 @@ it exists. A live request takes an opaque selected proposal, and the owner
 accepts it only while idle and at the matching head/version/number. Trusted
 replay retains its separate number-only adapter for existing persisted events.
 
-They are not a proof of the protocol. Verification still trusts the interpreter,
+They are not a proof of the protocol. Verification still trusts the interpreter and
 the signable-byte cache. Replay deliberately
 trusts retained events; its adapter can reconstruct a confirmation without
 cryptography or demanding cached signing bytes. `replayEvent` imports facts directly; it no longer exports unverified commands
@@ -93,12 +93,18 @@ Payload invariants supplement the phase types:
 - `Transactions.Rebase` rebuilds the local UTxO, then removes pending decommit
   spending inputs. Recording a reservation and preserving it are now both the
   transaction owner's responsibility.
-- `ConfirmTransactions` checks a reservation against the confirmed snapshot and
+- `RetainSnapshotDecommit` stores an accepted request’s transaction in the registry
+  without replacing a different local reservation. ReqTx protects this payload
+  from duplicate receipt and expiry while signatures are collected.
+- `ConfirmTransactions` promotes that payload when the certificate authorises it,
+  then removes the registry entry. It also checks a reservation against the confirmed snapshot and
   retained ordinary transactions before removing its spending inputs. A conflict
   clears it and restores still-unspent inputs.
 - [SnapshotRequest.decommitStatus](../hydra-node/src/Hydra/HeadLogic/Rules/SnapshotRequest.hs)
   distinguishes missing, waiting, ready and carried decommits. Every leader uses
   it. A newly ready decommit can start a round by itself; a carried one cannot.
+  A current-version decommit certificate requires a matching payload before any
+  request is constructed or accepted by the owner.
 
 [CoordinatedAudit.hs](../hydra-node/testlib/Test/Hydra/HeadLogic/CoordinatedAudit.hs)
 states the reservation and readiness requirements independently for SimpleTx.

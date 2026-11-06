@@ -19,7 +19,9 @@ import MAlonzo.RTE (coe, erased, AgdaAny, addInt, subInt, mulInt,
 import qualified MAlonzo.RTE
 import qualified Data.Text
 import qualified MAlonzo.Code.Agda.Builtin.Bool
+import qualified MAlonzo.Code.Agda.Builtin.Equality
 import qualified MAlonzo.Code.Agda.Builtin.List
+import qualified MAlonzo.Code.Agda.Builtin.Maybe
 import qualified MAlonzo.Code.Agda.Builtin.Nat
 
 data HsDepositStatus = InactiveS | ActiveS | ExpiredS deriving (Eq, Show)
@@ -1606,3 +1608,77 @@ d_verificationContextRef_728 v0 v1 v2 v3
   = coe
       d__'38''38'__34 (coe eqInt (coe v0) (coe v1))
       (coe d_sameCommittee_718 (coe v2) (coe v3))
+-- Hydra.Protocol.OffChainReference.sameDecommitOutputs
+d_sameDecommitOutputs_738 :: [Integer] -> [Integer] -> Bool
+d_sameDecommitOutputs_738 v0 v1
+  = let v2
+          = d__'38''38'__34
+              (coe
+                 d_decommitReadyRef_512
+                 (coe MAlonzo.Code.Agda.Builtin.Bool.C_false_8) (coe v0) (coe v1))
+              (coe
+                 d_decommitReadyRef_512
+                 (coe MAlonzo.Code.Agda.Builtin.Bool.C_false_8) (coe v1)
+                 (coe v0)) in
+    coe
+      (case coe v0 of
+         [] -> coe MAlonzo.Code.Agda.Builtin.Bool.C_false_8
+         _ -> coe v2)
+-- Hydra.Protocol.OffChainReference.findDecommitPayload
+d_findDecommitPayload_744 ::
+  Integer -> [Integer] -> [[Integer]] -> Maybe Integer
+d_findDecommitPayload_744 v0 v1 v2
+  = case coe v2 of
+      [] -> coe MAlonzo.Code.Agda.Builtin.Maybe.C_nothing_18
+      (:) v3 v4
+        -> coe
+             du_if_then_else__16
+             (coe d_sameDecommitOutputs_738 (coe v1) (coe v3))
+             (coe MAlonzo.Code.Agda.Builtin.Maybe.C_just_16 (coe v0))
+             (coe
+                d_findDecommitPayload_744
+                (coe addInt (coe (1 :: Integer)) (coe v0)) (coe v1) (coe v4))
+      _ -> MAlonzo.RTE.mazUnreachableError
+-- Hydra.Protocol.OffChainReference.carriedDecommitPayloadRef
+hsCarriedDecommitPayloadRef ::
+  Bool ->
+  MAlonzo.Code.Agda.Builtin.List.T_List_10 () Integer ->
+  MAlonzo.Code.Agda.Builtin.List.T_List_10 () Integer ->
+  MAlonzo.Code.Agda.Builtin.List.T_List_10
+    () (MAlonzo.Code.Agda.Builtin.List.T_List_10 () Integer) ->
+  MAlonzo.Code.Agda.Builtin.Maybe.T_Maybe_10 () Integer
+hsCarriedDecommitPayloadRef = coe d_carriedDecommitPayloadRef_758
+d_carriedDecommitPayloadRef_758 ::
+  Bool -> [Integer] -> [Integer] -> [[Integer]] -> Maybe Integer
+d_carriedDecommitPayloadRef_758 v0 v1 v2 v3
+  = if coe v0
+      then coe
+             du_if_then_else__16
+             (coe d_sameDecommitOutputs_738 (coe v1) (coe v2))
+             (coe
+                MAlonzo.Code.Agda.Builtin.Maybe.C_just_16 (coe (0 :: Integer)))
+             (coe
+                d_findDecommitPayload_744 (coe (1 :: Integer)) (coe v1) (coe v3))
+      else coe MAlonzo.Code.Agda.Builtin.Maybe.C_nothing_18
+-- Hydra.Protocol.OffChainReference.carriedDecommitRequestRef
+hsCarriedDecommitRequestRef :: Bool -> Bool -> Bool -> Bool
+hsCarriedDecommitRequestRef = coe d_carriedDecommitRequestRef_766
+d_carriedDecommitRequestRef_766 :: Bool -> Bool -> Bool -> Bool
+d_carriedDecommitRequestRef_766 v0 v1 v2
+  = coe
+      d__'124''124'__50
+      (coe d_not_54 (coe d__'38''38'__34 (coe v0) (coe v1))) (coe v2)
+-- Hydra.Protocol.OffChainReference.reqSn-before-reqDec-retains-payload
+d_reqSn'45'before'45'reqDec'45'retains'45'payload_774 ::
+  MAlonzo.Code.Agda.Builtin.Equality.T__'8801'__12
+d_reqSn'45'before'45'reqDec'45'retains'45'payload_774 = erased
+-- Hydra.Protocol.OffChainReference.settlement-does-not-revive-payload
+d_settlement'45'does'45'not'45'revive'45'payload_782 ::
+  [Integer] ->
+  [Integer] ->
+  [[Integer]] -> MAlonzo.Code.Agda.Builtin.Equality.T__'8801'__12
+d_settlement'45'does'45'not'45'revive'45'payload_782 = erased
+-- Hydra.Protocol.OffChainReference.missing-carried-payload-blocks-request
+d_missing'45'carried'45'payload'45'blocks'45'request_784 ::
+  MAlonzo.Code.Agda.Builtin.Equality.T__'8801'__12
+d_missing'45'carried'45'payload'45'blocks'45'request_784 = erased
