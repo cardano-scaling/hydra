@@ -25,6 +25,12 @@ import Hydra.Prelude
 import Hydra.Tx (HeadId, IsTx (..), TxIdType, UTxOType, utxoFromTx, withoutUTxO)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotVersion, getSnapshot)
 
+-- | This version still authorises a decrement, even without a local ReqDec.
+settlingDecommit :: IsTx tx => SnapshotVersion -> ConfirmedSnapshot tx -> Bool
+settlingDecommit version confirmed =
+  let snapshot = getSnapshot confirmed
+   in snapshot.version == version && isJust snapshot.utxoToDecommit
+
 -- | A confirmation can arrive after its increment/decrement observation. Keep
 -- it for reposting if that observation rolls back. Shared with side-loading.
 retainConfirmedSettlement :: IsTx tx => ChainSlot -> SnapshotVersion -> ConfirmedSnapshot tx -> Bool -> Maybe (FinalizedSnapshot tx) -> Maybe (FinalizedSnapshot tx)

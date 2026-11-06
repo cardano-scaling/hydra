@@ -234,3 +234,20 @@ taskset -c 0 python3 scripts/head-logic-e2e.py \
 # Burst: the small command without --wait-for-confirmation, again with a fresh directory.
 # Repeat the burst command in another fresh directory for the second set of pairs.
 ```
+
+## Cost of the confirmation repairs
+
+The cluster measurements above precede the conflict-release and verification-context
+repairs. They are not measurements of those changes. Confirmation/adoption now
+compares the ordered committee and Head id; it still uses cached signing bytes.
+When a local decommit is pending and is not carried by the confirmed snapshot,
+reconciliation reconstructs the unreserved ledger from the confirmed base and
+retained transactions and checks required inputs. This adds work proportional to
+that retained transaction sequence and its UTxO operations, in both live staging
+and event replay. It does not run ledger validation or sign anything. Rounds
+without a pending decommit do not reconstruct that ledger for this check.
+
+The pending-decommit case needs a separate large-background/small-transaction
+measurement before making a throughput claim for the repaired code. The existing
+no-reconstruction staging regression remains in the suite, but that is a laziness
+check, not an end-to-end performance bound.

@@ -147,24 +147,25 @@ machine env ChainPointTime{currentChainTime} pendingDeposits openState otherPart
       confirmedRuntime <- Coordinated.stage runtime $ Coordinated.confirmSnapshot signed
       let snapshot = verifiedSnapshot signed
           signatures = verifiedSignatures signed
+          current = Coordinated.currentState confirmedRuntime
       case (snapshot.depositTxId, snapshot.utxoToCommit) of
         (Just depositTxId, Just _)
           | Just Deposit{deposited} <- Map.lookup depositTxId pendingDeposits -> do
               Program.change CommitApproved{headId, utxoToCommit = deposited}
               Program.emit OnChainEffect{postChainTx = IncrementTx{headSeed, headId, headParameters = parameters, incrementingSnapshot = ConfirmedSnapshot{snapshot, signatures}, depositTxId}}
         _ -> pure ()
-      case (decommitTx, snapshot.utxoToDecommit) of
+      case (current.decommitTx, snapshot.utxoToDecommit) of
         (Just tx, Just utxoToDecommit) -> do
           Program.change DecommitApproved{headId, decommitTxId = txId tx, utxoToDecommit}
           Program.emit OnChainEffect{postChainTx = DecrementTx{headSeed, headId, headParameters = parameters, decrementingSnapshot = ConfirmedSnapshot{snapshot, signatures}}}
         _ -> pure ()
       let nextSn = snapshot.number + 1
-      case chainedSnapshotRequest version snapshot localTxs pendingDeposits currentDepositTxId (decommitStatus version snapshot decommitTx) (settlingCommitAtPeriod env.depositPeriod version currentChainTime pendingDeposits snapshot) of
+      case chainedSnapshotRequest current.version snapshot current.localTxs pendingDeposits current.currentDepositTxId (decommitStatus current.version snapshot current.decommitTx) (settlingCommitAtPeriod env.depositPeriod current.version currentChainTime pendingDeposits snapshot) of
         Just request | isLeader parameters env.party nextSn -> sendSnapshot confirmedRuntime request
         _ -> pure ()
     Done -> finish Done
 
   OpenState{parameters = parameters@HeadParameters{parties}, coordinatedHeadState, headId, headSeed} = openState
-  CoordinatedHeadState{seenSnapshot, localTxs, decommitTx, currentDepositTxId, version} = coordinatedHeadState
+  CoordinatedHeadState{seenSnapshot} = coordinatedHeadState
   seenSn = seenSnapshotNumber seenSnapshot
   vkeys = vkey <$> parties

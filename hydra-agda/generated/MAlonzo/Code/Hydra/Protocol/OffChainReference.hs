@@ -1533,3 +1533,76 @@ du_go_660 v0 v1 v2 v3 v4 v5 v6
                           (coe v11))
                 _ -> coe v7
          _ -> coe v7)
+-- Hydra.Protocol.OffChainReference.DecommitPhaseᶜ
+d_DecommitPhase'7580'_674 = ()
+data T_DecommitPhase'7580'_674
+  = C_noDecommit'7580'_676 | C_pendingDecommit'7580'_678 |
+    C_awaitingSettlement'7580'_680
+-- Hydra.Protocol.OffChainReference.DecommitTransitionᶜ
+d_DecommitTransition'7580'_682 a0 a1 = ()
+data T_DecommitTransition'7580'_682
+  = C_unchanged'7496'_686 | C_reserve'7496'_688 |
+    C_invalidate'7496'_690 | C_confirm'7496'_692 | C_adopt'7496'_694 |
+    C_settle'7496'_696
+-- Hydra.Protocol.OffChainReference.ImpossibleDecommitTransition
+d_ImpossibleDecommitTransition_698 = ()
+data T_ImpossibleDecommitTransition_698
+-- Hydra.Protocol.OffChainReference.cannotReplaceAuthorisedDecommit
+d_cannotReplaceAuthorisedDecommit_700 ::
+  T_DecommitTransition'7580'_682 ->
+  T_ImpossibleDecommitTransition_698
+d_cannotReplaceAuthorisedDecommit_700 = erased
+-- Hydra.Protocol.OffChainReference.retainReservationRef
+hsRetainReservationRef ::
+  Bool ->
+  Bool ->
+  MAlonzo.Code.Agda.Builtin.List.T_List_10 () Integer ->
+  MAlonzo.Code.Agda.Builtin.List.T_List_10 () Integer -> Bool
+hsRetainReservationRef = coe d_retainReservationRef_702
+d_retainReservationRef_702 ::
+  Bool -> Bool -> [Integer] -> [Integer] -> Bool
+d_retainReservationRef_702 v0 v1 v2 v3
+  = coe
+      d__'124''124'__50 (coe v0)
+      (coe
+         d__'38''38'__34 (coe d_not_54 (coe v1))
+         (coe
+            d_decommitReadyRef_512
+            (coe MAlonzo.Code.Agda.Builtin.Bool.C_false_8) (coe v2) (coe v3)))
+-- Hydra.Protocol.OffChainReference.decommitAdmissionRef
+hsDecommitAdmissionRef :: Bool -> Bool -> Bool
+hsDecommitAdmissionRef = coe d_decommitAdmissionRef_712
+d_decommitAdmissionRef_712 :: Bool -> Bool -> Bool
+d_decommitAdmissionRef_712 v0 v1
+  = coe d_not_54 (coe d__'124''124'__50 (coe v0) (coe v1))
+-- Hydra.Protocol.OffChainReference.sameCommittee
+d_sameCommittee_718 :: [Integer] -> [Integer] -> Bool
+d_sameCommittee_718 v0 v1
+  = let v2 = coe MAlonzo.Code.Agda.Builtin.Bool.C_false_8 in
+    coe
+      (case coe v0 of
+         []
+           -> case coe v1 of
+                [] -> coe MAlonzo.Code.Agda.Builtin.Bool.C_true_10
+                _ -> coe v2
+         (:) v3 v4
+           -> case coe v1 of
+                (:) v5 v6
+                  -> coe
+                       d__'38''38'__34 (coe eqInt (coe v3) (coe v5))
+                       (coe d_sameCommittee_718 (coe v4) (coe v6))
+                _ -> coe v2
+         _ -> MAlonzo.RTE.mazUnreachableError)
+-- Hydra.Protocol.OffChainReference.verificationContextRef
+hsVerificationContextRef ::
+  Integer ->
+  Integer ->
+  MAlonzo.Code.Agda.Builtin.List.T_List_10 () Integer ->
+  MAlonzo.Code.Agda.Builtin.List.T_List_10 () Integer -> Bool
+hsVerificationContextRef = coe d_verificationContextRef_728
+d_verificationContextRef_728 ::
+  Integer -> Integer -> [Integer] -> [Integer] -> Bool
+d_verificationContextRef_728 v0 v1 v2 v3
+  = coe
+      d__'38''38'__34 (coe eqInt (coe v0) (coe v1))
+      (coe d_sameCommittee_718 (coe v2) (coe v3))

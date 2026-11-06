@@ -22,7 +22,7 @@ module Hydra.HeadLogic.Machine.Coordinated (
   clearLocalState,
   settleCommit,
   settleDecommit,
-  fromEvent,
+  replayEvent,
   components,
 ) where
 
@@ -30,6 +30,7 @@ import Hydra.Prelude
 
 import Crem.StateMachine (StateMachineT (..), run)
 import Hydra.Chain.ChainState (IsChainState (ChainStateType), chainStateSlot)
+import Hydra.HeadLogic.Error (LogicError (AssertionFailed))
 import Hydra.HeadLogic.Machine.Coordinated.Snapshots qualified as Snapshots
 import Hydra.HeadLogic.Machine.Coordinated.Transactions (Output (..), TransactionState (..))
 import Hydra.HeadLogic.Machine.Coordinated.Transactions qualified as Transactions
@@ -38,12 +39,13 @@ import Hydra.HeadLogic.Outcome (StateChanged (..))
 import Hydra.HeadLogic.Program (Program)
 import Hydra.HeadLogic.Program qualified as Program
 import Hydra.HeadLogic.Rules.SnapshotRequest (SnapshotRequest)
-import Hydra.HeadLogic.Rules.SnapshotVerification (VerifiedSnapshot, verifiedRepresentation, verifiedSignatures, verifiedSnapshot)
+import Hydra.HeadLogic.Rules.SnapshotVerification (VerifiedSnapshot)
 import Hydra.HeadLogic.State (CoordinatedHeadState (..), OpenState (..))
 import Hydra.Ledger (ValidationError)
 import Hydra.Tx (TxIdType, UTxOType)
 import Hydra.Tx.Crypto (Signature)
-import Hydra.Tx.Party (Party)
+import Hydra.Tx.HeadParameters (HeadParameters (parties))
+import Hydra.Tx.Party (Party (vkey))
 import Hydra.Tx.Snapshot (Snapshot, SnapshotNumber, SnapshotVersion)
 
 -- Staging can carry the continuation without reading its persisted projection.
@@ -57,8 +59,8 @@ start os = Runtime os.coordinatedHeadState (components os)
 -- rebase; transactions return their own state after performing it.
 components :: IsChainState tx => OpenState tx -> StateMachineT Identity (Command tx) (Output tx)
 components os =
-  Basic (Snapshots.machine os.headId snapshots)
-    `Sequential` Basic (Transactions.machine os.headId transactions chs.decommitTx)
+  Basic (Snapshots.machine os.headId (vkey <$> os.parameters.parties) snapshots)
+    `Sequential` Basic (Transactions.machine os.headId snapshots transactions chs.decommitTx)
  where
   chs = os.coordinatedHeadState
   snapshots = SnapshotState chs.version (chainStateSlot os.chainState) chs.confirmedSnapshot chs.seenSnapshot chs.finalizedCommit chs.finalizedDecommit
@@ -68,8 +70,11 @@ currentState :: Runtime tx -> CoordinatedHeadState tx
 currentState (Runtime current _) = current
 
 step :: Runtime tx -> Command tx -> ([StateChanged tx], Runtime tx)
-step (Runtime current machine) command =
-  let (Output{snapshots, transactions, decommit, events}, next) = runIdentity $ run machine command
+step runtime command = fromRight ([], runtime) $ advance runtime command
+
+advance :: Runtime tx -> Command tx -> Either Text ([StateChanged tx], Runtime tx)
+advance (Runtime current machine) command =
+  let (Output{snapshots, transactions, decommit, events, refusal}, next) = runIdentity $ run machine command
       updated =
         current
           { version = snapshots.version
@@ -83,17 +88,17 @@ step (Runtime current machine) command =
           , currentDepositTxId = transactions.currentDepositTxId
           , decommitTx = decommit
           }
-   in (events, Runtime updated next)
+   in maybe (Right (events, Runtime updated next)) Left refusal
 
 -- | Staging preserves Program's transaction boundary: a later wait retains the
 -- prefix; a rejection discards it. The returned continuation is only tentative.
 stage :: Runtime tx -> Command tx -> Program tx ledger signing (Runtime tx)
-stage runtime command =
-  let (events, next) = step runtime command
-   in case (command, events) of
-        (Transactions (ApplyValidatedTransaction tx before after), [TransactionAppliedToLocalUTxO headId _]) ->
-          Program.recordAppliedTransaction headId tx before after $> next
-        _ -> traverse_ Program.change events $> next
+stage runtime command = case advance runtime command of
+  Left message -> Program.reject $ AssertionFailed message
+  Right (events, next) -> case (command, events) of
+    (Transactions (ApplyValidatedTransaction tx before after), [TransactionAppliedToLocalUTxO headId _]) ->
+      Program.recordAppliedTransaction headId tx before after $> next
+    _ -> traverse_ Program.change events $> next
 
 receiveTransaction :: tx -> Command tx
 receiveTransaction = Transactions . ReceiveTransaction
@@ -107,7 +112,7 @@ forgetTransaction :: UTxOType tx -> tx -> ValidationError -> Command tx
 forgetTransaction utxo tx err = Transactions $ ForgetTransaction utxo tx err
 
 adoptSnapshot :: VerifiedSnapshot tx -> Command tx
-adoptSnapshot verified = AdoptSnapshot (verifiedSnapshot verified) (verifiedSignatures verified)
+adoptSnapshot = AdoptSnapshot
 
 clearLocalState :: SnapshotNumber -> Command tx
 clearLocalState = ClearLocalState
@@ -129,24 +134,28 @@ recordSignature = RecordSignature
 
 -- | The token binds the signatures to the candidate verified by the rule.
 confirmSnapshot :: VerifiedSnapshot tx -> Command tx
-confirmSnapshot verified = ConfirmSnapshot (verifiedRepresentation verified) (verifiedSignatures verified)
+confirmSnapshot = ConfirmSnapshot
 
 requestSnapshot :: SnapshotRequest tx -> Command tx
 requestSnapshot = RequestSnapshot
 
 -- | Trusted replay adapter. The registry supplies the deposited UTxO before
 -- consumption; protocol admission and cryptography have already happened.
+-- Replay commands stay private: live rules cannot stage unverified evidence.
+replayEvent :: IsChainState tx => UTxOType tx -> StateChanged tx -> Runtime tx -> Runtime tx
+replayEvent deposited event runtime = maybe runtime (snd . step runtime) $ fromEvent deposited event
+
 fromEvent :: IsChainState tx => UTxOType tx -> StateChanged tx -> Maybe (Command tx)
 fromEvent deposited = \case
   TransactionReceived tx -> Just $ Transactions $ ReceiveTransaction tx
   TransactionAppliedToLocalUTxO _ tx -> Just $ Transactions $ ApplyTransaction tx
   TxInvalid _ utxo tx err -> Just $ Transactions $ ForgetTransaction utxo tx err
-  DecommitRecorded _ tx -> Just $ reserveDecommit tx
+  DecommitRecorded _ tx -> Just $ Transactions $ ReplayDecommit tx
   SnapshotRequestDecided number -> Just $ ReplaySnapshotRequest number
   SnapshotRequested snapshot txs deposit -> Just $ acceptSnapshot snapshot txs deposit
   PartySignedSnapshot number party signature -> Just $ recordSignature number party signature
   SnapshotConfirmed _ Nothing signatures -> Just $ ReplayConfirmation signatures
-  SnapshotConfirmed _ (Just snapshot) signatures -> Just $ AdoptSnapshot snapshot signatures
+  SnapshotConfirmed _ (Just snapshot) signatures -> Just $ ReplayAdoption snapshot signatures
   LocalStateCleared _ number -> Just $ ClearLocalState number
   DepositActivated depositId chainTime deposit -> Just $ ActivateDeposit depositId chainTime deposit
   DepositRecovered chainState headId depositId recovered -> Just $ RecoverDeposit chainState headId depositId recovered

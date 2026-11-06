@@ -109,7 +109,7 @@ def render():
     archive_lines = [
         "# Prior-spike diagrams",
         "",
-        "Archived from `a6c4966f8`. These are protocol investigations, superseded traces,",
+        "These are protocol investigations, superseded traces,",
         "and comparisons with frozen implementations. They describe the versions",
         "named by their artifacts, not a second production execution path.",
         "",

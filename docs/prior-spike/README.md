@@ -1,7 +1,8 @@
 # Prior spike
 
 This directory holds the proposals, investigations, migration comparisons, and
-superseded results archived from revision `a6c4966f8`. The implemented design is
+superseded results. Most were archived from revision `a6c4966f8`; the original
+conflicting-decommit trace comes from `86e74b177`, before its confirmation repair. The implemented design is
 documented in the [Crem/Program review guide](../head-logic-review.md).
 
 | Document | Contents |

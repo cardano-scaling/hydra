@@ -14,13 +14,14 @@ the guarantees enforced by the rules and the recovery policies they retain.
 
 - [Programs inside crem](head-logic-crem-workflows.md): input execution, rule modules, terminal semantics, and tests.
 - [Snapshot and transaction owners](head-logic-coordinated.md): shared live/replay transitions, typed component ports, and decommit reservations.
+- [Choosing the state transitions](head-logic/state-transitions.md): local intent, certificate authority, legitimate adoption paths, and what the topology excludes.
 - [Retained-event machines](head-logic-crem.md): lifecycle, deposits, snapshot coordination, and replay.
 - [Diagrams](head-logic-diagrams.md): current phase graphs and executions, with a complete source index.
 - [Tracing and exploration](head-logic/tools.md): runnable examples, primitive replay, and bounded searches.
 - [Snapshot capacity](head-logic/capacity.md): selection policy, checked proposals, and capacity/progress tests.
 - [Performance](head-logic/measurements.md): complete rounds, event application, and three-node throughput.
 - [Validation](head-logic/validation.md): test coverage, verification results, and commands.
-- [Adversarial review](head-logic/adversarial-review.md): a remaining decommit bug, API guarantees, maintenance costs, and security assessment.
+- [Adversarial review](head-logic/adversarial-review.md): findings, their repairs, remaining maintenance costs, and security limits.
 
 ## Code to start with
 

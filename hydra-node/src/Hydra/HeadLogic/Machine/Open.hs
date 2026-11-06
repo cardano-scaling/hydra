@@ -5,8 +5,6 @@
 -- Lifecycle delegates here while open and reads the projection when closing.
 module Hydra.HeadLogic.Machine.Open (OpenHead, start, view, step) where
 
-import Hydra.Prelude
-
 import Hydra.Chain.ChainState (IsChainState (ChainStateType))
 import Hydra.HeadLogic.Machine.Coordinated qualified as Coordinated
 import Hydra.HeadLogic.Machine.Types (DepositOutput (..))
@@ -26,7 +24,7 @@ view (OpenHead parameters chainState headId headSeed runtime) =
 
 step :: IsChainState tx => OpenHead tx -> DepositOutput tx -> OpenHead tx
 step (OpenHead parameters chainState headId headSeed runtime) input =
-  let next = maybe runtime (snd . Coordinated.step runtime) $ Coordinated.fromEvent input.settledDeposit input.event
+  let next = Coordinated.replayEvent input.settledDeposit input.event runtime
       chainState' = case input.event of
         CommitFinalized{chainState = observed} -> observed
         DecommitFinalized{chainState = observed} -> observed

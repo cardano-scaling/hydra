@@ -672,3 +672,52 @@ capacityPruneRef limit base commit decommit = go 1 base
 {-# COMPILE GHC capacityFitsRef as hsCapacityFitsRef #-}
 {-# COMPILE GHC capacityPrefixRef as hsCapacityPrefixRef #-}
 {-# COMPILE GHC capacityPruneRef as hsCapacityPruneRef #-}
+
+-- A reservation is local intent; a current-version certificate is authority to
+-- decrement. Adoption can supply that authority without a local reservation.
+-- These are protocol stages, not the presence/absence of a stored transaction.
+data DecommitPhaseᶜ : Set where
+  noDecommitᶜ pendingDecommitᶜ awaitingSettlementᶜ : DecommitPhaseᶜ
+
+-- Legal non-identity transitions. AwaitingSettlement -> Pending is absent:
+-- a different local decommit cannot replace an unsettled certificate.
+data DecommitTransitionᶜ : DecommitPhaseᶜ → DecommitPhaseᶜ → Set where
+  unchangedᵈ : ∀ {phase} → DecommitTransitionᶜ phase phase
+  reserveᵈ : DecommitTransitionᶜ noDecommitᶜ pendingDecommitᶜ
+  invalidateᵈ : DecommitTransitionᶜ pendingDecommitᶜ noDecommitᶜ
+  confirmᵈ : DecommitTransitionᶜ pendingDecommitᶜ awaitingSettlementᶜ
+  adoptᵈ : DecommitTransitionᶜ noDecommitᶜ awaitingSettlementᶜ
+  settleᵈ : DecommitTransitionᶜ awaitingSettlementᶜ noDecommitᶜ
+
+-- An empty type expresses the forbidden transition independently of Haskell.
+data ImpossibleDecommitTransition : Set where
+
+cannotReplaceAuthorisedDecommit :
+  DecommitTransitionᶜ awaitingSettlementᶜ pendingDecommitᶜ → ImpossibleDecommitTransition
+cannotReplaceAuthorisedDecommit ()
+
+-- Natural-number output identities; `available` includes the retained ordinary
+-- dependency chain, before removing the reservation. Missing confirmed inputs
+-- alone do not establish a conflict. Scripts and time validity are excluded.
+retainReservationRef : Bool → Bool → List Nat → List Nat → Bool
+retainReservationRef carried otherAuthorised inputs available =
+  carried || (not otherAuthorised && decommitReadyRef false inputs available)
+
+-- The same predicate controls admission with or without a locally stored tx.
+decommitAdmissionRef : Bool → Bool → Bool
+decommitAdmissionRef pending authorised = not (pending || authorised)
+
+-- Verification context uses ordered committee identities, not sets. These are
+-- abstract identities; cryptographic verification remains an external premise.
+sameCommittee : List Nat → List Nat → Bool
+sameCommittee [] [] = true
+sameCommittee (x ∷ xs) (y ∷ ys) = (x == y) && sameCommittee xs ys
+sameCommittee _ _ = false
+
+verificationContextRef : Nat → Nat → List Nat → List Nat → Bool
+verificationContextRef head verifiedHead committee verifiedCommittee =
+  (head == verifiedHead) && sameCommittee committee verifiedCommittee
+
+{-# COMPILE GHC retainReservationRef as hsRetainReservationRef #-}
+{-# COMPILE GHC decommitAdmissionRef as hsDecommitAdmissionRef #-}
+{-# COMPILE GHC verificationContextRef as hsVerificationContextRef #-}

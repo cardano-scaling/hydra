@@ -9,10 +9,12 @@ import Hydra.API.ServerOutput (DecommitInvalidReason (..))
 import Hydra.Agda.OffChainReference qualified as Agda
 import Hydra.HeadLogic (
   CoordinatedHeadState (
+    confirmedSnapshot,
     currentDepositTxId,
     decommitTx,
     localUTxO,
-    seenSnapshot
+    seenSnapshot,
+    version
   ),
   Effect (NetworkEffect, OnChainEffect),
   HeadState (Open),
@@ -38,6 +40,7 @@ import Hydra.HeadLogic (
  )
 import Hydra.HeadLogic.Interpreter qualified as Interpreter
 import Hydra.HeadLogic.Rules.ReqDec qualified as ReqDec
+import Hydra.HeadLogic.State.Operations (settlingDecommit)
 import Hydra.HeadLogic.Trace qualified as Trace
 import Hydra.HeadLogic.Workflow qualified as Workflow
 import Hydra.Ledger (Ledger (..), ValidationError (..))
@@ -71,7 +74,7 @@ spec = do
 
   it "confirms the dependent decommit while preserving every reservation" $
     DecommitDependency.demonstration `shouldSatisfy` isRight
-  prop "ReqDec preserves legacy outcomes outside deferred or already-carried work" $
+  prop "ReqDec preserves legacy outcomes outside deferred or authorised work" $
     forAll ((,,,) <$> resize 5 arbitrary <*> elements [0, 1, 5] <*> resize 5 arbitrary <*> resize 5 arbitrary) $ \(open, ttl, pending, tx) ->
       let st = open{parameters = open.parameters{parties = Scenario.scenarioParties}} :: OpenState SimpleTx
           before = Scenario.initialNode{headState = Open st, deposits = trackedFromPending pending}
@@ -79,7 +82,7 @@ spec = do
           new = onOpenNetworkReqDec env simpleLedger ttl before.chainPointTime pending st tx
           after = aggregateState before new
           chs = st.coordinatedHeadState
-          unchanged = isJust chs.decommitTx || snapshotInFlight chs.seenSnapshot || Audit.newDecommitReady chs tx
+          unchanged = isJust chs.decommitTx || (not (settlingDecommit chs.version chs.confirmedSnapshot) && (snapshotInFlight chs.seenSnapshot || Audit.newDecommitReady chs tx))
        in unchanged ==>
             counterexample (show (old, new)) $
               old == new && after == aggregateState before old && decodeFull' (serialize' after) == Right after

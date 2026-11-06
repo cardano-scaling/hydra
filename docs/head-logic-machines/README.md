@@ -6,7 +6,7 @@ Generated from crem's executable definitions with:
 cabal run hydra-node:head-logic-lab -- machines docs/head-logic-machines
 ```
 
-Coordinated contains the snapshot and transaction owners used by live staging and replay. Its Reserved phase records a pending decommit; it does not prove that rebuilding preserved the reservation. Composition shows DepositRegistry → Lifecycle → Clock. The open lifecycle state holds the Coordinated continuation; its nested composition is shown separately. These are allowed replay transitions, including resets and events outside their usual phase. Edges to Idle mean observed completion (HeadFannedOut), including at parties that did not initiate fanout. Identity transitions are implicit. They do not show admission guards or prove that every edge is reachable from network input. See [the implementation guide](../head-logic-crem.md) for event meanings and limitations.
+Coordinated contains the snapshot and transaction owners used by live staging and replay. Its transaction phases distinguish local intent from a current-version decommit certificate. AwaitingSettlement cannot transition directly to DecommitPending; adoption can enter AwaitingSettlement without a local ReqDec. See [the state-transition analysis](../head-logic/state-transitions.md). Composition shows DepositRegistry → Lifecycle → Clock. The open lifecycle state holds the Coordinated continuation; its nested composition is shown separately. These are allowed replay transitions, including resets and events outside their usual phase. Edges to Idle mean observed completion (HeadFannedOut), including at parties that did not initiate fanout. Identity transitions are implicit. They do not show admission guards or prove that every edge is reachable from network input. See [the implementation guide](../head-logic-crem.md) for event meanings and limitations.
 
 ## coordinated
 
@@ -24,10 +24,14 @@ Snapshots_CollectingSignatures --> Snapshots_AwaitingRequest
 Snapshots_CollectingSignatures --> Snapshots_RequestSent
 }
 state Transactions {
-Transactions_Unreserved
-Transactions_Reserved
-Transactions_Unreserved --> Transactions_Reserved
-Transactions_Reserved --> Transactions_Unreserved
+Transactions_NoDecommit
+Transactions_DecommitPending
+Transactions_AwaitingSettlement
+Transactions_NoDecommit --> Transactions_DecommitPending
+Transactions_NoDecommit --> Transactions_AwaitingSettlement
+Transactions_DecommitPending --> Transactions_NoDecommit
+Transactions_DecommitPending --> Transactions_AwaitingSettlement
+Transactions_AwaitingSettlement --> Transactions_NoDecommit
 }
 Snapshots --> Transactions
 ```

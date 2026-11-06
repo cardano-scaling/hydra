@@ -1,6 +1,6 @@
 -- | Evidence for live confirmation. Only the successful primitive reply creates
 -- this value; replay has a separate trusted path for already retained events.
-module Hydra.HeadLogic.Rules.SnapshotVerification (VerifiedSnapshot, verifiedSnapshot, verifiedSignatures, verifiedRepresentation, verifyCandidate, verifySignedSnapshot) where
+module Hydra.HeadLogic.Rules.SnapshotVerification (VerifiedSnapshot, verifiedSnapshot, verifiedSignatures, verifiedRepresentation, verifiedFor, verifyCandidate, verifySignedSnapshot) where
 
 import Hydra.Prelude
 
@@ -9,20 +9,25 @@ import Hydra.HeadLogic.Outcome (WaitReason (WaitOnSeenSnapshot))
 import Hydra.HeadLogic.Program (Program)
 import Hydra.HeadLogic.Program qualified as Program
 import Hydra.HeadLogic.State (SeenSnapshot (..))
-import Hydra.Tx (IsTx)
+import Hydra.Tx (HeadId, IsTx)
 import Hydra.Tx.Crypto (HydraKey, MultiSignature, VerificationKey, Verified (..), getSignableRepresentation)
-import Hydra.Tx.Snapshot (Snapshot)
+import Hydra.Tx.Snapshot (Snapshot (Snapshot, headId))
 
-data VerifiedSnapshot tx = VerifiedSnapshot (Snapshot tx) (MultiSignature (Snapshot tx)) ByteString
+data VerifiedSnapshot tx = VerifiedSnapshot (Snapshot tx) (MultiSignature (Snapshot tx)) ByteString [VerificationKey HydraKey]
 
 verifiedSnapshot :: VerifiedSnapshot tx -> Snapshot tx
-verifiedSnapshot (VerifiedSnapshot snapshot _ _) = snapshot
+verifiedSnapshot (VerifiedSnapshot snapshot _ _ _) = snapshot
 
 verifiedSignatures :: VerifiedSnapshot tx -> MultiSignature (Snapshot tx)
-verifiedSignatures (VerifiedSnapshot _ signatures _) = signatures
+verifiedSignatures (VerifiedSnapshot _ signatures _ _) = signatures
 
 verifiedRepresentation :: VerifiedSnapshot tx -> ByteString
-verifiedRepresentation (VerifiedSnapshot _ _ bytes) = bytes
+verifiedRepresentation (VerifiedSnapshot _ _ bytes _) = bytes
+
+-- | Verification authorises one Head and its ordered committee, not just bytes.
+verifiedFor :: HeadId -> [VerificationKey HydraKey] -> VerifiedSnapshot tx -> Bool
+verifiedFor expectedHead expectedKeys (VerifiedSnapshot Snapshot{headId} _ _ verifiedKeys) =
+  headId == expectedHead && verifiedKeys == expectedKeys
 
 verifySignedSnapshot :: IsTx tx => [VerificationKey HydraKey] -> Snapshot tx -> MultiSignature (Snapshot tx) -> Program tx ledger signing (Either Verified (VerifiedSnapshot tx))
 verifySignedSnapshot vkeys snapshot = verify vkeys snapshot (getSignableRepresentation snapshot)
@@ -31,7 +36,7 @@ verify :: [VerificationKey HydraKey] -> Snapshot tx -> ByteString -> MultiSignat
 verify vkeys snapshot bytes signatures = do
   result <- Program.verifySnapshot vkeys signatures bytes
   pure $ case result of
-    Verified -> Right $ VerifiedSnapshot snapshot signatures bytes
+    Verified -> Right $ VerifiedSnapshot snapshot signatures bytes vkeys
     failure -> Left failure
 
 verifyCandidate :: [VerificationKey HydraKey] -> SeenSnapshot tx -> MultiSignature (Snapshot tx) -> Program tx ledger signing (Either (LogicError tx) (VerifiedSnapshot tx))

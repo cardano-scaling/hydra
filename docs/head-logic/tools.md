@@ -125,3 +125,15 @@ Read [Program](../../hydra-node/src/Hydra/HeadLogic/Program.hs) and
 [Replay](../../hydra-node/testlib/Test/Hydra/HeadLogic/Replay.hs) and
 [Debugger](../../hydra-node/testlib/Test/Hydra/HeadLogic/Debugger.hs) for inspection,
 and [Mermaid](../../hydra-node/testlib/Test/Hydra/HeadLogic/Mermaid.hs) for rendering.
+
+## Competing decommit and ordinary transaction
+
+```sh
+cabal run hydra-node:head-logic-lab -- decommit-conflict /tmp/decommit-conflict.mmd
+```
+
+This focused schedule uses real signature verification and production retries.
+It checks event and checkpoint replay at every delivery. In the final AckSn to
+party 1, confirmation emits `DecommitInvalid` for the competing reservation.
+[The state-transition analysis](state-transitions.md#the-conflict-repair) explains
+why release belongs at confirmation; the general explorer still excludes ReqDec.

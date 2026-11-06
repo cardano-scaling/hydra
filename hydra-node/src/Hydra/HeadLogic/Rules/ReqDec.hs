@@ -56,7 +56,7 @@ import Hydra.HeadLogic.State (
   OpenState (OpenState, coordinatedHeadState, headId, parameters),
   snapshotInFlight,
  )
-import Hydra.HeadLogic.State.Operations (settledUTxO)
+import Hydra.HeadLogic.State.Operations (settledUTxO, settlingDecommit)
 import Hydra.HeadLogic.Workflow (
   Transition,
   Workflow,
@@ -120,6 +120,9 @@ machine env ttl ChainPointTime{currentSlot, currentChainTime} pendingDeposits op
       Just existing -> continue (const Done) $ do
         void $ Program.decide "no decommit is in flight" False
         notApplicable DecommitAlreadyInFlight{otherDecommitTxId = txId existing}
+      Nothing | settlingDecommit version confirmedSnapshot -> continue (const Done) $ do
+        void $ Program.decide "no decommit is in flight" False
+        notApplicable DecommitTxInvalid{localUTxO, validationError = ValidationError "confirmed decommit awaits settlement"}
       Nothing -> continue LedgerResult $ do
         void $ Program.decide "no decommit is in flight" True
         Program.applyTransaction currentSlot localUTxO decommitTx

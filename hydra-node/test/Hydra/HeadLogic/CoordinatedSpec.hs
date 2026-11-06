@@ -9,9 +9,11 @@ import Test.Hydra.Prelude (Spec, describe, it, shouldBe, shouldSatisfy)
 import Cardano.Binary (decodeFull', serialize')
 import Data.Map.Strict qualified as Map
 import Data.Sequence qualified as Seq
+import Hydra.API.ClientInput qualified as Client
 import Hydra.Agda.OffChainReference qualified as Agda
 import Hydra.HeadLogic (aggregateNodeState)
-import Hydra.HeadLogic.Error (LogicError (RequireFailed), RequirementFailure (InvalidMultisignature))
+import Hydra.HeadLogic qualified as Head
+import Hydra.HeadLogic.Error (LogicError (AssertionFailed, RequireFailed), RequirementFailure (InvalidMultisignature))
 import Hydra.HeadLogic.Interpreter qualified as Interpreter
 import Hydra.HeadLogic.Machine.Coordinated qualified as Coordinated
 import Hydra.HeadLogic.Outcome (Outcome (Continue, Error, Wait), StateChanged (..), WaitReason (WaitOnSeenSnapshot))
@@ -19,12 +21,15 @@ import Hydra.HeadLogic.Program qualified as Program
 import Hydra.HeadLogic.Rules.SnapshotRequest (DecommitStatus (..), chainedSnapshotRequest, decommitStatus, nextSnapshotRequest)
 import Hydra.HeadLogic.Rules.SnapshotVerification (verifyCandidate)
 import Hydra.HeadLogic.State (CoordinatedHeadState (..), OpenState (..), SeenSnapshot (SeenSnapshot), mkSeenSnapshot)
-import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..))
+import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), simpleLedger)
+import Hydra.Network.Message (Message (ReqDec), NetworkEvent (ReceivedMessage))
 import Hydra.Node.State (Deposit (..), DepositStatus (Active), NodeState (..), initialChainTime, trackedFromPending)
 import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Crypto (aggregateInOrder, sign)
+import Hydra.Tx.HeadId (HeadId (UnsafeHeadId))
 import Hydra.Tx.Party (Party (vkey))
-import Hydra.Tx.Snapshot (ConfirmedSnapshot (ConfirmedSnapshot), Snapshot (..))
+import Hydra.Tx.Snapshot (ConfirmedSnapshot (ConfirmedSnapshot), Snapshot (..), getSnapshot)
+import Test.Hydra.HeadLogic.ConflictingDecommit qualified as Conflict
 import Test.Hydra.HeadLogic.CoordinatedAudit qualified as Audit
 import Test.Hydra.HeadLogic.ReplayReference (replayWithReservationFix)
 import Test.Hydra.HeadLogic.Scenario qualified as Scenario
@@ -53,7 +58,7 @@ spec = describe "coordinated state owners" $ do
           (_, next) = Coordinated.step (Coordinated.start open{coordinatedHeadState = chs}) $ Coordinated.acceptSnapshot rebased mempty Nothing
       (Coordinated.currentState next).localUTxO `shouldBe` fromList (fromInteger <$> Agda.reserveRebaseRef reserved available)
 
-  it "uses one transition definition for staging, continuous replay and checkpoint recovery" $ do
+  it "agrees between continuous replay and checkpoint recovery" $ do
     let events =
           [ TransactionReceived Scenario.transactionOne
           , TransactionAppliedToLocalUTxO testHeadId Scenario.transactionOne
@@ -118,8 +123,7 @@ spec = describe "coordinated state owners" $ do
   it "does not demand signing bytes when replaying a retained confirmation" $ do
     let before = open{coordinatedHeadState = open.coordinatedHeadState{seenSnapshot = SeenSnapshot candidate mempty (error "replay computes signing bytes")}}
         event = SnapshotConfirmed testHeadId Nothing signatures
-    command <- maybe (fail "confirmation has no replay command") pure $ Coordinated.fromEvent mempty event
-    let (_, next) = Coordinated.step (Coordinated.start before) command
+    let next = Coordinated.replayEvent mempty event (Coordinated.start before)
     (Coordinated.currentState next).confirmedSnapshot `shouldBe` ConfirmedSnapshot candidate signatures
 
   it "retains a staged signature on wait and discards it on failed verification" $ do
@@ -148,9 +152,108 @@ spec = describe "coordinated state owners" $ do
     Interpreter.runProgramWith Interpreter.basicConfig (confirm $ runtime candidate)
       `shouldBe` Continue [SnapshotConfirmed testHeadId Nothing signatures] []
     Interpreter.runProgramWith Interpreter.basicConfig (confirm $ runtime candidate{number = 2})
-      `shouldBe` Continue [] []
+      `shouldSatisfy` \case Error AssertionFailed{} -> True; _ -> False
     Interpreter.runProgramWith Interpreter.basicConfig (confirm $ Coordinated.start open)
-      `shouldBe` Continue [] []
+      `shouldSatisfy` \case Error AssertionFailed{} -> True; _ -> False
+  it "binds confirmation and adoption to the Head and ordered committee" $
+    forM_ [[], [alice], [bob, alice, carol]] $ \committee ->
+      forM_ [Coordinated.confirmSnapshot, Coordinated.adoptSnapshot] $ \command -> do
+        let signed = aggregateInOrder (Map.fromList [(p, sign sk candidate) | (p, sk) <- [(alice, aliceSk), (bob, bobSk), (carol, carolSk)]]) committee
+            program :: Program.AcknowledgementProgram SimpleTx ()
+            program = do
+              staged <- Coordinated.stage (Coordinated.start open{coordinatedHeadState = open.coordinatedHeadState{seenSnapshot = seen}}) $ Coordinated.recordSignature 1 alice (sign aliceSk candidate)
+              evidence <- verifyCandidate (vkey <$> committee) seen signed >>= either Program.reject pure
+              void $ Coordinated.stage staged $ command evidence
+        Interpreter.runProgramWith Interpreter.basicConfig program
+          `shouldSatisfy` \case Error AssertionFailed{} -> True; _ -> False
+
+  it "rejects correctly signed evidence from another Head, including adoption" $
+    forM_ [Coordinated.confirmSnapshot, Coordinated.adoptSnapshot] $ \command -> do
+      let foreignSnapshot :: Snapshot SimpleTx
+          foreignSnapshot = candidate{headId = UnsafeHeadId "another head"}
+          signed = aggregateInOrder (Map.fromList [(p, sign sk foreignSnapshot) | (p, sk) <- [(alice, aliceSk), (bob, bobSk), (carol, carolSk)]]) Scenario.scenarioParties
+          program :: Program.AcknowledgementProgram SimpleTx ()
+          program = do
+            evidence <- verifyCandidate keys (mkSeenSnapshot foreignSnapshot mempty) signed >>= either Program.reject pure
+            void $ Coordinated.stage (Coordinated.start open{coordinatedHeadState = open.coordinatedHeadState{seenSnapshot = seen}}) $ command evidence
+      Interpreter.runProgramWith Interpreter.basicConfig program
+        `shouldSatisfy` \case Error AssertionFailed{} -> True; _ -> False
+
+  it "releases a conflicting reservation in all 24 delivery orders and admits the next decommit" $
+    forM_ Conflict.schedules $ \schedule -> do
+      (world, _) <- either (fail . toString) pure schedule
+      world.pending `shouldBe` []
+      world.retries `shouldBe` []
+      forM_ (zip [0 ..] world.nodes) $ \(partyIndex, node) -> do
+        let current = (Scenario.openState node).coordinatedHeadState
+        current.decommitTx `shouldBe` Nothing
+        (getSnapshot current.confirmedSnapshot).utxo `shouldBe` utxoRef 2
+        let outcome = Head.update (Scenario.environment partyIndex) simpleLedger initialChainTime node $ Head.NetworkInput 0 $ ReceivedMessage alice $ ReqDec $ SimpleTx 11 (utxoRef 2) (utxoRef 11)
+        outcome `shouldSatisfy` \case Continue (DecommitRecorded{} : _) _ -> True; _ -> False
+
+  it "restores other reserved inputs on conflict, but keeps a retained dependency" $
+    forM_ [False, True] $ \keepDependency -> do
+      let tx = SimpleTx 10 (utxoRef 1 <> utxoRef 9) (utxoRef 10)
+          base :: Snapshot SimpleTx
+          base = candidate{utxo = utxoRef 2 <> utxoRef 9, accumulator = Accumulator.buildFromUTxO @SimpleTx (utxoRef 2 <> utxoRef 9), appliedAccumulator = Accumulator.buildFromUTxO @SimpleTx (utxoRef 2 <> utxoRef 9)}
+          pending = if keepDependency then Seq.singleton (SimpleTx 11 (utxoRef 2) (utxoRef 1)) else mempty
+          before = open{coordinatedHeadState = open.coordinatedHeadState{decommitTx = Just tx, localTxs = pending, localUTxO = if keepDependency then mempty else utxoRef 2, seenSnapshot = mkSeenSnapshot base mempty}}
+          event :: StateChanged SimpleTx
+          event = SnapshotConfirmed testHeadId Nothing mempty
+          runtime = Coordinated.replayEvent mempty event (Coordinated.start before)
+          current = Coordinated.currentState runtime
+      current.decommitTx `shouldBe` if keepDependency then Just tx else Nothing
+      current.localUTxO `shouldBe` if keepDependency then mempty else utxoRef 2 <> utxoRef 9
+      let node = Scenario.initialNode{headState = Head.Open before}
+          expected = aggregateNodeState node event
+      current `shouldBe` (Scenario.openState expected).coordinatedHeadState
+      decodeFull' (serialize' expected) `shouldBe` Right expected
+
+  it "protects an authorised decommit even when no ReqDec was received" $ do
+    let authorised :: Snapshot SimpleTx
+        authorised = candidate{utxoToDecommit = Just (utxoRef 10)}
+        before = open{coordinatedHeadState = open.coordinatedHeadState{confirmedSnapshot = ConfirmedSnapshot authorised mempty, localUTxO = utxoRef 2}}
+        runtime = Coordinated.start before
+        command = Coordinated.reserveDecommit (SimpleTx 11 (utxoRef 2) (utxoRef 11))
+        stage :: Coordinated.Runtime SimpleTx -> Outcome SimpleTx
+        stage target = Interpreter.runProgramWith Interpreter.basicConfig (void $ Coordinated.stage target command)
+    stage runtime `shouldSatisfy` \case Error AssertionFailed{} -> True; _ -> False
+    let (_, settled) = Coordinated.step runtime $ Coordinated.settleDecommit (SimpleChainState 3) 1 (utxoRef 10)
+    stage settled `shouldSatisfy` \case Continue [DecommitRecorded{}] [] -> True; _ -> False
+
+  it "compares confirmation disposition with Agda over bounded input sets" $
+    forM_ [(inputs, available, carried, other) | inputs <- subsequences [1, 2, 3], available <- subsequences [1, 2, 3], (carried, other) <- [(False, False), (True, False), (False, True)]] $ \(inputs, available, carried, other) -> do
+      let tx = SimpleTx 10 (fromList $ fromInteger <$> inputs) (utxoRef 4)
+          snapshot :: Snapshot SimpleTx
+          snapshot = candidate{utxo = fromList $ fromInteger <$> available, utxoToDecommit = if carried then Just (utxoRef 4) else if other then Just (utxoRef 5) else Nothing}
+          before = open{coordinatedHeadState = open.coordinatedHeadState{decommitTx = Just tx, seenSnapshot = mkSeenSnapshot snapshot mempty}}
+          next = Coordinated.replayEvent mempty (SnapshotConfirmed testHeadId Nothing mempty) (Coordinated.start before)
+      isJust (Coordinated.currentState next).decommitTx `shouldBe` Agda.retainReservationRef carried other inputs available
+
+  it "compares client and network admission with Agda, including certificates without ReqDec" $
+    forM_ [(pending, authorised) | pending <- [False, True], authorised <- [False, True]] $ \(pending, authorised) -> do
+      let snapshot :: Snapshot SimpleTx
+          snapshot = candidate{utxoToDecommit = utxoRef 10 <$ guard authorised}
+          chs = open.coordinatedHeadState{confirmedSnapshot = ConfirmedSnapshot snapshot mempty, decommitTx = SimpleTx 10 (utxoRef 1) (utxoRef 10) <$ guard pending, localUTxO = utxoRef 2}
+          node = Scenario.initialNode{headState = Head.Open open{coordinatedHeadState = chs}}
+          tx = SimpleTx 11 (utxoRef 2) (utxoRef 11)
+          run = Head.update (Scenario.environment 0) simpleLedger initialChainTime node
+          accepts :: Outcome SimpleTx -> Bool
+          accepts = \case Continue (DecommitInvalid{} : _) _ -> False; Continue{} -> True; _ -> False
+      accepts (run $ Head.NetworkInput 0 $ ReceivedMessage alice $ ReqDec tx) `shouldBe` Agda.decommitAdmissionRef pending authorised
+      accepts (run $ Head.ClientInput $ Client.Decommit tx) `shouldBe` Agda.decommitAdmissionRef pending authorised
+
+  it "compares certificate context with Agda using real signatures" $
+    forM_ [(sameHead, committee) | sameHead <- [False, True], committee <- [] : [[(1, alice)]] <> permutations [(1, alice), (2, bob), (3, carol)]] $ \(sameHead, committee) -> do
+      let snapshot :: Snapshot SimpleTx
+          snapshot = candidate{headId = if sameHead then testHeadId else UnsafeHeadId "another head"}
+          signed = aggregateInOrder (Map.fromList [(p, sign sk snapshot) | (p, sk) <- [(alice, aliceSk), (bob, bobSk), (carol, carolSk)]]) (snd <$> committee)
+          program :: Program.AcknowledgementProgram SimpleTx ()
+          program = do
+            evidence <- verifyCandidate (vkey . snd <$> committee) (mkSeenSnapshot snapshot mempty) signed >>= either Program.reject pure
+            void $ Coordinated.stage (Coordinated.start open{coordinatedHeadState = open.coordinatedHeadState{seenSnapshot = mkSeenSnapshot snapshot mempty}}) $ Coordinated.confirmSnapshot evidence
+          accepted = case Interpreter.runProgramWith Interpreter.basicConfig program of Continue [SnapshotConfirmed{}] [] -> True; _ -> False
+      accepted `shouldBe` Agda.verificationContextRef 0 (if sameHead then 0 else 1) [1, 2, 3] (fst <$> committee)
  where
   open = Scenario.openState Scenario.initialNode
   candidate :: Snapshot SimpleTx
@@ -165,14 +268,10 @@ spec = describe "coordinated state owners" $ do
         deposited = case event of
           CommitFinalized{depositTxId} -> maybe mempty (.deposited) $ Map.lookup depositTxId node.pendingDeposits
           _ -> mempty
-        emitted = case event of ChainRolledBack{} -> []; _ -> [event]
-    command <- maybe (fail "event has no coordinated command") pure $ Coordinated.fromEvent deposited event
-    let (produced, next) = Coordinated.step runtime command
-        (_, restoredNext) = Coordinated.step (Coordinated.start before) command
+    let next = Coordinated.replayEvent deposited event runtime
+        restoredNext = Coordinated.replayEvent deposited event (Coordinated.start before)
         expected = replayWithReservationFix node event
         after = aggregateNodeState node event
-    produced `shouldBe` emitted
-    Interpreter.runProgramWith Interpreter.basicConfig (void $ Coordinated.stage runtime command) `shouldBe` Continue emitted []
     after `shouldBe` expected
     Coordinated.currentState next `shouldBe` (Scenario.openState after).coordinatedHeadState
     Coordinated.currentState restoredNext `shouldBe` Coordinated.currentState next

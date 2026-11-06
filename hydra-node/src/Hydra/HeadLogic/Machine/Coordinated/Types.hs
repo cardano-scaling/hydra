@@ -7,6 +7,7 @@ import Hydra.Prelude
 import Hydra.Chain.ChainState (ChainSlot, IsChainState (ChainStateType))
 import Hydra.HeadLogic.Outcome (StateChanged)
 import Hydra.HeadLogic.Rules.SnapshotRequest (SnapshotRequest)
+import Hydra.HeadLogic.Rules.SnapshotVerification (VerifiedSnapshot)
 import Hydra.HeadLogic.State (FinalizedSnapshot, SeenSnapshot)
 import Hydra.Ledger (ValidationError)
 import Hydra.Node.Deposit (Deposit)
@@ -21,9 +22,10 @@ data Command tx
   | ReplaySnapshotRequest SnapshotNumber
   | AcceptSnapshot (Snapshot tx) (Seq tx) (Maybe (TxIdType tx))
   | RecordSignature SnapshotNumber Party (Signature (Snapshot tx))
-  | ConfirmSnapshot ByteString (MultiSignature (Snapshot tx))
+  | ConfirmSnapshot (VerifiedSnapshot tx)
   | ReplayConfirmation (MultiSignature (Snapshot tx))
-  | AdoptSnapshot (Snapshot tx) (MultiSignature (Snapshot tx))
+  | AdoptSnapshot (VerifiedSnapshot tx)
+  | ReplayAdoption (Snapshot tx) (MultiSignature (Snapshot tx))
   | ClearLocalState SnapshotNumber
   | ActivateDeposit (TxIdType tx) UTCTime (Deposit tx)
   | RecoverDeposit (ChainStateType tx) HeadId (TxIdType tx) ~(UTxOType tx)
@@ -37,6 +39,7 @@ data TransactionCommand tx
   | ApplyValidatedTransaction tx ~(UTxOType tx) ~(UTxOType tx)
   | ForgetTransaction (UTxOType tx) tx ValidationError
   | ReserveDecommit tx
+  | ReplayDecommit tx
 
 -- | Only the snapshot owner constructs a Rebase. The transaction owner chooses
 -- how to rebuild its UTxO, including any reservation it retains.
@@ -44,6 +47,7 @@ data LedgerUpdate tx
   = Unchanged
   | Transaction (TransactionCommand tx)
   | Rebase (Snapshot tx) (Seq tx) (Maybe (TxIdType tx))
+  | ConfirmTransactions
   | ClearTransactions
   | SelectDeposit (TxIdType tx) (Deposit tx)
   | ReleaseDeposit (TxIdType tx)
@@ -63,4 +67,5 @@ data SnapshotOutput tx = SnapshotOutput
   { snapshots :: SnapshotState tx
   , ledgerUpdate :: LedgerUpdate tx
   , events :: [StateChanged tx]
+  , refusal :: Maybe Text
   }

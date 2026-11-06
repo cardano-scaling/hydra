@@ -250,6 +250,7 @@ library testlib
     Test.Hydra.Chain.Direct.State
     Test.Hydra.Chain.Direct.TimeHandle
     Test.Hydra.HeadLogic.Capacity
+    Test.Hydra.HeadLogic.ConflictingDecommit
     Test.Hydra.HeadLogic.CoordinatedAudit
     Test.Hydra.HeadLogic.Crem.Comparison
     Test.Hydra.HeadLogic.Debugger

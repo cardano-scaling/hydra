@@ -37,6 +37,7 @@ import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
 import System.Environment (withArgs)
 import Test.Hydra.HeadLogic.Capacity qualified as Capacity
+import Test.Hydra.HeadLogic.ConflictingDecommit qualified as ConflictingDecommit
 import Test.Hydra.HeadLogic.Crem.Comparison qualified as CremComparison
 import Test.Hydra.HeadLogic.Debugger qualified as Debug
 import Test.Hydra.HeadLogic.DecommitDependency qualified as DecommitDependency
@@ -55,6 +56,10 @@ main =
   getArgs >>= \case
     ["capacity", file] -> capacityDemo False file
     ["capacity", "--historical", file] -> capacityDemo True file
+    ["decommit-conflict", file] -> do
+      (_, sections) <- demand ConflictingDecommit.conflict
+      Text.writeFile file $ Mermaid.renderTraces sections
+      putStrLn ("Confirmed the ordinary spend and released the conflicting reservation; every prefix passes replay checks." :: String)
     ["decommit-dependency", file] -> do
       (report, sections) <- demand DecommitDependency.demonstration
       LBS.writeFile file $ encode report
@@ -132,6 +137,7 @@ main =
         putStrLn
         [ "head-logic-lab capacity [--historical] FILE"
         , "head-logic-lab decommit-dependency FILE"
+        , "head-logic-lab decommit-conflict FILE"
         , "head-logic-lab trace-inputs DIRECTORY"
         , "head-logic-lab compare-crem DIRECTORY"
         , "head-logic-lab machines DIRECTORY"

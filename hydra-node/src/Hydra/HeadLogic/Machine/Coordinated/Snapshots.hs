@@ -20,10 +20,11 @@ import Hydra.HeadLogic.Machine.Coordinated.Types (Command (..), LedgerUpdate (..
 import Hydra.HeadLogic.Machine.Coordinated.Types qualified as Port
 import Hydra.HeadLogic.Outcome (StateChanged (..))
 import Hydra.HeadLogic.Rules.SnapshotRequest (requestMatches, requestNumber)
+import Hydra.HeadLogic.Rules.SnapshotVerification (verifiedFor, verifiedRepresentation, verifiedSignatures, verifiedSnapshot)
 import Hydra.HeadLogic.State (FinalizedSnapshot, SeenSnapshot (..), mkSeenSnapshot, seenSnapshotNumber)
 import Hydra.HeadLogic.State.Operations (retainConfirmedSettlement, retainFinalizedCommit, retainFinalizedDecommit)
 import Hydra.Tx (HeadId, IsTx)
-import Hydra.Tx.Crypto (MultiSignature, Signature)
+import Hydra.Tx.Crypto (HydraKey, MultiSignature, Signature, VerificationKey)
 import Hydra.Tx.Party (Party)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, SnapshotVersion, getSnapshot)
 
@@ -60,8 +61,8 @@ data State tx phase where
   Requested :: Context tx -> SnapshotNumber -> SnapshotNumber -> State tx 'RequestSent
   Collecting :: Context tx -> Snapshot tx -> Map Party (Signature (Snapshot tx)) -> ~ByteString -> State tx 'CollectingSignatures
 
-machine :: forall tx m. (IsChainState tx, Applicative m) => HeadId -> SnapshotState tx -> BaseMachineT m SnapshotTopology (Command tx) (SnapshotOutput tx)
-machine headId initial = BaseMachineT (restore initial) action
+machine :: forall tx m. (IsChainState tx, Applicative m) => HeadId -> [VerificationKey HydraKey] -> SnapshotState tx -> BaseMachineT m SnapshotTopology (Command tx) (SnapshotOutput tx)
+machine headId committee initial = BaseMachineT (restore initial) action
  where
   action :: forall from. State tx from -> Command tx -> ActionResult m SnapshotTopology (State tx) from (SnapshotOutput tx)
   action state command = case state of
@@ -74,13 +75,15 @@ machine headId initial = BaseMachineT (restore initial) action
     Collecting context snapshot signatures bytes -> case command of
       RecordSignature number party signature ->
         output (Collecting context snapshot (Map.insert party signature signatures) bytes) Unchanged [PartySignedSnapshot number party signature]
-      ConfirmSnapshot verifiedBytes signatures' | verifiedBytes == bytes -> confirm state signatures'
+      ConfirmSnapshot evidence
+        | verifiedFor headId committee evidence && verifiedRepresentation evidence == bytes -> confirm state (verifiedSignatures evidence)
+        | otherwise -> refuse state "confirmation evidence does not match this Head, committee and candidate"
       ReplayConfirmation signatures' -> confirm state signatures'
       _ -> common state command
 
   confirm :: State tx 'CollectingSignatures -> MultiSignature (Snapshot tx) -> ActionResult m SnapshotTopology (State tx) 'CollectingSignatures (SnapshotOutput tx)
   confirm (Collecting context snapshot _ _) signatures =
-    output (Idle (adopt context snapshot signatures) $ Just snapshot.number) Unchanged [SnapshotConfirmed headId Nothing signatures]
+    output (Idle (adopt context snapshot signatures) $ Just snapshot.number) ConfirmTransactions [SnapshotConfirmed headId Nothing signatures]
 
   common :: (AllowedTransition SnapshotTopology from 'AwaitingRequest, AllowedTransition SnapshotTopology from 'RequestSent, AllowedTransition SnapshotTopology from 'CollectingSignatures) => State tx from -> Command tx -> ActionResult m SnapshotTopology (State tx) from (SnapshotOutput tx)
   common state = \case
@@ -89,8 +92,10 @@ machine headId initial = BaseMachineT (restore initial) action
     ReplaySnapshotRequest number -> requested number
     AcceptSnapshot snapshot txs deposit ->
       output (Collecting context snapshot mempty (mkSeenSnapshot snapshot mempty).signableBytes) (Rebase snapshot txs deposit) [SnapshotRequested snapshot txs deposit]
-    AdoptSnapshot snapshot signatures ->
-      output (Idle (adopt context snapshot signatures) $ Just snapshot.number) Unchanged [SnapshotConfirmed headId (Just snapshot) signatures]
+    AdoptSnapshot evidence
+      | verifiedFor headId committee evidence -> adoptVerified (verifiedSnapshot evidence) (verifiedSignatures evidence)
+      | otherwise -> refuse state "adoption evidence does not match this Head and committee"
+    ReplayAdoption snapshot signatures -> adoptVerified snapshot signatures
     ClearLocalState number ->
       output (Idle context $ case context.confirmed of InitialSnapshot{} -> Nothing; ConfirmedSnapshot{} -> Just number) ClearTransactions [LocalStateCleared headId number]
     ActivateDeposit depositId chainTime deposit -> output state (SelectDeposit depositId deposit) [DepositActivated depositId chainTime deposit]
@@ -108,11 +113,13 @@ machine headId initial = BaseMachineT (restore initial) action
     Rollback slot -> output (withContext context{chainSlot = slot} state) Unchanged []
     -- Trusted replay retains signatures only while a candidate exists.
     RecordSignature{} -> output state Unchanged []
-    ConfirmSnapshot{} -> output state Unchanged []
+    ConfirmSnapshot{} -> refuse state "confirmation requires a candidate collecting signatures"
     ReplayConfirmation{} -> output state Unchanged []
    where
     context = contextOf state
     requested number = output (Requested context (seenSnapshotNumber (view state).seen) number) Unchanged [SnapshotRequestDecided number]
+    adoptVerified snapshot signatures =
+      output (Idle (adopt context snapshot signatures) $ Just snapshot.number) ConfirmTransactions [SnapshotConfirmed headId (Just snapshot) signatures]
 
   settle :: AllowedTransition SnapshotTopology from 'AwaitingRequest => State tx from -> Context tx -> SnapshotVersion -> LedgerUpdate tx -> [StateChanged tx] -> ActionResult m SnapshotTopology (State tx) from (SnapshotOutput tx)
   settle state context newVersion ledger events
@@ -125,7 +132,10 @@ machine headId initial = BaseMachineT (restore initial) action
               _ -> output (Idle next $ Just (getSnapshot context.confirmed).number) ledger events
 
   output :: AllowedTransition SnapshotTopology from to => State tx to -> LedgerUpdate tx -> [StateChanged tx] -> ActionResult m SnapshotTopology (State tx) from (SnapshotOutput tx)
-  output next ledgerUpdate events = pureResult SnapshotOutput{snapshots = view next, ledgerUpdate, events} next
+  output next ledgerUpdate events = pureResult SnapshotOutput{snapshots = view next, ledgerUpdate, events, refusal = Nothing} next
+
+  refuse :: State tx from -> Text -> ActionResult m SnapshotTopology (State tx) from (SnapshotOutput tx)
+  refuse state reason = pureResult SnapshotOutput{snapshots = view state, ledgerUpdate = Unchanged, events = [], refusal = Just reason} state
 
 adopt :: IsTx tx => Context tx -> Snapshot tx -> MultiSignature (Snapshot tx) -> Context tx
 adopt context snapshot signatures =

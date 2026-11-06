@@ -3,7 +3,10 @@
 ReqTx, ReqDec, ReqSn, AckSn, settlement, and side-loading produce their core
 `StateChanged` events by running the same transitions that replay uses. The wire
 and persistence formats stay unchanged. The transaction owner preserves decommit
-reservations, and shared selection waits for confirmed dependencies.
+reservations, and shared selection waits for confirmed dependencies. Confirmation releases
+conflicting reservations; current-version certificates block replacement.
+[Choosing the state transitions](head-logic/state-transitions.md) explains why
+local intent and settlement authority are distinct phases.
 
 ## Read these files
 
@@ -69,23 +72,30 @@ lazy: staging a snapshot does not also replay all its local transactions.
 
 The snapshot owner cannot assign transaction fields through its port. A live
 confirmation command requires an opaque verification result, and its signed
-bytes must match the current candidate. A candidate cannot be confirmed before
+bytes must match the current candidate. Confirmation and adoption also require
+the Head id and ordered committee used by verification. Refusal rejects staging,
+so dependent effects cannot continue. A candidate cannot be confirmed before
 it exists. A live request takes an opaque selected proposal, and the owner
 accepts it only while idle and at the matching head/version/number. Trusted
 replay retains its separate number-only adapter for existing persisted events.
 
 They are not a proof of the protocol. Verification still trusts the interpreter,
-the signable-byte cache and the rule's party-key selection. Replay deliberately
+the signable-byte cache. Replay deliberately
 trusts retained events; its adapter can reconstruct a confirmation without
-cryptography or demanding cached signing bytes. Other rules still have access
-to `Program.change`. The reserved phase says a decommit is recorded, not that
-every UTxO update respects it.
+cryptography or demanding cached signing bytes. `replayEvent` imports facts directly; it no longer exports unverified commands
+for live staging. Other rules still have access to `Program.change`.
+The transaction owner has `NoDecommit`, `DecommitPending` and
+`AwaitingSettlement` phases. Its topology forbids direct replacement of an
+authorised decrement by a local reservation; payload invariants still need checks.
 
-Two payload invariants supplement the phase types:
+Payload invariants supplement the phase types:
 
 - `Transactions.Rebase` rebuilds the local UTxO, then removes pending decommit
   spending inputs. Recording a reservation and preserving it are now both the
   transaction owner's responsibility.
+- `ConfirmTransactions` checks a reservation against the confirmed snapshot and
+  retained ordinary transactions before removing its spending inputs. A conflict
+  clears it and restores still-unspent inputs.
 - [SnapshotRequest.decommitStatus](../hydra-node/src/Hydra/HeadLogic/Rules/SnapshotRequest.hs)
   distinguishes missing, waiting, ready and carried decommits. Every leader uses
   it. A newly ready decommit can start a round by itself; a carried one cannot.
@@ -116,9 +126,8 @@ interpreter nor the Mermaid renderer contains a copy of these rules.
 
 [Recovery limits](head-logic/checks.md#recovery-limits) include retry expiry,
 invalid acknowledgement replacement, and checkpoints with inconsistent contents.
-The [adversarial review](head-logic/adversarial-review.md) also reproduces a
-conflicting confirmed transaction that leaves a decommit reservation behind,
-and identifies limits in the confirmation evidence and owner topologies.
+The [adversarial review](head-logic/adversarial-review.md) records the repaired
+conflict and evidence binding, and the remaining limits of the owner model.
 
 Settlement uses these commands, including adoption after an on-chain
 observation overtakes the final acknowledgement. Tests compare repeated

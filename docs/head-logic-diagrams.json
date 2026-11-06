@@ -407,7 +407,7 @@
   "docs/head-logic-machines/coordinated.mmd": {
     "group": "Retained-event machines",
     "title": "Snapshot and transaction owners",
-    "description": "Generated from the executable Snapshots → Transactions composition. Typed ports carry rebases, settlement and clearing. A fresh decrement releases a reservation; a repeated observation preserves it. Reserved means a decommit is recorded, not that every ledger property holds. Live requests require a checked proposal and start only from AwaitingRequest; the CollectingSignatures to RequestSent edge exists for trusted event replay."
+    "description": "Generated from the executable Snapshots → Transactions composition. The transaction owner distinguishes local intent from a current-version decommit certificate. AwaitingSettlement cannot transition directly to DecommitPending; adoption can legitimately move NoDecommit straight to AwaitingSettlement. The snapshot storage graph also includes trusted replay and is not a graph of network admission. See [the state-transition analysis](head-logic/state-transitions.md)."
   },
   "docs/prior-spike/machines/decommit-ownership.mmd": {
     "group": "Protocol investigations and superseded traces",
@@ -445,8 +445,13 @@
     "description": "The current rules request empty snapshot 4, prune the overflowing split, then confirm the independent merge in snapshot 5. Each delivery checks independent invariants and serialized replay; a capacity check precedes the live request marker."
   },
   "docs/head-logic/traces/conflicting-decommit.mmd": {
-    "group": "Review findings",
-    "title": "Conflicting transaction leaves a decommit reservation",
-    "description": "All three parties confirm the ordinary transaction after 24 deliveries, but party 1 retains a decommit of its already-consumed input and refuses a valid replacement. The normal interpreter and frozen implementation agree. See the [review](head-logic/adversarial-review.md#correctness-a-remaining-decommit-bug) and [reproduction source](head-logic/review-examples.hs) for final-state assertions and side-load recovery."
+    "group": "Protocol investigations",
+    "title": "Conflicting decommit released at confirmation",
+    "description": "The ordinary transaction and decommit compete for input 1. On the final AckSn, party 1 confirms the ordinary transaction and records DecommitInvalid, releasing its reservation. Every delivery checks corrected independent replay and CBOR round trips. See [the state-transition analysis](head-logic/state-transitions.md#the-conflict-repair) and [the executable schedule](../hydra-node/testlib/Test/Hydra/HeadLogic/ConflictingDecommit.hs)."
+  },
+  "docs/prior-spike/traces/conflicting-decommit-before-confirmation-repair.mmd": {
+    "group": "Protocol investigations and superseded traces",
+    "title": "Historical conflicting decommit reservation",
+    "description": "Before the confirmation repair, all three parties confirmed the ordinary spend but party 1 retained the conflicting decommit. The 24-delivery trace used real signatures. The current corrected execution is indexed as Conflicting decommit released at confirmation."
   }
 }

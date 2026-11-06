@@ -206,6 +206,7 @@ sequenceDiagram
     Note over logic: all parties have signed: yes
     crypto-->>logic: primitive: verify multisignature
     logic->>changes: stage: confirm snapshot
+    logic->>changes: stage: record invalid decommit
     Note over logic,effects: finish: commit changes and release effects
   end
   rect rgb(245, 247, 250)

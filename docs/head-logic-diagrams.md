@@ -136,7 +136,7 @@ ConsumedDeposit --> ExpiredDeposit
 
 ### Snapshot and transaction owners
 
-Generated from the executable Snapshots → Transactions composition. Typed ports carry rebases, settlement and clearing. A fresh decrement releases a reservation; a repeated observation preserves it. Reserved means a decommit is recorded, not that every ledger property holds. Live requests require a checked proposal and start only from AwaitingRequest; the CollectingSignatures to RequestSent edge exists for trusted event replay.
+Generated from the executable Snapshots → Transactions composition. The transaction owner distinguishes local intent from a current-version decommit certificate. AwaitingSettlement cannot transition directly to DecommitPending; adoption can legitimately move NoDecommit straight to AwaitingSettlement. The snapshot storage graph also includes trusted replay and is not a graph of network admission. See [the state-transition analysis](head-logic/state-transitions.md).
 
 [Mermaid source](head-logic-machines/coordinated.mmd)
 
@@ -154,10 +154,14 @@ Snapshots_CollectingSignatures --> Snapshots_AwaitingRequest
 Snapshots_CollectingSignatures --> Snapshots_RequestSent
 }
 state Transactions {
-Transactions_Unreserved
-Transactions_Reserved
-Transactions_Unreserved --> Transactions_Reserved
-Transactions_Reserved --> Transactions_Unreserved
+Transactions_NoDecommit
+Transactions_DecommitPending
+Transactions_AwaitingSettlement
+Transactions_NoDecommit --> Transactions_DecommitPending
+Transactions_NoDecommit --> Transactions_AwaitingSettlement
+Transactions_DecommitPending --> Transactions_NoDecommit
+Transactions_DecommitPending --> Transactions_AwaitingSettlement
+Transactions_AwaitingSettlement --> Transactions_NoDecommit
 }
 Snapshots --> Transactions
 ```
@@ -3355,11 +3359,11 @@ sequenceDiagram
   end
 ```
 
-## Review findings
+## Protocol investigations
 
-### Conflicting transaction leaves a decommit reservation
+### Conflicting decommit released at confirmation
 
-All three parties confirm the ordinary transaction after 24 deliveries, but party 1 retains a decommit of its already-consumed input and refuses a valid replacement. The normal interpreter and frozen implementation agree. See the [review](head-logic/adversarial-review.md#correctness-a-remaining-decommit-bug) and [reproduction source](head-logic/review-examples.hs) for final-state assertions and side-load recovery.
+The ordinary transaction and decommit compete for input 1. On the final AckSn, party 1 confirms the ordinary transaction and records DecommitInvalid, releasing its reservation. Every delivery checks corrected independent replay and CBOR round trips. See [the state-transition analysis](head-logic/state-transitions.md#the-conflict-repair) and [the executable schedule](../hydra-node/testlib/Test/Hydra/HeadLogic/ConflictingDecommit.hs).
 
 [Mermaid source](head-logic/traces/conflicting-decommit.mmd)
 
@@ -3572,6 +3576,7 @@ sequenceDiagram
     Note over logic: all parties have signed: yes
     crypto-->>logic: primitive: verify multisignature
     logic->>changes: stage: confirm snapshot
+    logic->>changes: stage: record invalid decommit
     Note over logic,effects: finish: commit changes and release effects
   end
   rect rgb(245, 247, 250)
@@ -3647,7 +3652,7 @@ sequenceDiagram
 ## Archived diagrams
 
 <details>
-<summary>Prior-spike index (31 diagrams)</summary>
+<summary>Prior-spike index (32 diagrams)</summary>
 
 These records are rendered in [prior-spike/diagrams.md](prior-spike/diagrams.md).
 They include superseded behavior, deliberate mutations, and migration comparisons.
@@ -3685,5 +3690,6 @@ They include superseded behavior, deliberate mutations, and migration comparison
 | [Historical decommit dependency failure](prior-spike/diagrams.md#historical-decommit-dependency-failure) | The frozen implementation loses the reservation and rejects snapshot 2 after 24 deliveries. This v2 report checks complete outcomes and serialized state at every prefix. | [Mermaid](prior-spike/traces/decommit-dependency-historical-v2.json.mmd) |
 | [Oversized snapshot request before rebase](prior-spike/diagrams.md#oversized-snapshot-request-before-rebase) | Historical production trace at 386e95947: the split records a request, ReqSn rejects for capacity, and the later merge cannot request another round. The rejection cannot undo the preceding completed input. The capacity lab now reproduces the defect with frozen programs. | [Mermaid](prior-spike/traces/capacity-before-rebase.mmd) |
 | [Historical capacity stall](prior-spike/diagrams.md#historical-capacity-stall) | Frozen programs accept the split and independent merge locally, but the oversized snapshot 4 request is rejected everywhere. Nine FIFO deliveries leave snapshot 3 confirmed and the leader stuck. | [Mermaid](prior-spike/traces/capacity-historical-v1.json.mmd) |
+| [Historical conflicting decommit reservation](prior-spike/diagrams.md#historical-conflicting-decommit-reservation) | Before the confirmation repair, all three parties confirmed the ordinary spend but party 1 retained the conflicting decommit. The 24-delivery trace used real signatures. The current corrected execution is indexed as Conflicting decommit released at confirmation. | [Mermaid](prior-spike/traces/conflicting-decommit-before-confirmation-repair.mmd) |
 
 </details>

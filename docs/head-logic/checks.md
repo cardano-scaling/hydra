@@ -12,7 +12,7 @@ need independent checks in addition to those types.
 | Snapshot rebase preserves pending decommit spending-input reservations. | [Transaction owner](../../hydra-node/src/Hydra/HeadLogic/Machine/Coordinated/Transactions.hs), [CoordinatedAudit](../../hydra-node/testlib/Test/Hydra/HeadLogic/CoordinatedAudit.hs), and [CoordinatedSpec](../../hydra-node/test/Hydra/HeadLogic/CoordinatedSpec.hs). |
 | A decommit request waits for its required inputs in the confirmed base. A newly ready decommit can start its own round. | [Shared selection](../../hydra-node/src/Hydra/HeadLogic/Rules/SnapshotRequest.hs); SimpleTx and real Cardano checks in [IncrementalWorkflowSpec](../../hydra-node/test/Hydra/HeadLogic/IncrementalWorkflowSpec.hs). |
 | A live snapshot request has checked capacity and matches the owner's head, version, number, and idle phase. | [Capacity contract](capacity.md) and [CapacitySpec](../../hydra-node/test/Hydra/HeadLogic/CapacitySpec.hs). |
-| Live confirmation requires verification evidence bound to the current candidate's signed bytes. Failed final verification discards the staged signature. | [SnapshotVerification](../../hydra-node/src/Hydra/HeadLogic/Rules/SnapshotVerification.hs), [snapshot owner](../../hydra-node/src/Hydra/HeadLogic/Machine/Coordinated/Snapshots.hs), and [CoordinatedSpec](../../hydra-node/test/Hydra/HeadLogic/CoordinatedSpec.hs). |
+| Live confirmation requires evidence bound to the Head, ordered committee and current candidate's signed bytes. Adoption checks the Head and committee too. Failed final verification discards the staged signature. | [SnapshotVerification](../../hydra-node/src/Hydra/HeadLogic/Rules/SnapshotVerification.hs), [snapshot owner](../../hydra-node/src/Hydra/HeadLogic/Machine/Coordinated/Snapshots.hs), and [CoordinatedSpec](../../hydra-node/test/Hydra/HeadLogic/CoordinatedSpec.hs). |
 | Repeated settlement observations preserve a newer reservation; rollback preserves L2 state and controls reposting through retained observation slots. | [State owners](../head-logic-crem.md#settlement-and-rollback), [Settlement](../../hydra-node/testlib/Test/Hydra/HeadLogic/Settlement.hs), and owner/recovery tests. |
 
 Cardano dependency availability includes spending, reference, and collateral
@@ -25,15 +25,20 @@ reconstruction. Its capacity scenario also checks both fanout alternatives.
 These checks use the real verifier and a SimpleTx reference calculation rather
 than the production state reducer.
 
+Confirmation also releases conflicting local decommits, restoring their remaining
+inputs. A valid retained dependency keeps its reservation. A current-version
+certificate blocks a replacement even without a local `ReqDec`. The
+[state-transition analysis](state-transitions.md) explains the missing Crem edge,
+the corrected 24-delivery trace and bounded Agda coverage.
+
 ## Recovery limits
 
-**A confirmed conflict can leave a decommit reservation behind.** If a party
-accepts a decommit before receiving a competing ordinary transaction, it can
-later confirm that transaction while retaining the now-inapplicable decommit.
-It then refuses new decommits as already in flight. Side-loading the existing
-confirmed snapshot clears the orphan. The [review witness](adversarial-review.md#correctness-a-remaining-decommit-bug)
-reproduces this inherited defect in 24 deliveries. Preserving reserved inputs
-does not by itself ensure a reservation remains valid.
+**ReqSn can overtake ReqDec and lose the carried transaction.** Confirmation
+retains the decommit outputs but may lack the transaction needed by the next
+request. The next leader can then issue a request that ReqSn rejects, retaining a
+request marker until settlement advances the version. The
+[phase analysis and executable example](state-transitions.md#unresolved-a-certificate-without-its-carried-transaction)
+record this unresolved case.
 
 **Retry expiry can strand work.** A leader can exhaust a dependent transaction's
 retry budget before receiving its parent. Other parties may retain the child

@@ -666,8 +666,9 @@ later transactions, so an independent merge can survive a capacity rejection.
 The Agda `prunePending` function models this filtering; `signHonest` separately
 requires `SnapshotFits`. After this rebuild,
 the spending inputs of the locally pending decommit are removed again. This
-reservation survives even when the requested snapshot does not carry the
-decommit. \
+reservation survives while the requested snapshot is unconfirmed, even when
+that snapshot does not carry the decommit. A signed candidate alone does not
+authorise releasing the reservation. \
 \
 #dparagraph[$hpAS$.]#h(1em) Upon receiving acknowledgment $(hpAS,s,msSig_j)$, all
 participants #kw("require") that it is from an expected snapshot (either the last seen
@@ -696,7 +697,24 @@ is $tx_omega$ when it is already carried at that version or all its required
 inputs are in the settled confirmed base; otherwise it is $bot$.
 $sans("newDecommit")(hatv, macron(mc(S)), tx_omega)$ additionally excludes a
 carried decommit. Neither test replaces ledger validation in $hpRS$.
-The locally recorded $tx_omega$ remains pending when omitted from a request.
+Define $sans("reconcileReservation")$ as follows. When a snapshot is confirmed or adopted, reconstruct the optimistic ledger from
+its settled base and the retained ordinary transactions, before removing any
+local reservation. Keep the locally recorded $tx_omega$ if this snapshot carries
+it at the current version. Otherwise keep it only if every required input remains
+in that reconstructed ledger and no different decommit is authorised. If these
+conditions fail, clear $tx_omega$, restore that reconstructed ledger (including
+any still-unspent reserved inputs), and report `DecommitInvalid`. This step runs
+on confirmation, not on signing a candidate. Required inputs include spending,
+reference and collateral inputs; retaining a dependency in the ordinary sequence
+therefore preserves a still-possible decommit. The next proposal uses the updated
+reservation, not the pre-confirmation value.
+
+A current-version confirmed snapshot with decommit outputs blocks a new decommit
+even at a party that never received its `ReqDec`. Settlement advances the version
+and retires this authority. The bounded operational reference below includes
+these admission and confirmation refinements; the `_handles_↝_` relation's
+`ackSn-confirm` projects the certificate update and does not model local conflict
+notifications or optimistic-ledger reconstruction.
 Ticks and settlement observations also request newly eligible work when this
 party leads and no round is in flight.
 
@@ -749,7 +767,8 @@ data _handles_↝_ : LocalState → Message → LocalState → Set where
   -- premise to `deposit-add`, which is deliberately left as its own change rather than folded in here.
   reqDec-pending : ∀ {st tx L'}
     → LocalState.currentDepositTxId st ≡ nothing         -- U_α = ∅ (no commit in flight)
-    → LocalState.pendingDecrement st ≡ nothing       -- tx_ω = ⊥ (no decommit in flight)
+    → LocalState.pendingDecrement st ≡ nothing       -- no local reservation
+    → (¬ (Snapshot.version (LocalState.confirmed st) ≡ LocalState.seenVersion st)) ⊎ (Snapshot.utxoDec (LocalState.confirmed st) ≡ εᵘ) -- no unsettled decommit certificate
     → applyTxs (LocalState.localLedger st) (tx ∷ []) ≡ just L'   -- L̂ ∘ tx ≠ ⊥ (applicability, witnessed)
     → DecommitFits st tx L'                         -- non-empty outputs; local AND confirmed capacity
     → st handles (reqDec tx) ↝ record st { localLedger = L' ∖ᵘ outputs tx ; pendingDecrement = just tx }
@@ -937,7 +956,7 @@ tick-preserves-deposits-length {st = st} tick-update = length-map _ (LocalState.
 reqDec-starts-decommit : ∀ {st tx st'}
   → st handles (reqDec tx) ↝ st'
   → (LocalState.pendingDecrement st ≡ nothing) × (LocalState.pendingDecrement st' ≡ just tx)
-reqDec-starts-decommit (reqDec-pending _ q _ _) = q , refl
+reqDec-starts-decommit (reqDec-pending _ q _ _ _) = q , refl
 
 -- The de-abstracted reqTx guard is load-bearing too: reqTx fires only for transactions that APPLY to
 -- the local ledger (the §6 `wait L̂ ∘ tx ≠ ⊥`). Deleting the `applyTxs … ≡ just L'` witness premise on
@@ -1065,7 +1084,7 @@ noBothInFlight-step : ∀ {st st'} → st ⟶ᴴ st' → NoBothInFlight st → N
 
 ```
 noBothInFlight-step (hstep (reqTx-pending _))     inv = inv
-noBothInFlight-step (hstep (reqDec-pending p _ _ _)) _  = inj₁ p
+noBothInFlight-step (hstep (reqDec-pending p _ _ _ _)) _  = inj₁ p
 noBothInFlight-step (hstep (ackSn-collect _))     inv = inv
 noBothInFlight-step (hstep (ackSn-confirm _ _ _ _)) inv = inv
 noBothInFlight-step (hstep (reqSn-sign _ _))      inv = inv
@@ -1117,7 +1136,7 @@ versionDiscipline-step : ∀ {st st'} → st ⟶ᴴ st' → VersionDiscipline st
 
 ```
 versionDiscipline-step (hstep (reqTx-pending _))       inv = inv
-versionDiscipline-step (hstep (reqDec-pending _ _ _ _))  inv = inv
+versionDiscipline-step (hstep (reqDec-pending _ _ _ _ _))  inv = inv
 versionDiscipline-step (hstep (ackSn-collect _))       inv = inv
 versionDiscipline-step (hstep (ackSn-confirm _ _ _ d)) _   = d
 versionDiscipline-step (hstep (reqSn-sign _ _))        inv = inv
@@ -1256,7 +1275,7 @@ preventing inconsistency between the on-chain and off-chain state.
             ]
 
             #proc([#kw("on") $(hpRD, tx)$ #kw("from") $party_j$])[
-              #kw("wait") $U_alpha = emptyset and tx_omega = bot and hatmL applytx tx != bot$
+              #kw("wait") $U_alpha = emptyset and tx_omega = bot and (macron(mc(S)).v != hatv or macron(mc(S)).U_omega = bot) and hatmL applytx tx != bot$
               #nst[
                 #kw("require") $sans("outputs")(tx) != emptyset and |hatmL applytx tx| <= 32767 and |sans("applyUTxO")(sans("settled")(macron(mc(S)),hatv),tx)| <= 32767$ \
 
@@ -1352,7 +1371,8 @@ preventing inconsistency between the on-chain and off-chain state.
                 #kw("if") $msVfy(hydraKeysAgg, (cid || hatv || hats || (eta')^(\#) || delta^(\#) || kappa^(\#)), xi)$
                 #nst[
                   $macron(mc(S)) <- Sno(hatv, hats, hatmT, hatmU, U_alpha, U_omega)$ \
-                  $macron(mc(S)).sigma <- xi$
+                  $macron(mc(S)).sigma <- xi$ \
+                  $sans("reconcileReservation")()$
                 ]
               ]
             ]
@@ -1374,6 +1394,7 @@ preventing inconsistency between the on-chain and off-chain state.
                   #kw("require") $msVfy(hydraKeysAgg, (cid || hatv || hats || (eta')^(\#) || delta^(\#) || kappa^(\#)), msCSig)$ \
                   $macron(mc(S)) <- Sno(hatv, hats, hatmT, hatmU, U_alpha, U_omega)$ \
                   $macron(mc(S)).sigma <- msCSig$ \
+                  $sans("reconcileReservation")()$ \
                   $forall tx in mT_(sans("req")) :$ #kw("output") $(hpConf, tx)$ \
                   #kw("if") $macron(S).U_omega != bot$
                   #nst[
@@ -1682,8 +1703,10 @@ chooses how to reconstruct its UTxO. Neither component receives a NodeState.
 
 Live confirmation requires an opaque result from successful multisignature
 verification. The snapshot component compares the verified signable bytes with
-its candidate's cached bytes before confirming. This depends on the primitive
-implementation, the cache invariant, and the rule's choice of party keys; it is
+its candidate's cached bytes before confirming. Evidence also carries the ordered
+verification keys; confirmation and adoption require the owner's Head id and
+exact ordered committee. A refusal rejects the Program, discarding staged changes
+and effects. This depends on the primitive implementation and cache invariant; it is
 not a proof of cryptography in the type system. Replay trusts retained events
 and skips verification. The snapshot owner also handles explicit adoption,
 clearing, settlement retention and version changes. The transaction owner handles
@@ -1717,3 +1740,28 @@ settlement before acknowledgement, reobservation, rollback, explicit adoption,
 clearing and recovery, comparing uninterrupted continuations with reconstruction
 and CBOR round trips at every prefix. The natural-number projection does not
 model settlement payload identity; the sequence tests cover that separately.
+
+
+=== Decommit authority and confirmation disposition
+
+The transaction owner distinguishes `NoDecommit`, `DecommitPending` and
+`AwaitingSettlement`. These describe local intent and current-version authority,
+not merely whether a transaction field is populated. Recording a local decommit
+enters `DecommitPending`; confirmation carrying it enters `AwaitingSettlement`;
+a conflicting confirmation releases it to `NoDecommit`. Adoption can enter
+`AwaitingSettlement` without a local transaction. Fresh decrement observation
+returns to `NoDecommit`; repeated observations and rollback do not reinstate old
+work. `AwaitingSettlement` cannot transition directly to `DecommitPending`.
+Crem checks that missing edge; guards additionally prevent replacing an operation
+within a phase, since Crem permits identity transitions.
+
+`OffChainReference.agda` independently defines this transition relation and proves
+that the replacement edge is impossible. Its `retainReservationRef` checks carried
+authority or surviving required inputs, `decommitAdmissionRef` accounts for both
+local intent and confirmed authority, and `verificationContextRef` compares Head
+identity and ordered committees. Haskell tests compare these predicates over
+bounded sets and real signature verification. The reference abstracts keys and
+UTxO names; it does not prove cryptography, ledger validity, crash safety or
+progress under arbitrary delivery. Separate integration schedules check 24
+orders of competing ordinary and decommit spends, with serialized replay at
+every delivery. Persisted constructors and their encodings are unchanged.

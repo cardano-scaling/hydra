@@ -19,6 +19,9 @@ module Hydra.Agda.OffChainReference (
   settlementVersionRef,
   settlementReservationRef,
   reservationHeldRef,
+  retainReservationRef,
+  decommitAdmissionRef,
+  verificationContextRef,
   decommitReadyRef,
   reserveRebaseRef,
   newDecommitReadyRef,
@@ -314,3 +317,15 @@ capacityPrefixRef = M.hsCapacityPrefixRef
 
 capacityPruneRef :: Integer -> [Integer] -> [Integer] -> [Integer] -> [[Integer]] -> [[Integer]] -> [Integer]
 capacityPruneRef = M.hsCapacityPruneRef
+
+-- | Retain local intent if carried, or if its dependencies survive confirmation.
+retainReservationRef :: Bool -> Bool -> [Integer] -> [Integer] -> Bool
+retainReservationRef = M.hsRetainReservationRef
+
+-- | Local reservations and unsettled certificates both block a new decommit.
+decommitAdmissionRef :: Bool -> Bool -> Bool
+decommitAdmissionRef = M.hsDecommitAdmissionRef
+
+-- | Head identity and ordered committee must match the verification context.
+verificationContextRef :: Integer -> Integer -> [Integer] -> [Integer] -> Bool
+verificationContextRef = M.hsVerificationContextRef

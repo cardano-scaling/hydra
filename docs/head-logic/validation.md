@@ -26,34 +26,53 @@ tests also run against the node.
 
 ## Recorded verification
 
-The implementation and performance verification on 2026-11-06 covers production
-revision `968ea82f7` and benchmark revision `bdc5bcb0d`.
+Verification on 2026-11-06, after the confirmation and phase repairs:
 
 | Check | Result |
 | --- | --- |
-| Full `just check` | 1,437 node, 278 transaction, 116 Agda, and 18 chain-observer tests pass; unchanged Plutus checks reused. |
+| Full `just check` | 1,456 node, 278 transaction, 116 Agda, and 18 chain-observer tests pass; unchanged Plutus checks reused. |
 | Specification and extraction | Agda typechecking, PDF, trust-ledger checks, and extraction drift pass. |
-| Focused checks | 123 capacity/workflow tests pass in a fresh REPL; four compatibility properties pass 1,000 cases each. |
-| TUI | All 24 tests pass against the current Nix-built node with `TERM=xterm-256color TASTY_NUM_THREADS=1`. |
-| Cluster measurements | All 16 runs confirm 60,000 transactions with zero invalid/refused submissions and complete fanout. Performance regressions are recorded in [measurements](measurements.md). |
-| Capacity driver/search | The driver confirms snapshot 5 after 30 deliveries. The search visits 100 states with a 40-delivery bound and no failure; it is truncated at the state limit. |
-| Saved scenarios | All five version-2 reply tapes validate. |
-| Diagrams | All 58 current and 31 archived sources render and appear in the [central index](../head-logic-diagrams.md). |
-| Imports | All 93 changed handwritten Haskell files use explicit or qualified imports, except the permitted Preludes. |
+| Focused checks | All 471 HeadLogic tests pass, including 17 owner tests and the merged capacity regressions. |
+| Forbidden transition | `NoDecommit → DecommitPending` typechecks; `AwaitingSettlement → DecommitPending` fails with the missing Crem edge. |
+| Diagrams | All 59 current and 32 archived sources are indexed; the changed owner graph and both conflict traces render. |
+| Imports and links | Changed handwritten Haskell imports are explicit or qualified, except the permitted Preludes; changed Markdown links resolve. |
 | Final checks | `just lint` and `just check` pass. |
 
-The subsequent [adversarial review](adversarial-review.md) adds executable
-witnesses for a conflicting decommit and unbound verification keys. Both
-reproduce after rebasing onto master `0aa8987dc` (PR #2927), and all 12
-[focused upstream capacity checks](capacity.md#merged-fix-and-regression-tests)
-pass in a fresh test REPL. The review's pre-rebase HeadLogic run passed 452 of 453
-tests: the snapshot UTxO strictness test failed in interpreted mode and passed
-in the compiled `-O1` binary. That mode discrepancy remains unexplained.
-The new trace brings the central index to 59 current and 31 archived diagrams.
-After the rebase, `just lint` and `just check` pass. The compiled node suite runs
-all 1,448 tests successfully, including the strictness check; unchanged package
-and specification checks are reused. The Agda extraction is regenerated during
-conflict resolution and matches the capacity port's existing generated code.
+The earlier cluster/TUI runs and performance measurements belong to the revisions
+identified in [measurements](measurements.md); they are not reruns of this repair.
+
+## Confirmation and phase repairs
+
+The branch is rebased onto master `0aa8987dc` (PR #2927), including its 12
+capacity regressions. The follow-up repairs the conflicting reservation and
+committee-binding findings, separates the trusted replay adapter from live
+commands, and introduces the three decommit phases described in
+[state transitions](state-transitions.md).
+
+- All 471 compiled HeadLogic tests pass, including the 17 owner tests and the
+  upstream capacity regressions. The owner tests cover 24 conflicting delivery
+  orders, serialized recovery, retained dependencies, multi-input release,
+  context-bound evidence and certificate-based admission.
+- Agda extraction and the full specification build pass, including the decommit
+  transition relation, forbidden-edge proof, admission premise and independent
+  bounded predicates.
+- The positive Crem edge compiles; changing only its source to
+  `AwaitingSettlement` fails with the missing `AllowedTransition` instance.
+- All 91 Mermaid sources are indexed: 59 current and 32 archived. The updated
+  owner graph and both conflict traces render in Chromium. Local links and
+  explicit imports in the changed handwritten Haskell files are checked.
+- The normal-interpreter example for the additional
+  [missing carried transaction](state-transitions.md#unresolved-a-certificate-without-its-carried-transaction)
+  reproduces the rejected next request. It characterises an unresolved defect.
+- `just lint` and the complete `just check` pass, including persistence, golden,
+  simulation and specification checks. Existing golden files are unchanged.
+
+Earlier interpreted-mode runs reported a `TxIn` thunk in the snapshot UTxO
+strictness test. The compiled test passes, including in the current 471-test run;
+the earlier mode discrepancy remains unexplained. Existing golden files are
+unchanged. The new confirmation work has not been benchmarked end to end; the
+[measurement page](measurements.md#cost-of-the-confirmation-repairs) states its
+additional cost separately from earlier results.
 
 ## Commands
 
