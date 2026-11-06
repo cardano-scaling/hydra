@@ -2,7 +2,7 @@
   "docs/head-logic-machines/composition.mmd": {
     "group": "Retained-event machines",
     "title": "Event-machine composition",
-    "description": "DepositRegistry → Lifecycle → Clock. Lifecycle holds the open head’s snapshot/transaction continuation, rendered separately. Ports carry owned state projections and the deposit value before consumption."
+    "description": "DepositRegistry \u2192 Lifecycle \u2192 Clock. Lifecycle holds the open head\u2019s snapshot/transaction continuation, rendered separately. Ports carry owned state projections and the deposit value before consumption."
   },
   "docs/head-logic-machines/lifecycle.mmd": {
     "group": "Retained-event machines",
@@ -407,7 +407,7 @@
   "docs/head-logic-machines/coordinated.mmd": {
     "group": "Retained-event machines",
     "title": "Snapshot and transaction owners",
-    "description": "Generated from the executable Snapshots → Transactions composition. Typed ports carry rebases, settlement and clearing. A fresh decrement releases a reservation; a repeated observation preserves it. Reserved means a decommit is recorded, not that every ledger property holds."
+    "description": "Generated from the executable Snapshots \u2192 Transactions composition. Typed ports carry rebases, settlement and clearing. A fresh decrement releases a reservation; a repeated observation preserves it. Reserved means a decommit is recorded, not that every ledger property holds."
   },
   "docs/head-logic-machines/decommit-ownership.mmd": {
     "group": "Retained-event machines",
@@ -428,5 +428,10 @@
     "group": "Counterexamples and recovery",
     "title": "Corrected decommit dependency sequence",
     "description": "Production execution preserves the reservation, confirms tx2 in snapshot 2, then confirms the decommit in snapshot 3. Every emitted message is delivered and both independent checks hold at every prefix."
+  },
+  "docs/docs/dev/architecture/head-logic-experiments/traces/capacity-before-rebase.mmd": {
+    "group": "Counterexamples and replay",
+    "title": "Oversized snapshot request before rebase",
+    "description": "Production execution at 386e95947 reproduces #2924. The split records a request, ReqSn rejects for capacity, and the later merge cannot request another round. Lanes separate rules, ledger queries, staged changes and effects. The rejection does not undo the preceding completed invocation. See the snapshot-capacity investigation for the three-party checks and runnable witness."
   }
 }

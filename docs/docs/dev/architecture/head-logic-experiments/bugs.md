@@ -247,6 +247,12 @@ and `RulesSpec`'s recovery assertion. This is regression coverage, not a defect.
 
 ## Checks at the component boundary
 
+[Upstream PR #2927](capacity.md) identifies another gap at this boundary: an
+honest leader can persist a request that every follower rejects for accumulator
+capacity. This branch still has that behavior. The investigation maps the fix to
+the shared selector and owners, and proposes independent request/progress checks.
+The upstream fix is not applied before the requested rebase.
+
 The [coordinated owners](../../../../head-logic-coordinated.md) expose where each
 fix belongs. `reservationHeld` first fails at historical rebase;
 `decommitRequestsReady` fails at the next historical proposal. Both hold at every

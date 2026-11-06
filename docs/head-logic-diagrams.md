@@ -5100,3 +5100,60 @@ sequenceDiagram
     Note over logic,effects: finish: commit changes and release effects
   end
 ```
+
+## Counterexamples and replay
+
+### Oversized snapshot request before rebase
+
+Production execution at 386e95947 reproduces #2924. The split records a request, ReqSn rejects for capacity, and the later merge cannot request another round. Lanes separate rules, ledger queries, staged changes and effects. The rejection does not undo the preceding completed invocation. See the snapshot-capacity investigation for the three-party checks and runnable witness.
+
+[Mermaid source](docs/dev/architecture/head-logic-experiments/traces/capacity-before-rebase.mmd)
+
+```mermaid
+%%{init: {"sequence": {"wrap": true}}}%%
+sequenceDiagram
+  participant logic as Head logic
+  participant ledger as Ledger
+  participant changes as Staged changes
+  participant effects as Buffered effects
+  rect rgb(245, 247, 250)
+    Note over logic,effects: Leader receives the split
+    Note over logic: input is admitted while at this sync status: yes
+    Note over logic: transaction is already applied locally: no
+    logic->>changes: stage: remember transaction
+    Note over logic: outputs do not collide with the local UTxO: yes
+    ledger-->>logic: ledger application: valid
+    Note over logic: outputs do not collide with pending deposits: yes
+    logic->>changes: stage: apply transaction to local state
+    Note over logic: snapshot request has useful work: yes
+    Note over logic: no snapshot is in flight: yes
+    Note over logic: this party leads the next snapshot: yes
+    logic->>changes: stage: record snapshot request
+    logic->>effects: buffer: broadcast ReqSn
+    Note over logic,effects: finish: commit changes and release effects
+  end
+  rect rgb(245, 247, 250)
+    Note over logic,effects: Leader receives its oversized request (ReqSnUTxOSetTooLarge)
+    Note over logic: input is admitted while at this sync status: yes
+    Note over logic: request is the next snapshot: yes
+    Note over logic: sender leads this snapshot: yes
+    Note over logic: previous snapshot is confirmed: yes
+    Note over logic: snapshot version matches: yes
+    Note over logic: snapshot transaction outputs are fresh: yes
+    ledger-->>logic: ledger application: valid
+    Note over logic,effects: reject: discard changes and effects
+  end
+  rect rgb(245, 247, 250)
+    Note over logic,effects: Leader receives an independent merge
+    Note over logic: input is admitted while at this sync status: yes
+    Note over logic: transaction is already applied locally: no
+    logic->>changes: stage: remember transaction
+    Note over logic: outputs do not collide with the local UTxO: yes
+    ledger-->>logic: ledger application: valid
+    Note over logic: outputs do not collide with pending deposits: yes
+    logic->>changes: stage: apply transaction to local state
+    Note over logic: snapshot request has useful work: yes
+    Note over logic: no snapshot is in flight: no
+    Note over logic,effects: finish: commit changes and release effects
+  end
+```

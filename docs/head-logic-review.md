@@ -18,6 +18,7 @@ policies are recorded in the [bug ledger](docs/dev/architecture/head-logic-exper
 - [All diagrams](head-logic-diagrams.md): every `.mmd` file rendered with an explanation.
 - [Experiments](docs/dev/architecture/head-logic-experiments/README.md): comparisons, counterexamples, measurements, resolved replay, and earlier proposals.
 - [Generating head logic from Agda](docs/dev/architecture/head-logic-experiments/agda-generated.md): a speculative extension, with no generated production rules in this spike.
+- [Snapshot capacity and request progress](docs/dev/architecture/head-logic-experiments/capacity.md): how PR #2927 changes the request boundary, why the current checks missed the bug, and the properties to add on rebase.
 
 ## Code to start with
 
