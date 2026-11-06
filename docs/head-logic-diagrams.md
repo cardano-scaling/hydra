@@ -3355,6 +3355,295 @@ sequenceDiagram
   end
 ```
 
+## Review findings
+
+### Conflicting transaction leaves a decommit reservation
+
+All three parties confirm the ordinary transaction after 24 deliveries, but party 1 retains a decommit of its already-consumed input and refuses a valid replacement. The normal interpreter and frozen implementation agree. See the [review](head-logic/adversarial-review.md#correctness-a-remaining-decommit-bug) and [reproduction source](head-logic/review-examples.hs) for final-state assertions and side-load recovery.
+
+[Mermaid source](head-logic/traces/conflicting-decommit.mmd)
+
+```mermaid
+%%{init: {"sequence": {"wrap": true}}}%%
+sequenceDiagram
+  participant logic as Head logic
+  participant ledger as Ledger
+  participant crypto as Cryptography
+  participant changes as Staged changes
+  participant effects as Buffered effects
+  rect rgb(245, 247, 250)
+    Note over logic,effects: deliver ReqTx 1 from party 0 to 0 (TTL 2)
+    Note over logic: input is admitted while at this sync status: yes
+    Note over logic: transaction is already applied locally: no
+    logic->>changes: stage: remember transaction
+    Note over logic: outputs do not collide with the local UTxO: yes
+    ledger-->>logic: ledger application: valid
+    Note over logic: outputs do not collide with pending deposits: yes
+    logic->>changes: stage: apply transaction to local state
+    Note over logic: no snapshot is in flight: yes
+    Note over logic: this party leads the next snapshot: yes
+    Note over logic: snapshot request has useful work: yes
+    Note over logic: proposal matches the current snapshot context: yes
+    logic->>changes: stage: record snapshot request
+    logic->>effects: buffer: broadcast ReqSn
+    Note over logic,effects: finish: commit changes and release effects
+  end
+  rect rgb(245, 247, 250)
+    Note over logic,effects: ReqDec 10 to party 1 (TTL 2)
+    Note over logic: input is admitted while at this sync status: yes
+    Note over logic: next snapshot carries a deposit: no
+    Note over logic: no decommit is in flight: yes
+    ledger-->>logic: ledger application: valid
+    Note over logic: decommit produces outputs: yes
+    Note over logic: decommit fits local and confirmed capacity: yes
+    logic->>changes: stage: reserve decommit
+    Note over logic: no snapshot is in flight: yes
+    Note over logic: this party leads the next snapshot: no
+    Note over logic,effects: finish: commit changes and release effects
+  end
+  rect rgb(245, 247, 250)
+    Note over logic,effects: deliver ReqTx 1 from party 0 to 1 (TTL 2)
+    Note over logic: input is admitted while at this sync status: yes
+    Note over logic: transaction is already applied locally: no
+    logic->>changes: stage: remember transaction
+    Note over logic: outputs do not collide with the local UTxO: yes
+    ledger-->>logic: ledger application: invalid
+    Note over logic: retry budget remains: yes
+    Note over logic,effects: wait: commit changes and discard buffered effects
+  end
+  rect rgb(245, 247, 250)
+    Note over logic,effects: deliver ReqTx 1 from party 0 to 2 (TTL 2)
+    Note over logic: input is admitted while at this sync status: yes
+    Note over logic: transaction is already applied locally: no
+    logic->>changes: stage: remember transaction
+    Note over logic: outputs do not collide with the local UTxO: yes
+    ledger-->>logic: ledger application: valid
+    Note over logic: outputs do not collide with pending deposits: yes
+    logic->>changes: stage: apply transaction to local state
+    Note over logic: no snapshot is in flight: yes
+    Note over logic: this party leads the next snapshot: no
+    Note over logic,effects: finish: commit changes and release effects
+  end
+  rect rgb(245, 247, 250)
+    Note over logic,effects: ReqDec 10 to party 0 (TTL 2)
+    Note over logic: input is admitted while at this sync status: yes
+    Note over logic: next snapshot carries a deposit: no
+    Note over logic: no decommit is in flight: yes
+    ledger-->>logic: ledger application: invalid
+    Note over logic: retry budget remains: yes
+    Note over logic,effects: wait: commit changes and discard buffered effects
+  end
+  rect rgb(245, 247, 250)
+    Note over logic,effects: ReqDec 10 to party 2 (TTL 2)
+    Note over logic: input is admitted while at this sync status: yes
+    Note over logic: next snapshot carries a deposit: no
+    Note over logic: no decommit is in flight: yes
+    ledger-->>logic: ledger application: invalid
+    Note over logic: retry budget remains: yes
+    Note over logic,effects: wait: commit changes and discard buffered effects
+  end
+  rect rgb(245, 247, 250)
+    Note over logic,effects: deliver ReqSn 0/1 txs [1] from party 0 to 0 (TTL 2)
+    Note over logic: input is admitted while at this sync status: yes
+    Note over logic: request is the next snapshot: yes
+    Note over logic: sender leads this snapshot: yes
+    Note over logic: previous snapshot is confirmed: yes
+    Note over logic: snapshot version matches: yes
+    Note over logic: snapshot transaction outputs are fresh: yes
+    ledger-->>logic: ledger application: valid
+    Note over logic: unsettled fanout fits accumulator capacity: yes
+    Note over logic: settled fanout fits accumulator capacity: yes
+    crypto-->>logic: primitive: sign snapshot
+    logic->>effects: buffer: broadcast AckSn
+    Note over logic: snapshot transaction outputs are fresh: no
+    logic->>changes: stage: record requested snapshot and prune local transactions
+    Note over logic,effects: finish: commit changes and release effects
+  end
+  rect rgb(245, 247, 250)
+    Note over logic,effects: deliver ReqSn 0/1 txs [1] from party 0 to 1 (TTL 2)
+    Note over logic: input is admitted while at this sync status: yes
+    Note over logic: request is the next snapshot: yes
+    Note over logic: sender leads this snapshot: yes
+    Note over logic: previous snapshot is confirmed: yes
+    Note over logic: snapshot version matches: yes
+    Note over logic: snapshot transaction outputs are fresh: yes
+    ledger-->>logic: ledger application: valid
+    Note over logic: unsettled fanout fits accumulator capacity: yes
+    Note over logic: settled fanout fits accumulator capacity: yes
+    crypto-->>logic: primitive: sign snapshot
+    logic->>effects: buffer: broadcast AckSn
+    logic->>changes: stage: record requested snapshot and prune local transactions
+    Note over logic,effects: finish: commit changes and release effects
+  end
+  rect rgb(245, 247, 250)
+    Note over logic,effects: deliver ReqSn 0/1 txs [1] from party 0 to 2 (TTL 2)
+    Note over logic: input is admitted while at this sync status: yes
+    Note over logic: request is the next snapshot: yes
+    Note over logic: sender leads this snapshot: yes
+    Note over logic: previous snapshot is confirmed: yes
+    Note over logic: snapshot version matches: yes
+    Note over logic: snapshot transaction outputs are fresh: yes
+    ledger-->>logic: ledger application: valid
+    Note over logic: unsettled fanout fits accumulator capacity: yes
+    Note over logic: settled fanout fits accumulator capacity: yes
+    crypto-->>logic: primitive: sign snapshot
+    logic->>effects: buffer: broadcast AckSn
+    Note over logic: snapshot transaction outputs are fresh: no
+    logic->>changes: stage: record requested snapshot and prune local transactions
+    Note over logic,effects: finish: commit changes and release effects
+  end
+  rect rgb(245, 247, 250)
+    Note over logic,effects: deliver AckSn 1 from party 0 to 0 (TTL 2)
+    Note over logic: input is admitted while at this sync status: yes
+    Note over logic: acknowledgement number is admissible: yes
+    Note over logic: party has not signed this snapshot: yes
+    logic->>changes: stage: record snapshot signature
+    Note over logic: all parties have signed: no
+    logic->>changes: stage: record snapshot signature
+    Note over logic,effects: finish: commit changes and release effects
+  end
+  rect rgb(245, 247, 250)
+    Note over logic,effects: deliver AckSn 1 from party 0 to 1 (TTL 2)
+    Note over logic: input is admitted while at this sync status: yes
+    Note over logic: acknowledgement number is admissible: yes
+    Note over logic: party has not signed this snapshot: yes
+    logic->>changes: stage: record snapshot signature
+    Note over logic: all parties have signed: no
+    logic->>changes: stage: record snapshot signature
+    Note over logic,effects: finish: commit changes and release effects
+  end
+  rect rgb(245, 247, 250)
+    Note over logic,effects: deliver AckSn 1 from party 0 to 2 (TTL 2)
+    Note over logic: input is admitted while at this sync status: yes
+    Note over logic: acknowledgement number is admissible: yes
+    Note over logic: party has not signed this snapshot: yes
+    logic->>changes: stage: record snapshot signature
+    Note over logic: all parties have signed: no
+    logic->>changes: stage: record snapshot signature
+    Note over logic,effects: finish: commit changes and release effects
+  end
+  rect rgb(245, 247, 250)
+    Note over logic,effects: deliver AckSn 1 from party 1 to 0 (TTL 2)
+    Note over logic: input is admitted while at this sync status: yes
+    Note over logic: acknowledgement number is admissible: yes
+    Note over logic: party has not signed this snapshot: yes
+    logic->>changes: stage: record snapshot signature
+    Note over logic: all parties have signed: no
+    logic->>changes: stage: record snapshot signature
+    Note over logic,effects: finish: commit changes and release effects
+  end
+  rect rgb(245, 247, 250)
+    Note over logic,effects: deliver AckSn 1 from party 1 to 1 (TTL 2)
+    Note over logic: input is admitted while at this sync status: yes
+    Note over logic: acknowledgement number is admissible: yes
+    Note over logic: party has not signed this snapshot: yes
+    logic->>changes: stage: record snapshot signature
+    Note over logic: all parties have signed: no
+    logic->>changes: stage: record snapshot signature
+    Note over logic,effects: finish: commit changes and release effects
+  end
+  rect rgb(245, 247, 250)
+    Note over logic,effects: deliver AckSn 1 from party 1 to 2 (TTL 2)
+    Note over logic: input is admitted while at this sync status: yes
+    Note over logic: acknowledgement number is admissible: yes
+    Note over logic: party has not signed this snapshot: yes
+    logic->>changes: stage: record snapshot signature
+    Note over logic: all parties have signed: no
+    logic->>changes: stage: record snapshot signature
+    Note over logic,effects: finish: commit changes and release effects
+  end
+  rect rgb(245, 247, 250)
+    Note over logic,effects: deliver AckSn 1 from party 2 to 0 (TTL 2)
+    Note over logic: input is admitted while at this sync status: yes
+    Note over logic: acknowledgement number is admissible: yes
+    Note over logic: party has not signed this snapshot: yes
+    logic->>changes: stage: record snapshot signature
+    Note over logic: all parties have signed: yes
+    crypto-->>logic: primitive: verify multisignature
+    logic->>changes: stage: confirm snapshot
+    Note over logic,effects: finish: commit changes and release effects
+  end
+  rect rgb(245, 247, 250)
+    Note over logic,effects: deliver AckSn 1 from party 2 to 1 (TTL 2)
+    Note over logic: input is admitted while at this sync status: yes
+    Note over logic: acknowledgement number is admissible: yes
+    Note over logic: party has not signed this snapshot: yes
+    logic->>changes: stage: record snapshot signature
+    Note over logic: all parties have signed: yes
+    crypto-->>logic: primitive: verify multisignature
+    logic->>changes: stage: confirm snapshot
+    Note over logic,effects: finish: commit changes and release effects
+  end
+  rect rgb(245, 247, 250)
+    Note over logic,effects: deliver AckSn 1 from party 2 to 2 (TTL 2)
+    Note over logic: input is admitted while at this sync status: yes
+    Note over logic: acknowledgement number is admissible: yes
+    Note over logic: party has not signed this snapshot: yes
+    logic->>changes: stage: record snapshot signature
+    Note over logic: all parties have signed: yes
+    crypto-->>logic: primitive: verify multisignature
+    logic->>changes: stage: confirm snapshot
+    Note over logic,effects: finish: commit changes and release effects
+  end
+  rect rgb(245, 247, 250)
+    Note over logic,effects: retry ReqTx 1 from party 0 to 1 (TTL 1)
+    Note over logic: input is admitted while at this sync status: yes
+    Note over logic: transaction is already applied locally: no
+    logic->>changes: stage: remember transaction
+    Note over logic: outputs do not collide with the local UTxO: no
+    Note over logic: retry budget remains: yes
+    Note over logic,effects: wait: commit changes and discard buffered effects
+  end
+  rect rgb(245, 247, 250)
+    Note over logic,effects: ReqDec 10 to party 0 (TTL 1)
+    Note over logic: input is admitted while at this sync status: yes
+    Note over logic: next snapshot carries a deposit: no
+    Note over logic: no decommit is in flight: yes
+    ledger-->>logic: ledger application: invalid
+    Note over logic: retry budget remains: yes
+    Note over logic,effects: wait: commit changes and discard buffered effects
+  end
+  rect rgb(245, 247, 250)
+    Note over logic,effects: ReqDec 10 to party 2 (TTL 1)
+    Note over logic: input is admitted while at this sync status: yes
+    Note over logic: next snapshot carries a deposit: no
+    Note over logic: no decommit is in flight: yes
+    ledger-->>logic: ledger application: invalid
+    Note over logic: retry budget remains: yes
+    Note over logic,effects: wait: commit changes and discard buffered effects
+  end
+  rect rgb(245, 247, 250)
+    Note over logic,effects: retry ReqTx 1 from party 0 to 1 (TTL 0)
+    Note over logic: input is admitted while at this sync status: yes
+    Note over logic: transaction is already applied locally: no
+    logic->>changes: stage: remember transaction
+    Note over logic: outputs do not collide with the local UTxO: no
+    Note over logic: retry budget remains: no
+    logic->>changes: stage: record invalid transaction
+    Note over logic,effects: finish: commit changes and release effects
+  end
+  rect rgb(245, 247, 250)
+    Note over logic,effects: ReqDec 10 to party 0 (TTL 0)
+    Note over logic: input is admitted while at this sync status: yes
+    Note over logic: next snapshot carries a deposit: no
+    Note over logic: no decommit is in flight: yes
+    ledger-->>logic: ledger application: invalid
+    Note over logic: retry budget remains: no
+    logic->>changes: stage: record invalid decommit
+    Note over logic,effects: finish: commit changes and release effects
+  end
+  rect rgb(245, 247, 250)
+    Note over logic,effects: ReqDec 10 to party 2 (TTL 0)
+    Note over logic: input is admitted while at this sync status: yes
+    Note over logic: next snapshot carries a deposit: no
+    Note over logic: no decommit is in flight: yes
+    ledger-->>logic: ledger application: invalid
+    Note over logic: retry budget remains: no
+    logic->>changes: stage: record invalid decommit
+    Note over logic,effects: finish: commit changes and release effects
+  end
+```
+
 ## Archived diagrams
 
 <details>

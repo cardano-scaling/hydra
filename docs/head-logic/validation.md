@@ -42,6 +42,13 @@ revision `968ea82f7` and benchmark revision `bdc5bcb0d`.
 | Imports | All 93 changed handwritten Haskell files use explicit or qualified imports, except the permitted Preludes. |
 | Final checks | `just lint` and `just check` pass. |
 
+The subsequent [adversarial review](adversarial-review.md), against `378c08393`,
+adds executable witnesses for a conflicting decommit and unbound verification
+keys. Both reproduce in the test REPL. Its HeadLogic run passes 452 of 453 tests;
+the snapshot UTxO strictness test fails in interpreted mode and passes in the
+compiled `-O1` binary. The review records that unresolved mode discrepancy.
+The new trace brings the central index to 59 current and 31 archived diagrams.
+
 ## Commands
 
 For same-package edits, load the test suite in a REPL and run the relevant group:

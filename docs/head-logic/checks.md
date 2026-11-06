@@ -27,6 +27,14 @@ than the production state reducer.
 
 ## Recovery limits
 
+**A confirmed conflict can leave a decommit reservation behind.** If a party
+accepts a decommit before receiving a competing ordinary transaction, it can
+later confirm that transaction while retaining the now-inapplicable decommit.
+It then refuses new decommits as already in flight. Side-loading the existing
+confirmed snapshot clears the orphan. The [review witness](adversarial-review.md#correctness-a-remaining-decommit-bug)
+reproduces this inherited defect in 24 deliveries. Preserving reserved inputs
+does not by itself ensure a reservation remains valid.
+
 **Retry expiry can strand work.** A leader can exhaust a dependent transaction's
 retry budget before receiving its parent. Other parties may retain the child
 while no message remains to wake that leader. Re-submitting the child wakes it.
@@ -45,7 +53,13 @@ checks, and restoring a checkpoint does not repair inconsistent contents.
 Live request and confirmation evidence are intentionally absent from persisted
 event encodings.
 
-These policies are recorded beside [ReqTx](../../hydra-node/src/Hydra/HeadLogic/Rules/ReqTx.hs)
+**Confirmation evidence trusts the caller's key selection.** The opaque token
+binds signed bytes to the candidate, but not the verification keys to the Head's
+parties. Current rules supply the correct keys. The
+[API witness](adversarial-review.md#verification-evidence-has-an-incomplete-context)
+shows why this remains an in-process trust boundary.
+
+The retained retry and acknowledgement policies are recorded beside [ReqTx](../../hydra-node/src/Hydra/HeadLogic/Rules/ReqTx.hs)
 and [AckSn](../../hydra-node/src/Hydra/HeadLogic/Rules/AckSn.hs). Changing them needs
 explicit recovery, resource, and scheduling rules.
 

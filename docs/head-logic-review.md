@@ -20,6 +20,7 @@ the guarantees enforced by the rules and the recovery policies they retain.
 - [Snapshot capacity](head-logic/capacity.md): selection policy, checked proposals, and capacity/progress tests.
 - [Performance](head-logic/measurements.md): complete rounds, event application, and three-node throughput.
 - [Validation](head-logic/validation.md): test coverage, verification results, and commands.
+- [Adversarial review](head-logic/adversarial-review.md): a remaining decommit bug, API guarantees, maintenance costs, and security assessment.
 
 ## Code to start with
 

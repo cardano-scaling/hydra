@@ -443,5 +443,10 @@
     "group": "Snapshot rounds and recovery limits",
     "title": "Capacity pruning and progress",
     "description": "The current rules request empty snapshot 4, prune the overflowing split, then confirm the independent merge in snapshot 5. Each delivery checks independent invariants and serialized replay; a capacity check precedes the live request marker."
+  },
+  "docs/head-logic/traces/conflicting-decommit.mmd": {
+    "group": "Review findings",
+    "title": "Conflicting transaction leaves a decommit reservation",
+    "description": "All three parties confirm the ordinary transaction after 24 deliveries, but party 1 retains a decommit of its already-consumed input and refuses a valid replacement. The normal interpreter and frozen implementation agree. See the [review](head-logic/adversarial-review.md#correctness-a-remaining-decommit-bug) and [reproduction source](head-logic/review-examples.hs) for final-state assertions and side-load recovery."
   }
 }

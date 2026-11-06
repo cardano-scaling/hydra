@@ -116,6 +116,9 @@ interpreter nor the Mermaid renderer contains a copy of these rules.
 
 [Recovery limits](head-logic/checks.md#recovery-limits) include retry expiry,
 invalid acknowledgement replacement, and checkpoints with inconsistent contents.
+The [adversarial review](head-logic/adversarial-review.md) also reproduces a
+conflicting confirmed transaction that leaves a decommit reservation behind,
+and identifies limits in the confirmation evidence and owner topologies.
 
 Settlement uses these commands, including adoption after an on-chain
 observation overtakes the final acknowledgement. Tests compare repeated
