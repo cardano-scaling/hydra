@@ -28,24 +28,20 @@ import Hydra.API.ServerOutput (DecommitInvalidReason (..))
 import Hydra.Chain.ChainState (IsChainState)
 import Hydra.HeadLogic.Input (TTL)
 import Hydra.HeadLogic.Machine.Coordinated qualified as Coordinated
-import Hydra.HeadLogic.Outcome (Effect (..), StateChanged (..), WaitReason (..))
+import Hydra.HeadLogic.Outcome (StateChanged (..), WaitReason (..))
 import Hydra.HeadLogic.Program qualified as Program
 import Hydra.HeadLogic.Rules.Environment (
   RuleEnvironment (depositPeriod, party),
  )
+import Hydra.HeadLogic.Rules.SendSnapshot (broadcastSnapshot)
+import Hydra.HeadLogic.Rules.SnapshotCapacity (checkDecommitCapacity)
 import Hydra.HeadLogic.Rules.SnapshotRequest (
-  SnapshotRequest (
-    SnapshotRequest,
-    requestDecommitTx,
-    requestDepositTxId,
-    requestTxs
-  ),
   buildSnapshotRequest,
   decommitStatus,
   isLeader,
+  requestDepositTxId,
   settlingCommitAtPeriod,
  )
-import Hydra.HeadLogic.Rules.SnapshotCapacity (checkDecommitCapacity)
 import Hydra.HeadLogic.State (
   CoordinatedHeadState (
     CoordinatedHeadState,
@@ -68,7 +64,6 @@ import Hydra.HeadLogic.Workflow (
   finish,
  )
 import Hydra.Ledger (ValidationError (..))
-import Hydra.Network.Message (Message (..))
 import Hydra.Node.State (ChainPointTime (..), Deposit (..), PendingDeposits)
 import Hydra.Prelude hiding (State, state)
 import Hydra.Tx (UTxOType, txId, utxoFromTx)
@@ -113,7 +108,7 @@ machine env ttl ChainPointTime{currentSlot, currentChainTime} pendingDeposits op
   step :: State tx from -> Transition tx 'True signing ReqDecTopology (State tx) from
   step = \case
     CommitCheck
-      | Just depositTxId <- requestDepositTxId
+      | Just depositTxId <- selectedDeposit
       , Just Deposit{deposited = commitUTxO} <- Map.lookup depositTxId pendingDeposits -> continue (const Done) $ do
           void $ Program.decide "next snapshot carries a deposit" True
           canRetry <- Program.decide "retry budget remains" (ttl > 0)
@@ -147,12 +142,8 @@ machine env ttl ChainPointTime{currentSlot, currentChainTime} pendingDeposits op
       when noSnapshot $ do
         leader <- Program.decide "this party leads the next snapshot" (isLeader parameters env.party nextSn)
         when leader $ do
-          useful <- Program.decide "snapshot request has useful work" usefulWork
-          when useful $
-            -- ReqDec does not stage SnapshotRequestDecided; preserve that behavior.
-            Program.emit $
-              NetworkEffect $
-                ReqSn version nextSn (txId <$> requestTxs) requestDecommitTx requestDepositTxId
+          void $ Program.decide "snapshot request has useful work" (maybe False snd selectedRequest)
+          forM_ selectedRequest $ \(request, useful) -> when useful $ broadcastSnapshot request
     Done -> finish Done
 
   invalid :: DecommitInvalidReason tx -> Program.Program tx 'True signing ()
@@ -161,8 +152,9 @@ machine env ttl ChainPointTime{currentSlot, currentChainTime} pendingDeposits op
   notApplicable reason = do
     canRetry <- Program.decide "retry budget remains" (ttl > 0)
     if canRetry then Program.suspend $ WaitOnNotApplicableDecommitTx reason else invalid reason
-  (SnapshotRequest{requestTxs, requestDecommitTx, requestDepositTxId}, usefulWork) =
-    buildSnapshotRequest (settledUTxO version previous) localTxs pendingDeposits currentDepositTxId (decommitStatus version previous $ Just decommitTx) (settlingCommitAtPeriod env.depositPeriod version currentChainTime pendingDeposits previous)
+  selectedDeposit = selectedRequest >>= requestDepositTxId . fst
+  selectedRequest =
+    buildSnapshotRequest version previous localTxs pendingDeposits currentDepositTxId (decommitStatus version previous $ Just decommitTx) (settlingCommitAtPeriod env.depositPeriod version currentChainTime pendingDeposits previous)
   previous = getSnapshot confirmedSnapshot
   nextSn = previous.number + 1
   CoordinatedHeadState{decommitTx = mExistingDecommitTx, confirmedSnapshot, localTxs, localUTxO, version, seenSnapshot, currentDepositTxId} = coordinatedHeadState

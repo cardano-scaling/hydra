@@ -24,6 +24,7 @@ import Hydra.Events.RotationSpec qualified
 import Hydra.Events.S3Spec qualified
 import Hydra.Events.SQLiteBasedSpec qualified
 import Hydra.Events.UDPSpec qualified
+import Hydra.HeadLogic.CapacitySpec qualified
 import Hydra.HeadLogic.CoordinatedSpec qualified
 import Hydra.HeadLogic.IncrementalWorkflowSpec qualified
 import Hydra.HeadLogic.InputWorkflowSpec qualified
@@ -87,6 +88,7 @@ main =
     , testSpec "Events.S3" Hydra.Events.S3Spec.spec
     , testSpec "Events.SQLiteBased" Hydra.Events.SQLiteBasedSpec.spec
     , testSpec "Events.UDP" Hydra.Events.UDPSpec.spec
+    , testSpec "HeadLogic.Capacity" Hydra.HeadLogic.CapacitySpec.spec
     , testSpec "HeadLogic.Coordinated" Hydra.HeadLogic.CoordinatedSpec.spec
     , testSpec "HeadLogic.Machine" Hydra.HeadLogic.MachineSpec.spec
     , testSpec "HeadLogic.Outcome" Hydra.HeadLogic.OutcomeSpec.spec

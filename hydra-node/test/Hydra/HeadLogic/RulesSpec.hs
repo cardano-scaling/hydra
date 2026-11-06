@@ -18,11 +18,11 @@ import Test.Hydra.Prelude (
 import Data.Map.Strict qualified as Map
 import Hydra.HeadLogic (
   ClosedState (parameters),
-  CoordinatedHeadState (decommitTx),
+  CoordinatedHeadState (confirmedSnapshot, decommitTx),
   HeadState (Closed, FanoutProgress, Idle, Open),
   Input (NetworkInput),
   LogicError (RequireFailed),
-  OpenState (coordinatedHeadState, parameters),
+  OpenState (coordinatedHeadState, headId, parameters),
   Outcome (Continue, Error),
   PartialFanoutState (parameters),
   RequirementFailure (InvalidMultisignature),
@@ -38,6 +38,7 @@ import Hydra.Ledger.Simple (SimpleTx, simpleLedger)
 import Hydra.Network.Message (Message (ReqDec), NetworkEvent (ReceivedMessage))
 import Hydra.Node.State (NodeState (..), initialChainTime, trackedFromPending)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
+import Hydra.Tx.Snapshot (Snapshot (headId), getSnapshot)
 import Test.Hydra.HeadLogic.CoordinatedAudit qualified as Audit
 import Test.Hydra.HeadLogic.Crem.Comparison (Example (..), Reference (..), compareExample, comparePrograms, examples)
 import Test.Hydra.HeadLogic.Debugger qualified as Debug
@@ -61,7 +62,7 @@ spec = describe "free programs and crem phases" $ do
       it (toString name <> ": preserves outcomes, replay and state") $
         Inputs.compareInput (Scenario.environment 0) initialChainTime before input `shouldSatisfy` isRight
 
-    prop "bounded inputs outside corrected decommit paths agree with frozen handlers" $
+    prop "bounded inputs with consistent head IDs outside corrected decommit paths agree with frozen handlers" $
       withMaxSuccess 1000 $
         forAll ((,) <$> resize 5 arbitrary <*> resize 5 arbitrary) $ \(node, input) ->
           let result = Inputs.compareInput (Scenario.environment 0) initialChainTime (withParties node) input
@@ -97,10 +98,10 @@ spec = describe "free programs and crem phases" $ do
           _ -> False
       _ -> expectationFailure "invalid acknowledgement example has no free-program baseline"
 
-  prop "ReqTx without pending decommits agrees for arbitrary states, deposits and IDs" $
+  prop "ReqTx without pending decommits agrees for bounded states with a consistent head ID" $
     forAll ((,,,,) <$> elements [0, 1, 2] <*> resize 5 arbitrary <*> elements [0, 1, 5] <*> resize 5 arbitrary <*> resize 5 arbitrary) $
       \(actor, open, ttl, pending, tx) ->
-        let st = open{parameters = open.parameters{parties = Scenario.scenarioParties}} :: OpenState SimpleTx
+        let st = open{headId = (getSnapshot open.coordinatedHeadState.confirmedSnapshot).headId, parameters = open.parameters{parties = Scenario.scenarioParties}} :: OpenState SimpleTx
             before = Scenario.initialNode{headState = Open st, deposits = trackedFromPending pending}
             env = ruleEnvironment $ Scenario.environment actor
             result =
@@ -130,7 +131,7 @@ spec = describe "free programs and crem phases" $ do
     node
       { headState = case node.headState of
           Idle st -> Idle st
-          Open st -> Open st{parameters = st.parameters{parties = Scenario.scenarioParties}}
+          Open st -> Open st{headId = (getSnapshot st.coordinatedHeadState.confirmedSnapshot).headId, parameters = st.parameters{parties = Scenario.scenarioParties}}
           Closed st -> Closed st{parameters = st.parameters{parties = Scenario.scenarioParties}}
           FanoutProgress st -> FanoutProgress st{parameters = st.parameters{parties = Scenario.scenarioParties}}
       }

@@ -6,6 +6,7 @@ import Hydra.Prelude
 
 import Hydra.Chain.ChainState (ChainSlot, IsChainState (ChainStateType))
 import Hydra.HeadLogic.Outcome (StateChanged)
+import Hydra.HeadLogic.Rules.SnapshotRequest (SnapshotRequest)
 import Hydra.HeadLogic.State (FinalizedSnapshot, SeenSnapshot)
 import Hydra.Ledger (ValidationError)
 import Hydra.Node.Deposit (Deposit)
@@ -16,7 +17,8 @@ import Hydra.Tx.Snapshot (ConfirmedSnapshot, Snapshot, SnapshotNumber, SnapshotV
 
 data Command tx
   = Transactions (TransactionCommand tx)
-  | RequestSnapshot SnapshotNumber
+  | RequestSnapshot (SnapshotRequest tx)
+  | ReplaySnapshotRequest SnapshotNumber
   | AcceptSnapshot (Snapshot tx) (Seq tx) (Maybe (TxIdType tx))
   | RecordSignature SnapshotNumber Party (Signature (Snapshot tx))
   | ConfirmSnapshot ByteString (MultiSignature (Snapshot tx))

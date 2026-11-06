@@ -24,7 +24,6 @@ sequenceDiagram
     ledger-->>logic: ledger application: valid
     Note over logic: outputs do not collide with pending deposits: yes
     logic->>changes: stage: apply transaction to local state
-    Note over logic: snapshot request has useful work: yes
     Note over logic: no snapshot is in flight: yes
     Note over logic: this party leads the next snapshot: no
     Note over logic,changes: finish: commit changes and release effects

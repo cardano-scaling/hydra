@@ -36,6 +36,7 @@ import Hydra.Prelude hiding (size, state)
 import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
 import System.Environment (withArgs)
+import Test.Hydra.HeadLogic.Capacity qualified as Capacity
 import Test.Hydra.HeadLogic.Crem.Comparison qualified as CremComparison
 import Test.Hydra.HeadLogic.Debugger qualified as Debug
 import Test.Hydra.HeadLogic.DecommitDependency qualified as DecommitDependency
@@ -52,6 +53,8 @@ import Test.Hydra.HeadLogic.Settlement qualified as Settlement
 main :: IO ()
 main =
   getArgs >>= \case
+    ["capacity", file] -> capacityDemo False file
+    ["capacity", "--historical", file] -> capacityDemo True file
     ["decommit-dependency", file] -> do
       (report, sections) <- demand DecommitDependency.demonstration
       LBS.writeFile file $ encode report
@@ -112,25 +115,31 @@ main =
             else case dropWhile (/= "--break") options of
               _ : name : _ -> mapM_ print $ take 1 $ snd $ Debug.breakAt (toText name) views
               _ -> mapM_ (Text.putStrLn . Debug.description) views
-    ["trace", file] -> do
-      let route = honestRoute 40 Scenario.initialWorld
-      (scenario, views) <- demand $ Replay.recordScenario (Scenario.Limits 40 1) Scenario.defaultExploration Scenario.initialWorld route
+    "trace" : file : options -> do
+      (bounds, settings) <- either fail pure $ exploreOptions $ ["--deliveries", "40"] <> options
+      let start = Scenario.initialFor settings.family
+          route = honestRoute bounds.maxDeliveries start
+      final <- demand $ Explorer.runPath Scenario.VerifySignatures start route
+      (scenario, views) <- demand $ Replay.recordScenario bounds settings{Scenario.executionMode = Scenario.VerifySignatures} start route
       LBS.writeFile file $ encode scenario
       Text.writeFile (file <> ".mmd") $ Mermaid.renderSteps views
       putStrLn file
+      when (not (null final.pending) || not (null final.retries)) $
+        putStrLn ("Trace stops at the delivery limit; pending work remains." :: String)
     "resolved" : options -> withArgs options resolvedBenchmarks
     _ ->
       mapM_
         putStrLn
-        [ "head-logic-lab decommit-dependency FILE"
+        [ "head-logic-lab capacity [--historical] FILE"
+        , "head-logic-lab decommit-dependency FILE"
         , "head-logic-lab trace-inputs DIRECTORY"
         , "head-logic-lab compare-crem DIRECTORY"
         , "head-logic-lab machines DIRECTORY"
         , "head-logic-lab registry-demo FILE"
         , "head-logic-lab settlement FILE"
-        , "head-logic-lab explore FILE [--fault | --invalid-ack] [--scenario dependent|duplicate|expiry] [--search deliveries-first|retries-first|breadth-first|retry-windows] [--states N] [--deliveries N]"
+        , "head-logic-lab explore FILE [--fault | --invalid-ack] [--scenario dependent|duplicate|expiry|capacity] [--search deliveries-first|retries-first|breadth-first|retry-windows] [--states N] [--deliveries N]"
         , "head-logic-lab replay FILE [--normal | --step | --break NAME]"
-        , "head-logic-lab trace FILE"
+        , "head-logic-lab trace FILE [--scenario dependent|duplicate|expiry|capacity] [--deliveries N]"
         , "head-logic-lab resolved [Criterion options]"
         ]
 
@@ -155,7 +164,8 @@ exploreOptions = go Scenario.defaultLimits Scenario.defaultExploration
         "dependent" -> Right Scenario.DependentTransactions
         "duplicate" -> Right Scenario.DuplicateTransaction
         "expiry" -> Right Scenario.DelayedDependency
-        _ -> Left "scenario must be dependent, duplicate or expiry"
+        "capacity" -> Right Scenario.CapacityBoundary
+        _ -> Left "scenario must be dependent, duplicate, expiry or capacity"
       go bounds settings{Scenario.family = family} rest
     "--search" : value : rest -> do
       order <- case value of
@@ -173,6 +183,16 @@ exploreOptions = go Scenario.defaultLimits Scenario.defaultExploration
 
 demand :: Either Text a -> IO a
 demand = either (fail . toString) pure
+
+capacityDemo :: Bool -> FilePath -> IO ()
+capacityDemo historical file = do
+  (report, sections) <- demand $ Capacity.demonstration historical
+  LBS.writeFile file $ encode report
+  Text.writeFile (file <> ".mmd") $ Mermaid.renderTraces sections
+  putStrLn $
+    if historical
+      then ("Reproduced the oversized request and snapshot-4 stall using frozen rules." :: String)
+      else "All capacity and replay checks pass; the merge confirms in snapshot 5."
 
 stepLoop :: [Debug.Step] -> IO ()
 stepLoop views = case Debug.stepOnce views of

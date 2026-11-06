@@ -7,8 +7,8 @@ module Hydra.HeadLogic.Rules.Deposits where
 import Data.Map.Strict qualified as Map
 import Hydra.Chain.ChainState (IsChainState (..))
 import Hydra.HeadLogic.Machine.Coordinated qualified as Coordinated
-import Hydra.HeadLogic.Outcome (Effect (..), StateChanged (..))
-import Hydra.HeadLogic.Program (Program, change, decide, emit)
+import Hydra.HeadLogic.Outcome (StateChanged (..))
+import Hydra.HeadLogic.Program (Program, change, decide)
 import Hydra.HeadLogic.Rules.Environment (
   RuleEnvironment (
     RuleEnvironment,
@@ -17,18 +17,14 @@ import Hydra.HeadLogic.Rules.Environment (
     party
   ),
  )
+import Hydra.HeadLogic.Rules.SendSnapshot (sendSnapshot)
 import Hydra.HeadLogic.Rules.SnapshotRequest (
   DecommitStatus (ReadyToDecommit),
   SettlingCommit (ContinueCommit, DropCommit),
-  SnapshotRequest (
-    SnapshotRequest,
-    requestDecommitTx,
-    requestDepositTxId,
-    requestTxs
-  ),
   decommitStatus,
   isLeader,
   nextSnapshotRequest,
+  requestDepositTxId,
   scopedDeposits,
   settlingCommitAtPeriod,
  )
@@ -53,11 +49,9 @@ import Hydra.HeadLogic.State (
   OpenState (OpenState, coordinatedHeadState, parameters),
   snapshotInFlight,
  )
-import Hydra.HeadLogic.State.Operations (settledUTxO)
-import Hydra.Network.Message (Message (..))
 import Hydra.Node.State (Deposit (..), DepositStatus (..), PendingDeposits, SyncedStatus)
 import Hydra.Prelude
-import Hydra.Tx (IsTx, TxIdType, txId)
+import Hydra.Tx (IsTx)
 import Hydra.Tx.DepositPeriod (toNominalDiffTime)
 import Hydra.Tx.Snapshot (Snapshot (..), getSnapshot)
 
@@ -117,17 +111,17 @@ onOpenChainTick env chainTime pendingDeposits st
   | snapshotInFlight seenSnapshot || not (isLeader parameters party nextSn) = pure ()
   | otherwise =
       let settling = settlingCommitAtPeriod env.depositPeriod version chainTime deposits confirmed
-          built = nextSnapshotRequest (settledUTxO version (getSnapshot confirmedSnapshot)) localTxs deposits currentDepositTxId decommit settling
+          built = nextSnapshotRequest version confirmed localTxs deposits currentDepositTxId decommit settling
        in case (settling, built) of
             -- The commit is still settling; requests carrying txs continue it.
             (Just (ContinueCommit _), _) -> pure ()
             -- The commit can no longer land: drop it so other deposits can be claimed.
-            (Just DropCommit, SnapshotRequest{requestTxs, requestDecommitTx, requestDepositTxId}) -> request requestTxs requestDecommitTx requestDepositTxId
+            (Just DropCommit, Just request) -> sendSnapshot (Coordinated.start st) request
             -- Spec: wait txω = ⊥ ∧ Uα = ∅.
-            (Nothing, SnapshotRequest{requestTxs, requestDecommitTx, requestDepositTxId = Just depositTxId})
-              | isNothing decommitTx -> request requestTxs requestDecommitTx (Just depositTxId)
-            (Nothing, SnapshotRequest{requestTxs, requestDecommitTx, requestDepositTxId})
-              | ReadyToDecommit{} <- decommit -> request requestTxs requestDecommitTx requestDepositTxId
+            (Nothing, Just request)
+              | isJust (requestDepositTxId request), isNothing decommitTx -> sendSnapshot (Coordinated.start st) request
+            (Nothing, Just request)
+              | ReadyToDecommit{} <- decommit -> sendSnapshot (Coordinated.start st) request
             _ -> pure ()
  where
   decommit = decommitStatus version confirmed decommitTx
@@ -140,11 +134,6 @@ onOpenChainTick env chainTime pendingDeposits st
   -- All deposits, with their status updated to this tick's time. Empty
   -- deposits are ignored, because an empty increment cannot be posted.
   deposits = Map.filter (\Deposit{deposited} -> deposited /= mempty) (newActive <> newExpired <> pendingDeposits)
-
-  request :: [tx] -> Maybe tx -> Maybe (TxIdType tx) -> Program tx ledger signing ()
-  request txs mDecommitTx mDepositTxId =
-    void (Coordinated.stage (Coordinated.start st) $ Coordinated.requestSnapshot nextSn)
-      *> emit (NetworkEffect $ ReqSn version nextSn (txId <$> txs) mDecommitTx mDepositTxId)
 
   confirmed@Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
 

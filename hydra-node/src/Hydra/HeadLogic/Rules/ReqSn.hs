@@ -156,8 +156,8 @@ machine env pendingDeposits ChainPointTime{currentSlot, currentChainTime} st ttl
                   previous.appliedAccumulator
                   (combinedUTxO previous.utxo previous.utxoToCommit Nothing)
                   (combinedUTxO after commit Nothing)
-      checkSize accumulator
-      checkSize appliedAccumulator
+      checkSize "unsettled fanout fits accumulator capacity" accumulator
+      checkSize "settled fanout fits accumulator capacity" appliedAccumulator
       pure Snapshot{headId, version, number = sn, confirmed = txs, utxo = after, utxoToCommit = commit, utxoToDecommit = decommit, depositTxId = mDepositTxId, accumulator, appliedAccumulator}
     Built snapshot -> continue (const $ Acknowledged snapshot) $ do
       signature <- Program.signSnapshot snapshot
@@ -210,10 +210,13 @@ machine env pendingDeposits ChainPointTime{currentSlot, currentChainTime} st ttl
             | status == Expired -> Program.reject $ RequireFailed RequestedDepositExpired{depositTxId}
             | otherwise -> pure $ Just deposited
 
-  checkSize :: Accumulator.HydraAccumulator -> SnapshotProgram tx ()
-  checkSize accumulator = case Accumulator.checkAccumulatorSize accumulator of
-    Left AccumulatorTooLarge{utxoCount, maxAllowed} -> Program.reject $ RequireFailed ReqSnUTxOSetTooLarge{utxoCount, maxAllowed}
-    Right () -> pure ()
+  checkSize :: Text -> Accumulator.HydraAccumulator -> SnapshotProgram tx ()
+  checkSize decision accumulator = do
+    let result = Accumulator.checkAccumulatorSize accumulator
+    void $ Program.decide decision (isRight result)
+    case result of
+      Left AccumulatorTooLarge{utxoCount, maxAllowed} -> Program.reject $ RequireFailed ReqSnUTxOSetTooLarge{utxoCount, maxAllowed}
+      Right () -> pure ()
 
   previous = getSnapshot confirmedSnapshot
   confSn = case confirmedSnapshot of InitialSnapshot{} -> 0; ConfirmedSnapshot{} -> previous.number

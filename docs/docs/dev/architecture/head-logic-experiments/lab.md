@@ -267,20 +267,24 @@ outcomes now make such failures readable without consulting numeric tag mappings
 
 ## Decommit dependency witness
 
-The production ReqDec/ReqSn workflows reproduce a separate honest dependency
-stall and loss of a pending decommit's input reservation:
+The decommit demonstration runs both the frozen failure and the corrected rules:
 
 ```sh
-cabal run hydra-node:head-logic-lab -- decommit-dependency /tmp/decommit.json +RTS -N1
+cabal run hydra-node:head-logic-lab -- decommit-dependency --historical /tmp/decommit-old.json +RTS -N1
+cabal run hydra-node:head-logic-lab -- decommit-dependency /tmp/decommit-fixed.json +RTS -N1
 ```
 
-This fixed 24-delivery schedule checks the frozen handlers and reducer at every
-step, then writes full states and a component trace. It does not use the generic
-explorer, whose domain excludes incremental actions. See the
-[bug record](bugs.md#decommit-dependencies-and-reserved-inputs)
-for the sequence and code references, and
-[programs inside crem](../../../../head-logic-crem-workflows.md) for the complete
-input conversion and its phase diagrams.
+The historical schedule stops after 24 deliveries. The corrected schedule drains
+45 deliveries, preserves the reservation, and confirms the decommit in snapshot
+3. Both check serialized state at every prefix. They are focused schedules;
+the generic explorer excludes incremental actions. See the
+[bug record](bugs.md#decommit-dependencies-and-reserved-inputs).
+
+The [capacity demonstration](capacity.md) shows another cross-rule failure:
+selection creates a request that the follower must reject. `capacity --historical`
+reproduces it; `capacity` checks the corrected split/prune/merge sequence.
+`trace FILE --scenario capacity` writes a versioned replay scenario. The compact
+capacity reports have their own schema and are not generic replay tapes.
 
 ## Validation record
 

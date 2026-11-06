@@ -22,6 +22,7 @@ the Agda model, rather than a bug in the previous protocol rules. See the
 | Early invalid signature blocks a valid replacement | Retained acknowledgement policy; aggregate verification still rejects | Invalid partial signature, final rejection, corrected signature rejected |
 | Decommit spends an unconfirmed output that ReqSn cannot resolve | Fixed: confirm dependencies first, then request the decommit | Three honest parties; parent/child/decommit; every emitted message delivered |
 | Snapshot pruning restores a pending decommit's reserved input | Fixed: rebase preserves the input reservation | Same sequence, checked immediately after snapshot 1 is requested |
+| Oversized proposal strands the request marker (#2924/#2927) | Fixed: bounded selection, capacity-aware pruning, checked live proposals | [Capacity demonstration and tests](capacity.md); upstream-reported defect |
 
 ## Protecting locally applied transactions
 
@@ -259,3 +260,11 @@ fix belongs. `reservationHeld` first fails at historical rebase;
 prefix of the corrected sequence. Crem's Reserved phase alone establishes neither
 property: explicit payload invariants and independently stated tests are still
 necessary.
+
+## Trace comparison correction
+
+The diagram generator previously reused the production trace for both comparison
+panels. This became misleading when capacity added decisions. Each panel now
+shows its own execution. Ordered outcomes, primitive queries, staged payloads
+and unchanged decisions still compare; the explicitly listed capacity decisions
+and moved useful-work decision have separate regressions.

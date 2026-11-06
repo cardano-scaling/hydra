@@ -4,6 +4,7 @@ CheckCommit
 CheckExistingDecommit
 CheckLedgerResult
 CheckOutputs
+CheckCapacity
 RecordAndRequest
 Finished
 CheckCommit --> CheckExistingDecommit
@@ -12,6 +13,8 @@ CheckExistingDecommit --> CheckLedgerResult
 CheckExistingDecommit --> Finished
 CheckLedgerResult --> CheckOutputs
 CheckLedgerResult --> Finished
-CheckOutputs --> RecordAndRequest
+CheckOutputs --> CheckCapacity
 CheckOutputs --> Finished
+CheckCapacity --> RecordAndRequest
+CheckCapacity --> Finished
 RecordAndRequest --> Finished

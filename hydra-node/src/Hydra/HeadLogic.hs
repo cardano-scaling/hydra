@@ -67,13 +67,16 @@ import Hydra.HeadLogic.Rules.ReqTx qualified as ReqTx
 import Hydra.HeadLogic.Rules.Settlement qualified as Settlement
 import Hydra.HeadLogic.Rules.SnapshotRequest (
   SettlingCommit (..),
-  SnapshotRequest (..),
+  SnapshotRequest,
   buildSnapshotRequest,
   chainedSnapshotRequest,
   existingDeposit,
   isLeader,
   nextActiveDepositId,
   nextSnapshotRequest,
+  requestDecommitTx,
+  requestDepositTxId,
+  requestTxs,
   scopedDeposits,
   selectNextDeposit,
   settlingCommitAt,

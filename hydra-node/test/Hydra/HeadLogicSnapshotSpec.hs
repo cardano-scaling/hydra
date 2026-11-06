@@ -1,10 +1,11 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# OPTIONS_GHC -Wno-ambiguous-fields #-}
 {-# OPTIONS_GHC -Wno-unused-do-bind #-}
 
 module Hydra.HeadLogicSnapshotSpec where
 
 import Hydra.Prelude hiding (label)
-import Test.Hydra.Prelude
+import Test.Hydra.Prelude (Arbitrary (arbitrary), Spec, describe, expectationFailure, it, parallel, prop, shouldBe)
 
 import Data.List qualified as List
 import Data.Map.Strict qualified as Map
@@ -202,7 +203,11 @@ spec = do
           other -> expectationFailure $ "Expected to be in open state: " <> show other
 
 prop_singleMemberHeadAlwaysSnapshotOnReqTx :: ConfirmedSnapshot SimpleTx -> Property
-prop_singleMemberHeadAlwaysSnapshotOnReqTx sn = monadicIO $ do
+prop_singleMemberHeadAlwaysSnapshotOnReqTx original = monadicIO $ do
+  -- The open Head and its confirmed snapshot share their identity.
+  let sn = case original of
+        InitialSnapshot{} -> InitialSnapshot testHeadId
+        ConfirmedSnapshot snapshot signatures -> ConfirmedSnapshot snapshot{headId = testHeadId} signatures
   (seenSnapshot, version) <-
     pick $
       oneof

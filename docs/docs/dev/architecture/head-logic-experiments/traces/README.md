@@ -141,3 +141,13 @@ sequenceDiagram
     Note over logic,changes: finish: commit changes and release effects
   end
 ```
+
+## Capacity boundary
+
+`capacity-historical-v1.json` and `capacity-fixed-v1.json` are compact checked
+reports from `head-logic-lab capacity`, with corresponding instruction diagrams.
+They record the historical stall and corrected split/prune/merge sequence at
+32,767 outputs. Use `trace FILE --scenario capacity` for a full scenario that
+`replay` accepts. `capacity-before-rebase.mmd` preserves the original production
+witness at revision `386e95947`; its original REPL script has been replaced by
+the maintained frozen/current demonstration. See [the code and commands](../capacity.md).

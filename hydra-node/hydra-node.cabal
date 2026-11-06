@@ -105,6 +105,7 @@ library
     Hydra.HeadLogic.Rules.ReqDec
     Hydra.HeadLogic.Rules.ReqSn
     Hydra.HeadLogic.Rules.ReqTx
+    Hydra.HeadLogic.Rules.SendSnapshot
     Hydra.HeadLogic.Rules.Settlement
     Hydra.HeadLogic.Rules.SideLoad
     Hydra.HeadLogic.Rules.SnapshotCapacity
@@ -248,6 +249,7 @@ library testlib
     Test.Hydra.Chain
     Test.Hydra.Chain.Direct.State
     Test.Hydra.Chain.Direct.TimeHandle
+    Test.Hydra.HeadLogic.Capacity
     Test.Hydra.HeadLogic.CoordinatedAudit
     Test.Hydra.HeadLogic.Crem.Comparison
     Test.Hydra.HeadLogic.Debugger
@@ -495,6 +497,7 @@ test-suite tests
     Hydra.Events.S3Spec
     Hydra.Events.SQLiteBasedSpec
     Hydra.Events.UDPSpec
+    Hydra.HeadLogic.CapacitySpec
     Hydra.HeadLogic.CoordinatedSpec
     Hydra.HeadLogic.IncrementalWorkflowSpec
     Hydra.HeadLogic.InputWorkflowSpec

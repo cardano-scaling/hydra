@@ -10,6 +10,7 @@ sequenceDiagram
     Note over logic: no decommit is in flight: yes
     ledger-->>logic: ledger application: valid
     Note over logic: decommit produces outputs: yes
+    Note over logic: decommit fits local and confirmed capacity: yes
     logic->>changes: stage: reserve decommit
     Note over logic: no snapshot is in flight: yes
     Note over logic: this party leads the next snapshot: yes

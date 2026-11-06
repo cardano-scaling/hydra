@@ -60,7 +60,7 @@ import Hydra.Node.State (ChainPointTime, Deposit (..), DepositStatus (..), NodeS
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.IsTx (UTxOType, txId)
 import Hydra.Tx.Party (Party)
-import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
+import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), getSnapshot)
 import Test.Hydra.HeadLogic.CoordinatedAudit qualified as Audit
 import Test.Hydra.HeadLogic.Debugger qualified as Debug
 import Test.Hydra.HeadLogic.LegacyPrograms qualified as LegacyPrograms
@@ -76,6 +76,7 @@ import Test.QuickCheck (choose, elements, forAll, resize, suchThat, (===), (==>)
 spec :: Spec
 spec = do
   interpreterSpec
+  capacityPruningSpec
   describe "free program" $ specWith LegacyPrograms.onOpenNetworkReqTxProgram
   describe "crem phases with program actions" $ specWith $ \env time st ttl pending tx ->
     Workflow.run $ CremReqTx.machine env time st ttl pending tx
@@ -185,6 +186,26 @@ interpreterSpec = do
         Debug.Await (Program.Suspend actualReason) _ -> actualReason `shouldBe` waitReason
         _ -> failure "expected a suspended instruction" :: IO ()
 
+capacityPruningSpec :: Spec
+capacityPruningSpec = it "requests a pruning round when a settling deposit blocks the first transaction" $ do
+  let deposited = utxoRef 99
+      pending = Map.singleton 7 $ depositFixture Active deposited
+      st =
+        emptyOpenState
+          { coordinatedHeadState =
+              emptyOpenState.coordinatedHeadState
+                { confirmedSnapshot = settlingSnapshot deposited
+                , localUTxO = deposited
+                , localTxs = Seq.singleton $ aValidTx 99
+                , currentDepositTxId = Just 7
+                }
+          }
+      program = Workflow.run $ CremReqTx.machine (ruleEnvironment testEnvironment) zeroChainPointTime st 1 pending sampleTx
+      outcome = Interpreter.runProgram simpleLedger program
+  legacyOnOpenNetworkReqTx testEnvironment simpleLedger zeroChainPointTime st 1 pending sampleTx
+    `shouldBe` Continue [received, applied] []
+  outcome `shouldBe` Continue [received, applied, SnapshotRequestDecided 1] [NetworkEffect $ ReqSn 0 1 [] Nothing (Just 7)]
+
 type ReqTxRule = RuleEnvironment -> ChainPointTime -> OpenState SimpleTx -> TTL -> PendingDeposits SimpleTx -> SimpleTx -> Program.TransactionProgram SimpleTx ()
 
 specWith :: ReqTxRule -> Spec
@@ -280,7 +301,7 @@ specWith onOpenNetworkReqTxProgram = do
           Interpreter.runProgram ledger (lowerProgram $ resume $ Left ledgerFailure)
             `shouldBe` Wait (WaitOnNotApplicableTx ledgerFailure) []
 
-    prop "matches legacy outcomes for fresh IDs and snapshot-ready decommits" $
+    prop "matches legacy with a consistent head ID, fresh IDs and snapshot-ready decommits" $
       forAll genLegacyCase $ \(actor, st, ttl, pending, tx) ->
         let env :: Environment
             env = testEnvironment{party = actor}
@@ -313,24 +334,6 @@ specWith onOpenNetworkReqTxProgram = do
                 else case outcome of
                   Continue{stateChanges} -> take 2 stateChanges `shouldBe` [received, applied]
                   other -> failure $ "expected transaction application, got " <> show other
-
-    it "matches legacy when a settling deposit leaves no requestable transaction" $ do
-      let deposited = utxoRef 99
-          pending = Map.singleton 7 $ depositFixture Active deposited
-          st =
-            emptyOpenState
-              { coordinatedHeadState =
-                  emptyOpenState.coordinatedHeadState
-                    { confirmedSnapshot = settlingSnapshot deposited
-                    , localUTxO = deposited
-                    , localTxs = Seq.singleton $ aValidTx 99
-                    , currentDepositTxId = Just 7
-                    }
-              }
-          program = onOpenNetworkReqTxProgram (ruleEnvironment testEnvironment) zeroChainPointTime st 1 pending sampleTx
-          outcome = Interpreter.runProgram simpleLedger program
-      outcome `shouldBe` legacyOnOpenNetworkReqTx testEnvironment simpleLedger zeroChainPointTime st 1 pending sampleTx
-      outcome `shouldBe` Continue [received, applied] []
 
     it "matches legacy when the next request carries an existing decommit" $ do
       let decommit = aValidTx 99
@@ -428,7 +431,7 @@ genLegacyCase = do
   ttl <- fromInteger <$> choose (0, 5)
   pending <- resize 3 arbitrary
   tx <- resize 3 arbitrary `suchThat` (\candidate -> all ((/= txId candidate) . txId) st.coordinatedHeadState.localTxs)
-  let configuredState = st{parameters = st.parameters{parties = testParties}} :: OpenState SimpleTx
+  let configuredState = st{headId = (getSnapshot st.coordinatedHeadState.confirmedSnapshot).headId, parameters = st.parameters{parties = testParties}} :: OpenState SimpleTx
   pure (actor, configuredState, ttl, pending, tx)
 
 -- | Preserve every modeled tag and fail on unsupported output, rather than

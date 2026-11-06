@@ -58,7 +58,7 @@ import Hydra.Chain.ChainState (ChainSlot (..), IsChainState)
 import Hydra.Chain.Direct.State (ChainStateAt (..), HasKnownUTxO (getKnownUTxO), HydraContext (..))
 import Hydra.Chain.Direct.State qualified as Direct
 import Hydra.Chain.Direct.TimeHandle (TimeHandle, mkTimeHandle, slotToUTCTime)
-import Hydra.HeadLogic (ClosedState (..), CoordinatedHeadState (..), Effect (..), FanoutMode (..), HeadState (..), Input (..), LogicError (..), OpenState (..), Outcome (..), PartialFanoutState (..), RequirementFailure (..), SettlingCommit (..), SideLoadRequirementFailure (..), SnapshotRequest (..), StateChanged (..), TTL, WaitReason (..), absorbable, aggregateState, applyTransactionsWithoutCollision, cause, chainedSnapshotRequest, existingDeposit, maxTxsPerSnapshot, namesNoneOf, newState, nextSnapshotRequest, noop, settlingCommitAt, update)
+import Hydra.HeadLogic (ClosedState (..), CoordinatedHeadState (..), Effect (..), FanoutMode (..), HeadState (..), Input (..), LogicError (..), OpenState (..), Outcome (..), PartialFanoutState (..), RequirementFailure (..), SettlingCommit (..), SideLoadRequirementFailure (..), SnapshotRequest, StateChanged (..), TTL, WaitReason (..), absorbable, aggregateState, applyTransactionsWithoutCollision, cause, chainedSnapshotRequest, existingDeposit, maxTxsPerSnapshot, namesNoneOf, newState, nextSnapshotRequest, noop, requestDecommitTx, requestDepositTxId, requestTxs, settlingCommitAt, update)
 import Hydra.HeadLogic.Rules.SnapshotRequest (DecommitStatus (..))
 import Hydra.HeadLogic.State (IdleState (..), SeenSnapshot (..), getHeadParameters, mkSeenSnapshot)
 import Hydra.Ledger (Ledger (..), ValidationError (..))
@@ -1119,7 +1119,7 @@ spec =
             -- Select the prefix before the colliding transaction.
             o <- runHeadLogic singlePartyEnv ledger (settling [fine, colliding] (utxoRef 3 <> depositedUtxo <> utxoRef 5)) $ step (receiveMessage $ ReqTx another)
             requests o `shouldBe` [([txId fine], Just pendingDepositTxId)]
-            -- Nothing before it: request a snapshot to prune it.
+            -- Nothing before it: request a round to prune the blocked transaction.
             o' <- runHeadLogic singlePartyEnv ledger (settling [colliding] (utxoRef 1 <> depositedUtxo <> utxoRef 5)) $ step (receiveMessage $ ReqTx another)
             requests o' `shouldBe` [([], Just pendingDepositTxId)]
 
@@ -1739,18 +1739,18 @@ spec =
                 naming = SimpleTx 9 (utxoRef 2) (utxoRef 9)
                 recreating = SimpleTx 1 mempty (utxoRef 1)
                 summary :: SnapshotRequest SimpleTx -> ([Integer], Maybe Integer, Maybe Integer)
-                summary r = (txId <$> r.requestTxs, txId <$> r.requestDecommitTx, r.requestDepositTxId)
+                summary r = (txId <$> requestTxs r, txId <$> requestDecommitTx r, requestDepositTxId r)
             -- A carried decommit does not start another round. A newly ready one does.
-            isNothing (chainedSnapshotRequest u0 mempty mempty Nothing (CarryDecommit decommit) Nothing) `shouldBe` True
-            (summary <$> chainedSnapshotRequest u0 mempty mempty Nothing (ReadyToDecommit decommit) Nothing) `shouldBe` Just ([], Just 5, Nothing)
+            isNothing (chainedSnapshotRequest 0 (testSnapshot 0 0 [] u0) mempty mempty Nothing (CarryDecommit decommit) Nothing) `shouldBe` True
+            (summary <$> chainedSnapshotRequest 0 (testSnapshot 0 0 [] u0) mempty mempty Nothing (ReadyToDecommit decommit) Nothing) `shouldBe` Just ([], Just 5, Nothing)
             -- A fresh deposit alone: chained.
-            (summary <$> chainedSnapshotRequest u0 mempty fresh Nothing NoDecommit Nothing) `shouldBe` Just ([], Nothing, Just 7)
+            (summary <$> chainedSnapshotRequest 0 (testSnapshot 0 0 [] u0) mempty fresh Nothing NoDecommit Nothing) `shouldBe` Just ([], Nothing, Just 7)
             -- Only the settling commit: not chained. With txs: cut before the colliding one.
-            isNothing (chainedSnapshotRequest u0 mempty fresh Nothing NoDecommit settling) `shouldBe` True
-            (summary <$> chainedSnapshotRequest u0 (Seq.fromList [fine, naming, SimpleTx 3 (utxoRef 9) (utxoRef 3)]) fresh Nothing NoDecommit settling)
+            isNothing (chainedSnapshotRequest 0 (testSnapshot 0 0 [] u0) mempty fresh Nothing NoDecommit settling) `shouldBe` True
+            (summary <$> chainedSnapshotRequest 0 (testSnapshot 0 0 [] u0) (Seq.fromList [fine, naming, SimpleTx 3 (utxoRef 9) (utxoRef 3)]) fresh Nothing NoDecommit settling)
               `shouldBe` Just ([txId fine], Nothing, Just 7)
             -- A pending tx re-creating a held output: chained, even empty, to prune it.
-            (summary <$> chainedSnapshotRequest u0 (Seq.fromList [recreating]) mempty Nothing NoDecommit Nothing) `shouldBe` Just ([], Nothing, Nothing)
+            (summary <$> chainedSnapshotRequest 0 (testSnapshot 0 0 [] u0) (Seq.fromList [recreating]) mempty Nothing NoDecommit Nothing) `shouldBe` Just ([], Nothing, Nothing)
 
         it "never requests a commit and a decommit in the same snapshot" $ do
           -- An in-flight commit wins: its deposit expires on-chain while a
@@ -1769,10 +1769,10 @@ spec =
                     , status = Active
                     }
               decommitTx = SimpleTx 1 (utxoRef 1) (utxoRef 2)
-              withDeposit = nextSnapshotRequest mempty mempty pendingDeposits (Just depositTxId) (ReadyToDecommit decommitTx) Nothing
-              withoutDeposit = nextSnapshotRequest mempty mempty pendingDeposits Nothing (ReadyToDecommit decommitTx) Nothing
-          (withDeposit.requestDecommitTx, withDeposit.requestDepositTxId) `shouldBe` (Nothing, Just depositTxId)
-          (withoutDeposit.requestDecommitTx, withoutDeposit.requestDepositTxId) `shouldBe` (Just decommitTx, Nothing)
+              withDeposit = nextSnapshotRequest 0 (testSnapshot 0 0 [] mempty) mempty pendingDeposits (Just depositTxId) (ReadyToDecommit decommitTx) Nothing
+              withoutDeposit = nextSnapshotRequest 0 (testSnapshot 0 0 [] mempty) mempty pendingDeposits Nothing (ReadyToDecommit decommitTx) Nothing
+          ((\r -> (requestDecommitTx r, requestDepositTxId r)) <$> withDeposit) `shouldBe` Just (Nothing, Just depositTxId)
+          ((\r -> (requestDecommitTx r, requestDepositTxId r)) <$> withoutDeposit) `shouldBe` Just (Just decommitTx, Nothing)
 
         it "ignores ReqDec when not in Open state" $ do
           let reqDec = ReqDec{transaction = SimpleTx 1 mempty (utxoRef 1)}

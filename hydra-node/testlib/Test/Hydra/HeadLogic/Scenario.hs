@@ -26,7 +26,7 @@ import Hydra.HeadLogic.State (
   ),
   HeadState (Open),
   OpenState (..),
-  SeenSnapshot (NoSeenSnapshot, SeenSnapshot, snapshot),
+  SeenSnapshot (LastSeenSnapshot, NoSeenSnapshot, SeenSnapshot, snapshot),
  )
 import Hydra.Ledger.Simple (SimpleTx (SimpleTx))
 import Hydra.Network.Message (Message (..))
@@ -40,6 +40,7 @@ import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.Party (Party)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), getSnapshot)
 import Test.Hydra.HeadLogic.Debugger qualified as Debug
+import Test.Hydra.Ledger.Simple (utxoRef, utxoRefs)
 import Test.Hydra.Node.Fixture (
   alice,
   aliceSk,
@@ -191,7 +192,7 @@ data SearchOrder = DeliveriesFirst | RetriesFirst | BreadthFirst | RetryWindows
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
-data ScenarioFamily = DependentTransactions | DuplicateTransaction | DelayedDependency
+data ScenarioFamily = DependentTransactions | DuplicateTransaction | DelayedDependency | CapacityBoundary
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
@@ -212,6 +213,28 @@ initialFor = \case
   DependentTransactions -> initialWorld
   DuplicateTransaction -> initialWorld{pending = [Delivery 0 recipient 2 (ReqTx transactionOne) | recipient <- [0 .. 2]]}
   DelayedDependency -> initialWorld{pending = [Delivery 0 recipient 2 (ReqTx tx) | tx <- [transactionTwo, transactionOne], recipient <- [0 .. 2]]}
+  CapacityBoundary -> capacityWorld
+
+-- | A full, settled Head. The split exceeds capacity; the independent merge
+-- fits after that split is pruned. Snapshot 4 is led by party 0.
+capacityWorld :: World
+capacityWorld =
+  initialWorld
+    { nodes = replicate 3 node
+    , originSnapshot = snapshot
+    , pending = [Delivery 0 recipient 2 (ReqTx tx) | tx <- [capacitySplit, capacityMerge], recipient <- [0 .. 2]]
+    }
+ where
+  utxo = utxoRefs [1 .. fromIntegral Accumulator.maxAccumulatorSize]
+  accumulator = Accumulator.buildFromUTxO @SimpleTx utxo
+  snapshot = initialSnapshot{number = 3, version = 1, utxo, accumulator, appliedAccumulator = accumulator}
+  signatures = aggregateInOrder (Map.fromList [(p, sign sk snapshot) | (p, sk) <- zip scenarioParties [aliceSk, bobSk, carolSk]]) scenarioParties
+  os = openState initialNode
+  node = initialNode{headState = Open os{coordinatedHeadState = os.coordinatedHeadState{version = 1, localUTxO = utxo, confirmedSnapshot = ConfirmedSnapshot snapshot signatures, seenSnapshot = LastSeenSnapshot 3}}}
+
+capacitySplit, capacityMerge :: SimpleTx
+capacitySplit = SimpleTx 1 (utxoRef 1) (utxoRefs [fromIntegral Accumulator.maxAccumulatorSize + 1, fromIntegral Accumulator.maxAccumulatorSize + 2])
+capacityMerge = SimpleTx 2 (utxoRefs [2, 3]) (utxoRef $ fromIntegral Accumulator.maxAccumulatorSize + 3)
 
 -- | Version 2 records its entire starting state and separates the execution
 -- mode from the input schedule. Version 1 explicitly uses the immutable v1 seed.

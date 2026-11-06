@@ -224,6 +224,31 @@ Arithmetic application removes named inputs that exist and adds outputs; it
 does not require the decommit to be ledger-applicable against confirmed state.
 Both client decommit submission and the received $hpRD$ handler use these guards.
 
+The executable reference also checks a small-set cycle with capacity three.
+The split spends reference 1 into 4 and 5; the independent merge spends 2 and 3
+into 6. Selection stops before the split. Pruning skips it and keeps the merge,
+which is then requestable. These equalities cover that finite example, not
+distributed liveness. Haskell tests bridge the small bound to the deployed one
+with untouched background outputs, and run the actual request/sign/confirm
+sequence including the retained request marker and checkpoint recovery.
+
+```
+capacity-stops-at-split :
+  ReqTxRef.capacityPrefixRef 3 (1 ∷ 2 ∷ 3 ∷ []) []
+    ((1 ∷ []) ∷ (2 ∷ 3 ∷ []) ∷ []) ((4 ∷ 5 ∷ []) ∷ (6 ∷ []) ∷ []) ≡ 0
+capacity-stops-at-split = refl
+
+capacity-pruning-keeps-merge :
+  ReqTxRef.capacityPruneRef 3 (1 ∷ 2 ∷ 3 ∷ []) [] []
+    ((1 ∷ []) ∷ (2 ∷ 3 ∷ []) ∷ []) ((4 ∷ 5 ∷ []) ∷ (6 ∷ []) ∷ []) ≡ (2 ∷ [])
+capacity-pruning-keeps-merge = refl
+
+capacity-merge-is-requestable :
+  ReqTxRef.capacityPrefixRef 3 (1 ∷ 2 ∷ 3 ∷ []) []
+    ((2 ∷ 3 ∷ []) ∷ []) ((6 ∷ []) ∷ []) ≡ 1
+capacity-merge-is-requestable = refl
+```
+
 A settling commit — $macron(mc(S)).U_alpha != bot$ at the current version — is
 dropped, by a request claiming no deposit, only once its increment can no
 longer land: $sans("unclaimable")(tx_alpha)$ holds when the deposit was spent
@@ -635,13 +660,11 @@ message $(hpAS,hats,msSig_i)$. Finally, the local ledger state $hatmL$ and
 pending transaction set $hatmT$ get pruned by re-applying all locally pending
 transactions $hatmT$ to the just requested snapshot's UTxO set iteratively.
 A transaction is kept only if it applies without re-creating a held output,
-does not name a carried commit output, and its resulting ledger satisfies
-$sans("fits")$ with that snapshot's pending commit/decommit. Pruned transactions
-leave the running ledger unchanged; subsequent transactions are still considered,
-so an independent merge can survive a capacity rejection. Ledger applicability
-alone is insufficient: a ledger-valid transaction can exceed fanout capacity.
-The Agda `prunePending` function models this postprocessing; `reqSn-sign` tracks
-the round counter and the system's `signHonest` rule requires `SnapshotFits`. After rebuilding,
+avoids the carried commit's output references and fits both fanout alternatives.
+Skipping a transaction leaves the running ledger unchanged and still considers
+later transactions, so an independent merge can survive a capacity rejection.
+The Agda `prunePending` function models this filtering; `signHonest` separately
+requires `SnapshotFits`. After this rebuild,
 the spending inputs of the locally pending decommit are removed again. This
 reservation survives even when the requested snapshot does not carry the
 decommit. \
@@ -1235,7 +1258,8 @@ preventing inconsistency between the on-chain and off-chain state.
             #proc([#kw("on") $(hpRD, tx)$ #kw("from") $party_j$])[
               #kw("wait") $U_alpha = emptyset and tx_omega = bot and hatmL applytx tx != bot$
               #nst[
-                #kw("require") $sans("outputs")(tx) != emptyset and |hatmL applytx tx| <= 32767 and |sans("applyUTxO")(sans("settled")(macron(mc(S)),hatv),tx)| <= 32767$ \\
+                #kw("require") $sans("outputs")(tx) != emptyset and |hatmL applytx tx| <= 32767 and |sans("applyUTxO")(sans("settled")(macron(mc(S)),hatv),tx)| <= 32767$ \
+
                 $hatmL <- hatmL applytx tx without sans("outputs")(tx)$ \
                 $tx_omega <- tx$ \
                 #kw("if") $hats = macron(mc(S)).s and hpLdr(macron(mc(S)).s + 1) = i$
@@ -1296,6 +1320,7 @@ preventing inconsistency between the on-chain and off-chain state.
                 #kw("require") $sans("outputs")(underline(tx)_(sans("req"))) inter U_(sans("active")) = emptyset$ #text(size: 0.8em)[(no output reference is re-created)] \
                 #kw("require") $U_(sans("active")) applytx underline(tx)_(sans("req")) != bot$ \
                 $U <- U_(sans("active")) applytx underline(tx)_(sans("req"))$ \
+                #kw("require") $sans("fits")(U,U_alpha,sans("outputs")(tx_omega))$ \
                 $hats <- s$ \
                 $eta' <- accUTxO(U)$ \
                 $(eta')^(\#) <- hash(eta')$ \
@@ -1417,7 +1442,7 @@ preventing inconsistency between the on-chain and off-chain state.
               ]
               #kw("if") $sans("newDecommit")(hatv, macron(mc(S)), tx_omega) and hats = macron(mc(S)).s and hpLdr(macron(mc(S)).s + 1) = i$
               #nst[
-                #kw("multicast") $(hpRS, hatv, macron(mc(S)).s + 1, hatmT, bot, tx_omega)$
+                #kw("multicast") $(hpRS, hatv, macron(mc(S)).s + 1, sans("requestable")(hatmT, bot, tx_omega), bot, tx_omega)$
               ]
               #kw("if") $exists D in mc(D) : D.sans("status") = sans("Active")$
               #nst[

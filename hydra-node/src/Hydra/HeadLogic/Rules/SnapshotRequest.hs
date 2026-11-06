@@ -2,7 +2,28 @@
 {-# OPTIONS_GHC -Wno-ambiguous-fields #-}
 
 -- | Shared snapshot and deposit selection for leaders and followers.
-module Hydra.HeadLogic.Rules.SnapshotRequest where
+module Hydra.HeadLogic.Rules.SnapshotRequest (
+  SnapshotRequest,
+  requestNumber,
+  requestTxs,
+  requestDecommitTx,
+  requestDepositTxId,
+  requestMessage,
+  requestMatches,
+  DecommitStatus (..),
+  SettlingCommit (..),
+  isLeader,
+  existingDeposit,
+  nextActiveDepositId,
+  selectNextDeposit,
+  decommitStatus,
+  nextSnapshotRequest,
+  chainedSnapshotRequest,
+  buildSnapshotRequest,
+  scopedDeposits,
+  settlingCommitAt,
+  settlingCommitAtPeriod,
+) where
 
 import Data.List (elemIndex, minimumBy)
 import Data.Map.Strict qualified as Map
@@ -19,10 +40,11 @@ import Hydra.HeadLogic.State.Operations (
   namesNoneOf,
   settledUTxO,
  )
+import Hydra.Network.Message (Message (ReqSn))
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.State (Deposit (..), DepositStatus (..), PendingDeposits, depositsForHead)
 import Hydra.Prelude
-import Hydra.Tx (IsTx (..), TxIdType, UTxOType, applyTxTo, utxoFromTx, withoutUTxO)
+import Hydra.Tx (HeadId, IsTx (..), TxIdType, UTxOType, utxoFromTx, withoutUTxO)
 import Hydra.Tx.DepositPeriod (DepositPeriod (..))
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.Party (Party)
@@ -81,12 +103,27 @@ selectNextDeposit absorbableHere pendingDeposits currentDepositTxId mDecommitTx 
  where
   tracked (depositTxId, Deposit{deposited}) = depositTxId <$ guard (deposited /= mempty && absorbableHere deposited)
 
--- | What a leader puts in its next 'ReqSn', see 'nextSnapshotRequest'.
+-- | A capacity-checked proposal for a particular snapshot version and number.
+-- The selector is the only constructor; callers cannot change its contents.
+-- Capacity does not establish ledger validity, which followers check separately.
 data SnapshotRequest tx = SnapshotRequest
-  { requestTxs :: [tx]
-  , requestDecommitTx :: Maybe tx
-  , requestDepositTxId :: Maybe (TxIdType tx)
+  { selectedHeadId :: HeadId
+  , selectedVersion :: SnapshotVersion
+  , selectedNumber :: SnapshotNumber
+  , selectedTransactions :: [tx]
+  , selectedDecommit :: Maybe tx
+  , selectedDeposit :: Maybe (TxIdType tx)
   }
+
+-- Ordinary accessors keep record updates from bypassing the selector.
+requestNumber :: SnapshotRequest tx -> SnapshotNumber
+requestNumber = selectedNumber
+requestTxs :: SnapshotRequest tx -> [tx]
+requestTxs = selectedTransactions
+requestDecommitTx :: SnapshotRequest tx -> Maybe tx
+requestDecommitTx = selectedDecommit
+requestDepositTxId :: SnapshotRequest tx -> Maybe (TxIdType tx)
+requestDepositTxId = selectedDeposit
 
 -- | Acceptance against the optimistic local ledger is distinct from readiness
 -- against the confirmed base. A carried decommit needs no new ledger application.
@@ -111,119 +148,121 @@ pendingDecommit = \case
   ReadyToDecommit tx -> Just tx
   CarryDecommit tx -> Just tx
 
--- | The content of a leader's next 'ReqSn': the transactions to carry and the
--- incremental action, a commit or a decommit, never both. A snapshot carrying
--- both cannot be closed, since close and fanout express a single incremental
--- action ('setIncrementalActionMaybe').
---
--- A commit wins: its deposit expires on-chain, while a decommit only waits. This
--- cannot starve the decommit, because 'selectNextDeposit' refuses to start a
--- *new* commit while a decommit is pending — only one already in flight can win,
--- and that one stops being selected once it settles and leaves 'pendingDeposits'.
---
--- A settling commit is carried while it can still land. Transactions colliding
--- with its outputs are held back. New decommits wait for their inputs to be
--- confirmed; followers still perform full ledger validation.
+-- | Construct a proposal, including an empty round when requested by the caller
+-- (for example, to drop an expired settling commit). Both fanout alternatives
+-- must fit before a request can leave the selector.
 nextSnapshotRequest ::
   IsTx tx =>
-  -- | The UTxO 'onOpenNetworkReqSn' applies the request's transactions to.
-  UTxOType tx ->
-  -- | Pending local transactions.
-  Seq tx ->
-  PendingDeposits tx ->
-  Maybe (TxIdType tx) ->
-  DecommitStatus tx ->
-  -- | The commit the confirmed snapshot is settling, see 'settlingCommitAt'
-  Maybe (SettlingCommit tx) ->
-  SnapshotRequest tx
-nextSnapshotRequest utxo localTxs pendingDeposits currentDepositTxId decommit mSettlingCommit =
-  fst (buildSnapshotRequest utxo localTxs pendingDeposits currentDepositTxId decommit mSettlingCommit)
-
--- | 'nextSnapshotRequest', if worth sending right away: it carries a tx or a
--- new deposit, a newly eligible decommit, or it prunes a pending tx no node
--- accepts. A carried incremental action alone does not start another round.
-chainedSnapshotRequest ::
-  IsTx tx =>
-  UTxOType tx ->
+  SnapshotVersion ->
+  Snapshot tx ->
   Seq tx ->
   PendingDeposits tx ->
   Maybe (TxIdType tx) ->
   DecommitStatus tx ->
   Maybe (SettlingCommit tx) ->
   Maybe (SnapshotRequest tx)
-chainedSnapshotRequest utxo localTxs pendingDeposits currentDepositTxId decommit mSettlingCommit =
-  request <$ guard worthChaining
- where
-  (request, worthChaining) = buildSnapshotRequest utxo localTxs pendingDeposits currentDepositTxId decommit mSettlingCommit
+nextSnapshotRequest version previous txs deposits selected decommit settling =
+  fst <$> buildSnapshotRequest version previous txs deposits selected decommit settling
 
--- | The request and whether it is worth chaining, see 'chainedSnapshotRequest'.
-buildSnapshotRequest ::
-  forall tx.
+-- | Start another round for transactions, a new deposit, a newly ready decommit,
+-- or pruning blocked work. Carrying an incremental action alone is insufficient.
+chainedSnapshotRequest ::
   IsTx tx =>
-  UTxOType tx ->
+  SnapshotVersion ->
+  Snapshot tx ->
   Seq tx ->
   PendingDeposits tx ->
   Maybe (TxIdType tx) ->
   DecommitStatus tx ->
   Maybe (SettlingCommit tx) ->
-  (SnapshotRequest tx, Bool)
-buildSnapshotRequest utxo localTxs pendingDeposits currentDepositTxId decommit mSettlingCommit =
-  case mSettlingCommit of
-    Just (ContinueCommit (depositTxId, Deposit{deposited})) ->
-      let requestTxs = requestable (Just deposited) Nothing
-       in (SnapshotRequest{requestTxs, requestDecommitTx = Nothing, requestDepositTxId = Just depositTxId}, hasPendingTransactions)
-    Just DropCommit -> withoutDeposit
-    Nothing ->
-      case selectNextDeposit canAbsorb pendingDeposits currentDepositTxId (pendingDecommit decommit) of
-        Just depositTxId -> (SnapshotRequest{requestTxs = requestable Nothing Nothing, requestDecommitTx = Nothing, requestDepositTxId = Just depositTxId}, True)
-        Nothing -> withoutDeposit
- where
-  withoutDeposit :: (SnapshotRequest tx, Bool)
-  withoutDeposit =
-    let (requestDecommitTx, newlyReady) = case decommit of
-          ReadyToDecommit tx -> (Just tx, True)
-          CarryDecommit tx -> (Just tx, False)
-          _ -> (Nothing, False)
-        requestTxs = requestable Nothing requestDecommitTx
-     in (SnapshotRequest{requestTxs, requestDecommitTx, requestDepositTxId = Nothing}, newlyReady || hasPendingTransactions)
+  Maybe (SnapshotRequest tx)
+chainedSnapshotRequest version previous txs deposits selected decommit settling = do
+  (request, useful) <- buildSnapshotRequest version previous txs deposits selected decommit settling
+  request <$ guard useful
 
-  -- A new deposit must fit alongside the actual request. Defer it rather
-  -- than blocking ordinary transactions; a settling commit is always carried.
+-- | Select the longest admissible prefix within the transaction cap. A later
+-- merge cannot make an overflowing prefix requestable. An empty request prunes
+-- the blocked transaction, allowing independent work behind it to proceed.
+buildSnapshotRequest ::
+  forall tx.
+  IsTx tx =>
+  SnapshotVersion ->
+  Snapshot tx ->
+  Seq tx ->
+  PendingDeposits tx ->
+  Maybe (TxIdType tx) ->
+  DecommitStatus tx ->
+  Maybe (SettlingCommit tx) ->
+  Maybe (SnapshotRequest tx, Bool)
+buildSnapshotRequest version previous localTxs pendingDeposits currentDepositTxId decommit settling =
+  case settling of
+    Just (ContinueCommit (depositId, Deposit{deposited})) ->
+      build (Just (depositId, deposited)) Nothing hasPending
+    Just DropCommit -> withoutDeposit
+    Nothing -> case selectNextDeposit canAbsorb pendingDeposits currentDepositTxId (pendingDecommit decommit) of
+      Just depositId
+        | Just Deposit{deposited} <- Map.lookup depositId pendingDeposits ->
+            -- A new deposit can use space freed by this request's transactions.
+            -- It is not part of the active ledger on which those transactions run.
+            let (txs, after) = ordinaryRequest
+             in (makeRequest txs Nothing (Just depositId), True)
+                  <$ guard (isRight $ checkSnapshotCapacity after (Just deposited) Nothing)
+      _ -> withoutDeposit
+ where
+  utxo = settledUTxO version previous
+  candidates = toList (Seq.take maxTxsPerSnapshot localTxs)
+  hasPending = not (null candidates)
+  withoutDeposit = case decommit of
+    ReadyToDecommit tx -> build Nothing (Just tx) True
+    CarryDecommit tx -> build Nothing (Just tx) hasPending
+    _ -> build Nothing Nothing hasPending
+
+  -- A new deposit must fit beside the actual request. Deposits that do not fit
+  -- wait; they do not prevent ordinary transactions from being requested.
   canAbsorb deposited =
     absorbable utxo candidates deposited
       && isRight (checkSnapshotCapacity requestedUTxO (Just deposited) Nothing)
+  ordinaryRequest = requestable utxo Nothing Nothing
+  requestedUTxO = snd ordinaryRequest
 
-  requestedUTxO = foldl' (flip applyTxTo) utxo (requestable Nothing Nothing)
+  build commit decommitTx useful = do
+    let commitUTxO = snd <$> commit
+        decommitUTxO = utxoFromTx <$> decommitTx
+        active = case decommitTx of
+          Just tx -> applyTxTo tx utxo `withoutUTxO` utxoFromTx tx
+          Nothing -> utxo
+    guard $ isRight (checkSnapshotCapacity active commitUTxO decommitUTxO)
+    let (txs, _) = requestable active commitUTxO decommitUTxO
+    pure (makeRequest txs decommitTx (fst <$> commit), useful)
 
-  -- With pending transactions, the selected request either carries a prefix
-  -- or prunes its first blocked transaction in that request's commit/decommit
-  -- context. An incremental action alone does not justify another snapshot.
-  hasPendingTransactions :: Bool
-  hasPendingTransactions = not (null candidates)
+  makeRequest = SnapshotRequest previous.headId version (previous.number + 1)
 
-  -- The pending txs up to the first one creating an output the ledger or the
-  -- carried commit holds, or exceeding capacity. Check every prefix: a later
-  -- merge might fall outside maxTxsPerSnapshot or arrive only after ReqSn.
-  requestable :: Maybe (UTxOType tx) -> Maybe tx -> [tx]
-  requestable mCommit mDecommit = go activeUTxO candidates
+  requestable active commit decommitUTxO = go active candidates
    where
-    held = utxo <> fold mCommit
-    mDecommitUTxO = utxoFromTx <$> mDecommit
-    activeUTxO = case mDecommit of
-      Just tx -> applyTxTo tx utxo `withoutUTxO` utxoFromTx tx
-      Nothing -> utxo
-    go _ [] = []
+    held = utxo <> fold commit
+    go u [] = ([], u)
     go u (tx : rest)
       | namesNoneOf (utxoFromTx tx) held
       , let next = applyTxTo tx u
-      , isRight (checkSnapshotCapacity next mCommit mDecommitUTxO) =
-          tx : go next rest
-      | otherwise = []
+      , isRight (checkSnapshotCapacity next commit decommitUTxO) =
+          let (txs, after) = go next rest in (tx : txs, after)
+      | otherwise = ([], u)
 
-  -- The first 'maxTxsPerSnapshot' pending txs: a snapshot request lists at
-  -- most that many.
-  candidates :: [tx]
-  candidates = toList (Seq.take maxTxsPerSnapshot localTxs)
+-- | The message and retained request marker derive from the same proposal.
+requestMessage :: IsTx tx => SnapshotRequest tx -> Message tx
+requestMessage request =
+  ReqSn
+    request.selectedVersion
+    request.selectedNumber
+    (txId <$> request.selectedTransactions)
+    request.selectedDecommit
+    request.selectedDeposit
+
+-- | A proposal is consumed in the invocation that selects it. These coordinates
+-- also prevent retaining it across a confirmation, version change or new Head.
+requestMatches :: HeadId -> SnapshotVersion -> SnapshotNumber -> SnapshotRequest tx -> Bool
+requestMatches headId version confirmedNumber request =
+  request.selectedHeadId == headId && request.selectedVersion == version && request.selectedNumber == confirmedNumber + 1
 
 -- | The deposits the handlers of an open head may act on: scoped to the head,
 -- excluding the deposit claimed by the retained finalized increment (see

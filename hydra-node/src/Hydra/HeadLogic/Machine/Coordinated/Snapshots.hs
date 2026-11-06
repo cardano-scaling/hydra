@@ -19,6 +19,7 @@ import Hydra.Chain.ChainState (ChainSlot, IsChainState, chainStateSlot)
 import Hydra.HeadLogic.Machine.Coordinated.Types (Command (..), LedgerUpdate (..), SnapshotOutput (..), SnapshotState)
 import Hydra.HeadLogic.Machine.Coordinated.Types qualified as Port
 import Hydra.HeadLogic.Outcome (StateChanged (..))
+import Hydra.HeadLogic.Rules.SnapshotRequest (requestMatches, requestNumber)
 import Hydra.HeadLogic.State (FinalizedSnapshot, SeenSnapshot (..), mkSeenSnapshot, seenSnapshotNumber)
 import Hydra.HeadLogic.State.Operations (retainConfirmedSettlement, retainFinalizedCommit, retainFinalizedDecommit)
 import Hydra.Tx (HeadId, IsTx)
@@ -64,7 +65,11 @@ machine headId initial = BaseMachineT (restore initial) action
  where
   action :: forall from. State tx from -> Command tx -> ActionResult m SnapshotTopology (State tx) from (SnapshotOutput tx)
   action state command = case state of
-    Idle{} -> common state command
+    Idle context _ -> case command of
+      RequestSnapshot request
+        | requestMatches headId context.version (getSnapshot context.confirmed).number request ->
+            output (Requested context (seenSnapshotNumber (view state).seen) (requestNumber request)) Unchanged [SnapshotRequestDecided (requestNumber request)]
+      _ -> common state command
     Requested{} -> common state command
     Collecting context snapshot signatures bytes -> case command of
       RecordSignature number party signature ->
@@ -80,8 +85,8 @@ machine headId initial = BaseMachineT (restore initial) action
   common :: (AllowedTransition SnapshotTopology from 'AwaitingRequest, AllowedTransition SnapshotTopology from 'RequestSent, AllowedTransition SnapshotTopology from 'CollectingSignatures) => State tx from -> Command tx -> ActionResult m SnapshotTopology (State tx) from (SnapshotOutput tx)
   common state = \case
     Transactions command -> output state (Transaction command) []
-    RequestSnapshot number ->
-      output (Requested context (seenSnapshotNumber (view state).seen) number) Unchanged [SnapshotRequestDecided number]
+    RequestSnapshot{} -> output state Unchanged []
+    ReplaySnapshotRequest number -> requested number
     AcceptSnapshot snapshot txs deposit ->
       output (Collecting context snapshot mempty (mkSeenSnapshot snapshot mempty).signableBytes) (Rebase snapshot txs deposit) [SnapshotRequested snapshot txs deposit]
     AdoptSnapshot snapshot signatures ->
@@ -107,6 +112,7 @@ machine headId initial = BaseMachineT (restore initial) action
     ReplayConfirmation{} -> output state Unchanged []
    where
     context = contextOf state
+    requested number = output (Requested context (seenSnapshotNumber (view state).seen) number) Unchanged [SnapshotRequestDecided number]
 
   settle :: AllowedTransition SnapshotTopology from 'AwaitingRequest => State tx from -> Context tx -> SnapshotVersion -> LedgerUpdate tx -> [StateChanged tx] -> ActionResult m SnapshotTopology (State tx) from (SnapshotOutput tx)
   settle state context newVersion ledger events

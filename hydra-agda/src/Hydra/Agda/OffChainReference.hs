@@ -9,6 +9,13 @@
 -- As there, every 'Integer' stands for an Agda ℕ and callers must pass non-negative values; see that
 -- module's header for what a negative one does.
 module Hydra.Agda.OffChainReference (
+  accumulatorCapacityRef,
+  snapshotCapacityRef,
+  decommitCapacityRef,
+  pendingTxFitsRef,
+  capacityFitsRef,
+  capacityPrefixRef,
+  capacityPruneRef,
   settlementVersionRef,
   settlementReservationRef,
   reservationHeldRef,
@@ -54,11 +61,6 @@ module Hydra.Agda.OffChainReference (
   -- * round-robin leader (bound to the real 'Hydra.HeadLogic.isLeader')
   leaderRef,
 
-  -- * accumulator capacity and pruning
-  accumulatorCapacityRef,
-  snapshotCapacityRef,
-  decommitCapacityRef,
-  pendingTxFitsRef,
   -- * bounded reqTx outcomes, including committed changes and effects
   HsReqTxTerminal (..),
   HsReqTxChange (..),
@@ -196,21 +198,6 @@ contestEligibleRef = M.hsContestEligibleRef
 leaderRef :: Integer -> Integer -> Integer -> Bool
 leaderRef = M.hsLeaderRef
 
--- | Capacity of the deployed accumulator setup, in output references.
-accumulatorCapacityRef :: Integer
-accumulatorCapacityRef = M.hsAccumulatorCapacityRef
-
--- | Counts of the active set united with owed decommit and commit outputs.
-snapshotCapacityRef :: Integer -> Integer -> Bool
-snapshotCapacityRef = M.hsSnapshotCapacityRef
-
--- | Output count and post-application local/confirmed counts before exclusion.
-decommitCapacityRef :: Integer -> Integer -> Integer -> Bool
-decommitCapacityRef = M.hsDecommitCapacityRef
-
--- | Ledger applicability, held-output disjointness and both fanout counts.
-pendingTxFitsRef :: Bool -> Bool -> Integer -> Integer -> Bool
-pendingTxFitsRef = M.hsPendingTxFitsRef
 -- | Outcome of one reqTx attempt with no deposits, decommit, or previously pending
 -- transactions, fresh transaction output names, and a local UTxO equal to the
 -- settled confirmed UTxO. Inputs are
@@ -303,3 +290,27 @@ reserveRebaseRef = M.hsReserveRebaseRef
 -- | Whether a pending decommit warrants a round without ordinary transactions.
 newDecommitReadyRef :: Bool -> [Integer] -> [Integer] -> Bool
 newDecommitReadyRef = M.hsNewDecommitReadyRef
+
+-- | Deployed accumulator bound and independent count predicates from #2927.
+accumulatorCapacityRef :: Integer
+accumulatorCapacityRef = M.hsAccumulatorCapacityRef
+
+snapshotCapacityRef :: Integer -> Integer -> Bool
+snapshotCapacityRef = M.hsSnapshotCapacityRef
+
+decommitCapacityRef :: Integer -> Integer -> Integer -> Bool
+decommitCapacityRef = M.hsDecommitCapacityRef
+
+pendingTxFitsRef :: Bool -> Bool -> Integer -> Integer -> Bool
+pendingTxFitsRef = M.hsPendingTxFitsRef
+
+-- | Set-based checks with a small bound. Callers bridge to production by adding
+-- untouched background outputs; transactions must not name that background.
+capacityFitsRef :: Integer -> [Integer] -> [Integer] -> [Integer] -> Bool
+capacityFitsRef = M.hsCapacityFitsRef
+
+capacityPrefixRef :: Integer -> [Integer] -> [Integer] -> [[Integer]] -> [[Integer]] -> Integer
+capacityPrefixRef = M.hsCapacityPrefixRef
+
+capacityPruneRef :: Integer -> [Integer] -> [Integer] -> [Integer] -> [[Integer]] -> [[Integer]] -> [Integer]
+capacityPruneRef = M.hsCapacityPruneRef

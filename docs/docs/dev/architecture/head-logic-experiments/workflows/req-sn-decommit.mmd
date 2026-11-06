@@ -24,6 +24,8 @@ sequenceDiagram
     Note over logic: previous snapshot is confirmed: yes
     Note over logic: snapshot version matches: yes
     ledger-->>logic: ledger application: valid
+    Note over logic: unsettled fanout fits accumulator capacity: yes
+    Note over logic: settled fanout fits accumulator capacity: yes
     crypto-->>logic: primitive: sign snapshot
     logic->>effects: buffer: broadcast AckSn
     logic->>changes: stage: record requested snapshot and prune local transactions

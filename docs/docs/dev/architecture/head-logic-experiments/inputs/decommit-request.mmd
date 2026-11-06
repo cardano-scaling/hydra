@@ -10,6 +10,7 @@ sequenceDiagram
     Note over logic: no decommit is in flight: yes
     ledger-->>logic: ledger application: valid
     Note over logic: decommit produces outputs: yes
+    Note over logic: decommit fits local and confirmed capacity: yes
     logic->>effects: buffer: broadcast ReqDec
     Note over logic,effects: finish: commit changes and release effects
   end

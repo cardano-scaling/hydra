@@ -40,6 +40,7 @@ import Hydra.Network.Message (Message (..), NetworkEvent (..))
 import Hydra.Node.State (ChainPointTime (..), NodeState (..))
 import Hydra.Prelude hiding (delete, local, state)
 import Hydra.Tx (txId)
+import Hydra.Tx.Accumulator (maxAccumulatorSize)
 import Hydra.Tx.Crypto (Verified (..), sign, verifyMultiSignature)
 import Hydra.Tx.Party (vkey)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), getSnapshot)
@@ -157,6 +158,7 @@ invariantFailure world = safetyFailure world <|> progressFailure world
 -- | Safety is checked at every prefix, independently of eventual delivery.
 safetyFailure :: World -> Maybe Text
 safetyFailure world
+  | any oversizedSnapshot world.nodes = Just "snapshot exceeds accumulator capacity"
   | any invalidSignature world.nodes = Just "confirmed snapshot has invalid signatures"
   | or [a /= b | a <- world.confirmations, b <- world.confirmations, (a.version, a.number) == (b.version, b.number)] = Just "confirmed snapshots disagree at the same version and number"
   | not (all respectsDependencies world.confirmations) = Just "confirmed transactions violate dependency order"
@@ -164,6 +166,13 @@ safetyFailure world
   | any inconsistentLocalUTxO world.nodes = Just "local UTxO does not reconcile with snapshot and pending transactions"
   | otherwise = Nothing
  where
+  oversizedSnapshot st =
+    let c = (openState st).coordinatedHeadState
+        snapshots =
+          getSnapshot c.confirmedSnapshot : case c.seenSnapshot of
+            SeenSnapshot{snapshot} -> [snapshot]
+            _ -> []
+     in any (\s -> any ((> maxAccumulatorSize) . Set.size . (s.utxo <>)) [fold s.utxoToCommit, fold s.utxoToDecommit]) snapshots
   missingLocalTransaction st =
     let c = (openState st).coordinatedHeadState
      in any (\tx -> Map.lookup (txId tx) c.allTxs /= Just tx) c.localTxs

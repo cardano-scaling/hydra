@@ -13,6 +13,7 @@ reserved inputs during snapshot rebase.
 | [Snapshots.hs](../hydra-node/src/Hydra/HeadLogic/Machine/Coordinated/Snapshots.hs) | Own the candidate, signatures, confirmed snapshot and settlement retention, version changes and explicit adoption. |
 | [Transactions.hs](../hydra-node/src/Hydra/HeadLogic/Machine/Coordinated/Transactions.hs) | Own local UTxO, transaction order, registry, deposit selection and decommit reservation. |
 | [Types.hs](../hydra-node/src/Hydra/HeadLogic/Machine/Coordinated/Types.hs) | Internal command and response types; no `NodeState` passes between owners. |
+| [SnapshotRequest.hs](../hydra-node/src/Hydra/HeadLogic/Rules/SnapshotRequest.hs) and [SendSnapshot.hs](../hydra-node/src/Hydra/HeadLogic/Rules/SendSnapshot.hs) | Construct a capacity-checked proposal, consume owner acceptance, and derive its retained marker and message together. |
 | [SnapshotVerification.hs](../hydra-node/src/Hydra/HeadLogic/Rules/SnapshotVerification.hs) | Produce opaque confirmation evidence from the verification primitive. |
 | [CoordinatedSpec.hs](../hydra-node/test/Hydra/HeadLogic/CoordinatedSpec.hs) | Staging/replay/recovery agreement, terminal behavior, evidence binding and bounded invariant checks. |
 
@@ -69,7 +70,9 @@ lazy: staging a snapshot does not also replay all its local transactions.
 The snapshot owner cannot assign transaction fields through its port. A live
 confirmation command requires an opaque verification result, and its signed
 bytes must match the current candidate. A candidate cannot be confirmed before
-it exists. These are narrower, reviewable boundaries than unrestricted event
+it exists. A live request takes an opaque selected proposal, and the owner
+accepts it only while idle and at the matching head/version/number. Trusted
+replay retains its separate number-only adapter for existing persisted events. These are narrower, reviewable boundaries than unrestricted event
 construction in each rule.
 
 They are not a proof of the protocol. Verification still trusts the interpreter,
@@ -78,7 +81,7 @@ trusts retained events; its adapter can reconstruct a confirmation without
 cryptography or demanding cached signing bytes. Other rules still have access to `Program.change`. The reserved
 phase says a decommit is recorded, not that every UTxO update respects it.
 
-Two independent checks exposed defects that the phase types alone allow:
+Two independent checks exposed decommit defects that the phase types alone allow:
 rebase restored a reserved input, and the next leader proposed a decommit before
 its dependency was confirmed. The separate fix changes two places:
 
@@ -130,3 +133,7 @@ versions; it does not model settlement payload identity.
 
 Measure complete rounds and whole-node workloads before drawing a TPS conclusion;
 earlier measurements predate these owners.
+
+The [capacity port](docs/dev/architecture/head-logic-experiments/capacity.md) adds
+the analogous request contract: follower capacity rejection must not leave an
+honest leader stuck. It preserves these ownership and reservation rules.

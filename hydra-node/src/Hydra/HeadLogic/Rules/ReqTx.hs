@@ -31,10 +31,11 @@ import Data.Singletons.Base.TH (
 import Hydra.Chain.ChainState (IsChainState)
 import Hydra.HeadLogic.Input (TTL)
 import Hydra.HeadLogic.Machine.Coordinated qualified as Coordinated
-import Hydra.HeadLogic.Outcome (Effect (..), WaitReason (..))
+import Hydra.HeadLogic.Outcome (WaitReason (..))
 import Hydra.HeadLogic.Program qualified as Program
 import Hydra.HeadLogic.Rules.Environment (RuleEnvironment (..))
-import Hydra.HeadLogic.Rules.SnapshotRequest (SettlingCommit (..), SnapshotRequest (..), chainedSnapshotRequest, decommitStatus, isLeader, settlingCommitAtPeriod)
+import Hydra.HeadLogic.Rules.SendSnapshot (sendSnapshot)
+import Hydra.HeadLogic.Rules.SnapshotRequest (SettlingCommit (..), chainedSnapshotRequest, decommitStatus, isLeader, settlingCommitAtPeriod)
 import Hydra.HeadLogic.Rules.Transactions (checkTransactionOutputs)
 import Hydra.HeadLogic.State (
   CoordinatedHeadState (
@@ -53,7 +54,6 @@ import Hydra.HeadLogic.State (
  )
 import Hydra.HeadLogic.State.Operations (
   namesNoneOf,
-  settledUTxO,
  )
 import Hydra.HeadLogic.Workflow (
   Transition,
@@ -62,7 +62,6 @@ import Hydra.HeadLogic.Workflow (
   finish,
  )
 import Hydra.Ledger (ValidationError (..))
-import Hydra.Network.Message (Message (..))
 import Hydra.Node.State (ChainPointTime (..), Deposit (..), DepositStatus (..), PendingDeposits)
 import Hydra.Tx (UTxOType, txId, utxoFromTx)
 import Hydra.Tx.Snapshot (Snapshot (..), getSnapshot)
@@ -131,12 +130,11 @@ machine env ChainPointTime{currentSlot, currentChainTime} st ttl pendingDeposits
       when noSnapshot $ do
         leader <- Program.decide "this party leads the next snapshot" (isLeader parameters env.party nextSn)
         when leader $
-          case chainedSnapshotRequest confirmedUTxO (localTxs Seq.|> tx) pendingDeposits currentDepositTxId (decommitStatus version previous decommitTx) settlingCommit of
+          case chainedSnapshotRequest version previous (localTxs Seq.|> tx) pendingDeposits currentDepositTxId (decommitStatus version previous decommitTx) settlingCommit of
             Nothing -> void $ Program.decide "snapshot request has useful work" False
-            Just SnapshotRequest{requestTxs, requestDecommitTx, requestDepositTxId} -> do
+            Just request -> do
               void $ Program.decide "snapshot request has useful work" True
-              void $ Coordinated.stage runtime $ Coordinated.requestSnapshot nextSn
-              Program.emit $ NetworkEffect $ ReqSn version nextSn (txId <$> requestTxs) requestDecommitTx requestDepositTxId
+              sendSnapshot runtime request
     Retry runtime err -> continue (const Done) $ do
       -- Expiry still drops the payload. A later dependency does not wake this
       -- transaction; changing that recovery policy is deferred.
@@ -156,5 +154,4 @@ machine env ChainPointTime{currentSlot, currentChainTime} st ttl pendingDeposits
   CoordinatedHeadState{localTxs, localUTxO, allTxs, confirmedSnapshot, seenSnapshot, decommitTx, version, currentDepositTxId} = coordinatedHeadState
   previous = getSnapshot confirmedSnapshot
   nextSn = previous.number + 1
-  confirmedUTxO = settledUTxO version previous
   settlingCommit = settlingCommitAtPeriod env.depositPeriod version currentChainTime pendingDeposits previous

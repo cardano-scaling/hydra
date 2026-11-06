@@ -16,7 +16,7 @@ import Hydra.HeadLogic.Interpreter qualified as Interpreter
 import Hydra.HeadLogic.Machine.Coordinated qualified as Coordinated
 import Hydra.HeadLogic.Outcome (Outcome (Continue, Error, Wait), StateChanged (..), WaitReason (WaitOnSeenSnapshot))
 import Hydra.HeadLogic.Program qualified as Program
-import Hydra.HeadLogic.Rules.SnapshotRequest (DecommitStatus (..), chainedSnapshotRequest, decommitStatus)
+import Hydra.HeadLogic.Rules.SnapshotRequest (DecommitStatus (..), chainedSnapshotRequest, decommitStatus, nextSnapshotRequest)
 import Hydra.HeadLogic.Rules.SnapshotVerification (verifyCandidate)
 import Hydra.HeadLogic.State (CoordinatedHeadState (..), OpenState (..), SeenSnapshot (SeenSnapshot), mkSeenSnapshot)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..))
@@ -46,7 +46,7 @@ spec = describe "coordinated state owners" $ do
             CarryDecommit{} -> True
             _ -> False
       eligible `shouldBe` Agda.decommitReadyRef carried reserved confirmed
-      isJust (chainedSnapshotRequest base.utxo mempty mempty Nothing (decommitStatus 0 base $ Just tx) Nothing)
+      isJust (chainedSnapshotRequest 0 base mempty mempty Nothing (decommitStatus 0 base $ Just tx) Nothing)
         `shouldBe` Agda.newDecommitReadyRef carried reserved confirmed
       let rebased :: Snapshot SimpleTx
           rebased = base{utxo = fromList $ fromInteger <$> available}
@@ -76,10 +76,11 @@ spec = describe "coordinated state owners" $ do
       _ -> fail "snapshot staging does not complete"
 
   it "carries a live continuation without forcing the validated UTxO projection" $ do
+    request <- maybe (fail "no request") pure $ nextSnapshotRequest 0 Scenario.initialSnapshot mempty mempty Nothing NoDecommit Nothing
     let program :: Program.Program SimpleTx 'False 'False ()
         program = do
           next <- Coordinated.stage (Coordinated.start open) $ Coordinated.applyTransaction Scenario.transactionOne (error "before demanded") (error "after demanded")
-          void $ Coordinated.stage next $ Coordinated.requestSnapshot 1
+          void $ Coordinated.stage next $ Coordinated.requestSnapshot request
     Interpreter.runProgramWith Interpreter.basicConfig program
       `shouldBe` Continue [TransactionAppliedToLocalUTxO testHeadId Scenario.transactionOne, SnapshotRequestDecided 1] []
 

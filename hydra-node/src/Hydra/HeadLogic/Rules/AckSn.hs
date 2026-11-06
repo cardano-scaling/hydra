@@ -35,7 +35,8 @@ import Hydra.HeadLogic.Machine.Coordinated qualified as Coordinated
 import Hydra.HeadLogic.Outcome (Effect (..), StateChanged (..), WaitReason (..))
 import Hydra.HeadLogic.Program qualified as Program
 import Hydra.HeadLogic.Rules.Environment (RuleEnvironment (..))
-import Hydra.HeadLogic.Rules.SnapshotRequest (SnapshotRequest (..), chainedSnapshotRequest, decommitStatus, isLeader, settlingCommitAtPeriod)
+import Hydra.HeadLogic.Rules.SendSnapshot (sendSnapshot)
+import Hydra.HeadLogic.Rules.SnapshotRequest (chainedSnapshotRequest, decommitStatus, isLeader, settlingCommitAtPeriod)
 import Hydra.HeadLogic.Rules.SnapshotVerification (VerifiedSnapshot, verifiedSignatures, verifiedSnapshot, verifyCandidate)
 import Hydra.HeadLogic.State (
   CoordinatedHeadState (
@@ -62,14 +63,12 @@ import Hydra.HeadLogic.State (
   ),
   seenSnapshotNumber,
  )
-import Hydra.HeadLogic.State.Operations (settledUTxO)
 import Hydra.HeadLogic.Workflow (
   Transition,
   Workflow,
   continue,
   finish,
  )
-import Hydra.Network.Message (Message (..))
 import Hydra.Node.State (ChainPointTime (..), Deposit (..), PendingDeposits)
 import Hydra.Tx (txId)
 import Hydra.Tx.Crypto (Signature, aggregateInOrder)
@@ -160,10 +159,8 @@ machine env ChainPointTime{currentChainTime} pendingDeposits openState otherPart
           Program.emit OnChainEffect{postChainTx = DecrementTx{headSeed, headId, headParameters = parameters, decrementingSnapshot = ConfirmedSnapshot{snapshot, signatures}}}
         _ -> pure ()
       let nextSn = snapshot.number + 1
-      case chainedSnapshotRequest (settledUTxO version snapshot) localTxs pendingDeposits currentDepositTxId (decommitStatus version snapshot decommitTx) (settlingCommitAtPeriod env.depositPeriod version currentChainTime pendingDeposits snapshot) of
-        Just SnapshotRequest{requestTxs, requestDecommitTx, requestDepositTxId} | isLeader parameters env.party nextSn -> do
-          void $ Coordinated.stage confirmedRuntime $ Coordinated.requestSnapshot nextSn
-          Program.emit $ NetworkEffect $ ReqSn version nextSn (txId <$> requestTxs) requestDecommitTx requestDepositTxId
+      case chainedSnapshotRequest version snapshot localTxs pendingDeposits currentDepositTxId (decommitStatus version snapshot decommitTx) (settlingCommitAtPeriod env.depositPeriod version currentChainTime pendingDeposits snapshot) of
+        Just request | isLeader parameters env.party nextSn -> sendSnapshot confirmedRuntime request
         _ -> pure ()
     Done -> finish Done
 

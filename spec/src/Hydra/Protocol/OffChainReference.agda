@@ -267,32 +267,6 @@ reqTxOutcomeRef true _ inFlight m nextSn partyIndex =
 {-# COMPILE GHC allSignedRef            as hsAllSignedRef            #-}
 {-# COMPILE GHC contestEligibleRef      as hsContestEligibleRef      #-}
 {-# COMPILE GHC leaderRef               as hsLeaderRef               #-}
-
--- Capacity policy for the deployed 32768-power setup. Counts are over output
--- references, after forming each union; overlapping entries count only once.
-accumulatorCapacityRef : Nat
-accumulatorCapacityRef = 32767
-
-snapshotCapacityRef : Nat → Nat → Bool
-snapshotCapacityRef withDecommit withCommit =
-  (withDecommit < suc accumulatorCapacityRef) && (withCommit < suc accumulatorCapacityRef)
-
--- Admission counts include the decommit's outputs before they are excluded
--- from the spendable ledger. Pending local merges cannot provide confirmed space.
-decommitCapacityRef : Nat → Nat → Nat → Bool
-decommitCapacityRef outputCount localAfter confirmedAfter =
-  (0 < outputCount) && snapshotCapacityRef localAfter confirmedAfter
-
--- A ledger-valid pending transaction can still be pruned for a held-output
--- collision or either fanout set exceeding the accumulator capacity.
-pendingTxFitsRef : Bool → Bool → Nat → Nat → Bool
-pendingTxFitsRef applicable outputsDisjoint withDecommit withCommit =
-  applicable && outputsDisjoint && snapshotCapacityRef withDecommit withCommit
-
-{-# COMPILE GHC accumulatorCapacityRef as hsAccumulatorCapacityRef #-}
-{-# COMPILE GHC snapshotCapacityRef    as hsSnapshotCapacityRef    #-}
-{-# COMPILE GHC decommitCapacityRef    as hsDecommitCapacityRef    #-}
-{-# COMPILE GHC pendingTxFitsRef       as hsPendingTxFitsRef       #-}
 {-# COMPILE GHC reqTxOutcomeRef         as hsReqTxOutcomeRef         #-}
 
 -- Bounded snapshot outcomes use named terminals, reasons, changes and effects.
@@ -618,3 +592,83 @@ newDecommitReadyRef carried inputs confirmed =
 
 {-# COMPILE GHC reserveRebaseRef as hsReserveRebaseRef #-}
 {-# COMPILE GHC newDecommitReadyRef as hsNewDecommitReadyRef #-}
+
+-- Capacity policy for the deployed 32768-power setup. Counts are over output
+-- references, after forming each union; overlapping entries count only once.
+accumulatorCapacityRef : Nat
+accumulatorCapacityRef = 32767
+
+snapshotCapacityRef : Nat → Nat → Bool
+snapshotCapacityRef withDecommit withCommit =
+  (withDecommit < suc accumulatorCapacityRef) && (withCommit < suc accumulatorCapacityRef)
+
+-- Admission counts include the decommit's outputs before they are excluded
+-- from the spendable ledger. Pending local merges cannot provide confirmed space.
+decommitCapacityRef : Nat → Nat → Nat → Bool
+decommitCapacityRef outputCount localAfter confirmedAfter =
+  (0 < outputCount) && snapshotCapacityRef localAfter confirmedAfter
+
+-- A ledger-valid pending transaction can still be pruned for a held-output
+-- collision or either fanout set exceeding the accumulator capacity.
+pendingTxFitsRef : Bool → Bool → Nat → Nat → Bool
+pendingTxFitsRef applicable outputsDisjoint withDecommit withCommit =
+  applicable && outputsDisjoint && snapshotCapacityRef withDecommit withCommit
+
+{-# COMPILE GHC accumulatorCapacityRef as hsAccumulatorCapacityRef #-}
+{-# COMPILE GHC snapshotCapacityRef    as hsSnapshotCapacityRef    #-}
+{-# COMPILE GHC decommitCapacityRef    as hsDecommitCapacityRef    #-}
+{-# COMPILE GHC pendingTxFitsRef       as hsPendingTxFitsRef       #-}
+
+-- Small-set capacity model. Inputs are natural-number references; union removes
+-- duplicate names. Prefix selection below covers ordinary transactions and a
+-- carried commit. New deposits use the selected final ledger, and decommits are
+-- covered by the separate admission predicates above. No script or slot model.
+capacityUnique : List Nat → List Nat
+capacityUnique [] = []
+capacityUnique (x ∷ xs) = if elemᵇ x xs then capacityUnique xs else (x ∷ capacityUnique xs)
+
+capacityUnion : List Nat → List Nat → List Nat
+capacityUnion [] ys = capacityUnique ys
+capacityUnion (x ∷ xs) ys = capacityUnion xs (if elemᵇ x ys then ys else (x ∷ ys))
+
+capacityLength : List Nat → Nat
+capacityLength [] = 0
+capacityLength (_ ∷ xs) = suc (capacityLength xs)
+
+capacityFitsRef : Nat → List Nat → List Nat → List Nat → Bool
+capacityFitsRef limit active commit decommit =
+  (capacityLength (capacityUnion active decommit) < suc limit) &&
+  (capacityLength (capacityUnion active commit) < suc limit)
+
+capacityApply : List Nat → List Nat → List Nat → List Nat
+capacityApply available inputs outputs = capacityUnion (reserveRebaseRef inputs available) outputs
+
+-- The returned count identifies the requested prefix. The held names belong to
+-- the original base and carried commit, not just the running spendable ledger.
+capacityPrefixRef : Nat → List Nat → List Nat → List (List Nat) → List (List Nat) → Nat
+capacityPrefixRef limit base commit = go base
+ where
+  go : List Nat → List (List Nat) → List (List Nat) → Nat
+  go available (inputs ∷ ins) (outputs ∷ outs) =
+    if reservationHeldRef outputs (capacityUnion base commit) &&
+       capacityFitsRef limit (capacityApply available inputs outputs) commit []
+    then suc (go (capacityApply available inputs outputs) ins outs) else 0
+  go _ _ _ = 0
+
+-- Pruning can skip a blocked transaction and retain an independent later one.
+-- Return the one-based positions kept, so tests compare identities, not counts.
+capacityPruneRef : Nat → List Nat → List Nat → List Nat → List (List Nat) → List (List Nat) → List Nat
+capacityPruneRef limit base commit decommit = go 1 base
+ where
+  go : Nat → List Nat → List (List Nat) → List (List Nat) → List Nat
+  go index available (inputs ∷ ins) (outputs ∷ outs) =
+    if decommitReadyRef false inputs available &&
+       reservationHeldRef outputs (capacityUnion available commit) &&
+       capacityFitsRef limit (capacityApply available inputs outputs) commit decommit
+    then (index ∷ go (suc index) (capacityApply available inputs outputs) ins outs)
+    else go (suc index) available ins outs
+  go _ _ _ _ = []
+
+{-# COMPILE GHC capacityFitsRef as hsCapacityFitsRef #-}
+{-# COMPILE GHC capacityPrefixRef as hsCapacityPrefixRef #-}
+{-# COMPILE GHC capacityPruneRef as hsCapacityPruneRef #-}

@@ -407,7 +407,7 @@
   "docs/head-logic-machines/coordinated.mmd": {
     "group": "Retained-event machines",
     "title": "Snapshot and transaction owners",
-    "description": "Generated from the executable Snapshots \u2192 Transactions composition. Typed ports carry rebases, settlement and clearing. A fresh decrement releases a reservation; a repeated observation preserves it. Reserved means a decommit is recorded, not that every ledger property holds."
+    "description": "Generated from the executable Snapshots \u2192 Transactions composition. Typed ports carry rebases, settlement and clearing. A fresh decrement releases a reservation; a repeated observation preserves it. Reserved means a decommit is recorded, not that every ledger property holds. Live requests require a checked proposal and start only from AwaitingRequest; the CollectingSignatures to RequestSent edge exists for trusted event replay."
   },
   "docs/head-logic-machines/decommit-ownership.mmd": {
     "group": "Retained-event machines",
@@ -432,6 +432,16 @@
   "docs/docs/dev/architecture/head-logic-experiments/traces/capacity-before-rebase.mmd": {
     "group": "Counterexamples and replay",
     "title": "Oversized snapshot request before rebase",
-    "description": "Production execution at 386e95947 reproduces #2924. The split records a request, ReqSn rejects for capacity, and the later merge cannot request another round. Lanes separate rules, ledger queries, staged changes and effects. The rejection does not undo the preceding completed invocation. See the snapshot-capacity investigation for the three-party checks and runnable witness."
+    "description": "Historical production trace at 386e95947: the split records a request, ReqSn rejects for capacity, and the later merge cannot request another round. The rejection cannot undo the preceding completed input. The capacity lab now reproduces the defect with frozen programs."
+  },
+  "docs/docs/dev/architecture/head-logic-experiments/traces/capacity-historical-v1.json.mmd": {
+    "group": "Counterexamples and recovery",
+    "title": "Historical capacity stall",
+    "description": "Frozen programs accept the split and independent merge locally, but the oversized snapshot 4 request is rejected everywhere. Nine FIFO deliveries leave snapshot 3 confirmed and the leader stuck."
+  },
+  "docs/docs/dev/architecture/head-logic-experiments/traces/capacity-fixed-v1.json.mmd": {
+    "group": "Counterexamples and recovery",
+    "title": "Capacity pruning and progress",
+    "description": "The current rules request empty snapshot 4, prune the overflowing split, then confirm the independent merge in snapshot 5. Each delivery checks independent invariants and serialized replay; a capacity check precedes the live request marker."
   }
 }

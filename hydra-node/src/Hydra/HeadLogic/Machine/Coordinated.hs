@@ -37,6 +37,7 @@ import Hydra.HeadLogic.Machine.Coordinated.Types (Command (..), SnapshotState (.
 import Hydra.HeadLogic.Outcome (StateChanged (..))
 import Hydra.HeadLogic.Program (Program)
 import Hydra.HeadLogic.Program qualified as Program
+import Hydra.HeadLogic.Rules.SnapshotRequest (SnapshotRequest)
 import Hydra.HeadLogic.Rules.SnapshotVerification (VerifiedSnapshot, verifiedRepresentation, verifiedSignatures, verifiedSnapshot)
 import Hydra.HeadLogic.State (CoordinatedHeadState (..), OpenState (..))
 import Hydra.Ledger (ValidationError)
@@ -130,7 +131,7 @@ recordSignature = RecordSignature
 confirmSnapshot :: VerifiedSnapshot tx -> Command tx
 confirmSnapshot verified = ConfirmSnapshot (verifiedRepresentation verified) (verifiedSignatures verified)
 
-requestSnapshot :: SnapshotNumber -> Command tx
+requestSnapshot :: SnapshotRequest tx -> Command tx
 requestSnapshot = RequestSnapshot
 
 -- | Trusted replay adapter. The registry supplies the deposited UTxO before
@@ -141,7 +142,7 @@ fromEvent deposited = \case
   TransactionAppliedToLocalUTxO _ tx -> Just $ Transactions $ ApplyTransaction tx
   TxInvalid _ utxo tx err -> Just $ Transactions $ ForgetTransaction utxo tx err
   DecommitRecorded _ tx -> Just $ reserveDecommit tx
-  SnapshotRequestDecided number -> Just $ requestSnapshot number
+  SnapshotRequestDecided number -> Just $ ReplaySnapshotRequest number
   SnapshotRequested snapshot txs deposit -> Just $ acceptSnapshot snapshot txs deposit
   PartySignedSnapshot number party signature -> Just $ recordSignature number party signature
   SnapshotConfirmed _ Nothing signatures -> Just $ ReplayConfirmation signatures

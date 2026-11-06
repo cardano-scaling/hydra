@@ -10,7 +10,7 @@ code version named in each section; they are not all measurements of today's nod
 | [Lab guide](lab.md) | Commands for traces, explorer, primitive replay, resolved changes, and the maintenance exercise. |
 | [Peer demonstration](demonstration.md) | A real Cardano witness-replacement bug, retry expiry, and settlement/rollback schedules. |
 | [Bug ledger](bugs.md) | Reproducers, fixed defects, retained behavior, and findings queued for a separate fix. |
-| [Snapshot capacity](capacity.md) | Investigation of upstream PR #2927: request evidence, selection/pruning, and the missing progress check. No rebase or capacity fix is applied here. |
+| [Snapshot capacity](capacity.md) | PR #2927 ported into shared rules, checked proposals at the live request boundary, and a reproducible split/prune/merge sequence. |
 | [Measurements](measurements.md) | Local rounds, allocations, recovery, whole-node throughput, and the limits of each comparison. Raw summaries are in `measurements/`. |
 | [Original sketch](original-sketch.md) | The earlier proposal. The current rule/module design is in the review guide. |
 | [Agda generation proposal](agda-generated.md) | How machine-checked rules might generate the Haskell layer; speculative, with no production code change. |

@@ -49,12 +49,6 @@ recordDeposit slot depositTxId deposit nodeState =
           pruneConsumedDeposits slot (deposits nodeState)
     }
 
--- | Update a tracked deposit (e.g. on status changes); its lifecycle slots are
--- unaffected. Unknown ids are ignored.
-updateDeposit :: IsTx tx => TxIdType tx -> Deposit tx -> NodeState tx -> NodeState tx
-updateDeposit depositTxId deposit nodeState =
-  nodeState{deposits = Map.alter (DepositMachine.transition $ DepositMachine.Update deposit) depositTxId (deposits nodeState)}
-
 -- | Mark a deposit consumed at the given slot: its increment or recover was
 -- observed on chain. Re-consuming (the consuming transaction re-landed after a
 -- rollback) re-stamps the slot, so a rollback of the re-landed transaction

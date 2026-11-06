@@ -28,11 +28,11 @@ import Data.Singletons.Base.TH (
 import Hydra.Chain.ChainState (IsChainState (..))
 import Hydra.HeadLogic.Error (LogicError)
 import Hydra.HeadLogic.Machine.Coordinated qualified as Coordinated
-import Hydra.HeadLogic.Outcome (Effect (..))
 import Hydra.HeadLogic.Program qualified as Program
 import Hydra.HeadLogic.Rules.Environment (RuleEnvironment (party))
+import Hydra.HeadLogic.Rules.SendSnapshot (sendSnapshot)
 import Hydra.HeadLogic.Rules.SnapshotRequest (
-  SnapshotRequest (SnapshotRequest, requestDecommitTx, requestDepositTxId, requestTxs),
+  SnapshotRequest,
   chainedSnapshotRequest,
   decommitStatus,
   isLeader,
@@ -56,17 +56,15 @@ import Hydra.HeadLogic.State (
   ),
   isCollectingAcks,
  )
-import Hydra.HeadLogic.State.Operations (settledUTxO)
 import Hydra.HeadLogic.Workflow (
   Transition,
   Workflow,
   continue,
   finish,
  )
-import Hydra.Network.Message (Message (..))
 import Hydra.Node.State (Deposit (deposited), PendingDeposits)
 import Hydra.Prelude hiding (State, state)
-import Hydra.Tx (IsTx, TxIdType, UTxOType, txId)
+import Hydra.Tx (IsTx, TxIdType, UTxOType)
 import Hydra.Tx.Crypto (MultiSignature)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.Party (Party (vkey))
@@ -136,8 +134,8 @@ machine env pendingDeposits os@OpenState{parameters, coordinatedHeadState} newCh
     let current = Coordinated.currentState runtime
         decommit = decommitStatus newVersion snapshot current.decommitTx
      in case settlement of
-          Increment depositId -> chainedSnapshotRequest (settledUTxO newVersion snapshot) current.localTxs (Map.delete depositId pendingDeposits) Nothing decommit Nothing
-          Decrement{} -> chainedSnapshotRequest (settledUTxO newVersion snapshot) current.localTxs pendingDeposits current.currentDepositTxId decommit Nothing
+          Increment depositId -> chainedSnapshotRequest newVersion snapshot current.localTxs (Map.delete depositId pendingDeposits) Nothing decommit Nothing
+          Decrement{} -> chainedSnapshotRequest newVersion snapshot current.localTxs pendingDeposits current.currentDepositTxId decommit Nothing
 
   previous = getSnapshot confirmedSnapshot
   vkeys = vkey <$> parameters.parties
@@ -149,10 +147,9 @@ maybeRequestSnapshotAfterVersionBump :: IsTx tx => Coordinated.Runtime tx -> Hea
 maybeRequestSnapshotAfterVersionBump runtime parameters party nextSn request version newVersion seenSnapshot =
   case request of
     Nothing -> pure ()
-    Just SnapshotRequest{requestTxs, requestDecommitTx, requestDepositTxId} -> do
+    Just proposal -> do
       eligible <-
         Program.decide "leader can request at the advanced version" $
           isLeader parameters party nextSn && newVersion > version && not (isCollectingAcks seenSnapshot)
       when eligible $ do
-        void $ Coordinated.stage runtime $ Coordinated.requestSnapshot nextSn
-        Program.emit $ NetworkEffect $ ReqSn newVersion nextSn (txId <$> requestTxs) requestDecommitTx requestDepositTxId
+        sendSnapshot runtime proposal
