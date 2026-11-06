@@ -165,6 +165,124 @@ spec =
         update bobEnv ledger now s0 reqTx
           `assertWait` WaitOnNotApplicableTx (ValidationError "cannot apply transaction")
 
+      describe "accumulator capacity" $ do
+        let limit = fromIntegral Accumulator.maxAccumulatorSize
+            fullUTxO = utxoRefs [1 .. limit]
+            split = SimpleTx 1 (utxoRef 1) (utxoRefs [limit + 1, limit + 2])
+            merge = SimpleTx 2 (utxoRefs [1, 2]) (utxoRef (limit + 3))
+            expiredReqTx :: SimpleTx -> Input SimpleTx
+            expiredReqTx tx = NetworkInput 0 $ ReceivedMessage{sender = alice, msg = ReqTx tx}
+
+        it "requests transactions only up to the capacity limit" $ do
+          let u0 = utxoRefs [1 .. limit - 1]
+          (nextSnapshotRequest u0 (Seq.singleton split) mempty Nothing Nothing Nothing).requestTxs `shouldBe` [split]
+          (nextSnapshotRequest fullUTxO (Seq.singleton split) mempty Nothing Nothing Nothing).requestTxs `shouldBe` []
+
+        it "reserves outputs owed by pending commits and decommits" $ do
+          now <- getCurrentTime
+          let u0 = utxoRefs [1 .. limit - 1]
+              deposit = Deposit{headId = testHeadId, deposited = utxoRef (limit + 10), created = now, deadline = addUTCTime 3600 now, status = Active}
+              requests =
+                [ chainedSnapshotRequest u0 (Seq.singleton split) mempty Nothing Nothing (Just $ ContinueCommit (7, deposit))
+                , chainedSnapshotRequest u0 (Seq.singleton split) mempty Nothing (Just $ SimpleTx 3 mempty deposit.deposited) Nothing
+                ]
+          forM_ requests $ \request -> do
+            isJust request `shouldBe` True
+            fmap (.requestTxs) request `shouldBe` Just []
+          isNothing (chainedSnapshotRequest u0 mempty mempty Nothing Nothing (Just $ ContinueCommit (7, deposit))) `shouldBe` True
+
+        it "prunes transactions blocked by a settling commit so an independent merge can proceed" $ do
+          now <- getCurrentTime
+          let u0 = utxoRefs [1 .. limit - 1]
+              deposit = Deposit{headId = testHeadId, deposited = utxoRef (limit + 10), created = now, deadline = addUTCTime 3600 now, status = Active}
+              claiming :: Snapshot SimpleTx
+              claiming = (testSnapshot 1 0 [] u0){utxoToCommit = Just deposit.deposited, depositTxId = Just 7}
+              independentMerge = SimpleTx 4 (utxoRefs [2, 3]) (utxoRef (limit + 20))
+              colliding = SimpleTx 3 mempty deposit.deposited
+          forM_ [split, colliding] $ \blocked -> do
+            let txs = Seq.fromList [blocked, independentMerge]
+                st =
+                  (inOpenState' threeParties coordinatedHeadState{localUTxO = foldl' (flip applyTxTo) u0 txs, localTxs = txs, confirmedSnapshot = ConfirmedSnapshot claiming mempty, seenSnapshot = LastSeenSnapshot 1})
+                    { deposits = trackedFromPending (Map.singleton 7 deposit)
+                    }
+            chainTime <- nowFromSlot st.chainPointTime.currentSlot
+            let pruned = aggregateState st $ update aliceEnv ledger chainTime st (receiveMessageFrom bob $ ReqSn 0 2 [] Nothing (Just 7))
+            headState pruned `shouldSatisfy` \case
+              Open OpenState{coordinatedHeadState = CoordinatedHeadState{localTxs}} -> localTxs == Seq.singleton independentMerge
+              _ -> False
+            fmap (.requestTxs) (chainedSnapshotRequest u0 (Seq.singleton independentMerge) mempty Nothing Nothing (Just $ ContinueCommit (7, deposit)))
+              `shouldBe` Just [independentMerge]
+
+        it "keeps competing optimistic transactions available for a delayed valid snapshot" $ do
+          let u0 = utxoRefs [1 .. limit - 1]
+              competing = SimpleTx 3 (utxoRef 2) (utxoRefs [limit + 3, limit + 4])
+              st = inOpenState' threeParties coordinatedHeadState{localUTxO = u0, confirmedSnapshot = ConfirmedSnapshot (testSnapshot 0 0 [] u0) mempty}
+          (optimistic, signed) <- runHeadLogic bobEnv ledger st $ do
+            step (receiveMessage $ ReqTx split)
+            -- Both transactions fit independently. The follower sees them in
+            -- a different order from the leader, beyond the retry budget.
+            step (expiredReqTx competing)
+            optimistic <- getState
+            signed <- step (receiveMessage $ ReqSn 0 1 [txId competing] Nothing Nothing)
+            pure (optimistic, signed)
+          headState optimistic `shouldSatisfy` \case
+            Open OpenState{coordinatedHeadState = CoordinatedHeadState{localUTxO, allTxs}} ->
+              length (outputsOfUTxO localUTxO) == fromIntegral limit + 1
+                && Map.member (txId split) allTxs
+                && Map.member (txId competing) allTxs
+            _ -> False
+          signed `hasEffectSatisfying` \case
+            NetworkEffect AckSn{} -> True
+            _ -> False
+          headState (aggregateState optimistic signed) `shouldSatisfy` \case
+            Open OpenState{coordinatedHeadState = CoordinatedHeadState{localUTxO, localTxs}} ->
+              localUTxO == applyTxTo competing u0 && null localTxs
+            _ -> False
+
+        it "requires a merge to confirm before an expanding decommit relies on its capacity" $ do
+          let neutral = SimpleTx 3 (utxoRef 3) (utxoRef (limit + 10))
+              pendingMerge = SimpleTx 4 (utxoRefs [4, 5]) (utxoRef (limit + 11))
+              txs = Seq.fromList [neutral, pendingMerge]
+              mergedLocalUTxO = foldl' (flip applyTxTo) fullUTxO txs
+              st = inOpenState' threeParties coordinatedHeadState{localUTxO = mergedLocalUTxO, localTxs = txs, confirmedSnapshot = ConfirmedSnapshot (testSnapshot 0 0 [] fullUTxO) mempty}
+          now <- nowFromSlot st.chainPointTime.currentSlot
+          forM_ [receiveMessage $ ReqDec split, ClientInput $ Decommit split] $ \input ->
+            update aliceEnv ledger now st input
+              `hasStateChangedSatisfying` \case
+                DecommitInvalid{decommitTx} -> decommitTx == split
+                _ -> False
+          -- Once the merge is confirmed, the same decommit fits even before
+          -- regular transactions are applied to the next snapshot.
+          let confirmed = inOpenState' threeParties coordinatedHeadState{localUTxO = mergedLocalUTxO, confirmedSnapshot = ConfirmedSnapshot (testSnapshot 0 0 [] mergedLocalUTxO) mempty}
+          update aliceEnv ledger now confirmed (receiveMessage $ ReqDec split)
+            `hasStateChangedSatisfying` \case
+              DecommitRecorded{decommitTx} -> decommitTx == split
+              _ -> False
+
+        it "selects only deposits that fit alongside the requested transactions" $ do
+          now <- getCurrentTime
+          forM_ [(1, Just 7), (3, Nothing)] $ \(count, expectedDeposit) -> do
+            let deposit = Deposit{headId = testHeadId, deposited = utxoRefs [limit + 10 .. limit + 9 + count], created = now, deadline = addUTCTime 3600 now, status = Active}
+                request = nextSnapshotRequest fullUTxO (Seq.singleton merge) (Map.singleton 7 deposit) (Just 7) Nothing Nothing
+            request.requestDepositTxId `shouldBe` expectedDeposit
+            request.requestTxs `shouldBe` [merge]
+
+        it "cuts and prunes an overflowing prefix even if a later merge fits" $ do
+          let laterMerge = SimpleTx 2 (utxoRefs [2, 3]) (utxoRef (limit + 3))
+              txs = Seq.fromList [split, laterMerge]
+              request = nextSnapshotRequest fullUTxO txs mempty Nothing Nothing Nothing
+          request.requestTxs `shouldBe` []
+          isJust (chainedSnapshotRequest fullUTxO txs mempty Nothing Nothing Nothing) `shouldBe` True
+          -- The empty snapshot prunes the overflowing tx while retaining the
+          -- independent merge, including pending state from before upgrade.
+          let st = inOpenState' threeParties coordinatedHeadState{localUTxO = foldl' (flip applyTxTo) fullUTxO txs, localTxs = txs, allTxs = Map.fromList [(txId tx, tx) | tx <- toList txs], confirmedSnapshot = ConfirmedSnapshot (testSnapshot 0 0 [] fullUTxO) mempty}
+          now <- nowFromSlot st.chainPointTime.currentSlot
+          let outcome = update aliceEnv ledger now st (receiveMessage $ ReqSn 0 1 [] Nothing Nothing)
+          headState (aggregateState st outcome) `shouldSatisfy` \case
+            Open OpenState{coordinatedHeadState = CoordinatedHeadState{localUTxO, localTxs}} ->
+              localUTxO == applyTxTo laterMerge fullUTxO && localTxs == Seq.singleton laterMerge
+            _ -> False
+
       it "accepts a ReqSn with more transactions than maxTxsPerSnapshot" $ do
         -- The cap only limits what a leader puts into a ReqSn; followers must
         -- accept larger requests, so the constant can be changed without a
@@ -980,12 +1098,12 @@ spec =
                     }
                 requests :: Outcome SimpleTx -> [([Integer], Maybe Integer)]
                 requests o = [(transactionIds, depositTxId) | NetworkEffect ReqSn{transactionIds, depositTxId} <- effectsOf o]
-            -- Txs before the colliding one go out; it and later ones wait.
+            -- Select the prefix before the colliding transaction.
             o <- runHeadLogic singlePartyEnv ledger (settling [fine, colliding] (utxoRef 3 <> depositedUtxo <> utxoRef 5)) $ step (receiveMessage $ ReqTx another)
             requests o `shouldBe` [([txId fine], Just pendingDepositTxId)]
-            -- Nothing before it: no request.
+            -- Nothing before it: request a snapshot to prune it.
             o' <- runHeadLogic singlePartyEnv ledger (settling [colliding] (utxoRef 1 <> depositedUtxo <> utxoRef 5)) $ step (receiveMessage $ ReqTx another)
-            requests o' `shouldBe` []
+            requests o' `shouldBe` [([], Just pendingDepositTxId)]
 
           it "on tick, drops a settling commit only once its increment can no longer land, never claiming another" $ do
             now <- getCurrentTime
@@ -1491,17 +1609,18 @@ spec =
             DecommitRecorded{headId, decommitTx} -> headId == testHeadId && utxoFromTx decommitTx == outputs
             _ -> False
 
-        it "rejects a decommit tx that materializes no output" $ do
+        it "rejects a decommit tx with no outputs or too many outputs" $ do
           -- 'Hydra.Contract.Head.checkDecrement' requires at least one decommit
           -- output, so such a decommit could never settle on-chain. Recording it
           -- would block every later snapshot, which cannot carry another one.
-          let decommitTx = SimpleTx 1 mempty mempty
-              st = inOpenState threeParties
+          let st = inOpenState threeParties
+              tooMany = utxoRefs [1 .. fromIntegral Accumulator.maxAccumulatorSize + 1]
           now <- nowFromSlot st.chainPointTime.currentSlot
-          update aliceEnv ledger now st (receiveMessage ReqDec{transaction = decommitTx})
-            `hasStateChangedSatisfying` \case
-              DecommitInvalid{decommitTx = invalidTx} -> invalidTx == decommitTx
-              _ -> False
+          forM_ [SimpleTx 1 mempty mempty, SimpleTx 2 mempty tooMany] $ \decommitTx ->
+            update aliceEnv ledger now st (receiveMessage ReqDec{transaction = decommitTx})
+              `hasStateChangedSatisfying` \case
+                DecommitInvalid{decommitTx = invalidTx} -> invalidTx == decommitTx
+                _ -> False
 
         it "rejects a ReqSn whose decommit tx materializes no output" $ do
           let decommitTx = SimpleTx 1 mempty mempty

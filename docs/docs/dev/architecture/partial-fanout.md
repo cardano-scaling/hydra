@@ -256,6 +256,17 @@ A requested snapshot that would exceed this is rejected with
 `ReqSnUTxOSetTooLarge`, so the head cannot reach a state it would be unable to fan
 out.
 
+Snapshot construction enforces the same bound, including outputs owed by pending
+commits and decommits. The optimistic local UTxO may temporarily exceed it:
+`TxValid` indicates local ledger acceptance, not inclusion in the next snapshot.
+Transactions that do not fit are pruned when a snapshot is applied; new deposits
+that do not fit are deferred. Confirm any merges an expanding decommit relies on
+before submitting it.
+
+For a head already stalled on an older version,
+[side-load the last confirmed snapshot](/docs/how-to/sideload-snapshot) on all
+nodes to clear pending local state.
+
 The same bound applies to a snapshot supplied by a client rather than by a peer.
 A [side-loaded snapshot](/docs/how-to/sideload-snapshot) above the limit is
 refused by the API with a `400` before it reaches the head logic, which keeps its
