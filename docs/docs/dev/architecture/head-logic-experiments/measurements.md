@@ -773,3 +773,16 @@ HEADLOGIC_BENCH_MAX_BACKLOG=0 HEADLOGIC_BENCH_ORDER=legacy-first \
 # For the large cases, use --match pattern /utxo-10000/backlog-0/input/
 # with --time-limit 10 --resamples 10000 in both orders.
 ```
+
+## Coordinated state ownership follow-up
+
+The snapshot/transaction owner composition is newer than the measurements above.
+Live staging produces the existing events; replay applies the state transition.
+The transaction projection stays lazy so staging a snapshot does not also rebuild
+its local UTxO. A regression test checks that boundary. Confirmation compares the
+verified signed bytes with the candidate's cached bytes, rather than comparing
+whole UTxOs. Retained confirmation replay skips that comparison and does not
+demand cached signing bytes; a second regression test checks this. This still
+adds component and continuation work. The earlier timing
+numbers do not measure this revision; repeat complete-round and whole-node runs
+before making a TPS claim for it.

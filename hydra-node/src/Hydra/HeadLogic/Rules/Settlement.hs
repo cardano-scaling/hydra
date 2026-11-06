@@ -26,7 +26,9 @@ import Data.Singletons.Base.TH (
   type (:@#@$),
  )
 import Hydra.Chain.ChainState (IsChainState (..))
-import Hydra.HeadLogic.Outcome (Effect (..), StateChanged (..))
+import Hydra.HeadLogic.Error (LogicError)
+import Hydra.HeadLogic.Machine.Coordinated qualified as Coordinated
+import Hydra.HeadLogic.Outcome (Effect (..))
 import Hydra.HeadLogic.Program qualified as Program
 import Hydra.HeadLogic.Rules.Environment (RuleEnvironment (party))
 import Hydra.HeadLogic.Rules.SnapshotRequest (
@@ -34,6 +36,7 @@ import Hydra.HeadLogic.Rules.SnapshotRequest (
   chainedSnapshotRequest,
   isLeader,
  )
+import Hydra.HeadLogic.Rules.SnapshotVerification (VerifiedSnapshot, verifyCandidate)
 import Hydra.HeadLogic.State (
   CoordinatedHeadState (
     CoordinatedHeadState,
@@ -44,11 +47,10 @@ import Hydra.HeadLogic.State (
     seenSnapshot,
     version
   ),
-  OpenState (OpenState, coordinatedHeadState, headId, parameters),
+  OpenState (OpenState, coordinatedHeadState, parameters),
   SeenSnapshot (
     LastSeenSnapshot,
     SeenSnapshot,
-    signableBytes,
     snapshot
   ),
   isCollectingAcks,
@@ -61,10 +63,10 @@ import Hydra.HeadLogic.Workflow (
   finish,
  )
 import Hydra.Network.Message (Message (..))
-import Hydra.Node.State (PendingDeposits)
+import Hydra.Node.State (Deposit (deposited), PendingDeposits)
 import Hydra.Prelude hiding (State, state)
 import Hydra.Tx (IsTx, TxIdType, UTxOType, txId)
-import Hydra.Tx.Crypto (MultiSignature, Verified (..))
+import Hydra.Tx.Crypto (MultiSignature)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.Party (Party (vkey))
 import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion, getSnapshot)
@@ -93,36 +95,36 @@ data Settlement tx = Increment (TxIdType tx) | Decrement ~(UTxOType tx)
 
 data State tx phase where
   Record :: State tx 'RecordSettlement
-  Candidate :: State tx 'ChooseCandidate
-  Verification :: Snapshot tx -> Verified -> State tx 'CheckVerification
-  Request :: Snapshot tx -> SeenSnapshot tx -> State tx 'RequestNext
+  Candidate :: Coordinated.Runtime tx -> State tx 'ChooseCandidate
+  Verification :: Coordinated.Runtime tx -> Snapshot tx -> Either (LogicError tx) (VerifiedSnapshot tx) -> State tx 'CheckVerification
+  Request :: Coordinated.Runtime tx -> Snapshot tx -> SeenSnapshot tx -> State tx 'RequestNext
   Done :: State tx 'Finished
 
-machine :: forall tx ledger signing. IsTx tx => RuleEnvironment -> PendingDeposits tx -> OpenState tx -> ChainStateType tx -> SnapshotVersion -> Settlement tx -> SnapshotNumber -> MultiSignature (Snapshot tx) -> Workflow tx ledger signing SettlementTopology
-machine env pendingDeposits OpenState{headId, parameters, coordinatedHeadState} newChainState newVersion settlement observedNumber signatures =
+machine :: forall tx ledger signing. IsChainState tx => RuleEnvironment -> PendingDeposits tx -> OpenState tx -> ChainStateType tx -> SnapshotVersion -> Settlement tx -> SnapshotNumber -> MultiSignature (Snapshot tx) -> Workflow tx ledger signing SettlementTopology
+machine env pendingDeposits os@OpenState{parameters, coordinatedHeadState} newChainState newVersion settlement observedNumber signatures =
   BaseMachineT (InitialState Record) $ \state () -> step state
  where
   step :: State tx from -> Transition tx ledger signing SettlementTopology (State tx) from
   step = \case
-    Record -> continue (const Candidate) $ Program.change $ case settlement of
-      Increment depositTxId -> CommitFinalized{chainState = newChainState, headId, newVersion, depositTxId}
-      Decrement distributedUTxO -> DecommitFinalized{chainState = newChainState, headId, newVersion, distributedUTxO}
-    Candidate -> case seenSnapshot of
-      SeenSnapshot{snapshot, signableBytes}
+    Record -> continue Candidate $ Coordinated.stage (Coordinated.start os) $ case settlement of
+      Increment depositId -> Coordinated.settleCommit newChainState newVersion depositId (maybe mempty (.deposited) $ Map.lookup depositId pendingDeposits)
+      Decrement distributed -> Coordinated.settleDecommit newChainState newVersion distributed
+    Candidate runtime -> case seenSnapshot of
+      SeenSnapshot{snapshot}
         | snapshot.number == observedNumber
         , snapshot.version + 1 == newVersion
-        , matchesSettlement snapshot -> continue (Verification snapshot) $ do
+        , matchesSettlement snapshot -> continue (Verification runtime snapshot) $ do
             void $ Program.decide "settlement matches the seen snapshot" True
-            Program.verifySnapshot vkeys signatures signableBytes
-      _ -> continue (const $ Request previous seenSnapshot) $ Program.decide "settlement matches the seen snapshot" False
-    Verification snapshot verified -> case verified of
-      Verified -> continue (const $ Request snapshot (LastSeenSnapshot snapshot.number)) $ do
+            verifyCandidate vkeys seenSnapshot signatures
+      _ -> continue (const $ Request runtime previous seenSnapshot) $ Program.decide "settlement matches the seen snapshot" False
+    Verification runtime snapshot verified -> case verified of
+      Right evidence -> continue (\next -> Request next snapshot (LastSeenSnapshot snapshot.number)) $ do
         void $ Program.decide "settlement signatures verify" True
-        Program.change SnapshotConfirmed{headId, snapshot = Just snapshot, signatures}
-      _ -> continue (const $ Request previous seenSnapshot) $ Program.decide "settlement signatures verify" False
-    Request snapshot seen ->
+        Coordinated.stage runtime $ Coordinated.adoptSnapshot evidence
+      Left _ -> continue (const $ Request runtime previous seenSnapshot) $ Program.decide "settlement signatures verify" False
+    Request runtime snapshot seen ->
       continue (const Done) $
-        maybeRequestSnapshotAfterVersionBump parameters env.party (snapshot.number + 1) (requestOn snapshot) version newVersion seen
+        maybeRequestSnapshotAfterVersionBump runtime parameters env.party (snapshot.number + 1) (requestOn snapshot) version newVersion seen
     Done -> finish Done
 
   matchesSettlement :: Snapshot tx -> Bool
@@ -138,8 +140,8 @@ machine env pendingDeposits OpenState{headId, parameters, coordinatedHeadState} 
 
 -- | A requested old-version round may be replaced; a round collecting signatures
 -- must finish first. The settled decommit is excluded from the next request.
-maybeRequestSnapshotAfterVersionBump :: IsTx tx => HeadParameters -> Party -> SnapshotNumber -> Maybe (SnapshotRequest tx) -> SnapshotVersion -> SnapshotVersion -> SeenSnapshot tx -> Program.Program tx ledger signing ()
-maybeRequestSnapshotAfterVersionBump parameters party nextSn request version newVersion seenSnapshot =
+maybeRequestSnapshotAfterVersionBump :: IsTx tx => Coordinated.Runtime tx -> HeadParameters -> Party -> SnapshotNumber -> Maybe (SnapshotRequest tx) -> SnapshotVersion -> SnapshotVersion -> SeenSnapshot tx -> Program.Program tx ledger signing ()
+maybeRequestSnapshotAfterVersionBump runtime parameters party nextSn request version newVersion seenSnapshot =
   case request of
     Nothing -> pure ()
     Just SnapshotRequest{requestTxs, requestDepositTxId} -> do
@@ -147,5 +149,5 @@ maybeRequestSnapshotAfterVersionBump parameters party nextSn request version new
         Program.decide "leader can request at the advanced version" $
           isLeader parameters party nextSn && newVersion > version && not (isCollectingAcks seenSnapshot)
       when eligible $ do
-        Program.change SnapshotRequestDecided{snapshotNumber = nextSn}
+        void $ Coordinated.stage runtime $ Coordinated.requestSnapshot nextSn
         Program.emit $ NetworkEffect $ ReqSn newVersion nextSn (txId <$> requestTxs) Nothing requestDepositTxId

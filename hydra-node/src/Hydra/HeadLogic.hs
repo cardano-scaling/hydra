@@ -147,7 +147,7 @@ updateProgram env now st input = Workflow.run $ Input.machine env now st input
 -- 'update', including its size and synchronisation checks.
 onOpenNetworkReqTx ::
   forall tx.
-  IsTx tx =>
+  IsChainState tx =>
   Environment ->
   Ledger tx ->
   ChainPointTime ->
@@ -165,7 +165,7 @@ onOpenNetworkReqTx env ledger chainTime st ttl pendingDeposits tx =
 -- belong to this rule. The event format remains compatible with existing replay.
 onOpenNetworkReqTxProgram ::
   forall tx.
-  IsTx tx =>
+  IsChainState tx =>
   RuleEnvironment ->
   ChainPointTime ->
   OpenState tx ->
@@ -191,7 +191,7 @@ onOpenNetworkReqTxProgram env chainTime st ttl pendingDeposits tx =
 -- __Transition__: 'OpenState' → 'OpenState'
 onOpenNetworkReqSn ::
   forall tx.
-  IsTx tx =>
+  IsChainState tx =>
   Environment ->
   Ledger tx ->
   PendingDeposits tx ->
@@ -219,7 +219,7 @@ onOpenNetworkReqSn env ledger pendingDeposits chainTime st ttl otherParty sv sn 
 -- the rule. The interpreter only supplies ledger and cryptographic primitives.
 onOpenNetworkReqSnProgram ::
   forall tx.
-  IsTx tx =>
+  IsChainState tx =>
   RuleEnvironment ->
   PendingDeposits tx ->
   ChainPointTime ->
@@ -254,7 +254,7 @@ onOpenNetworkReqSnProgram env pendingDeposits chainTime st ttl otherParty sv sn 
 --
 -- __Transition__: 'OpenState' → 'OpenState'
 onOpenNetworkAckSn ::
-  IsTx tx =>
+  IsChainState tx =>
   Environment ->
   ChainPointTime ->
   PendingDeposits tx ->
@@ -271,7 +271,7 @@ onOpenNetworkAckSn env chainTime pendingDeposits st otherParty signature sn =
     onOpenNetworkAckSnProgram (ruleEnvironment env) chainTime pendingDeposits st otherParty signature sn
 
 onOpenNetworkAckSnProgram ::
-  IsTx tx =>
+  IsChainState tx =>
   RuleEnvironment ->
   ChainPointTime ->
   PendingDeposits tx ->
@@ -327,7 +327,7 @@ onOpenClientDecommit hid ledger slot st tx =
       Decommit.machine hid slot st tx
 
 onOpenNetworkReqDec ::
-  IsTx tx =>
+  IsChainState tx =>
   Environment ->
   Ledger tx ->
   TTL ->
@@ -342,7 +342,7 @@ onOpenNetworkReqDec env ledger ttl chainTime pendingDeposits openState decommitT
       ReqDec.machine (ruleEnvironment env) ttl chainTime pendingDeposits openState decommitTx
 
 onOpenChainIncrementTx ::
-  IsTx tx =>
+  IsChainState tx =>
   Environment ->
   PendingDeposits tx ->
   OpenState tx ->
@@ -360,7 +360,7 @@ onOpenChainIncrementTx env deposits st cs version txId sn signatures =
       Settlement.machine (ruleEnvironment env) deposits st cs version (Settlement.Increment txId) sn signatures
 
 onOpenChainDecrementTx ::
-  IsTx tx =>
+  IsChainState tx =>
   Environment ->
   PendingDeposits tx ->
   OpenState tx ->

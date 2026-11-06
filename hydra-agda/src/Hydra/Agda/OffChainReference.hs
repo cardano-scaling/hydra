@@ -9,6 +9,10 @@
 -- As there, every 'Integer' stands for an Agda ℕ and callers must pass non-negative values; see that
 -- module's header for what a negative one does.
 module Hydra.Agda.OffChainReference (
+  settlementVersionRef,
+  settlementReservationRef,
+  reservationHeldRef,
+  decommitReadyRef,
   HsReqDecOutcome (..),
   HsRecoverOutcome (..),
   inputAdmissionRef,
@@ -272,3 +276,20 @@ repostFinalizedRef = M.hsRepostFinalizedRef
 -- post remainder=1, post selection=2.
 fanoutContinuationRef :: Bool -> Integer -> Integer
 fanoutContinuationRef = M.hsFanoutContinuationRef
+
+-- | Pending decommit inputs must be absent from the available local UTxO.
+-- Bounded SimpleTx output identities, represented by nonnegative integers.
+reservationHeldRef :: [Integer] -> [Integer] -> Bool
+reservationHeldRef = M.hsReservationHeldRef
+
+-- | A new decommit needs its inputs in the confirmed base, before ordinary
+-- snapshot transactions run. A decommit already carried needs no reapplication.
+decommitReadyRef :: Bool -> [Integer] -> [Integer] -> Bool
+decommitReadyRef = M.hsDecommitReadyRef
+
+-- | Retained version and decommit reservation after a decrement observation.
+settlementVersionRef :: Integer -> Integer -> Integer
+settlementVersionRef = M.hsSettlementVersionRef
+
+settlementReservationRef :: Bool -> Integer -> Integer -> Bool
+settlementReservationRef = M.hsSettlementReservationRef

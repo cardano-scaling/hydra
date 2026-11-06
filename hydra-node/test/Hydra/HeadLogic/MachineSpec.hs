@@ -63,9 +63,7 @@ import Hydra.HeadLogic (
  )
 import Hydra.HeadLogic.Machine qualified as Machine
 import Hydra.HeadLogic.Machine.Deposit qualified as Deposit
-import Hydra.HeadLogic.Machine.Incremental qualified as Incremental
 import Hydra.HeadLogic.Machine.Lifecycle qualified as Lifecycle
-import Hydra.HeadLogic.Machine.OffChain qualified as OffChain
 import Hydra.HeadLogic.Outcome qualified as Outcome
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx)
 import Hydra.Node.State (Deposit (..), DepositStatus (..), NodeState (..), TrackedDeposit (..), initialChainTime)
@@ -73,6 +71,8 @@ import Hydra.Tx (HeadId)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..))
 import Test.Hydra.HeadLogic.LegacyState (legacyAggregateNodeState)
 import Test.Hydra.HeadLogic.Outcome ()
+import Test.Hydra.HeadLogic.Projection.Incremental qualified as Incremental
+import Test.Hydra.HeadLogic.Projection.OffChain qualified as OffChain
 import Test.Hydra.HeadLogic.Scenario (initialNode)
 import Test.Hydra.HeadLogic.Settlement (SettlementStep (..), settlementSequence)
 import Test.Hydra.Ledger.Simple ()

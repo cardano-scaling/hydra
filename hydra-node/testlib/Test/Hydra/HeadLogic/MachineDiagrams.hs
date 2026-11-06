@@ -10,36 +10,40 @@ import Crem.Render.RenderFlow (TreeMetadata (..), renderFlow)
 import Data.Text qualified as Text
 import Data.Text.IO qualified as Text
 import Hydra.HeadLogic.Machine qualified as Machine
+import Hydra.HeadLogic.Machine.Coordinated qualified as Coordinated
 import Hydra.HeadLogic.Machine.Deposit qualified as Deposit
-import Hydra.HeadLogic.Machine.Incremental qualified as Incremental
 import Hydra.HeadLogic.Machine.Lifecycle qualified as Lifecycle
-import Hydra.HeadLogic.Machine.OffChain qualified as OffChain
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Node.State (NodeState (..))
 import System.Directory (createDirectoryIfMissing)
 import System.FilePath ((</>))
-import Test.Hydra.HeadLogic.Scenario (initialNode)
+import Test.Hydra.HeadLogic.Scenario (initialNode, openState)
 
 writeDiagrams :: FilePath -> IO ()
 writeDiagrams directory = do
   createDirectoryIfMissing True directory
   (flow, _, _) <- either fail pure $ renderFlow labels (Machine.components initialNode)
+  (coordinated, _, _) <- either fail pure $ renderFlow (BinaryLabel (LeafLabel "Snapshots") (LeafLabel "Transactions")) (Coordinated.components $ openState initialNode)
   let diagrams =
-        [ ("composition", annotateLifecycle "Lifecycle_" $ "stateDiagram-v2\n" <> getText flow)
+        [ ("coordinated", "stateDiagram-v2\n" <> getText coordinated)
+        , ("composition", annotateLifecycle "Lifecycle_" $ nameDataOwners $ "stateDiagram-v2\n" <> getText flow)
         , ("lifecycle", annotateLifecycle "" $ getText $ renderStateDiagram $ baseMachineAsGraph $ Lifecycle.machine @SimpleTx @Identity initialNode.headState)
         , ("deposits", getText $ renderStateDiagram $ baseMachineAsGraph $ Deposit.machine @Identity @SimpleTx Nothing)
-        , ("incremental", getText $ renderStateDiagram $ baseMachineAsGraph $ Incremental.machine @SimpleTx @Identity initialNode.headState)
-        , ("off-chain", getText $ renderStateDiagram $ baseMachineAsGraph $ OffChain.machine @SimpleTx @Identity initialNode.headState)
         ]
   forM_ diagrams $ \(name, diagram) -> Text.writeFile (directory </> name <> ".mmd") (Text.stripEnd diagram <> "\n")
   Text.writeFile (directory </> "README.md") $
     "# Head state machines\n\nGenerated from crem's executable definitions with:\n\n```sh\ncabal run hydra-node:head-logic-lab -- machines "
       <> toText directory
       <> "\n```\n\n"
-      <> "These are allowed replay transitions, including resets and events outside their usual phase. Edges to Idle mean observed completion (HeadFannedOut), including at parties that did not initiate fanout. Identity transitions are implicit. They do not show admission guards or prove that every edge is reachable from network input. See [the implementation guide](../head-logic-crem.md) for event meanings and limitations.\n"
+      <> "Coordinated contains the snapshot and transaction owners used by live staging and replay. Its Reserved phase records a pending decommit; it does not prove that rebuilding preserved the reservation. Composition shows DepositRegistry → Lifecycle → Clock. The open lifecycle state holds the Coordinated continuation; its nested composition is shown separately. These are allowed replay transitions, including resets and events outside their usual phase. Edges to Idle mean observed completion (HeadFannedOut), including at parties that did not initiate fanout. Identity transitions are implicit. They do not show admission guards or prove that every edge is reachable from network input. See [the implementation guide](../head-logic-crem.md) for event meanings and limitations.\n"
       <> foldMap (\(name, diagram) -> "\n## " <> toText name <> "\n\n```mermaid\n" <> diagram <> "\n```\n") diagrams
  where
-  labels = BinaryLabel (BinaryLabel (BinaryLabel (LeafLabel "Lifecycle") (LeafLabel "Incremental")) (LeafLabel "OffChain")) (LeafLabel "NodeMetadata")
+  labels = BinaryLabel (BinaryLabel (LeafLabel "DepositRegistry") (LeafLabel "Lifecycle")) (LeafLabel "Clock")
+
+-- Crem renders a trivial topology's vertex as (). Use readable Mermaid ids;
+-- these owners carry data, with no additional phase distinction.
+nameDataOwners :: Text -> Text
+nameDataOwners = Text.replace "DepositRegistry_()" "DepositRegistry_TrackedDeposits" . Text.replace "Clock_()" "Clock_ObservedTime"
 
 -- Event captions explain lifecycle edges already supplied by crem; they never
 -- add or remove edges. The other graphs describe phase constraints only.

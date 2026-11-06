@@ -28,8 +28,10 @@ import Data.Singletons.Base.TH (
   singletons,
   type (:@#@$),
  )
+import Hydra.Chain.ChainState (IsChainState)
 import Hydra.HeadLogic.Input (TTL)
-import Hydra.HeadLogic.Outcome (Effect (..), StateChanged (..), WaitReason (..))
+import Hydra.HeadLogic.Machine.Coordinated qualified as Coordinated
+import Hydra.HeadLogic.Outcome (Effect (..), WaitReason (..))
 import Hydra.HeadLogic.Program qualified as Program
 import Hydra.HeadLogic.Rules.Environment (RuleEnvironment (..))
 import Hydra.HeadLogic.Rules.SnapshotRequest (SettlingCommit (..), SnapshotRequest (..), chainedSnapshotRequest, isLeader, settlingCommitAtPeriod)
@@ -46,7 +48,7 @@ import Hydra.HeadLogic.State (
     seenSnapshot,
     version
   ),
-  OpenState (OpenState, coordinatedHeadState, headId, parameters),
+  OpenState (OpenState, coordinatedHeadState, parameters),
   snapshotInFlight,
  )
 import Hydra.HeadLogic.State.Operations (
@@ -62,7 +64,7 @@ import Hydra.HeadLogic.Workflow (
 import Hydra.Ledger (ValidationError (..))
 import Hydra.Network.Message (Message (..))
 import Hydra.Node.State (ChainPointTime (..), Deposit (..), DepositStatus (..), PendingDeposits)
-import Hydra.Tx (IsTx (..), UTxOType, txId, utxoFromTx)
+import Hydra.Tx (UTxOType, txId, utxoFromTx)
 import Hydra.Tx.Snapshot (Snapshot (..), getSnapshot)
 
 $( singletons
@@ -90,14 +92,14 @@ deriving via AllVertices Phase instance RenderableVertices Phase
 
 data State tx phase where
   DuplicateCheck :: State tx 'CheckDuplicate
-  OutputCheck :: State tx 'CheckOutputs
-  LedgerResult :: Either ValidationError (UTxOType tx) -> State tx 'CheckLedgerResult
-  DepositCheck :: ~(UTxOType tx) -> State tx 'CheckDeposits
-  Select :: State tx 'SelectSnapshot
-  Retry :: ValidationError -> State tx 'RetryOrInvalidate
+  OutputCheck :: Coordinated.Runtime tx -> State tx 'CheckOutputs
+  LedgerResult :: Coordinated.Runtime tx -> Either ValidationError (UTxOType tx) -> State tx 'CheckLedgerResult
+  DepositCheck :: Coordinated.Runtime tx -> ~(UTxOType tx) -> State tx 'CheckDeposits
+  Select :: Coordinated.Runtime tx -> State tx 'SelectSnapshot
+  Retry :: Coordinated.Runtime tx -> ValidationError -> State tx 'RetryOrInvalidate
   Done :: State tx 'Finished
 
-machine :: forall tx signing. IsTx tx => RuleEnvironment -> ChainPointTime -> OpenState tx -> TTL -> PendingDeposits tx -> tx -> Workflow tx 'True signing ReqTxTopology
+machine :: forall tx signing. IsChainState tx => RuleEnvironment -> ChainPointTime -> OpenState tx -> TTL -> PendingDeposits tx -> tx -> Workflow tx 'True signing ReqTxTopology
 machine env ChainPointTime{currentSlot, currentChainTime} st ttl pendingDeposits tx =
   BaseMachineT (InitialState DuplicateCheck) $ \state () -> step state
  where
@@ -106,25 +108,25 @@ machine env ChainPointTime{currentSlot, currentChainTime} st ttl pendingDeposits
     DuplicateCheck
       | Map.member (txId tx) allTxs && any ((== txId tx) . txId) localTxs ->
           continue (const Done) $ Program.decide "transaction is already applied locally" True
-      | otherwise -> continue (const OutputCheck) $ do
+      | otherwise -> continue OutputCheck $ do
           void $ Program.decide "transaction is already applied locally" False
-          Program.change TransactionReceived{tx}
-    OutputCheck -> case checkTransactionOutputs localUTxO tx of
-      Right () -> continue LedgerResult $ do
+          Coordinated.stage (Coordinated.start st) $ Coordinated.receiveTransaction tx
+    OutputCheck runtime -> case checkTransactionOutputs localUTxO tx of
+      Right () -> continue (LedgerResult runtime) $ do
         void $ Program.decide "outputs do not collide with the local UTxO" True
         Program.applyTransaction currentSlot localUTxO tx
-      Left err -> continue (const $ Retry err) $ Program.decide "outputs do not collide with the local UTxO" False
-    LedgerResult result -> case result of
-      Right after -> continue (const $ DepositCheck after) $ pure ()
-      Left err -> continue (const $ Retry err) $ pure ()
-    DepositCheck after
-      | namesNoneOf (utxoFromTx tx) namedByDepositsInPlay -> continue (const Select) $ do
+      Left err -> continue (const $ Retry runtime err) $ Program.decide "outputs do not collide with the local UTxO" False
+    LedgerResult runtime result -> case result of
+      Right after -> continue (const $ DepositCheck runtime after) $ pure ()
+      Left err -> continue (const $ Retry runtime err) $ pure ()
+    DepositCheck runtime after
+      | namesNoneOf (utxoFromTx tx) namedByDepositsInPlay -> continue Select $ do
           void $ Program.decide "outputs do not collide with pending deposits" True
-          Program.recordAppliedTransaction headId tx localUTxO after
+          Coordinated.stage runtime $ Coordinated.applyTransaction tx localUTxO after
       | otherwise ->
-          continue (const $ Retry $ ValidationError "transaction creates an output a pending deposit names") $
+          continue (const $ Retry runtime $ ValidationError "transaction creates an output a pending deposit names") $
             Program.decide "outputs do not collide with pending deposits" False
-    Select -> continue (const Done) $ do
+    Select runtime -> continue (const Done) $ do
       noSnapshot <- Program.decide "no snapshot is in flight" (not $ snapshotInFlight seenSnapshot)
       when noSnapshot $ do
         leader <- Program.decide "this party leads the next snapshot" (isLeader parameters env.party nextSn)
@@ -133,13 +135,15 @@ machine env ChainPointTime{currentSlot, currentChainTime} st ttl pendingDeposits
             Nothing -> void $ Program.decide "snapshot request has useful work" False
             Just SnapshotRequest{requestTxs, requestDecommitTx, requestDepositTxId} -> do
               void $ Program.decide "snapshot request has useful work" True
-              Program.change SnapshotRequestDecided{snapshotNumber = nextSn}
+              void $ Coordinated.stage runtime $ Coordinated.requestSnapshot nextSn
               Program.emit $ NetworkEffect $ ReqSn version nextSn (txId <$> requestTxs) requestDecommitTx requestDepositTxId
-    Retry err -> continue (const Done) $ do
+    Retry runtime err -> continue (const Done) $ do
+      -- Expiry still drops the payload. A later dependency does not wake this
+      -- transaction; changing that recovery policy is deferred.
       canRetry <- Program.decide "retry budget remains" (ttl > 0)
       if canRetry
         then Program.suspend $ WaitOnNotApplicableTx err
-        else Program.change TxInvalid{headId, utxo = localUTxO, transaction = tx, validationError = err}
+        else void $ Coordinated.stage runtime $ Coordinated.forgetTransaction localUTxO tx err
     Done -> finish Done
 
   namedByDepositsInPlay :: UTxOType tx
@@ -148,7 +152,7 @@ machine env ChainPointTime{currentSlot, currentChainTime} st ttl pendingDeposits
       <> case settlingCommit of
         Just (ContinueCommit (_, Deposit{deposited})) -> deposited
         _ -> mempty
-  OpenState{coordinatedHeadState, headId, parameters} = st
+  OpenState{coordinatedHeadState, parameters} = st
   CoordinatedHeadState{localTxs, localUTxO, allTxs, confirmedSnapshot, seenSnapshot, decommitTx, version, currentDepositTxId} = coordinatedHeadState
   nextSn = (getSnapshot confirmedSnapshot).number + 1
   confirmedUTxO = settledUTxO version (getSnapshot confirmedSnapshot)

@@ -13,6 +13,7 @@ protocol bugs are recorded for a separate fix; see the [bug ledger](docs/dev/arc
 ## Read the design
 
 - [Programs inside crem](head-logic-crem-workflows.md): input execution, rule modules, terminal semantics, and tests.
+- [Snapshot and transaction owners](head-logic-coordinated.md): shared live/replay transitions, typed component ports and the remaining decommit defects.
 - [Retained-event machines](head-logic-crem.md): lifecycle, deposits, snapshot coordination, and replay.
 - [All diagrams](head-logic-diagrams.md): every `.mmd` file rendered with an explanation.
 - [Experiments](docs/dev/architecture/head-logic-experiments/README.md): comparisons, counterexamples, measurements, resolved replay, and earlier proposals.
@@ -26,7 +27,8 @@ Read these in order:
 2. [`Rules/Input.hs`](../hydra-node/src/Hydra/HeadLogic/Rules/Input.hs) checks client input size and synchronisation before routing by head state.
 3. [`Rules/ReqTx.hs`](../hydra-node/src/Hydra/HeadLogic/Rules/ReqTx.hs) is a complete rule. Its actions use ordinary monadic Haskell; the phase types carry the ledger result between steps.
 4. [`Workflow.hs`](../hydra-node/src/Hydra/HeadLogic/Workflow.hs) drives crem until completion. [`Program.hs`](../hydra-node/src/Hydra/HeadLogic/Program.hs) defines the instructions; [`Interpreter.hs`](../hydra-node/src/Hydra/HeadLogic/Interpreter.hs) supplies primitives and buffers events and effects.
-5. [`Machine.hs`](../hydra-node/src/Hydra/HeadLogic/Machine.hs) composes the retained-event machines. Recovery uses these machines without re-running input rules or cryptography.
+5. [`Machine/Coordinated.hs`](../hydra-node/src/Hydra/HeadLogic/Machine/Coordinated.hs) composes the snapshot and transaction owners. ReqTx, snapshot, settlement and side-load rules stage their changes through these same transitions.
+6. [`Machine.hs`](../hydra-node/src/Hydra/HeadLogic/Machine.hs) connects deposit ownership, lifecycle and clock; the open lifecycle state contains the snapshot/transaction composition. Recovery uses these machines without re-running input rules or cryptography.
 
 For a larger rule, read [`ReqSn.hs`](../hydra-node/src/Hydra/HeadLogic/Rules/ReqSn.hs)
 and [`AckSn.hs`](../hydra-node/src/Hydra/HeadLogic/Rules/AckSn.hs). For chain interaction,

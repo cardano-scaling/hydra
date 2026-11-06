@@ -122,9 +122,9 @@ state with the frozen event reducer, distinguishing these findings from conversi
 regressions.
 
 The reservation loss is a separate observable state error in the same sequence.
-[`Incremental`](../../../../../hydra-node/src/Hydra/HeadLogic/Machine/Incremental.hs) removes
+[`Transactions`](../../../../../hydra-node/src/Hydra/HeadLogic/Machine/Coordinated/Transactions.hs) removes
 the decommit's consumed input when applying `DecommitRecorded`.
-[`OffChain`](../../../../../hydra-node/src/Hydra/HeadLogic/Machine/OffChain.hs) rebuilds
+Its `Rebase` branch rebuilds
 `localUTxO` for `SnapshotRequested` from the snapshot and retained ordinary
 transactions, without accounting for that pending decommit.
 
@@ -230,3 +230,14 @@ only event emission and used the same head ID; the new test checks the resulting
 pending-deposit map with distinct IDs. See `recover-previous-head` in
 [InputComparison](../../../../../hydra-node/testlib/Test/Hydra/HeadLogic/InputComparison.hs)
 and `RulesSpec`'s recovery assertion. This is regression coverage, not a defect.
+
+## Checks at the component boundary
+
+The [coordinated owners](../../../../head-logic-coordinated.md) preserve the two
+decommit failures for the separate behavior change. The JSON from
+`head-logic-lab decommit-dependency FILE` now records `reservationHeld` after each
+delivery and `decommitRequestsReady` for emitted snapshot requests. The former
+first fails during snapshot rebase; the latter fails when Bob proposes snapshot 2.
+These predicates are independent of the reducer and agree with the bounded Agda
+reference over subsets of three output identities. They expose the missing rules;
+Crem's Reserved phase alone does not establish either invariant.

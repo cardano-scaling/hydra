@@ -1,0 +1,19 @@
+stateDiagram-v2
+state Snapshots {
+Snapshots_AwaitingRequest
+Snapshots_RequestSent
+Snapshots_CollectingSignatures
+Snapshots_AwaitingRequest --> Snapshots_RequestSent
+Snapshots_AwaitingRequest --> Snapshots_CollectingSignatures
+Snapshots_RequestSent --> Snapshots_AwaitingRequest
+Snapshots_RequestSent --> Snapshots_CollectingSignatures
+Snapshots_CollectingSignatures --> Snapshots_AwaitingRequest
+Snapshots_CollectingSignatures --> Snapshots_RequestSent
+}
+state Transactions {
+Transactions_Unreserved
+Transactions_Reserved
+Transactions_Unreserved --> Transactions_Reserved
+Transactions_Reserved --> Transactions_Unreserved
+}
+Snapshots --> Transactions

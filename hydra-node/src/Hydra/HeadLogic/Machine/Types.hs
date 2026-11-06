@@ -1,12 +1,21 @@
--- | An event passes through the components with its original and current
--- state. Both are immutable; before supplies values changed by earlier steps.
+-- | Ports between owners. A component receives only the context it needs and
+-- returns its own persisted fields; no port permits updating a shared NodeState.
 module Hydra.HeadLogic.Machine.Types where
 
 import Hydra.HeadLogic.Outcome (StateChanged)
-import Hydra.Node.State (NodeState)
+import Hydra.HeadLogic.State (HeadState)
+import Hydra.Node.State (TrackedDeposits)
+import Hydra.Tx (UTxOType)
 
-data Transition tx = Transition
-  { before :: NodeState tx
-  , event :: StateChanged tx
-  , current :: NodeState tx
+-- | Settlement reads a deposit before the registry consumes it.
+data DepositOutput tx = DepositOutput
+  { event :: StateChanged tx
+  , deposits :: TrackedDeposits tx
+  , settledDeposit :: ~(UTxOType tx)
+  }
+
+data HeadOutput tx = HeadOutput
+  { event :: StateChanged tx
+  , deposits :: TrackedDeposits tx
+  , headState :: HeadState tx
   }

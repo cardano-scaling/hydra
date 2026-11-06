@@ -6,6 +6,7 @@ module Hydra.HeadLogic.Rules.Deposits where
 
 import Data.Map.Strict qualified as Map
 import Hydra.Chain.ChainState (IsChainState (..))
+import Hydra.HeadLogic.Machine.Coordinated qualified as Coordinated
 import Hydra.HeadLogic.Outcome (Effect (..), StateChanged (..))
 import Hydra.HeadLogic.Program (Program, change, decide, emit)
 import Hydra.HeadLogic.Rules.Environment (
@@ -109,7 +110,7 @@ onChainTick env pendingDeposits chainTime =
 --
 -- This is primarily used to track deposits and either drop them or request
 -- snapshots for inclusion.
-onOpenChainTick :: forall tx ledger signing. IsTx tx => RuleEnvironment -> UTCTime -> PendingDeposits tx -> OpenState tx -> Program tx ledger signing ()
+onOpenChainTick :: forall tx ledger signing. IsChainState tx => RuleEnvironment -> UTCTime -> PendingDeposits tx -> OpenState tx -> Program tx ledger signing ()
 onOpenChainTick env chainTime pendingDeposits st
   | snapshotInFlight seenSnapshot || not (isLeader parameters party nextSn) = pure ()
   | otherwise =
@@ -137,7 +138,7 @@ onOpenChainTick env chainTime pendingDeposits st
 
   request :: [tx] -> Maybe tx -> Maybe (TxIdType tx) -> Program tx ledger signing ()
   request txs mDecommitTx mDepositTxId =
-    change SnapshotRequestDecided{snapshotNumber = nextSn}
+    void (Coordinated.stage (Coordinated.start st) $ Coordinated.requestSnapshot nextSn)
       *> emit (NetworkEffect $ ReqSn version nextSn (txId <$> txs) mDecommitTx mDepositTxId)
 
   confirmed@Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot

@@ -1,4 +1,7 @@
 stateDiagram-v2
+state DepositRegistry {
+DepositRegistry_TrackedDeposits
+}
 state Lifecycle {
 Lifecycle_Idle
 Lifecycle_Open
@@ -26,57 +29,8 @@ Lifecycle_FanoutProgress --> Lifecycle_ReadyToFanout: HeadFanoutReverted
 Lifecycle_FanoutProgress --> Lifecycle_PendingFanout: HeadPartialFannedOut (empty total)
 Lifecycle_FanoutProgress --> Lifecycle_Idle: HeadFannedOut (observed on chain)
 }
-state Incremental {
-Incremental_OutsideHead
-Incremental_NoIncrement
-Incremental_DepositSelected
-Incremental_DecommitPending
-Incremental_ConflictingSelection
-Incremental_OutsideHead --> Incremental_NoIncrement
-Incremental_NoIncrement --> Incremental_OutsideHead
-Incremental_NoIncrement --> Incremental_DepositSelected
-Incremental_NoIncrement --> Incremental_DecommitPending
-Incremental_NoIncrement --> Incremental_ConflictingSelection
-Incremental_DepositSelected --> Incremental_OutsideHead
-Incremental_DepositSelected --> Incremental_NoIncrement
-Incremental_DepositSelected --> Incremental_DecommitPending
-Incremental_DepositSelected --> Incremental_ConflictingSelection
-Incremental_DecommitPending --> Incremental_OutsideHead
-Incremental_DecommitPending --> Incremental_NoIncrement
-Incremental_DecommitPending --> Incremental_DepositSelected
-Incremental_DecommitPending --> Incremental_ConflictingSelection
-Incremental_ConflictingSelection --> Incremental_OutsideHead
-Incremental_ConflictingSelection --> Incremental_NoIncrement
-Incremental_ConflictingSelection --> Incremental_DepositSelected
-Incremental_ConflictingSelection --> Incremental_DecommitPending
+DepositRegistry --> Lifecycle
+state Clock {
+Clock_ObservedTime
 }
-Lifecycle --> Incremental
-state OffChain {
-OffChain_OutsideHead
-OffChain_NoRequestSeen
-OffChain_SnapshotIdle
-OffChain_RequestSent
-OffChain_CollectingSignatures
-OffChain_OutsideHead --> OffChain_NoRequestSeen
-OffChain_NoRequestSeen --> OffChain_OutsideHead
-OffChain_NoRequestSeen --> OffChain_SnapshotIdle
-OffChain_NoRequestSeen --> OffChain_RequestSent
-OffChain_NoRequestSeen --> OffChain_CollectingSignatures
-OffChain_SnapshotIdle --> OffChain_OutsideHead
-OffChain_SnapshotIdle --> OffChain_NoRequestSeen
-OffChain_SnapshotIdle --> OffChain_RequestSent
-OffChain_SnapshotIdle --> OffChain_CollectingSignatures
-OffChain_RequestSent --> OffChain_OutsideHead
-OffChain_RequestSent --> OffChain_NoRequestSeen
-OffChain_RequestSent --> OffChain_SnapshotIdle
-OffChain_RequestSent --> OffChain_CollectingSignatures
-OffChain_CollectingSignatures --> OffChain_OutsideHead
-OffChain_CollectingSignatures --> OffChain_NoRequestSeen
-OffChain_CollectingSignatures --> OffChain_SnapshotIdle
-OffChain_CollectingSignatures --> OffChain_RequestSent
-}
-Incremental --> OffChain
-state NodeMetadata {
-NodeMetadata_()
-}
-OffChain --> NodeMetadata
+Lifecycle --> Clock

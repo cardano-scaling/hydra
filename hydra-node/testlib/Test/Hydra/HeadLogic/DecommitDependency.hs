@@ -37,6 +37,7 @@ import Hydra.Network.Message (Message (..), NetworkEvent (..))
 import Hydra.Node.State (NodeState (..), initialChainTime)
 import Hydra.Prelude hiding (state, trace)
 import Hydra.Tx.Snapshot (Snapshot (..), getSnapshot)
+import Test.Hydra.HeadLogic.CoordinatedAudit qualified as Audit
 import Test.Hydra.HeadLogic.LegacyIncremental qualified as LegacyIncremental
 import Test.Hydra.HeadLogic.LegacyPrograms qualified as Legacy
 import Test.Hydra.HeadLogic.LegacyState (legacyAggregateNodeState)
@@ -58,10 +59,12 @@ demonstration = do
   rebuilt@(Run rebuiltNodes _ _ _) <- drainSnapshots reserved
   ensure "pruning restores the reserved output while retaining the decommit" $
     all (\node -> (coordinated node).localUTxO == utxoRef 3 && (coordinated node).decommitTx == Just decommit) rebuiltNodes
+  ensure "owner audit detects the lost reservation" $ not (any (Audit.reservationHeld . coordinated) rebuiltNodes)
   confirmed@(Run confirmedNodes pending _ _) <- drainAcknowledgements rebuilt
   ensure "snapshot 1 confirms at every node" $ all ((== 1) . (.number) . getSnapshot . (.confirmedSnapshot) . coordinated) confirmedNodes
   ensure "the next leader requests tx2 and its dependent decommit together" $
     length pending == 3 && all (\(Delivery sender _ msg) -> sender == 1 && msg == ReqSn 0 2 [2] (Just decommit) Nothing) pending
+  ensure "owner audit detects the unconfirmed decommit dependency" $ not (any ((`Audit.decommitReady` decommit) . coordinated) confirmedNodes)
   Run final remaining steps trace <- drainSnapshots confirmed
   ensure "every emitted network message has been delivered" $ null remaining
   ensure "no node confirms snapshot 2" $ all ((== 1) . (.number) . getSnapshot . (.confirmedSnapshot) . coordinated) final
@@ -126,7 +129,7 @@ deliver (Delivery sender recipient msg) (Run nodes queued steps traces) = do
   let emitted = case outcome of
         Continue _ effects -> [Delivery recipient target message | NetworkEffect message <- effects, target <- [0, 1, 2]]
         _ -> []
-      entry = object ["sender" .= sender, "recipient" .= recipient, "input" .= input, "before" .= node, "outcome" .= outcome, "after" .= after]
+      entry = object ["sender" .= sender, "recipient" .= recipient, "input" .= input, "before" .= node, "outcome" .= outcome, "after" .= after, "reservationHeld" .= Audit.reservationHeld (Scenario.openState after).coordinatedHeadState, "decommitRequestsReady" .= all (Audit.decommitReady os.coordinatedHeadState) [tx | Delivery _ _ (ReqSn _ _ _ (Just tx) _) <- emitted]]
       title =
         "Party " <> show recipient <> ": " <> case msg of
           ReqTx tx -> "ReqTx " <> show tx.txSimpleId

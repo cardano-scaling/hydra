@@ -78,10 +78,12 @@ library
     Hydra.HeadLogic.Input
     Hydra.HeadLogic.Interpreter
     Hydra.HeadLogic.Machine
+    Hydra.HeadLogic.Machine.Clock
+    Hydra.HeadLogic.Machine.Coordinated
     Hydra.HeadLogic.Machine.Deposit
-    Hydra.HeadLogic.Machine.Incremental
+    Hydra.HeadLogic.Machine.DepositRegistry
     Hydra.HeadLogic.Machine.Lifecycle
-    Hydra.HeadLogic.Machine.OffChain
+    Hydra.HeadLogic.Machine.Open
     Hydra.HeadLogic.Machine.Types
     Hydra.HeadLogic.Outcome
     Hydra.HeadLogic.Program
@@ -107,6 +109,7 @@ library
     Hydra.HeadLogic.Rules.SideLoad
     Hydra.HeadLogic.Rules.SnapshotCapacity
     Hydra.HeadLogic.Rules.SnapshotRequest
+    Hydra.HeadLogic.Rules.SnapshotVerification
     Hydra.HeadLogic.Rules.Synchronisation
     Hydra.HeadLogic.Rules.Transactions
     Hydra.HeadLogic.State
@@ -145,7 +148,12 @@ library
     Hydra.Options
     Hydra.Utils
 
-  other-modules:      Paths_hydra_node
+  other-modules:
+    Hydra.HeadLogic.Machine.Coordinated.Snapshots
+    Hydra.HeadLogic.Machine.Coordinated.Transactions
+    Hydra.HeadLogic.Machine.Coordinated.Types
+    Paths_hydra_node
+
   build-depends:
     , aeson
     , base
@@ -240,6 +248,7 @@ library testlib
     Test.Hydra.Chain
     Test.Hydra.Chain.Direct.State
     Test.Hydra.Chain.Direct.TimeHandle
+    Test.Hydra.HeadLogic.CoordinatedAudit
     Test.Hydra.HeadLogic.Crem.Comparison
     Test.Hydra.HeadLogic.Debugger
     Test.Hydra.HeadLogic.DecommitDependency
@@ -255,6 +264,8 @@ library testlib
     Test.Hydra.HeadLogic.MachineDiagrams
     Test.Hydra.HeadLogic.Mermaid
     Test.Hydra.HeadLogic.Outcome
+    Test.Hydra.HeadLogic.Projection.Incremental
+    Test.Hydra.HeadLogic.Projection.OffChain
     Test.Hydra.HeadLogic.RegistryDemo
     Test.Hydra.HeadLogic.Replay
     Test.Hydra.HeadLogic.Resolved
@@ -482,6 +493,7 @@ test-suite tests
     Hydra.Events.S3Spec
     Hydra.Events.SQLiteBasedSpec
     Hydra.Events.UDPSpec
+    Hydra.HeadLogic.CoordinatedSpec
     Hydra.HeadLogic.IncrementalWorkflowSpec
     Hydra.HeadLogic.InputWorkflowSpec
     Hydra.HeadLogic.MachineSpec

@@ -2,27 +2,17 @@
   "docs/head-logic-machines/composition.mmd": {
     "group": "Retained-event machines",
     "title": "Event-machine composition",
-    "description": "Lifecycle, incremental action and snapshot coordination run in sequence; node metadata applies last. This is the retained-event path used for live state and recovery."
+    "description": "DepositRegistry → Lifecycle → Clock. Lifecycle holds the open head’s snapshot/transaction continuation, rendered separately. Ports carry owned state projections and the deposit value before consumption."
   },
   "docs/head-logic-machines/lifecycle.mmd": {
     "group": "Retained-event machines",
     "title": "Head lifecycle",
     "description": "Idle, Open, Closed, ReadyToFanout and fanout progress. Closed or ReadyToFanout can observe another party completing fanout and become Idle."
   },
-  "docs/head-logic-machines/incremental.mmd": {
-    "group": "Retained-event machines",
-    "title": "Pending incremental action",
-    "description": "Tracks a selected deposit, a pending decommit, or both in raw persisted state. Admission guards prevent conflicting work; replay must still represent it."
-  },
   "docs/head-logic-machines/deposits.mmd": {
     "group": "Retained-event machines",
     "title": "Tracked deposits",
     "description": "Recorded, active, expired and consumed deposits, including what rollback can restore or remove. Deposit registration is distinct from selection for a snapshot."
-  },
-  "docs/head-logic-machines/off-chain.mmd": {
-    "group": "Retained-event machines",
-    "title": "Snapshot coordination",
-    "description": "No request, requested round, collecting signatures, and idle after confirmation. This graph applies retained events; it does not validate messages."
   },
   "docs/docs/dev/architecture/head-logic-experiments/workflows/req-tx-leader.mmd": {
     "group": "Workflow comparisons",
@@ -413,5 +403,15 @@
     "group": "Complete input execution",
     "title": "Settlement phases",
     "description": "Record finalization, choose a candidate, verify it, and select work at the new version. Verification failure still reaches request selection."
+  },
+  "docs/head-logic-machines/coordinated.mmd": {
+    "group": "Retained-event machines",
+    "title": "Snapshot and transaction owners",
+    "description": "Generated from the executable Snapshots → Transactions composition. Typed ports carry rebases, settlement and clearing. A fresh decrement releases a reservation; a repeated observation preserves it. Reserved means a decommit is recorded, not that every ledger property holds."
+  },
+  "docs/head-logic-machines/decommit-ownership.mmd": {
+    "group": "Retained-event machines",
+    "title": "Decommit failure at the owner boundary",
+    "description": "An annotated explanation of the tested honest delivery schedule, grouped by rule, snapshot owner, transaction owner and independent audit. Checks expose reservation loss during rebase and an ineligible next decommit request. These are development diagnostics; neither bug is fixed in the structural refactor."
   }
 }

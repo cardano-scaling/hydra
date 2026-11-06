@@ -25,9 +25,11 @@ import Data.Singletons.Base.TH (
   singletons,
   type (:@#@$),
  )
+import Hydra.Chain.ChainState (IsChainState)
 import Hydra.HeadLogic.Error (LogicError (..), RequirementFailure (..))
 import Hydra.HeadLogic.Input (TTL)
-import Hydra.HeadLogic.Outcome (Effect (..), StateChanged (..), WaitReason (..))
+import Hydra.HeadLogic.Machine.Coordinated qualified as Coordinated
+import Hydra.HeadLogic.Outcome (Effect (..), WaitReason (..))
 import Hydra.HeadLogic.Program (SnapshotProgram)
 import Hydra.HeadLogic.Program qualified as Program
 import Hydra.HeadLogic.Rules.Environment (
@@ -66,7 +68,7 @@ import Hydra.HeadLogic.Workflow (
 import Hydra.Network.Message (Message (..))
 import Hydra.Node.State (ChainPointTime (..), Deposit (..), DepositStatus (..), PendingDeposits)
 import Hydra.Prelude hiding (State, state)
-import Hydra.Tx (IsTx, TxIdType, UTxOType, combinedUTxO, txId, utxoFromTx, withoutUTxO)
+import Hydra.Tx (TxIdType, UTxOType, combinedUTxO, txId, utxoFromTx, withoutUTxO)
 import Hydra.Tx.Accumulator (AccumulatorTooLarge (..))
 import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Party (Party)
@@ -108,7 +110,7 @@ data State tx phase where
   Acknowledged :: Snapshot tx -> State tx 'PruneLocalTransactions
   Done :: State tx 'Finished
 
-machine :: forall tx. IsTx tx => RuleEnvironment -> PendingDeposits tx -> ChainPointTime -> OpenState tx -> TTL -> Party -> SnapshotVersion -> SnapshotNumber -> [TxIdType tx] -> Maybe tx -> Maybe (TxIdType tx) -> Workflow tx 'True 'True ReqSnTopology
+machine :: forall tx. IsChainState tx => RuleEnvironment -> PendingDeposits tx -> ChainPointTime -> OpenState tx -> TTL -> Party -> SnapshotVersion -> SnapshotNumber -> [TxIdType tx] -> Maybe tx -> Maybe (TxIdType tx) -> Workflow tx 'True 'True ReqSnTopology
 machine env pendingDeposits ChainPointTime{currentSlot, currentChainTime} st ttl otherParty sv sn requestedTxIds mDecommitTx mDepositTxId =
   BaseMachineT (InitialState Request) $ \state () -> step state
  where
@@ -164,7 +166,7 @@ machine env pendingDeposits ChainPointTime{currentSlot, currentChainTime} st ttl
       -- The acknowledgement is buffered before pruning; SnapshotRequested then
       -- reconstructs localUTxO by applying the retained transactions in order.
       newLocalTxs <- pruneTransactions currentSlot snapshot.utxoToCommit snapshot.utxoToDecommit snapshot.utxo localTxs
-      Program.change SnapshotRequested{requestedSnapshot = snapshot, newLocalTxs, newCurrentDepositTxId = mDepositTxId}
+      void $ Coordinated.stage (Coordinated.start st) $ Coordinated.acceptSnapshot snapshot newLocalTxs mDepositTxId
     Done -> finish Done
 
   resolveDecommit :: SnapshotProgram tx (UTxOType tx, Maybe (UTxOType tx))

@@ -572,3 +572,33 @@ fanoutContinuationRef false _ = 0
 {-# COMPILE GHC adoptSettlementRef as hsAdoptSettlementRef #-}
 {-# COMPILE GHC repostFinalizedRef as hsRepostFinalizedRef #-}
 {-# COMPILE GHC fanoutContinuationRef as hsFanoutContinuationRef #-}
+
+-- Independent invariants for the coordinated ownership experiment. These are
+-- requirements, not a translation of the current event reducer: the historical
+-- decommit schedule violates both. Outputs are natural-number identities, as
+-- in SimpleTx. There is no Cardano validation, reference input, script, slot or
+-- settlement model here; 'carried' means the same decommit is already signed.
+reservationHeldRef : List Nat → List Nat → Bool
+reservationHeldRef [] available = true
+reservationHeldRef (input ∷ rest) available =
+  not (elemᵇ input available) && reservationHeldRef rest available
+
+decommitReadyRef : Bool → List Nat → List Nat → Bool
+decommitReadyRef true inputs confirmed = true
+decommitReadyRef false [] confirmed = true
+decommitReadyRef false (input ∷ rest) confirmed =
+  elemᵇ input confirmed && decommitReadyRef false rest confirmed
+
+{-# COMPILE GHC reservationHeldRef as hsReservationHeldRef #-}
+{-# COMPILE GHC decommitReadyRef as hsDecommitReadyRef #-}
+
+-- Version and reservation projection of a decrement observation. Chain rollback
+-- preserves both; a repeated observation must not release a newer reservation.
+settlementVersionRef : Nat → Nat → Nat
+settlementVersionRef old observed = if old < observed then observed else old
+
+settlementReservationRef : Bool → Nat → Nat → Bool
+settlementReservationRef pending old observed = pending && not (old < observed)
+
+{-# COMPILE GHC settlementVersionRef as hsSettlementVersionRef #-}
+{-# COMPILE GHC settlementReservationRef as hsSettlementReservationRef #-}

@@ -25,6 +25,13 @@ import Hydra.Prelude
 import Hydra.Tx (HeadId, IsTx (..), TxIdType, UTxOType, utxoFromTx, withoutUTxO)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotVersion, getSnapshot)
 
+-- | A confirmation can arrive after its increment/decrement observation. Keep
+-- it for reposting if that observation rolls back. Shared with side-loading.
+retainConfirmedSettlement :: IsTx tx => ChainSlot -> SnapshotVersion -> ConfirmedSnapshot tx -> Bool -> Maybe (FinalizedSnapshot tx) -> Maybe (FinalizedSnapshot tx)
+retainConfirmedSettlement slot version confirmed settles previous
+  | version == (getSnapshot confirmed).version + 1 && settles = Just $ FinalizedSnapshot confirmed slot
+  | otherwise = previous
+
 -- | Maximum number of transaction ids per snapshot. This effectively limits our
 -- "block size" and ensures it does not grow arbitrarily with the backlog of
 -- pending transactions (localTxs). Only applied when requesting snapshots as
@@ -54,19 +61,22 @@ closedToFanoutProgress ::
   FanoutMode tx ->
   HeadState tx
 closedToFanoutProgress closedState chainState remaining distributed mode =
-  FanoutProgress
-    PartialFanoutState
-      { parameters
-      , confirmedSnapshot
-      , contestationDeadline
-      , chainState
-      , headId
-      , headSeed
-      , version
-      , remainingOutputs = remaining
-      , distributedOutputs = distributed
-      , mode
-      }
+  FanoutProgress $ closedToPartialFanout closedState chainState remaining distributed mode
+
+closedToPartialFanout :: ClosedState tx -> ChainStateType tx -> UTxOType tx -> UTxOType tx -> FanoutMode tx -> PartialFanoutState tx
+closedToPartialFanout closedState chainState remaining distributed mode =
+  PartialFanoutState
+    { parameters
+    , confirmedSnapshot
+    , contestationDeadline
+    , chainState
+    , headId
+    , headSeed
+    , version
+    , remainingOutputs = remaining
+    , distributedOutputs = distributed
+    , mode
+    }
  where
   ClosedState{parameters, confirmedSnapshot, contestationDeadline, headId, headSeed, version} = closedState
 

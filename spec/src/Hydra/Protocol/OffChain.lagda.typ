@@ -1549,8 +1549,10 @@ rule out unsupported primitive configurations.
 === Retained-event machines
 
 The Haskell crem experiment applies retained `StateChanged` events through
-four sequential components: head lifecycle, pending incremental action,
-snapshot coordination, and node metadata (including tracked deposits).
+three sequential owners: tracked deposits, head lifecycle, and the node clock.
+The open lifecycle state contains the composed snapshot and transaction owners.
+Their ports carry owned projections and settlement context, never a mutable
+NodeState. The deposit registry supplies a deposit value before consuming it.
 The input rules above still choose events and effects. A rejected input commits
 no events; a waiting input commits its retained prefix. Event replay performs
 neither admission checks nor signature verification.
@@ -1618,3 +1620,50 @@ fanout multiset arithmetic, chain validity, termination or distributed progress.
 A two-head recovery test checks that a recovery observation consumes a registered
 deposit from a previous head while another head is active. `DepositRecovered` is
 node-level and is explicitly exempt from the retained-event head-id filter.
+
+=== Composed snapshot and transaction state
+
+ReqTx, ReqDec, ReqSn, AckSn, settlement and side-loading stage their core changes through the same crem transitions
+used to apply their retained events. One component owns the candidate snapshot,
+signature map and confirmed snapshot; another owns the transaction registry,
+local transaction sequence, local UTxO and pending decommit. Crem's sequential
+composition connects them with a typed rebase command. The snapshot component
+supplies the snapshot and retained transactions; only the transaction component
+chooses how to reconstruct its UTxO. Neither component receives a NodeState.
+
+Live confirmation requires an opaque result from successful multisignature
+verification. The snapshot component compares the verified signable bytes with
+its candidate's cached bytes before confirming. This depends on the primitive
+implementation, the cache invariant, and the rule's choice of party keys; it is
+not a proof of cryptography in the type system. Replay trusts retained events
+and skips verification. The snapshot owner also handles explicit adoption,
+clearing, settlement retention and version changes. The transaction owner handles
+deposit selection, recovery and reservation release. A repeated settlement does
+not release a newer reservation; rollback only updates the chain context.
+Lifecycle owns closed-state snapshot adoption. Checkpoint restoration rebuilds
+all owners from the unchanged persisted representation.
+
+The conversion preserves the existing Complete, Wait and Reject semantics and
+event ordering, including the duplicate partial-ack signature event. No new
+state or event encoding is introduced. It deliberately preserves the known
+decommit defects for a separate behavior change. A pending reservation can be
+lost during rebase, and a leader can request a decommit of an output that only a
+transaction in the same snapshot will create, although ReqSn applies the
+decommit first.
+
+Two independent predicates in OffChainReference.agda state the missing
+invariants: pending decommit inputs are absent from the spendable local UTxO;
+a newly requested decommit's inputs are present in the confirmed base. The
+bounded SimpleTx audit checks these predicates and detects both failures in the
+honest three-party delivery schedule. This adds neither an eligibility rule nor
+a production assertion. Cardano reference inputs, collateral, scripts, time
+validity and settlement history are excluded from this projection.
+
+
+The reference also projects the version and reservation after decrement
+observations. Bounded tests cover fresh, equal and older versions with and without
+a pending reservation. Complete Haskell sequence tests cover deposit activation,
+settlement before acknowledgement, reobservation, rollback, explicit adoption,
+clearing and recovery, comparing uninterrupted continuations with reconstruction
+and CBOR round trips at every prefix. The natural-number projection does not
+model settlement payload identity; the sequence tests cover that separately.

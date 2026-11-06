@@ -25,7 +25,9 @@ import Data.Singletons.Base.TH (
   type (:@#@$),
  )
 import Hydra.API.ServerOutput (DecommitInvalidReason (..))
+import Hydra.Chain.ChainState (IsChainState)
 import Hydra.HeadLogic.Input (TTL)
+import Hydra.HeadLogic.Machine.Coordinated qualified as Coordinated
 import Hydra.HeadLogic.Outcome (Effect (..), StateChanged (..), WaitReason (..))
 import Hydra.HeadLogic.Program qualified as Program
 import Hydra.HeadLogic.Rules.Environment (
@@ -68,7 +70,7 @@ import Hydra.Ledger (ValidationError (..))
 import Hydra.Network.Message (Message (..))
 import Hydra.Node.State (ChainPointTime (..), Deposit (..), PendingDeposits)
 import Hydra.Prelude hiding (State, state)
-import Hydra.Tx (IsTx, UTxOType, txId, utxoFromTx)
+import Hydra.Tx (UTxOType, txId, utxoFromTx)
 import Hydra.Tx.Snapshot (Snapshot (..), getSnapshot)
 
 $( singletons
@@ -103,7 +105,7 @@ data State tx phase where
   Record :: State tx 'RecordAndRequest
   Done :: State tx 'Finished
 
-machine :: forall tx signing. IsTx tx => RuleEnvironment -> TTL -> ChainPointTime -> PendingDeposits tx -> OpenState tx -> tx -> Workflow tx 'True signing ReqDecTopology
+machine :: forall tx signing. IsChainState tx => RuleEnvironment -> TTL -> ChainPointTime -> PendingDeposits tx -> OpenState tx -> tx -> Workflow tx 'True signing ReqDecTopology
 machine env ttl ChainPointTime{currentSlot, currentChainTime} pendingDeposits openState decommitTx =
   BaseMachineT (InitialState CommitCheck) $ \state () -> step state
  where
@@ -139,7 +141,7 @@ machine env ttl ChainPointTime{currentSlot, currentChainTime} pendingDeposits op
         invalid DecommitTxInvalid{localUTxO, validationError}
       Right () -> continue (const Record) $ Program.decide "decommit fits local and confirmed capacity" True
     Record -> continue (const Done) $ do
-      Program.change DecommitRecorded{headId, decommitTx}
+      void $ Coordinated.stage (Coordinated.start openState) $ Coordinated.reserveDecommit decommitTx
       noSnapshot <- Program.decide "no snapshot is in flight" (not $ snapshotInFlight seenSnapshot)
       when noSnapshot $ do
         leader <- Program.decide "this party leads the next snapshot" (isLeader parameters env.party nextSn)

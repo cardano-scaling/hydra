@@ -125,3 +125,12 @@ shows a guard change reaching execution, tests and diagrams without an
 interpreter-specific rule edit. The [bug ledger](docs/dev/architecture/head-logic-experiments/bugs.md)
 and [measurements](docs/dev/architecture/head-logic-experiments/measurements.md)
 keep defects and costs separate from the design description.
+
+## Shared state transitions
+
+ReqTx, ReqDec, ReqSn, AckSn, settlement and side-loading stage their core events through the
+[snapshot and transaction owners](head-logic-coordinated.md). AckSn carries the
+tentative continuation from signature collection to confirmation. Program still
+provides primitive queries and terminal semantics; the owner transitions produce
+the events and next state together. Other input rules retain their existing
+event instructions.

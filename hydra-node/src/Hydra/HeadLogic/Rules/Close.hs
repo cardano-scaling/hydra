@@ -8,14 +8,15 @@ module Hydra.HeadLogic.Rules.Close where
 
 import Hydra.Chain (PostChainTx (..))
 import Hydra.Chain.ChainState (IsChainState (..))
+import Hydra.HeadLogic.Machine.Coordinated qualified as Coordinated
 import Hydra.HeadLogic.Outcome (Effect (..), StateChanged (..))
 import Hydra.HeadLogic.Program (
   Program,
   change,
   decide,
   emit,
-  verifySnapshot,
  )
+import Hydra.HeadLogic.Rules.SnapshotVerification (VerifiedSnapshot, verifiedSnapshot, verifyCandidate)
 import Hydra.HeadLogic.State (
   ClosedState (
     ClosedState,
@@ -32,11 +33,12 @@ import Hydra.HeadLogic.State (
     version
   ),
   OpenState (OpenState, coordinatedHeadState, headId, parameters),
-  SeenSnapshot (SeenSnapshot, signableBytes, snapshot),
+  SeenSnapshot (SeenSnapshot, snapshot),
+  mkSeenSnapshot,
  )
 import Hydra.Prelude
 import Hydra.Tx (HeadId, IsTx)
-import Hydra.Tx.Crypto (MultiSignature, Verified (..), getSignableRepresentation)
+import Hydra.Tx.Crypto (MultiSignature)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.Party (Party (vkey))
 import Hydra.Tx.Snapshot (ConfirmedSnapshot, Snapshot (..), SnapshotNumber, SnapshotVersion, getSnapshot)
@@ -45,31 +47,32 @@ onOpenClientClose :: OpenState tx -> Program tx ledger signing ()
 onOpenClientClose OpenState{headId, parameters, coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot, version}} =
   emit $ OnChainEffect CloseTx{headId, headParameters = parameters, openVersion = version, closingSnapshot = confirmedSnapshot}
 
-onOpenChainCloseTx :: IsTx tx => OpenState tx -> ChainStateType tx -> SnapshotNumber -> UTCTime -> MultiSignature (Snapshot tx) -> Program tx ledger signing ()
-onOpenChainCloseTx OpenState{headId, parameters, coordinatedHeadState} newChainState closedNumber contestationDeadline signatures = do
-  void $ adoptSnapshot headId parameters.parties closedNumber signatures candidate
+onOpenChainCloseTx :: IsChainState tx => OpenState tx -> ChainStateType tx -> SnapshotNumber -> UTCTime -> MultiSignature (Snapshot tx) -> Program tx ledger signing ()
+onOpenChainCloseTx os@OpenState{headId, parameters, coordinatedHeadState} newChainState closedNumber contestationDeadline signatures = do
+  void $ adoptSnapshot parameters.parties closedNumber signatures candidate (void . Coordinated.stage (Coordinated.start os) . Coordinated.adoptSnapshot)
   change HeadClosed{headId, snapshotNumber = closedNumber, chainState = newChainState, contestationDeadline}
   -- Compare the confirmed snapshot from before adoption, as the existing rule does.
   postNewerSnapshot headId parameters version confirmedSnapshot closedNumber
  where
   CoordinatedHeadState{confirmedSnapshot, seenSnapshot, version} = coordinatedHeadState
   candidate = case seenSnapshot of
-    SeenSnapshot{snapshot, signableBytes} -> Just (snapshot, signableBytes)
+    seen@SeenSnapshot{} -> Just seen
     _ -> Nothing
 
 onClosedChainContestTx :: IsTx tx => ClosedState tx -> ChainStateType tx -> SnapshotNumber -> UTCTime -> MultiSignature (Snapshot tx) -> Program tx ledger signing ()
 onClosedChainContestTx ClosedState{headId, parameters, confirmedSnapshot, version, unconfirmedSnapshot} newChainState snapshotNumber contestationDeadline signatures = do
-  adopted <- adoptSnapshot headId parameters.parties snapshotNumber signatures ((\snapshot -> (snapshot, getSignableRepresentation snapshot)) <$> unconfirmedSnapshot)
+  adopted <- adoptSnapshot parameters.parties snapshotNumber signatures ((`mkSeenSnapshot` mempty) <$> unconfirmedSnapshot) $ \evidence ->
+    change SnapshotConfirmed{headId, snapshot = Just $ verifiedSnapshot evidence, signatures}
   change HeadContested{headId, chainState = newChainState, contestationDeadline, snapshotNumber}
   unless adopted $ postNewerSnapshot headId parameters version confirmedSnapshot snapshotNumber
 
-adoptSnapshot :: HeadId -> [Party] -> SnapshotNumber -> MultiSignature (Snapshot tx) -> Maybe (Snapshot tx, ByteString) -> Program tx ledger signing Bool
-adoptSnapshot headId parties observedNumber signatures = \case
-  Just (snapshot, bytes) | snapshot.number == observedNumber -> do
+adoptSnapshot :: [Party] -> SnapshotNumber -> MultiSignature (Snapshot tx) -> Maybe (SeenSnapshot tx) -> (VerifiedSnapshot tx -> Program tx ledger signing ()) -> Program tx ledger signing Bool
+adoptSnapshot parties observedNumber signatures candidate retain = case candidate of
+  Just seen@SeenSnapshot{snapshot} | snapshot.number == observedNumber -> do
     void $ decide "chain observation matches the unconfirmed snapshot number" True
-    verified <- verifySnapshot (vkey <$> parties) signatures bytes
-    valid <- decide "observed snapshot signatures verify" (verified == Verified)
-    when valid $ change SnapshotConfirmed{headId, snapshot = Just snapshot, signatures}
+    verified <- verifyCandidate (vkey <$> parties) seen signatures
+    valid <- decide "observed snapshot signatures verify" (isRight verified)
+    traverse_ retain verified
     pure valid
   _ -> decide "chain observation matches the unconfirmed snapshot number" False
 

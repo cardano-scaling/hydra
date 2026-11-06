@@ -1273,3 +1273,51 @@ d_fanoutContinuationRef_500 v0 v1
                  0 -> coe (1 :: Integer)
                  1 -> coe (2 :: Integer)
                  _ -> coe v2))
+-- Hydra.Protocol.OffChainReference.reservationHeldRef
+hsReservationHeldRef ::
+  MAlonzo.Code.Agda.Builtin.List.T_List_10 () Integer ->
+  MAlonzo.Code.Agda.Builtin.List.T_List_10 () Integer -> Bool
+hsReservationHeldRef = coe d_reservationHeldRef_502
+d_reservationHeldRef_502 :: [Integer] -> [Integer] -> Bool
+d_reservationHeldRef_502 v0 v1
+  = case coe v0 of
+      [] -> coe MAlonzo.Code.Agda.Builtin.Bool.C_true_10
+      (:) v2 v3
+        -> coe
+             d__'38''38'__34
+             (coe d_not_54 (coe d_elem'7495'_56 (coe v2) (coe v1)))
+             (coe d_reservationHeldRef_502 (coe v3) (coe v1))
+      _ -> MAlonzo.RTE.mazUnreachableError
+-- Hydra.Protocol.OffChainReference.decommitReadyRef
+hsDecommitReadyRef ::
+  Bool ->
+  MAlonzo.Code.Agda.Builtin.List.T_List_10 () Integer ->
+  MAlonzo.Code.Agda.Builtin.List.T_List_10 () Integer -> Bool
+hsDecommitReadyRef = coe d_decommitReadyRef_512
+d_decommitReadyRef_512 :: Bool -> [Integer] -> [Integer] -> Bool
+d_decommitReadyRef_512 v0 v1 v2
+  = if coe v0
+      then coe v0
+      else (case coe v1 of
+              [] -> coe MAlonzo.Code.Agda.Builtin.Bool.C_true_10
+              (:) v3 v4
+                -> coe
+                     d__'38''38'__34 (coe d_elem'7495'_56 (coe v3) (coe v2))
+                     (coe d_decommitReadyRef_512 (coe v0) (coe v4) (coe v2))
+              _ -> MAlonzo.RTE.mazUnreachableError)
+-- Hydra.Protocol.OffChainReference.settlementVersionRef
+hsSettlementVersionRef :: Integer -> Integer -> Integer
+hsSettlementVersionRef = coe d_settlementVersionRef_526
+d_settlementVersionRef_526 :: Integer -> Integer -> Integer
+d_settlementVersionRef_526 v0 v1
+  = coe
+      du_if_then_else__16 (coe ltInt (coe v0) (coe v1)) (coe v1) (coe v0)
+-- Hydra.Protocol.OffChainReference.settlementReservationRef
+hsSettlementReservationRef :: Bool -> Integer -> Integer -> Bool
+hsSettlementReservationRef = coe d_settlementReservationRef_532
+d_settlementReservationRef_532 ::
+  Bool -> Integer -> Integer -> Bool
+d_settlementReservationRef_532 v0 v1 v2
+  = coe
+      d__'38''38'__34 (coe v0)
+      (coe d_not_54 (coe ltInt (coe v1) (coe v2)))

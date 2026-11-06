@@ -6,12 +6,39 @@ Generated from crem's executable definitions with:
 cabal run hydra-node:head-logic-lab -- machines docs/head-logic-machines
 ```
 
-These are allowed replay transitions, including resets and events outside their usual phase. Edges to Idle mean observed completion (HeadFannedOut), including at parties that did not initiate fanout. Identity transitions are implicit. They do not show admission guards or prove that every edge is reachable from network input. See [the implementation guide](../head-logic-crem.md) for event meanings and limitations.
+Coordinated contains the snapshot and transaction owners used by live staging and replay. Its Reserved phase records a pending decommit; it does not prove that rebuilding preserved the reservation. Composition shows DepositRegistry → Lifecycle → Clock. The open lifecycle state holds the Coordinated continuation; its nested composition is shown separately. These are allowed replay transitions, including resets and events outside their usual phase. Edges to Idle mean observed completion (HeadFannedOut), including at parties that did not initiate fanout. Identity transitions are implicit. They do not show admission guards or prove that every edge is reachable from network input. See [the implementation guide](../head-logic-crem.md) for event meanings and limitations.
+
+## coordinated
+
+```mermaid
+stateDiagram-v2
+state Snapshots {
+Snapshots_AwaitingRequest
+Snapshots_RequestSent
+Snapshots_CollectingSignatures
+Snapshots_AwaitingRequest --> Snapshots_RequestSent
+Snapshots_AwaitingRequest --> Snapshots_CollectingSignatures
+Snapshots_RequestSent --> Snapshots_AwaitingRequest
+Snapshots_RequestSent --> Snapshots_CollectingSignatures
+Snapshots_CollectingSignatures --> Snapshots_AwaitingRequest
+Snapshots_CollectingSignatures --> Snapshots_RequestSent
+}
+state Transactions {
+Transactions_Unreserved
+Transactions_Reserved
+Transactions_Unreserved --> Transactions_Reserved
+Transactions_Reserved --> Transactions_Unreserved
+}
+Snapshots --> Transactions
+```
 
 ## composition
 
 ```mermaid
 stateDiagram-v2
+state DepositRegistry {
+DepositRegistry_TrackedDeposits
+}
 state Lifecycle {
 Lifecycle_Idle
 Lifecycle_Open
@@ -39,60 +66,11 @@ Lifecycle_FanoutProgress --> Lifecycle_ReadyToFanout: HeadFanoutReverted
 Lifecycle_FanoutProgress --> Lifecycle_PendingFanout: HeadPartialFannedOut (empty total)
 Lifecycle_FanoutProgress --> Lifecycle_Idle: HeadFannedOut (observed on chain)
 }
-state Incremental {
-Incremental_OutsideHead
-Incremental_NoIncrement
-Incremental_DepositSelected
-Incremental_DecommitPending
-Incremental_ConflictingSelection
-Incremental_OutsideHead --> Incremental_NoIncrement
-Incremental_NoIncrement --> Incremental_OutsideHead
-Incremental_NoIncrement --> Incremental_DepositSelected
-Incremental_NoIncrement --> Incremental_DecommitPending
-Incremental_NoIncrement --> Incremental_ConflictingSelection
-Incremental_DepositSelected --> Incremental_OutsideHead
-Incremental_DepositSelected --> Incremental_NoIncrement
-Incremental_DepositSelected --> Incremental_DecommitPending
-Incremental_DepositSelected --> Incremental_ConflictingSelection
-Incremental_DecommitPending --> Incremental_OutsideHead
-Incremental_DecommitPending --> Incremental_NoIncrement
-Incremental_DecommitPending --> Incremental_DepositSelected
-Incremental_DecommitPending --> Incremental_ConflictingSelection
-Incremental_ConflictingSelection --> Incremental_OutsideHead
-Incremental_ConflictingSelection --> Incremental_NoIncrement
-Incremental_ConflictingSelection --> Incremental_DepositSelected
-Incremental_ConflictingSelection --> Incremental_DecommitPending
+DepositRegistry --> Lifecycle
+state Clock {
+Clock_ObservedTime
 }
-Lifecycle --> Incremental
-state OffChain {
-OffChain_OutsideHead
-OffChain_NoRequestSeen
-OffChain_SnapshotIdle
-OffChain_RequestSent
-OffChain_CollectingSignatures
-OffChain_OutsideHead --> OffChain_NoRequestSeen
-OffChain_NoRequestSeen --> OffChain_OutsideHead
-OffChain_NoRequestSeen --> OffChain_SnapshotIdle
-OffChain_NoRequestSeen --> OffChain_RequestSent
-OffChain_NoRequestSeen --> OffChain_CollectingSignatures
-OffChain_SnapshotIdle --> OffChain_OutsideHead
-OffChain_SnapshotIdle --> OffChain_NoRequestSeen
-OffChain_SnapshotIdle --> OffChain_RequestSent
-OffChain_SnapshotIdle --> OffChain_CollectingSignatures
-OffChain_RequestSent --> OffChain_OutsideHead
-OffChain_RequestSent --> OffChain_NoRequestSeen
-OffChain_RequestSent --> OffChain_SnapshotIdle
-OffChain_RequestSent --> OffChain_CollectingSignatures
-OffChain_CollectingSignatures --> OffChain_OutsideHead
-OffChain_CollectingSignatures --> OffChain_NoRequestSeen
-OffChain_CollectingSignatures --> OffChain_SnapshotIdle
-OffChain_CollectingSignatures --> OffChain_RequestSent
-}
-Incremental --> OffChain
-state NodeMetadata {
-NodeMetadata_()
-}
-OffChain --> NodeMetadata
+Lifecycle --> Clock
 
 ```
 
@@ -158,62 +136,4 @@ ConsumedDeposit --> MissingDeposit
 ConsumedDeposit --> InactiveDeposit
 ConsumedDeposit --> ActiveDeposit
 ConsumedDeposit --> ExpiredDeposit
-```
-
-## incremental
-
-```mermaid
-stateDiagram-v2
-
-OutsideHead
-NoIncrement
-DepositSelected
-DecommitPending
-ConflictingSelection
-OutsideHead --> NoIncrement
-NoIncrement --> OutsideHead
-NoIncrement --> DepositSelected
-NoIncrement --> DecommitPending
-NoIncrement --> ConflictingSelection
-DepositSelected --> OutsideHead
-DepositSelected --> NoIncrement
-DepositSelected --> DecommitPending
-DepositSelected --> ConflictingSelection
-DecommitPending --> OutsideHead
-DecommitPending --> NoIncrement
-DecommitPending --> DepositSelected
-DecommitPending --> ConflictingSelection
-ConflictingSelection --> OutsideHead
-ConflictingSelection --> NoIncrement
-ConflictingSelection --> DepositSelected
-ConflictingSelection --> DecommitPending
-```
-
-## off-chain
-
-```mermaid
-stateDiagram-v2
-
-OutsideHead
-NoRequestSeen
-SnapshotIdle
-RequestSent
-CollectingSignatures
-OutsideHead --> NoRequestSeen
-NoRequestSeen --> OutsideHead
-NoRequestSeen --> SnapshotIdle
-NoRequestSeen --> RequestSent
-NoRequestSeen --> CollectingSignatures
-SnapshotIdle --> OutsideHead
-SnapshotIdle --> NoRequestSeen
-SnapshotIdle --> RequestSent
-SnapshotIdle --> CollectingSignatures
-RequestSent --> OutsideHead
-RequestSent --> NoRequestSeen
-RequestSent --> SnapshotIdle
-RequestSent --> CollectingSignatures
-CollectingSignatures --> OutsideHead
-CollectingSignatures --> NoRequestSeen
-CollectingSignatures --> SnapshotIdle
-CollectingSignatures --> RequestSent
 ```
