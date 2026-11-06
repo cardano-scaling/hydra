@@ -379,6 +379,7 @@ benchmarkRound reverseOrder ledgerName n backlog fixture = do
       beforeCrem = runRoundWith legacyAggregateState CremPrograms fixture fixture.incoming
   unless (runRound FullInputRules fixture fixture.incoming == new && runRound FrozenInputRules fixture fixture.incoming == new) $ Prelude.error "full input round differs"
   unless (free == new) $ Prelude.error "workflow round differs from frozen free programs"
+  unless (runRoundWith legacyAggregateState FrozenInputRules fixture fixture.incoming == new) $ Prelude.error "complete original round differs"
   unless (beforeCrem == new) $ Prelude.error "crem round differs from frozen event reducer"
   unless (old == new) $ Prelude.error "snapshot round outcomes or states differ"
   -- Equality alone also accepts two equally broken rounds. Force a successful
@@ -418,6 +419,11 @@ benchmarkRound reverseOrder ledgerName n backlog fixture = do
            , bgroup "input" $
               ordered
                 [ bench "frozen-handlers" $ whnf (roundChecksum . runRound FrozenInputRules fixture) fixture.incoming
+                , bench "crem-program" $ whnf (roundChecksum . runRound FullInputRules fixture) fixture.incoming
+                ]
+           , bgroup "complete" $
+              ordered
+                [ bench "original" $ whnf (roundChecksum . runRoundWith legacyAggregateState FrozenInputRules fixture) fixture.incoming
                 , bench "crem-program" $ whnf (roundChecksum . runRound FullInputRules fixture) fixture.incoming
                 ]
            , bgroup "aggregation" (ordered cremPair)
