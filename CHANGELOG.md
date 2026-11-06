@@ -17,7 +17,7 @@ changes.
   A null `asset_name` in asset details is now decoded as an empty name.
   [#2923](https://github.com/cardano-scaling/hydra/issues/2923)
 
-- Prevent transactions exceeding the accumulator's 4,095-output capacity from
+- Prevent transactions exceeding the accumulator's maximum output capacity from
   stalling snapshot confirmation. Snapshot capacity checks reserve pending commit and
   decommit outputs, reject oversized decommits, and defer deposits that do not
   fit alongside the requested transactions.
