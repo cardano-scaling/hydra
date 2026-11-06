@@ -1,5 +1,7 @@
 # Snapshot programs, bounded exploration and resolved replay
 
+Archived from `a6c4966f8`. This records an earlier investigation; claims and commands belong to the revisions named here. Use the [current Crem/Program guide](../head-logic-review.md) for the implementation.
+
 Use `docs/head-logic-review.md` in the checkout for the implementation approach
 and links to specific functions. This page is the runnable companion: commands,
 expected results, recorded artifacts and validation.
@@ -15,21 +17,20 @@ client commands, network messages and chain observations. Generate concrete
 comparisons and phase graphs with:
 
 ```sh
-cabal run hydra-node:head-logic-lab -- trace-inputs docs/docs/dev/architecture/head-logic-experiments/inputs +RTS -N1
-cabal run hydra-node:head-logic-lab -- compare-crem docs/docs/dev/architecture/head-logic-experiments/workflows +RTS -N1
-python3 scripts/head-logic-diagrams.py
+cabal run hydra-node:head-logic-lab -- trace-inputs /tmp/head-inputs +RTS -N1
+cabal run hydra-node:head-logic-lab -- compare-crem /tmp/head-workflows +RTS -N1
 ```
 
 The first command compares 31 examples with frozen handlers and event replay,
 including event/checkpoint serialization and recorded primitive replies. The
 second compares five individual workflows with their earlier implementations.
-[All diagrams](../../../../head-logic-diagrams.md) renders the resulting `.mmd`
-files with explanations; `python3 scripts/head-logic-diagrams.py --check` verifies
-that the page covers every source and is up to date.
+The saved [workflow comparisons](workflows/README.md) remain in this archive.
+The [current tracing guide](../head-logic/tools.md#generate-current-diagrams)
+describes how to update the active diagrams and their index.
 
 ## Other demonstrations
 
-For the peer demonstration, see `docs/docs/dev/architecture/head-logic-experiments/demonstration.md`. The additional
+For the peer demonstration, see `docs/prior-spike/demonstration.md`. The additional
 commands reproduce the real Cardano registry failure, discover the retry-expiry
 failure in a focused search, and check 24 three-party settlement/rollback schedules:
 
@@ -57,7 +58,7 @@ The frozen run stops at snapshot 1 after 24 deliveries. The corrected run confir
 snapshot 3 after 45 deliveries. Each writes its complete input/outcome/state report
 and an adjacent Mermaid trace. These reports use the decommit demo format, not
 the generic explorer replay format. See the [bug explanation](bugs.md#decommit-dependencies-and-reserved-inputs)
-and [component diagrams](../../../../head-logic-diagrams.md#decommit-dependency-correction).
+and [component diagrams](../head-logic-diagrams.md#decommit-dependencies-and-reservation).
 
 ## Snapshot round
 
@@ -241,8 +242,8 @@ so that the existing golden files are found:
 
 ## Recorded demonstration
 
-The current [snapshot round](traces/snapshot-round-v2.json.mmd)
-and [counterexample](traces/counterexample-v2.json.mmd) have adjacent
+The current [snapshot round](../head-logic/traces/snapshot-round-v2.json.mmd)
+and [counterexample](../head-logic/traces/counterexample-v2.json.mmd) have adjacent
 self-contained v2 JSON tapes. The fault search visits 18 states; deletion reduces
 17 actions to 10 (nine deliveries and one corruption). Normal execution rejects
 `InvalidMultisignature`. The v1 snapshot/counterexample artifacts remain historical
@@ -251,12 +252,12 @@ fixtures for the reader; new exports use v2.
 The normal retry-first expiry search visits 100,000 states and records 15,906 depth
 cutoffs without finding a failure. It is truncated and misses the focused progress
 witness. The corrected registry scenario and retained expiry limitation are
-explained in `docs/docs/dev/architecture/head-logic-experiments/bugs.md`:
+explained in `docs/prior-spike/bugs.md`:
 
 ```sh
 nix run .#head-logic-lab -- explore /tmp/expiry-search.json --scenario expiry --search retries-first
-nix run .#head-logic-lab -- replay docs/docs/dev/architecture/head-logic-experiments/traces/registry-regression-v2.json --normal
-nix run .#head-logic-lab -- replay docs/docs/dev/architecture/head-logic-experiments/traces/expired-dependency-v2.json --normal
+nix run .#head-logic-lab -- replay docs/head-logic/traces/registry-regression-v2.json --normal
+nix run .#head-logic-lab -- replay docs/head-logic/traces/expired-dependency-v2.json --normal
 ```
 
 The isolated maintenance mutation was executed during the initial spike: changing

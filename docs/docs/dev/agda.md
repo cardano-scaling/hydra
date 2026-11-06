@@ -170,6 +170,16 @@ Two layers bind the extracted spec to the real implementation:
   answers. Incremental actions, pruning payloads, output collisions, accumulator
   overflow and scheduling are explicitly excluded from this projection; the
   existing incremental-action guard comparisons remain separate.
+  Additional Crem/Program tests compare input admission, client decommit,
+  settlement adoption, rollback reposting, and fanout continuation with the
+  extracted decisions in `Hydra.HeadLogic.InputWorkflowSpec`. `MachineSpec`
+  checks retained-event phase projections; `CoordinatedSpec` checks reservation,
+  decommit readiness, rebase, and settlement version changes over bounded sets.
+  `CapacitySpec` compares count predicates and small-set prefix selection/pruning
+  with the deployed accumulator limit by adding untouched background outputs.
+  That small-set model excludes decommits, and the settlement projection excludes
+  payload identity. These references do not prove the whole Haskell node,
+  Cardano ledger or cryptography, chain validity, or distributed progress.
 
 ## How do I ...
 

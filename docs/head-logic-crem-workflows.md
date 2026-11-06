@@ -27,7 +27,7 @@ Closed or FanoutProgress payload.
 [`Rules/Client.hs`](../hydra-node/src/Hydra/HeadLogic/Rules/Client.hs),
 [`Rules/Network.hs`](../hydra-node/src/Hydra/HeadLogic/Rules/Network.hs), and
 [`Rules/Chain.hs`](../hydra-node/src/Hydra/HeadLogic/Rules/Chain.hs) route admitted
-inputs. The node and bounded explorer use this same entry point. The older named
+inputs. The node and bounded explorer use this same entry point. The named
 handler entry points in `HeadLogic.hs` remain thin wrappers for focused tests and
 startup reposting; they do not duplicate the rules.
 
@@ -78,21 +78,21 @@ defines the terminal behavior once:
 | Wait | Staged prefix, in order | None |
 | Rejection | None | None |
 
-The conversion preserves observable ordering. Partial acknowledgements record a
+Observable ordering matters. Partial acknowledgements record a
 signature twice. A rejected final acknowledgement discards its staged signature.
 ReqDec can emit ReqSn without recording `SnapshotRequestDecided`. Settlement
 records finalization even when snapshot adoption fails. These are characterized
-in tests; a refactor does not silently change them.
+in tests.
 
 ## Testing and inspection
 
-[All diagrams](head-logic-diagrams.md) renders the machine graphs and concrete
+The [diagram index](head-logic-diagrams.md) renders the machine graphs and concrete
 executions. Graphs constrain phase changes; traces show the decisions and
 instructions taken by one input. Neither is a proof of guard correctness.
 
 ```sh
-cabal run hydra-node:head-logic-lab -- trace-inputs docs/docs/dev/architecture/head-logic-experiments/inputs +RTS -N1
-cabal run hydra-node:head-logic-lab -- compare-crem docs/docs/dev/architecture/head-logic-experiments/workflows +RTS -N1
+cabal run hydra-node:head-logic-lab -- trace-inputs docs/head-logic/inputs +RTS -N1
+cabal run hydra-node:head-logic-lab -- trace /tmp/snapshot-round.json +RTS -N1
 python3 scripts/head-logic-diagrams.py
 ```
 
@@ -102,7 +102,7 @@ checks ordered outcomes, complete state, CBOR event/checkpoint round trips, and
 recorded primitive replay. The suite adds bounded arbitrary inputs and scheduled
 prefixes; settlement/rollback sequences also use this comparison at every step.
 
-The earlier [free-program comparisons](../hydra-node/testlib/Test/Hydra/HeadLogic/Crem/Comparison.hs)
+The [compatibility comparisons](../hydra-node/testlib/Test/Hydra/HeadLogic/Crem/Comparison.hs)
 check instruction order, query arguments and replies, staged payloads, and
 terminal results. Pure selection helpers, primitives and codecs remain shared,
 so these comparisons alone cannot establish correctness.
@@ -112,7 +112,8 @@ compares admission priority, client decommit failures, settlement adoption,
 rollback boundaries and fanout continuation with extracted Agda functions.
 Existing Agda comparisons cover the bounded snapshot round and retained phases.
 They exclude ledger/crypto implementation, full payloads, fanout multiset
-arithmetic, Haskell strictness, chain validity and distributed progress.
+arithmetic, Haskell strictness, chain validity and distributed progress. Separate
+[capacity and reservation checks](head-logic/checks.md) cover bounded UTxO sets.
 
 ## Maintaining a rule
 
@@ -121,11 +122,10 @@ phase type only when the transition structure or carried data changes. Update th
 specification, bounded reference where applicable, examples, and generated
 traces. An interpreter changes only when a new primitive is needed.
 
-The [maintenance exercise](docs/dev/architecture/head-logic-experiments/lab.md#round-benchmarks-and-maintenance-exercise)
-shows a guard change reaching execution, tests and diagrams without an
-interpreter-specific rule edit. The [bug ledger](docs/dev/architecture/head-logic-experiments/bugs.md)
-and [measurements](docs/dev/architecture/head-logic-experiments/measurements.md)
-keep defects and costs separate from the design description.
+Run the [validation commands](head-logic/validation.md) and regenerate the
+affected [traces](head-logic/tools.md). For example, changing a ReqSn number guard
+changes its named decision in a trace and its acceptance tests. Neither the
+interpreter nor the renderer needs a matching rule edit.
 
 ## Shared state transitions
 
@@ -136,8 +136,8 @@ provides primitive queries and terminal semantics; the owner transitions produce
 the events and next state together. Other input rules retain their existing
 event instructions.
 
-The later decommit fix changes shared request selection and transaction-owner
-rebase, without changing the Program interpreter. Exact legacy comparisons exclude
-those intentional differences; the [owner tests](head-logic-coordinated.md) and
-historical/corrected sequences check the new behavior independently. Finite retry
-expiry and invalid acknowledgement recovery are unchanged.
+The transaction owner preserves decommit spending-input reservations during
+rebase. Shared request selection waits for the decommit's dependencies to be
+confirmed. The [owner tests](head-logic-coordinated.md) check these requirements
+independently of the interpreter. [Retry expiry and invalid acknowledgement
+recovery](head-logic/checks.md#recovery-limits) remain explicit policy limits.

@@ -1,5 +1,7 @@
 # Snapshot capacity and request progress
 
+Archived from `a6c4966f8`. This records an earlier investigation; claims and commands belong to the revisions named here. Use the [current Crem/Program guide](../head-logic-review.md) for the implementation.
+
 [PR #2927](https://github.com/cardano-scaling/hydra/pull/2927) exposes a missing
 contract: **a leader must check a proposal's capacity before recording a snapshot
 request**. Follower rejection protects signing; it cannot undo a request marker
@@ -20,13 +22,13 @@ party rejects the oversized ReqSn, and a later merge cannot trigger another
 request. Restart preserves the marker. See
 [issue #2924](https://github.com/cardano-scaling/hydra/issues/2924).
 
-The retained [original trace](../../../../head-logic-diagrams.md#oversized-snapshot-request-before-rebase)
+The retained [original trace](diagrams.md#oversized-snapshot-request-before-rebase)
 comes from production revision `386e95947`: deliver the split, deliver the
 rejected request, then deliver the independent merge. Read its three blocks:
 `SnapshotRequestDecided`, rejection, then `no snapshot is in flight: no`.
 The rejection belongs to a different input from the retained marker.
 
-The current [capacity demonstration](../../../../../hydra-node/testlib/Test/Hydra/HeadLogic/Capacity.hs)
+The current [capacity demonstration](../../hydra-node/testlib/Test/Hydra/HeadLogic/Capacity.hs)
 starts all three parties at a signed snapshot 3, version 1, with a full
 UTxO. It delivers a split and an independent merge, then drains all generated
 messages in FIFO order. Run both implementations:
@@ -55,13 +57,13 @@ exhaustive exploration or a Cardano-ledger performance test.
 
 | Responsibility | Implementation |
 | --- | --- |
-| Count both fanout alternatives | [`SnapshotCapacity.hs`](../../../../../hydra-node/src/Hydra/HeadLogic/Rules/SnapshotCapacity.hs) |
-| Select a bounded prefix and incremental action; construct the opaque proposal | [`SnapshotRequest.hs`](../../../../../hydra-node/src/Hydra/HeadLogic/Rules/SnapshotRequest.hs) |
-| Stage the owner's accepted events and emit the message from that same proposal | [`SendSnapshot.hs`](../../../../../hydra-node/src/Hydra/HeadLogic/Rules/SendSnapshot.hs) |
-| Permit a live request only from the idle coordination phase with matching context | [`Coordinated/Snapshots.hs`](../../../../../hydra-node/src/Hydra/HeadLogic/Machine/Coordinated/Snapshots.hs) |
-| Prune by ledger applicability, deposit-output collisions and capacity | [`Transactions.hs`](../../../../../hydra-node/src/Hydra/HeadLogic/Rules/Transactions.hs) |
-| Check decommit capacity before recording or broadcasting it | [`Decommit.hs`](../../../../../hydra-node/src/Hydra/HeadLogic/Rules/Decommit.hs), [`ReqDec.hs`](../../../../../hydra-node/src/Hydra/HeadLogic/Rules/ReqDec.hs) |
-| Check the request against the receiving rule and independent references | [`CapacitySpec.hs`](../../../../../hydra-node/test/Hydra/HeadLogic/CapacitySpec.hs) |
+| Count both fanout alternatives | [`SnapshotCapacity.hs`](../../hydra-node/src/Hydra/HeadLogic/Rules/SnapshotCapacity.hs) |
+| Select a bounded prefix and incremental action; construct the opaque proposal | [`SnapshotRequest.hs`](../../hydra-node/src/Hydra/HeadLogic/Rules/SnapshotRequest.hs) |
+| Stage the owner's accepted events and emit the message from that same proposal | [`SendSnapshot.hs`](../../hydra-node/src/Hydra/HeadLogic/Rules/SendSnapshot.hs) |
+| Permit a live request only from the idle coordination phase with matching context | [`Coordinated/Snapshots.hs`](../../hydra-node/src/Hydra/HeadLogic/Machine/Coordinated/Snapshots.hs) |
+| Prune by ledger applicability, deposit-output collisions and capacity | [`Transactions.hs`](../../hydra-node/src/Hydra/HeadLogic/Rules/Transactions.hs) |
+| Check decommit capacity before recording or broadcasting it | [`Decommit.hs`](../../hydra-node/src/Hydra/HeadLogic/Rules/Decommit.hs), [`ReqDec.hs`](../../hydra-node/src/Hydra/HeadLogic/Rules/ReqDec.hs) |
+| Check the request against the receiving rule and independent references | [`CapacitySpec.hs`](../../hydra-node/test/Hydra/HeadLogic/CapacitySpec.hs) |
 
 The phase edge `AwaitingRequest → RequestSent` remains necessary. Its live
 operation now takes a proposal containing the selected transaction payloads,
@@ -123,9 +125,9 @@ honest schedule, draining the queues confirms the independent merge. It neither
 requires every locally accepted transaction to confirm nor proves liveness under
 retry exhaustion.
 
-The [Agda reference](../../../../../spec/src/Hydra/Protocol/OffChainReference.agda)
+The [Agda reference](../../spec/src/Hydra/Protocol/OffChainReference.agda)
 checks deployed-limit count predicates and small-set prefix selection/pruning.
-The [literate specification](../../../../../spec/src/Hydra/Protocol/OffChain.lagda.typ)
+The [literate specification](../../spec/src/Hydra/Protocol/OffChain.lagda.typ)
 also checks the split/prune/merge cycle at capacity three by reduction. Haskell
 compares bounded sequences with those extracted functions after adding untouched
 background outputs to reach the real limit. Transactions never name the padding.

@@ -6,19 +6,20 @@ the decisions, ledger and signature queries, staged events, and effects. One
 interpreter runs those instructions. Separate crem machines apply the retained
 events to `NodeState`.
 
-This is the implemented design on this branch. Network messages, persisted event
-encodings, and checkpoint formats are unchanged by the conversion. The conversion and decommit fixes are separate commits; deferred recovery
-policies are recorded in the [bug ledger](docs/dev/architecture/head-logic-experiments/bugs.md).
+Network messages, persisted event encodings, and checkpoint formats are
+unchanged. [Protocol checks and recovery limits](head-logic/checks.md) describe
+the guarantees enforced by the rules and the recovery policies they retain.
 
 ## Read the design
 
 - [Programs inside crem](head-logic-crem-workflows.md): input execution, rule modules, terminal semantics, and tests.
-- [Snapshot and transaction owners](head-logic-coordinated.md): shared live/replay transitions, typed component ports and the decommit fixes.
+- [Snapshot and transaction owners](head-logic-coordinated.md): shared live/replay transitions, typed component ports, and decommit reservations.
 - [Retained-event machines](head-logic-crem.md): lifecycle, deposits, snapshot coordination, and replay.
-- [All diagrams](head-logic-diagrams.md): every `.mmd` file rendered with an explanation.
-- [Experiments](docs/dev/architecture/head-logic-experiments/README.md): comparisons, counterexamples, measurements, resolved replay, and earlier proposals.
-- [Generating head logic from Agda](docs/dev/architecture/head-logic-experiments/agda-generated.md): a speculative extension, with no generated production rules in this spike.
-- [Snapshot capacity and request progress](docs/dev/architecture/head-logic-experiments/capacity.md): the #2927 fix in the shared rules, checked proposals, and independent capacity/progress tests.
+- [Diagrams](head-logic-diagrams.md): current phase graphs and executions, with a complete source index.
+- [Tracing and exploration](head-logic/tools.md): runnable examples, primitive replay, and bounded searches.
+- [Snapshot capacity](head-logic/capacity.md): selection policy, checked proposals, and capacity/progress tests.
+- [Performance](head-logic/measurements.md): complete rounds, event application, and three-node throughput.
+- [Validation](head-logic/validation.md): test coverage, verification results, and commands.
 
 ## Code to start with
 
@@ -31,7 +32,7 @@ Read these in order:
 5. [`Machine/Coordinated.hs`](../hydra-node/src/Hydra/HeadLogic/Machine/Coordinated.hs) composes the snapshot and transaction owners. ReqTx, snapshot, settlement and side-load rules stage their changes through these same transitions.
 6. [`Machine.hs`](../hydra-node/src/Hydra/HeadLogic/Machine.hs) connects deposit ownership, lifecycle and clock; the open lifecycle state contains the snapshot/transaction composition. Recovery uses these machines without re-running input rules or cryptography.
 
-For the capacity fix, read [`SnapshotRequest`](../hydra-node/src/Hydra/HeadLogic/Rules/SnapshotRequest.hs),
+For request selection, read [`SnapshotRequest`](../hydra-node/src/Hydra/HeadLogic/Rules/SnapshotRequest.hs),
 [`SendSnapshot`](../hydra-node/src/Hydra/HeadLogic/Rules/SendSnapshot.hs), and
 [`CapacitySpec`](../hydra-node/test/Hydra/HeadLogic/CapacitySpec.hs) together: selection,
 owner acceptance, and an independent check of the resulting request.
@@ -49,20 +50,21 @@ public rule environment and traces.
 
 ## What the evidence establishes
 
-The migration tests compare complete ordered outcomes, retained state, serialized
+The compatibility tests compare complete ordered outcomes, retained state, serialized
 events and checkpoints, and recorded primitive replay with frozen implementations.
 The existing protocol, simulation and persistence tests still exercise the node.
 Agda independently checks the bounded decisions described in the
 [specification](../spec/src/Hydra/Protocol/OffChain.lagda.typ); it does not prove the
 Haskell implementation or distributed progress.
 
-The [measurements](docs/dev/architecture/head-logic-experiments/measurements.md)
+The [measurements](head-logic/measurements.md)
 cover the complete input and state-owner composition, retained-event application,
-and three-node throughput. They separate the current design from earlier stages
-of the spike and report allocation costs as well as elapsed time. The current
+and three-node throughput, including allocation costs as well as elapsed time. The
 design adds allocations and reduces TPS in the small controlled workload; this
 cost belongs in the merge decision.
 
-Before a merge, decide which frozen migration fixtures to keep and review the
-remaining recovery policies separately. Wider workload and deployment testing
-should follow the controlled measurements here.
+Before merging, profile the allocation cost and repeat the measurements under
+wider workloads. The retained recovery policies need separate protocol decisions.
+
+Archived investigations are in [prior-spike](prior-spike/README.md), including
+the speculative [Agda generation proposal](prior-spike/agda-generated.md).

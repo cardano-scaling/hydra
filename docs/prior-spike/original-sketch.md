@@ -1,5 +1,7 @@
 # Head logic refactor sketch
 
+Archived from `a6c4966f8`. This records an earlier investigation; claims and commands belong to the revisions named here. Use the [current Crem/Program guide](../head-logic-review.md) for the implementation.
+
 For the implemented spike, start with `docs/head-logic-review.md` in the checkout.
 It links the approach to concrete source functions and separates current behavior,
 experimental results and remaining work. This document retains the broader
@@ -16,13 +18,13 @@ chain, and require each backend to implement the same explicit settlement
 contract.
 
 This proposal now executes `ReqTx`, `ReqSn`, `AckSn`, network `ReqDec` and client
-`Recover` as [crem workflows with program actions](../../../../head-logic-crem-workflows.md).
+`Recover` as [crem workflows with program actions](../head-logic-crem-workflows.md).
 It also has a bounded scheduler/debugger and a resolved transaction log experiment. Existing protocol
 behavior remains the migration baseline except for the applied-ID registry fix
-described in `docs/docs/dev/architecture/head-logic-experiments/bugs.md`. Wire encodings and production
+described in `docs/prior-spike/bugs.md`. Wire encodings and production
 persistence are unchanged. Retained events now execute through composed crem
 machines for the head lifecycle, incremental actions and snapshot coordination;
-see [the implementation guide](../../../../head-logic-crem.md).
+see [the implementation guide](../head-logic-crem.md).
 
 See [the snapshot lab](lab.md) for the review boundaries, independent
 Agda coverage and exclusions, counterexample/replay commands, resolved-recovery
@@ -57,7 +59,7 @@ and state calculations are still repeated during aggregation:
 
 These are visible in `hydra-node/src/Hydra/HeadLogic.hs`,
 `Hydra/HeadLogic/Outcome.hs`, `Hydra/Node.hs`, and `Hydra/API/Server.hs`.
-[ADR 24](/adr/24) already identifies the split between decision and aggregation
+[ADR 24](../adr/2023-06-19_024-event-sourced-persistence.md) already identifies the split between decision and aggregation
 as a consequence of the current event-sourcing design.
 
 The aim is to define each guard, retry policy and state transformation once in

@@ -1,5 +1,7 @@
 # Demonstrating the head logic spike
 
+Archived from `a6c4966f8`. This records an earlier investigation; claims and commands belong to the revisions named here. Use the [current Crem/Program guide](../head-logic-review.md) for the implementation.
+
 Start with the real registry failure, then show how the same rules support
 inspection and bounded exploration. The verification-bypass example is a useful
 test of the tooling, but the registry failure needs no injected fault.
@@ -48,10 +50,10 @@ buffering `AckSn`. Its later “outputs are fresh: no” decision is local trans
 pruning, not a second snapshot rejection. The reset compares two runs from the
 same accepted state; it does not repair the corrupted state.
 
-Read [RegistryDemo.hs](../../../../../hydra-node/testlib/Test/Hydra/HeadLogic/RegistryDemo.hs),
+Read [RegistryDemo.hs](../../hydra-node/testlib/Test/Hydra/HeadLogic/RegistryDemo.hs),
 then `onOpenNetworkReqTxProgram` in
-[HeadLogic.hs](../../../../../hydra-node/src/Hydra/HeadLogic.hs). The existing
-[Cardano regression](../../../../../hydra-node/test/Hydra/HeadLogicSpec.hs) exercises the
+[HeadLogic.hs](../../hydra-node/src/Hydra/HeadLogic.hs). The existing
+[Cardano regression](../../hydra-node/test/Hydra/HeadLogicSpec.hs) exercises the
 production dispatcher too. This is a registry/progress bug; it does not produce
 an invalid confirmed snapshot.
 
@@ -86,13 +88,13 @@ the next leader expired the child transaction before its parent arrived.
 Re-submitting the child wakes that leader. This search establishes neither the
 probability of that schedule nor its timing in the production queue.
 
-The discovered [scenario](traces/expiry-search-v2.json)
-and [diagram](traces/expiry-search-v2.json.mmd)
+The discovered [scenario](../head-logic/traces/expiry-search-v2.json)
+and [diagram](../head-logic/traces/expiry-search-v2.json.mmd)
 are separate from the earlier manually constructed witness.
 
 Read `exploreRetryWindows` in
-[Explorer.hs](../../../../../hydra-node/testlib/Test/Hydra/HeadLogic/Explorer.hs).
-The [tests](../../../../../hydra-node/test/Hydra/HeadLogic/SnapshotProgramSpec.hs) require the
+[Explorer.hs](../../hydra-node/testlib/Test/Hydra/HeadLogic/Explorer.hs).
+The [tests](../../hydra-node/test/Hydra/HeadLogic/SnapshotProgramSpec.hs) require the
 search to find the failure within budget and replay the minimized route. They
 also challenge the independent invariants with an omitted receipt, a dishonest
 ledger reply and the existing multisignature-verification bypass. These are
@@ -121,9 +123,9 @@ Rollback reposts the retained increment exactly when its observation was erased.
 All 24 schedules pass. No new settlement bug was found. Existing tests already
 cover several of these cases individually; this joins them into three-party
 sequences with persistence checks. See
-[Settlement.hs](../../../../../hydra-node/testlib/Test/Hydra/HeadLogic/Settlement.hs) and the
+[Settlement.hs](../../hydra-node/testlib/Test/Hydra/HeadLogic/Settlement.hs) and the
 `Rollback after finalized increment or decrement` group in
-[HeadLogicSpec.hs](../../../../../hydra-node/test/Hydra/HeadLogicSpec.hs).
+[HeadLogicSpec.hs](../../hydra-node/test/Hydra/HeadLogicSpec.hs).
 
 This is a separate bounded driver, not an extension of the general explorer's
 off-chain state domain. It supplies trusted chain observations and uses the
@@ -131,7 +133,7 @@ Simple ledger. It does not test Cardano settlement validation, arbitrary chain
 forks, a crash between persistence and broadcast, or Agda rollback semantics.
 The exported JSON records inputs, complete outcomes and before/after states;
 the adjacent diagram records the sequence of deliveries and chain observations.
-The checked-in [settlement diagram](traces/settlement-v1.mmd)
+The checked-in [settlement diagram](../head-logic/traces/settlement-v1.mmd)
 shows the case where snapshot 2 confirms before rollback erases the increment.
 
 ## Performance evidence

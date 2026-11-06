@@ -1,5 +1,7 @@
 # Head logic bugs found with the spike
 
+Archived from `a6c4966f8`. This records an earlier investigation; claims and commands belong to the revisions named here. Use the [current Crem/Program guide](../head-logic-review.md) for the implementation.
+
 The spike has found transaction-map corruption and several ways a Head can stop
 making progress. The two `allTxs` bugs are fixed. The latest conversion exposes a
 decommit dependency mismatch and loss of its local input reservation; both are now fixed in a separate behavior change and remain reproducible with
@@ -27,12 +29,12 @@ the Agda model, rather than a bug in the previous protocol rules. See the
 ## Protecting locally applied transactions
 
 Read `ReqTx.machine` in
-[Rules/ReqTx.hs](../../../../../hydra-node/src/Hydra/HeadLogic/Rules/ReqTx.hs). Before recording receipt or calling the ledger, it checks whether the transaction
+[Rules/ReqTx.hs](../../hydra-node/src/Hydra/HeadLogic/Rules/ReqTx.hs). Before recording receipt or calling the ledger, it checks whether the transaction
 ID is already in `localTxs` and `allTxs`. If so, the attempt completes with no events or
 effects. Other deferred transactions are still retained: they can be needed for
 snapshot validation even when they conflict with the optimistic local ledger.
 
-The [Cardano regression](../../../../../hydra-node/test/Hydra/HeadLogicSpec.hs),
+The [Cardano regression](../../hydra-node/test/Hydra/HeadLogicSpec.hs),
 **“ignores a witness-stripped duplicate and preserves the validated registry
 entry”**, applies a valid transaction, removes its witnesses, checks that its ID
 is unchanged and the ledger rejects the altered payload, then delivers it. The
@@ -46,8 +48,8 @@ followed by `TxInvalid` deleted its registry entry while leaving `localTxs` and
 TTL values from zero through `defaultTxTTL`: every attempt is a no-op and consults
 no ledger. The resulting snapshot request resolves its transaction.
 
-The [regression scenario](traces/registry-regression-v2.json)
-and [trace](traces/registry-regression-v2.json.mmd)
+The [regression scenario](../head-logic/traces/registry-regression-v2.json)
+and [trace](../head-logic/traces/registry-regression-v2.json.mmd)
 show this three-action sequence. Old failing tapes with scheduled retries are
 intentionally no longer executable: a successful no-op does not enable a retry.
 The frozen handler preserves the historical failure evidence.
@@ -58,8 +60,8 @@ production persistence schema or aggregation of historical events.
 
 ## Finite expiry and progress
 
-The [22-action scenario](traces/expired-dependency-v2.json)
-and [trace](traces/expired-dependency-v2.json.mmd)
+The [22-action scenario](../head-logic/traces/expired-dependency-v2.json)
+and [trace](../head-logic/traces/expired-dependency-v2.json.mmd)
 deliver the child before its parent at all parties. Bob exhausts its child retry
 budget before the parent arrives. Alice and Carol retain their retries. All
 remaining queues drain and snapshot 1 confirms everywhere, but Bob leads snapshot
@@ -79,7 +81,7 @@ safety separately. No unbounded chain-progress or Byzantine liveness claim follo
 
 ## Invalid acknowledgement recovery
 
-In [`AckSn.machine`](../../../../../hydra-node/src/Hydra/HeadLogic/Rules/AckSn.hs), partial signature collection commits without
+In [`AckSn.machine`](../../hydra-node/src/Hydra/HeadLogic/Rules/AckSn.hs), partial signature collection commits without
 individual verification. An invalid Alice signature is retained; after Bob's
 valid signature, Carol's valid final signature triggers `InvalidMultisignature`.
 Rejection correctly discards Carol's tentative event. Alice's corrected signature
@@ -97,13 +99,13 @@ the current map aggregation.
 ## Decommit dependencies and reserved inputs
 
 The conversion makes the incompatible ledger contexts explicit:
-[`ReqDec.machine`](../../../../../hydra-node/src/Hydra/HeadLogic/Rules/ReqDec.hs) validates
-against `localUTxO`; [`ReqSn.machine`](../../../../../hydra-node/src/Hydra/HeadLogic/Rules/ReqSn.hs)
+[`ReqDec.machine`](../../hydra-node/src/Hydra/HeadLogic/Rules/ReqDec.hs) validates
+against `localUTxO`; [`ReqSn.machine`](../../hydra-node/src/Hydra/HeadLogic/Rules/ReqSn.hs)
 resolves the decommit against the confirmed snapshot *before* applying the
 requested ordinary transactions. A decommit accepted by the former can therefore
 be impossible in the latter's next request.
 
-The [checked demonstration](../../../../../hydra-node/testlib/Test/Hydra/HeadLogic/DecommitDependency.hs)
+The [checked demonstration](../../hydra-node/testlib/Test/Hydra/HeadLogic/DecommitDependency.hs)
 uses three honest parties, no faults and no expired retries. Start with output 1:
 
 | Delivery stage | Result |
@@ -124,7 +126,7 @@ every delivery. The structural refactor passed legacy comparisons before the
 behavior fix.
 
 The reservation loss is a separate observable state error in the same sequence.
-[`Transactions`](../../../../../hydra-node/src/Hydra/HeadLogic/Machine/Coordinated/Transactions.hs) removes
+[`Transactions`](../../hydra-node/src/Hydra/HeadLogic/Machine/Coordinated/Transactions.hs) removes
 the decommit's consumed input when applying `DecommitRecorded`.
 The old `Rebase` rebuilt `localUTxO` from the snapshot and retained ordinary
 transactions without preserving that reservation. It now removes pending spending
@@ -139,9 +141,9 @@ just test hydra-node IncrementalWorkflow
 Each command writes complete inputs, outcomes, states and a `.mmd` instruction
 trace. The [historical JSON](traces/decommit-dependency-historical-v2.json) and
 [trace](traces/decommit-dependency-historical-v2.json.mmd) preserve the failure.
-The [corrected JSON](traces/decommit-dependency-fixed-v2.json) and
-[trace](traces/decommit-dependency-fixed-v2.json.mmd) show the repair. Both appear
-in the [central diagram index](../../../../head-logic-diagrams.md).
+The [corrected JSON](../head-logic/traces/decommit-dependency-fixed-v2.json) and
+[trace](../head-logic/traces/decommit-dependency-fixed-v2.json.mmd) show the repair. Both appear
+in the [central diagram index](../head-logic-diagrams.md).
 
 Start with **Party 0: ReqDec 3**, then **Party 0: ReqSn 1**. In the historical
 run, rebase restores output 3; the JSON's `reservationHeld` becomes false.
@@ -154,7 +156,7 @@ confirmed base and requests snapshot 3 with no ordinary transactions. All partie
 confirm it and the message queue drains. A carried decommit alone does not
 trigger endless new rounds.
 
-[SnapshotRequest.decommitStatus](../../../../../hydra-node/src/Hydra/HeadLogic/Rules/SnapshotRequest.hs)
+[SnapshotRequest.decommitStatus](../../hydra-node/src/Hydra/HeadLogic/Rules/SnapshotRequest.hs)
 is shared by every leader request site. Cardano availability checks spending,
 reference and collateral inputs; ReqSn still performs full ledger validation.
 This matches the ledger's [required-input check](https://github.com/IntersectMBO/cardano-ledger/blob/master/eras/babbage/impl/src/Cardano/Ledger/Babbage/Rules/Utxo.hs).
@@ -171,8 +173,8 @@ snapshot is recorded.
 
 ## Properties and reference tests
 
-Read [SnapshotProgramSpec.hs](../../../../../hydra-node/test/Hydra/HeadLogic/SnapshotProgramSpec.hs)
-and [Explorer.hs](../../../../../hydra-node/testlib/Test/Hydra/HeadLogic/Explorer.hs):
+Read [SnapshotProgramSpec.hs](../../hydra-node/test/Hydra/HeadLogic/SnapshotProgramSpec.hs)
+and [Explorer.hs](../../hydra-node/testlib/Test/Hydra/HeadLogic/Explorer.hs):
 
 - Every locally pending transaction must equal its registry payload, not merely
   share an ID. This catches replacement as well as deletion.
@@ -218,9 +220,9 @@ Cardano settlement validation.
 ```sh
 just test hydra-node witness-stripped
 just test hydra-node SnapshotProgram
-nix run .#head-logic-lab -- replay docs/docs/dev/architecture/head-logic-experiments/traces/registry-regression-v2.json --normal
-nix run .#head-logic-lab -- replay docs/docs/dev/architecture/head-logic-experiments/traces/expired-dependency-v2.json --normal
-nix run .#head-logic-lab -- replay docs/docs/dev/architecture/head-logic-experiments/traces/expired-dependency-v2.json --step
+nix run .#head-logic-lab -- replay docs/head-logic/traces/registry-regression-v2.json --normal
+nix run .#head-logic-lab -- replay docs/head-logic/traces/expired-dependency-v2.json --normal
+nix run .#head-logic-lab -- replay docs/head-logic/traces/expired-dependency-v2.json --step
 ```
 
 The registry replay reports no invariant failure; expiry replay reports quiescent
@@ -231,7 +233,7 @@ contains the final verification results for this revision.
 ## Complete input conversion
 
 The remaining handlers are frozen in
-[LegacyHandlers](../../../../../hydra-node/testlib/Test/Hydra/HeadLogic/LegacyHandlers.hs).
+[LegacyHandlers](../../hydra-node/testlib/Test/Hydra/HeadLogic/LegacyHandlers.hs).
 Full-input comparisons cover init, synchronization, client decommit, deposit
 observation and expiry, settlement, close/contest adoption, side-loading, fanout
 and rollback. The structural conversion and decommit fixes are separate commits. Legacy
@@ -243,7 +245,7 @@ A suspected previous-head recovery bug was ruled out by a two-head test.
 registered deposit even when a different head is active. The older test checked
 only event emission and used the same head ID; the new test checks the resulting
 pending-deposit map with distinct IDs. See `recover-previous-head` in
-[InputComparison](../../../../../hydra-node/testlib/Test/Hydra/HeadLogic/InputComparison.hs)
+[InputComparison](../../hydra-node/testlib/Test/Hydra/HeadLogic/InputComparison.hs)
 and `RulesSpec`'s recovery assertion. This is regression coverage, not a defect.
 
 ## Checks at the component boundary
@@ -256,7 +258,7 @@ later independent work proceed. The frozen demonstration retains the failure,
 and independent request/progress checks cover the repair. The policy is ported
 from the reviewed PR revision; the branch has not been rebased.
 
-The [coordinated owners](../../../../head-logic-coordinated.md) expose where each
+The [coordinated owners](../head-logic-coordinated.md) expose where each
 fix belongs. `reservationHeld` first fails at historical rebase;
 `decommitRequestsReady` fails at the next historical proposal. Both hold at every
 prefix of the corrected sequence. Crem's Reserved phase alone establishes neither

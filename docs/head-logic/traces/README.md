@@ -12,7 +12,7 @@ The last note says whether changes and effects are committed or discarded.
 Regenerate this page and its `.mmd` files with:
 
 ```sh
-cabal bench hydra-node:head-logic-program --benchmark-options='--trace docs/docs/dev/architecture/head-logic-experiments/traces'
+cabal bench hydra-node:head-logic-program --benchmark-options='--trace docs/head-logic/traces'
 ```
 
 ## leader success

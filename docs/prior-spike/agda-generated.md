@@ -1,5 +1,7 @@
 # Generating head logic from Agda
 
+Archived from `a6c4966f8`. This records an earlier investigation; claims and commands belong to the revisions named here. Use the [current Crem/Program guide](../head-logic-review.md) for the implementation.
+
 This is a proposal. The spike still implements the rules in Haskell and compares
 selected behavior against an independent Agda reference. It does not generate
 production head logic from Agda.
@@ -14,12 +16,12 @@ Haskell.
 
 | Responsibility | Proposed implementation | Current code |
 | --- | --- | --- |
-| Guards, snapshots, transaction ordering, deposit/decommit selection and effects | Agda rules | [Rules](../../../../../hydra-node/src/Hydra/HeadLogic/Rules): input and protocol workflows with Program actions and shared helpers; [Machine](../../../../../hydra-node/src/Hydra/HeadLogic/Machine.hs): retained-state composition |
-| Completion, waiting, rejection and effect buffering | Agda interpreter | [Interpreter.hs](../../../../../hydra-node/src/Hydra/HeadLogic/Interpreter.hs): `evaluateChanges` |
-| Event application, chain observations, rollback and recovery | Agda transition functions | [HeadLogic.hs](../../../../../hydra-node/src/Hydra/HeadLogic.hs): `aggregateNodeState`, `aggregateState` and chain handlers; [Machine.hs](../../../../../hydra-node/src/Hydra/HeadLogic/Machine.hs) executes retained events |
-| Whether to retry an input, and with which budget | Agda retry policy | [Retry.hs](../../../../../hydra-node/src/Hydra/HeadLogic/Retry.hs): `retryDecision` |
-| Ledger application, hashing, signing and verification | Haskell implementations of Agda primitives | [Program.hs](../../../../../hydra-node/src/Hydra/HeadLogic/Program.hs): `Instruction`; [Interpreter.hs](../../../../../hydra-node/src/Hydra/HeadLogic/Interpreter.hs): configuration and primitive calls |
-| Serialisation, sockets, persistence and queue execution | Haskell adapters | [Node.hs](../../../../../hydra-node/src/Hydra/Node.hs), message/event codecs and chain components |
+| Guards, snapshots, transaction ordering, deposit/decommit selection and effects | Agda rules | [Rules](../../hydra-node/src/Hydra/HeadLogic/Rules): input and protocol workflows with Program actions and shared helpers; [Machine](../../hydra-node/src/Hydra/HeadLogic/Machine.hs): retained-state composition |
+| Completion, waiting, rejection and effect buffering | Agda interpreter | [Interpreter.hs](../../hydra-node/src/Hydra/HeadLogic/Interpreter.hs): `evaluateChanges` |
+| Event application, chain observations, rollback and recovery | Agda transition functions | [HeadLogic.hs](../../hydra-node/src/Hydra/HeadLogic.hs): `aggregateNodeState`, `aggregateState` and chain handlers; [Machine.hs](../../hydra-node/src/Hydra/HeadLogic/Machine.hs) executes retained events |
+| Whether to retry an input, and with which budget | Agda retry policy | [Retry.hs](../../hydra-node/src/Hydra/HeadLogic/Retry.hs): `retryDecision` |
+| Ledger application, hashing, signing and verification | Haskell implementations of Agda primitives | [Program.hs](../../hydra-node/src/Hydra/HeadLogic/Program.hs): `Instruction`; [Interpreter.hs](../../hydra-node/src/Hydra/HeadLogic/Interpreter.hs): configuration and primitive calls |
+| Serialisation, sockets, persistence and queue execution | Haskell adapters | [Node.hs](../../hydra-node/src/Hydra/Node.hs), message/event codecs and chain components |
 
 This includes all Head phases and incremental commits/decommits. Choosing to
 increment, decrement, close, contest or retry belongs in Agda. Building the chosen
@@ -28,9 +30,9 @@ transaction to the requested action.
 
 ## Specification and executable rules
 
-The [literate specification](../../../../../spec/src/Hydra/Protocol/OffChain.lagda.typ) defines
+The [literate specification](../../spec/src/Hydra/Protocol/OffChain.lagda.typ) defines
 relations and properties over abstract ledger and cryptographic operations. It
-is not a complete executable node. [OffChainReference.agda](../../../../../spec/src/Hydra/Protocol/OffChainReference.agda)
+is not a complete executable node. [OffChainReference.agda](../../spec/src/Hydra/Protocol/OffChainReference.agda)
 already extracts to Haskell, but covers only selected behavior.
 
 Keep the abstract specification and add executable Agda functions for the rules,
@@ -126,12 +128,12 @@ retry input reason =
 This is an example interface, not generated code. It converts data and supplies
 primitive operations; the generated functions choose protocol behavior. The
 signing adapter holds the key. The node, explorer and debugger would use the same
-generated rules. The current [debugger](../../../../../hydra-node/testlib/Test/Hydra/HeadLogic/Debugger.hs)
+generated rules. The current [debugger](../../hydra-node/testlib/Test/Hydra/HeadLogic/Debugger.hs)
 shows how a typed continuation can support stepping and controlled replies.
 
 The repository already runs `agda --compile --ghc-dont-call-ghc` in
-[regenerate.sh](../../../../../hydra-agda/regenerate.sh) and provides a
-[Haskell shim](../../../../../hydra-agda/src/Hydra/Agda/OffChainReference.hs). The same build
+[regenerate.sh](../../hydra-agda/regenerate.sh) and provides a
+[Haskell shim](../../hydra-agda/src/Hydra/Agda/OffChainReference.hs). The same build
 pattern could generate the rules. Pin Agda and GHC, check that generated files
 are up to date, and keep edits in the Agda source. Existing network and
 `StateChanged` codecs must stay under golden tests: a generated datatype must not
@@ -161,8 +163,8 @@ numbers must reject negative Haskell values. Agda, its compiler, GHC, the runtim
 and foreign implementations remain trusted unless verified separately.
 
 Proof erasure must not remove checks on untrusted input. A postulate cannot
-replace runtime validation. The [trust-ledger checker](../../../../../spec/check-trust-ledger.sh)
-and [Agda notes](../../agda.md) identify assumptions and mock bridges in the
+replace runtime validation. The [trust-ledger checker](../../spec/check-trust-ledger.sh)
+and [Agda notes](../docs/dev/agda.md) identify assumptions and mock bridges in the
 current specification.
 
 Tests against the Agda function that generated the Haskell check extraction and

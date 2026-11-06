@@ -1,9 +1,9 @@
 # Snapshot and transaction owners
 
-This extends the Crem/Program design into state application. ReqTx, ReqDec, ReqSn,
-AckSn, settlement and side-loading produce their core `StateChanged` events by running the same transitions
-that replay uses. The wire and persistence formats stay unchanged. A separate behavior change fixes decommit dependency selection and preserves
-reserved inputs during snapshot rebase.
+ReqTx, ReqDec, ReqSn, AckSn, settlement, and side-loading produce their core
+`StateChanged` events by running the same transitions that replay uses. The wire
+and persistence formats stay unchanged. The transaction owner preserves decommit
+reservations, and shared selection waits for confirmed dependencies.
 
 ## Read these files
 
@@ -50,8 +50,8 @@ the next snapshot. The partial-ack path still emits its signature event twice.
 `stage` lowers accepted events to ordinary Program instructions. Completion
 retains events and effects; waiting retains only the event prefix; rejection
 discards both. A rejected continuation never replaces the node state. Signing
-keys remain in the interpreter. Existing instruction traces and recorded-query
-replay continue to work.
+keys remain in the interpreter. Instruction traces and primitive-query replay
+use the same Program instructions.
 
 [Machine.step](../hydra-node/src/Hydra/HeadLogic/Machine.hs) applies every retained
 event through DepositRegistry → Lifecycle → Clock. While open, lifecycle routes
@@ -72,18 +72,16 @@ confirmation command requires an opaque verification result, and its signed
 bytes must match the current candidate. A candidate cannot be confirmed before
 it exists. A live request takes an opaque selected proposal, and the owner
 accepts it only while idle and at the matching head/version/number. Trusted
-replay retains its separate number-only adapter for existing persisted events. These are narrower, reviewable boundaries than unrestricted event
-construction in each rule.
+replay retains its separate number-only adapter for existing persisted events.
 
 They are not a proof of the protocol. Verification still trusts the interpreter,
 the signable-byte cache and the rule's party-key selection. Replay deliberately
 trusts retained events; its adapter can reconstruct a confirmation without
-cryptography or demanding cached signing bytes. Other rules still have access to `Program.change`. The reserved
-phase says a decommit is recorded, not that every UTxO update respects it.
+cryptography or demanding cached signing bytes. Other rules still have access
+to `Program.change`. The reserved phase says a decommit is recorded, not that
+every UTxO update respects it.
 
-Two independent checks exposed decommit defects that the phase types alone allow:
-rebase restored a reserved input, and the next leader proposed a decommit before
-its dependency was confirmed. The separate fix changes two places:
+Two payload invariants supplement the phase types:
 
 - `Transactions.Rebase` rebuilds the local UTxO, then removes pending decommit
   spending inputs. Recording a reservation and preserving it are now both the
@@ -104,38 +102,31 @@ validation of scripts, witnesses and time.
 ```sh
 just test hydra-node 'coordinated state owners'
 cabal run hydra-node:head-logic-lab -- machines /tmp/head-machines
-cabal run hydra-node:head-logic-lab -- decommit-dependency --historical /tmp/decommit-old.json
-cabal run hydra-node:head-logic-lab -- decommit-dependency /tmp/decommit-fixed.json
+cabal run hydra-node:head-logic-lab -- decommit-dependency /tmp/decommit.json
 ```
 
-The [diagram index](head-logic-diagrams.md) renders the composition and both
-executions. The historical run stops at snapshot 1 after 24 deliveries. The
-corrected run confirms the dependency in snapshot 2 and the decommit in snapshot
-3 after 45 deliveries. Both check serialized events and checkpoints after every delivery.
+The [diagram index](head-logic-diagrams.md) renders the composition and the
+decommit sequence. The example confirms the dependency in snapshot 2 and the
+decommit in snapshot 3 after 45 deliveries. It checks serialized events and
+checkpoints after every delivery.
 
-This is also the maintenance exercise: change rebase and request selection,
-update the independent spec/Agda checks, and regenerate the traces. Neither the
-Program interpreter nor the Mermaid renderer needs a rule-specific edit.
-[ReplayReference](../hydra-node/testlib/Test/Hydra/HeadLogic/ReplayReference.hs)
-makes the intentional difference from the frozen reducer explicit. The structural
-refactor passed the full legacy comparison before the behavior change; ongoing
-legacy outcome comparisons exclude the corrected decommit cases.
+Change rebase or request selection in their owning modules, update the independent
+spec/Agda checks, and regenerate the affected traces. Neither the Program
+interpreter nor the Mermaid renderer contains a copy of these rules.
 
-Retry expiry and invalid acknowledgement replacement remain separate policy
-questions. Comments beside those rules record that decision. Restoring an old
-checkpoint does not itself repair historically inconsistent state.
+[Recovery limits](head-logic/checks.md#recovery-limits) include retry expiry,
+invalid acknowledgement replacement, and checkpoints with inconsistent contents.
 
-Settlement now uses these commands, including adoption after an on-chain
+Settlement uses these commands, including adoption after an on-chain
 observation overtakes the final acknowledgement. Tests compare repeated
 observations, reservation release and rollback at every prefix. The independent
 Agda model additionally checks version and reservation changes over bounded
 versions; it does not model settlement payload identity.
 
-The [measurement report](docs/dev/architecture/head-logic-experiments/measurements.md)
+The [measurement report](head-logic/measurements.md)
 covers complete rounds, retained-event application and three-node workloads with
 these owners. Event application adds a few microseconds per round; the full
 comparison also includes allocation costs and the capacity checks.
 
-The [capacity port](docs/dev/architecture/head-logic-experiments/capacity.md) adds
-the analogous request contract: follower capacity rejection must not leave an
-honest leader stuck. It preserves these ownership and reservation rules.
+The [capacity contract](head-logic/capacity.md) requires a checked proposal at the
+live request boundary, before the owner retains a request marker.

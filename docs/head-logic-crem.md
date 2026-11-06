@@ -94,8 +94,9 @@ Those properties need rules and independent checks.
 
 [MachineSpec](../hydra-node/test/Hydra/HeadLogic/MachineSpec.hs) compares arbitrary
 event prefixes with the frozen reducer plus the explicit reservation correction,
-uninterrupted execution, rehydration and CBOR recovery. It also checks settlement/rollback schedules and independent Agda
-phase projections. [CoordinatedSpec](../hydra-node/test/Hydra/HeadLogic/CoordinatedSpec.hs)
+uninterrupted execution, rehydration and CBOR recovery. It also checks
+settlement/rollback schedules and independent Agda phase projections.
+[CoordinatedSpec](../hydra-node/test/Hydra/HeadLogic/CoordinatedSpec.hs)
 checks live staging, evidence binding, wait/reject boundaries, lazy replay and
 settlement ownership.
 
@@ -112,5 +113,4 @@ continuation lives in lifecycle's state. Generated graphs describe allowed repla
 edges; they do not claim every edge is reachable from a valid network input.
 
 See [Programs inside crem](head-logic-crem-workflows.md) for execution and
-[the owner guide](head-logic-coordinated.md) for live staging. Independent settlement
-backends and generated production Haskell remain outside this spike.
+[the owner guide](head-logic-coordinated.md) for live staging.

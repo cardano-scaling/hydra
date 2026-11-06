@@ -2,7 +2,7 @@
 
 Sources for the [user manual 📖](https://hydra.family/head-protocol/docs).
 
-For the head logic spike, start with the [review guide](./head-logic-review.md).
+For the Crem/Program head logic, start with the [review guide](./head-logic-review.md).
 It provides a source-code reading order, explains the implemented approach, and
 links to the lab commands, validation results, traces and measurements.
 
