@@ -42,6 +42,8 @@ data Effect tx
     NetworkEffect {message :: Message tx}
   | -- | Effect to be handled by a "Hydra.Chain", results in a 'Hydra.Chain.postTx'.
     OnChainEffect {postChainTx :: PostChainTx tx}
+  | -- | Retry existing messages as one batch, with at most one retry outstanding.
+    NetworkRetransmission {messages :: [Message tx]}
   deriving stock (Generic)
 
 deriving stock instance IsChainState tx => Eq (Effect tx)
@@ -176,6 +178,7 @@ data StateChanged tx
   | Checkpoint {state :: NodeState tx}
   | NodeUnsynced {chainSlot :: ChainSlot, chainTime :: UTCTime, drift :: NominalDiffTime}
   | NodeSynced {chainSlot :: ChainSlot, chainTime :: UTCTime, drift :: NominalDiffTime}
+  | SnapshotTransactionsRequested {snapshotNumber :: SnapshotNumber, transactionIds :: [TxIdType tx]}
   deriving stock (Generic)
 
 deriving stock instance (IsChainState tx, IsTx tx, Eq (NodeState tx), Eq (ChainStateType tx)) => Eq (StateChanged tx)

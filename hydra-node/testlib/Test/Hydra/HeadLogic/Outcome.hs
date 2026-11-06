@@ -98,4 +98,5 @@ genStateChanged env =
     , LocalStateCleared <$> arbitrary <*> arbitrary
     , NodeUnsynced <$> arbitrary <*> arbitrary <*> arbitrary
     , NodeSynced <$> arbitrary <*> arbitrary <*> arbitrary
+    , SnapshotTransactionsRequested <$> arbitrary <*> arbitrary
     ]

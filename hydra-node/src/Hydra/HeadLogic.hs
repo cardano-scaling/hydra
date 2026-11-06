@@ -227,17 +227,23 @@ onOpenNetworkReqTx ::
   -- | The transaction to be submitted to the head.
   tx ->
   Outcome tx
-onOpenNetworkReqTx env ledger ChainPointTime{currentSlot, currentChainTime} st ttl pendingDeposits tx =
-  -- Keep track of transactions by-id
-  (newState TransactionReceived{tx} <>) $
-    -- Spec: wait L̂ ◦ tx ≠ ⊥
-    waitApplyTx $
-      -- Spec: T̂ ← T̂ ⋃ {tx}
-      --       L̂  ← L̂ ◦ tx
-      newState TransactionAppliedToLocalUTxO{headId, tx}
-        -- Spec: if ŝ = ̅S.s ∧ leader(̅S.s + 1) = i
-        --         multicast (reqSn, v, ̅S.s + 1, T̂ , 𝑈𝛼, txω )
-        & maybeRequestSnapshot (confirmedSn + 1)
+onOpenNetworkReqTx env ledger ChainPointTime{currentSlot, currentChainTime} st ttl pendingDeposits tx
+  | txId tx `elem` (txId <$> (getSnapshot confirmedSnapshot).confirmed) = noop
+  | SeenSnapshot{snapshot} <- seenSnapshot
+  , txId tx `elem` (txId <$> snapshot.confirmed) =
+      noop
+  | txId tx `Set.member` awaitingTransactionIds seenSnapshot = newState TransactionReceived{tx}
+  | otherwise =
+      -- Keep track of transactions by-id
+      (newState TransactionReceived{tx} <>) $
+        -- Spec: wait L̂ ◦ tx ≠ ⊥
+        waitApplyTx $
+          -- Spec: T̂ ← T̂ ⋃ {tx}
+          --       L̂  ← L̂ ◦ tx
+          newState TransactionAppliedToLocalUTxO{headId, tx}
+            -- Spec: if ŝ = ̅S.s ∧ leader(̅S.s + 1) = i
+            --         multicast (reqSn, v, ̅S.s + 1, T̂ , 𝑈𝛼, txω )
+            & maybeRequestSnapshot (confirmedSn + 1)
  where
   waitApplyTx cont =
     case applyTransactionsWithoutCollision ledger currentSlot localUTxO [tx] of
@@ -263,15 +269,9 @@ onOpenNetworkReqTx env ledger ChainPointTime{currentSlot, currentChainTime} st t
       | ttl > 0 =
           wait (WaitOnNotApplicableTx err)
       | otherwise =
-          -- XXX: We are removing invalid txs from allTxs here to
-          -- prevent them piling up infinitely. However, this is not really
-          -- covered by the spec and this could be problematic in case of
-          -- conflicting transactions paired with network latency and/or
-          -- message resubmission. For example: Assume tx2 depends on tx1, but
-          -- only tx2 is seen by a participant and eventually times out
-          -- because of network latency when receiving tx1. The leader,
-          -- however, saw both as valid and requests a snapshot including
-          -- both. This is a valid request and it could make the head stuck.
+          -- Active requests and pending optimistic transactions retain their
+          -- payloads in applyEvent; other expired payloads can be retransmitted
+          -- with a later leader request.
           newState TxInvalid{headId, utxo = localUTxO, transaction = tx, validationError = err}
 
   maybeRequestSnapshot nextSn outcome
@@ -434,6 +434,15 @@ onOpenNetworkReqSn env ledger pendingDeposits ChainPointTime{currentSlot, curren
                             }
  where
   requireReqSn continue
+    | SeenSnapshot{snapshot} <- seenSnapshot
+    , isLeader parameters otherParty sn
+    , snapshot.number == sn
+    , snapshot.version == sv
+    , (txId <$> snapshot.confirmed) == requestedTxIds
+    , snapshot.depositTxId == mDepositTxId
+    , snapshot.utxoToDecommit == (utxoFromTx <$> mDecommitTx) =
+        -- A retry after restart may also need the acknowledgement replayed.
+        cause $ NetworkRetransmission [AckSn (sign signingKey snapshot) sn]
     | sn /= seenSn + 1 =
         Error $ RequireFailed $ ReqSnNumberInvalid{requestedSn = sn, lastSeenSn = seenSn}
     | not (isLeader parameters otherParty sn) =
@@ -454,9 +463,16 @@ onOpenNetworkReqSn env ledger pendingDeposits ChainPointTime{currentSlot, curren
         wait $ WaitOnSnapshotVersion sv
 
   waitResolvableTxs continue =
-    case toList (fromList requestedTxIds \\ Map.keysSet allTxs) of
-      [] -> continue $ mapMaybe (`Map.lookup` allTxs) requestedTxIds
-      unseen -> wait $ WaitOnTxs unseen
+    case toList (fromList requestedTxIds \\ Map.keysSet knownTxs) of
+      [] -> continue $ mapMaybe (`Map.lookup` knownTxs) requestedTxIds
+      unseen ->
+        let pinRequest = case seenSnapshot of
+              AwaitingSnapshotTransactions{requested, transactionIds}
+                | requested == sn && transactionIds == requestedTxIds -> noop
+              _ -> newState SnapshotTransactionsRequested{snapshotNumber = sn, transactionIds = requestedTxIds}
+         in pinRequest <> wait (WaitOnTxs unseen)
+   where
+    knownTxs = allTxs <> Map.fromList [(txId tx, tx) | tx <- toList localTxs]
 
   -- Resolve the requested deposit into the snapshot's 'utxoToCommit'. It is
   -- not added to the active UTxO: a deposit is not spendable on L2 until its
@@ -1084,6 +1100,14 @@ onChainTick env pendingDeposits chainTime =
 -- snapshots for inclusion.
 onOpenChainTick :: forall tx. IsTx tx => Environment -> UTCTime -> PendingDeposits tx -> OpenState tx -> Outcome tx
 onOpenChainTick env chainTime pendingDeposits st
+  | SeenSnapshot{snapshot} <- seenSnapshot
+  , isLeader parameters party snapshot.number
+  , snapshot.version == version =
+      case snapshot.utxoToDecommit of
+        Nothing -> retransmit snapshot Nothing
+        Just outputs -> case decommitTx of
+          Just tx | utxoFromTx tx == outputs -> retransmit snapshot (Just tx)
+          _ -> noop
   | snapshotInFlight seenSnapshot || not (isLeader parameters party nextSn) = noop
   | otherwise =
       let settling = settlingCommitAt env version chainTime deposits confirmed
@@ -1098,6 +1122,16 @@ onOpenChainTick env chainTime pendingDeposits st
               | isNothing decommitTx -> request requestTxs requestDecommitTx (Just depositTxId)
             _ -> noop
  where
+  -- Announce IDs before payloads so receivers pin them, then replay the
+  -- header to validate immediately, including after their input queue expired.
+  retransmit :: Snapshot tx -> Maybe tx -> Outcome tx
+  retransmit snapshot mDecommit =
+    let header = ReqSn snapshot.version snapshot.number (txId <$> snapshot.confirmed) mDecommit snapshot.depositTxId
+        -- Include our own acknowledgement: a self-delivered header can be
+        -- processed while this retry batch still occupies our outbox.
+        ack = AckSn (sign env.signingKey snapshot) snapshot.number
+     in cause $ NetworkRetransmission (header : (ReqTx <$> snapshot.confirmed) <> [header, ack])
+
   nextDeposits = determineNextDepositStatus env pendingDeposits chainTime
 
   newActive = Map.filter (\Deposit{status} -> status == Active) nextDeposits
@@ -2715,7 +2749,9 @@ handleChainInput env _ledger now _chainPointTime pendingDeposits st ev syncStatu
     newState TickObserved{chainPoint, chainTime}
       <> handleOutOfSync env now chainPoint chainTime syncStatus
       <> onChainTick env pendingDeposits chainTime
-      <> onOpenChainTick env chainTime (scopedDeposits openState pendingDeposits) openState
+      <> case (syncStatus, openState.coordinatedHeadState.seenSnapshot) of
+        (CatchingUp, SeenSnapshot{}) -> noop
+        _ -> onOpenChainTick env chainTime (scopedDeposits openState pendingDeposits) openState
   (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnIncrementTx{headId, newVersion, depositTxId, snapshotNumber, signatures}, newChainState})
     | ourHeadId == headId ->
         onOpenChainIncrementTx env (scopedDeposits openState pendingDeposits) openState newChainState newVersion depositTxId snapshotNumber signatures
@@ -3111,10 +3147,16 @@ settledUTxO headVersion Snapshot{utxo, utxoToCommit, version}
   | headVersion > version = utxo <> fromMaybe mempty utxoToCommit
   | otherwise = utxo
 
+awaitingTransactionIds :: IsTx tx => SeenSnapshot tx -> Set (TxIdType tx)
+awaitingTransactionIds = \case
+  AwaitingSnapshotTransactions{transactionIds} -> fromList transactionIds
+  _ -> mempty
+
 -- | Extract the 'HeadId' from a 'StateChanged' event, if the event carries one.
 -- Events that do not carry a 'HeadId' always pass through 'aggregateNodeState' unchanged.
 eventHeadId :: StateChanged tx -> Maybe HeadId
 eventHeadId = \case
+  SnapshotTransactionsRequested{} -> Nothing
   HeadOpened{headId} -> Just headId
   TransactionAppliedToLocalUTxO{headId} -> Just headId
   SnapshotConfirmed{headId} -> Just headId
@@ -3169,6 +3211,10 @@ headIdOf = \case
 
 applyEvent :: IsChainState tx => HeadState tx -> StateChanged tx -> HeadState tx
 applyEvent st = \case
+  SnapshotTransactionsRequested{snapshotNumber, transactionIds} -> case st of
+    Open os@OpenState{coordinatedHeadState} ->
+      Open os{coordinatedHeadState = coordinatedHeadState{seenSnapshot = AwaitingSnapshotTransactions (seenSnapshotNumber coordinatedHeadState.seenSnapshot) snapshotNumber transactionIds}}
+    _ -> st
   NetworkConnected -> st
   NetworkDisconnected -> st
   NetworkVersionMismatch{} -> st
@@ -3263,7 +3309,10 @@ applyEvent st = \case
                     -- is guaranteed to apply), making 'applyTxTo' safe to use
                     -- without ledger validation.
                     localUTxO = foldl' (flip applyTxTo) (settledUTxO version snapshot) newLocalTxs
-                  , allTxs = foldr (Map.delete . txId) allTxs snapshot.confirmed
+                  , -- Retain only the pending optimistic ledger. The leader's
+                    -- candidate holds snapshot payloads and retransmits them;
+                    -- pruned and unresolved payloads need no permanent cache.
+                    allTxs = Map.restrictKeys allTxs (fromList $ txId <$> toList newLocalTxs)
                   , currentDepositTxId = newCurrentDepositTxId
                   }
             }
@@ -3552,6 +3601,10 @@ applyEvent st = \case
   TickObserved{} -> st
   IgnoredHeadInitializing{} -> st
   TxInvalid{transaction} -> case st of
+    Open OpenState{coordinatedHeadState}
+      | txId transaction `Set.member` awaitingTransactionIds coordinatedHeadState.seenSnapshot
+          || txId transaction `elem` (txId <$> toList coordinatedHeadState.localTxs) ->
+          st
     Open ost@OpenState{coordinatedHeadState = coordState@CoordinatedHeadState{allTxs = allTransactions}} ->
       Open ost{coordinatedHeadState = coordState{allTxs = Map.delete (txId transaction) allTransactions}}
     _otherState -> st
@@ -3575,6 +3628,7 @@ aggregateState s outcome =
 
 aggregateChainStateHistory :: IsChainState tx => ChainStateHistory tx -> StateChanged tx -> ChainStateHistory tx
 aggregateChainStateHistory history = \case
+  SnapshotTransactionsRequested{} -> history
   NetworkConnected -> history
   NetworkDisconnected -> history
   NetworkVersionMismatch{} -> history

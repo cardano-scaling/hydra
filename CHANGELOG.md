@@ -23,6 +23,10 @@ changes.
   fit alongside the requested transactions.
   [#2924](https://github.com/cardano-scaling/hydra/issues/2924)
 
+- Reduce retained transaction payloads and retry pending snapshots to recover
+  missing transactions, including after restart.
+  [#2931](https://github.com/cardano-scaling/hydra/pull/2931)
+
 ## [2.4.2] - 2026.10.22
 
 - Numerous fixes to the docs [#2917](https://github.com/cardano-scaling/hydra/pull/2917)

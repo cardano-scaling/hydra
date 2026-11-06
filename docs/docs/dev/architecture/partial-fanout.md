@@ -275,6 +275,18 @@ boundary: an accumulator over more elements than the setup supports has no
 computable commitment at all, and the node forces that commitment as soon as it
 logs, echoes or signature-checks the snapshot.
 
+### Pending transaction payloads
+
+After processing a snapshot request, the node retains payloads only for its
+remaining optimistic transactions. A leader periodically replays a pending
+snapshot's `ReqSn` header and `ReqTx` payloads using the existing network protocol.
+Followers pin requested payloads until validation, including across a restart.
+At most one retry batch can be queued or in flight, so a disconnected peer cannot
+make retry batches accumulate. Ordinary traffic does not starve retries.
+A retry sends the whole pending snapshot rather than requesting individual
+missing transactions. The wire format stays at version 2, but recovery relies on
+updated leaders; upgrade all parties before relying on this retention policy.
+
 ### How much fits in one step
 
 Two separate limits bound a single fanout transaction:

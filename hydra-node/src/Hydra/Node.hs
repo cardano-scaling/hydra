@@ -567,6 +567,7 @@ stepHydraNode now node = do
 -- network is down, because 'broadcast' is self-delivering, so our own 'AckSn'
 -- never comes back, the confirmed snapshot number freezes and
 -- 'snapshotInFlight' caps both 'ReqSn' and 'AckSn' at one apiece.
+-- Retransmissions have a separate bound of one outstanding retry batch.
 --
 -- NOTE: that cap is not airtight, and this is not a complete bound.
 -- 'onOpenChainTick' emits a 'ReqSn' on a chain tick with no network input at
@@ -655,6 +656,8 @@ processEffects node tracer inputId effects = do
       -- NOTE: from here on 'EndEffect' means the effect was accepted for
       -- execution, not that it completed.
       NetworkEffect msg -> submit networkOutbox $ broadcast hn msg
+      NetworkRetransmission messages -> do
+        submitRetry networkOutbox $ traverse_ (broadcast hn) messages
       -- NOTE: still inline, and 'postTx' can block - the direct backend waits
       -- on the tx-submission response. So a stalled chain backend still stops
       -- this loop, which is the sibling advisory on the L1 submission queue,

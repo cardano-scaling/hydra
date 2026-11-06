@@ -770,6 +770,7 @@ surfacedOutputs =
   , ("PeerConnected", Just "PeerConnected")
   , ("PeerDisconnected", Just "PeerDisconnected")
   , ("TransactionReceived", Nothing)
+  , ("SnapshotTransactionsRequested", Nothing)
   , ("SnapshotRequested", Nothing)
   , ("SnapshotRequestDecided", Nothing)
   , ("PartySignedSnapshot", Nothing)

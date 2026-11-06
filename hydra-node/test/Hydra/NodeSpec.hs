@@ -21,7 +21,7 @@ import Hydra.API.ServerOutput qualified as ServerOutput
 import Hydra.Cardano.Api (SigningKey)
 import Hydra.Chain (Chain (..), ChainEvent (..), OnChainTx (..), PostChainTx (..), PostTxError (..))
 import Hydra.Chain.ChainState (ChainSlot (..), IsChainState (..))
-import Hydra.HeadLogic (Input (..), StateChanged (..), TTL)
+import Hydra.HeadLogic (Effect (..), Input (..), StateChanged (..), TTL)
 import Hydra.HeadLogic qualified as Head
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.HeadLogicSpec (inOpenState, receiveMessage, receiveMessageFrom, testSnapshot)
@@ -39,6 +39,7 @@ import Hydra.Node (
   connect,
   hydrate,
   monitorBroadcast,
+  processEffects,
   stepHydraNode,
   withNetworkOutbox,
  )
@@ -582,6 +583,21 @@ spec = parallel $ do
               void . awaitRecorded getPostedTxs $ \case
                 CloseTx{} -> True
                 _ -> False
+
+    it "keeps at most one snapshot retransmission batch in the outbox" $ do
+      (node, getNetworkEvents) <- testHydraNode nullTracer aliceSk [bob, carol] cperiod [] >>= recordNetwork
+      let messages = [ReqSn 0 1 [1] Nothing Nothing, ReqTx (aValidTx 1)]
+      processEffects node nullTracer 0 [NetworkEffect $ ReqTx (aValidTx 2)]
+      replicateM_ 10 $ processEffects node nullTracer 0 [NetworkRetransmission messages]
+      atomically (pendingActions $ networkOutbox node) `shouldReturn` 2
+      processEffects node nullTracer 0 [NetworkEffect $ ReqTx (aValidTx 3)]
+      atomically (pendingActions $ networkOutbox node) `shouldReturn` 3
+      drainOutbox (networkOutbox node)
+      getNetworkEvents `shouldReturn` [ReqTx (aValidTx 2)] <> messages <> [ReqTx (aValidTx 3)]
+      processEffects node nullTracer 0 [NetworkRetransmission messages]
+      atomically (pendingActions $ networkOutbox node) `shouldReturn` 1
+      drainOutbox (networkOutbox node)
+      getNetworkEvents `shouldReturn` [ReqTx (aValidTx 2)] <> messages <> [ReqTx (aValidTx 3)] <> messages
 
     it "refuses NewTx but still closes while the broadcast is stalled" $
       -- The bound on the fix above: with 'broadcast' unable to complete, the

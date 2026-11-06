@@ -2326,6 +2326,22 @@ components:
               $ref: "api.yaml#/components/schemas/SnapshotNumber"
             requested:
               $ref: "api.yaml#/components/schemas/SnapshotNumber"
+        - title: AwaitingSnapshotTransactions
+          type: object
+          additionalProperties: false
+          required: [tag, lastSeen, requested, transactionIds]
+          properties:
+            tag:
+              type: string
+              enum: ["AwaitingSnapshotTransactions"]
+            lastSeen:
+              $ref: "api.yaml#/components/schemas/SnapshotNumber"
+            requested:
+              $ref: "api.yaml#/components/schemas/SnapshotNumber"
+            transactionIds:
+              type: array
+              items:
+                $ref: "api.yaml#/components/schemas/TxId"
         - title: SeenSnapshot
           type: object
           additionalProperties: false

@@ -45,6 +45,9 @@ data StallBounds = StallBounds
 data Outbox m = Outbox
   { submit :: m () -> m ()
   -- ^ Append an action. Never blocks.
+  , submitRetry :: m () -> m ()
+  -- ^ Append at most one retry action at a time. Ordinary work does not
+  -- prevent a retry from being queued, so a busy producer cannot starve it.
   , outboxStalled :: m (Maybe (StallReason, Natural))
   -- ^ The cause, and the amount of queued work, once it exceeds the
   -- 'StallBounds'.
@@ -87,6 +90,7 @@ newOutbox bounds@StallBounds{noProgressFor, maxPending} name = do
   now <- getMonotonicTime
   queue <- newLabelledTQueueIO name
   count <- newLabelledTVarIO (name <> "-pending") 0
+  retryPending <- newLabelledTVarIO (name <> "-retry-pending") False
   -- The last point at which the outbox was known to be keeping up: either an
   -- action completed, or the queue was empty and we started waiting. Both
   -- reset the clock, so neither an idle producer nor a busy one that keeps up
@@ -140,6 +144,16 @@ newOutbox bounds@StallBounds{noProgressFor, maxPending} name = do
             when (n == 0) $ modifyTVar' progressAt (max submittedAt)
             writeTVar count (n + 1)
             writeTQueue queue action
+      , submitRetry = \action -> do
+          submittedAt <- getMonotonicTime
+          atomically $ do
+            alreadyPending <- readTVar retryPending
+            unless alreadyPending $ do
+              writeTVar retryPending True
+              n <- readTVar count
+              when (n == 0) $ modifyTVar' progressAt (max submittedAt)
+              writeTVar count (n + 1)
+              writeTQueue queue (action >> atomically (writeTVar retryPending False))
       , outboxStalled = do
           -- NOTE: our own clock, deliberately. Callers may be working off
           -- another notion of time, such as chain time.
