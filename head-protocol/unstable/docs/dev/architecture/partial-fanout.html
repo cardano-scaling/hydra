@@ -16,7 +16,7 @@
 
 
 <script src="https://plausible.io/js/script.js" defer="defer" data-domain="hydra.family"></script><link rel="stylesheet" href="/head-protocol/unstable/assets/css/styles.91b2ba67.css">
-<script src="/head-protocol/unstable/assets/js/runtime~main.4d446cf9.js" defer="defer"></script>
+<script src="/head-protocol/unstable/assets/js/runtime~main.121eb3b7.js" defer="defer"></script>
 <script src="/head-protocol/unstable/assets/js/main.07190c0b.js" defer="defer"></script>
 </head>
 <body class="navigation-with-keyboard">
@@ -218,6 +218,15 @@ head to <code>Closed</code> rather than wedging it.</p>
 A requested snapshot that would exceed this is rejected with
 <code>ReqSnUTxOSetTooLarge</code>, so the head cannot reach a state it would be unable to fan
 out.</p>
+<p>Snapshot construction enforces the same bound, including outputs owed by pending
+commits and decommits. The optimistic local UTxO may temporarily exceed it:
+<code>TxValid</code> indicates local ledger acceptance, not inclusion in the next snapshot.
+Transactions that do not fit are pruned when a snapshot is applied; new deposits
+that do not fit are deferred. Confirm any merges an expanding decommit relies on
+before submitting it.</p>
+<p>For a head already stalled on an older version,
+<a href="/head-protocol/unstable/docs/how-to/sideload-snapshot">side-load the last confirmed snapshot</a> on all
+nodes to clear pending local state.</p>
 <p>The same bound applies to a snapshot supplied by a client rather than by a peer.
 A <a href="/head-protocol/unstable/docs/how-to/sideload-snapshot">side-loaded snapshot</a> above the limit is
 refused by the API with a <code>400</code> before it reaches the head logic, which keeps its

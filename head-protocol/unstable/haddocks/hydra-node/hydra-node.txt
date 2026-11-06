@@ -4449,6 +4449,11 @@ onOpenNetworkReqSn :: forall tx. IsTx tx => Environment -> Ledger tx -> PendingD
 --   head) nor recovered (that would corrupt the L2 ledger). See #2741.
 finalizedDepositTxId :: IsTx tx => Maybe (FinalizedSnapshot tx) -> Maybe (TxIdType tx)
 
+-- | Count the two possible fanout sets without serializing outputs or
+--   building cryptographic commitments. This must match
+--   <a>buildFromSnapshotUTxOs</a>.
+checkSnapshotUTxOSize :: forall tx. IsTx tx => UTxOType tx -> Maybe (UTxOType tx) -> Maybe (UTxOType tx) -> Either AccumulatorTooLarge ()
+
 -- | Process a snapshot acknowledgement (<a>AckSn</a>) from a party.
 --   
 --   We do require that the is from the last seen or next expected
@@ -4485,15 +4490,19 @@ onClientRecover :: IsTx tx => ChainSlot -> PendingDeposits tx -> Maybe (TxIdType
 --   <b>Transition</b>: <a>OpenState</a> → <a>OpenState</a>
 onOpenClientDecommit :: IsTx tx => HeadId -> Ledger tx -> ChainSlot -> CoordinatedHeadState tx -> tx -> Outcome tx
 
--- | Reject a decommit that materializes no output. <a>checkDecrement</a>
---   requires at least one, so such a decommit can never settle on-chain,
---   and recording it would block every later snapshot (which cannot carry
---   a different one).
+-- | Reject a decommit that materializes no output or exceeds capacity.
+--   <a>checkDecrement</a> requires at least one, so such a decommit can
+--   never settle on-chain, and recording it would block every later
+--   snapshot (which cannot carry a different one). Its outputs still
+--   belong to the head until the decrement settles, so an output-expanding
+--   decommit must fit before it is recorded or broadcast. Check the
+--   confirmed UTxO too: pending merges can fall outside the next request's
+--   tx-count cap, and followers apply the decommit before its txs.
 --   
 --   Belongs after the applicability check at every call site: a
 --   transaction that does not apply is reported with the ledger's own,
 --   more precise reason.
-requireDecommitOutputs :: IsTx tx => HeadId -> UTxOType tx -> tx -> Outcome tx -> Outcome tx
+requireDecommitOutputs :: IsTx tx => HeadId -> UTxOType tx -> UTxOType tx -> tx -> Outcome tx -> Outcome tx
 
 -- | Process the request <a>ReqDec</a> to decommit something from the Open
 --   head.
