@@ -193,21 +193,21 @@ spec =
 
         it "requests transactions only up to the capacity limit" $ do
           let u0 = utxoRefs [1 .. limit - 1]
-          (nextSnapshotRequest u0 (Seq.singleton split) mempty Nothing Nothing Nothing).requestTxs `shouldBe` [split]
-          (nextSnapshotRequest fullUTxO (Seq.singleton split) mempty Nothing Nothing Nothing).requestTxs `shouldBe` []
+          (requestTxs <$> nextSnapshotRequest 0 (testSnapshot 0 0 [] u0) (Seq.singleton split) mempty Nothing NoDecommit Nothing) `shouldBe` Just [split]
+          (requestTxs <$> nextSnapshotRequest 0 (testSnapshot 0 0 [] fullUTxO) (Seq.singleton split) mempty Nothing NoDecommit Nothing) `shouldBe` Just []
 
         it "reserves outputs owed by pending commits and decommits" $ do
           now <- getCurrentTime
           let u0 = utxoRefs [1 .. limit - 1]
               deposit = Deposit{headId = testHeadId, deposited = utxoRef (limit + 10), created = now, deadline = addUTCTime 3600 now, status = Active}
               requests =
-                [ chainedSnapshotRequest u0 (Seq.singleton split) mempty Nothing Nothing (Just $ ContinueCommit (7, deposit))
-                , chainedSnapshotRequest u0 (Seq.singleton split) mempty Nothing (Just $ SimpleTx 3 mempty deposit.deposited) Nothing
+                [ chainedSnapshotRequest 0 (testSnapshot 0 0 [] u0) (Seq.singleton split) mempty Nothing NoDecommit (Just $ ContinueCommit (7, deposit))
+                , chainedSnapshotRequest 0 (testSnapshot 0 0 [] u0) (Seq.singleton split) mempty Nothing (ReadyToDecommit $ SimpleTx 3 mempty deposit.deposited) Nothing
                 ]
           forM_ requests $ \request -> do
             isJust request `shouldBe` True
-            fmap (.requestTxs) request `shouldBe` Just []
-          isNothing (chainedSnapshotRequest u0 mempty mempty Nothing Nothing (Just $ ContinueCommit (7, deposit))) `shouldBe` True
+            fmap requestTxs request `shouldBe` Just []
+          isNothing (chainedSnapshotRequest 0 (testSnapshot 0 0 [] u0) mempty mempty Nothing NoDecommit (Just $ ContinueCommit (7, deposit))) `shouldBe` True
 
         it "prunes transactions blocked by a settling commit so an independent merge can proceed" $ do
           now <- getCurrentTime
@@ -228,7 +228,7 @@ spec =
             headState pruned `shouldSatisfy` \case
               Open OpenState{coordinatedHeadState = CoordinatedHeadState{localTxs}} -> localTxs == Seq.singleton independentMerge
               _ -> False
-            fmap (.requestTxs) (chainedSnapshotRequest u0 (Seq.singleton independentMerge) mempty Nothing Nothing (Just $ ContinueCommit (7, deposit)))
+            fmap requestTxs (chainedSnapshotRequest 0 (testSnapshot 0 0 [] u0) (Seq.singleton independentMerge) mempty Nothing NoDecommit (Just $ ContinueCommit (7, deposit)))
               `shouldBe` Just [independentMerge]
 
         it "keeps competing optimistic transactions available for a delayed valid snapshot" $ do
@@ -281,16 +281,16 @@ spec =
           now <- getCurrentTime
           forM_ [(1, Just 7), (3, Nothing)] $ \(count, expectedDeposit) -> do
             let deposit = Deposit{headId = testHeadId, deposited = utxoRefs [limit + 10 .. limit + 9 + count], created = now, deadline = addUTCTime 3600 now, status = Active}
-                request = nextSnapshotRequest fullUTxO (Seq.singleton merge) (Map.singleton 7 deposit) (Just 7) Nothing Nothing
-            request.requestDepositTxId `shouldBe` expectedDeposit
-            request.requestTxs `shouldBe` [merge]
+                request = nextSnapshotRequest 0 (testSnapshot 0 0 [] fullUTxO) (Seq.singleton merge) (Map.singleton 7 deposit) (Just 7) NoDecommit Nothing
+            fmap requestDepositTxId request `shouldBe` Just expectedDeposit
+            fmap requestTxs request `shouldBe` Just [merge]
 
         it "cuts and prunes an overflowing prefix even if a later merge fits" $ do
           let laterMerge = SimpleTx 2 (utxoRefs [2, 3]) (utxoRef (limit + 3))
               txs = Seq.fromList [split, laterMerge]
-              request = nextSnapshotRequest fullUTxO txs mempty Nothing Nothing Nothing
-          request.requestTxs `shouldBe` []
-          isJust (chainedSnapshotRequest fullUTxO txs mempty Nothing Nothing Nothing) `shouldBe` True
+              request = nextSnapshotRequest 0 (testSnapshot 0 0 [] fullUTxO) txs mempty Nothing NoDecommit Nothing
+          fmap requestTxs request `shouldBe` Just []
+          isJust (chainedSnapshotRequest 0 (testSnapshot 0 0 [] fullUTxO) txs mempty Nothing NoDecommit Nothing) `shouldBe` True
           -- The empty snapshot prunes the overflowing tx while retaining the
           -- independent merge, including pending state from before upgrade.
           let st = inOpenState' threeParties coordinatedHeadState{localUTxO = foldl' (flip applyTxTo) fullUTxO txs, localTxs = txs, allTxs = Map.fromList [(txId tx, tx) | tx <- toList txs], confirmedSnapshot = ConfirmedSnapshot (testSnapshot 0 0 [] fullUTxO) mempty}

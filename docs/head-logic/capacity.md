@@ -56,6 +56,40 @@ ReqDec broadcasts a checked proposal without retaining `SnapshotRequestDecided`.
 Trusted replay uses a separate number-only command for persisted request events.
 It does not reconstruct admission evidence or repair an inconsistent checkpoint.
 
+## Merged fix and regression tests
+
+The branch is rebased onto master `0aa8987dc`, which merges
+[PR #2927](https://github.com/cardano-scaling/hydra/pull/2927). Its policy is present
+in the Crem/Program rules: prefix capacity and deposit selection in
+`SnapshotRequest`, pruning in `Transactions`, and local/confirmed decommit
+capacity in `Decommit` and `ReqDec`. `ReqTx` checks leadership and round status
+before constructing a proposal. The capacity port's production code and formal
+model are unchanged by the rebase.
+
+The upstream tests are retained:
+
+- [HeadLogicSpec](../../hydra-node/test/Hydra/HeadLogicSpec.hs): seven capacity
+  cases and the expanded empty/oversized-decommit test. Selection calls now
+  supply the snapshot context and decommit status, and assert `Just` proposals
+  through public accessors. Their original expected transactions and outcomes
+  are preserved.
+- [BehaviorSpec](../../hydra-node/test/Hydra/BehaviorSpec.hs): all three parties
+  prune an overflowing transaction and confirm a later independent merge.
+- [OffChainAgreementSpec](../../hydra-node/test/Hydra/OffChainAgreementSpec.hs):
+  three comparisons between extracted capacity guards and actual HeadLogic.
+  This file and BehaviorSpec match master without adaptation.
+
+All 12 focused checks pass in a fresh test REPL. They exercise the production
+dispatcher, which executes the Crem workflows and Program interpreter. The
+upstream competing-transaction test explicitly requires the optimistic local
+ledger to exceed capacity while retaining both payloads. Adding a ReqTx capacity
+rejection would break that behavior; capacity is enforced when selecting and
+pruning snapshots.
+
+```text
+:main -p "/accumulator capacity/ || /prunes an overflowing transaction/ || /rejects a decommit tx with no outputs/"
+```
+
 ## Executable checks
 
 ```sh

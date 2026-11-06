@@ -1,7 +1,10 @@
 # Adversarial review of Crem/Program
 
-Reviewed on 2026-11-06 against `378c08393`, using crem 0.1.1.0. This review adds
-reproduction examples and documentation; it does not change production behavior.
+Reviewed on 2026-11-06 using crem 0.1.1.0, including the rebase onto master
+`0aa8987dc` (PR #2927). Production Haskell and the formal model match the existing
+capacity port before the rebase. The merged regression tests are retained and
+pass through Crem/Program; both review witnesses still reproduce. This review
+adds examples and documentation without changing production behavior.
 
 The strongest parts are the executable Program rules, shared terminal semantics,
 and shared live/replay state transitions. Crem makes ownership clearer, but the
@@ -216,6 +219,13 @@ edges. Consequently these two topologies exclude **no phase-to-phase
 transition**. Their indexed payloads and ownership ports still help; input
 workflow graphs are also more selective. [Crem topology definition](https://github.com/marcosh/crem/blob/main/src/Crem/Topology.hs).
 
+Ordinary typed reducers could enforce the same separation of owner fields.
+Crem's additional cost is justified where its topology excludes an illegal
+sequence or its composition removes wiring that would otherwise be duplicated.
+That case is stronger for the selective workflows than for these complete owner
+graphs. Program and the independent checks account for most of the demonstrated
+bug-finding value; those benefits do not depend on crem.
+
 Replay and adoption explain some broad transitions. Separate the live command
 interface from the trusted event adapter while keeping one underlying state
 transition. Today [`fromEvent`](../../hydra-node/src/Hydra/HeadLogic/Machine/Coordinated.hs#L139)
@@ -296,12 +306,18 @@ cost in production. These measurements do not establish an exploitable DoS.
 
 ## Review verification and next steps
 
-Both reproduction examples run in the test REPL. The HeadLogic selection passes
-452 of 453 tests there; the fully-evaluated snapshot UTxO test reports a `TxIn`
-thunk in interpreted mode. That same test passes in the compiled `-O1` test
-binary. The mode discrepancy remains to be explained; it is not evidence of a
-new production regression. The earlier full compiled verification is recorded
-in [validation](validation.md).
+Both reproduction examples run in the test REPL after rebasing. The 12 focused
+upstream capacity checks also pass, including the three-party progress scenario
+and the extracted Agda comparisons. See [capacity](capacity.md#merged-fix-and-regression-tests)
+for the mapping from the merged fix to the current rules.
+
+Before the rebase, the HeadLogic selection passed 452 of 453 tests in the REPL;
+the fully-evaluated snapshot UTxO test reported a `TxIn` thunk in interpreted
+mode. That same test passed in the compiled `-O1` binary. The mode discrepancy
+remains to be explained; it is not evidence of a new production regression.
+After the rebase, `just lint` and `just check` pass, including all 1,448 compiled
+node tests. Unchanged package checks are reused. [Validation](validation.md)
+records the checks separately.
 
 Before treating the conversion as ready to merge: fix the conflicting reservation
 with an independent regression and model update; bind confirmation evidence to

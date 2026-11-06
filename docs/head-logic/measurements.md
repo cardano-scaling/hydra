@@ -6,6 +6,10 @@ links to that code. These measurements cover the complete design and its
 [capacity policy](capacity.md). Different baselines answer different questions;
 their percentages must not be added together.
 
+The subsequent rebase onto master `0aa8987dc` preserves the measured production
+and benchmark code. The recorded source revisions and binary hashes below refer
+to the actual measurement runs; rebasing did not produce new measurements.
+
 ## What does this cost in TPS?
 
 **The current design has a measurable cost in the small-Head cluster workload:

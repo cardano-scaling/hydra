@@ -42,12 +42,18 @@ revision `968ea82f7` and benchmark revision `bdc5bcb0d`.
 | Imports | All 93 changed handwritten Haskell files use explicit or qualified imports, except the permitted Preludes. |
 | Final checks | `just lint` and `just check` pass. |
 
-The subsequent [adversarial review](adversarial-review.md), against `378c08393`,
-adds executable witnesses for a conflicting decommit and unbound verification
-keys. Both reproduce in the test REPL. Its HeadLogic run passes 452 of 453 tests;
-the snapshot UTxO strictness test fails in interpreted mode and passes in the
-compiled `-O1` binary. The review records that unresolved mode discrepancy.
+The subsequent [adversarial review](adversarial-review.md) adds executable
+witnesses for a conflicting decommit and unbound verification keys. Both
+reproduce after rebasing onto master `0aa8987dc` (PR #2927), and all 12
+[focused upstream capacity checks](capacity.md#merged-fix-and-regression-tests)
+pass in a fresh test REPL. The review's pre-rebase HeadLogic run passed 452 of 453
+tests: the snapshot UTxO strictness test failed in interpreted mode and passed
+in the compiled `-O1` binary. That mode discrepancy remains unexplained.
 The new trace brings the central index to 59 current and 31 archived diagrams.
+After the rebase, `just lint` and `just check` pass. The compiled node suite runs
+all 1,448 tests successfully, including the strictness check; unchanged package
+and specification checks are reused. The Agda extraction is regenerated during
+conflict resolution and matches the capacity port's existing generated code.
 
 ## Commands
 
