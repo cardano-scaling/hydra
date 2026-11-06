@@ -528,8 +528,11 @@ applying $tx$, its outputs are removed from _local_ ledger state $hatmL$
 so that they are not available any more and the decommit transaction is kept in
 the local state ($tx_omega$). If there is no current snapshot in flight
 ($hats = macron(mc(S)).s$) and the receiving party $party_(i)$ is the next
-snapshot leader, a message to request snapshot signatures $hpRS$ containing the
-decrement transaction $tx_omega$ is sent. \
+snapshot leader, it requests useful snapshot work. A new decommit is included
+only when all its spending, reference and collateral inputs are present in the
+confirmed base (including a settled increment). Otherwise the ordinary
+transactions confirm its dependencies first. A decommit already carried by the
+same-version confirmed snapshot is carried again without reapplication. \
 \
 #dparagraph[$mono("depositTx")$.]#h(1em) Upon observing a deposit transaction,
 each party records the deposit index by deposit transaction id to their local
@@ -638,7 +641,10 @@ leave the running ledger unchanged; subsequent transactions are still considered
 so an independent merge can survive a capacity rejection. Ledger applicability
 alone is insufficient: a ledger-valid transaction can exceed fanout capacity.
 The Agda `prunePending` function models this postprocessing; `reqSn-sign` tracks
-the round counter and the system's `signHonest` rule requires `SnapshotFits`. \
+the round counter and the system's `signHonest` rule requires `SnapshotFits`. After rebuilding,
+the spending inputs of the locally pending decommit are removed again. This
+reservation survives even when the requested snapshot does not carry the
+decommit. \
 \
 #dparagraph[$hpAS$.]#h(1em) Upon receiving acknowledgment $(hpAS,s,msSig_j)$, all
 participants #kw("require") that it is from an expected snapshot (either the last seen
@@ -657,9 +663,19 @@ commitment $eta'$ for the updated UTxO set. If, however, there
 was a pending deposit, any participant can now submit an $mono("incrementTx")$
 by providing the confirmed snapshot with its accumulator commitment $eta'$
 for the updated UTxO set. Lastly, if $party_i$ is the next snapshot
-leader and there are already transactions to snapshot in $hatmT$, a
-corresponding $hpRS$ is distributed. \
+leader and there are transactions to snapshot in $hatmT$ or a newly eligible
+decommit, a corresponding $hpRS$ is distributed. An already-carried decommit
+alone does not start another round. \
 \
+
+For request selection, $sans("requestDecommit")(hatv, macron(mc(S)), tx_omega)$
+is $tx_omega$ when it is already carried at that version or all its required
+inputs are in the settled confirmed base; otherwise it is $bot$.
+$sans("newDecommit")(hatv, macron(mc(S)), tx_omega)$ additionally excludes a
+carried decommit. Neither test replaces ledger validation in $hpRS$.
+The locally recorded $tx_omega$ remains pending when omitted from a request.
+Ticks and settlement observations also request newly eligible work when this
+party leads and no round is in flight.
 
 The network-message handlers above are transcribed as the relation
 `_handles_↝_`: one constructor per handler arm, each carrying
@@ -1211,7 +1227,7 @@ preventing inconsistency between the on-chain and off-chain state.
                   #nst[
                     $tx_alpha <-$ oldest $D in mc(D)$ with $D.sans("status") = sans("Active") and D.U inter macron(mc(S)).U = emptyset and D.U inter sans("outputs")(hatmT) = emptyset and sans("depositFits")(D)$
                   ]
-                  #kw("multicast") $(hpRS, hatv, macron(mc(S)).s + 1, sans("requestable")(hatmT, tx_alpha, tx_omega), tx_alpha, tx_omega)$
+                  #kw("multicast") $(hpRS, hatv, macron(mc(S)).s + 1, sans("requestable")(hatmT, tx_alpha, sans("requestDecommit")(hatv, macron(mc(S)), tx_omega)), tx_alpha, sans("requestDecommit")(hatv, macron(mc(S)), tx_omega))$
                 ]
               ]
             ]
@@ -1228,9 +1244,9 @@ preventing inconsistency between the on-chain and off-chain state.
                   #nst[
                     #kw("multicast") $(hpRS, hatv, macron(mc(S)).s + 1, sans("requestable")(hatmT, tx_alpha, bot), tx_alpha, bot)$
                   ]
-                  #kw("else")
+                  #kw("else if") $hatmT != emptyset or sans("newDecommit")(hatv, macron(mc(S)), tx_omega)$
                   #nst[
-                    #kw("multicast") $(hpRS, hatv, macron(mc(S)).s + 1, sans("requestable")(hatmT, bot, tx_omega), bot, tx_omega)$
+                    #kw("multicast") $(hpRS, hatv, macron(mc(S)).s + 1, sans("requestable")(hatmT, bot, sans("requestDecommit")(hatv, macron(mc(S)), tx_omega)), bot, sans("requestDecommit")(hatv, macron(mc(S)), tx_omega))$
                   ]
                 ]
               ]
@@ -1297,6 +1313,7 @@ preventing inconsistency between the on-chain and off-chain state.
                   $hatmT <- hatmT union {tx}$ \
                   $hatmL <- hatmL applytx tx$
                 ]
+                $hatmL <- hatmL without sans("spendingInputs")(sans("locallyPendingDecommit"))$
               ]
             ]
 
@@ -1341,13 +1358,13 @@ preventing inconsistency between the on-chain and off-chain state.
                   #nst[
                     #kw("postTx") $(mtxIncrement, hatv, hats, (eta')^(\#), macron(mc(S)).sigma)$
                   ]
-                  #kw("if") $hpLdr(s + 1) = i and hatmT != emptyset$
+                  #kw("if") $hpLdr(s + 1) = i and (hatmT != emptyset or sans("newDecommit")(hatv, macron(mc(S)), tx_omega))$
                   #nst[
                     #kw("if") $tx_alpha = bot and tx_omega = bot and macron(mc(S)).U_alpha = emptyset$
                     #nst[
                       $tx_alpha <-$ oldest $D in mc(D)$ with $D.sans("status") = sans("Active") and D.U inter macron(mc(S)).U = emptyset and D.U inter sans("outputs")(hatmT) = emptyset and sans("depositFits")(D)$
                     ]
-                    #kw("multicast") $(hpRS, hatv, macron(mc(S)).s + 1, sans("requestable")(hatmT, tx_alpha, tx_omega), tx_alpha, tx_omega)$
+                    #kw("multicast") $(hpRS, hatv, macron(mc(S)).s + 1, sans("requestable")(hatmT, tx_alpha, sans("requestDecommit")(hatv, macron(mc(S)), tx_omega)), tx_alpha, sans("requestDecommit")(hatv, macron(mc(S)), tx_omega))$
                   ]
                 ]
               ]
@@ -1365,7 +1382,7 @@ preventing inconsistency between the on-chain and off-chain state.
               $sans("adopt")(s, xi)$ \
               $hatv <- v$ \
               $tx_omega <- bot$ \
-              #kw("if") $hats = macron(mc(S)).s and hpLdr(macron(mc(S)).s + 1) = i and hatmT != emptyset$
+              #kw("if") $hats = macron(mc(S)).s and hpLdr(macron(mc(S)).s + 1) = i and (hatmT != emptyset or sans("newDecommit")(hatv, macron(mc(S)), tx_omega))$
               #nst[
                 #kw("multicast") $(hpRS, hatv, macron(mc(S)).s + 1, sans("requestable")(hatmT, tx_alpha, bot), tx_alpha, bot)$
               ]
@@ -1376,9 +1393,9 @@ preventing inconsistency between the on-chain and off-chain state.
               $hatv <- v$ \
               $tx_alpha <- bot$ \
               $hatmL <- hatmL union U$ \
-              #kw("if") $hats = macron(mc(S)).s and hpLdr(macron(mc(S)).s + 1) = i and hatmT != emptyset$
+              #kw("if") $hats = macron(mc(S)).s and hpLdr(macron(mc(S)).s + 1) = i and (hatmT != emptyset or sans("newDecommit")(hatv, macron(mc(S)), tx_omega))$
               #nst[
-                #kw("multicast") $(hpRS, hatv, macron(mc(S)).s + 1, sans("requestable")(hatmT, bot, bot), bot, bot)$
+                #kw("multicast") $(hpRS, hatv, macron(mc(S)).s + 1, sans("requestable")(hatmT, bot, sans("requestDecommit")(hatv, macron(mc(S)), tx_omega)), bot, sans("requestDecommit")(hatv, macron(mc(S)), tx_omega))$
               ]
             ]
 
@@ -1397,6 +1414,10 @@ preventing inconsistency between the on-chain and off-chain state.
                     $tx_alpha <- D$
                   ]
                 ]
+              ]
+              #kw("if") $sans("newDecommit")(hatv, macron(mc(S)), tx_omega) and hats = macron(mc(S)).s and hpLdr(macron(mc(S)).s + 1) = i$
+              #nst[
+                #kw("multicast") $(hpRS, hatv, macron(mc(S)).s + 1, hatmT, bot, tx_omega)$
               ]
               #kw("if") $exists D in mc(D) : D.sans("status") = sans("Active")$
               #nst[
@@ -1473,7 +1494,9 @@ failure, confirmation and the next request. This projection excludes payloads,
 pruning contents, output collisions, accumulator overflow, incremental actions
 and scheduler behavior. `reqDecOutcomeRef` separately checks selected-commit,
 existing-decommit, ledger and nonempty-output guard priority, retry expiry,
-recording and request selection. `recoverOutcomeRef` checks registration before
+recording and request selection for decommits whose inputs are confirmed.
+Deferred work and the decommit-only wake-up are checked by the separate readiness
+projection. `recoverOutcomeRef` checks registration before
 the finalized-increment guard. These projections exclude deposit selection,
 ledger/cryptographic payloads and chain deadline validation. The Haskell tests
 also compare the complete ordered outcomes and serialized states. Neither these
@@ -1497,13 +1520,14 @@ and check serialized events and checkpoints after every transition. Chain inputs
 are assumed valid; these checks do not validate Cardano settlement transactions
 or extend the Agda model to rollback, crash recovery or general liveness.
 
-A fixed three-party Haskell sequence also records an existing decommit dependency
-failure. `reqDec` accepts a decommit against the optimistic local ledger, but
-`reqSn` applies it before the requested ordinary transactions against the
-confirmed ledger. A decommit spending an unconfirmed output can therefore strand
-the next round. Pruning an earlier snapshot also restores the reserved input
-while retaining the pending decommit. The migration preserves these behaviors;
-this witness is not covered by the bounded per-input Agda outcome projections.
+A fixed three-party Haskell sequence preserves the historical decommit failure:
+`reqDec` accepts a decommit against the optimistic local ledger, but `reqSn`
+applies it before ordinary transactions against the confirmed ledger. The old
+leader therefore requests a decommit before its dependency exists. Its snapshot
+rebase also restores the reserved input. The corrected sequence preserves the
+reservation, confirms the dependency in snapshot 2, and starts a decommit-only
+snapshot 3. Both sequences check serialized events and checkpoints at every
+prefix. They are deterministic SimpleTx witnesses, not a general progress proof.
 
 The development checks independently require exact registry payload equality for
 locally pending transactions, reconstruct the local UTxO from the current
@@ -1643,22 +1667,23 @@ not release a newer reservation; rollback only updates the chain context.
 Lifecycle owns closed-state snapshot adoption. Checkpoint restoration rebuilds
 all owners from the unchanged persisted representation.
 
-The conversion preserves the existing Complete, Wait and Reject semantics and
-event ordering, including the duplicate partial-ack signature event. No new
-state or event encoding is introduced. It deliberately preserves the known
-decommit defects for a separate behavior change. A pending reservation can be
-lost during rebase, and a leader can request a decommit of an output that only a
-transaction in the same snapshot will create, although ReqSn applies the
-decommit first.
+The conversion preserves Complete, Wait and Reject semantics and event ordering,
+including the duplicate partial-ack signature event. No state or event encoding
+changes. A subsequent behavior change fixes two decommit defects: rebase now
+removes pending spending inputs after rebuilding, and request selection defers
+new decommits until their required inputs are confirmed. A newly eligible
+decommit can start a round without ordinary transactions; a carried one cannot.
 
-Two independent predicates in OffChainReference.agda state the missing
-invariants: pending decommit inputs are absent from the spendable local UTxO;
-a newly requested decommit's inputs are present in the confirmed base. The
-bounded SimpleTx audit checks these predicates and detects both failures in the
-honest three-party delivery schedule. This adds neither an eligibility rule nor
-a production assertion. Cardano reference inputs, collateral, scripts, time
-validity and settlement history are excluded from this projection.
-
+OffChainReference.agda independently states reservation exclusion, confirmed
+input availability, reservation-preserving rebase and the decommit-only wake-up
+condition. Tests compare the actual owner and request selection against these
+functions over subsets of three output identities. Cardano input-availability
+tests cover spending, reference and collateral references separately. The Agda
+projection excludes scripts, time validity, settlement history and Cardano
+ledger validation. Full-input legacy comparisons exclude the intentionally
+changed decommit cases; the structural refactor is compared before those fixes.
+Checkpoint restoration retains its old representation and does not repair
+historically inconsistent state by itself.
 
 The reference also projects the version and reservation after decrement
 observations. Bounded tests cover fresh, equal and older versions with and without

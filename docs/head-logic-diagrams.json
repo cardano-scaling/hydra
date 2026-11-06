@@ -162,7 +162,7 @@
   "docs/docs/dev/architecture/head-logic-experiments/traces/decommit-dependency-v1.json.mmd": {
     "group": "Explorer and earlier experiments",
     "title": "Decommit dependency failure",
-    "description": "Three honest parties accept a decommit spending an unconfirmed child output. Snapshot 1 pruning restores the reserved input; snapshot 2 applies the decommit before its parent transaction and all parties reject. This remains unfixed."
+    "description": "Historical v1 trace of the decommit stall: snapshot 1 pruning restores the reserved input; snapshot 2 applies the decommit before tx2 and all parties reject. Use the v2 historical and corrected commands for current reproduction."
   },
   "docs/docs/dev/architecture/head-logic-experiments/traces/expired-dependency-v2.json.mmd": {
     "group": "Explorer and earlier experiments",
@@ -412,6 +412,21 @@
   "docs/head-logic-machines/decommit-ownership.mmd": {
     "group": "Retained-event machines",
     "title": "Decommit failure at the owner boundary",
-    "description": "An annotated explanation of the tested honest delivery schedule, grouped by rule, snapshot owner, transaction owner and independent audit. Checks expose reservation loss during rebase and an ineligible next decommit request. These are development diagnostics; neither bug is fixed in the structural refactor."
+    "description": "Historical failure, grouped by rules, snapshot owner, transaction owner and independent audit. Rebase restores a reserved input, then a leader proposes a decommit before its dependency is confirmed. The corrected execution appears below."
+  },
+  "docs/head-logic-machines/decommit-corrected.mmd": {
+    "group": "Retained-event machines",
+    "title": "Decommit dependency correction",
+    "description": "The corrected rule preserves the reservation, confirms dependencies in snapshot 2, then starts decommit-only snapshot 3. A carried decommit alone does not start another round. This annotated diagram explains the generated execution traces."
+  },
+  "docs/docs/dev/architecture/head-logic-experiments/traces/decommit-dependency-historical-v2.json.mmd": {
+    "group": "Counterexamples and recovery",
+    "title": "Historical decommit dependency failure",
+    "description": "The frozen implementation loses the reservation and rejects snapshot 2 after 24 deliveries. This v2 report checks complete outcomes and serialized state at every prefix."
+  },
+  "docs/docs/dev/architecture/head-logic-experiments/traces/decommit-dependency-fixed-v2.json.mmd": {
+    "group": "Counterexamples and recovery",
+    "title": "Corrected decommit dependency sequence",
+    "description": "Production execution preserves the reservation, confirms tx2 in snapshot 2, then confirms the decommit in snapshot 3. Every emitted message is delivered and both independent checks hold at every prefix."
   }
 }

@@ -16,6 +16,7 @@ import Hydra.HeadLogic.Interpreter qualified as Interpreter
 import Hydra.HeadLogic.Machine.Coordinated qualified as Coordinated
 import Hydra.HeadLogic.Outcome (Outcome (Continue, Error, Wait), StateChanged (..), WaitReason (WaitOnSeenSnapshot))
 import Hydra.HeadLogic.Program qualified as Program
+import Hydra.HeadLogic.Rules.SnapshotRequest (DecommitStatus (..), chainedSnapshotRequest, decommitStatus)
 import Hydra.HeadLogic.Rules.SnapshotVerification (verifyCandidate)
 import Hydra.HeadLogic.State (CoordinatedHeadState (..), OpenState (..), SeenSnapshot (SeenSnapshot), mkSeenSnapshot)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..))
@@ -25,7 +26,7 @@ import Hydra.Tx.Crypto (aggregateInOrder, sign)
 import Hydra.Tx.Party (Party (vkey))
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (ConfirmedSnapshot), Snapshot (..))
 import Test.Hydra.HeadLogic.CoordinatedAudit qualified as Audit
-import Test.Hydra.HeadLogic.LegacyState (legacyAggregateNodeState)
+import Test.Hydra.HeadLogic.ReplayReference (replayWithReservationFix)
 import Test.Hydra.HeadLogic.Scenario qualified as Scenario
 import Test.Hydra.Ledger.Simple (utxoRef)
 import Test.Hydra.Tx.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, testHeadId)
@@ -40,6 +41,17 @@ spec = describe "coordinated state owners" $ do
           chs = open.coordinatedHeadState{decommitTx = Just tx, localUTxO = fromList $ fromInteger <$> available, confirmedSnapshot = ConfirmedSnapshot base mempty}
       Audit.reservationHeld chs `shouldBe` Agda.reservationHeldRef reserved available
       Audit.decommitReady chs tx `shouldBe` Agda.decommitReadyRef carried reserved confirmed
+      let eligible = case decommitStatus 0 base (Just tx) of
+            ReadyToDecommit{} -> True
+            CarryDecommit{} -> True
+            _ -> False
+      eligible `shouldBe` Agda.decommitReadyRef carried reserved confirmed
+      isJust (chainedSnapshotRequest base.utxo mempty mempty Nothing (decommitStatus 0 base $ Just tx) Nothing)
+        `shouldBe` Agda.newDecommitReadyRef carried reserved confirmed
+      let rebased :: Snapshot SimpleTx
+          rebased = base{utxo = fromList $ fromInteger <$> available}
+          (_, next) = Coordinated.step (Coordinated.start open{coordinatedHeadState = chs}) $ Coordinated.acceptSnapshot rebased mempty Nothing
+      (Coordinated.currentState next).localUTxO `shouldBe` fromList (fromInteger <$> Agda.reserveRebaseRef reserved available)
 
   it "uses one transition definition for staging, continuous replay and checkpoint recovery" $ do
     let events =
@@ -156,7 +168,7 @@ spec = describe "coordinated state owners" $ do
     command <- maybe (fail "event has no coordinated command") pure $ Coordinated.fromEvent deposited event
     let (produced, next) = Coordinated.step runtime command
         (_, restoredNext) = Coordinated.step (Coordinated.start before) command
-        expected = legacyAggregateNodeState node event
+        expected = replayWithReservationFix node event
         after = aggregateNodeState node event
     produced `shouldBe` emitted
     Interpreter.runProgramWith Interpreter.basicConfig (void $ Coordinated.stage runtime command) `shouldBe` Continue emitted []

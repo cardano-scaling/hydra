@@ -46,6 +46,19 @@ on replay. Settlement uses trusted chain observations and the Simple ledger. It
 does not extend the general explorer to chain events or model chain validity and
 complete rollback histories in Agda.
 
+## Decommit dependency sequence
+
+```sh
+cabal run hydra-node:head-logic-lab -- decommit-dependency --historical /tmp/decommit-old.json
+cabal run hydra-node:head-logic-lab -- decommit-dependency /tmp/decommit-fixed.json
+```
+
+The frozen run stops at snapshot 1 after 24 deliveries. The corrected run confirms
+snapshot 3 after 45 deliveries. Each writes its complete input/outcome/state report
+and an adjacent Mermaid trace. These reports use the decommit demo format, not
+the generic explorer replay format. See the [bug explanation](bugs.md#decommit-dependencies-and-reserved-inputs)
+and [component diagrams](../../../../head-logic-diagrams.md#decommit-dependency-correction).
+
 ## Snapshot round
 
 `onOpenNetworkReqSnProgram` and `onOpenNetworkAckSnProgram` expose the production

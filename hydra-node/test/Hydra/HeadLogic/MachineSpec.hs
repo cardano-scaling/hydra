@@ -69,10 +69,10 @@ import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx)
 import Hydra.Node.State (Deposit (..), DepositStatus (..), NodeState (..), TrackedDeposit (..), initialChainTime)
 import Hydra.Tx (HeadId)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..))
-import Test.Hydra.HeadLogic.LegacyState (legacyAggregateNodeState)
 import Test.Hydra.HeadLogic.Outcome ()
 import Test.Hydra.HeadLogic.Projection.Incremental qualified as Incremental
 import Test.Hydra.HeadLogic.Projection.OffChain qualified as OffChain
+import Test.Hydra.HeadLogic.ReplayReference (replayWithReservationFix)
 import Test.Hydra.HeadLogic.Scenario (initialNode)
 import Test.Hydra.HeadLogic.Settlement (SettlementStep (..), settlementSequence)
 import Test.Hydra.Ledger.Simple ()
@@ -82,7 +82,7 @@ import Test.QuickCheck (Property, conjoin, counterexample, forAll, property, res
 
 spec :: Spec
 spec = describe "crem event application" $ do
-  prop "matches the frozen reducer, continuous execution and CBOR recovery at every prefix" $
+  prop "matches replay with the explicit reservation correction, continuous execution and CBOR recovery" $
     forAll (resize 8 arbitrary) $ \initial ->
       forAll (vectorOf 40 $ resize 8 genericArbitrary) $ \events ->
         comparePrefixes initial events
@@ -97,7 +97,7 @@ spec = describe "crem event application" $ do
     forM_ [(confirmed, slot, recipients) | confirmed <- [False, True], slot <- [2, 3], recipients <- permutations [0, 1, 2]] $ \(confirmed, slot, recipients) -> do
       steps <- either (fail . toString) pure $ settlementSequence confirmed slot recipients
       forM_ steps $ \entry ->
-        foldl' legacyAggregateNodeState entry.before (retained entry.outcome) `shouldBe` entry.after
+        foldl' replayWithReservationFix entry.before (retained entry.outcome) `shouldBe` entry.after
 
   it "tracks optimistic fanout, reversion, contest and completion" $ do
     let events =
@@ -111,7 +111,7 @@ spec = describe "crem event application" $ do
         nodes = map Machine.currentState $ scanl Machine.step (Machine.start initialNode) events
     map (Lifecycle.phase . headState) nodes
       `shouldBe` [Lifecycle.Open, Lifecycle.Closed, Lifecycle.ReadyToFanout, Lifecycle.PendingFanout, Lifecycle.ReadyToFanout, Lifecycle.ReadyToFanout, Lifecycle.Idle]
-    nodes `shouldBe` scanl legacyAggregateNodeState initialNode events
+    nodes `shouldBe` scanl replayWithReservationFix initialNode events
 
   it "reconstructs every component after checkpoint restoration" $ do
     let waiting = Machine.step (Machine.start initialNode) (SnapshotRequestDecided 1)
@@ -122,7 +122,7 @@ spec = describe "crem event application" $ do
     Incremental.phase node.headState `shouldBe` Incremental.NoIncrement
     OffChain.phase node.headState `shouldBe` OffChain.NoRequestSeen
     Machine.currentState (Machine.step restored (SnapshotRequestDecided 1))
-      `shouldBe` legacyAggregateNodeState initialNode (SnapshotRequestDecided 1)
+      `shouldBe` replayWithReservationFix initialNode (SnapshotRequestDecided 1)
 
 -- Rebase head-scoped events onto the current Head for three out of four steps;
 -- leave the rest foreign to exercise the filter. Checkpoints remain arbitrary.
@@ -137,7 +137,7 @@ comparePrefixes initial = go 0 initial (Machine.start initial)
     let event = case (headIdOf old.headState, eventHeadId raw) of
           (Just headId, Just _) | n `mod` 4 /= 0 -> scope headId raw
           _ -> raw
-        expected = legacyAggregateNodeState old event
+        expected = replayWithReservationFix old event
         next = Machine.step runtime event
         actual = Machine.currentState next
      in counterexample ("prefix " <> show n <> ": " <> show event <> "\nbefore: " <> show old) $

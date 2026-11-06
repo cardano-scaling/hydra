@@ -93,8 +93,8 @@ Those properties need rules and independent checks.
 ## Tests and diagrams
 
 [MachineSpec](../hydra-node/test/Hydra/HeadLogic/MachineSpec.hs) compares arbitrary
-event prefixes with the frozen reducer, uninterrupted execution, rehydration and
-CBOR recovery. It also checks settlement/rollback schedules and independent Agda
+event prefixes with the frozen reducer plus the explicit reservation correction,
+uninterrupted execution, rehydration and CBOR recovery. It also checks settlement/rollback schedules and independent Agda
 phase projections. [CoordinatedSpec](../hydra-node/test/Hydra/HeadLogic/CoordinatedSpec.hs)
 checks live staging, evidence binding, wait/reject boundaries, lazy replay and
 settlement ownership.

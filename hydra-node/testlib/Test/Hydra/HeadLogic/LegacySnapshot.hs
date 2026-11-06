@@ -68,13 +68,6 @@ import Hydra.HeadLogic (
     signatories,
     snapshot
   ),
-  SettlingCommit (ContinueCommit),
-  SnapshotRequest (
-    SnapshotRequest,
-    requestDecommitTx,
-    requestDepositTxId,
-    requestTxs
-  ),
   StateChanged (
     CommitApproved,
     DecommitApproved,
@@ -110,14 +103,12 @@ import Hydra.HeadLogic (
   absorbable,
   applyTransactionsWithoutCollision,
   cause,
-  chainedSnapshotRequest,
   finalizedDepositTxId,
   isLeader,
   newState,
   noop,
   seenSnapshotNumber,
   settledUTxO,
-  settlingCommitAt,
   wait,
  )
 import Hydra.Ledger (Ledger (..))
@@ -132,6 +123,17 @@ import Hydra.Tx.Crypto (Signature, Verified (..), aggregateInOrder, sign, verify
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.Party (Party (vkey))
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, SnapshotVersion, getSnapshot)
+import Test.Hydra.HeadLogic.LegacySnapshotRequest (
+  SettlingCommit (ContinueCommit),
+  SnapshotRequest (
+    SnapshotRequest,
+    requestDecommitTx,
+    requestDepositTxId,
+    requestTxs
+  ),
+  chainedSnapshotRequest,
+  settlingCommitAt,
+ )
 
 legacyOnOpenNetworkReqSn ::
   forall tx.

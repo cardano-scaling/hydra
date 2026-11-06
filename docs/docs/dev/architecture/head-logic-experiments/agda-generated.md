@@ -14,7 +14,7 @@ Haskell.
 
 | Responsibility | Proposed implementation | Current code |
 | --- | --- | --- |
-| Guards, snapshots, transaction ordering, deposit/decommit selection and effects | Agda rules | [Rules](../../../../../hydra-node/src/Hydra/HeadLogic/Rules): five crem workflows with program actions and shared helpers; [HeadLogic.hs](../../../../../hydra-node/src/Hydra/HeadLogic.hs): remaining handlers |
+| Guards, snapshots, transaction ordering, deposit/decommit selection and effects | Agda rules | [Rules](../../../../../hydra-node/src/Hydra/HeadLogic/Rules): input and protocol workflows with Program actions and shared helpers; [Machine](../../../../../hydra-node/src/Hydra/HeadLogic/Machine.hs): retained-state composition |
 | Completion, waiting, rejection and effect buffering | Agda interpreter | [Interpreter.hs](../../../../../hydra-node/src/Hydra/HeadLogic/Interpreter.hs): `evaluateChanges` |
 | Event application, chain observations, rollback and recovery | Agda transition functions | [HeadLogic.hs](../../../../../hydra-node/src/Hydra/HeadLogic.hs): `aggregateNodeState`, `aggregateState` and chain handlers; [Machine.hs](../../../../../hydra-node/src/Hydra/HeadLogic/Machine.hs) executes retained events |
 | Whether to retry an input, and with which budget | Agda retry policy | [Retry.hs](../../../../../hydra-node/src/Hydra/HeadLogic/Retry.hs): `retryDecision` |

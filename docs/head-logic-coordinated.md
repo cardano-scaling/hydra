@@ -2,8 +2,8 @@
 
 This extends the Crem/Program design into state application. ReqTx, ReqDec, ReqSn,
 AckSn, settlement and side-loading produce their core `StateChanged` events by running the same transitions
-that replay uses. The wire and persistence formats stay unchanged. The known
-decommit bugs remain reproducible, pending the separate behavior change.
+that replay uses. The wire and persistence formats stay unchanged. A separate behavior change fixes decommit dependency selection and preserves
+reserved inputs during snapshot rebase.
 
 ## Read these files
 
@@ -78,40 +78,49 @@ trusts retained events; its adapter can reconstruct a confirmation without
 cryptography or demanding cached signing bytes. Other rules still have access to `Program.change`. The reserved
 phase says a decommit is recorded, not that every UTxO update respects it.
 
-That last distinction matters. The
-[decommit demo](docs/dev/architecture/head-logic-experiments/bugs.md) still catches:
+Two independent checks exposed defects that the phase types alone allow:
+rebase restored a reserved input, and the next leader proposed a decommit before
+its dependency was confirmed. The separate fix changes two places:
 
-1. Rebase restores output 3 while retaining the decommit that reserves it. The
-   fix belongs in the transaction owner's rebuild operation.
-2. The next leader requests tx2 and a decommit spending tx2's output together.
-   ReqSn applies the decommit first. Snapshot work selection needs to distinguish
-   a recorded decommit from one eligible against the confirmed base.
+- `Transactions.Rebase` rebuilds the local UTxO, then removes pending decommit
+  spending inputs. Recording a reservation and preserving it are now both the
+  transaction owner's responsibility.
+- [SnapshotRequest.decommitStatus](../hydra-node/src/Hydra/HeadLogic/Rules/SnapshotRequest.hs)
+  distinguishes missing, waiting, ready and carried decommits. Every leader uses
+  it. A newly ready decommit can start a round by itself; a carried one cannot.
 
-The demo's JSON now includes `reservationHeld` and `decommitRequestsReady` checks.
 [CoordinatedAudit.hs](../hydra-node/testlib/Test/Hydra/HeadLogic/CoordinatedAudit.hs)
-states them independently for SimpleTx; the Agda reference agrees over all
-subsets of three output identities. These are development checks, not new
-production guards. Cardano eligibility also involves reference inputs,
-collateral and time validity; a check based only on consumed outputs is not a
-complete replacement for ledger applicability.
+states the reservation and readiness requirements independently for SimpleTx.
+The Agda reference checks them, the rebase operation and the wake-up condition
+over all subsets of three output identities. Cardano availability includes
+spending, reference and collateral inputs. It does not replace ReqSn's ledger
+validation of scripts, witnesses and time.
 
 ## Reproduce and extend
 
 ```sh
 just test hydra-node 'coordinated state owners'
 cabal run hydra-node:head-logic-lab -- machines /tmp/head-machines
-cabal run hydra-node:head-logic-lab -- decommit-dependency /tmp/decommit.json
+cabal run hydra-node:head-logic-lab -- decommit-dependency --historical /tmp/decommit-old.json
+cabal run hydra-node:head-logic-lab -- decommit-dependency /tmp/decommit-fixed.json
 ```
 
-The [diagram index](head-logic-diagrams.md) renders both the generated composition
-and a component-by-component explanation of the decommit failure.
+The [diagram index](head-logic-diagrams.md) renders the composition and both
+executions. The historical run stops at snapshot 1 after 24 deliveries. The
+corrected run confirms the dependency in snapshot 2 and the decommit in snapshot
+3 after 45 deliveries. Both check serialized events and checkpoints after every delivery.
 
-For the separate bug fix, first change rebase in `Transactions.hs` and turn the
-reservation counterexample into a passing invariant. Then define eligible
-decommit work and use it at every leader request site, including the wake-up
-after dependencies confirm. Update the spec, Agda predicate tests and trace;
-the Program interpreter needs no rule edit. Keep the frozen failure as historical
-evidence and make intentional migration differences explicit.
+This is also the maintenance exercise: change rebase and request selection,
+update the independent spec/Agda checks, and regenerate the traces. Neither the
+Program interpreter nor the Mermaid renderer needs a rule-specific edit.
+[ReplayReference](../hydra-node/testlib/Test/Hydra/HeadLogic/ReplayReference.hs)
+makes the intentional difference from the frozen reducer explicit. The structural
+refactor passed the full legacy comparison before the behavior change; ongoing
+legacy outcome comparisons exclude the corrected decommit cases.
+
+Retry expiry and invalid acknowledgement replacement remain separate policy
+questions. Comments beside those rules record that decision. Restoring an old
+checkpoint does not itself repair historically inconsistent state.
 
 Settlement now uses these commands, including adoption after an on-chain
 observation overtakes the final acknowledgement. Tests compare repeated

@@ -46,8 +46,8 @@ import System.Directory (createDirectoryIfMissing)
 import System.FilePath ((</>))
 import Test.Hydra.HeadLogic.Debugger qualified as Debug
 import Test.Hydra.HeadLogic.LegacyHandlers qualified as Legacy
-import Test.Hydra.HeadLogic.LegacyState (legacyAggregateNodeState)
 import Test.Hydra.HeadLogic.Mermaid qualified as Mermaid
+import Test.Hydra.HeadLogic.ReplayReference (replayWithReservationFix)
 import Test.Hydra.HeadLogic.Scenario qualified as Scenario
 import Test.Hydra.Ledger.Simple (utxoRef)
 import Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk)
@@ -59,7 +59,7 @@ compareInput env now before input = do
       config = Interpreter.snapshotConfig env simpleLedger
       actual@(outcome, _) = Interpreter.traceProgramWith config program
       events = case expected of Continue es _ -> es; Wait _ es -> es; Error{} -> []
-      expectedState = foldl' legacyAggregateNodeState before events
+      expectedState = foldl' replayWithReservationFix before events
       after = aggregateState before outcome
   unless (outcome == expected) $ Left $ "input outcome differs\nexpected: " <> show expected <> "\nactual: " <> show outcome
   unless (update env simpleLedger now before input == expected) $ Left "tracing changes the outcome"

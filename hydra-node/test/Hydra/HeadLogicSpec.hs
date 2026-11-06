@@ -59,6 +59,7 @@ import Hydra.Chain.Direct.State (ChainStateAt (..), HasKnownUTxO (getKnownUTxO),
 import Hydra.Chain.Direct.State qualified as Direct
 import Hydra.Chain.Direct.TimeHandle (TimeHandle, mkTimeHandle, slotToUTCTime)
 import Hydra.HeadLogic (ClosedState (..), CoordinatedHeadState (..), Effect (..), FanoutMode (..), HeadState (..), Input (..), LogicError (..), OpenState (..), Outcome (..), PartialFanoutState (..), RequirementFailure (..), SettlingCommit (..), SideLoadRequirementFailure (..), SnapshotRequest (..), StateChanged (..), TTL, WaitReason (..), absorbable, aggregateState, applyTransactionsWithoutCollision, cause, chainedSnapshotRequest, existingDeposit, maxTxsPerSnapshot, namesNoneOf, newState, nextSnapshotRequest, noop, settlingCommitAt, update)
+import Hydra.HeadLogic.Rules.SnapshotRequest (DecommitStatus (..))
 import Hydra.HeadLogic.State (IdleState (..), SeenSnapshot (..), getHeadParameters, mkSeenSnapshot)
 import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano (cardanoLedger, mkSimpleTx)
@@ -99,7 +100,7 @@ import Test.Hydra.Chain.Direct.TimeHandle (safeZone)
 import Test.Hydra.HeadLogic.Input ()
 import Test.Hydra.HeadLogic.LegacyReqTx (legacyOnOpenNetworkReqTx)
 import Test.Hydra.HeadLogic.State ()
-import Test.Hydra.Ledger.Cardano (mkRangedTx)
+import Test.Hydra.Ledger.Cardano (genFixedSizeSequenceOfSimplePaymentTransactions, mkRangedTx)
 import Test.Hydra.Ledger.Cardano.Fixtures (eraHistoryWithHorizonAt, evaluateTx)
 import Test.Hydra.Ledger.Cardano.Fixtures qualified as LedgerFixture
 import Test.Hydra.Ledger.Simple (aValidTx, utxoRef, utxoRefs)
@@ -1727,7 +1728,7 @@ spec =
             applyTransactionsWithoutCollision ledger (ChainSlot 0) u [SimpleTx 2 (utxoRef 1) (utxoRef 2)]
               `shouldBe` Left (SimpleTx 2 (utxoRef 1) (utxoRef 2), ValidationError "transaction creates an output the head already holds")
 
-          it "chains a request only for transactions, a fresh deposit or a prune" $ do
+          it "chains useful work, including a newly eligible decommit" $ do
             now <- getCurrentTime
             let u0 = utxoRefs [1]
                 deposit = Deposit{headId = testHeadId, deposited = utxoRef 9, created = now, deadline = addUTCTime 3600 now, status = Active}
@@ -1739,16 +1740,17 @@ spec =
                 recreating = SimpleTx 1 mempty (utxoRef 1)
                 summary :: SnapshotRequest SimpleTx -> ([Integer], Maybe Integer, Maybe Integer)
                 summary r = (txId <$> r.requestTxs, txId <$> r.requestDecommitTx, r.requestDepositTxId)
-            -- Only the decommit: not chained.
-            isNothing (chainedSnapshotRequest u0 mempty mempty Nothing (Just decommit) Nothing) `shouldBe` True
+            -- A carried decommit does not start another round. A newly ready one does.
+            isNothing (chainedSnapshotRequest u0 mempty mempty Nothing (CarryDecommit decommit) Nothing) `shouldBe` True
+            (summary <$> chainedSnapshotRequest u0 mempty mempty Nothing (ReadyToDecommit decommit) Nothing) `shouldBe` Just ([], Just 5, Nothing)
             -- A fresh deposit alone: chained.
-            (summary <$> chainedSnapshotRequest u0 mempty fresh Nothing Nothing Nothing) `shouldBe` Just ([], Nothing, Just 7)
+            (summary <$> chainedSnapshotRequest u0 mempty fresh Nothing NoDecommit Nothing) `shouldBe` Just ([], Nothing, Just 7)
             -- Only the settling commit: not chained. With txs: cut before the colliding one.
-            isNothing (chainedSnapshotRequest u0 mempty fresh Nothing Nothing settling) `shouldBe` True
-            (summary <$> chainedSnapshotRequest u0 (Seq.fromList [fine, naming, SimpleTx 3 (utxoRef 9) (utxoRef 3)]) fresh Nothing Nothing settling)
+            isNothing (chainedSnapshotRequest u0 mempty fresh Nothing NoDecommit settling) `shouldBe` True
+            (summary <$> chainedSnapshotRequest u0 (Seq.fromList [fine, naming, SimpleTx 3 (utxoRef 9) (utxoRef 3)]) fresh Nothing NoDecommit settling)
               `shouldBe` Just ([txId fine], Nothing, Just 7)
             -- A pending tx re-creating a held output: chained, even empty, to prune it.
-            (summary <$> chainedSnapshotRequest u0 (Seq.fromList [recreating]) mempty Nothing Nothing Nothing) `shouldBe` Just ([], Nothing, Nothing)
+            (summary <$> chainedSnapshotRequest u0 (Seq.fromList [recreating]) mempty Nothing NoDecommit Nothing) `shouldBe` Just ([], Nothing, Nothing)
 
         it "never requests a commit and a decommit in the same snapshot" $ do
           -- An in-flight commit wins: its deposit expires on-chain while a
@@ -1767,8 +1769,8 @@ spec =
                     , status = Active
                     }
               decommitTx = SimpleTx 1 (utxoRef 1) (utxoRef 2)
-              withDeposit = nextSnapshotRequest mempty mempty pendingDeposits (Just depositTxId) (Just decommitTx) Nothing
-              withoutDeposit = nextSnapshotRequest mempty mempty pendingDeposits Nothing (Just decommitTx) Nothing
+              withDeposit = nextSnapshotRequest mempty mempty pendingDeposits (Just depositTxId) (ReadyToDecommit decommitTx) Nothing
+              withoutDeposit = nextSnapshotRequest mempty mempty pendingDeposits Nothing (ReadyToDecommit decommitTx) Nothing
           (withDeposit.requestDecommitTx, withDeposit.requestDepositTxId) `shouldBe` (Nothing, Just depositTxId)
           (withoutDeposit.requestDecommitTx, withoutDeposit.requestDepositTxId) `shouldBe` (Just decommitTx, Nothing)
 
@@ -1902,10 +1904,10 @@ spec =
             (Open OpenState{coordinatedHeadState = CoordinatedHeadState{decommitTx}}) -> decommitTx == Just decommitTx'
             _ -> False
 
-        it "emits ReqSn on valid RecDec" $ do
+        it "emits ReqSn when the decommit inputs are confirmed" $ do
           let localUTxO = utxoRefs [2]
           let decommitTx' = SimpleTx{txSimpleId = 1, txInputs = localUTxO, txOutputs = utxoRefs [4]}
-          let s0 = inOpenState' threeParties $ coordinatedHeadState{localUTxO}
+          let s0 = inOpenState' threeParties $ coordinatedHeadState{localUTxO, confirmedSnapshot = ConfirmedSnapshot (testSnapshot 0 0 [] localUTxO) mempty}
 
           headState s0 `shouldSatisfy` \case
             (Open OpenState{coordinatedHeadState = CoordinatedHeadState{decommitTx}}) -> isNothing decommitTx
@@ -5470,6 +5472,37 @@ spec =
         update aliceEnv ledger now afterDuplicate snapshotRequest `shouldSatisfy` \case
           Continue{effects} -> any (\case NetworkEffect AckSn{} -> True; _ -> False) effects
           _ -> False
+
+      it "confirms Cardano decommit dependencies before requesting the decommit" $ do
+        (seed, [parent, child, dec]) <- generate $ genFixedSizeSequenceOfSimplePaymentTransactions 3
+        let initial = openWith seed []
+        now <- nowFromSlot initial.chainPointTime.currentSlot
+        let deliver before message = do
+              let outcome = update aliceEnv ledger now before (receiveMessage message)
+              case outcome of
+                Continue _ effects -> pure ([msg | NetworkEffect msg <- effects], aggregateState before outcome)
+                _ -> failure $ "honest Cardano sequence fails: " <> show outcome
+            coordinated :: NodeState Tx -> CoordinatedHeadState Tx
+            coordinated node = case node.headState of
+              Open os -> os.coordinatedHeadState
+              _ -> Prelude.error "Cardano sequence leaves Open"
+        ([req1], withParent) <- deliver initial (ReqTx parent)
+        ([], withChild) <- deliver withParent (ReqTx child)
+        ([], reserved) <- deliver withChild (ReqDec dec)
+        let reservedUTxO = withoutTxInputs dec $ applyTxTo child $ applyTxTo parent seed
+        (coordinated reserved).localUTxO `shouldBe` reservedUTxO
+        ([ack1], rebased) <- deliver reserved req1
+        (coordinated rebased).localUTxO `shouldBe` reservedUTxO
+        ([req2], confirmed1) <- deliver rebased ack1
+        req2 `shouldBe` ReqSn 0 2 [txId child] Nothing Nothing
+        ([ack2], requested2) <- deliver confirmed1 req2
+        ([req3], confirmed2) <- deliver requested2 ack2
+        req3 `shouldBe` ReqSn 0 3 [] (Just dec) Nothing
+        ([ack3], requested3) <- deliver confirmed2 req3
+        ([], final) <- deliver requested3 ack3
+        let snapshot = getSnapshot (coordinated final).confirmedSnapshot
+        snapshot.number `shouldBe` 3
+        snapshot.utxoToDecommit `shouldBe` Just (utxoFromTx dec)
 
       it "rejects a tx producing an output under a name a settled deposit already holds" $ do
         (tx, seed, deposited) <- paymentWithCollision

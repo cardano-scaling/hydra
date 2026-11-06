@@ -13,6 +13,8 @@ module Hydra.Agda.OffChainReference (
   settlementReservationRef,
   reservationHeldRef,
   decommitReadyRef,
+  reserveRebaseRef,
+  newDecommitReadyRef,
   HsReqDecOutcome (..),
   HsRecoverOutcome (..),
   inputAdmissionRef,
@@ -293,3 +295,11 @@ settlementVersionRef = M.hsSettlementVersionRef
 
 settlementReservationRef :: Bool -> Integer -> Integer -> Bool
 settlementReservationRef = M.hsSettlementReservationRef
+
+-- | Rebuilt local outputs with reserved spending inputs removed.
+reserveRebaseRef :: [Integer] -> [Integer] -> [Integer]
+reserveRebaseRef = M.hsReserveRebaseRef
+
+-- | Whether a pending decommit warrants a round without ordinary transactions.
+newDecommitReadyRef :: Bool -> [Integer] -> [Integer] -> Bool
+newDecommitReadyRef = M.hsNewDecommitReadyRef

@@ -260,6 +260,7 @@ library testlib
     Test.Hydra.HeadLogic.LegacyPrograms
     Test.Hydra.HeadLogic.LegacyReqTx
     Test.Hydra.HeadLogic.LegacySnapshot
+    Test.Hydra.HeadLogic.LegacySnapshotRequest
     Test.Hydra.HeadLogic.LegacyState
     Test.Hydra.HeadLogic.MachineDiagrams
     Test.Hydra.HeadLogic.Mermaid
@@ -268,6 +269,7 @@ library testlib
     Test.Hydra.HeadLogic.Projection.OffChain
     Test.Hydra.HeadLogic.RegistryDemo
     Test.Hydra.HeadLogic.Replay
+    Test.Hydra.HeadLogic.ReplayReference
     Test.Hydra.HeadLogic.Resolved
     Test.Hydra.HeadLogic.Scenario
     Test.Hydra.HeadLogic.Settlement

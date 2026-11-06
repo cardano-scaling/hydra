@@ -485,8 +485,8 @@ pendingIncrementPhaseRef true true true = 4
 -- of primitive correctness, payloads or Haskell evaluation to this projection.
 
 -- ReqDec terminal and event/effect projection. The selected-commit flag is
--- supplied after snapshot/deposit selection; this model excludes that selection,
--- ledger payloads and validation, and the contents of the requested snapshot.
+-- supplied after deposit selection. Accepted decommits have confirmed inputs.
+-- This excludes deferred work, ledger payloads and requested snapshot contents.
 -- Each result names the whole ordered outcome: invalidation has one change and
 -- no effects; acceptance records one decommit and optionally sends one ReqSn.
 -- In particular ReqDec does not record SnapshotRequestDecided.
@@ -602,3 +602,19 @@ settlementReservationRef pending old observed = pending && not (old < observed)
 
 {-# COMPILE GHC settlementVersionRef as hsSettlementVersionRef #-}
 {-# COMPILE GHC settlementReservationRef as hsSettlementReservationRef #-}
+
+-- Rebuilding the optimistic ledger must preserve the pending reservation.
+reserveRebaseRef : List Nat → List Nat → List Nat
+reserveRebaseRef reserved [] = []
+reserveRebaseRef reserved (input ∷ rest) =
+  if elemᵇ input reserved then reserveRebaseRef reserved rest
+  else (input ∷ reserveRebaseRef reserved rest)
+
+-- Newly available inputs warrant a decommit-only round. Carrying an already
+-- signed decommit does not, on its own, warrant another round.
+newDecommitReadyRef : Bool → List Nat → List Nat → Bool
+newDecommitReadyRef carried inputs confirmed =
+  not carried && decommitReadyRef false inputs confirmed
+
+{-# COMPILE GHC reserveRebaseRef as hsReserveRebaseRef #-}
+{-# COMPILE GHC newDecommitReadyRef as hsNewDecommitReadyRef #-}

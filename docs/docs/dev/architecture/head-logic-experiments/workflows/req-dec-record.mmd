@@ -13,6 +13,7 @@ sequenceDiagram
     logic->>changes: stage: reserve decommit
     Note over logic: no snapshot is in flight: yes
     Note over logic: this party leads the next snapshot: yes
+    Note over logic: snapshot request has useful work: yes
     logic->>effects: buffer: broadcast ReqSn
     Note over logic,effects: finish: commit changes and release effects
   end

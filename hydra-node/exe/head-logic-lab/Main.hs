@@ -56,7 +56,12 @@ main =
       (report, sections) <- demand DecommitDependency.demonstration
       LBS.writeFile file $ encode report
       Text.writeFile (file <> ".mmd") $ Mermaid.renderTraces sections
-      putStrLn ("Reproduced the decommit dependency stall; production and frozen handlers agree." :: String)
+      putStrLn ("Confirmed the dependent decommit in snapshot 3; every prefix passes the ownership checks." :: String)
+    ["decommit-dependency", "--historical", file] -> do
+      (report, sections) <- demand DecommitDependency.historicalDemonstration
+      LBS.writeFile file $ encode report
+      Text.writeFile (file <> ".mmd") $ Mermaid.renderTraces sections
+      putStrLn ("Reproduced the reservation loss and snapshot-2 stall using frozen rules and replay." :: String)
     ["trace-inputs", directory] -> InputComparison.writeDiagrams directory
     ["compare-crem", directory] -> CremComparison.writeDiagrams directory
     ["machines", directory] -> MachineDiagrams.writeDiagrams directory

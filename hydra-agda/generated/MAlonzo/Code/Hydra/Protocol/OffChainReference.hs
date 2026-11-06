@@ -1321,3 +1321,34 @@ d_settlementReservationRef_532 v0 v1 v2
   = coe
       d__'38''38'__34 (coe v0)
       (coe d_not_54 (coe ltInt (coe v1) (coe v2)))
+-- Hydra.Protocol.OffChainReference.reserveRebaseRef
+hsReserveRebaseRef ::
+  MAlonzo.Code.Agda.Builtin.List.T_List_10 () Integer ->
+  MAlonzo.Code.Agda.Builtin.List.T_List_10 () Integer ->
+  MAlonzo.Code.Agda.Builtin.List.T_List_10 () Integer
+hsReserveRebaseRef = coe d_reserveRebaseRef_540
+d_reserveRebaseRef_540 :: [Integer] -> [Integer] -> [Integer]
+d_reserveRebaseRef_540 v0 v1
+  = case coe v1 of
+      [] -> coe v1
+      (:) v2 v3
+        -> coe
+             du_if_then_else__16 (coe d_elem'7495'_56 (coe v2) (coe v0))
+             (coe d_reserveRebaseRef_540 (coe v0) (coe v3))
+             (coe
+                MAlonzo.Code.Agda.Builtin.List.C__'8759'__22 (coe v2)
+                (coe d_reserveRebaseRef_540 (coe v0) (coe v3)))
+      _ -> MAlonzo.RTE.mazUnreachableError
+-- Hydra.Protocol.OffChainReference.newDecommitReadyRef
+hsNewDecommitReadyRef ::
+  Bool ->
+  MAlonzo.Code.Agda.Builtin.List.T_List_10 () Integer ->
+  MAlonzo.Code.Agda.Builtin.List.T_List_10 () Integer -> Bool
+hsNewDecommitReadyRef = coe d_newDecommitReadyRef_550
+d_newDecommitReadyRef_550 :: Bool -> [Integer] -> [Integer] -> Bool
+d_newDecommitReadyRef_550 v0 v1 v2
+  = coe
+      d__'38''38'__34 (coe d_not_54 (coe v0))
+      (coe
+         d_decommitReadyRef_512
+         (coe MAlonzo.Code.Agda.Builtin.Bool.C_false_8) (coe v1) (coe v2))

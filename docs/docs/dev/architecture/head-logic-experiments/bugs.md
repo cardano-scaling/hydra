@@ -2,8 +2,8 @@
 
 The spike has found transaction-map corruption and several ways a Head can stop
 making progress. The two `allTxs` bugs are fixed. The latest conversion exposes a
-decommit dependency mismatch and loss of its local input reservation; both remain
-reproducible in the frozen handlers and production workflows. These cases use the
+decommit dependency mismatch and loss of its local input reservation; both are now fixed in a separate behavior change and remain reproducible with
+the frozen handlers. These cases use the
 normal interpreter. None demonstrates an invalid confirmation or loss of funds.
 
 The performance investigation also found unnecessary UTxO evaluation introduced
@@ -20,8 +20,8 @@ the Agda model, rather than a bug in the previous protocol rules. See the
 | Duplicate timeout deletes a still-pending transaction | Fixed by the same guard; no duplicate retry is scheduled | Enabled duplicate delivery plus direct attempts at every production TTL |
 | Expiry strands dependent work after all messages drain | Retained finite-retry policy; re-submission wakes the next leader | Three honest parties, two dependent transactions |
 | Early invalid signature blocks a valid replacement | Retained acknowledgement policy; aggregate verification still rejects | Invalid partial signature, final rejection, corrected signature rejected |
-| Decommit spends an unconfirmed output that ReqSn cannot resolve | Retained; all parties reject the next snapshot | Three honest parties; parent/child/decommit; every emitted message delivered |
-| Snapshot pruning restores a pending decommit's reserved input | Retained; local UTxO contains the input while the decommit remains pending | Same sequence, checked immediately after snapshot 1 is requested |
+| Decommit spends an unconfirmed output that ReqSn cannot resolve | Fixed: confirm dependencies first, then request the decommit | Three honest parties; parent/child/decommit; every emitted message delivered |
+| Snapshot pruning restores a pending decommit's reserved input | Fixed: rebase preserves the input reservation | Same sequence, checked immediately after snapshot 1 is requested |
 
 ## Protecting locally applied transactions
 
@@ -117,43 +117,56 @@ uses three honest parties, no faults and no expired retries. Start with output 1
 All 24 deliveries complete. No message remains queued; snapshot 1 stays confirmed
 and Bob remains in `RequestedSnapshot 1 2`. No AckSn 2 is emitted. The safety
 check prevents an invalid snapshot, but this honest sequence stops progressing.
-The test also compares every outcome with the frozen handlers and every resulting
-state with the frozen event reducer, distinguishing these findings from conversion
-regressions.
+The historical test uses the frozen handlers and reducer. The corrected test
+uses production execution and replay, checking independent invariants after
+every delivery. The structural refactor passed legacy comparisons before the
+behavior fix.
 
 The reservation loss is a separate observable state error in the same sequence.
 [`Transactions`](../../../../../hydra-node/src/Hydra/HeadLogic/Machine/Coordinated/Transactions.hs) removes
 the decommit's consumed input when applying `DecommitRecorded`.
-Its `Rebase` branch rebuilds
-`localUTxO` for `SnapshotRequested` from the snapshot and retained ordinary
-transactions, without accounting for that pending decommit.
+The old `Rebase` rebuilt `localUTxO` from the snapshot and retained ordinary
+transactions without preserving that reservation. It now removes pending spending
+inputs after the rebuild.
 
 ```sh
-cabal run hydra-node:head-logic-lab -- decommit-dependency /tmp/decommit.json +RTS -N1
+cabal run hydra-node:head-logic-lab -- decommit-dependency --historical /tmp/decommit-old.json +RTS -N1
+cabal run hydra-node:head-logic-lab -- decommit-dependency /tmp/decommit-fixed.json +RTS -N1
 just test hydra-node IncrementalWorkflow
 ```
 
-The command validates the fixed schedule and writes complete inputs, outcomes
-and states plus `/tmp/decommit.json.mmd`. The checked-in
-[JSON](traces/decommit-dependency-v1.json) and
-[component trace](traces/decommit-dependency-v1.json.mmd)
-are reproducible with that command. In the diagram, start at **Party 0: ReqDec 3**,
-then **Party 0: ReqSn 1**, and finally **Party 1: ReqSn 2**. The first accepts the
-decommit; the final ledger reply rejects it before ordinary tx2 is applied.
-Use the JSON's `before` and `after` states to inspect the reservation loss;
-instruction traces alone do not show event aggregation.
+Each command writes complete inputs, outcomes, states and a `.mmd` instruction
+trace. The [historical JSON](traces/decommit-dependency-historical-v2.json) and
+[trace](traces/decommit-dependency-historical-v2.json.mmd) preserve the failure.
+The [corrected JSON](traces/decommit-dependency-fixed-v2.json) and
+[trace](traces/decommit-dependency-fixed-v2.json.mmd) show the repair. Both appear
+in the [central diagram index](../../../../head-logic-diagrams.md).
 
-This is a deterministic Simple-ledger witness, not an exhaustive or minimized
-explorer result. The generic explorer currently excludes incremental actions.
-The bounded Agda projections compare individual input outcomes and abstract
-ledger replies; they cannot detect this cross-input mismatch. A Cardano-backed
-sequence and a model relating optimistic and snapshot ledger contexts would
-strengthen the evidence.
+Start with **Party 0: ReqDec 3**, then **Party 0: ReqSn 1**. In the historical
+run, rebase restores output 3; the JSON's `reservationHeld` becomes false.
+**Party 1: AckSn 1** then requests tx2 and the decommit together;
+`decommitRequestsReady` becomes false. ReqSn 2 rejects before applying tx2.
 
-A fix needs to coordinate snapshot selection with decommit eligibility: confirm
-the dependencies first, or deliberately change the protocol's application order.
-Rebuilding local UTxO must also preserve the pending decommit reservation. These
-are follow-up behavior changes; neither is silently folded into the conversion.
+In the corrected run, rebase keeps output 3 reserved. Snapshot 2 carries only
+tx2. After confirmation, the next leader sees the decommit's inputs in the
+confirmed base and requests snapshot 3 with no ordinary transactions. All parties
+confirm it and the message queue drains. A carried decommit alone does not
+trigger endless new rounds.
+
+[SnapshotRequest.decommitStatus](../../../../../hydra-node/src/Hydra/HeadLogic/Rules/SnapshotRequest.hs)
+is shared by every leader request site. Cardano availability checks spending,
+reference and collateral inputs; ReqSn still performs full ledger validation.
+This matches the ledger's [required-input check](https://github.com/IntersectMBO/cardano-ledger/blob/master/eras/babbage/impl/src/Cardano/Ledger/Babbage/Rules/Utxo.hs).
+A real Cardano payment-chain regression checks dependency-first confirmation;
+a separate property checks the three input kinds and reservation arithmetic.
+
+The three-party demo is deterministic, not an exhaustive or minimized explorer
+result. The generic explorer still excludes incremental actions. The Agda model
+now checks reservation-preserving rebase and new-work selection over bounded
+SimpleTx inputs; it does not model scripts, time or general distributed progress.
+Existing event/checkpoint encodings are unchanged. Restoring an old checkpoint
+alone does not repair its contents; corrected rebase applies when the next
+snapshot is recorded.
 
 ## Properties and reference tests
 
@@ -220,8 +233,9 @@ The remaining handlers are frozen in
 [LegacyHandlers](../../../../../hydra-node/testlib/Test/Hydra/HeadLogic/LegacyHandlers.hs).
 Full-input comparisons cover init, synchronization, client decommit, deposit
 observation and expiry, settlement, close/contest adoption, side-loading, fanout
-and rollback. No additional protocol fix is folded into this conversion. The
-unfixed findings above remain queued for one separate bug-fix change.
+and rollback. The structural conversion and decommit fixes are separate commits. Legacy
+outcome comparisons now exclude the intentionally changed decommit cases; the
+corrected sequences and bounded independent checks cover them.
 
 A suspected previous-head recovery bug was ruled out by a two-head test.
 `eventHeadId DepositRecovered` returns `Nothing`, so the aggregate consumes the
@@ -233,11 +247,9 @@ and `RulesSpec`'s recovery assertion. This is regression coverage, not a defect.
 
 ## Checks at the component boundary
 
-The [coordinated owners](../../../../head-logic-coordinated.md) preserve the two
-decommit failures for the separate behavior change. The JSON from
-`head-logic-lab decommit-dependency FILE` now records `reservationHeld` after each
-delivery and `decommitRequestsReady` for emitted snapshot requests. The former
-first fails during snapshot rebase; the latter fails when Bob proposes snapshot 2.
-These predicates are independent of the reducer and agree with the bounded Agda
-reference over subsets of three output identities. They expose the missing rules;
-Crem's Reserved phase alone does not establish either invariant.
+The [coordinated owners](../../../../head-logic-coordinated.md) expose where each
+fix belongs. `reservationHeld` first fails at historical rebase;
+`decommitRequestsReady` fails at the next historical proposal. Both hold at every
+prefix of the corrected sequence. Crem's Reserved phase alone establishes neither
+property: explicit payload invariants and independently stated tests are still
+necessary.

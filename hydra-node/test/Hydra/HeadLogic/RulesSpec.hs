@@ -18,9 +18,11 @@ import Test.Hydra.Prelude (
 import Data.Map.Strict qualified as Map
 import Hydra.HeadLogic (
   ClosedState (parameters),
+  CoordinatedHeadState (decommitTx),
   HeadState (Closed, FanoutProgress, Idle, Open),
+  Input (NetworkInput),
   LogicError (RequireFailed),
-  OpenState (parameters),
+  OpenState (coordinatedHeadState, parameters),
   Outcome (Continue, Error),
   PartialFanoutState (parameters),
   RequirementFailure (InvalidMultisignature),
@@ -33,8 +35,10 @@ import Hydra.HeadLogic.Interpreter qualified as Interpreter
 import Hydra.HeadLogic.Rules.ReqTx qualified as ReqTx
 import Hydra.HeadLogic.Workflow qualified as Workflow
 import Hydra.Ledger.Simple (SimpleTx, simpleLedger)
+import Hydra.Network.Message (Message (ReqDec), NetworkEvent (ReceivedMessage))
 import Hydra.Node.State (NodeState (..), initialChainTime, trackedFromPending)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
+import Test.Hydra.HeadLogic.CoordinatedAudit qualified as Audit
 import Test.Hydra.HeadLogic.Crem.Comparison (Example (..), Reference (..), compareExample, comparePrograms, examples)
 import Test.Hydra.HeadLogic.Debugger qualified as Debug
 import Test.Hydra.HeadLogic.Input ()
@@ -44,7 +48,7 @@ import Test.Hydra.HeadLogic.Scenario qualified as Scenario
 import Test.Hydra.HeadLogic.State ()
 import Test.Hydra.Ledger.Simple ()
 import Test.Hydra.Node.State ()
-import Test.QuickCheck (counterexample, elements, forAll, resize, vectorOf, withMaxSuccess)
+import Test.QuickCheck (counterexample, elements, forAll, resize, vectorOf, withMaxSuccess, (==>))
 
 spec :: Spec
 spec = describe "free programs and crem phases" $ do
@@ -57,16 +61,16 @@ spec = describe "free programs and crem phases" $ do
       it (toString name <> ": preserves outcomes, replay and state") $
         Inputs.compareInput (Scenario.environment 0) initialChainTime before input `shouldSatisfy` isRight
 
-    prop "arbitrary bounded inputs agree with frozen handlers" $
+    prop "bounded inputs outside corrected decommit paths agree with frozen handlers" $
       withMaxSuccess 1000 $
         forAll ((,) <$> resize 5 arbitrary <*> resize 5 arbitrary) $ \(node, input) ->
           let result = Inputs.compareInput (Scenario.environment 0) initialChainTime (withParties node) input
-           in counterexample (show result) $ isRight result
+           in compatibleWithLegacy node input ==> counterexample (show result) (isRight result)
 
     prop "scheduled inputs agree at every prefix" $
       forAll (vectorOf 20 $ elements [input | (_, _, input) <- Inputs.examples]) $ \inputs ->
         let result = foldlM compareFullInput Scenario.initialNode inputs
-         in counterexample (show result) $ isRight result
+         in counterexample (show result) (isRight result)
 
     it "removes a previous head deposit after its recovery is observed" $ do
       let witnesses = [(before, input) | ("recover-previous-head", before, input) <- Inputs.examples]
@@ -93,7 +97,7 @@ spec = describe "free programs and crem phases" $ do
           _ -> False
       _ -> expectationFailure "invalid acknowledgement example has no free-program baseline"
 
-  prop "ReqTx agrees for arbitrary states, pending deposits and incoming IDs" $
+  prop "ReqTx without pending decommits agrees for arbitrary states, deposits and IDs" $
     forAll ((,,,,) <$> elements [0, 1, 2] <*> resize 5 arbitrary <*> elements [0, 1, 5] <*> resize 5 arbitrary <*> resize 5 arbitrary) $
       \(actor, open, ttl, pending, tx) ->
         let st = open{parameters = open.parameters{parties = Scenario.scenarioParties}} :: OpenState SimpleTx
@@ -105,13 +109,22 @@ spec = describe "free programs and crem phases" $ do
                 before
                 (LegacyPrograms.onOpenNetworkReqTxProgram env before.chainPointTime st ttl pending tx)
                 (Workflow.run $ ReqTx.machine env before.chainPointTime st ttl pending tx)
-         in counterexample (show result) $ isRight result
+         in isNothing st.coordinatedHeadState.decommitTx ==> counterexample (show result) (isRight result)
 
   prop "dependent transactions, expiry and duplicates agree at every input prefix" $
     forAll (vectorOf 20 $ (,) <$> elements [Scenario.transactionOne, Scenario.transactionTwo] <*> elements [0, 1]) $ \inputs ->
       let result = foldlM compareInput Scenario.initialNode inputs
        in counterexample (show result) $ isRight result
  where
+  -- The refactor commit compares the full domain. These behavior changes have
+  -- independent sequence/audit tests; keep exact legacy comparisons elsewhere.
+  compatibleWithLegacy :: NodeState SimpleTx -> Input SimpleTx -> Bool
+  compatibleWithLegacy node input = case node.headState of
+    Open os ->
+      isNothing os.coordinatedHeadState.decommitTx && case input of
+        NetworkInput _ (ReceivedMessage _ (ReqDec tx)) -> Audit.newDecommitReady os.coordinatedHeadState tx
+        _ -> True
+    _ -> True
   withParties :: NodeState SimpleTx -> NodeState SimpleTx
   withParties node =
     node

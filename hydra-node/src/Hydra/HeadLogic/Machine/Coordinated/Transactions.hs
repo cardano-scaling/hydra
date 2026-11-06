@@ -74,7 +74,7 @@ machine headId initial initialDecommit = BaseMachineT initialState action
     Rebase snapshot txs deposit ->
       let next =
             local
-              { localUTxO = foldl' (flip applyTxTo) (settledUTxO snapshots.version snapshot) txs
+              { localUTxO = reserve $ foldl' (flip applyTxTo) (settledUTxO snapshots.version snapshot) txs
               , localTxs = txs
               , allTxs = foldr (Map.delete . txId) local.allTxs snapshot.confirmed
               , currentDepositTxId = deposit
@@ -115,6 +115,9 @@ machine headId initial initialDecommit = BaseMachineT initialState action
         let next = local{localUTxO = applyTxTo tx local.localUTxO `withoutUTxO` utxoFromTx tx}
          in output next (Just tx) (WithReservation next tx) (events <> [DecommitRecorded headId tx])
    where
+    -- A decommit can depend on a retained transaction. Rebuild first, then
+    -- reserve its spending inputs, even when this round did not carry it.
+    reserve = maybe id withoutTxInputs reserved
     requestUTxO = settledUTxO snapshots.version $ case snapshots.seen of
       SeenSnapshot{snapshot} -> snapshot
       _ -> getSnapshot snapshots.confirmed

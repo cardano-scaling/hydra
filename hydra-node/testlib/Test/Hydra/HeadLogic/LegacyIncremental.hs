@@ -28,12 +28,6 @@ import Hydra.HeadLogic (
     RecoverBlockedByFinalizedCommit,
     depositTxId
   ),
-  SnapshotRequest (
-    SnapshotRequest,
-    requestDecommitTx,
-    requestDepositTxId,
-    requestTxs
-  ),
   StateChanged (
     DecommitInvalid,
     DecommitRecorded,
@@ -51,10 +45,8 @@ import Hydra.HeadLogic (
   causes,
   isLeader,
   newState,
-  nextSnapshotRequest,
   noop,
   settledUTxO,
-  settlingCommitAt,
   snapshotInFlight,
   wait,
  )
@@ -65,6 +57,16 @@ import Hydra.Node.State (ChainPointTime (..), Deposit (..), PendingDeposits)
 import Hydra.Prelude
 import Hydra.Tx (HeadId, IsTx, TxIdType, UTxOType, txId, utxoFromTx)
 import Hydra.Tx.Snapshot (Snapshot (..), getSnapshot)
+import Test.Hydra.HeadLogic.LegacySnapshotRequest (
+  SnapshotRequest (
+    SnapshotRequest,
+    requestDecommitTx,
+    requestDepositTxId,
+    requestTxs
+  ),
+  nextSnapshotRequest,
+  settlingCommitAt,
+ )
 
 onClientRecover ::
   IsTx tx =>

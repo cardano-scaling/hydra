@@ -40,8 +40,9 @@ import Hydra.HeadLogic.Rules.SnapshotRequest (
     requestDepositTxId,
     requestTxs
   ),
+  buildSnapshotRequest,
+  decommitStatus,
   isLeader,
-  nextSnapshotRequest,
   settlingCommitAtPeriod,
  )
 import Hydra.HeadLogic.Rules.SnapshotCapacity (checkDecommitCapacity)
@@ -145,11 +146,13 @@ machine env ttl ChainPointTime{currentSlot, currentChainTime} pendingDeposits op
       noSnapshot <- Program.decide "no snapshot is in flight" (not $ snapshotInFlight seenSnapshot)
       when noSnapshot $ do
         leader <- Program.decide "this party leads the next snapshot" (isLeader parameters env.party nextSn)
-        when leader $
-          -- ReqDec does not stage SnapshotRequestDecided; preserve that behavior.
-          Program.emit $
-            NetworkEffect $
-              ReqSn version nextSn (txId <$> requestTxs) requestDecommitTx requestDepositTxId
+        when leader $ do
+          useful <- Program.decide "snapshot request has useful work" usefulWork
+          when useful $
+            -- ReqDec does not stage SnapshotRequestDecided; preserve that behavior.
+            Program.emit $
+              NetworkEffect $
+                ReqSn version nextSn (txId <$> requestTxs) requestDecommitTx requestDepositTxId
     Done -> finish Done
 
   invalid :: DecommitInvalidReason tx -> Program.Program tx 'True signing ()
@@ -158,8 +161,8 @@ machine env ttl ChainPointTime{currentSlot, currentChainTime} pendingDeposits op
   notApplicable reason = do
     canRetry <- Program.decide "retry budget remains" (ttl > 0)
     if canRetry then Program.suspend $ WaitOnNotApplicableDecommitTx reason else invalid reason
-  SnapshotRequest{requestTxs, requestDecommitTx, requestDepositTxId} =
-    nextSnapshotRequest (settledUTxO version previous) localTxs pendingDeposits currentDepositTxId (Just decommitTx) (settlingCommitAtPeriod env.depositPeriod version currentChainTime pendingDeposits previous)
+  (SnapshotRequest{requestTxs, requestDecommitTx, requestDepositTxId}, usefulWork) =
+    buildSnapshotRequest (settledUTxO version previous) localTxs pendingDeposits currentDepositTxId (decommitStatus version previous $ Just decommitTx) (settlingCommitAtPeriod env.depositPeriod version currentChainTime pendingDeposits previous)
   previous = getSnapshot confirmedSnapshot
   nextSn = previous.number + 1
   CoordinatedHeadState{decommitTx = mExistingDecommitTx, confirmedSnapshot, localTxs, localUTxO, version, seenSnapshot, currentDepositTxId} = coordinatedHeadState

@@ -34,7 +34,7 @@ import Hydra.HeadLogic.Machine.Coordinated qualified as Coordinated
 import Hydra.HeadLogic.Outcome (Effect (..), WaitReason (..))
 import Hydra.HeadLogic.Program qualified as Program
 import Hydra.HeadLogic.Rules.Environment (RuleEnvironment (..))
-import Hydra.HeadLogic.Rules.SnapshotRequest (SettlingCommit (..), SnapshotRequest (..), chainedSnapshotRequest, isLeader, settlingCommitAtPeriod)
+import Hydra.HeadLogic.Rules.SnapshotRequest (SettlingCommit (..), SnapshotRequest (..), chainedSnapshotRequest, decommitStatus, isLeader, settlingCommitAtPeriod)
 import Hydra.HeadLogic.Rules.Transactions (checkTransactionOutputs)
 import Hydra.HeadLogic.State (
   CoordinatedHeadState (
@@ -131,7 +131,7 @@ machine env ChainPointTime{currentSlot, currentChainTime} st ttl pendingDeposits
       when noSnapshot $ do
         leader <- Program.decide "this party leads the next snapshot" (isLeader parameters env.party nextSn)
         when leader $
-          case chainedSnapshotRequest confirmedUTxO (localTxs Seq.|> tx) pendingDeposits currentDepositTxId decommitTx settlingCommit of
+          case chainedSnapshotRequest confirmedUTxO (localTxs Seq.|> tx) pendingDeposits currentDepositTxId (decommitStatus version previous decommitTx) settlingCommit of
             Nothing -> void $ Program.decide "snapshot request has useful work" False
             Just SnapshotRequest{requestTxs, requestDecommitTx, requestDepositTxId} -> do
               void $ Program.decide "snapshot request has useful work" True
@@ -154,6 +154,7 @@ machine env ChainPointTime{currentSlot, currentChainTime} st ttl pendingDeposits
         _ -> mempty
   OpenState{coordinatedHeadState, parameters} = st
   CoordinatedHeadState{localTxs, localUTxO, allTxs, confirmedSnapshot, seenSnapshot, decommitTx, version, currentDepositTxId} = coordinatedHeadState
-  nextSn = (getSnapshot confirmedSnapshot).number + 1
-  confirmedUTxO = settledUTxO version (getSnapshot confirmedSnapshot)
-  settlingCommit = settlingCommitAtPeriod env.depositPeriod version currentChainTime pendingDeposits (getSnapshot confirmedSnapshot)
+  previous = getSnapshot confirmedSnapshot
+  nextSn = previous.number + 1
+  confirmedUTxO = settledUTxO version previous
+  settlingCommit = settlingCommitAtPeriod env.depositPeriod version currentChainTime pendingDeposits previous

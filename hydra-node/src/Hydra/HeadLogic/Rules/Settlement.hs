@@ -32,8 +32,9 @@ import Hydra.HeadLogic.Outcome (Effect (..))
 import Hydra.HeadLogic.Program qualified as Program
 import Hydra.HeadLogic.Rules.Environment (RuleEnvironment (party))
 import Hydra.HeadLogic.Rules.SnapshotRequest (
-  SnapshotRequest (SnapshotRequest, requestDepositTxId, requestTxs),
+  SnapshotRequest (SnapshotRequest, requestDecommitTx, requestDepositTxId, requestTxs),
   chainedSnapshotRequest,
+  decommitStatus,
   isLeader,
  )
 import Hydra.HeadLogic.Rules.SnapshotVerification (VerifiedSnapshot, verifyCandidate)
@@ -124,19 +125,23 @@ machine env pendingDeposits os@OpenState{parameters, coordinatedHeadState} newCh
       Left _ -> continue (const $ Request runtime previous seenSnapshot) $ Program.decide "settlement signatures verify" False
     Request runtime snapshot seen ->
       continue (const Done) $
-        maybeRequestSnapshotAfterVersionBump runtime parameters env.party (snapshot.number + 1) (requestOn snapshot) version newVersion seen
+        maybeRequestSnapshotAfterVersionBump runtime parameters env.party (snapshot.number + 1) (requestOn runtime snapshot) version newVersion seen
     Done -> finish Done
 
   matchesSettlement :: Snapshot tx -> Bool
   matchesSettlement snapshot = case settlement of
     Increment depositTxId -> snapshot.depositTxId == Just depositTxId
     Decrement{} -> isJust snapshot.utxoToDecommit
-  requestOn snapshot = case settlement of
-    Increment depositTxId -> chainedSnapshotRequest (settledUTxO newVersion snapshot) localTxs (Map.delete depositTxId pendingDeposits) Nothing decommitTx Nothing
-    Decrement{} -> chainedSnapshotRequest (settledUTxO newVersion snapshot) localTxs pendingDeposits currentDepositTxId decommitTx Nothing
+  requestOn runtime snapshot =
+    let current = Coordinated.currentState runtime
+        decommit = decommitStatus newVersion snapshot current.decommitTx
+     in case settlement of
+          Increment depositId -> chainedSnapshotRequest (settledUTxO newVersion snapshot) current.localTxs (Map.delete depositId pendingDeposits) Nothing decommit Nothing
+          Decrement{} -> chainedSnapshotRequest (settledUTxO newVersion snapshot) current.localTxs pendingDeposits current.currentDepositTxId decommit Nothing
+
   previous = getSnapshot confirmedSnapshot
   vkeys = vkey <$> parameters.parties
-  CoordinatedHeadState{localTxs, confirmedSnapshot, currentDepositTxId, version, seenSnapshot, decommitTx} = coordinatedHeadState
+  CoordinatedHeadState{confirmedSnapshot, version, seenSnapshot} = coordinatedHeadState
 
 -- | A requested old-version round may be replaced; a round collecting signatures
 -- must finish first. The settled decommit is excluded from the next request.
@@ -144,10 +149,10 @@ maybeRequestSnapshotAfterVersionBump :: IsTx tx => Coordinated.Runtime tx -> Hea
 maybeRequestSnapshotAfterVersionBump runtime parameters party nextSn request version newVersion seenSnapshot =
   case request of
     Nothing -> pure ()
-    Just SnapshotRequest{requestTxs, requestDepositTxId} -> do
+    Just SnapshotRequest{requestTxs, requestDecommitTx, requestDepositTxId} -> do
       eligible <-
         Program.decide "leader can request at the advanced version" $
           isLeader parameters party nextSn && newVersion > version && not (isCollectingAcks seenSnapshot)
       when eligible $ do
         void $ Coordinated.stage runtime $ Coordinated.requestSnapshot nextSn
-        Program.emit $ NetworkEffect $ ReqSn newVersion nextSn (txId <$> requestTxs) Nothing requestDepositTxId
+        Program.emit $ NetworkEffect $ ReqSn newVersion nextSn (txId <$> requestTxs) requestDecommitTx requestDepositTxId

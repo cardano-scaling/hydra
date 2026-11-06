@@ -134,3 +134,9 @@ tentative continuation from signature collection to confirmation. Program still
 provides primitive queries and terminal semantics; the owner transitions produce
 the events and next state together. Other input rules retain their existing
 event instructions.
+
+The later decommit fix changes shared request selection and transaction-owner
+rebase, without changing the Program interpreter. Exact legacy comparisons exclude
+those intentional differences; the [owner tests](head-logic-coordinated.md) and
+historical/corrected sequences check the new behavior independently. Finite retry
+expiry and invalid acknowledgement recovery are unchanged.

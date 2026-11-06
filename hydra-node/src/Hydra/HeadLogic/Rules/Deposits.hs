@@ -18,6 +18,7 @@ import Hydra.HeadLogic.Rules.Environment (
   ),
  )
 import Hydra.HeadLogic.Rules.SnapshotRequest (
+  DecommitStatus (ReadyToDecommit),
   SettlingCommit (ContinueCommit, DropCommit),
   SnapshotRequest (
     SnapshotRequest,
@@ -25,6 +26,7 @@ import Hydra.HeadLogic.Rules.SnapshotRequest (
     requestDepositTxId,
     requestTxs
   ),
+  decommitStatus,
   isLeader,
   nextSnapshotRequest,
   scopedDeposits,
@@ -115,7 +117,7 @@ onOpenChainTick env chainTime pendingDeposits st
   | snapshotInFlight seenSnapshot || not (isLeader parameters party nextSn) = pure ()
   | otherwise =
       let settling = settlingCommitAtPeriod env.depositPeriod version chainTime deposits confirmed
-          built = nextSnapshotRequest (settledUTxO version (getSnapshot confirmedSnapshot)) localTxs deposits currentDepositTxId decommitTx settling
+          built = nextSnapshotRequest (settledUTxO version (getSnapshot confirmedSnapshot)) localTxs deposits currentDepositTxId decommit settling
        in case (settling, built) of
             -- The commit is still settling; requests carrying txs continue it.
             (Just (ContinueCommit _), _) -> pure ()
@@ -124,8 +126,11 @@ onOpenChainTick env chainTime pendingDeposits st
             -- Spec: wait txω = ⊥ ∧ Uα = ∅.
             (Nothing, SnapshotRequest{requestTxs, requestDecommitTx, requestDepositTxId = Just depositTxId})
               | isNothing decommitTx -> request requestTxs requestDecommitTx (Just depositTxId)
+            (Nothing, SnapshotRequest{requestTxs, requestDecommitTx, requestDepositTxId})
+              | ReadyToDecommit{} <- decommit -> request requestTxs requestDecommitTx requestDepositTxId
             _ -> pure ()
  where
+  decommit = decommitStatus version confirmed decommitTx
   nextDeposits = determineNextDepositStatus env pendingDeposits chainTime
 
   newActive = Map.filter (\Deposit{status} -> status == Active) nextDeposits

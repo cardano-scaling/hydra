@@ -34,6 +34,7 @@ import Hydra.HeadLogic (
   onClientRecover,
   onOpenNetworkReqDec,
   ruleEnvironment,
+  snapshotInFlight,
  )
 import Hydra.HeadLogic.Interpreter qualified as Interpreter
 import Hydra.HeadLogic.Rules.ReqDec qualified as ReqDec
@@ -45,6 +46,7 @@ import Hydra.Network.Message (Message (..))
 import Hydra.Node.State (Deposit (..), DepositStatus (..), NodeState (..), initialChainTime, trackedFromPending)
 import Hydra.Prelude
 import Hydra.Tx.HeadParameters (HeadParameters (..))
+import Test.Hydra.HeadLogic.CoordinatedAudit qualified as Audit
 import Test.Hydra.HeadLogic.DecommitDependency qualified as DecommitDependency
 import Test.Hydra.HeadLogic.LegacyIncremental qualified as Legacy
 import Test.Hydra.HeadLogic.Scenario qualified as Scenario
@@ -60,23 +62,29 @@ import Test.Hydra.Prelude (
   shouldSatisfy,
  )
 import Test.Hydra.Tx.Fixture (testHeadId)
-import Test.QuickCheck (counterexample, elements, forAll, resize)
+import Test.QuickCheck (counterexample, elements, forAll, resize, (==>))
 
 spec :: Spec
 spec = do
   it "characterizes the existing decommit dependency stall and reservation loss" $
+    DecommitDependency.historicalDemonstration `shouldSatisfy` isRight
+
+  it "confirms the dependent decommit while preserving every reservation" $
     DecommitDependency.demonstration `shouldSatisfy` isRight
-  prop "ReqDec preserves the frozen handler's outcomes and serialized states" $
+  prop "ReqDec preserves legacy outcomes outside deferred or already-carried work" $
     forAll ((,,,) <$> resize 5 arbitrary <*> elements [0, 1, 5] <*> resize 5 arbitrary <*> resize 5 arbitrary) $ \(open, ttl, pending, tx) ->
       let st = open{parameters = open.parameters{parties = Scenario.scenarioParties}} :: OpenState SimpleTx
           before = Scenario.initialNode{headState = Open st, deposits = trackedFromPending pending}
           old = Legacy.onOpenNetworkReqDec env simpleLedger ttl before.chainPointTime pending st tx
           new = onOpenNetworkReqDec env simpleLedger ttl before.chainPointTime pending st tx
           after = aggregateState before new
-       in counterexample (show (old, new)) $
-            old == new && after == aggregateState before old && decodeFull' (serialize' after) == Right after
+          chs = st.coordinatedHeadState
+          unchanged = isJust chs.decommitTx || snapshotInFlight chs.seenSnapshot || Audit.newDecommitReady chs tx
+       in unchanged ==>
+            counterexample (show (old, new)) $
+              old == new && after == aggregateState before old && decodeFull' (serialize' after) == Right after
 
-  it "ReqDec agrees with bounded Agda outcomes and preserves guard priority" $
+  it "ReqDec with confirmed inputs agrees with bounded Agda outcomes and guard priority" $
     forM_ [(commit, existing, applies, outputs, ttl, inFlight, actor) | commit <- [False, True], existing <- [False, True], applies <- [False, True], outputs <- [False, True], ttl <- [0, 1], inFlight <- [False, True], actor <- [0, 1, 2]] $ \(commit, existing, applies, outputs, ttl, inFlight, actor) -> do
       let base = Scenario.openState Scenario.initialNode
           c = base.coordinatedHeadState

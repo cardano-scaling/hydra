@@ -7,13 +7,13 @@ interpreter runs those instructions. Separate crem machines apply the retained
 events to `NodeState`.
 
 This is the implemented design on this branch. Network messages, persisted event
-encodings, and checkpoint formats are unchanged by the conversion. The remaining
-protocol bugs are recorded for a separate fix; see the [bug ledger](docs/dev/architecture/head-logic-experiments/bugs.md).
+encodings, and checkpoint formats are unchanged by the conversion. The conversion and decommit fixes are separate commits; deferred recovery
+policies are recorded in the [bug ledger](docs/dev/architecture/head-logic-experiments/bugs.md).
 
 ## Read the design
 
 - [Programs inside crem](head-logic-crem-workflows.md): input execution, rule modules, terminal semantics, and tests.
-- [Snapshot and transaction owners](head-logic-coordinated.md): shared live/replay transitions, typed component ports and the remaining decommit defects.
+- [Snapshot and transaction owners](head-logic-coordinated.md): shared live/replay transitions, typed component ports and the decommit fixes.
 - [Retained-event machines](head-logic-crem.md): lifecycle, deposits, snapshot coordination, and replay.
 - [All diagrams](head-logic-diagrams.md): every `.mmd` file rendered with an explanation.
 - [Experiments](docs/dev/architecture/head-logic-experiments/README.md): comparisons, counterexamples, measurements, resolved replay, and earlier proposals.
@@ -55,6 +55,6 @@ separate instruction interpretation, crem workflows, event aggregation, and
 whole-node throughput. Earlier cluster results predate the crem conversion;
 they are not a TPS measurement of the final design.
 
-Before a merge: fix the recorded protocol bugs in their own change, repeat the
-whole-node comparison against a fixed baseline, and decide which migration
-fixtures to retain once the old handlers are removed from the test harness.
+Before a merge, decide which frozen migration fixtures to keep and review the
+remaining recovery policies separately. Wider workload and deployment testing
+should follow the controlled measurements here.

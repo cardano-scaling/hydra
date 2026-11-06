@@ -61,6 +61,7 @@ import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.IsTx (UTxOType, txId)
 import Hydra.Tx.Party (Party)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
+import Test.Hydra.HeadLogic.CoordinatedAudit qualified as Audit
 import Test.Hydra.HeadLogic.Debugger qualified as Debug
 import Test.Hydra.HeadLogic.LegacyPrograms qualified as LegacyPrograms
 import Test.Hydra.HeadLogic.LegacyReqTx (legacyOnOpenNetworkReqTx)
@@ -70,7 +71,7 @@ import Test.Hydra.Ledger.Simple (aValidTx, utxoRef)
 import Test.Hydra.Node.Fixture (testEnvironment)
 import Test.Hydra.Node.State ()
 import Test.Hydra.Tx.Fixture (alice, bob, carol, testHeadId)
-import Test.QuickCheck (choose, elements, forAll, resize, suchThat, (===))
+import Test.QuickCheck (choose, elements, forAll, resize, suchThat, (===), (==>))
 
 spec :: Spec
 spec = do
@@ -279,13 +280,13 @@ specWith onOpenNetworkReqTxProgram = do
           Interpreter.runProgram ledger (lowerProgram $ resume $ Left ledgerFailure)
             `shouldBe` Wait (WaitOnNotApplicableTx ledgerFailure) []
 
-    prop "matches the legacy handler's complete outcome for fresh transaction IDs" $
+    prop "matches legacy outcomes for fresh IDs and snapshot-ready decommits" $
       forAll genLegacyCase $ \(actor, st, ttl, pending, tx) ->
         let env :: Environment
             env = testEnvironment{party = actor}
             program = onOpenNetworkReqTxProgram (ruleEnvironment env) zeroChainPointTime st ttl pending tx
-         in Interpreter.runProgram simpleLedger program
-              === legacyOnOpenNetworkReqTx env simpleLedger zeroChainPointTime st ttl pending tx
+         in maybe True (Audit.decommitReady st.coordinatedHeadState) st.coordinatedHeadState.decommitTx ==>
+              Interpreter.runProgram simpleLedger program === legacyOnOpenNetworkReqTx env simpleLedger zeroChainPointTime st ttl pending tx
 
     it "matches legacy deposit collisions across status, settlement, and retry budget" $
       forM_ [Inactive, Active, Expired] $ \status ->

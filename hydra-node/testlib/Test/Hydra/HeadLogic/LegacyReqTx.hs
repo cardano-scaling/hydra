@@ -14,16 +14,12 @@ import Hydra.HeadLogic (
   Effect (..),
   OpenState (..),
   Outcome,
-  SettlingCommit (..),
-  SnapshotRequest (..),
   StateChanged (..),
   WaitReason (..),
   applyTransactionsWithoutCollision,
-  chainedSnapshotRequest,
   isLeader,
   namesNoneOf,
   settledUTxO,
-  settlingCommitAt,
   snapshotInFlight,
  )
 import Hydra.HeadLogic.Input (TTL)
@@ -34,6 +30,12 @@ import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.State (ChainPointTime (..), Deposit (..), DepositStatus (..), PendingDeposits)
 import Hydra.Tx (IsTx (..), UTxOType, txId, utxoFromTx)
 import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, getSnapshot)
+import Test.Hydra.HeadLogic.LegacySnapshotRequest (
+  SettlingCommit (..),
+  SnapshotRequest (..),
+  chainedSnapshotRequest,
+  settlingCommitAt,
+ )
 
 legacyOnOpenNetworkReqTx ::
   forall tx.

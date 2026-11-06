@@ -43,15 +43,6 @@ import Hydra.HeadLogic.Rules.Environment (
   RuleEnvironment,
   ruleEnvironment,
  )
-import Hydra.HeadLogic.Rules.SnapshotRequest (
-  SettlingCommit (ContinueCommit, DropCommit),
-  SnapshotRequest (..),
-  chainedSnapshotRequest,
-  isLeader,
-  nextSnapshotRequest,
-  scopedDeposits,
-  settlingCommitAt,
- )
 import Hydra.HeadLogic.State (
   ClosedState (..),
   CoordinatedHeadState (..),
@@ -104,6 +95,15 @@ import Hydra.Tx.Party (Party (vkey))
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, SnapshotVersion, getSnapshot)
 import Test.Hydra.HeadLogic.LegacyIncremental qualified as LegacyIncremental
 import Test.Hydra.HeadLogic.LegacyPrograms qualified as LegacyPrograms
+import Test.Hydra.HeadLogic.LegacySnapshotRequest (
+  SettlingCommit (ContinueCommit, DropCommit),
+  SnapshotRequest (..),
+  chainedSnapshotRequest,
+  isLeader,
+  nextSnapshotRequest,
+  scopedDeposits,
+  settlingCommitAt,
+ )
 
 -- * The Coordinated Head protocol
 
