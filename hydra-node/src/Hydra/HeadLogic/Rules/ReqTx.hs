@@ -11,7 +11,6 @@ module Hydra.HeadLogic.Rules.ReqTx (Phase (..), ReqTxTopology, reqTxTopology, sR
 
 import Hydra.Prelude hiding (State, state)
 
-import Crem.BaseMachine (BaseMachineT (..), InitialState (..))
 import Crem.Render.RenderableVertices (AllVertices (..), RenderableVertices)
 import Crem.Topology (
   STopology (STopology),
@@ -60,8 +59,11 @@ import Hydra.HeadLogic.State.Operations (
 import Hydra.HeadLogic.Workflow (
   Transition,
   Workflow,
+  choose,
   continue,
   finish,
+  next,
+  workflow,
  )
 import Hydra.Ledger (ValidationError (..))
 import Hydra.Node.State (ChainPointTime (..), Deposit (..), DepositStatus (..), PendingDeposits)
@@ -70,14 +72,13 @@ import Hydra.Tx.Snapshot (Snapshot (..), getSnapshot)
 
 $( singletons
     [d|
-      data Phase = CheckDuplicate | CheckOutputs | CheckLedgerResult | CheckDeposits | SelectSnapshot | RetryOrInvalidate | Finished
+      data Phase = CheckDuplicate | CheckOutputs | CheckDeposits | SelectSnapshot | RetryOrInvalidate | Finished
 
       reqTxTopology :: Topology Phase
       reqTxTopology =
         Topology
           [ (CheckDuplicate, [CheckOutputs, Finished])
-          , (CheckOutputs, [CheckLedgerResult, RetryOrInvalidate])
-          , (CheckLedgerResult, [CheckDeposits, RetryOrInvalidate])
+          , (CheckOutputs, [CheckDeposits, RetryOrInvalidate])
           , (CheckDeposits, [SelectSnapshot, RetryOrInvalidate])
           , (SelectSnapshot, [Finished])
           , (RetryOrInvalidate, [Finished])
@@ -94,15 +95,23 @@ deriving via AllVertices Phase instance RenderableVertices Phase
 data State tx phase where
   DuplicateCheck :: State tx 'CheckDuplicate
   OutputCheck :: Coordinated.Runtime tx -> State tx 'CheckOutputs
-  LedgerResult :: Coordinated.Runtime tx -> Either ValidationError (UTxOType tx) -> State tx 'CheckLedgerResult
   DepositCheck :: Coordinated.Runtime tx -> ~(UTxOType tx) -> State tx 'CheckDeposits
   Select :: Coordinated.Runtime tx -> State tx 'SelectSnapshot
   Retry :: Coordinated.Runtime tx -> ValidationError -> State tx 'RetryOrInvalidate
   Done :: State tx 'Finished
 
+statePhase :: State tx phase -> Phase
+statePhase = \case
+  DuplicateCheck -> CheckDuplicate
+  OutputCheck{} -> CheckOutputs
+  DepositCheck{} -> CheckDeposits
+  Select{} -> SelectSnapshot
+  Retry{} -> RetryOrInvalidate
+  Done -> Finished
+
 machine :: forall tx signing. IsChainState tx => RuleEnvironment -> ChainPointTime -> OpenState tx -> TTL -> PendingDeposits tx -> tx -> Workflow tx 'True signing ReqTxTopology
 machine env ChainPointTime{currentSlot, currentChainTime} st ttl pendingDeposits tx =
-  BaseMachineT (InitialState DuplicateCheck) $ \state () -> step state
+  workflow (show . statePhase) DuplicateCheck step
  where
   step :: State tx from -> Transition tx 'True signing ReqTxTopology (State tx) from
   step = \case
@@ -118,13 +127,13 @@ machine env ChainPointTime{currentSlot, currentChainTime} st ttl pendingDeposits
           void $ Program.decide "transaction is already applied locally" False
           Coordinated.stage (Coordinated.start st) $ Coordinated.receiveTransaction tx
     OutputCheck runtime -> case checkTransactionOutputs localUTxO tx of
-      Right () -> continue (LedgerResult runtime) $ do
+      Right () -> choose $ do
         void $ Program.decide "outputs do not collide with the local UTxO" True
-        Program.applyTransaction currentSlot localUTxO tx
+        result <- Program.applyTransaction currentSlot localUTxO tx
+        pure $ case result of
+          Right after -> next $ DepositCheck runtime after
+          Left err -> next $ Retry runtime err
       Left err -> continue (const $ Retry runtime err) $ Program.decide "outputs do not collide with the local UTxO" False
-    LedgerResult runtime result -> case result of
-      Right after -> continue (const $ DepositCheck runtime after) $ pure ()
-      Left err -> continue (const $ Retry runtime err) $ pure ()
     DepositCheck runtime after
       | namesNoneOf (utxoFromTx tx) namedByDepositsInPlay -> continue Select $ do
           void $ Program.decide "outputs do not collide with pending deposits" True

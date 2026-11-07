@@ -61,10 +61,12 @@ owners. Rules retain their decisions, primitive queries and effects. Owners
 retain state updates. Rendering stays in the development library. Names should
 identify a protocol prerequisite or owned fact, not an incidental program counter.
 
-There is still a cost in phase GADTs, singleton declarations, imports and
-intermediate result phases. Crem's `ActionResult` chooses the destination outside
-the effect, so effectful ledger results need a phase in which to branch. Do not
-add stages merely to make graphs longer. The new decommit distinction earns its
+There is still a cost in phase GADTs, singleton declarations and imports. The
+original `ActionResult` chooses its destination type outside the effect. The
+[local API experiment](crem-api-sketch.md) lets the reply choose it directly and
+removes five reply-handling phases across ReqTx, AckSn, Decommit, ReqDec and
+Settlement. Actions with a fixed destination still use `continue`.
+Do not add stages merely to make graphs longer. The decommit distinction earns its
 place by changing admission and confirmation behavior and excluding a replacement
 edge. The snapshot storage graph does not yet offer the same protection.
 
@@ -108,18 +110,27 @@ production confirmation.
 
 ## Crem changes worth discussing
 
-The installed library is crem 0.1.1.0. Three improvements would help this design:
+These proposals address the API in released crem 0.1.1.0:
 
 1. Let an effect return an existential destination together with its allowed-edge
    proof. This could remove mechanical result phases while retaining typed
-   transitions. See [BaseMachine](https://github.com/marcosh/crem/blob/main/src/Crem/BaseMachine.hs).
+   transitions. See [BaseMachine](https://github.com/marcosh/crem/blob/v0.1.1.0/src/Crem/BaseMachine.hs).
 2. Separate execution from the singleton/rendering dictionaries required by
    `StateMachine.Basic`, or supply a small declaration helper. See
-   [StateMachine](https://github.com/marcosh/crem/blob/main/src/Crem/StateMachine.hs).
-3. Provide an explicit state inspection hook. The current `NoThunks` instance
+   [StateMachine](https://github.com/marcosh/crem/blob/v0.1.1.0/src/Crem/StateMachine.hs).
+3. Provide an explicit state inspection hook. That release's `NoThunks` instance
    accepts `Basic _` without examining the base machine; it cannot certify the
    contents of retained continuations. Hydra should still own its persistence
    format and protocol evidence.
+
+These three proposals have an executable [local Crem experiment](crem-api-sketch.md),
+with a Program example, tests, and a patch against v0.1.1.0. All eight workflows
+and six state owners use it. The live compositions drop rendering metadata from
+the same definitions used for diagrams; phase descriptions survive execution and
+reconstruction without forcing the retained UTxO. The
+guide records the compatibility changes, including replacing the unconditional
+`NoThunks` instance with explicit checks. Phase labels without a complete checker
+report `NotInspected`.
 
 An owner-issued candidate handle tied to a specific round is the next Hydra-side
 refinement worth testing. It must share the existing rules and keep recovery

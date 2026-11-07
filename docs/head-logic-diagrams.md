@@ -205,7 +205,7 @@ sequenceDiagram
 
 ### ReqTx phases
 
-The typed ReqTx topology generated from crem. Actions can terminate early with a Program wait or rejection; the graph does not enumerate guards inside each phase.
+The ledger reply selects deposit checks or retry directly. Waits and rejection end the Program; guards inside an action are not separate graph vertices.
 
 [Mermaid source](head-logic/workflows/req-tx-leader-topology.mmd)
 
@@ -214,17 +214,14 @@ stateDiagram-v2
 
 CheckDuplicate
 CheckOutputs
-CheckLedgerResult
 CheckDeposits
 SelectSnapshot
 RetryOrInvalidate
 Finished
 CheckDuplicate --> CheckOutputs
 CheckDuplicate --> Finished
-CheckOutputs --> CheckLedgerResult
+CheckOutputs --> CheckDeposits
 CheckOutputs --> RetryOrInvalidate
-CheckLedgerResult --> CheckDeposits
-CheckLedgerResult --> RetryOrInvalidate
 CheckDeposits --> SelectSnapshot
 CheckDeposits --> RetryOrInvalidate
 SelectSnapshot --> Finished
@@ -261,7 +258,7 @@ PruneLocalTransactions --> Finished
 
 ### AckSn phases
 
-The typed AckSn topology generated from crem. Actions can terminate early with a Program wait or rejection; the graph does not enumerate guards inside each phase.
+A complete signature set is verified before entering confirmation. Rejection discards the staged signature; partial acknowledgements finish without entering confirmation.
 
 [Mermaid source](head-logic/workflows/ack-confirm-topology.mmd)
 
@@ -272,23 +269,20 @@ CheckNumber
 FindSnapshot
 CollectSignature
 CheckComplete
-CheckVerification
 ConfirmAndContinue
 Finished
 CheckNumber --> FindSnapshot
 FindSnapshot --> CollectSignature
 FindSnapshot --> Finished
 CollectSignature --> CheckComplete
-CheckComplete --> CheckVerification
+CheckComplete --> ConfirmAndContinue
 CheckComplete --> Finished
-CheckVerification --> ConfirmAndContinue
-CheckVerification --> Finished
 ConfirmAndContinue --> Finished
 ```
 
 ### ReqDec phases
 
-The typed ReqDec topology generated from crem. Actions can terminate early with a Program wait or rejection; the graph does not enumerate guards inside each phase.
+After commit and existing-decommit checks, the ledger reply enters output checks or follows the wait/invalidation path. A wait terminates the Program attempt; it is not a retained Crem phase.
 
 [Mermaid source](head-logic/workflows/req-dec-record-topology.mmd)
 
@@ -297,17 +291,14 @@ stateDiagram-v2
 
 CheckCommit
 CheckExistingDecommit
-CheckLedgerResult
 CheckOutputs
 CheckCapacity
 RecordAndRequest
 Finished
 CheckCommit --> CheckExistingDecommit
 CheckCommit --> Finished
-CheckExistingDecommit --> CheckLedgerResult
+CheckExistingDecommit --> CheckOutputs
 CheckExistingDecommit --> Finished
-CheckLedgerResult --> CheckOutputs
-CheckLedgerResult --> Finished
 CheckOutputs --> CheckCapacity
 CheckOutputs --> Finished
 CheckCapacity --> RecordAndRequest
@@ -361,7 +352,7 @@ HandleFanout --> Finished
 
 ### Client decommit phases
 
-Pending work, ledger result, output and capacity checks, and broadcast are separate typed phases.
+Admission checks pending work and asks the ledger. An accepted transaction enters output and capacity checks before broadcast; an invalid one records its failure and finishes.
 
 [Mermaid source](head-logic/inputs/decommit-topology.mmd)
 
@@ -369,15 +360,12 @@ Pending work, ledger result, output and capacity checks, and broadcast are separ
 stateDiagram-v2
 
 CheckPending
-CheckLedgerResult
 CheckOutputs
 CheckCapacity
 Broadcast
 Finished
-CheckPending --> CheckLedgerResult
+CheckPending --> CheckOutputs
 CheckPending --> Finished
-CheckLedgerResult --> CheckOutputs
-CheckLedgerResult --> Finished
 CheckOutputs --> CheckCapacity
 CheckOutputs --> Finished
 CheckCapacity --> Broadcast
@@ -387,7 +375,7 @@ Broadcast --> Finished
 
 ### Settlement phases
 
-Record finalization, choose a candidate, verify it, and select work at the new version. Verification failure still reaches request selection.
+Record finalization, then verify and optionally adopt a matching candidate in one action. Both verification outcomes reach request selection; invalid signatures do not undo finalization.
 
 [Mermaid source](head-logic/inputs/settlement-topology.mmd)
 
@@ -396,13 +384,10 @@ stateDiagram-v2
 
 RecordSettlement
 ChooseCandidate
-CheckVerification
 RequestNext
 Finished
 RecordSettlement --> ChooseCandidate
-ChooseCandidate --> CheckVerification
 ChooseCandidate --> RequestNext
-CheckVerification --> RequestNext
 RequestNext --> Finished
 ```
 

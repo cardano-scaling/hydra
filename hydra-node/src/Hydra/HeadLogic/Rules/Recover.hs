@@ -8,7 +8,6 @@
 -- it. The chain checks the deadline; this rule forwards the current slot.
 module Hydra.HeadLogic.Rules.Recover (Phase (..), RecoverTopology, recoverTopology, sRecoverTopology, machine) where
 
-import Crem.BaseMachine (BaseMachineT (..), InitialState (..))
 import Crem.Render.RenderableVertices (AllVertices (..), RenderableVertices)
 import Crem.Topology (
   STopology (STopology),
@@ -34,6 +33,7 @@ import Hydra.HeadLogic.Workflow (
   Workflow,
   continue,
   finish,
+  workflow,
  )
 import Hydra.Node.State (Deposit (..), PendingDeposits)
 import Hydra.Prelude hiding (State, state)
@@ -59,9 +59,15 @@ data State tx phase where
   Recoverable :: Deposit tx -> State tx 'PostRecovery
   Done :: State tx 'Finished
 
+statePhase :: State tx phase -> Phase
+statePhase = \case
+  DepositCheck -> CheckDeposit
+  Recoverable{} -> PostRecovery
+  Done -> Finished
+
 machine :: forall tx ledger signing. IsTx tx => ChainSlot -> PendingDeposits tx -> Maybe (TxIdType tx) -> TxIdType tx -> Workflow tx ledger signing RecoverTopology
 machine currentSlot pendingDeposits finalizedDeposit recoverTxId =
-  BaseMachineT (InitialState DepositCheck) $ \state () -> step state
+  workflow (show . statePhase) DepositCheck step
  where
   step :: State tx from -> Transition tx ledger signing RecoverTopology (State tx) from
   step = \case

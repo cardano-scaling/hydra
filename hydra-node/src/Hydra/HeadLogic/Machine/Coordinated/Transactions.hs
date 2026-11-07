@@ -10,8 +10,9 @@ module Hydra.HeadLogic.Machine.Coordinated.Transactions (TransactionState (..), 
 
 import Hydra.Prelude hiding (State, local, state)
 
-import Crem.BaseMachine (ActionResult, BaseMachineT (..), InitialState (..), pureResult)
+import Crem.BaseMachine (ActionResult, BaseMachineT (..), InitialState (..), pureResult, withStateInspector)
 import Crem.Render.RenderableVertices (AllVertices (..), RenderableVertices)
+import Crem.StateInspection (describeOnly)
 import Crem.Topology (AllowedTransition, STopology (STopology), Topology (Topology), TopologySym0)
 import Data.Map.Strict qualified as Map
 import Data.Sequence qualified as Seq
@@ -68,10 +69,16 @@ data Output tx = Output
   , refusal :: Maybe Text
   }
 
+statePhase :: State tx phase -> Phase
+statePhase = \case
+  Available{} -> NoDecommit
+  Pending{} -> DecommitPending
+  Settling{} -> AwaitingSettlement
+
 -- | Restore the phase from the persisted reservation and the current certificate.
 -- A node can learn a confirmed decommit without receiving its ReqDec.
 machine :: forall tx m. (IsTx tx, Applicative m) => HeadId -> SnapshotState tx -> TransactionState tx -> Maybe tx -> BaseMachineT m TransactionTopology (SnapshotOutput tx) (Output tx)
-machine headId snapshots0 initial initialDecommit = BaseMachineT initialState action
+machine headId snapshots0 initial initialDecommit = BaseMachineT (withStateInspector (describeOnly (show . statePhase)) initialState) action
  where
   initialState
     | settling snapshots0 = InitialState $ Settling initial initialDecommit

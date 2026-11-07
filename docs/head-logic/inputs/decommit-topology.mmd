@@ -1,15 +1,12 @@
 stateDiagram-v2
 
 CheckPending
-CheckLedgerResult
 CheckOutputs
 CheckCapacity
 Broadcast
 Finished
-CheckPending --> CheckLedgerResult
+CheckPending --> CheckOutputs
 CheckPending --> Finished
-CheckLedgerResult --> CheckOutputs
-CheckLedgerResult --> Finished
 CheckOutputs --> CheckCapacity
 CheckOutputs --> Finished
 CheckCapacity --> Broadcast

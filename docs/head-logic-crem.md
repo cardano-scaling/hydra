@@ -15,6 +15,12 @@ Basic (DepositRegistry.machine node.deposits)
   `Sequential` Basic (Clock.machine node)
 ```
 
+`Machine.start` applies `withoutRendering` to this composition. The live runtime
+holds `Executable` leaves; the diagram generator uses the same `components`
+definition with its `Basic` rendering metadata. The nested coordinated runtime
+does the same. Every owner supplies a phase description; inspection leaves lazy
+payloads untouched and reports `NotInspected` for strictness checks.
+
 The first port is `DepositOutput`: the updated registry, the event, and any deposit
 value read **before** consumption. Lifecycle returns `HeadOutput`: its head state,
 the registry projection and the event. Clock assembles these with its clock and

@@ -4,15 +4,12 @@ CheckNumber
 FindSnapshot
 CollectSignature
 CheckComplete
-CheckVerification
 ConfirmAndContinue
 Finished
 CheckNumber --> FindSnapshot
 FindSnapshot --> CollectSignature
 FindSnapshot --> Finished
 CollectSignature --> CheckComplete
-CheckComplete --> CheckVerification
+CheckComplete --> ConfirmAndContinue
 CheckComplete --> Finished
-CheckVerification --> ConfirmAndContinue
-CheckVerification --> Finished
 ConfirmAndContinue --> Finished

@@ -127,7 +127,7 @@
   "docs/head-logic/workflows/req-tx-leader-topology.mmd": {
     "group": "Input and protocol phases",
     "title": "ReqTx phases",
-    "description": "The typed ReqTx topology generated from crem. Actions can terminate early with a Program wait or rejection; the graph does not enumerate guards inside each phase."
+    "description": "The ledger reply selects deposit checks or retry directly. Waits and rejection end the Program; guards inside an action are not separate graph vertices."
   },
   "docs/head-logic/workflows/req-sn-sign-topology.mmd": {
     "group": "Input and protocol phases",
@@ -137,12 +137,12 @@
   "docs/head-logic/workflows/ack-confirm-topology.mmd": {
     "group": "Input and protocol phases",
     "title": "AckSn phases",
-    "description": "The typed AckSn topology generated from crem. Actions can terminate early with a Program wait or rejection; the graph does not enumerate guards inside each phase."
+    "description": "A complete signature set is verified before entering confirmation. Rejection discards the staged signature; partial acknowledgements finish without entering confirmation."
   },
   "docs/head-logic/workflows/req-dec-record-topology.mmd": {
     "group": "Input and protocol phases",
     "title": "ReqDec phases",
-    "description": "The typed ReqDec topology generated from crem. Actions can terminate early with a Program wait or rejection; the graph does not enumerate guards inside each phase."
+    "description": "After commit and existing-decommit checks, the ledger reply enters output checks or follows the wait/invalidation path. A wait terminates the Program attempt; it is not a retained Crem phase."
   },
   "docs/head-logic/workflows/recover-post-topology.mmd": {
     "group": "Input and protocol phases",
@@ -397,12 +397,12 @@
   "docs/head-logic/inputs/decommit-topology.mmd": {
     "group": "Input and protocol phases",
     "title": "Client decommit phases",
-    "description": "Pending work, ledger result, output and capacity checks, and broadcast are separate typed phases."
+    "description": "Admission checks pending work and asks the ledger. An accepted transaction enters output and capacity checks before broadcast; an invalid one records its failure and finishes."
   },
   "docs/head-logic/inputs/settlement-topology.mmd": {
     "group": "Input and protocol phases",
     "title": "Settlement phases",
-    "description": "Record finalization, choose a candidate, verify it, and select work at the new version. Verification failure still reaches request selection."
+    "description": "Record finalization, then verify and optionally adopt a matching candidate in one action. Both verification outcomes reach request selection; invalid signatures do not undo finalization."
   },
   "docs/head-logic-machines/coordinated.mmd": {
     "group": "Retained-event machines",

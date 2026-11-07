@@ -7,6 +7,9 @@ import Hydra.Prelude hiding (keys)
 import Test.Hydra.Prelude (Spec, describe, it, shouldBe, shouldSatisfy)
 
 import Cardano.Binary (decodeFull', serialize')
+import Crem.Inspect (Component (..), checkStates, inspectStates)
+import Crem.StateInspection (StateCheck (NotInspected))
+import Crem.StateMachine qualified as Crem
 import Data.Map.Strict qualified as Map
 import Data.Sequence qualified as Seq
 import Hydra.API.ClientInput qualified as Client
@@ -38,6 +41,26 @@ import Test.Hydra.Tx.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, testHe
 
 spec :: Spec
 spec = describe "coordinated state owners" $ do
+  it "inspects retained owner phases without rebuilding the local UTxO" $ do
+    let initial = Crem.withoutRendering $ Coordinated.components open
+        (_, applied) = runIdentity $ Crem.run initial $ Coordinated.applyTransaction Scenario.transactionOne (error "inspection demands before UTxO") (error "inspection demands after UTxO")
+        (_, collecting) = runIdentity $ Crem.run applied $ Coordinated.acceptSnapshot candidate (Seq.singleton $ error "inspection rebuilds transactions") Nothing
+    inspectStates applied `shouldBe` [([LeftComponent], Just "AwaitingRequest"), ([RightComponent], Just "NoDecommit")]
+    inspectStates collecting `shouldBe` [([LeftComponent], Just "CollectingSignatures"), ([RightComponent], Just "NoDecommit")]
+    checks <- checkStates [] collecting
+    checks `shouldSatisfy` \case
+      [(_, NotInspected), (_, NotInspected)] -> True
+      _ -> False
+
+  it "inspects reservation and certificate phases after reconstruction" $ do
+    let pending = open{coordinatedHeadState = open.coordinatedHeadState{decommitTx = Just Scenario.transactionOne}}
+        certified = open{coordinatedHeadState = open.coordinatedHeadState{confirmedSnapshot = ConfirmedSnapshot candidate{utxoToDecommit = Just $ utxoRef 2} signatures}}
+        descriptions = map (inspectStates . Crem.withoutRendering . Coordinated.components) [open, pending, certified]
+    descriptions
+      `shouldBe` [ [([LeftComponent], Just "AwaitingRequest"), ([RightComponent], Just phaseName)]
+                 | phaseName <- ["NoDecommit", "DecommitPending", "AwaitingSettlement"]
+                 ]
+
   it "compares the independent ownership checks with Agda over bounded UTxOs" $
     forM_ [(reserved, available, confirmed, carried) | reserved <- subsequences [1, 2, 3], available <- subsequences [1, 2, 3], confirmed <- subsequences [1, 2, 3], carried <- [False, True]] $ \(reserved, available, confirmed, carried) -> do
       let tx = SimpleTx 3 (fromList $ fromInteger <$> reserved) (utxoRef 4)

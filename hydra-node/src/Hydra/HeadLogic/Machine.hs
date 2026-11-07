@@ -6,7 +6,7 @@ module Hydra.HeadLogic.Machine (Runtime, start, step, currentState, apply, compo
 
 import Hydra.Prelude
 
-import Crem.StateMachine (StateMachineT (..), run)
+import Crem.StateMachine (StateMachineT (..), run, withoutRendering)
 import Hydra.Chain.ChainState (IsChainState)
 import Hydra.HeadLogic.Machine.Clock qualified as Clock
 import Hydra.HeadLogic.Machine.DepositRegistry qualified as DepositRegistry
@@ -18,7 +18,7 @@ import Hydra.Node.State (NodeState (..))
 data Runtime tx = Runtime (NodeState tx) (StateMachineT Identity (StateChanged tx) (NodeState tx))
 
 start :: IsChainState tx => NodeState tx -> Runtime tx
-start node = Runtime node (components node)
+start node = Runtime node (withoutRendering $ components node)
 
 currentState :: Runtime tx -> NodeState tx
 currentState (Runtime node _) = node
@@ -39,6 +39,7 @@ step runtime@(Runtime node machine) event =
 -- | DepositOutput supplies the value before consumption. Lifecycle delegates
 -- open-head changes to Snapshots → Transactions, and returns HeadOutput. Clock
 -- assembles these projections with its own fields into the persisted NodeState.
+-- Diagrams use this same composition; 'start' drops the rendering dictionaries.
 components :: IsChainState tx => NodeState tx -> StateMachineT Identity (StateChanged tx) (NodeState tx)
 components node =
   Basic (DepositRegistry.machine node.deposits)

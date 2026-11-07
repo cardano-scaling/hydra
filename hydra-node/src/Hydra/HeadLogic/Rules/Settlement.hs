@@ -9,7 +9,6 @@
 -- at the new version. Finalization precedes adoption, even when verification fails.
 module Hydra.HeadLogic.Rules.Settlement (Phase (..), SettlementTopology, settlementTopology, sSettlementTopology, Settlement (..), machine, maybeRequestSnapshotAfterVersionBump) where
 
-import Crem.BaseMachine (BaseMachineT (..), InitialState (..))
 import Crem.Render.RenderableVertices (AllVertices (..), RenderableVertices)
 import Crem.Topology (
   STopology (STopology),
@@ -26,7 +25,6 @@ import Data.Singletons.Base.TH (
   type (:@#@$),
  )
 import Hydra.Chain.ChainState (IsChainState (..))
-import Hydra.HeadLogic.Error (LogicError)
 import Hydra.HeadLogic.Machine.Coordinated qualified as Coordinated
 import Hydra.HeadLogic.Program qualified as Program
 import Hydra.HeadLogic.Rules.Environment (RuleEnvironment (party))
@@ -37,7 +35,7 @@ import Hydra.HeadLogic.Rules.SnapshotRequest (
   decommitStatus,
   isLeader,
  )
-import Hydra.HeadLogic.Rules.SnapshotVerification (VerifiedSnapshot, verifyCandidate)
+import Hydra.HeadLogic.Rules.SnapshotVerification (verifyCandidate)
 import Hydra.HeadLogic.State (
   CoordinatedHeadState (
     CoordinatedHeadState,
@@ -59,8 +57,11 @@ import Hydra.HeadLogic.State (
 import Hydra.HeadLogic.Workflow (
   Transition,
   Workflow,
+  choose,
   continue,
   finish,
+  next,
+  workflow,
  )
 import Hydra.Node.State (Deposit (deposited), PendingDeposits)
 import Hydra.Prelude hiding (State, state)
@@ -72,14 +73,13 @@ import Hydra.Tx.Snapshot (Snapshot (..), SnapshotNumber, SnapshotVersion, getSna
 
 $( singletons
     [d|
-      data Phase = RecordSettlement | ChooseCandidate | CheckVerification | RequestNext | Finished
+      data Phase = RecordSettlement | ChooseCandidate | RequestNext | Finished
 
       settlementTopology :: Topology Phase
       settlementTopology =
         Topology
           [ (RecordSettlement, [ChooseCandidate])
-          , (ChooseCandidate, [CheckVerification, RequestNext])
-          , (CheckVerification, [RequestNext])
+          , (ChooseCandidate, [RequestNext])
           , (RequestNext, [Finished])
           ]
       |]
@@ -95,13 +95,19 @@ data Settlement tx = Increment (TxIdType tx) | Decrement ~(UTxOType tx)
 data State tx phase where
   Record :: State tx 'RecordSettlement
   Candidate :: Coordinated.Runtime tx -> State tx 'ChooseCandidate
-  Verification :: Coordinated.Runtime tx -> Snapshot tx -> Either (LogicError tx) (VerifiedSnapshot tx) -> State tx 'CheckVerification
   Request :: Coordinated.Runtime tx -> Snapshot tx -> SeenSnapshot tx -> State tx 'RequestNext
   Done :: State tx 'Finished
 
+statePhase :: State tx phase -> Phase
+statePhase = \case
+  Record -> RecordSettlement
+  Candidate{} -> ChooseCandidate
+  Request{} -> RequestNext
+  Done -> Finished
+
 machine :: forall tx ledger signing. IsChainState tx => RuleEnvironment -> PendingDeposits tx -> OpenState tx -> ChainStateType tx -> SnapshotVersion -> Settlement tx -> SnapshotNumber -> MultiSignature (Snapshot tx) -> Workflow tx ledger signing SettlementTopology
 machine env pendingDeposits os@OpenState{parameters, coordinatedHeadState} newChainState newVersion settlement observedNumber signatures =
-  BaseMachineT (InitialState Record) $ \state () -> step state
+  workflow (show . statePhase) Record step
  where
   step :: State tx from -> Transition tx ledger signing SettlementTopology (State tx) from
   step = \case
@@ -112,15 +118,18 @@ machine env pendingDeposits os@OpenState{parameters, coordinatedHeadState} newCh
       SeenSnapshot{snapshot}
         | snapshot.number == observedNumber
         , snapshot.version + 1 == newVersion
-        , matchesSettlement snapshot -> continue (Verification runtime snapshot) $ do
+        , matchesSettlement snapshot -> choose $ do
             void $ Program.decide "settlement matches the seen snapshot" True
-            verifyCandidate vkeys seenSnapshot signatures
+            verified <- verifyCandidate vkeys seenSnapshot signatures
+            case verified of
+              Right evidence -> do
+                void $ Program.decide "settlement signatures verify" True
+                adopted <- Coordinated.stage runtime $ Coordinated.adoptSnapshot evidence
+                pure $ next $ Request adopted snapshot (LastSeenSnapshot snapshot.number)
+              Left _ -> do
+                void $ Program.decide "settlement signatures verify" False
+                pure $ next $ Request runtime previous seenSnapshot
       _ -> continue (const $ Request runtime previous seenSnapshot) $ Program.decide "settlement matches the seen snapshot" False
-    Verification runtime snapshot verified -> case verified of
-      Right evidence -> continue (\next -> Request next snapshot (LastSeenSnapshot snapshot.number)) $ do
-        void $ Program.decide "settlement signatures verify" True
-        Coordinated.stage runtime $ Coordinated.adoptSnapshot evidence
-      Left _ -> continue (const $ Request runtime previous seenSnapshot) $ Program.decide "settlement signatures verify" False
     Request runtime snapshot seen ->
       continue (const Done) $
         maybeRequestSnapshotAfterVersionBump runtime parameters env.party (snapshot.number + 1) (requestOn runtime snapshot) version newVersion seen

@@ -52,10 +52,15 @@ programs inside the input workflow. There is no extra machine around a single
 broadcast or state change. `SideLoad` uses `ExceptT` for sequential requirements;
 a failure becomes the existing client effect, not a protocol `Reject`.
 
-Crem's `ActionResult` selects its destination type outside the action. A primitive
-reply therefore enters a result phase before the rule branches on it.
-`ReqTx.CheckLedgerResult` is one example. `AckSn.ConfirmAndContinue` carries a
-private `VerifiedRound`, built only after successful verification.
+The [local Crem API experiment](head-logic/crem-api-sketch.md) lets a Program reply
+select a typed destination with `Workflow.choose` and `Workflow.next`. ReqTx moves
+from its output check straight to deposit checks or retry. AckSn moves from
+verification straight to confirmation, carrying a private `VerifiedSnapshot`
+built only by successful verification. Decommit, ReqDec and Settlement also handle
+their primitive replies in the action that requests them. `Workflow.continue`
+still suits actions with a fixed destination. All eight workflows use
+`Workflow.workflow` for their initial phase, optional descriptions and common
+completion convention.
 
 ## Program and interpretation
 

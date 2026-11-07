@@ -22,6 +22,7 @@ the guarantees enforced by the rules and the recovery policies they retain.
 - [Performance](head-logic/measurements.md): complete rounds, event application, and three-node throughput.
 - [Validation](head-logic/validation.md): test coverage, verification results, and commands.
 - [Adversarial review](head-logic/adversarial-review.md): findings, their repairs, remaining maintenance costs, and security limits.
+- [Local Crem API experiment](head-logic/crem-api-sketch.md): the library changes used throughout the workflows and state owners, exact comparisons, and a reproducible patch.
 
 ## Code to start with
 
@@ -29,7 +30,7 @@ Read these in order:
 
 1. [`HeadLogic.update` and `updateProgram`](../hydra-node/src/Hydra/HeadLogic.hs) connect the node to the workflow and interpreter.
 2. [`Rules/Input.hs`](../hydra-node/src/Hydra/HeadLogic/Rules/Input.hs) checks client input size and synchronisation before routing by head state.
-3. [`Rules/ReqTx.hs`](../hydra-node/src/Hydra/HeadLogic/Rules/ReqTx.hs) is a complete rule. Its actions use ordinary monadic Haskell; the phase types carry the ledger result between steps.
+3. [`Rules/ReqTx.hs`](../hydra-node/src/Hydra/HeadLogic/Rules/ReqTx.hs) is a complete rule. Its actions use ordinary monadic Haskell; a ledger reply selects the next phase and the data it carries.
 4. [`Workflow.hs`](../hydra-node/src/Hydra/HeadLogic/Workflow.hs) drives crem until completion. [`Program.hs`](../hydra-node/src/Hydra/HeadLogic/Program.hs) defines the instructions; [`Interpreter.hs`](../hydra-node/src/Hydra/HeadLogic/Interpreter.hs) supplies primitives and buffers events and effects.
 5. [`Machine/Coordinated.hs`](../hydra-node/src/Hydra/HeadLogic/Machine/Coordinated.hs) composes the snapshot and transaction owners. ReqTx, snapshot, settlement and side-load rules stage their changes through these same transitions.
 6. [`Machine.hs`](../hydra-node/src/Hydra/HeadLogic/Machine.hs) connects deposit ownership, lifecycle and clock; the open lifecycle state contains the snapshot/transaction composition. Recovery uses these machines without re-running input rules or cryptography.

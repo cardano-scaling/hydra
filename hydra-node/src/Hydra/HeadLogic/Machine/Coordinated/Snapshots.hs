@@ -10,8 +10,9 @@ module Hydra.HeadLogic.Machine.Coordinated.Snapshots (snapshotTopology, sSnapsho
 
 import Hydra.Prelude hiding (State, state)
 
-import Crem.BaseMachine (ActionResult, BaseMachineT (..), InitialState (..), pureResult)
+import Crem.BaseMachine (ActionResult, BaseMachineT (..), InitialState (..), pureResult, withStateInspector)
 import Crem.Render.RenderableVertices (AllVertices (..), RenderableVertices)
+import Crem.StateInspection (describeOnly)
 import Crem.Topology (AllowedTransition, STopology (STopology), Topology (Topology), TopologySym0)
 import Data.Map.Strict qualified as Map
 import Data.Singletons.Base.TH (NilSym0, SList (SCons, SNil), STuple2 (STuple2), Tuple2Sym0, singletons, type (:@#@$))
@@ -61,8 +62,14 @@ data State tx phase where
   Requested :: Context tx -> SnapshotNumber -> SnapshotNumber -> State tx 'RequestSent
   Collecting :: Context tx -> Snapshot tx -> Map Party (Signature (Snapshot tx)) -> ~ByteString -> State tx 'CollectingSignatures
 
+statePhase :: State tx phase -> Phase
+statePhase = \case
+  Idle{} -> AwaitingRequest
+  Requested{} -> RequestSent
+  Collecting{} -> CollectingSignatures
+
 machine :: forall tx m. (IsChainState tx, Applicative m) => HeadId -> [VerificationKey HydraKey] -> SnapshotState tx -> BaseMachineT m SnapshotTopology (Command tx) (SnapshotOutput tx)
-machine headId committee initial = BaseMachineT (restore initial) action
+machine headId committee initial = BaseMachineT (withStateInspector (describeOnly (show . statePhase)) $ restore initial) action
  where
   action :: forall from. State tx from -> Command tx -> ActionResult m SnapshotTopology (State tx) from (SnapshotOutput tx)
   action state command = case state of

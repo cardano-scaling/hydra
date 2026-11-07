@@ -15,6 +15,9 @@ import Test.Hydra.Prelude (
   shouldSatisfy,
  )
 
+import Crem.Inspect (checkStates, inspectStates)
+import Crem.StateInspection (StateCheck (NotInspected))
+import Crem.StateMachine qualified as Crem
 import Data.Map.Strict qualified as Map
 import Hydra.HeadLogic (
   ClosedState (parameters),
@@ -33,16 +36,25 @@ import Hydra.HeadLogic (
   update,
  )
 import Hydra.HeadLogic.Interpreter qualified as Interpreter
+import Hydra.HeadLogic.Program qualified as Program
+import Hydra.HeadLogic.Rules.Decommit qualified as Decommit
+import Hydra.HeadLogic.Rules.Input qualified as InputRule
+import Hydra.HeadLogic.Rules.ReqDec qualified as ReqDec
 import Hydra.HeadLogic.Rules.ReqTx qualified as ReqTx
 import Hydra.HeadLogic.State.Operations (settlingDecommit)
+import Hydra.HeadLogic.Trace (TraceStep (Decided))
 import Hydra.HeadLogic.Workflow qualified as Workflow
 import Hydra.Ledger.Simple (SimpleTx, simpleLedger)
 import Hydra.Network.Message (Message (ReqDec, ReqSn, decommitTx), NetworkEvent (ReceivedMessage))
-import Hydra.Node.State (NodeState (..), initialChainTime, trackedFromPending)
+import Hydra.Node.State (ChainPointTime (currentSlot), NodeState (..), initialChainTime, trackedFromPending)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.Snapshot (Snapshot (headId, utxoToDecommit), getSnapshot)
 import Test.Hydra.HeadLogic.CoordinatedAudit qualified as Audit
-import Test.Hydra.HeadLogic.Crem.Comparison (Example (..), Reference (..), compareExample, comparePrograms, examples)
+import Test.Hydra.HeadLogic.Crem.BeforeApi.Decommit qualified as BeforeDecommit
+import Test.Hydra.HeadLogic.Crem.BeforeApi.ReqDec qualified as BeforeReqDec
+import Test.Hydra.HeadLogic.Crem.BeforeApi.ReqTx qualified as BeforeReqTx
+import Test.Hydra.HeadLogic.Crem.BeforeApi.Workflow qualified as BeforeWorkflow
+import Test.Hydra.HeadLogic.Crem.Comparison (Example (..), Reference (..), apiExamples, compareExample, comparePrograms, compareProgramsExactly, examples)
 import Test.Hydra.HeadLogic.Debugger qualified as Debug
 import Test.Hydra.HeadLogic.Input ()
 import Test.Hydra.HeadLogic.InputComparison qualified as Inputs
@@ -55,6 +67,73 @@ import Test.QuickCheck (counterexample, elements, forAll, resize, vectorOf, with
 
 spec :: Spec
 spec = describe "free programs and crem phases" $ do
+  describe "local Crem API" $ do
+    forM_ [(Scenario.transactionOne, "CheckDeposits"), (Scenario.transactionTwo, "RetryOrInvalidate")] $ \(tx, phase) ->
+      it ("inspects the ledger-selected phase: " <> toString phase) $ do
+        let before = Scenario.initialNode
+            machine = Crem.Executable $ ReqTx.machine (ruleEnvironment $ Scenario.environment 0) before.chainPointTime (Scenario.openState before) 1 mempty tx
+            program = do
+              (_, outputCheck) <- Crem.run machine ()
+              (_, selected) <- Crem.run outputCheck ()
+              void $ Program.decide "selected phase" (inspectStates selected == [([], Just phase)])
+            (_, steps) = Interpreter.traceProgram simpleLedger program
+        steps `shouldSatisfy` elem (Decided "selected phase" True)
+        checks <- checkStates [] machine
+        checks `shouldSatisfy` \case
+          [([], NotInspected)] -> True
+          _ -> False
+
+    forM_ apiExamples $ \(Example name before config baseline program _) ->
+      it (toString name <> ": preserves every instruction and outcome") $
+        case baseline of
+          FrozenProgram reference -> compareProgramsExactly config before reference program `shouldSatisfy` isRight
+          FrozenOutcome{} -> expectationFailure "Crem API comparison requires an instruction baseline"
+
+    it "preserves the complete input program when dropping rendering constraints" $
+      forM_ Inputs.examples $ \(name, before, input) -> do
+        let env = Scenario.environment 0
+            machine = InputRule.machine (ruleEnvironment env) initialChainTime before input
+            result = compareProgramsExactly (Interpreter.snapshotConfig env simpleLedger) before (BeforeWorkflow.run machine) (Workflow.run machine)
+        either (expectationFailure . toString . ((name <> ": ") <>)) (const $ pure ()) result
+
+    prop "Decommit and ReqDec preserve complete outcomes and traces" $
+      withMaxSuccess 300 $
+        forAll ((,,,) <$> resize 5 arbitrary <*> elements [0, 1, 5] <*> resize 5 arbitrary <*> resize 5 arbitrary) $
+          \(open, ttl, pending, tx) ->
+            let st = open{parameters = open.parameters{parties = Scenario.scenarioParties}} :: OpenState SimpleTx
+                before = Scenario.initialNode{headState = Open st, deposits = trackedFromPending pending}
+                env = ruleEnvironment $ Scenario.environment 0
+                compareRule = compareProgramsExactly (Interpreter.ledgerConfig simpleLedger) before
+                result = do
+                  void $
+                    compareRule
+                      (BeforeWorkflow.run $ BeforeDecommit.machine st.headId before.chainPointTime.currentSlot st.coordinatedHeadState tx)
+                      (Workflow.run $ Decommit.machine st.headId before.chainPointTime.currentSlot st.coordinatedHeadState tx)
+                  compareRule
+                    (BeforeWorkflow.run $ BeforeReqDec.machine env ttl before.chainPointTime pending st tx)
+                    (Workflow.run $ ReqDec.machine env ttl before.chainPointTime pending st tx)
+             in counterexample (show result) $ isRight result
+
+    prop "ReqTx preserves complete outcomes and traces including decommit state" $
+      withMaxSuccess 1000 $
+        forAll ((,,,,) <$> elements [0, 1, 2] <*> resize 5 arbitrary <*> elements [0, 1, 5] <*> resize 5 arbitrary <*> resize 5 arbitrary) $
+          \(actor, open, ttl, pending, tx) ->
+            let st = open{parameters = open.parameters{parties = Scenario.scenarioParties}} :: OpenState SimpleTx
+                before = Scenario.initialNode{headState = Open st, deposits = trackedFromPending pending}
+                env = ruleEnvironment $ Scenario.environment actor
+                result =
+                  compareProgramsExactly
+                    (Interpreter.ledgerConfig simpleLedger)
+                    before
+                    (BeforeWorkflow.run $ BeforeReqTx.machine env before.chainPointTime st ttl pending tx)
+                    (Workflow.run $ ReqTx.machine env before.chainPointTime st ttl pending tx)
+             in counterexample (show result) $ isRight result
+
+    prop "dependencies, expiry and duplicates preserve every prefix" $
+      forAll (vectorOf 20 $ (,) <$> elements [Scenario.transactionOne, Scenario.transactionTwo] <*> elements [0, 1]) $ \inputs ->
+        let result = foldlM compareApiInput Scenario.initialNode inputs
+         in counterexample (show result) $ isRight result
+
   forM_ examples $ \fixture@(Example name _ _ _ _ _) ->
     it (toString name <> ": agrees with its frozen baseline") $
       compareExample fixture `shouldSatisfy` isRight
@@ -119,6 +198,14 @@ spec = describe "free programs and crem phases" $ do
       let result = foldlM compareInput Scenario.initialNode inputs
        in counterexample (show result) $ isRight result
  where
+  compareApiInput before (tx, ttl) = do
+    let st = Scenario.openState before
+        env = ruleEnvironment $ Scenario.environment 0
+        reference = BeforeWorkflow.run $ BeforeReqTx.machine env before.chainPointTime st ttl mempty tx
+        actual = Workflow.run $ ReqTx.machine env before.chainPointTime st ttl mempty tx
+    (outcome, _) <- compareProgramsExactly (Interpreter.ledgerConfig simpleLedger) before reference actual
+    pure $ aggregateState before outcome
+
   -- The refactor commit compares the full domain. These behavior changes have
   -- independent sequence/audit tests; keep exact legacy comparisons elsewhere.
   compatibleWithLegacy :: NodeState SimpleTx -> Input SimpleTx -> Bool

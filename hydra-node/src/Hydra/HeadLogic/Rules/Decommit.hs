@@ -6,7 +6,6 @@
 -- | Client admission for a decommit. Receiving ReqDec reserves its inputs later.
 module Hydra.HeadLogic.Rules.Decommit (Phase (..), DecommitTopology, decommitTopology, sDecommitTopology, machine) where
 
-import Crem.BaseMachine (BaseMachineT (..), InitialState (..))
 import Crem.Render.RenderableVertices (AllVertices (..), RenderableVertices)
 import Crem.Topology (
   STopology (STopology),
@@ -31,8 +30,11 @@ import Hydra.HeadLogic.State.Operations (settledUTxO, settlingDecommit)
 import Hydra.HeadLogic.Workflow (
   Transition,
   Workflow,
+  choose,
   continue,
   finish,
+  next,
+  workflow,
  )
 import Hydra.Ledger (ValidationError (..))
 import Hydra.Network.Message (Message (..))
@@ -42,13 +44,12 @@ import Hydra.Tx.Snapshot (getSnapshot)
 
 $( singletons
     [d|
-      data Phase = CheckPending | CheckLedgerResult | CheckOutputs | CheckCapacity | Broadcast | Finished
+      data Phase = CheckPending | CheckOutputs | CheckCapacity | Broadcast | Finished
 
       decommitTopology :: Topology Phase
       decommitTopology =
         Topology
-          [ (CheckPending, [CheckLedgerResult, Finished])
-          , (CheckLedgerResult, [CheckOutputs, Finished])
+          [ (CheckPending, [CheckOutputs, Finished])
           , (CheckOutputs, [CheckCapacity, Finished])
           , (CheckCapacity, [Broadcast, Finished])
           , (Broadcast, [Finished])
@@ -63,15 +64,22 @@ deriving via AllVertices Phase instance RenderableVertices Phase
 
 data State tx phase where
   Pending :: State tx 'CheckPending
-  LedgerResult :: Either ValidationError (UTxOType tx) -> State tx 'CheckLedgerResult
   Outputs :: ~(UTxOType tx) -> State tx 'CheckOutputs
   Capacity :: ~(UTxOType tx) -> State tx 'CheckCapacity
   Send :: State tx 'Broadcast
   Done :: State tx 'Finished
 
+statePhase :: State tx phase -> Phase
+statePhase = \case
+  Pending -> CheckPending
+  Outputs{} -> CheckOutputs
+  Capacity{} -> CheckCapacity
+  Send -> Broadcast
+  Done -> Finished
+
 machine :: forall tx signing. IsTx tx => HeadId -> ChainSlot -> CoordinatedHeadState tx -> tx -> Workflow tx 'True signing DecommitTopology
 machine headId currentSlot CoordinatedHeadState{decommitTx = pending, localUTxO, version, confirmedSnapshot} decommitTx =
-  BaseMachineT (InitialState Pending) $ \state () -> step state
+  workflow (show . statePhase) Pending step
  where
   step :: State tx from -> Transition tx 'True signing DecommitTopology (State tx) from
   step = \case
@@ -82,11 +90,14 @@ machine headId currentSlot CoordinatedHeadState{decommitTx = pending, localUTxO,
       Nothing | settlingDecommit version confirmedSnapshot -> continue (const Done) $ do
         void $ Program.decide "no decommit is in flight" False
         invalid DecommitTxInvalid{localUTxO, validationError = ValidationError "confirmed decommit awaits settlement"}
-      Nothing -> continue LedgerResult $ do
+      Nothing -> choose $ do
         void $ Program.decide "no decommit is in flight" True
-        Program.applyTransaction currentSlot localUTxO decommitTx
-    LedgerResult (Left validationError) -> continue (const Done) $ invalid DecommitTxInvalid{localUTxO, validationError}
-    LedgerResult (Right after) -> continue (const $ Outputs after) $ pure ()
+        result <- Program.applyTransaction currentSlot localUTxO decommitTx
+        case result of
+          Right after -> pure $ next $ Outputs after
+          Left validationError -> do
+            invalid DecommitTxInvalid{localUTxO, validationError}
+            pure $ next Done
     Outputs after
       | utxoFromTx decommitTx == mempty -> continue (const Done) $ do
           void $ Program.decide "decommit produces outputs" False

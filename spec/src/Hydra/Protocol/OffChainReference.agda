@@ -764,3 +764,32 @@ missing-carried-payload-blocks-request = refl
 
 {-# COMPILE GHC carriedDecommitPayloadRef as hsCarriedDecommitPayloadRef #-}
 {-# COMPILE GHC carriedDecommitRequestRef as hsCarriedDecommitRequestRef #-}
+
+-- Reply-handling Crem phases are internal to Haskell. Removing them must not
+-- change these observable terminal boundaries. These are concrete bounded
+-- equations, not a proof about the Haskell interpreter or primitive effects.
+reqTx-wait-retains-receipt :
+  reqTxOutcomeRef false 1 false 2 1 0 ≡
+    reqTxOutcomeᶜ reqTxWaitingᶜ (reqTxReceivedᶜ ∷ []) []
+reqTx-wait-retains-receipt = refl
+
+invalid-final-ack-discards-staged-signature :
+  ackSnOutcomeRef collectingSignaturesᶜ 1 1 (0 ∷ 1 ∷ []) 2 2 false true 0 ≡
+    snapshotRejectedᶜ invalidSignatureSetᶜ
+invalid-final-ack-discards-staged-signature = refl
+
+client-decommit-checks-ledger-before-empty-outputs :
+  clientDecommitRef false false false ≡ 1
+client-decommit-checks-ledger-before-empty-outputs = refl
+
+reqDec-ledger-failure-waits-with-budget :
+  reqDecOutcomeRef false false false false 1 false 3 1 1 ≡ decWaitLedgerᶜ
+reqDec-ledger-failure-waits-with-budget = refl
+
+settlement-invalid-signatures-prevent-adoption :
+  adoptSettlementRef 1 1 0 1 true false ≡ false
+settlement-invalid-signatures-prevent-adoption = refl
+
+-- Version advancement is independent of the adoption predicate above.
+settlement-still-advances-version : settlementVersionRef 0 1 ≡ 1
+settlement-still-advances-version = refl

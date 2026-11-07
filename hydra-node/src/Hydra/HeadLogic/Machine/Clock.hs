@@ -6,6 +6,7 @@ module Hydra.HeadLogic.Machine.Clock (machine) where
 import Hydra.Prelude
 
 import Crem.BaseMachine (BaseMachineT (..), InitialState (..), pureResult)
+import Crem.StateInspection (describeOnly)
 import Crem.Topology (TrivialTopology)
 import Hydra.Chain.ChainState (IsChainState (chainPointSlot), chainStateSlot)
 import Hydra.HeadLogic.Machine.Types (HeadOutput (..))
@@ -16,7 +17,7 @@ data Clock phase where
   Clock :: Bool -> ChainPointTime -> Clock '()
 
 machine :: (IsChainState tx, Applicative m) => NodeState tx -> BaseMachineT m (TrivialTopology @()) (HeadOutput tx) (NodeState tx)
-machine initial = BaseMachineT (InitialState $ Clock synced initial.chainPointTime) $ \(Clock wasSynced clock) HeadOutput{event, headState, deposits} ->
+machine initial = BaseMachineT (InspectableState (describeOnly $ const "ObservedTime") $ Clock synced initial.chainPointTime) $ \(Clock wasSynced clock) HeadOutput{event, headState, deposits} ->
   let (isSynced, next) = case event of
         HeadOpened{chainState} -> (wasSynced, clock{currentSlot = chainStateSlot chainState})
         TickObserved{chainPoint, chainTime} -> (wasSynced, clock{currentSlot = chainPointSlot chainPoint, currentChainTime = chainTime})

@@ -9,7 +9,6 @@
 -- Size checks precede any operation that could echo an unsafe client input.
 module Hydra.HeadLogic.Rules.Input (Phase (..), InputTopology, inputTopology, sInputTopology, machine) where
 
-import Crem.BaseMachine (BaseMachineT (..), InitialState (..))
 import Crem.Render.RenderableVertices (AllVertices (..), RenderableVertices)
 import Crem.Topology (
   STopology (STopology),
@@ -47,6 +46,7 @@ import Hydra.HeadLogic.Workflow (
   Workflow,
   continue,
   finish,
+  workflow,
  )
 import Hydra.Node.State (ChainPointTime (..), NodeState (..), SyncedStatus (..), syncedStatus)
 import Hydra.Prelude hiding (State, state)
@@ -83,8 +83,18 @@ data State tx phase where
   InFanout :: PartialFanoutState tx -> State tx 'HandleFanout
   Done :: State tx 'Finished
 
+statePhase :: State tx phase -> Phase
+statePhase = \case
+  CheckSize -> CheckInputSize
+  CheckSync -> CheckSynchronisation
+  InIdle{} -> HandleIdle
+  InOpen{} -> HandleOpen
+  InClosed{} -> HandleClosed
+  InFanout{} -> HandleFanout
+  Done -> Finished
+
 machine :: forall tx. IsChainState tx => RuleEnvironment -> UTCTime -> NodeState tx -> Input tx -> Workflow tx 'True 'True InputTopology
-machine env now nodeState input = BaseMachineT (InitialState CheckSize) $ \state () -> step state
+machine env now nodeState input = workflow (show . statePhase) CheckSize step
  where
   step :: State tx from -> Transition tx 'True 'True InputTopology (State tx) from
   step = \case

@@ -29,7 +29,7 @@ module Hydra.HeadLogic.Machine.Coordinated (
 
 import Hydra.Prelude
 
-import Crem.StateMachine (StateMachineT (..), run)
+import Crem.StateMachine (StateMachineT (..), run, withoutRendering)
 import Hydra.Chain.ChainState (IsChainState (ChainStateType), chainStateSlot)
 import Hydra.HeadLogic.Error (LogicError (AssertionFailed))
 import Hydra.HeadLogic.Machine.Coordinated.Snapshots qualified as Snapshots
@@ -54,10 +54,11 @@ import Hydra.Tx.Snapshot (Snapshot, SnapshotNumber, SnapshotVersion)
 data Runtime tx = Runtime ~(CoordinatedHeadState tx) (StateMachineT Identity (Command tx) (Output tx))
 
 start :: IsChainState tx => OpenState tx -> Runtime tx
-start os = Runtime os.coordinatedHeadState (components os)
+start os = Runtime os.coordinatedHeadState (withoutRendering $ components os)
 
 -- | The ports enforce the direction of ownership: snapshots can request a
 -- rebase; transactions return their own state after performing it.
+-- Diagrams use this same composition; 'start' drops the rendering dictionaries.
 components :: IsChainState tx => OpenState tx -> StateMachineT Identity (Command tx) (Output tx)
 components os =
   Basic (Snapshots.machine os.headId (vkey <$> os.parameters.parties) snapshots)

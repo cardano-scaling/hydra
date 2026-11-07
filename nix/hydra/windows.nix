@@ -1,6 +1,6 @@
 # Cross-build the node on Linux; no Windows development environment is required.
 { self, inputs, ... }: {
-  perSystem = { pkgs, lib, system, compiler, inputMap, ... }:
+  perSystem = { pkgs, lib, system, compiler, inputMap, cremApiSketchModule, ... }:
     let
       etcdWindows = pkgs.etcd_3_6.deps.etcdserver.overrideAttrs (old: {
         pname = "etcd-windows";
@@ -53,6 +53,7 @@
             flags: -simd
         '';
         modules = [
+          cremApiSketchModule
           {
             reinstallableLibGhc = false;
             doHaddock = false;

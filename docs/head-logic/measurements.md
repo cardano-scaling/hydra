@@ -10,9 +10,15 @@ The subsequent rebase onto master `0aa8987dc` preserves the measured production
 and benchmark code. The recorded source revisions and binary hashes below refer
 to the actual measurement runs; rebasing did not produce new measurements.
 
+The later confirmation repairs and [local Crem API experiment](crem-api-sketch.md)
+have not been measured end to end. The API experiment removes five reply-handling
+phases, adds optional phase descriptions and drops rendering metadata from live
+owner compositions. The figures below predate those changes; fewer phases alone
+do not establish a throughput improvement.
+
 ## What does this cost in TPS?
 
-**The current design has a measurable cost in the small-Head cluster workload:
+**The measured revision has a measurable cost in the small-Head cluster workload:
 3.54–7.82% lower TPS across two balanced pairs.** Allocation per confirmed
 transaction rises by 12.25–14.58%. This exceeds the provisional 5% investigation
 threshold in one timing pair and both allocation pairs. The range describes

@@ -11,7 +11,6 @@ module Hydra.HeadLogic.Rules.AckSn (Phase (..), AckTopology, ackTopology, sAckTo
 
 import Hydra.Prelude hiding (State, round, state)
 
-import Crem.BaseMachine (BaseMachineT (..), InitialState (..))
 import Crem.Render.RenderableVertices (AllVertices (..), RenderableVertices)
 import Crem.Topology (
   STopology (STopology),
@@ -66,8 +65,11 @@ import Hydra.HeadLogic.State (
 import Hydra.HeadLogic.Workflow (
   Transition,
   Workflow,
+  choose,
   continue,
   finish,
+  next,
+  workflow,
  )
 import Hydra.Node.State (ChainPointTime (..), Deposit (..), PendingDeposits)
 import Hydra.Tx (txId)
@@ -78,7 +80,7 @@ import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber)
 
 $( singletons
     [d|
-      data Phase = CheckNumber | FindSnapshot | CollectSignature | CheckComplete | CheckVerification | ConfirmAndContinue | Finished
+      data Phase = CheckNumber | FindSnapshot | CollectSignature | CheckComplete | ConfirmAndContinue | Finished
 
       ackTopology :: Topology Phase
       ackTopology =
@@ -86,8 +88,7 @@ $( singletons
           [ (CheckNumber, [FindSnapshot])
           , (FindSnapshot, [CollectSignature, Finished])
           , (CollectSignature, [CheckComplete])
-          , (CheckComplete, [CheckVerification, Finished])
-          , (CheckVerification, [ConfirmAndContinue, Finished])
+          , (CheckComplete, [ConfirmAndContinue, Finished])
           , (ConfirmAndContinue, [Finished])
           ]
       |]
@@ -104,13 +105,21 @@ data State tx phase where
   Find :: State tx 'FindSnapshot
   Collect :: Snapshot tx -> Map Party (Signature (Snapshot tx)) -> State tx 'CollectSignature
   Collected :: Snapshot tx -> Map Party (Signature (Snapshot tx)) -> Coordinated.Runtime tx -> State tx 'CheckComplete
-  VerificationResult :: Coordinated.Runtime tx -> Either (LogicError tx) (VerifiedSnapshot tx) -> State tx 'CheckVerification
   Confirm :: VerifiedSnapshot tx -> Coordinated.Runtime tx -> State tx 'ConfirmAndContinue
   Done :: State tx 'Finished
 
+statePhase :: State tx phase -> Phase
+statePhase = \case
+  NumberCheck -> CheckNumber
+  Find -> FindSnapshot
+  Collect{} -> CollectSignature
+  Collected{} -> CheckComplete
+  Confirm{} -> ConfirmAndContinue
+  Done -> Finished
+
 machine :: forall tx ledger signing. IsChainState tx => RuleEnvironment -> ChainPointTime -> PendingDeposits tx -> OpenState tx -> Party -> Signature (Snapshot tx) -> SnapshotNumber -> Workflow tx ledger signing AckTopology
 machine env ChainPointTime{currentChainTime} pendingDeposits openState otherParty signature sn =
-  BaseMachineT (InitialState NumberCheck) $ \state () -> step state
+  workflow (show . statePhase) NumberCheck step
  where
   step :: State tx from -> Transition tx ledger signing AckTopology (State tx) from
   step = \case
@@ -133,16 +142,16 @@ machine env ChainPointTime{currentChainTime} pendingDeposits openState otherPart
       if Map.keysSet allSignatures == Set.fromList parties
         then
           let signatures = aggregateInOrder allSignatures parties
-           in continue (VerificationResult runtime) $ do
+           in choose $ do
                 void $ Program.decide "all parties have signed" True
-                verifyCandidate vkeys (Coordinated.currentState runtime).seenSnapshot signatures
+                verified <- verifyCandidate vkeys (Coordinated.currentState runtime).seenSnapshot signatures
+                case verified of
+                  Right signed -> pure $ next $ Confirm signed runtime
+                  Left err -> Program.reject err
         else continue (const Done) $ do
           void $ Program.decide "all parties have signed" False
           -- The existing partial-ack path records this event twice.
           void $ Coordinated.stage runtime $ Coordinated.recordSignature snapshot.number otherParty signature
-    VerificationResult runtime verified -> case verified of
-      Right signed -> continue (const $ Confirm signed runtime) $ pure ()
-      Left err -> continue (const Done) $ Program.reject err
     Confirm signed runtime -> continue (const Done) $ do
       confirmedRuntime <- Coordinated.stage runtime $ Coordinated.confirmSnapshot signed
       let snapshot = verifiedSnapshot signed

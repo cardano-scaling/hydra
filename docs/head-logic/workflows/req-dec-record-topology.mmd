@@ -2,17 +2,14 @@ stateDiagram-v2
 
 CheckCommit
 CheckExistingDecommit
-CheckLedgerResult
 CheckOutputs
 CheckCapacity
 RecordAndRequest
 Finished
 CheckCommit --> CheckExistingDecommit
 CheckCommit --> Finished
-CheckExistingDecommit --> CheckLedgerResult
+CheckExistingDecommit --> CheckOutputs
 CheckExistingDecommit --> Finished
-CheckLedgerResult --> CheckOutputs
-CheckLedgerResult --> Finished
 CheckOutputs --> CheckCapacity
 CheckOutputs --> Finished
 CheckCapacity --> RecordAndRequest

@@ -1682,3 +1682,31 @@ d_settlement'45'does'45'not'45'revive'45'payload_782 = erased
 d_missing'45'carried'45'payload'45'blocks'45'request_784 ::
   MAlonzo.Code.Agda.Builtin.Equality.T__'8801'__12
 d_missing'45'carried'45'payload'45'blocks'45'request_784 = erased
+-- Hydra.Protocol.OffChainReference.reqTx-wait-retains-receipt
+d_reqTx'45'wait'45'retains'45'receipt_786 ::
+  MAlonzo.Code.Agda.Builtin.Equality.T__'8801'__12
+d_reqTx'45'wait'45'retains'45'receipt_786 = erased
+-- Hydra.Protocol.OffChainReference.invalid-final-ack-discards-staged-signature
+d_invalid'45'final'45'ack'45'discards'45'staged'45'signature_788 ::
+  MAlonzo.Code.Agda.Builtin.Equality.T__'8801'__12
+d_invalid'45'final'45'ack'45'discards'45'staged'45'signature_788
+  = erased
+-- Hydra.Protocol.OffChainReference.client-decommit-checks-ledger-before-empty-outputs
+d_client'45'decommit'45'checks'45'ledger'45'before'45'empty'45'outputs_790 ::
+  MAlonzo.Code.Agda.Builtin.Equality.T__'8801'__12
+d_client'45'decommit'45'checks'45'ledger'45'before'45'empty'45'outputs_790
+  = erased
+-- Hydra.Protocol.OffChainReference.reqDec-ledger-failure-waits-with-budget
+d_reqDec'45'ledger'45'failure'45'waits'45'with'45'budget_792 ::
+  MAlonzo.Code.Agda.Builtin.Equality.T__'8801'__12
+d_reqDec'45'ledger'45'failure'45'waits'45'with'45'budget_792
+  = erased
+-- Hydra.Protocol.OffChainReference.settlement-invalid-signatures-prevent-adoption
+d_settlement'45'invalid'45'signatures'45'prevent'45'adoption_794 ::
+  MAlonzo.Code.Agda.Builtin.Equality.T__'8801'__12
+d_settlement'45'invalid'45'signatures'45'prevent'45'adoption_794
+  = erased
+-- Hydra.Protocol.OffChainReference.settlement-still-advances-version
+d_settlement'45'still'45'advances'45'version_796 ::
+  MAlonzo.Code.Agda.Builtin.Equality.T__'8801'__12
+d_settlement'45'still'45'advances'45'version_796 = erased

@@ -8,7 +8,6 @@
 -- pending decommit, and ledger applicability takes precedence over empty outputs.
 module Hydra.HeadLogic.Rules.ReqDec (Phase (..), ReqDecTopology, reqDecTopology, sReqDecTopology, machine) where
 
-import Crem.BaseMachine (BaseMachineT (..), InitialState (..))
 import Crem.Render.RenderableVertices (AllVertices (..), RenderableVertices)
 import Crem.Topology (
   STopology (STopology),
@@ -60,8 +59,11 @@ import Hydra.HeadLogic.State.Operations (settledUTxO, settlingDecommit)
 import Hydra.HeadLogic.Workflow (
   Transition,
   Workflow,
+  choose,
   continue,
   finish,
+  next,
+  workflow,
  )
 import Hydra.Ledger (ValidationError (..))
 import Hydra.Node.State (ChainPointTime (..), Deposit (..), PendingDeposits)
@@ -71,14 +73,13 @@ import Hydra.Tx.Snapshot (Snapshot (..), getSnapshot)
 
 $( singletons
     [d|
-      data Phase = CheckCommit | CheckExistingDecommit | CheckLedgerResult | CheckOutputs | CheckCapacity | RecordAndRequest | Finished
+      data Phase = CheckCommit | CheckExistingDecommit | CheckOutputs | CheckCapacity | RecordAndRequest | Finished
 
       reqDecTopology :: Topology Phase
       reqDecTopology =
         Topology
           [ (CheckCommit, [CheckExistingDecommit, Finished])
-          , (CheckExistingDecommit, [CheckLedgerResult, Finished])
-          , (CheckLedgerResult, [CheckOutputs, Finished])
+          , (CheckExistingDecommit, [CheckOutputs, Finished])
           , (CheckOutputs, [CheckCapacity, Finished])
           , (CheckCapacity, [RecordAndRequest, Finished])
           , (RecordAndRequest, [Finished])
@@ -95,15 +96,23 @@ deriving via AllVertices Phase instance RenderableVertices Phase
 data State tx phase where
   CommitCheck :: State tx 'CheckCommit
   ExistingCheck :: State tx 'CheckExistingDecommit
-  LedgerResult :: Either ValidationError (UTxOType tx) -> State tx 'CheckLedgerResult
   OutputCheck :: ~(UTxOType tx) -> State tx 'CheckOutputs
   CapacityCheck :: ~(UTxOType tx) -> State tx 'CheckCapacity
   Record :: State tx 'RecordAndRequest
   Done :: State tx 'Finished
 
+statePhase :: State tx phase -> Phase
+statePhase = \case
+  CommitCheck -> CheckCommit
+  ExistingCheck -> CheckExistingDecommit
+  OutputCheck{} -> CheckOutputs
+  CapacityCheck{} -> CheckCapacity
+  Record -> RecordAndRequest
+  Done -> Finished
+
 machine :: forall tx signing. IsChainState tx => RuleEnvironment -> TTL -> ChainPointTime -> PendingDeposits tx -> OpenState tx -> tx -> Workflow tx 'True signing ReqDecTopology
 machine env ttl ChainPointTime{currentSlot, currentChainTime} pendingDeposits openState decommitTx =
-  BaseMachineT (InitialState CommitCheck) $ \state () -> step state
+  workflow (show . statePhase) CommitCheck step
  where
   step :: State tx from -> Transition tx 'True signing ReqDecTopology (State tx) from
   step = \case
@@ -123,12 +132,14 @@ machine env ttl ChainPointTime{currentSlot, currentChainTime} pendingDeposits op
       Nothing | settlingDecommit version confirmedSnapshot -> continue (const Done) $ do
         void $ Program.decide "no decommit is in flight" False
         notApplicable DecommitTxInvalid{localUTxO, validationError = ValidationError "confirmed decommit awaits settlement"}
-      Nothing -> continue LedgerResult $ do
+      Nothing -> choose $ do
         void $ Program.decide "no decommit is in flight" True
-        Program.applyTransaction currentSlot localUTxO decommitTx
-    LedgerResult result -> case result of
-      Right after -> continue (const $ OutputCheck after) $ pure ()
-      Left validationError -> continue (const Done) $ notApplicable DecommitTxInvalid{localUTxO, validationError}
+        result <- Program.applyTransaction currentSlot localUTxO decommitTx
+        case result of
+          Right after -> pure $ next $ OutputCheck after
+          Left validationError -> do
+            notApplicable DecommitTxInvalid{localUTxO, validationError}
+            pure $ next Done
     OutputCheck after
       | utxoFromTx decommitTx == mempty -> continue (const Done) $ do
           void $ Program.decide "decommit produces outputs" False

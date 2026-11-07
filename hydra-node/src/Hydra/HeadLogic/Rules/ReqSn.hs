@@ -8,7 +8,6 @@
 -- carries only the values established by the preceding program action.
 module Hydra.HeadLogic.Rules.ReqSn (Phase (..), ReqSnTopology, reqSnTopology, sReqSnTopology, machine) where
 
-import Crem.BaseMachine (BaseMachineT (..), InitialState (..))
 import Crem.Render.RenderableVertices (AllVertices (..), RenderableVertices)
 import Crem.Topology (
   STopology (STopology),
@@ -64,6 +63,7 @@ import Hydra.HeadLogic.Workflow (
   Workflow,
   continue,
   finish,
+  workflow,
  )
 import Hydra.Network.Message (Message (..))
 import Hydra.Node.State (ChainPointTime (..), Deposit (..), DepositStatus (..), PendingDeposits)
@@ -110,9 +110,21 @@ data State tx phase where
   Acknowledged :: Snapshot tx -> State tx 'PruneLocalTransactions
   Done :: State tx 'Finished
 
+statePhase :: State tx phase -> Phase
+statePhase = \case
+  Request -> CheckRequest
+  Checked -> ResolveDecommit
+  DecommitResolved{} -> ResolveDeposit
+  DepositResolved{} -> ResolveTransactions
+  TransactionsResolved{} -> ApplyTransactions
+  TransactionsApplied{} -> BuildSnapshot
+  Built{} -> SignAndAcknowledge
+  Acknowledged{} -> PruneLocalTransactions
+  Done -> Finished
+
 machine :: forall tx. IsChainState tx => RuleEnvironment -> PendingDeposits tx -> ChainPointTime -> OpenState tx -> TTL -> Party -> SnapshotVersion -> SnapshotNumber -> [TxIdType tx] -> Maybe tx -> Maybe (TxIdType tx) -> Workflow tx 'True 'True ReqSnTopology
 machine env pendingDeposits ChainPointTime{currentSlot, currentChainTime} st ttl otherParty sv sn requestedTxIds mDecommitTx mDepositTxId =
-  BaseMachineT (InitialState Request) $ \state () -> step state
+  workflow (show . statePhase) Request step
  where
   step :: State tx from -> Transition tx 'True 'True ReqSnTopology (State tx) from
   step = \case

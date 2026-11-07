@@ -2,16 +2,19 @@
 {-# OPTIONS_GHC -Wno-ambiguous-fields #-}
 
 -- | Concrete comparisons and development diagrams, separate from the rules.
-module Test.Hydra.HeadLogic.Crem.Comparison (Example (..), Reference (..), examples, compareExample, comparePrograms, writeDiagrams) where
+module Test.Hydra.HeadLogic.Crem.Comparison (Example (..), Reference (..), examples, apiExamples, compareExample, comparePrograms, compareProgramsExactly, writeDiagrams) where
 
 import Cardano.Binary (decodeFull', serialize')
 import Crem.Render.Render (Mermaid (..), baseMachineAsGraph, renderStateDiagram)
 import Data.Map.Strict qualified as Map
 import Data.Text qualified as Text
 import Data.Text.IO qualified as Text
+import Hydra.API.ClientInput qualified as Client
+import Hydra.Chain (ChainEvent (Observation), OnChainTx (OnDecrementTx, OnIncrementTx))
 import Hydra.HeadLogic (
   CoordinatedHeadState (allTxs, localUTxO, seenSnapshot),
   HeadState (Open),
+  Input (ChainInput, ClientInput),
   OpenState (coordinatedHeadState, headId),
   Outcome,
   SeenSnapshot (RequestedSnapshot, SeenSnapshot, snapshot),
@@ -24,19 +27,28 @@ import Hydra.HeadLogic (
 import Hydra.HeadLogic.Interpreter qualified as Interpreter
 import Hydra.HeadLogic.Program (Program)
 import Hydra.HeadLogic.Rules.AckSn qualified as AckSn
+import Hydra.HeadLogic.Rules.Decommit qualified as Decommit
 import Hydra.HeadLogic.Rules.Recover qualified as Recover
 import Hydra.HeadLogic.Rules.ReqDec qualified as ReqDec
 import Hydra.HeadLogic.Rules.ReqSn qualified as ReqSn
 import Hydra.HeadLogic.Rules.ReqTx qualified as ReqTx
+import Hydra.HeadLogic.Rules.Settlement qualified as Settlement
 import Hydra.HeadLogic.Trace (TraceStep (Decided))
 import Hydra.HeadLogic.Workflow qualified as Workflow
 import Hydra.Ledger.Simple (SimpleTx, simpleLedger)
-import Hydra.Node.State (Deposit (..), DepositStatus (..), NodeState (..), initialChainTime)
+import Hydra.Node.State (ChainPointTime (currentSlot), Deposit (..), DepositStatus (..), NodeState (..), initialChainTime)
 import Hydra.Prelude hiding (state, trace)
 import Hydra.Tx.Crypto (sign)
 import System.Directory (createDirectoryIfMissing)
 import System.FilePath ((</>))
+import Test.Hydra.HeadLogic.Crem.BeforeApi.AckSn qualified as BeforeAckSn
+import Test.Hydra.HeadLogic.Crem.BeforeApi.Decommit qualified as BeforeDecommit
+import Test.Hydra.HeadLogic.Crem.BeforeApi.ReqDec qualified as BeforeReqDec
+import Test.Hydra.HeadLogic.Crem.BeforeApi.ReqTx qualified as BeforeReqTx
+import Test.Hydra.HeadLogic.Crem.BeforeApi.Settlement qualified as BeforeSettlement
+import Test.Hydra.HeadLogic.Crem.BeforeApi.Workflow qualified as BeforeWorkflow
 import Test.Hydra.HeadLogic.Debugger qualified as Debug
+import Test.Hydra.HeadLogic.InputComparison qualified as Inputs
 import Test.Hydra.HeadLogic.LegacyIncremental qualified as LegacyIncremental
 import Test.Hydra.HeadLogic.LegacyPrograms qualified as LegacyPrograms
 import Test.Hydra.HeadLogic.Mermaid qualified as Mermaid
@@ -53,7 +65,55 @@ data Example where
   Example :: Text -> NodeState SimpleTx -> Interpreter.InterpreterConfig SimpleTx ledger signing -> Reference SimpleTx ledger signing -> Program SimpleTx ledger signing () -> Text -> Example
 
 examples :: [Example]
-examples =
+examples = examplesWith FrozenHandlers
+
+-- | These baselines include the current fixes. Compare every instruction,
+-- without the exclusions needed for the older handler migration.
+apiExamples :: [Example]
+apiExamples = examplesWith BeforeCremApi <> concatMap apiInputExamples Inputs.examples
+
+-- Reuse full-input fixtures, but compare the migrated rule with its own frozen
+-- machine. Settlement also covers stale versions and nonmatching round numbers.
+apiInputExamples :: (Text, NodeState SimpleTx, Input SimpleTx) -> [Example]
+apiInputExamples (name, before, input) = case input of
+  ClientInput (Client.Decommit tx) ->
+    let machine = Decommit.machine os.headId before.chainPointTime.currentSlot os.coordinatedHeadState tx
+     in [ Example
+            name
+            before
+            (Interpreter.ledgerConfig simpleLedger)
+            (FrozenProgram $ BeforeWorkflow.run $ BeforeDecommit.machine os.headId before.chainPointTime.currentSlot os.coordinatedHeadState tx)
+            (Workflow.run machine)
+            (getText $ renderStateDiagram $ baseMachineAsGraph machine)
+        ]
+  ChainInput (Observation observed chainState) -> case observed of
+    OnIncrementTx _ version deposit number signatures ->
+      settlement chainState (Settlement.Increment deposit) (BeforeSettlement.Increment deposit) version number signatures
+    OnDecrementTx _ version distributed number signatures ->
+      settlement chainState (Settlement.Decrement distributed) (BeforeSettlement.Decrement distributed) version number signatures
+    _ -> []
+  _ -> []
+ where
+  os = Scenario.openState before
+  env = ruleEnvironment $ Scenario.environment 0
+  settlement chainState current previous version number signatures =
+    [ let machine = Settlement.machine env before.pendingDeposits os chainState version' current number' signatures'
+       in Example
+            (name <> suffix)
+            before
+            Interpreter.basicConfig
+            (FrozenProgram $ BeforeWorkflow.run $ BeforeSettlement.machine env before.pendingDeposits os chainState version' previous number' signatures')
+            (Workflow.run machine)
+            (getText $ renderStateDiagram $ baseMachineAsGraph machine)
+    | (suffix, version', number', signatures') <-
+        [("", version, number, signatures), ("-other-number", version, number + 1, signatures), ("-old-version", 0, number, signatures)]
+          <> [("-invalid-signatures", version, number, mempty) | "-adopt" `Text.isSuffixOf` name]
+    ]
+
+data Baseline = FrozenHandlers | BeforeCremApi
+
+examplesWith :: Baseline -> [Example]
+examplesWith baseline =
   [ req "req-tx-leader" 0 initial 1 Scenario.transactionOne
   , req "req-tx-follower" 1 initial 1 Scenario.transactionOne
   , req "req-tx-wait" 0 initial 1 Scenario.transactionTwo
@@ -102,7 +162,10 @@ examples =
           name
           node
           (Interpreter.ledgerConfig simpleLedger)
-          (FrozenProgram $ LegacyPrograms.onOpenNetworkReqTxProgram environment node.chainPointTime st ttl mempty tx)
+          ( FrozenProgram $ case baseline of
+              FrozenHandlers -> LegacyPrograms.onOpenNetworkReqTxProgram environment node.chainPointTime st ttl mempty tx
+              BeforeCremApi -> BeforeWorkflow.run $ BeforeReqTx.machine environment node.chainPointTime st ttl mempty tx
+          )
           (Workflow.run machine)
           (getText $ renderStateDiagram $ baseMachineAsGraph machine)
   reqSn name node version ids dec =
@@ -113,7 +176,10 @@ examples =
           name
           node
           (Interpreter.snapshotConfig env simpleLedger)
-          (FrozenProgram $ LegacyPrograms.onOpenNetworkReqSnProgram environment mempty node.chainPointTime st 1 alice version 1 ids dec Nothing)
+          ( FrozenProgram $ case baseline of
+              FrozenHandlers -> LegacyPrograms.onOpenNetworkReqSnProgram environment mempty node.chainPointTime st 1 alice version 1 ids dec Nothing
+              BeforeCremApi -> BeforeWorkflow.run machine
+          )
           (Workflow.run machine)
           (getText $ renderStateDiagram $ baseMachineAsGraph machine)
   decommit name tx ttl =
@@ -122,7 +188,10 @@ examples =
           name
           initial
           (Interpreter.ledgerConfig simpleLedger)
-          (FrozenOutcome $ LegacyIncremental.onOpenNetworkReqDec env simpleLedger ttl initial.chainPointTime mempty os tx)
+          ( case baseline of
+              FrozenHandlers -> FrozenOutcome $ LegacyIncremental.onOpenNetworkReqDec env simpleLedger ttl initial.chainPointTime mempty os tx
+              BeforeCremApi -> FrozenProgram $ BeforeWorkflow.run $ BeforeReqDec.machine (ruleEnvironment env) ttl initial.chainPointTime mempty os tx
+          )
           (Workflow.run machine)
           (getText $ renderStateDiagram $ baseMachineAsGraph machine)
   recover name registered finalized =
@@ -132,7 +201,10 @@ examples =
           name
           initial
           Interpreter.basicConfig
-          (FrozenOutcome $ LegacyIncremental.onClientRecover 0 pending finalized 7)
+          ( case baseline of
+              FrozenHandlers -> FrozenOutcome $ LegacyIncremental.onClientRecover 0 pending finalized 7
+              BeforeCremApi -> FrozenProgram $ BeforeWorkflow.run machine
+          )
           (Workflow.run machine)
           (getText $ renderStateDiagram $ baseMachineAsGraph machine)
   ack name node signature =
@@ -143,7 +215,10 @@ examples =
           name
           node
           Interpreter.basicConfig
-          (FrozenProgram $ LegacyPrograms.onOpenNetworkAckSnProgram environment node.chainPointTime mempty st carol signature 1)
+          ( FrozenProgram $ case baseline of
+              FrozenHandlers -> LegacyPrograms.onOpenNetworkAckSnProgram environment node.chainPointTime mempty st carol signature 1
+              BeforeCremApi -> BeforeWorkflow.run $ BeforeAckSn.machine environment node.chainPointTime mempty st carol signature 1
+          )
           (Workflow.run machine)
           (getText $ renderStateDiagram $ baseMachineAsGraph machine)
 
@@ -159,7 +234,13 @@ compareExample (Example _ before config reference program _) = case reference of
 -- | Equal labels alone are insufficient: compare complete outcomes, public
 -- primitive arguments/replies, staged payloads, and serialized resulting states.
 comparePrograms :: Interpreter.InterpreterConfig SimpleTx ledger signing -> NodeState SimpleTx -> Program SimpleTx ledger signing () -> Program SimpleTx ledger signing () -> Either Text (Outcome SimpleTx, [TraceStep])
-comparePrograms config before free crem = do
+comparePrograms = compareProgramsOmitting changedDecisions
+
+compareProgramsExactly :: Interpreter.InterpreterConfig SimpleTx ledger signing -> NodeState SimpleTx -> Program SimpleTx ledger signing () -> Program SimpleTx ledger signing () -> Either Text (Outcome SimpleTx, [TraceStep])
+compareProgramsExactly = compareProgramsOmitting []
+
+compareProgramsOmitting :: [Text] -> Interpreter.InterpreterConfig SimpleTx ledger signing -> NodeState SimpleTx -> Program SimpleTx ledger signing () -> Program SimpleTx ledger signing () -> Either Text (Outcome SimpleTx, [TraceStep])
+compareProgramsOmitting omittedDecisions config before free crem = do
   let expected@(outcome, _) = Interpreter.traceProgramWith config free
       actual = Interpreter.traceProgramWith config crem
       after = aggregateState before outcome
@@ -176,8 +257,8 @@ comparePrograms config before free crem = do
  where
   view Debug.Step{kind, description, decisionName, payload} = (kind, description, decisionName, payload)
   retainedStep :: Debug.Step -> Bool
-  retainedStep step = maybe True (`notElem` changedDecisions) step.decisionName
-  retainedDecision (Decided name _) = name `notElem` changedDecisions
+  retainedStep step = maybe True (`notElem` omittedDecisions) step.decisionName
+  retainedDecision (Decided name _) = name `notElem` omittedDecisions
   retainedDecision _ = True
 
 -- Capacity adds these guards; useful-work selection now runs only for the

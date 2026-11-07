@@ -1543,6 +1543,25 @@ and payload types; it does not prove the guards or the primitive replies. Its
 static topology omits decisions inside actions and early wait/reject exits;
 concrete instruction traces retain those decisions and exits.
 
+The local Crem API experiment selects the next typed phase inside a Program
+after a primitive reply. `reqTx` branches directly to deposit checks or retry;
+client decommit and `reqDec` branch to output checks or their existing failure
+path. `ackSn` branches directly to confirmation with a verified snapshot or
+rejects. Settlement verifies and optionally adopts its candidate in one action,
+after recording finalization, then enters the next-request phase.
+The removed phases separate a reply from its handling. Queries, rejection,
+invalidation and adoption instructions keep their order. Exact comparisons
+against the preceding machines cover all
+decisions, primitive arguments and replies, ordered events, effects and serialized
+resulting state.
+The Agda outcome projection therefore stays unchanged. Its concrete wait,
+decommit-precedence, settlement and invalid-final-acknowledgement equations pin
+these boundaries; they do not prove equivalence of the Haskell implementations.
+Every workflow and state owner has optional phase descriptions. These inspect
+constructors without evaluating retained payloads and make no strictness claim.
+The live owner composition drops rendering metadata from the same definition
+used to generate its diagrams; this does not change its allowed transitions.
+
 The compatibility implementation records a partial `ackSn` signature twice and
 ignores an acknowledgement for the last confirmed snapshot only after its number
 guard succeeds. These observable event details are preserved by migration tests;

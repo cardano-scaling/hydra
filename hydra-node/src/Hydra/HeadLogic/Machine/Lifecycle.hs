@@ -8,8 +8,9 @@
 -- a selection is recorded, but no distributed output has been observed yet.
 module Hydra.HeadLogic.Machine.Lifecycle (Phase (..), LifecycleTopology, lifecycleTopology, sLifecycleTopology, phase, machine) where
 
-import Crem.BaseMachine (ActionResult, BaseMachineT (..), InitialState (..), pureResult)
+import Crem.BaseMachine (ActionResult, BaseMachineT (..), InitialState (..), pureResult, withStateInspector)
 import Crem.Render.RenderableVertices (AllVertices (..), RenderableVertices)
+import Crem.StateInspection (describeOnly)
 import Crem.Topology (
   AllowedTransition,
   STopology (STopology),
@@ -78,8 +79,17 @@ data State tx phase where
   PendingHead :: Head.PartialFanoutState tx -> State tx 'PendingFanout
   FanoutHead :: Head.PartialFanoutState tx -> State tx 'FanoutProgress
 
+statePhase :: State tx phase -> Phase
+statePhase = \case
+  IdleHead{} -> Idle
+  OpenHead{} -> Open
+  ClosedHead{} -> Closed
+  ReadyHead{} -> ReadyToFanout
+  PendingHead{} -> PendingFanout
+  FanoutHead{} -> FanoutProgress
+
 machine :: forall tx m. (IsChainState tx, Applicative m) => Head.HeadState tx -> BaseMachineT m LifecycleTopology (DepositOutput tx) (HeadOutput tx)
-machine initial = BaseMachineT (restore initial) action
+machine initial = BaseMachineT (withStateInspector (describeOnly (show . statePhase)) $ restore initial) action
  where
   action :: forall from. State tx from -> DepositOutput tx -> ActionResult m LifecycleTopology (State tx) from (HeadOutput tx)
   action state input = case state of

@@ -7,6 +7,7 @@ module Hydra.HeadLogic.Machine.DepositRegistry (machine) where
 import Hydra.Prelude
 
 import Crem.BaseMachine (BaseMachineT (..), InitialState (..), pureResult)
+import Crem.StateInspection (describeOnly)
 import Crem.Topology (TrivialTopology)
 import Data.Map.Strict qualified as Map
 import Hydra.Chain.ChainState (IsChainState, chainStateSlot)
@@ -19,7 +20,7 @@ data Registry tx phase where
   Registry :: TrackedDeposits tx -> Registry tx '()
 
 machine :: (IsChainState tx, Applicative m) => TrackedDeposits tx -> BaseMachineT m (TrivialTopology @()) (StateChanged tx) (DepositOutput tx)
-machine initial = BaseMachineT (InitialState $ Registry initial) $ \(Registry deposits) event ->
+machine initial = BaseMachineT (InspectableState (describeOnly $ const "TrackedDeposits") $ Registry initial) $ \(Registry deposits) event ->
   let settledDeposit = case event of
         CommitFinalized{depositTxId} -> maybe mempty (.deposited) $ do
           tracked <- Map.lookup depositTxId deposits

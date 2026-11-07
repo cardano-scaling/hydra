@@ -15,6 +15,9 @@ import Test.Hydra.Prelude (
  )
 
 import Cardano.Binary (decodeFull', serialize')
+import Crem.Inspect (Component (..), checkStates, inspectStates)
+import Crem.StateInspection (StateCheck (NotInspected))
+import Crem.StateMachine qualified as Crem
 import Hydra.Agda.OffChainReference qualified as Agda
 import Hydra.Chain.ChainState (ChainSlot)
 import Hydra.HeadLogic (
@@ -82,6 +85,35 @@ import Test.QuickCheck (Property, conjoin, counterexample, forAll, property, res
 
 spec :: Spec
 spec = describe "crem event application" $ do
+  it "keeps owner descriptions across execution and state reconstruction" $ do
+    let event = HeadClosed testHeadId 0 (SimpleChainState 1) initialChainTime
+        original = Machine.components initialNode
+        executable = Crem.withoutRendering original
+        (node, next) = runIdentity $ Crem.run executable event
+        (expected, described) = runIdentity $ Crem.run original event
+        descriptions =
+          [ ([LeftComponent, LeftComponent], Just "TrackedDeposits")
+          , ([LeftComponent, RightComponent], Just "Closed")
+          , ([RightComponent], Just "ObservedTime")
+          ]
+    node `shouldBe` expected
+    node `shouldBe` Machine.currentState (Machine.step (Machine.start initialNode) event)
+    inspectStates next `shouldBe` descriptions
+    inspectStates described `shouldBe` descriptions
+    inspectStates (Machine.components node) `shouldBe` descriptions
+    checks <- checkStates [] next
+    map (\(_, result) -> case result of NotInspected -> True; _ -> False) checks `shouldBe` [True, True, True]
+
+  it "keeps deposit phase descriptions through consumption and rollback" $ do
+    let deposit :: Deposit SimpleTx
+        deposit = Deposit testHeadId mempty initialChainTime initialChainTime Active
+        initial = Crem.Executable $ Deposit.machine @Identity @SimpleTx Nothing
+        (_, active) = runIdentity $ Crem.run initial (Deposit.Observe 1 deposit)
+        (_, consumed) = runIdentity $ Crem.run active (Deposit.Consume 2)
+        (_, restored) = runIdentity $ Crem.run consumed (Deposit.Rollback 1)
+    map inspectStates [initial, active, consumed, restored]
+      `shouldBe` map (\name -> [([], Just name)]) ["MissingDeposit", "ActiveDeposit", "ConsumedDeposit", "ActiveDeposit"]
+
   prop "matches replay with the explicit reservation correction, continuous execution and CBOR recovery" $
     forAll (resize 8 arbitrary) $ \initial ->
       forAll (vectorOf 40 $ resize 8 genericArbitrary) $ \events ->

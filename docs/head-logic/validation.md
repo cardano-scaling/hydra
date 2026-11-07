@@ -27,6 +27,42 @@ tests also run against the node.
 
 ## Recorded verification
 
+### Local Crem API experiment, 2026-11-07
+
+The [local library experiment](crem-api-sketch.md) covers all eight workflows and
+six state owners. ReqTx, AckSn, Decommit, ReqDec and Settlement lose reply-handling
+phases. Their frozen machines include the current decommit fixes and the previous
+workflow runner. Their comparisons omit no instructions. Rules whose bodies are
+unchanged compare the previous and current runners.
+
+| Check | Result |
+| --- | --- |
+| Crem library tests | 95 Hspec tests pass, including reply-selected destinations, composition, hoisting, metadata removal, inspector replacement and description-only checks. |
+| Crem doctests and demo | Four doctests pass. The demo runs both replies and prints the topology, instructions and retained-state observations. |
+| Forbidden transition | The allowed counterpart compiles; `Accepted → Checking` fails specifically on its `AllowedTransition` constraint. |
+| Saved patch | Applies to a clean v0.1.1.0 tree; all 21 changed files match the local checkout byte for byte. |
+| HeadLogic | All 527 tests pass, including 45 new migration checks: 35 exact fixtures, 1,000 arbitrary ReqTx cases, 300 cases each for Decommit and ReqDec, dependent transaction prefixes, all 31 input fixtures, and phase inspection after execution and reconstruction. |
+| Bounded Agda reference | The equations typecheck with Agda 2.7.0.1; all 116 reference tests and hermetic extraction drift checks pass. Regeneration changes only `OffChainReference.hs`. |
+| Diagrams | The compiled CLI compares 22 examples. All 31 input traces and all four generated owner diagrams are unchanged byte for byte. Five rule topologies are shorter; the others are unchanged. All 92 sources remain indexed. |
+| Lint | `just lint` passes, including compilation with warnings treated as errors. Existing golden files are unchanged. |
+| Full `just check` | All 1,512 node, 278 transaction, 116 Agda and 18 chain-observer tests pass. Specification, extraction drift, formatting and unused-code checks pass; unchanged checks are reused. |
+| Imports and links | Changed handwritten Haskell uses explicit or qualified imports, except the permitted Preludes. Changed Markdown's local links resolve. |
+| Real nodes | All three offline-mode checks pass against the full migration: transaction confirmation after restart, persistence rotation and recovery, and two-party networked confirmation. |
+
+The two-party check fails during etcd startup when this environment's HTTP proxy
+handles its advertised `0.0.0.0` peer addresses. All three checks pass with those
+local addresses excluded from the proxy; no node or test code changes are needed:
+
+```sh
+NO_PROXY="${NO_PROXY:+$NO_PROXY,}0.0.0.0,127.0.0.1,localhost" \
+  no_proxy="${no_proxy:+$no_proxy,}0.0.0.0,127.0.0.1,localhost" \
+  just test hydra-cluster 'Offline mode'
+```
+
+This is a targeted cluster check, not a full cluster or TUI suite run.
+
+### Carried-decommit repair, 2026-11-06
+
 Verification on 2026-11-06, including the carried-decommit repair:
 
 | Check | Result |
