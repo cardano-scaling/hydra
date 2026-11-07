@@ -238,7 +238,10 @@ mkChain tracer queryTimeHandle wallet ctx depositPeriod LocalChainState{getLates
             let graceTime = min maxGraceTime $ min (untilDeadline / 2) (DepositPeriod.toNominalDiffTime depositPeriod / 2)
             -- NOTE: But also not make it smaller than 10 slots.
             let validBeforeSlot = currentSlot + fromInteger (truncate graceTime `max` 10)
-            let depositDraftTx = depositTx (networkId ctx) pparams headId commitBlueprintTx validBeforeSlot deadline changeAddress
+            depositDraftTx <-
+              case depositTx (networkId ctx) pparams headId commitBlueprintTx validBeforeSlot deadline changeAddress of
+                Left failureReason -> throwError FailedToConstructDepositTx{failureReason}
+                Right tx -> pure tx
             l1PParams <- lift $ getPParams wallet
             liftEither $ rejectOversizedDeposit l1PParams ctx spendableUTxO headId currentSnapshot depositDraftTx validBeforeSlot
             finalizedTx <- lift $ finalizeTx wallet ctx spendableUTxO lookupUTxO depositDraftTx

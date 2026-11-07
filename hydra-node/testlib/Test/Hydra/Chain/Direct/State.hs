@@ -309,7 +309,9 @@ genDepositTxWith genDepositUTxO numParties = do
   slot <- chooseEnum (0, 1_000_000)
   slotsUntilDeadline <- chooseEnum (0, 86400)
   let deadline = slotNoToUTCTime systemStart slotLength (slot + slotsUntilDeadline)
-  let tx = depositTx (ctxNetworkId ctx) defaultPParams headId (mkSimpleBlueprintTx utxoToDeposit) slot deadline Nothing
+  let tx =
+        either (error . show) id $
+          depositTx (ctxNetworkId ctx) defaultPParams headId (mkSimpleBlueprintTx utxoToDeposit) slot deadline Nothing
   pure (ctx, st, utxoToDeposit, tx)
 
 genDepositTx :: Int -> Gen (HydraContext, OpenState, UTxO, Tx)

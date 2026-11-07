@@ -19,11 +19,12 @@ main =
         Right (pparams :: PParams LedgerEra) ->
           eitherDecodeFileStrict utxoFilePath >>= \case
             Left err -> die $ "failed to parse provided UTXO file! " <> err
-            Right (utxo :: UTxO) -> do
-              writeFileLBS outFile
-                . textEnvelopeToJSON Nothing
-                $ depositTx networkId pparams headId (mkSimpleBlueprintTx utxo) depositSlotNo depositDeadline Nothing
-              putStrLn $ "Wrote deposit transaction to " <> outFile
+            Right (utxo :: UTxO) ->
+              case depositTx networkId pparams headId (mkSimpleBlueprintTx utxo) depositSlotNo depositDeadline Nothing of
+                Left err -> die $ "failed to construct deposit transaction: " <> toString err
+                Right tx -> do
+                  writeFileLBS outFile $ textEnvelopeToJSON Nothing tx
+                  putStrLn $ "Wrote deposit transaction to " <> outFile
     Recover RecoverOptions{networkId, outFile, recoverTxId, utxoFilePath, recoverSlotNo} -> do
       -- XXX: Only requires network discriminator / not networkId
       let network = toShelleyNetwork networkId

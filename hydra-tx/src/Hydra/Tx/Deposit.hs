@@ -24,6 +24,7 @@ import PlutusLedgerApi.V3 (POSIXTime)
 -- * Construction
 
 -- | Builds a deposit transaction to lock funds into the v_deposit script.
+-- Returns 'Left' when the supplied inputs cannot cover the deposit output.
 depositTx ::
   HasCallStack =>
   NetworkId ->
@@ -35,51 +36,59 @@ depositTx ::
   -- | Deposit deadline from which onward the deposit can be recovered.
   UTCTime ->
   Maybe AddressInEra ->
-  Tx
-depositTx networkId pparams headId commitBlueprintTx upperSlot deadline changeAddress =
-  let blueprint =
-        case txOuts' blueprintTx of
-          [] ->
-            -- When blueprint tx doesn't contain any outputs we just construct outputs taking the whole of lookupUTxO
-            toLedgerTx blueprintTx
-              & bodyTxL . outputsTxBodyL
-                .~ StrictSeq.singleton (toLedgerTxOut $ mkDepositOutput networkId headId lookupUTxO deadline)
-          outs ->
-            case changeAddress of
-              Nothing ->
-                -- In case change address is not specified we expect to see a fully balanced blueprint tx so we
-                -- just take all the outputs and replace the `TxIn` to the blueprint one.
-                toLedgerTx blueprintTx
-                  & bodyTxL . outputsTxBodyL
-                    .~ StrictSeq.singleton (toLedgerTxOut $ mkDepositOutput networkId headId (constructDepositUTxO (getTxId $ getTxBody blueprintTx) outs) deadline)
-              Just addr ->
-                -- When change address is specified we balance the blueprint tx ourselves adding the change output to return to the user.
-                let depositOutput =
-                      toLedgerTxOut $
-                        mkDepositOutput networkId headId (constructDepositUTxO (getTxId $ getTxBody blueprintTx) outs) deadline
+  Either Text Tx
+depositTx networkId pparams headId commitBlueprintTx upperSlot deadline changeAddress = do
+  blueprint <-
+    case txOuts' blueprintTx of
+      [] ->
+        -- When blueprint tx doesn't contain any outputs we just construct outputs taking the whole of lookupUTxO
+        Right $
+          toLedgerTx blueprintTx
+            & bodyTxL . outputsTxBodyL
+              .~ StrictSeq.singleton (toLedgerTxOut $ mkDepositOutput networkId headId lookupUTxO deadline)
+      outs ->
+        case changeAddress of
+          Nothing ->
+            -- In case change address is not specified we expect to see a fully balanced blueprint tx so we
+            -- just take all the outputs and replace the `TxIn` to the blueprint one.
+            Right $
+              toLedgerTx blueprintTx
+                & bodyTxL . outputsTxBodyL
+                  .~ StrictSeq.singleton (toLedgerTxOut $ mkDepositOutput networkId headId (constructDepositUTxO (getTxId $ getTxBody blueprintTx) outs) deadline)
+          Just addr ->
+            -- When change address is specified we balance the blueprint tx ourselves adding the change output to return to the user.
+            let depositOutput =
+                  toLedgerTxOut $
+                    mkDepositOutput networkId headId (constructDepositUTxO (getTxId $ getTxBody blueprintTx) outs) deadline
 
-                    balance = evaluateTransactionBalance shelleyBasedEra pparams mempty mempty
+                balance = evaluateTransactionBalance shelleyBasedEra pparams mempty mempty
 
-                    partialTx =
-                      fromLedgerTx $
-                        toLedgerTx blueprintTx
-                          & bodyTxL . outputsTxBodyL .~ StrictSeq.singleton depositOutput
+                partialTx =
+                  fromLedgerTx $
+                    toLedgerTx blueprintTx
+                      & bodyTxL . outputsTxBodyL .~ StrictSeq.singleton depositOutput
 
-                    completeUTxO = resolveInputsUTxO lookupUTxO blueprintTx
+                completeUTxO = resolveInputsUTxO lookupUTxO blueprintTx
 
-                    leftoverValue = capNegative . txOutValueToValue $ balance completeUTxO (getTxBody partialTx)
+                leftoverValue = txOutValueToValue $ balance completeUTxO (getTxBody partialTx)
 
-                    capNegative =
-                      fromList . map (second (max 0)) . IsList.toList
+                negativeAssets = filter ((< 0) . snd) $ IsList.toList leftoverValue
 
-                    changeOutput = toLedgerTxOut $ TxOut addr leftoverValue TxOutDatumNone ReferenceScriptNone
-                 in toLedgerTx partialTx
-                      & bodyTxL . outputsTxBodyL
-                        .~ StrictSeq.fromList [depositOutput, changeOutput]
-   in fromLedgerTx $
-        blueprint
-          & bodyTxL . vldtTxBodyL .~ ValidityInterval{invalidBefore = SNothing, invalidHereafter = SJust upperSlot}
-          & addMetadata (mkHydraHeadV2TxName "DepositTx") blueprintTx
+                changeOutput = toLedgerTxOut $ TxOut addr leftoverValue TxOutDatumNone ReferenceScriptNone
+             in if null negativeAssets
+                  then
+                    Right $
+                      toLedgerTx partialTx
+                        & bodyTxL . outputsTxBodyL
+                          .~ StrictSeq.fromList [depositOutput, changeOutput]
+                  else
+                    Left $
+                      "Cannot balance deposit transaction; negative change value: "
+                        <> show negativeAssets
+  pure . fromLedgerTx $
+    blueprint
+      & bodyTxL . vldtTxBodyL .~ ValidityInterval{invalidBefore = SNothing, invalidHereafter = SJust upperSlot}
+      & addMetadata (mkHydraHeadV2TxName "DepositTx") blueprintTx
  where
   CommitBlueprintTx{lookupUTxO, blueprintTx} = commitBlueprintTx
 
