@@ -63,8 +63,8 @@ identify a protocol prerequisite or owned fact, not an incidental program counte
 
 There is still a cost in phase GADTs, singleton declarations and imports. The
 original `ActionResult` chooses its destination type outside the effect. The
-[local API experiment](crem-api-sketch.md) lets the reply choose it directly and
-removes five reply-handling phases across ReqTx, AckSn, Decommit, ReqDec and
+[Crem API extensions](crem-dependency.md) let the reply choose it directly and
+remove five reply-handling phases across ReqTx, AckSn, Decommit, ReqDec and
 Settlement. Actions with a fixed destination still use `continue`.
 Do not add stages merely to make graphs longer. The decommit distinction earns its
 place by changing admission and confirmation behavior and excluding a replacement
@@ -123,7 +123,7 @@ These proposals address the API in released crem 0.1.1.0:
    contents of retained continuations. Hydra should still own its persistence
    format and protocol evidence.
 
-These three proposals have an executable [local Crem experiment](crem-api-sketch.md),
+These three proposals are implemented in the [Crem dependency](crem-dependency.md),
 with a Program example, tests, and a patch against v0.1.1.0. All eight workflows
 and six state owners use it. The live compositions drop rendering metadata from
 the same definitions used for diagrams; phase descriptions survive execution and

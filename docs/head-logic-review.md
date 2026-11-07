@@ -22,7 +22,7 @@ the guarantees enforced by the rules and the recovery policies they retain.
 - [Performance](head-logic/measurements.md): complete rounds, event application, and three-node throughput.
 - [Validation](head-logic/validation.md): test coverage, verification results, and commands.
 - [Adversarial review](head-logic/adversarial-review.md): findings, their repairs, remaining maintenance costs, and security limits.
-- [Local Crem API experiment](head-logic/crem-api-sketch.md): the library changes used throughout the workflows and state owners, exact comparisons, and a reproducible patch.
+- [Crem dependency](head-logic/crem-dependency.md): required library extensions, local Cabal setup, the Nix patch, and how to replace it.
 
 ## Code to start with
 

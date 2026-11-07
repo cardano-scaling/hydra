@@ -20,6 +20,9 @@ scenario has three parties and two dependent transactions. `trace` follows FIFO
 delivery and uses a 40-delivery limit unless overridden; it reports pending work
 when it stops at that limit.
 
+The [ReqTx examples](traces/README.md) cover individual successes, waits and
+invalidations.
+
 Read each sequence diagram downward. A shaded section is one input or scheduler
 action. Lanes separate head logic, ledger replies, cryptography, staged changes,
 and buffered effects within a node. Changes and effects are tentative until the

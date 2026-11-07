@@ -1543,7 +1543,7 @@ and payload types; it does not prove the guards or the primitive replies. Its
 static topology omits decisions inside actions and early wait/reject exits;
 concrete instruction traces retain those decisions and exits.
 
-The local Crem API experiment selects the next typed phase inside a Program
+The extended Crem API selects the next typed phase inside a Program
 after a primitive reply. `reqTx` branches directly to deposit checks or retry;
 client decommit and `reqDec` branch to output checks or their existing failure
 path. `ackSn` branches directly to confirmation with a verified snapshot or

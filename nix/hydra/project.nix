@@ -1,5 +1,5 @@
 { self, ... }: {
-  perSystem = { compiler, inputMap, pkgs, localHaskellPackageNames, testSuitePackageNames, cremApiSketchModule, ... }:
+  perSystem = { compiler, inputMap, pkgs, localHaskellPackageNames, testSuitePackageNames, cremModule, ... }:
     let
       mkProject = extraModules: pkgs.haskell-nix.project {
         src = pkgs.haskell-nix.haskellLib.cleanSourceWith {
@@ -28,7 +28,7 @@
         compiler-nix-name = compiler;
 
         modules = [
-          cremApiSketchModule
+          cremModule
           # Strip debugging symbols from exes (smaller closures)
           {
             # weeder (nix/coding-standards.nix) reads the `hie` output of every component of

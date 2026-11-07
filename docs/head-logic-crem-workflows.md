@@ -52,7 +52,7 @@ programs inside the input workflow. There is no extra machine around a single
 broadcast or state change. `SideLoad` uses `ExceptT` for sequential requirements;
 a failure becomes the existing client effect, not a protocol `Reject`.
 
-The [local Crem API experiment](head-logic/crem-api-sketch.md) lets a Program reply
+The [Crem API extensions](head-logic/crem-dependency.md) let a Program reply
 select a typed destination with `Workflow.choose` and `Workflow.next`. ReqTx moves
 from its output check straight to deposit checks or retry. AckSn moves from
 verification straight to confirmation, carrying a private `VerifiedSnapshot`

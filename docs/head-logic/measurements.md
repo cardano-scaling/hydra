@@ -10,9 +10,9 @@ The subsequent rebase onto master `0aa8987dc` preserves the measured production
 and benchmark code. The recorded source revisions and binary hashes below refer
 to the actual measurement runs; rebasing did not produce new measurements.
 
-The later confirmation repairs and [local Crem API experiment](crem-api-sketch.md)
-have not been measured end to end. The API experiment removes five reply-handling
-phases, adds optional phase descriptions and drops rendering metadata from live
+The later confirmation repairs and [Crem API extensions](crem-dependency.md)
+have not been measured end to end. The API changes remove five reply-handling
+phases, add optional phase descriptions and drop rendering metadata from live
 owner compositions. The figures below predate those changes; fewer phases alone
 do not establish a throughput improvement.
 

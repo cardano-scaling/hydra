@@ -27,9 +27,9 @@ tests also run against the node.
 
 ## Recorded verification
 
-### Local Crem API experiment, 2026-11-07
+### Crem API integration, 2026-11-07
 
-The [local library experiment](crem-api-sketch.md) covers all eight workflows and
+The [Crem API integration](crem-dependency.md) covers all eight workflows and
 six state owners. ReqTx, AckSn, Decommit, ReqDec and Settlement lose reply-handling
 phases. Their frozen machines include the current decommit fixes and the previous
 workflow runner. Their comparisons omit no instructions. Rules whose bodies are
