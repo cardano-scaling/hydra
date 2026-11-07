@@ -1,0 +1,8 @@
+%%{init: {"sequence": {"wrap": true}}}%%
+sequenceDiagram
+  participant logic as Head logic
+  rect rgb(245, 247, 250)
+    Note over logic: unsynced-connectivity
+    Note over logic: node is in sync: no
+    Note over logic: wait: commit changes and discard buffered effects
+  end

@@ -1,0 +1,13 @@
+%%{init: {"sequence": {"wrap": true}}}%%
+sequenceDiagram
+  participant logic as Head logic
+  participant changes as Staged changes
+  participant effects as Buffered effects
+  rect rgb(245, 247, 250)
+    Note over logic,effects: fanout-selection
+    Note over logic: client input fits the accumulator: yes
+    Note over logic: input is admitted while at this sync status: yes
+    logic->>changes: stage: start automatic fanout
+    logic->>effects: buffer: post full fanout
+    Note over logic,effects: finish: commit changes and release effects
+  end

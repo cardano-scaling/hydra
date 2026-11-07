@@ -1,0 +1,36 @@
+stateDiagram-v2
+state DepositRegistry {
+DepositRegistry_TrackedDeposits
+}
+state Lifecycle {
+Lifecycle_Idle
+Lifecycle_Open
+Lifecycle_Closed
+Lifecycle_ReadyToFanout
+Lifecycle_PendingFanout
+Lifecycle_FanoutProgress
+Lifecycle_Idle --> Lifecycle_Open: HeadOpened (Init observed)
+Lifecycle_Open --> Lifecycle_Closed: HeadClosed
+Lifecycle_Closed --> Lifecycle_Open: HeadOpened (replay reset)
+Lifecycle_Closed --> Lifecycle_ReadyToFanout: HeadIsReadyToFanout
+Lifecycle_Closed --> Lifecycle_PendingFanout: fanout starts or empty partial observation
+Lifecycle_Closed --> Lifecycle_FanoutProgress: HeadPartialFannedOut
+Lifecycle_Closed --> Lifecycle_Idle: HeadFannedOut (observed on chain)
+Lifecycle_ReadyToFanout --> Lifecycle_Open: HeadOpened (replay reset)
+Lifecycle_ReadyToFanout --> Lifecycle_PendingFanout: fanout starts or empty partial observation
+Lifecycle_ReadyToFanout --> Lifecycle_FanoutProgress: HeadPartialFannedOut
+Lifecycle_ReadyToFanout --> Lifecycle_Idle: HeadFannedOut (observed on chain)
+Lifecycle_PendingFanout --> Lifecycle_Open: HeadOpened (replay reset)
+Lifecycle_PendingFanout --> Lifecycle_ReadyToFanout: HeadFanoutReverted
+Lifecycle_PendingFanout --> Lifecycle_FanoutProgress: HeadPartialFannedOut
+Lifecycle_PendingFanout --> Lifecycle_Idle: HeadFannedOut (observed on chain)
+Lifecycle_FanoutProgress --> Lifecycle_Open: HeadOpened (replay reset)
+Lifecycle_FanoutProgress --> Lifecycle_ReadyToFanout: HeadFanoutReverted
+Lifecycle_FanoutProgress --> Lifecycle_PendingFanout: HeadPartialFannedOut (empty total)
+Lifecycle_FanoutProgress --> Lifecycle_Idle: HeadFannedOut (observed on chain)
+}
+DepositRegistry --> Lifecycle
+state Clock {
+Clock_ObservedTime
+}
+Lifecycle --> Clock

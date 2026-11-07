@@ -1,0 +1,10 @@
+%%{init: {"sequence": {"wrap": true}}}%%
+sequenceDiagram
+  participant logic as Head logic
+  participant changes as Staged changes
+  rect rgb(245, 247, 250)
+    Note over logic,changes: connectivity
+    Note over logic: input is admitted while at this sync status: yes
+    logic->>changes: stage: record network connected
+    Note over logic,changes: finish: commit changes and release effects
+  end

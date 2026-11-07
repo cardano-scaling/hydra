@@ -1,0 +1,26 @@
+sequenceDiagram
+  autonumber
+  participant Rules as ReqDec / ReqSn / AckSn
+  participant Selection as Snapshot work selection
+  participant Snapshots as Snapshot owner
+  participant Transactions as Transaction owner
+  participant Audit as Independent checks
+  Note over Rules,Transactions: Three parties accept tx1 (1 → 2), tx2 (2 → 3), decommit (3 → 4)
+  Rules->>Snapshots: ReserveDecommit (3 → 4)
+  Snapshots->>Transactions: Record reservation
+  Transactions-->>Rules: Local UTxO = empty
+  Rules->>Snapshots: AcceptSnapshot 1, retained txs = [tx2]
+  Snapshots->>Transactions: Rebase snapshot 1 with tx2
+  Note over Transactions: Rebuild {3}, then remove reserved spending input 3
+  Transactions-->>Audit: Reservation held
+  Rules->>Snapshots: Collect signatures, verify, confirm snapshot 1
+  Rules->>Selection: Confirmed UTxO {2}, pending tx2 and decommit
+  Selection-->>Rules: Request snapshot 2 with tx2 only
+  Rules->>Snapshots: Accept snapshot 2, collect signatures, verify, confirm
+  Rules->>Selection: Confirmed UTxO {3}, pending decommit, no ordinary txs
+  Selection-->>Rules: Newly ready decommit starts snapshot 3
+  Rules->>Snapshots: Accept snapshot 3, collect signatures, verify, confirm
+  Snapshots-->>Rules: Snapshot 3 carries decommit output 4
+  Rules->>Selection: Decommit already carried, no ordinary txs
+  Selection-->>Rules: No further round
+  Transactions-->>Audit: Reservation held at every prefix

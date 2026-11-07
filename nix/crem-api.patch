@@ -1,0 +1,1567 @@
+diff --git a/README.md b/README.md
+index 5bf0c7c..416abb3 100644
+--- a/README.md
++++ b/README.md
+@@ -1,5 +1,8 @@
+ # [crem](https://github.com/tweag/crem)
+
++This checkout contains a [local HeadLogic API sketch](docs/headlogic-api-sketch.md)
++based on v0.1.1.0. Start there for the code, compatibility changes, and runnable example.
++
+ <img src="https://raw.githubusercontent.com/tweag/crem/main/logo/crem-transparent.png" width="200">
+
+ ![CI status](https://github.com/tweag/crem/actions/workflows/ci.yml/badge.svg)
+diff --git a/crem.cabal b/crem.cabal
+index f059f02..e0130be 100644
+--- a/crem.cabal
++++ b/crem.cabal
+@@ -1,6 +1,6 @@
+ cabal-version: 2.0
+
+--- This file has been generated from package.yaml by hpack version 0.38.3.
++-- This file has been generated from package.yaml by hpack version 0.39.3.
+ --
+ -- see: https://github.com/sol/hpack
+
+@@ -27,6 +27,10 @@ tested-with:
+ extra-source-files:
+     README.md
+     CHANGELOG.md
++    docs/headlogic-api-sketch.md
++    scripts/check-transition-types.sh
++    typecheck/AllowedTransition.hs
++    typecheck/ForbiddenTransition.hs
+
+ flag errors
+   description: enable -Werror
+@@ -38,9 +42,11 @@ library
+       Crem.BaseMachine
+       Crem.Decider
+       Crem.Graph
++      Crem.Inspect
+       Crem.Render.Render
+       Crem.Render.RenderableVertices
+       Crem.Render.RenderFlow
++      Crem.StateInspection
+       Crem.StateMachine
+       Crem.Topology
+   hs-source-dirs:
+@@ -131,6 +137,8 @@ library crem-examples
+       Crem.Example.RiskManager.Projection
+       Crem.Example.Switch
+       Crem.Example.TheHobbit
++      Crem.Example.Transaction
++      Crem.Example.Transaction.Program
+       Crem.Example.TriangularMachine
+       Crem.Example.TwoSwitchesGate
+       Crem.Example.Uno
+@@ -145,6 +153,8 @@ library crem-examples
+   build-depends:
+       base >=4.15 && <4.21
+     , crem
++    , free >=5.1 && <5.3
++    , nothunks
+     , profunctors
+     , singletons-base
+     , text
+@@ -339,6 +349,75 @@ executable hobbit-map
+   if flag(errors)
+     ghc-options: -Werror
+
++executable transaction-sketch
++  main-is: Main.hs
++  hs-source-dirs:
++      transaction-sketch
++  default-extensions:
++      DerivingStrategies
++      LambdaCase
++      PackageImports
++      RoleAnnotations
++  ghc-options: -Weverything -Wno-safe -Wno-unsafe -Wno-missing-safe-haskell-mode -Wno-implicit-prelude -Wno-missing-export-lists -Wno-missing-home-modules -Wno-missing-import-lists -Wno-all-missed-specialisations -Wno-prepositive-qualified-module
++  build-depends:
++      base >=4.15 && <4.21
++    , crem
++    , crem-examples
++    , text
++  default-language: Haskell2010
++  if impl(ghc >= 9.2)
++    ghc-options: -Wno-missing-kind-signatures
++    default-language: GHC2021
++  else
++    default-extensions:
++        BangPatterns
++        BinaryLiterals
++        ConstrainedClassMethods
++        ConstraintKinds
++        DeriveDataTypeable
++        DeriveFoldable
++        DeriveFunctor
++        DeriveGeneric
++        DeriveLift
++        DeriveTraversable
++        DoAndIfThenElse
++        EmptyCase
++        EmptyDataDecls
++        EmptyDataDeriving
++        ExistentialQuantification
++        ExplicitForAll
++        FlexibleContexts
++        FlexibleInstances
++        ForeignFunctionInterface
++        GADTSyntax
++        GeneralisedNewtypeDeriving
++        HexFloatLiterals
++        ImplicitPrelude
++        ImportQualifiedPost
++        InstanceSigs
++        KindSignatures
++        MonomorphismRestriction
++        MultiParamTypeClasses
++        NamedFieldPuns
++        NamedWildCards
++        NumericUnderscores
++        PatternGuards
++        PolyKinds
++        PostfixOperators
++        RankNTypes
++        RelaxedPolyRec
++        ScopedTypeVariables
++        StandaloneDeriving
++        StandaloneKindSignatures
++        StarIsType
++        TraditionalRecordSyntax
++        TupleSections
++        TypeApplications
++        TypeOperators
++        TypeSynonymInstances
++  if flag(errors)
++    ghc-options: -Werror
++
+ test-suite crem-doctests
+   type: exitcode-stdio-1.0
+   main-is: Main.hs
+@@ -415,6 +494,7 @@ test-suite crem-spec
+   type: exitcode-stdio-1.0
+   main-is: Spec.hs
+   other-modules:
++      Crem.ApiSketchSpec
+       Crem.DeciderSpec
+       Crem.GraphSpec
+       Crem.Render.RenderFlowSpec
+@@ -437,8 +517,10 @@ test-suite crem-spec
+     , crem-examples
+     , hspec >=2.7 && <2.12
+     , machines
++    , nothunks
+     , profunctors
+     , singletons-base
++    , text
+   default-language: Haskell2010
+   if impl(ghc >= 9.2)
+     ghc-options: -Wno-missing-kind-signatures
+diff --git a/docs/headlogic-api-sketch.md b/docs/headlogic-api-sketch.md
+new file mode 100644
+index 0000000..4e1fd53
+--- /dev/null
++++ b/docs/headlogic-api-sketch.md
+@@ -0,0 +1,168 @@
++# Crem API sketch for Hydra
++
++This branch starts at crem `v0.1.1.0`
++(`f06f8b47ac83d3e7448493bdee374c5f952f7f4c`), the version used by Hydra's
++HeadLogic spike. It prototypes three library changes. Hydra tests this checkout
++as a local Cabal package throughout its eight workflows and six state owners.
++Five rules remove reply-handling phases, workflow execution needs no rendering
++dictionaries, and owner compositions share one definition for execution and
++diagrams. The protocol rules, Program instructions and persistence formats stay
++the same.
++
++## An effect can choose a typed destination
++
++[`BaseMachine.hs`](../src/Crem/BaseMachine.hs) adds `Transition` and
++`ChooseTransition`. In the existing constructor, the destination type is chosen
++outside the effect:
++
++```haskell
++ActionResult :: AllowedTransition topology from to
++             => m (output, state to)
++             -> ActionResult m topology state from output
++```
++
++The new constructor puts that choice inside the effect:
++
++```haskell
++Transition :: AllowedTransition topology from to
++           => output -> state to -> Transition topology state from output
++
++ChooseTransition :: m (Transition topology state from output)
++                 -> ActionResult m topology state from output
++```
++
++[`Transaction.hs`](../examples/Crem/Example/Transaction.hs) uses it:
++
++```haskell
++step Check transaction = ChooseTransition $ do
++  reply <- applyTransaction transaction
++  case reply of
++    Right after -> do
++      decide "ledger accepts transaction" True
++      pure $ Transition "accepted" (Applied after)
++    Left reason -> do
++      decide "ledger accepts transaction" False
++      pure $ Transition "wait" (Awaiting reason)
++```
++
++Both edges must be in the topology. There is no separate phase whose only job is
++to inspect `reply`. The effect here is a free `Program`; its
++[interpreter](../examples/Crem/Example/Transaction/Program.hs) supplies a ledger
++reply and records queries and named decisions. It has no rule for choosing a
++Crem phase. Running the program still gives a decision trace.
++
++This is a small API example, not Hydra's ReqTx algorithm: integers stand for the
++transaction and resulting ledger value, and waiting is terminal. It does not
++implement retry eligibility, staging, confirmation, or persistence.
++
++`runActionResult` handles both constructors. Existing `ActionResult` construction
++remains valid; code pattern-matching on it must handle `ChooseTransition` too.
++An eventual major release could use a single constructor around `m (Transition
++...)`; retaining both here makes the example changes easier to compare.
++
++## Execution does not require rendering dictionaries
++
++[`StateMachine.hs`](../src/Crem/StateMachine.hs) adds `Executable`, a leaf with no
++`SingI`, `SingKind`, `Eq`, `Show`, or `RenderableVertices` requirements. It uses the
++same base machine runner and allowed-edge constraints as `Basic`. The test's
++`Phase` type has none of those instances.
++
++`Basic` remains available when the caller wants to retain rendering dictionaries.
++`withoutRendering` turns every leaf of an existing composition into `Executable`,
++preserving actions, state and inspection callbacks. Hydra defines its owner
++compositions once with `Basic` for diagrams, then calls `withoutRendering` when
++starting their live runtimes. The transformation does not execute actions and
++is safe to repeat.
++
++[`Render.hs`](../src/Crem/Render/Render.hs) now returns `Either String UntypedGraph`
++from `machineAsGraph`. An `Executable` leaf makes rendering fail explicitly,
++including when it is nested in a composition. `renderFlow` reports the missing
++metadata too. To adapt an existing caller:
++
++```haskell
++renderUntypedGraph <$> machineAsGraph machine
++```
++
++This is an additive execution constructor, not a full redesign of rendering.
++The existing stateless helpers and `unrestrictedMachine` retain their rendering
++behavior. A broader split between executable and renderable machines needs a
++separate compatibility decision.
++
++## Inspection follows retained state
++
++[`StateInspection.hs`](../src/Crem/StateInspection.hs) defines `StateInspector`:
++one callback describes the state, another returns a `StateCheck`. Both work
++at every phase. `InspectableState inspector state` installs the hook; the old
++`InitialState state` leaves it absent. `withInitialState` preserves the hook when
++execution or decider replay replaces the state. Existing base combinators already
++preserve `InitialState`, so they need no observer-specific implementations.
++`withStateInspector` attaches or replaces the hook after a persistence adapter
++has restored an existential initial phase, without repeating that adapter's
++pattern match.
++
++[`Inspect.hs`](../src/Crem/Inspect.hs) walks the composition tree:
++
++- `inspectStates` returns descriptions, with `Nothing` for uninspected leaves.
++- `checkStates` returns `NotInspected`, `CheckPassed`, or `FoundThunk` for each
++  leaf, including an inactive alternative. Paths identify the leaf's position.
++
++Descriptions may redact data. Checking does not evaluate descriptions, run
++actions, or inspect action closures and effect environments. These are trusted
++callbacks, not a serialization format or a proof of arbitrary closure strictness.
++
++`describeOnly` installs a description and reports `NotInspected` for checks.
++Hydra uses it for workflow and owner phase labels: those states can contain opaque
++machines and lazy ledger projections, so the labels do not imply a complete
++strictness check. Where a state
++has a `NoThunks` instance, `checkNoThunks` adapts it to the checking callback.
++A checker may also return `NotInspected` for particular phases.
++
++The old unconditional `NoThunks (StateMachineT ...)` instance is removed: it
++accepted `Basic _` without examining its state. A caller must now choose how to
++handle `NotInspected`; an unknown result must not silently count as a pass.
++`InitialState` pattern matches must also handle `InspectableState`.
++
++## Run and review
++
++With GHC 9.6.7 and Cabal:
++
++```sh
++cabal build all -ferrors
++cabal repl crem:test:crem-spec -f-errors
++# At the GHCi prompt:
++:main
++:quit
++cabal test crem-spec -ferrors --test-show-details=direct
++cabal run crem-doctests -ferrors -- --no-nix
++bash scripts/check-transition-types.sh
++cabal run transaction-sketch
++```
++
++The demo prints the topology, then the accepting and waiting traces and state
++checks. Diagram generation is in the executable, separate from the rule and
++the Program interpreter.
++
++The first state checks report `FoundThunk` on GHC 9.6.7: execution retains a
++lazy phase value, even though its payload fields are strict. This is an
++observation about evaluation, not a protocol failure. The demo checks before
++printing the state description, which could otherwise force that value and hide
++the result. The inspector does not force state to make a check pass.
++
++The doctest `--no-nix` option makes it use Cabal's package environment when run
++from Hydra's Nix shell. The default Nix mode misses dependencies installed by
++Cabal in this standalone checkout.
++
++[`ApiSketchSpec.hs`](../spec/Crem/ApiSketchSpec.hs) checks both replies, trace order,
++effects running once, hoisting and sequencing, missing rendering metadata,
++inspection after execution and composition, decider replay, and a deliberately
++suspended payload. The [typecheck script](../scripts/check-transition-types.sh)
++first compiles the allowed counterpart, then requires the compiler to reject an
++`Accepted -> Checking` edge selected inside an effect. This checks topology
++enforcement without treating an unrelated compiler failure as success.
++
++These changes do not strengthen the protocol evidence carried by a state.
++Self-transitions remain legal, same-phase data can still be replaced, and a
++machine author can declare an overly permissive topology. Hydra still needs its
++owner commands and candidate checks. No throughput or allocation improvement is
++claimed; the additional constructors and observer closures need measurement in
++the actual node before wider adoption.
+diff --git a/docs/how-to-create-a-machine.md b/docs/how-to-create-a-machine.md
+index 49c6333..2ae2cd1 100644
+--- a/docs/how-to-create-a-machine.md
++++ b/docs/how-to-create-a-machine.md
+@@ -284,7 +284,8 @@ stateDiagram-v2
+   SecondVertex --> ThirdVertex
+ ```
+
+-Since we need the topology information at the type level, we wrap those two declarations in
++To generate both the type-level topology and the singleton metadata used by
++rendering, we wrap those two declarations in
+
+ ```haskell
+ $( singletons
+@@ -321,6 +322,11 @@ Notice how we are using `ExampleVertex` as a kind and `'FirstVertex`, `'SecondVe
+
+ The `Basic` constructor imposes several constraints on the `vertex` and the `topology` types to allow to perform the type-level tricks the library is currently using.
+
++The local [API sketch](headlogic-api-sketch.md) also provides `Executable`, which
++runs the same typed base machines without retaining rendering dictionaries. A
++type-level topology can be written directly using promoted constructors when
++only execution is needed.
++
+ ```haskell
+ ( Demote vertex ~ vertex
+ , SingKind vertex
+@@ -390,9 +396,12 @@ The initial state has type `InitialState state`, which is defined as
+ ```haskell
+ data InitialState (state :: vertex -> Type) where
+   InitialState :: state vertex -> InitialState state
++  InspectableState :: StateInspector state -> state vertex -> InitialState state
+ ```
+
+-The `state` parameter is a type of kind `vertex -> Type`. It has a single constructor which requires a value of type `state vertex`.
++The `state` parameter is a type of kind `vertex -> Type`. Both constructors take
++a value of type `state vertex`; `InspectableState` also retains the optional
++[inspection callbacks](headlogic-api-sketch.md#inspection-follows-retained-state).
+
+ In our example, we need to define a value of type `InitialState ExampleState` (`ExampleState` is a type of kind `ExampleVertex -> Type`, so it fits perfectly!). Hence, we need a value of type `ExampleState vertex` to construct it. Since `ExampleState` has three constructors, we have three options:
+
+@@ -417,7 +426,11 @@ action
+   -> ActionResult m topology state initialVertex output
+ ```
+
+-In practice, for every possible state and received input, we need to define the final state and the emitted output. The type is a bit fancier because it is actually constraining the state transition to respect the `topology`. If we try to implement a transition which is not allowed by the topology, the code will simply fail to compile. Apart from that, `ActionResult` is just a newtype around a pair `(output, state finalVertex)`.
++For every state and input, the action defines the final state and output. Each
++destination must respect the `topology`; an unavailable edge fails to compile.
++The `ActionResult` constructor wraps `m (output, state finalVertex)` with a fixed
++destination type. `ChooseTransition` lets the effect choose the destination while
++retaining that edge constraint; see the [effect example](headlogic-api-sketch.md#an-effect-can-choose-a-typed-destination).
+
+ Concluding our example, we could implement action as follows
+
+@@ -425,12 +438,12 @@ Concluding our example, we could implement action as follows
+ action = \case
+   FirstVertexState i -> \input ->
+     if i > 10
+-      then ActionResult (_, SecondVertexState (_ :: String))
+-      else ActionResult (_, ThirdVertexState (_ :: Bool))
++      then ActionResult $ pure (_, SecondVertexState (_ :: String))
++      else ActionResult $ pure (_, ThirdVertexState (_ :: Bool))
+   SecondVertexState s -> \input ->
+-    ActionResult (_, ThirdVertexState (_ :: Bool))
++    ActionResult $ pure (_, ThirdVertexState (_ :: Bool))
+   ThirdVertexState b -> \input ->
+-    ActionResult (_, ThirdVertexState (not b))
++    ActionResult $ pure (_, ThirdVertexState (not b))
+ ```
+
+ where we left some holes, which can be freely filled depending on the output type and the logic of the machine.
+diff --git a/docs/how-to-render-a-machine.md b/docs/how-to-render-a-machine.md
+index 9fc90c6..0402662 100644
+--- a/docs/how-to-render-a-machine.md
++++ b/docs/how-to-render-a-machine.md
+@@ -8,7 +8,11 @@ Currently, there are two representations which `crem` is able to create.
+
+ The first representation which you can obtain it the representation as a graph of the topology of a machine.
+
+-The only supported output format for the moment is [Mermaid](https://mermaid.js.org), and you can produce it composing the `machineAsGraph` and `renderUntypedGraph` functions from the [`Render`](/src/Crem/Render/Render.hs) module.
++The supported output format is [Mermaid](https://mermaid.js.org). Use
++`renderUntypedGraph <$> machineAsGraph machine` from the
++[`Render`](/src/Crem/Render/Render.hs) module. The result is an `Either`: a machine
++containing an `Executable` leaf has no rendering metadata. Use `Basic` when
++constructing a leaf whose topology should remain available for diagrams.
+
+ For example, this is the graph produced for the [`LockDoor`](/src/Crem/Example/LockDoor.hs) machine
+
+diff --git a/examples/Crem/Example/Transaction.hs b/examples/Crem/Example/Transaction.hs
+new file mode 100644
+index 0000000..4f2a703
+--- /dev/null
++++ b/examples/Crem/Example/Transaction.hs
+@@ -0,0 +1,83 @@
++{-# LANGUAGE DataKinds #-}
++{-# LANGUAGE DerivingVia #-}
++{-# LANGUAGE GADTs #-}
++{-# LANGUAGE OverloadedStrings #-}
++{-# LANGUAGE TemplateHaskell #-}
++{-# LANGUAGE TypeFamilies #-}
++{-# LANGUAGE UndecidableInstances #-}
++-- Singleton-generated declarations use unticked promoted constructors.
++{-# OPTIONS_GHC -Wno-unticked-promoted-constructors #-}
++
++-- | A transaction-shaped example, not a ledger or a Hydra protocol rule.
++-- One program queries a primitive and chooses either of two allowed phases.
++module Crem.Example.Transaction
++  ( Phase (..)
++  , TransactionTopology
++  , transactionTopology
++  , sTransactionTopology
++  , machine
++  ) where
++
++import Crem.Example.Transaction.Program (Program, applyTransaction, decide)
++import "crem" Crem.BaseMachine (ActionResult (..), BaseMachineT (..), InitialState (..), Transition (..), pureResult)
++import "crem" Crem.Render.RenderableVertices (AllVertices (..), RenderableVertices)
++import "crem" Crem.StateInspection (StateInspector (..), checkNoThunks)
++import "crem" Crem.Topology (STopology (STopology), Topology (Topology), TopologySym0)
++import "nothunks" NoThunks.Class (NoThunks (..))
++import "singletons-base" Data.Singletons.Base.TH (NilSym0, SList (SCons, SNil), STuple2 (STuple2), Tuple2Sym0, singletons, type (:@#@$))
++import "text" Data.Text qualified as Text
++
++$( singletons
++    [d|
++      data Phase = Checking | Accepted | Waiting
++
++      transactionTopology :: Topology Phase
++      transactionTopology = Topology [(Checking, [Accepted, Waiting])]
++      |]
++ )
++
++deriving stock instance Eq Phase
++deriving stock instance Show Phase
++deriving stock instance Enum Phase
++deriving stock instance Bounded Phase
++deriving via AllVertices Phase instance RenderableVertices Phase
++
++data State phase where
++  Check :: State 'Checking
++  Applied :: !Int -> State 'Accepted
++  Awaiting :: !String -> State 'Waiting
++
++type role State nominal
++
++instance NoThunks (State phase) where
++  showTypeOf _ = "Transaction.State"
++  wNoThunks context = \case
++    Check -> pure Nothing
++    Applied after -> noThunks context after
++    Awaiting reason -> noThunks context reason
++
++machine :: BaseMachineT Program TransactionTopology Int String
++machine = BaseMachineT (InspectableState inspector Check) step
++  where
++    step :: State from -> Int -> ActionResult Program TransactionTopology State from String
++    step Check transaction = ChooseTransition $ do
++      reply <- applyTransaction transaction
++      case reply of
++        Right after -> do
++          decide "ledger accepts transaction" True
++          pure $ Transition "accepted" (Applied after)
++        Left reason -> do
++          decide "ledger accepts transaction" False
++          pure $ Transition "wait" (Awaiting reason)
++    step state@Applied {} _ = pureResult "already accepted" state
++    step state@Awaiting {} _ = pureResult "already waiting" state
++
++    inspector :: StateInspector State
++    inspector =
++      StateInspector
++        { describeState = \case
++            Check -> "Checking"
++            Applied after -> "Accepted: " <> Text.pack (show after)
++            Awaiting reason -> "Waiting: " <> Text.pack reason
++        , checkState = checkNoThunks
++        }
+diff --git a/examples/Crem/Example/Transaction/Program.hs b/examples/Crem/Example/Transaction/Program.hs
+new file mode 100644
+index 0000000..da7c402
+--- /dev/null
++++ b/examples/Crem/Example/Transaction/Program.hs
+@@ -0,0 +1,45 @@
++-- | A small free program for the transaction example. The interpreter controls
++-- ledger replies and records queries and decisions; it does not select states.
++module Crem.Example.Transaction.Program
++  ( Program
++  , Trace (..)
++  , applyTransaction
++  , decide
++  , runProgram
++  ) where
++
++import "free" Control.Monad.Free (Free (..), liftF)
++
++data Instruction next
++  = ApplyTransaction Int (Either String Int -> next)
++  | Decide String Bool next
++  deriving stock (Functor)
++
++type role Instruction representational
++
++type Program = Free Instruction
++
++data Trace
++  = LedgerQuery Int (Either String Int)
++  | Decision String Bool
++  deriving stock (Eq, Show)
++
++applyTransaction :: Int -> Program (Either String Int)
++applyTransaction transaction = liftF $ ApplyTransaction transaction id
++
++decide :: String -> Bool -> Program ()
++decide name result = liftF $ Decide name result ()
++
++runProgram :: (Int -> Either String Int) -> Program a -> ([Trace], a)
++runProgram reply = go
++  where
++    go :: Program b -> ([Trace], b)
++    go (Pure result) = ([], result)
++    go (Free instruction) = case instruction of
++      ApplyTransaction transaction next ->
++        let result = reply transaction
++         in prepend (LedgerQuery transaction result) (go $ next result)
++      Decide name result next -> prepend (Decision name result) (go next)
++
++    prepend :: Trace -> ([Trace], b) -> ([Trace], b)
++    prepend entry (entries, result) = (entry : entries, result)
+diff --git a/package.yaml b/package.yaml
+index 06bcf6f..db0bf70 100644
+--- a/package.yaml
++++ b/package.yaml
+@@ -25,6 +25,9 @@ tested-with:
+ extra-source-files:
+   - README.md
+   - CHANGELOG.md
++  - docs/headlogic-api-sketch.md
++  - scripts/check-transition-types.sh
++  - typecheck/*.hs
+
+ flags:
+   errors:
+@@ -136,6 +139,8 @@ internal-libraries:
+     source-dirs:      examples
+     dependencies:
+       - crem
++      - free >= 5.1 && < 5.3
++      - nothunks
+       - profunctors
+       - singletons-base
+       - text
+@@ -154,8 +159,10 @@ tests:
+       - crem-examples
+       - hspec >= 2.7 && < 2.12
+       - machines
++      - nothunks
+       - profunctors
+       - singletons-base
++      - text
+     build-tools: hspec-discover:hspec-discover
+     when:
+     - condition: false
+@@ -178,6 +185,17 @@ tests:
+       other-modules: Paths_crem
+
+ executables:
++  transaction-sketch:
++    source-dirs: transaction-sketch
++    main: Main.hs
++    dependencies:
++      - crem
++      - crem-examples
++      - text
++    when:
++    - condition: false
++      other-modules: Paths_crem
++
+   hobbit-game:
+     source-dirs:    hobbit-game
+     main:           Main.hs
+diff --git a/scripts/check-transition-types.sh b/scripts/check-transition-types.sh
+new file mode 100644
+index 0000000..0a57bee
+--- /dev/null
++++ b/scripts/check-transition-types.sh
+@@ -0,0 +1,18 @@
++#!/usr/bin/env bash
++set -euo pipefail
++cd "$(dirname "$0")/.."
++
++# Compile the allowed counterpart first so a missing package cannot pass the
++# negative test. Keep compiler output outside the source tree.
++cabal build lib:crem -ferrors
++cabal exec -- ghc -fno-code -XGHC2021 -package crem typecheck/AllowedTransition.hs
++crem_typecheck_log=$(mktemp)
++trap 'rm -f "$crem_typecheck_log"' EXIT
++if cabal exec -- ghc -fno-code -XGHC2021 -package crem typecheck/ForbiddenTransition.hs >"$crem_typecheck_log" 2>&1; then
++  echo "ERROR: forbidden transition compiled" >&2
++  exit 1
++fi
++cat "$crem_typecheck_log"
++rg -q 'No instance for.*AllowedTransition' "$crem_typecheck_log"
++rg -q "'?Accepted '?Checking" "$crem_typecheck_log"
++echo "Allowed transition compiled; forbidden transition rejected by its edge constraint."
+diff --git a/spec/Crem/ApiSketchSpec.hs b/spec/Crem/ApiSketchSpec.hs
+new file mode 100644
+index 0000000..de35c28
+--- /dev/null
++++ b/spec/Crem/ApiSketchSpec.hs
+@@ -0,0 +1,263 @@
++{-# LANGUAGE DataKinds #-}
++{-# LANGUAGE GADTs #-}
++{-# LANGUAGE OverloadedStrings #-}
++
++module Crem.ApiSketchSpec (spec) where
++
++import "base" Control.Exception (evaluate)
++import "base" Data.Either (isLeft, isRight)
++import "base" Data.Functor.Identity (Identity (..))
++import "base" Data.IORef (newIORef, readIORef)
++import "crem" Crem.BaseMachine (ActionResult (..), BaseMachineT (..), InitialState (..), Transition (..), baseHoist, pureResult, runBaseMachineT, withStateInspector)
++import "crem" Crem.BaseMachine qualified as Base
++import "crem" Crem.Decider (Decider (..), EvolutionResult (..), deciderMachine, rebuildDecider)
++import "crem" Crem.Example.Transaction qualified as Transaction
++import "crem" Crem.Example.Transaction.Program (Program, Trace (..), runProgram)
++import "crem" Crem.Inspect (Component (..), checkStates, inspectStates)
++import "crem" Crem.Render.Render (machineAsGraph, renderUntypedGraph)
++import "crem" Crem.Render.RenderFlow (TreeMetadata (..), renderFlow)
++import "crem" Crem.StateInspection (StateCheck (..), StateInspector (..), checkNoThunks, describeOnly)
++import "crem" Crem.StateMachine (StateMachineT (..), hoist, run, stateless, withoutRendering)
++import "crem" Crem.Topology (Topology (..))
++import "hspec" Test.Hspec (Expectation, Spec, describe, it, shouldBe, shouldSatisfy)
++import "nothunks" NoThunks.Class (NoThunks (..))
++import "profunctors" Data.Profunctor (Choice (..), Profunctor (..), Strong (..))
++import "text" Data.Text qualified as Text
++
++spec :: Spec
++spec = do
++  describe "effect-selected destinations" $ do
++    it "queries once, chooses Accepted, and traces the decision in the Program" $ do
++      let (trace, (output, next)) = runProgram (const $ Right 42) $ run (Basic Transaction.machine) 7
++      trace `shouldBe` [LedgerQuery 7 (Right 42), Decision "ledger accepts transaction" True]
++      output `shouldBe` "accepted"
++      inspectStates next `shouldBe` [([], Just "Accepted: 42")]
++      let (again, (outputAgain, _)) = runProgram (const $ Left "unused") $ run next 8
++      again `shouldBe` []
++      outputAgain `shouldBe` "already accepted"
++
++    it "chooses Waiting with the same instruction interpreter" $ do
++      let (trace, (output, next)) = runProgram (const $ Left "missing input") $ run (Basic Transaction.machine) 7
++      trace `shouldBe` [LedgerQuery 7 (Left "missing input"), Decision "ledger accepts transaction" False]
++      output `shouldBe` "wait"
++      inspectStates next `shouldBe` [([], Just "Waiting: missing input")]
++
++    it "preserves reply-dependent choice when hoisted" $ do
++      let interpret :: Program a -> Identity a
++          interpret = Identity . snd . runProgram (const $ Right 42)
++          (output, next) = runIdentity $ run (hoist interpret $ Executable Transaction.machine) 7
++      output `shouldBe` "accepted"
++      inspectStates next `shouldBe` [([], Just "Accepted: 42")]
++
++    it "sequences outputs while keeping the chosen destination" $ do
++      let result :: ActionResult Identity SampleTopology Sample 'Before [Int]
++          result = ChooseTransition $ pure $ Transition [3, 5] (Moved 9)
++          outputs = Base.runActionResult $ Base.sequence $ fmap (fmap (+ 1)) result
++      [output | Transition output _ <- outputs] `shouldBe` [4, 6]
++
++  describe "execution without rendering dictionaries" $ do
++    it "keeps effects, outputs and retained inspection when dropping composition metadata" $ do
++      let leaf = Basic $ rmap length Transaction.machine
++      preservesExecution (Sequential leaf leaf) 2
++      preservesExecution (Parallel leaf leaf) (2, 3)
++      preservesExecution (Alternative leaf leaf) (Left 2)
++      preservesExecution (Alternative leaf leaf) (Right 3)
++      preservesExecution (Kleisli (rmap (: []) leaf) (rmap (: []) leaf)) 2
++      preservesExecution (Feedback (rmap (: []) leaf) (rmap (const []) leaf)) 2
++
++    it "drops metadata without running actions or losing initial descriptions" $ do
++      let original = Basic Transaction.machine
++          executable = withoutRendering original
++      (renderUntypedGraph <$> machineAsGraph original) `shouldSatisfy` isRight
++      (renderUntypedGraph <$> machineAsGraph executable) `shouldSatisfy` isLeft
++      inspectStates executable `shouldBe` inspectStates original
++      inspectStates (withoutRendering executable) `shouldBe` inspectStates original
++
++    it "runs a phase type with no Eq, Show, singleton or RenderableVertices instances" $ do
++      let (output, next) = runIdentity $ run (Executable $ sample 10) 2
++      output `shouldBe` 12
++      inspectStates next `shouldBe` [([], Just "After: 12")]
++
++    it "reports missing topology instead of rendering a partial composition" $ do
++      let machine = Sequential (stateless (+ 1)) (Executable $ sample 10)
++      (renderUntypedGraph <$> machineAsGraph machine)
++        `shouldBe` Left "Executable has no rendering metadata; use Basic to retain it"
++      renderFlow (BinaryLabel (LeafLabel "input") (LeafLabel "sample")) machine
++        `shouldSatisfy` isLeft
++
++  describe "retained state inspection" $ do
++    it "attaches and replaces an inspector without changing restored state" $ do
++      let named = withStateInspector sampleInspector (InitialState $ Stored 10)
++          described = withStateInspector (describeOnly $ const "redacted") named
++          (output, next) = runIdentity $ runBaseMachineT (sampleFrom described) 2
++      output `shouldBe` 12
++      inspectStates (Executable next) `shouldBe` [([], Just "redacted")]
++      checks <- checkStates [] (Executable next)
++      map (checkName . snd) checks `shouldBe` ["unknown"]
++
++    it "preserves descriptions without claiming a state check" $ do
++      let inspector = describeOnly $ \case
++            Stored _ -> "Before"
++            Moved _ -> "After"
++          machine = Executable $ sampleFrom $ InspectableState inspector (Stored 10)
++          (_, next) = runIdentity $ run machine 2
++      inspectStates next `shouldBe` [([], Just "After")]
++      checks <- checkStates [] next
++      map (checkName . snd) checks `shouldBe` ["unknown"]
++
++    it "does not evaluate a description when its checker is absent" $ do
++      let machine =
++            Executable $
++              sampleFrom $
++                InspectableState (describeOnly $ \_ -> error "description must not run during check") (Stored 10)
++      checks <- checkStates [] machine
++      map (checkName . snd) checks `shouldBe` ["unknown"]
++
++    it "reports an uninspected leaf as unknown" $ do
++      checks <- checkStates [] (stateless id :: StateMachineT Identity Int Int)
++      map (checkName . snd) checks `shouldBe` ["unknown"]
++
++    it "finds a real payload thunk, without evaluating the state description" $ do
++      ref <- newIORef (20 :: Int)
++      value <- readIORef ref
++      stored <- evaluate $ Stored (suspended value)
++      let machine =
++            Executable $
++              sampleFrom $
++                InspectableState
++                  sampleInspector
++                    { describeState = \_ -> error "description must not run during check"
++                    }
++                  stored
++      checks <- checkStates [] machine
++      map (checkName . snd) checks `shouldBe` ["thunk"]
++
++    it "checks the updated state and retains inspectors through base mappings" $ do
++      let mapped :: BaseMachineT Identity SampleTopology (Int, Bool) (Int, Bool)
++          mapped = first' $ rmap (+ 1) $ lmap (+ 2) $ sample 10
++          (output, next) = runIdentity $ runBaseMachineT mapped (3, True)
++      output `shouldBe` (16, True)
++      inspectStates (Executable next) `shouldBe` [([], Just "After: 15")]
++      checks <- checkStates [] (Executable next)
++      map (checkName . snd) checks `shouldBe` ["passed"]
++
++    it "detects a thunk introduced by a transition before describing its state" $ do
++      ref <- newIORef (20 :: Int)
++      value <- readIORef ref
++      let machine :: BaseMachineT Identity SampleTopology Int ()
++          machine = BaseMachineT (InspectableState sampleInspector $ Stored 0) $ \state input -> case state of
++            Stored _ -> ChooseTransition $ pure $ Transition () (Moved $ suspended input)
++            Moved _ -> pureResult () state
++          (_, next) = runIdentity $ runBaseMachineT machine value
++      checks <- checkStates [] (Executable next)
++      map (checkName . snd) checks `shouldBe` ["thunk"]
++
++    it "preserves inspection when Maybe and Either inputs skip the action" $ do
++      let (_, maybeNext) = runIdentity $ runBaseMachineT (Base.maybeM $ sample 10) Nothing
++          (_, eitherNext) = runIdentity $ runBaseMachineT (Base.eitherM $ sample 10) (Left ())
++          (_, choiceNext) = runIdentity $ runBaseMachineT (left' $ sample 10) (Right ())
++      inspectStates (Executable maybeNext) `shouldBe` [([], Just "Before: 10")]
++      inspectStates (Executable eitherNext) `shouldBe` [([], Just "Before: 10")]
++      inspectStates (Executable choiceNext) `shouldBe` [([], Just "Before: 10")]
++
++    it "keeps both state inspectors through sequential, parallel, and alternative execution" $ do
++      let leaf = Executable $ sample 10
++          (_, sequential) = runIdentity $ run (Sequential leaf leaf) 2
++          (_, parallel) = runIdentity $ run (Parallel leaf leaf) (2, 3)
++          (_, alternative) = runIdentity $ run (Alternative leaf leaf) (Left 2)
++      inspectStates sequential `shouldBe` two "After: 12" "After: 22"
++      inspectStates parallel `shouldBe` two "After: 12" "After: 13"
++      inspectStates alternative `shouldBe` two "After: 12" "Before: 10"
++      checks <- checkStates [] alternative
++      map (checkName . snd) checks `shouldBe` ["passed", "passed"]
++
++    it "keeps inspectors through Kleisli and finite feedback execution" $ do
++      let forward = Executable $ rmap (: []) $ sample 10
++          stop :: StateMachineT Identity Int [Int]
++          stop = Executable $ rmap (const []) $ sample 10
++          (_, kleisli) = runIdentity $ run (Kleisli forward forward) 2
++          (_, feedback) = runIdentity $ run (Feedback forward stop) 2
++      inspectStates kleisli `shouldBe` two "After: 12" "After: 22"
++      inspectStates feedback `shouldBe` two "After: 12" "After: 22"
++
++    it "preserves the inspector when rebuilding a decider" $ do
++      let decider :: Decider SampleTopology () Int
++          decider =
++            Decider
++              (InspectableState sampleInspector $ Stored 10)
++              (\() _ -> 17)
++              ( \state value -> case state of
++                  Stored _ -> EvolutionResult $ Moved value
++                  Moved _ -> EvolutionResult $ Moved value
++              )
++          rebuilt = rebuildDecider [12, 17] decider
++      inspectStates (Executable $ deciderMachine rebuilt @Identity)
++        `shouldBe` [([], Just "After: 17")]
++
++    it "preserves the inspector when hoisting a base machine" $ do
++      let next = baseHoist (Just . runIdentity) $ sample 10
++      inspectStates (Executable next) `shouldBe` [([], Just "Before: 10")]
++  where
++    two :: Text.Text -> Text.Text -> [([Component], Maybe Text.Text)]
++    two left right = [([LeftComponent], Just left), ([RightComponent], Just right)]
++
++-- Compare two consecutive runs, including the retained phase selected by each
++-- primitive reply. Metadata removal must not add, omit or repeat an effect.
++preservesExecution :: (Eq b, Show b) => StateMachineT Program a b -> a -> Expectation
++preservesExecution original input = do
++  let execute machine = runProgram (const $ Right 42) $ run machine input
++      (expectedTrace, (expected, retained)) = execute original
++      (actualTrace, (actual, stripped)) = execute $ withoutRendering original
++      (nextExpectedTrace, (nextExpected, nextRetained)) = execute retained
++      (nextActualTrace, (nextActual, nextStripped)) = execute stripped
++  (actualTrace, actual) `shouldBe` (expectedTrace, expected)
++  (nextActualTrace, nextActual) `shouldBe` (nextExpectedTrace, nextExpected)
++  inspectStates stripped `shouldBe` inspectStates retained
++  inspectStates nextStripped `shouldBe` inspectStates nextRetained
++
++-- No singleton generation or rendering instances for this phase type.
++data Phase = Before | After
++
++type SampleTopology = 'Topology '[ '( 'Before, '[ 'After])]
++
++data Sample phase where
++  Stored :: Int -> Sample 'Before
++  Moved :: Int -> Sample 'After
++
++type role Sample nominal
++
++instance NoThunks (Sample phase) where
++  showTypeOf _ = "Sample"
++  wNoThunks context = \case
++    Stored value -> noThunks context value
++    Moved value -> noThunks context value
++
++sampleInspector :: StateInspector Sample
++sampleInspector =
++  StateInspector
++    { describeState = \case
++        Stored value -> "Before: " <> Text.pack (show value)
++        Moved value -> "After: " <> Text.pack (show value)
++    , checkState = checkNoThunks
++    }
++
++sample :: Int -> BaseMachineT Identity SampleTopology Int Int
++sample = sampleFrom . InspectableState sampleInspector . Stored
++
++sampleFrom :: InitialState Sample -> BaseMachineT Identity SampleTopology Int Int
++sampleFrom initial = BaseMachineT initial $ \state input -> case state of
++  Stored value ->
++    ChooseTransition $
++      Identity $
++        let after = value + input
++         in after `seq` Transition after (Moved after)
++  Moved value -> pureResult value state
++
++checkName :: StateCheck -> String
++checkName NotInspected = "unknown"
++checkName CheckPassed = "passed"
++checkName FoundThunk {} = "thunk"
++
++suspended :: Int -> Int
++suspended value = value + 1
++{-# NOINLINE suspended #-}
+diff --git a/spec/Crem/Render/RenderSpec.hs b/spec/Crem/Render/RenderSpec.hs
+index 70b9eaa..10aab10 100644
+--- a/spec/Crem/Render/RenderSpec.hs
++++ b/spec/Crem/Render/RenderSpec.hs
+@@ -2,16 +2,16 @@
+
+ module Crem.Render.RenderSpec where
+
+-import Crem.Example.LockDoor
+-import Crem.Example.OneState
+-import Crem.Example.Switch
++import Crem.Example.LockDoor (LockDoorVertex (..), SLockDoorVertex (..), lockDoorMachine, lockDoorTopology)
++import Crem.Example.OneState (oneVertexMachine)
++import Crem.Example.Switch (switchMachine, switchTopology)
+ import Crem.Topology (trivialTopology)
+-import Data.Functor.Identity
+-import Data.Singletons.Base.TH
++import Data.Functor.Identity (Identity)
++import Data.Singletons.Base.TH (SBool (SFalse))
+ import "base" Data.List (intersperse)
+-import "crem" Crem.Graph
+-import "crem" Crem.Render.Render
+-import "crem" Crem.StateMachine
++import "crem" Crem.Graph (Graph (..))
++import "crem" Crem.Render.Render (Mermaid (..), baseMachineAsGraph, machineAsGraph, renderGraph, renderUntypedGraph, topologyAsGraph)
++import "crem" Crem.StateMachine (StateMachineT (Basic))
+ import "hspec" Test.Hspec (Spec, describe, it, shouldBe)
+
+ spec :: Spec
+@@ -79,34 +79,38 @@ spec =
+
+     describe "machineAsGraph" $ do
+       it "should render the basic machine with a single vertex" $ do
+-        renderUntypedGraph (machineAsGraph (Basic $ oneVertexMachine @Identity))
+-          `shouldBe` Mermaid "()"
++        (renderUntypedGraph <$> machineAsGraph (Basic $ oneVertexMachine @Identity))
++          `shouldBe` Right (Mermaid "()")
+
+       it "should render the basic switch machine" $ do
+-        renderUntypedGraph (machineAsGraph (Basic $ switchMachine SFalse @Identity))
+-          `shouldBe` Mermaid
+-            ( mconcat $
+-                intersperse
+-                  "\n"
+-                  [ "False"
+-                  , "True"
+-                  , "True --> False"
+-                  , "False --> True"
+-                  ]
+-            )
++        (renderUntypedGraph <$> machineAsGraph (Basic $ switchMachine SFalse @Identity))
++          `shouldBe` ( Right $
++                        Mermaid
++                          ( mconcat $
++                              intersperse
++                                "\n"
++                                [ "False"
++                                , "True"
++                                , "True --> False"
++                                , "False --> True"
++                                ]
++                          )
++                     )
+
+       it "should render the basic lockDoor machine" $ do
+-        renderUntypedGraph (machineAsGraph (Basic $ lockDoorMachine SIsLockClosed @Identity))
+-          `shouldBe` Mermaid
+-            ( mconcat $
+-                intersperse
+-                  "\n"
+-                  [ "IsLockOpen"
+-                  , "IsLockClosed"
+-                  , "IsLockLocked"
+-                  , "IsLockOpen --> IsLockClosed"
+-                  , "IsLockClosed --> IsLockOpen"
+-                  , "IsLockClosed --> IsLockLocked"
+-                  , "IsLockLocked --> IsLockClosed"
+-                  ]
+-            )
++        (renderUntypedGraph <$> machineAsGraph (Basic $ lockDoorMachine SIsLockClosed @Identity))
++          `shouldBe` ( Right $
++                        Mermaid
++                          ( mconcat $
++                              intersperse
++                                "\n"
++                                [ "IsLockOpen"
++                                , "IsLockClosed"
++                                , "IsLockLocked"
++                                , "IsLockOpen --> IsLockClosed"
++                                , "IsLockClosed --> IsLockOpen"
++                                , "IsLockClosed --> IsLockLocked"
++                                , "IsLockLocked --> IsLockClosed"
++                                ]
++                          )
++                     )
+diff --git a/src/Crem/BaseMachine.hs b/src/Crem/BaseMachine.hs
+index 75e7bbe..30290f8 100644
+--- a/src/Crem/BaseMachine.hs
++++ b/src/Crem/BaseMachine.hs
+@@ -4,8 +4,9 @@
+ -- allowed transitions.
+ module Crem.BaseMachine where
+
+-import Crem.Topology
+-import "base" Data.Bifunctor (Bifunctor (..), first)
++import Crem.StateInspection (StateInspector)
++import Crem.Topology (AllowAllTopology, AllowedTransition, Topology, TrivialTopology)
++import "base" Data.Bifunctor (first)
+ import "base" Data.Functor.Identity (Identity (..))
+ import "base" Data.Kind (Type)
+ import "profunctors" Data.Profunctor (Choice (..), Profunctor (..), Strong (..))
+@@ -115,9 +116,40 @@ instance (Applicative m) => Choice (BaseMachineT m topology) where
+ -- actual initial data of type @state vertex@
+ data InitialState (state :: vertex -> Type) where
+   InitialState :: state vertex -> InitialState state
++  -- | Retain the inspector when the machine moves to another phase.
++  InspectableState :: StateInspector state -> state vertex -> InitialState state
+
+ type role InitialState representational
+
++-- | Open the existential state and supply a constructor which preserves its
++-- inspection policy. Use this when rebuilding a machine or a decider.
++withInitialState
++  :: InitialState state
++  -> (forall phase. state phase -> (forall next. state next -> InitialState state) -> a)
++  -> a
++withInitialState (InitialState state) use = use state InitialState
++withInitialState (InspectableState inspector state) use = use state (InspectableState inspector)
++
++-- | Attach or replace the inspector after restoring an existential phase.
++-- This does not evaluate the description or run a state check.
++withStateInspector :: StateInspector state -> InitialState state -> InitialState state
++withStateInspector inspector stored =
++  withInitialState stored $ \state _ -> InspectableState inspector state
++
++-- | A destination selected by an effect still carries evidence that its edge
++-- is allowed. No runtime topology lookup is involved.
++data Transition (topology :: Topology vertex) (state :: vertex -> Type) (from :: vertex) output where
++  Transition
++    :: (AllowedTransition topology from to)
++    => output
++    -> state to
++    -> Transition topology state from output
++
++type role Transition nominal nominal nominal representational
++
++instance Functor (Transition topology state from) where
++  fmap f (Transition output state) = Transition (f output) state
++
+ -- | The result of an action of the state machine.
+ -- An @ActionResult m topology state initialVertex output@ contains an @output@
+ -- and a @state finalVertex@, where the transition from @initialVertex@ to
+@@ -134,6 +166,11 @@ data
+     :: (AllowedTransition topology initialVertex finalVertex)
+     => m (output, state finalVertex)
+     -> ActionResult m topology state initialVertex output
++  -- | Choose the destination after receiving an effect's reply. Each branch
++  -- constructs a 'Transition' with its own allowed-edge evidence.
++  ChooseTransition
++    :: m (Transition topology state initialVertex output)
++    -> ActionResult m topology state initialVertex output
+
+ type role ActionResult representational nominal nominal nominal nominal
+
+@@ -145,6 +182,7 @@ hoistResult
+   -> ActionResult m topology state initialVertex output
+   -> ActionResult n topology state initialVertex output
+ hoistResult f (ActionResult outputStatePair) = ActionResult $ f outputStatePair
++hoistResult f (ChooseTransition result) = ChooseTransition $ f result
+
+ instance (Functor m) => Functor (ActionResult m topology state initialVertex) where
+   fmap
+@@ -153,6 +191,15 @@ instance (Functor m) => Functor (ActionResult m topology state initialVertex) wh
+     -> ActionResult m topology state initialVertex b
+   fmap f (ActionResult outputStatePair) =
+     ActionResult $ first f <$> outputStatePair
++  fmap f (ChooseTransition result) = ChooseTransition $ fmap f <$> result
++
++-- | Execute either form of action exactly once.
++runActionResult
++  :: (Functor m)
++  => ActionResult m topology state initialVertex output
++  -> m (Transition topology state initialVertex output)
++runActionResult (ActionResult result) = uncurry Transition <$> result
++runActionResult (ChooseTransition result) = result
+
+ -- | Create an `ActionResult` without performing any side effect in the @m@
+ -- context
+@@ -172,6 +219,8 @@ sequence
+   -> ActionResult f topology state initialVertex output
+ sequence (ActionResult (Identity (outputs, state))) =
+   ActionResult $ (,state) <$> outputs
++sequence (ChooseTransition (Identity (Transition outputs state))) =
++  ChooseTransition $ (`Transition` state) <$> outputs
+
+ -- ** Lift machines
+
+@@ -251,14 +300,7 @@ runBaseMachineT
+   => BaseMachineT m topology input output
+   -> input
+   -> m (output, BaseMachineT m topology input output)
+-runBaseMachineT (BaseMachineT (InitialState initialState) action) input =
+-  case action initialState input of
+-    ActionResult outputStatePair ->
+-      second
+-        ( \finalState ->
+-            BaseMachineT
+-              { initialState = InitialState finalState
+-              , action = action
+-              }
+-        )
+-        <$> outputStatePair
++runBaseMachineT (BaseMachineT storedState action) input =
++  withInitialState storedState $ \state retain ->
++    (\(Transition output finalState) -> (output, BaseMachineT (retain finalState) action))
++      <$> runActionResult (action state input)
+diff --git a/src/Crem/Decider.hs b/src/Crem/Decider.hs
+index 5f0809f..59a8cbb 100644
+--- a/src/Crem/Decider.hs
++++ b/src/Crem/Decider.hs
+@@ -9,7 +9,7 @@
+ -- computed from the previous state and the output
+ module Crem.Decider where
+
+-import Crem.BaseMachine (ActionResult (..), BaseMachine, BaseMachineT (..), InitialState (..))
++import Crem.BaseMachine (ActionResult (..), BaseMachine, BaseMachineT (..), InitialState, withInitialState)
+ import Crem.Topology (AllowedTransition, Topology)
+
+ #if __GLASGOW_HASKELL__ < 910
+@@ -97,14 +97,12 @@ rebuildDecider outputs decider =
+       :: Decider topology input output
+       -> output
+       -> Decider topology input output
+-    rebuildDeciderStep (Decider (InitialState initialState') decide' evolve') output =
+-      let
+-        evolveResult = evolve' initialState' output
+-       in
+-        case evolveResult of
++    rebuildDeciderStep (Decider storedState decide' evolve') output =
++      withInitialState storedState $ \state retain ->
++        case evolve' state output of
+           EvolutionResult evolvedState ->
+             Decider
+-              { deciderInitialState = InitialState evolvedState
++              { deciderInitialState = retain evolvedState
+               , decide = decide'
+               , evolve = evolve'
+               }
+diff --git a/src/Crem/Inspect.hs b/src/Crem/Inspect.hs
+new file mode 100644
+index 0000000..71d301f
+--- /dev/null
++++ b/src/Crem/Inspect.hs
+@@ -0,0 +1,57 @@
++{-# LANGUAGE GADTs #-}
++
++-- | Inspect retained state without executing a machine's actions.
++module Crem.Inspect
++  ( Component (..)
++  , inspectStates
++  , checkStates
++  ) where
++
++import Crem.BaseMachine (BaseMachineT (..), InitialState (..))
++import Crem.StateInspection (StateCheck (..), StateInspector (..))
++import Crem.StateMachine (StateMachineT (..))
++import Crem.Topology (Topology)
++import "nothunks" NoThunks.Class (Context)
++import "text" Data.Text (Text)
++
++-- | A path follows the binary composition tree, from the root to a leaf.
++data Component = LeftComponent | RightComponent
++  deriving stock (Eq, Show)
++
++-- | Descriptions are supplied by the author; they may redact private data.
++-- 'Nothing' marks a leaf without an inspector.
++inspectStates :: StateMachineT m a b -> [([Component], Maybe Text)]
++inspectStates = leaves $ \(BaseMachineT storedState _) -> case storedState of
++  InitialState _ -> Nothing
++  InspectableState inspector state -> Just $ describeState inspector state
++
++-- | Check every leaf, including inactive alternatives. This reports unknown
++-- leaves explicitly and makes no claim about action closures or effects.
++checkStates :: Context -> StateMachineT m a b -> IO [([Component], StateCheck)]
++checkStates context = traverse (\(path, check) -> (path,) <$> check) . leaves checkBase
++  where
++    checkBase :: BaseMachineT m topology input output -> IO StateCheck
++    checkBase (BaseMachineT storedState _) = case storedState of
++      InitialState _ -> pure NotInspected
++      InspectableState inspector state ->
++        checkState inspector context state
++
++leaves
++  :: forall m result input output
++   . (forall vertex (topology :: Topology vertex) a b. BaseMachineT m topology a b -> result)
++  -> StateMachineT m input output
++  -> [([Component], result)]
++leaves visit = go []
++  where
++    go :: [Component] -> StateMachineT m a b -> [([Component], result)]
++    go path = \case
++      Basic machine -> [(reverse path, visit machine)]
++      Executable machine -> [(reverse path, visit machine)]
++      Sequential left right -> branch path left right
++      Parallel left right -> branch path left right
++      Alternative left right -> branch path left right
++      Feedback left right -> branch path left right
++      Kleisli left right -> branch path left right
++
++    branch :: [Component] -> StateMachineT m a b -> StateMachineT m c d -> [([Component], result)]
++    branch path left right = go (LeftComponent : path) left <> go (RightComponent : path) right
+diff --git a/src/Crem/Render/Render.hs b/src/Crem/Render/Render.hs
+index 5c99b3a..aeda854 100644
+--- a/src/Crem/Render/Render.hs
++++ b/src/Crem/Render/Render.hs
+@@ -5,13 +5,30 @@
+
+ -- | Once you defined a `StateMachineT`, you can render its topology as a
+ -- directed graph using a [Mermaid](https://mermaid.js.org/#/) state diagram
+-module Crem.Render.Render where
+-
+-import Crem.BaseMachine
+-import Crem.Graph
+-import Crem.Render.RenderableVertices
+-import Crem.StateMachine
+-import Crem.Topology
++module Crem.Render.Render
++  ( Mermaid (..)
++  , MachineLabel (..)
++  , renderStateDiagram
++  , labelVertex
++  , renderLabelledVertices
++  , renderVertices
++  , renderLabelledEdges
++  , renderEdges
++  , renderLabelledGraph
++  , renderGraph
++  , topologyAsGraph
++  , baseMachineTopology
++  , baseMachineAsGraph
++  , renderUntypedStateDiagram
++  , renderUntypedGraph
++  , machineAsGraph
++  ) where
++
++import Crem.BaseMachine (BaseMachineT)
++import Crem.Graph (Graph (..), UntypedGraph (..), untypedAddIdentityEdges, untypedProductGraph, untypedRemoveIdentityEdges, untypedTransitiveClosureGraph)
++import Crem.Render.RenderableVertices (RenderableVertices (vertices))
++import Crem.StateMachine (StateMachineT (..))
++import Crem.Topology (Topology (..))
+ import "base" Data.List (intersperse)
+ import "base" Data.String (IsString)
+ import "singletons-base" Data.Singletons (Demote, SingI, SingKind, demote)
+@@ -134,32 +151,33 @@ renderUntypedGraph (UntypedGraph graph) = renderGraph graph
+
+ -- | Interpret a `StateMachine` as an `UntypedGraph` using the information
+ -- contained in its structure and in the topology of its basic components
+-machineAsGraph :: StateMachineT m input output -> UntypedGraph
++-- Returns an error if any leaf lacks rendering metadata. An incomplete graph
++-- must not be presented as the machine's topology.
++machineAsGraph :: StateMachineT m input output -> Either String UntypedGraph
+ machineAsGraph (Basic baseMachine) =
+-  UntypedGraph (baseMachineAsGraph baseMachine)
++  Right $ UntypedGraph (baseMachineAsGraph baseMachine)
++machineAsGraph (Executable _) = Left "Executable has no rendering metadata; use Basic to retain it"
+ machineAsGraph (Sequential machine1 machine2) =
+-  untypedRemoveIdentityEdges $
+-    untypedProductGraph
+-      (untypedAddIdentityEdges $ machineAsGraph machine1)
+-      (untypedAddIdentityEdges $ machineAsGraph machine2)
++  productGraphs <$> machineAsGraph machine1 <*> machineAsGraph machine2
+ machineAsGraph (Parallel machine1 machine2) =
+-  untypedRemoveIdentityEdges $
+-    untypedProductGraph
+-      (untypedAddIdentityEdges $ machineAsGraph machine1)
+-      (untypedAddIdentityEdges $ machineAsGraph machine2)
++  productGraphs <$> machineAsGraph machine1 <*> machineAsGraph machine2
+ machineAsGraph (Alternative machine1 machine2) =
+-  untypedRemoveIdentityEdges $
+-    untypedProductGraph
+-      (untypedAddIdentityEdges $ machineAsGraph machine1)
+-      (untypedAddIdentityEdges $ machineAsGraph machine2)
+-machineAsGraph (Feedback machine1 machine2) =
+-  untypedRemoveIdentityEdges $
+-    untypedTransitiveClosureGraph $
+-      untypedProductGraph
+-        (untypedAddIdentityEdges $ machineAsGraph machine1)
+-        (untypedAddIdentityEdges $ machineAsGraph machine2)
++  productGraphs <$> machineAsGraph machine1 <*> machineAsGraph machine2
++machineAsGraph (Feedback machine1 machine2) = do
++  graph1 <- machineAsGraph machine1
++  graph2 <- machineAsGraph machine2
++  pure $
++    untypedRemoveIdentityEdges $
++      untypedTransitiveClosureGraph $
++        untypedProductGraph
++          (untypedAddIdentityEdges graph1)
++          (untypedAddIdentityEdges graph2)
+ machineAsGraph (Kleisli machine1 machine2) =
++  productGraphs <$> machineAsGraph machine1 <*> (untypedTransitiveClosureGraph <$> machineAsGraph machine2)
++
++productGraphs :: UntypedGraph -> UntypedGraph -> UntypedGraph
++productGraphs graph1 graph2 =
+   untypedRemoveIdentityEdges $
+     untypedProductGraph
+-      (untypedAddIdentityEdges $ machineAsGraph machine1)
+-      (untypedAddIdentityEdges $ untypedTransitiveClosureGraph $ machineAsGraph machine2)
++      (untypedAddIdentityEdges graph1)
++      (untypedAddIdentityEdges graph2)
+diff --git a/src/Crem/Render/RenderFlow.hs b/src/Crem/Render/RenderFlow.hs
+index 98d9471..b4ae987 100644
+--- a/src/Crem/Render/RenderFlow.hs
++++ b/src/Crem/Render/RenderFlow.hs
+@@ -9,8 +9,8 @@
+ -- flow.
+ module Crem.Render.RenderFlow where
+
+-import Crem.Render.Render
+-import Crem.StateMachine
++import Crem.Render.Render (MachineLabel (..), Mermaid (..), baseMachineAsGraph, renderLabelledGraph)
++import Crem.StateMachine (StateMachineT (..))
+ import "nothunks" NoThunks.Class (NoThunks (..), allNoThunks)
+
+ -- | A tree-like structure which could be used to attach metadata to any
+@@ -38,6 +38,8 @@ instance (NoThunks a) => NoThunks (TreeMetadata a) where
+ --
+ -- More details available in [\/docs\/how-to-render-a-machine.md](https://github.com/tweag/crem/tree/main/docs/how-to-render-a-machine.md)
+ renderFlow :: TreeMetadata MachineLabel -> StateMachineT m input output -> Either String (Mermaid, MachineLabel, MachineLabel)
++renderFlow (LeafLabel label) (Executable _) =
++  Left $ "Executable leaf " <> show label <> " has no rendering metadata; use Basic to retain it"
+ renderFlow (LeafLabel label) (Basic machine) =
+   Right
+     ( Mermaid ("state " <> getLabel label <> " {")
+diff --git a/src/Crem/StateInspection.hs b/src/Crem/StateInspection.hs
+new file mode 100644
+index 0000000..e918a8d
+--- /dev/null
++++ b/src/Crem/StateInspection.hs
+@@ -0,0 +1,37 @@
++-- | Optional observations of a machine's retained state. Descriptions and
++-- checks are separate: checking must not force a description or its payload.
++module Crem.StateInspection
++  ( StateInspector (..)
++  , StateCheck (..)
++  , describeOnly
++  , checkNoThunks
++  ) where
++
++import "base" Data.Kind (Type)
++import "nothunks" NoThunks.Class (Context, NoThunks (noThunks), ThunkInfo)
++import "text" Data.Text (Text)
++
++-- | The machine author supplies observations for every phase. A phase without
++-- a complete state checker returns 'NotInspected'. Checks cover state data,
++-- not action closures or effect environments.
++data StateInspector (state :: vertex -> Type) = StateInspector
++  { describeState :: forall phase. state phase -> Text
++  , checkState :: forall phase. Context -> state phase -> IO StateCheck
++  }
++
++type role StateInspector representational
++
++-- | An absent checker is unknown, never a successful strictness check.
++data StateCheck
++  = NotInspected
++  | CheckPassed
++  | FoundThunk ThunkInfo
++  deriving stock (Show)
++
++-- | Describe phases without claiming to check their retained data.
++describeOnly :: (forall phase. state phase -> Text) -> StateInspector state
++describeOnly description = StateInspector description (\_ _ -> pure NotInspected)
++
++-- | Adapt an existing 'NoThunks' instance to a state inspection callback.
++checkNoThunks :: (NoThunks a) => Context -> a -> IO StateCheck
++checkNoThunks context value = maybe CheckPassed FoundThunk <$> noThunks context value
+diff --git a/src/Crem/StateMachine.hs b/src/Crem/StateMachine.hs
+index 0eb8439..d65e3e3 100644
+--- a/src/Crem/StateMachine.hs
++++ b/src/Crem/StateMachine.hs
+@@ -6,7 +6,7 @@
+ -- `StateMachineT` type, which allows us to create composable state machines.
+ module Crem.StateMachine where
+
+-import Crem.BaseMachine as BaseMachine
++import Crem.BaseMachine (ActionResult, BaseMachineT, InitialState, baseHoist, identity, runBaseMachineT, statelessBaseT, unrestrictedBaseMachineT)
+ import Crem.Render.RenderableVertices (RenderableVertices)
+ import Crem.Topology (AllowAllTopology, Topology)
+ import "base" Control.Arrow (Arrow (arr, first), ArrowChoice (left))
+@@ -16,7 +16,6 @@ import "base" Data.Foldable (foldlM)
+ import "base" Data.Kind (Type)
+ import "machines" Data.Machine.MealyT qualified as Machines
+ import "machines" Data.Machine.Process qualified as Machines
+-import "nothunks" NoThunks.Class (NoThunks (..), allNoThunks)
+ import "profunctors" Data.Profunctor (Choice (..), Profunctor (..), Strong (..))
+ import "singletons-base" Data.Singletons (Demote, SingI, SingKind)
+ import Prelude hiding ((.))
+@@ -46,6 +45,11 @@ data StateMachineT m input output where
+        )
+     => BaseMachineT m topology input output
+     -> StateMachineT m input output
++  -- | An executable leaf without singleton or rendering dictionaries. Its
++  -- allowed transitions are checked in exactly the same way as 'Basic'.
++  Executable
++    :: BaseMachineT m topology input output
++    -> StateMachineT m input output
+   -- | `Sequential` adds categorical composition for `StateMachineT`
+   Sequential
+     :: StateMachineT m a b
+@@ -79,22 +83,24 @@ data StateMachineT m input output where
+
+ type role StateMachineT representational nominal nominal
+
+-instance NoThunks (StateMachineT m input output) where
+-  showTypeOf _ = "StateMachineT"
+-  wNoThunks ctxt sm =
+-    case sm of
+-      Basic _ -> return Nothing
+-      Sequential x y -> allNoThunks [noThunks ctxt x, noThunks ctxt y]
+-      Parallel x y -> allNoThunks [noThunks ctxt x, noThunks ctxt y]
+-      Alternative x y -> allNoThunks [noThunks ctxt x, noThunks ctxt y]
+-      Feedback x y -> allNoThunks [noThunks ctxt x, noThunks ctxt y]
+-      Kleisli x y -> allNoThunks [noThunks ctxt x, noThunks ctxt y]
+-
+ -- | A `StateMachine` is an effectful machine for every possible monad @m@.
+ -- Needing to work for every monad, in fact it can not perform any kind of
+ -- effect and needs to be pure in nature.
+ type StateMachine a b = forall m. (Monad m) => StateMachineT m a b
+
++-- | Drop rendering dictionaries from every leaf. A single composition can
++-- supply diagrams and execution; actions, retained states and inspectors stay
++-- the same. This does not run the machine.
++withoutRendering :: StateMachineT m a b -> StateMachineT m a b
++withoutRendering = \case
++  Basic machine -> Executable machine
++  Executable machine -> Executable machine
++  Sequential leftMachine rightMachine -> Sequential (withoutRendering leftMachine) (withoutRendering rightMachine)
++  Parallel leftMachine rightMachine -> Parallel (withoutRendering leftMachine) (withoutRendering rightMachine)
++  Alternative leftMachine rightMachine -> Alternative (withoutRendering leftMachine) (withoutRendering rightMachine)
++  Feedback leftMachine rightMachine -> Feedback (withoutRendering leftMachine) (withoutRendering rightMachine)
++  Kleisli leftMachine rightMachine -> Kleisli (withoutRendering leftMachine) (withoutRendering rightMachine)
++
+ -- * Hoist
+
+ -- | Allows to change the context @m@ where the machine operates to another
+@@ -103,6 +109,7 @@ type StateMachine a b = forall m. (Monad m) => StateMachineT m a b
+ hoist :: (forall x. m x -> n x) -> StateMachineT m a b -> StateMachineT n a b
+ hoist f machine = case machine of
+   Basic baseMachine -> Basic $ baseHoist f baseMachine
++  Executable baseMachine -> Executable $ baseHoist f baseMachine
+   Sequential machine1 machine2 -> Sequential (hoist f machine1) (hoist f machine2)
+   Parallel machine1 machine2 -> Parallel (hoist f machine1) (hoist f machine2)
+   Alternative machine1 machine2 -> Alternative (hoist f machine1) (hoist f machine2)
+@@ -150,11 +157,13 @@ instance (Monad m) => Category (StateMachineT m) where
+ instance (Applicative m) => Profunctor (StateMachineT m) where
+   lmap :: (a -> b) -> StateMachineT m b c -> StateMachineT m a c
+   lmap f (Basic baseMachine) = Basic $ lmap f baseMachine
++  lmap f (Executable baseMachine) = Executable $ lmap f baseMachine
+   lmap f (Sequential machine1 machine2) = Sequential (lmap f machine1) machine2
+   lmap f machine = Sequential (stateless f) machine
+
+   rmap :: (b -> c) -> StateMachineT m a b -> StateMachineT m a c
+   rmap f (Basic baseMachine) = Basic $ rmap f baseMachine
++  rmap f (Executable baseMachine) = Executable $ rmap f baseMachine
+   rmap f (Sequential machine1 machine2) = Sequential machine1 (rmap f machine2)
+   rmap f machine = Sequential machine (stateless f)
+
+@@ -209,6 +218,7 @@ instance Machines.AutomatonM StateMachineT where
+ -- the machine
+ run :: (Monad m) => StateMachineT m a b -> a -> m (b, StateMachineT m a b)
+ run (Basic baseMachine) a = second Basic <$> runBaseMachineT baseMachine a
++run (Executable baseMachine) a = second Executable <$> runBaseMachineT baseMachine a
+ run (Sequential machine1 machine2) a = do
+   (output1, machine1') <- run machine1 a
+   (output2, machine2') <- run machine2 output1
+diff --git a/transaction-sketch/Main.hs b/transaction-sketch/Main.hs
+new file mode 100644
+index 0000000..52fb35f
+--- /dev/null
++++ b/transaction-sketch/Main.hs
+@@ -0,0 +1,22 @@
++module Main (main) where
++
++import "crem" Crem.Example.Transaction (machine)
++import "crem" Crem.Example.Transaction.Program (runProgram)
++import "crem" Crem.Inspect (checkStates, inspectStates)
++import "crem" Crem.Render.Render (baseMachineAsGraph, getText, renderStateDiagram)
++import "crem" Crem.StateMachine (StateMachineT (Basic), run)
++import "text" Data.Text.IO qualified as Text
++
++main :: IO ()
++main = do
++  Text.putStrLn $ getText $ renderStateDiagram $ baseMachineAsGraph machine
++  mapM_ demonstrate [Right 42, Left "missing input"]
++  where
++    demonstrate :: Either String Int -> IO ()
++    demonstrate reply = do
++      let (trace, (output, next)) = runProgram (const reply) $ run (Basic machine) 7
++      mapM_ print trace
++      print output
++      checks <- checkStates [] next
++      print checks
++      print $ inspectStates next
+diff --git a/typecheck/AllowedTransition.hs b/typecheck/AllowedTransition.hs
+new file mode 100644
+index 0000000..89516f3
+--- /dev/null
++++ b/typecheck/AllowedTransition.hs
+@@ -0,0 +1,22 @@
++{-# LANGUAGE DataKinds #-}
++{-# LANGUAGE GADTs #-}
++
++module AllowedTransition (allowed) where
++
++import Crem.BaseMachine (ActionResult (ChooseTransition), Transition (Transition))
++import Crem.Topology (Topology (Topology))
++import Data.Functor.Identity (Identity)
++
++data Phase = Checking | Accepted | Waiting
++
++type RequestTopology = 'Topology '[ '( 'Checking, '[ 'Accepted, 'Waiting])]
++
++data State phase where
++  Check :: State 'Checking
++  Accept :: State 'Accepted
++  Wait :: State 'Waiting
++
++allowed :: Identity Bool -> ActionResult Identity RequestTopology State 'Checking ()
++allowed query = ChooseTransition $ do
++  valid <- query
++  pure $ if valid then Transition () Accept else Transition () Wait
+diff --git a/typecheck/ForbiddenTransition.hs b/typecheck/ForbiddenTransition.hs
+new file mode 100644
+index 0000000..193c963
+--- /dev/null
++++ b/typecheck/ForbiddenTransition.hs
+@@ -0,0 +1,23 @@
++{-# LANGUAGE DataKinds #-}
++{-# LANGUAGE GADTs #-}
++
++module ForbiddenTransition (forbidden) where
++
++import Crem.BaseMachine (ActionResult (ChooseTransition), Transition (Transition))
++import Crem.Topology (Topology (Topology))
++import Data.Functor.Identity (Identity)
++
++data Phase = Checking | Accepted | Waiting
++
++type RequestTopology = 'Topology '[ '( 'Checking, '[ 'Accepted, 'Waiting])]
++
++data State phase where
++  Check :: State 'Checking
++  Accept :: State 'Accepted
++  Wait :: State 'Waiting
++
++-- Even a reply-selected transition cannot go from Accepted back to Checking.
++forbidden :: Identity Bool -> ActionResult Identity RequestTopology State 'Accepted ()
++forbidden query = ChooseTransition $ do
++  retry <- query
++  pure $ if retry then Transition () Check else Transition () Accept

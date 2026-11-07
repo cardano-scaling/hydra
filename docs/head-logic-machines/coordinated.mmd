@@ -1,0 +1,23 @@
+stateDiagram-v2
+state Snapshots {
+Snapshots_AwaitingRequest
+Snapshots_RequestSent
+Snapshots_CollectingSignatures
+Snapshots_AwaitingRequest --> Snapshots_RequestSent
+Snapshots_AwaitingRequest --> Snapshots_CollectingSignatures
+Snapshots_RequestSent --> Snapshots_AwaitingRequest
+Snapshots_RequestSent --> Snapshots_CollectingSignatures
+Snapshots_CollectingSignatures --> Snapshots_AwaitingRequest
+Snapshots_CollectingSignatures --> Snapshots_RequestSent
+}
+state Transactions {
+Transactions_NoDecommit
+Transactions_DecommitPending
+Transactions_AwaitingSettlement
+Transactions_NoDecommit --> Transactions_DecommitPending
+Transactions_NoDecommit --> Transactions_AwaitingSettlement
+Transactions_DecommitPending --> Transactions_NoDecommit
+Transactions_DecommitPending --> Transactions_AwaitingSettlement
+Transactions_AwaitingSettlement --> Transactions_NoDecommit
+}
+Snapshots --> Transactions

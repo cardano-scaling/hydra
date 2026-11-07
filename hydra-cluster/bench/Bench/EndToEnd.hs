@@ -3,7 +3,7 @@
 module Bench.EndToEnd where
 
 import Hydra.Prelude
-import Test.Hydra.Prelude
+import Test.Hydra.Prelude (HUnitFailure (HUnitFailure), failAfter)
 
 import Bench.Summary (NodeRtsStats (..), Summary (..), SystemStats, makeQuantiles, nominalDiffTimeToMilliseconds)
 import Cardano.Api.UTxO qualified as UTxO
@@ -48,7 +48,7 @@ import Hydra.Cardano.Api (NetworkId, PaymentKey, SigningKey, SocketPath, Tx, TxI
 import Hydra.Chain.Backend (ChainBackend (..))
 import Hydra.Cluster.Faucet (FaucetLog (..), publishHydraScriptsAs, returnFundsToFaucet')
 import Hydra.Cluster.Fixture (Actor (..))
-import Hydra.Cluster.HeadLifecycle (closeHead, fanoutHead, fundDataset, openHead)
+import Hydra.Cluster.HeadLifecycle (closeHead, fanoutHead, fundDataset, fundDatasetWithFuel, openHead)
 import Hydra.Cluster.Util (Timing (..), truncatedDepositPeriod)
 import Hydra.Generator (ClientDataset (..), Dataset (..))
 import Hydra.Ledger.Cardano (mkSimpleTx)
@@ -121,7 +121,9 @@ withDatasetCluster startingNodeId timeoutSeconds incrementalOps workDir dataset 
           let contestationPeriod = truncate $ 10 * blockTime
           let DirectOptions{nodeSocket = nodeSocket'} = directOpts
           putTextLn "Seeding network"
-          sideUTxOs <- fundDataset opts dataset incrementalOps (contramap FromFaucet tracer)
+          -- Large local datasets need fuel for many partial fanout transactions.
+          -- The demo on an existing network retains its usual funding amount.
+          sideUTxOs <- fundDatasetWithFuel 1_000_000_000 opts dataset incrementalOps (contramap FromFaucet tracer)
           putTextLn "Publishing hydra scripts"
           hydraScriptsTxId <- publishHydraScriptsAs opts Faucet
           putStrLn $ "Starting hydra cluster in " <> workDir

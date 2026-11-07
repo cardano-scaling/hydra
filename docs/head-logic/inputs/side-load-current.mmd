@@ -1,0 +1,19 @@
+%%{init: {"sequence": {"wrap": true}}}%%
+sequenceDiagram
+  participant logic as Head logic
+  participant crypto as Cryptography
+  participant changes as Staged changes
+  rect rgb(245, 247, 250)
+    Note over logic,changes: side-load-current
+    Note over logic: client input fits the accumulator: yes
+    Note over logic: input is admitted while at this sync status: yes
+    Note over logic: side-loaded snapshot number does not go backwards: yes
+    Note over logic: side-loaded version matches: yes
+    Note over logic: side-loaded commit matches: yes
+    Note over logic: side-loaded deposit matches: yes
+    Note over logic: side-loaded decommit matches: yes
+    crypto-->>logic: primitive: verify multisignature
+    logic->>changes: stage: confirm snapshot
+    logic->>changes: stage: clear optimistic local state
+    Note over logic,changes: finish: commit changes and release effects
+  end

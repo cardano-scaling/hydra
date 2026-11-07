@@ -1,0 +1,26 @@
+stateDiagram-v2
+
+MissingDeposit
+InactiveDeposit
+ActiveDeposit
+ExpiredDeposit
+ConsumedDeposit
+MissingDeposit --> InactiveDeposit
+MissingDeposit --> ActiveDeposit
+MissingDeposit --> ExpiredDeposit
+InactiveDeposit --> MissingDeposit
+InactiveDeposit --> ActiveDeposit
+InactiveDeposit --> ExpiredDeposit
+InactiveDeposit --> ConsumedDeposit
+ActiveDeposit --> MissingDeposit
+ActiveDeposit --> InactiveDeposit
+ActiveDeposit --> ExpiredDeposit
+ActiveDeposit --> ConsumedDeposit
+ExpiredDeposit --> MissingDeposit
+ExpiredDeposit --> InactiveDeposit
+ExpiredDeposit --> ActiveDeposit
+ExpiredDeposit --> ConsumedDeposit
+ConsumedDeposit --> MissingDeposit
+ConsumedDeposit --> InactiveDeposit
+ConsumedDeposit --> ActiveDeposit
+ConsumedDeposit --> ExpiredDeposit

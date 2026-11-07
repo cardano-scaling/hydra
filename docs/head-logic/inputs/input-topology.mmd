@@ -1,0 +1,19 @@
+stateDiagram-v2
+
+CheckInputSize
+CheckSynchronisation
+HandleIdle
+HandleOpen
+HandleClosed
+HandleFanout
+Finished
+CheckInputSize --> CheckSynchronisation
+CheckSynchronisation --> HandleIdle
+CheckSynchronisation --> HandleOpen
+CheckSynchronisation --> HandleClosed
+CheckSynchronisation --> HandleFanout
+CheckSynchronisation --> Finished
+HandleIdle --> Finished
+HandleOpen --> Finished
+HandleClosed --> Finished
+HandleFanout --> Finished

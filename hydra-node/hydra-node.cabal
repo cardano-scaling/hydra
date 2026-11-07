@@ -76,9 +76,48 @@ library
     Hydra.HeadLogic
     Hydra.HeadLogic.Error
     Hydra.HeadLogic.Input
+    Hydra.HeadLogic.Interpreter
+    Hydra.HeadLogic.Machine
+    Hydra.HeadLogic.Machine.Clock
+    Hydra.HeadLogic.Machine.Coordinated
+    Hydra.HeadLogic.Machine.Deposit
+    Hydra.HeadLogic.Machine.DepositRegistry
+    Hydra.HeadLogic.Machine.Lifecycle
+    Hydra.HeadLogic.Machine.Open
+    Hydra.HeadLogic.Machine.Types
     Hydra.HeadLogic.Outcome
+    Hydra.HeadLogic.Program
+    Hydra.HeadLogic.Retry
+    Hydra.HeadLogic.Rules.AckSn
+    Hydra.HeadLogic.Rules.Chain
+    Hydra.HeadLogic.Rules.Client
+    Hydra.HeadLogic.Rules.Close
+    Hydra.HeadLogic.Rules.Decommit
+    Hydra.HeadLogic.Rules.Deposits
+    Hydra.HeadLogic.Rules.Environment
+    Hydra.HeadLogic.Rules.Fanout
+    Hydra.HeadLogic.Rules.Fanout.Selection
+    Hydra.HeadLogic.Rules.Initialise
+    Hydra.HeadLogic.Rules.Input
+    Hydra.HeadLogic.Rules.Network
+    Hydra.HeadLogic.Rules.Recover
+    Hydra.HeadLogic.Rules.Repost
+    Hydra.HeadLogic.Rules.ReqDec
+    Hydra.HeadLogic.Rules.ReqSn
+    Hydra.HeadLogic.Rules.ReqTx
+    Hydra.HeadLogic.Rules.SendSnapshot
+    Hydra.HeadLogic.Rules.Settlement
+    Hydra.HeadLogic.Rules.SideLoad
+    Hydra.HeadLogic.Rules.SnapshotCapacity
+    Hydra.HeadLogic.Rules.SnapshotRequest
+    Hydra.HeadLogic.Rules.SnapshotVerification
+    Hydra.HeadLogic.Rules.Synchronisation
+    Hydra.HeadLogic.Rules.Transactions
     Hydra.HeadLogic.State
+    Hydra.HeadLogic.State.Operations
     Hydra.HeadLogic.StateEvent
+    Hydra.HeadLogic.Trace
+    Hydra.HeadLogic.Workflow
     Hydra.Ledger
     Hydra.Ledger.Cardano
     Hydra.Ledger.Simple
@@ -95,6 +134,7 @@ library
     Hydra.NetworkVersions
     Hydra.Node
     Hydra.Node.ApiTransactionTimeout
+    Hydra.Node.Deposit
     Hydra.Node.EmbedTH
     Hydra.Node.Environment
     Hydra.Node.InputQueue
@@ -109,7 +149,12 @@ library
     Hydra.Options
     Hydra.Utils
 
-  other-modules:      Paths_hydra_node
+  other-modules:
+    Hydra.HeadLogic.Machine.Coordinated.Snapshots
+    Hydra.HeadLogic.Machine.Coordinated.Transactions
+    Hydra.HeadLogic.Machine.Coordinated.Types
+    Paths_hydra_node
+
   build-depends:
     , aeson
     , base
@@ -136,6 +181,7 @@ library
     , containers
     , contra-tracer
     , contra-tracer-json
+    , crem                         ==0.1.1.0
     , crypton
     , data-default
     , directory
@@ -168,6 +214,7 @@ library
     , safe-money
     , secret
     , serialise
+    , singletons-base
     , sop-extras
     , stm
     , template-haskell
@@ -202,8 +249,39 @@ library testlib
     Test.Hydra.Chain
     Test.Hydra.Chain.Direct.State
     Test.Hydra.Chain.Direct.TimeHandle
+    Test.Hydra.HeadLogic.Capacity
+    Test.Hydra.HeadLogic.ConflictingDecommit
+    Test.Hydra.HeadLogic.CoordinatedAudit
+    Test.Hydra.HeadLogic.Crem.BeforeApi.AckSn
+    Test.Hydra.HeadLogic.Crem.BeforeApi.Decommit
+    Test.Hydra.HeadLogic.Crem.BeforeApi.ReqDec
+    Test.Hydra.HeadLogic.Crem.BeforeApi.ReqTx
+    Test.Hydra.HeadLogic.Crem.BeforeApi.Settlement
+    Test.Hydra.HeadLogic.Crem.BeforeApi.Workflow
+    Test.Hydra.HeadLogic.Crem.Comparison
+    Test.Hydra.HeadLogic.Debugger
+    Test.Hydra.HeadLogic.DecommitDependency
+    Test.Hydra.HeadLogic.Explorer
     Test.Hydra.HeadLogic.Input
+    Test.Hydra.HeadLogic.InputComparison
+    Test.Hydra.HeadLogic.LegacyHandlers
+    Test.Hydra.HeadLogic.LegacyIncremental
+    Test.Hydra.HeadLogic.LegacyPrograms
+    Test.Hydra.HeadLogic.LegacyReqTx
+    Test.Hydra.HeadLogic.LegacySnapshot
+    Test.Hydra.HeadLogic.LegacySnapshotRequest
+    Test.Hydra.HeadLogic.LegacyState
+    Test.Hydra.HeadLogic.MachineDiagrams
+    Test.Hydra.HeadLogic.Mermaid
     Test.Hydra.HeadLogic.Outcome
+    Test.Hydra.HeadLogic.Projection.Incremental
+    Test.Hydra.HeadLogic.Projection.OffChain
+    Test.Hydra.HeadLogic.RegistryDemo
+    Test.Hydra.HeadLogic.Replay
+    Test.Hydra.HeadLogic.ReplayReference
+    Test.Hydra.HeadLogic.Resolved
+    Test.Hydra.HeadLogic.Scenario
+    Test.Hydra.HeadLogic.Settlement
     Test.Hydra.HeadLogic.State
     Test.Hydra.HeadLogic.StateEvent
     Test.Hydra.Ledger
@@ -236,6 +314,7 @@ library testlib
     , cborg
     , containers
     , contra-tracer-json
+    , crem
     , directory
     , filepath
     , hydra-cardano-api
@@ -254,6 +333,7 @@ library testlib
     , quickcheck-arbitrary-adt
     , quickcheck-instances
     , secret
+    , singletons-base
     , text
     , time
     , versions
@@ -370,6 +450,30 @@ benchmark snapshot
 
   ghc-options:    -threaded -rtsopts -with-rtsopts=-N4
 
+benchmark head-logic-program
+  import:         project-config
+  hs-source-dirs: bench
+  main-is:        HeadLogicProgram.hs
+  type:           exitcode-stdio-1.0
+  build-depends:
+    , bytestring
+    , cardano-api
+    , containers
+    , criterion
+    , directory
+    , filepath
+    , hydra-cardano-api
+    , hydra-node
+    , hydra-node:testlib
+    , hydra-prelude
+    , hydra-tx
+    , hydra-tx:testlib
+    , QuickCheck
+    , text
+    , time
+
+  ghc-options:    -threaded -rtsopts -with-rtsopts=-N1
+
 test-suite tests
   import:         project-config
 
@@ -401,7 +505,16 @@ test-suite tests
     Hydra.Events.S3Spec
     Hydra.Events.SQLiteBasedSpec
     Hydra.Events.UDPSpec
+    Hydra.HeadLogic.CapacitySpec
+    Hydra.HeadLogic.CoordinatedSpec
+    Hydra.HeadLogic.IncrementalWorkflowSpec
+    Hydra.HeadLogic.InputWorkflowSpec
+    Hydra.HeadLogic.MachineSpec
     Hydra.HeadLogic.OutcomeSpec
+    Hydra.HeadLogic.ProgramSpec
+    Hydra.HeadLogic.RulesSpec
+    Hydra.HeadLogic.SnapshotDecommitSpec
+    Hydra.HeadLogic.SnapshotProgramSpec
     Hydra.HeadLogicSnapshotSpec
     Hydra.HeadLogicSpec
     Hydra.JSONSchemaSpec
@@ -461,6 +574,7 @@ test-suite tests
     , containers
     , contra-tracer
     , contra-tracer-json
+    , crem
     , directory
     , event-sourcing
     , filepath
@@ -520,3 +634,22 @@ test-suite tests
     , websockets
 
   ghc-options:    -threaded -rtsopts
+
+executable head-logic-lab
+  import:         project-config
+  hs-source-dirs: exe/head-logic-lab
+  main-is:        Main.hs
+  build-depends:
+    , aeson
+    , base
+    , bytestring
+    , cardano-binary
+    , containers
+    , criterion
+    , hydra-node
+    , hydra-node:testlib
+    , hydra-prelude
+    , hydra-tx
+    , text
+
+  ghc-options:    -threaded -rtsopts -with-rtsopts=-N1

@@ -1,0 +1,47 @@
+%%{init: {"sequence": {"wrap": true}}}%%
+sequenceDiagram
+  participant party0 as Party 0
+  participant party1 as Party 1
+  participant party2 as Party 2
+  Note over party0: observe deposit
+  Note over party1: observe deposit
+  Note over party2: observe deposit
+  Note over party0: activate deposit
+  Note over party1: activate deposit
+  Note over party2: activate deposit
+  Note over party0: deliver snapshot message
+  Note over party1: deliver snapshot message
+  Note over party2: deliver snapshot message
+  Note over party0: deliver snapshot message
+  Note over party1: deliver snapshot message
+  Note over party2: deliver snapshot message
+  Note over party0: deliver snapshot message
+  Note over party1: deliver snapshot message
+  Note over party2: deliver snapshot message
+  Note over party0: deliver snapshot message
+  Note over party1: deliver snapshot message
+  Note over party2: deliver snapshot message
+  Note over party0: observe increment
+  Note over party1: observe increment
+  Note over party2: observe increment
+  Note over party0: spend deposit
+  Note over party1: spend deposit
+  Note over party2: spend deposit
+  Note over party0: deliver snapshot message
+  Note over party1: deliver snapshot message
+  Note over party2: deliver snapshot message
+  Note over party0: deliver snapshot message
+  Note over party1: deliver snapshot message
+  Note over party2: deliver snapshot message
+  Note over party0: deliver snapshot message
+  Note over party1: deliver snapshot message
+  Note over party2: deliver snapshot message
+  Note over party0: deliver snapshot message
+  Note over party1: deliver snapshot message
+  Note over party2: deliver snapshot message
+  Note over party0: rollback
+  Note over party1: rollback
+  Note over party2: rollback
+  Note over party0: re-observe increment
+  Note over party1: re-observe increment
+  Note over party2: re-observe increment

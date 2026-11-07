@@ -1,0 +1,22 @@
+sequenceDiagram
+  autonumber
+  participant Rules as ReqDec / ReqSn / AckSn
+  participant Snapshots as Snapshot owner
+  participant Transactions as Transaction owner
+  participant Audit as Independent checks
+  Note over Rules,Transactions: All three parties accepted tx1 (1 → 2), tx2 (2 → 3), then decommit (3 → 4)
+  Rules->>Snapshots: ReserveDecommit (3 → 4)
+  Snapshots->>Transactions: Transaction (ReserveDecommit)
+  Transactions-->>Rules: DecommitRecorded, local UTxO = empty
+  Transactions-->>Audit: Pending inputs absent: true
+  Note over Rules,Snapshots: Delayed ReqSn 1 contains tx1 only, normal validation and signing succeed
+  Rules->>Snapshots: AcceptSnapshot 1, retained txs = [tx2]
+  Snapshots->>Transactions: Rebase snapshot 1 with tx2
+  Transactions-->>Rules: SnapshotRequested, local UTxO = {3}, decommit retained
+  Transactions-->>Audit: Pending inputs absent: false
+  Note over Transactions,Audit: First defect: rebase restores the reserved input
+  Rules->>Snapshots: RecordSignature, verify, ConfirmSnapshot
+  Snapshots-->>Rules: SnapshotConfirmed 1, confirmed UTxO = {2}
+  Rules-->>Audit: Proposed ReqSn 2: [tx2] + decommit (3 → 4)
+  Audit-->>Rules: Decommit inputs present in confirmed base: false
+  Note over Rules,Audit: Second defect: ReqSn applies the decommit before tx2, so every party rejects

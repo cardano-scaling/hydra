@@ -143,7 +143,8 @@ data CoordinatedHeadState tx = CoordinatedHeadState
   -- application. Spec: T̂
   , allTxs :: !(Map.Map (TxIdType tx) tx)
   -- ^ Map containing all the transactions ever seen by this node and not yet
-  -- included in a snapshot. Spec: Tall
+  -- included as ordinary transactions in a snapshot. Also retains a candidate
+  -- decommit until confirmation promotes it into 'decommitTx'. Spec: Tall
   , confirmedSnapshot :: ConfirmedSnapshot tx
   -- ^ The latest confirmed snapshot. Spec: S̅
   , seenSnapshot :: SeenSnapshot tx
@@ -362,7 +363,7 @@ data ClosedState tx = ClosedState
   , unconfirmedSnapshot :: Maybe (Snapshot tx)
   -- ^ The snapshot this node signed but had not seen confirmed when the head
   -- closed. A close or contest carrying its full multisignature confirms it,
-  -- see 'Hydra.HeadLogic.onClosedChainContestTx'.
+  -- see 'Hydra.HeadLogic.Rules.Close.onClosedChainContestTx'.
   }
   deriving stock (Generic)
 

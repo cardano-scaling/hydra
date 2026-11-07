@@ -1,0 +1,16 @@
+%%{init: {"sequence": {"wrap": true}}}%%
+sequenceDiagram
+  participant logic as Head logic
+  participant crypto as Cryptography
+  participant changes as Staged changes
+  rect rgb(245, 247, 250)
+    Note over logic,changes: close-adopt
+    Note over logic: input is admitted while at this sync status: yes
+    Note over logic: chain observation matches the unconfirmed snapshot number: yes
+    crypto-->>logic: primitive: verify multisignature
+    Note over logic: observed snapshot signatures verify: yes
+    logic->>changes: stage: confirm snapshot
+    logic->>changes: stage: close head
+    Note over logic: confirmed snapshot is newer than the on-chain snapshot: no
+    Note over logic,changes: finish: commit changes and release effects
+  end

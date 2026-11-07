@@ -1,0 +1,27 @@
+%%{init: {"sequence": {"wrap": true}}}%%
+sequenceDiagram
+  participant logic as Head logic
+  participant ledger as Ledger
+  participant changes as Staged changes
+  rect rgb(245, 247, 250)
+    Note over logic,changes: duplicate ReqTx 1 from party 0 to 1 (TTL 2)
+  end
+  rect rgb(245, 247, 250)
+    Note over logic,changes: deliver ReqTx 1 from party 0 to 1 (TTL 2)
+    Note over logic: input is admitted while at this sync status: True
+    Note over logic: transaction is already applied locally: False
+    logic->>changes: stage: remember transaction
+    Note over logic: outputs do not collide with the local UTxO: True
+    ledger-->>logic: primitive: apply transaction
+    Note over logic: outputs do not collide with pending deposits: True
+    logic->>changes: stage: validated transaction
+    Note over logic: no snapshot is in flight: True
+    Note over logic: this party leads the next snapshot: False
+    Note over logic,changes: finish: commit changes and release effects
+  end
+  rect rgb(245, 247, 250)
+    Note over logic,changes: deliver ReqTx 1 from party 0 to 1 (TTL 2)
+    Note over logic: input is admitted while at this sync status: True
+    Note over logic: transaction is already applied locally: True
+    Note over logic,changes: finish: commit changes and release effects
+  end

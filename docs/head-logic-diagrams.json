@@ -1,0 +1,462 @@
+{
+  "docs/head-logic-machines/composition.mmd": {
+    "group": "Retained-event machines",
+    "title": "Event-machine composition",
+    "description": "DepositRegistry → Lifecycle → Clock. Lifecycle holds the open head’s snapshot/transaction continuation, rendered separately. Ports carry owned state projections and the deposit value before consumption."
+  },
+  "docs/head-logic-machines/lifecycle.mmd": {
+    "group": "Retained-event machines",
+    "title": "Head lifecycle",
+    "description": "Idle, Open, Closed, ReadyToFanout and fanout progress. Closed or ReadyToFanout can observe another party completing fanout and become Idle."
+  },
+  "docs/head-logic-machines/deposits.mmd": {
+    "group": "Retained-event machines",
+    "title": "Tracked deposits",
+    "description": "Recorded, active, expired and consumed deposits, including what rollback can restore or remove. Deposit registration is distinct from selection for a snapshot."
+  },
+  "docs/prior-spike/workflows/req-tx-leader.mmd": {
+    "group": "Workflow comparisons",
+    "title": "Leader accepts a transaction",
+    "description": "Ledger application succeeds; the leader records local application and requests a snapshot."
+  },
+  "docs/prior-spike/workflows/req-tx-follower.mmd": {
+    "group": "Workflow comparisons",
+    "title": "Follower accepts a transaction",
+    "description": "The follower applies the transaction without requesting the next round."
+  },
+  "docs/prior-spike/workflows/req-tx-wait.mmd": {
+    "group": "Workflow comparisons",
+    "title": "Transaction waits for a dependency",
+    "description": "Receipt survives the wait; buffered effects do not. A retry runs a fresh program against current state."
+  },
+  "docs/prior-spike/workflows/req-tx-timeout.mmd": {
+    "group": "Workflow comparisons",
+    "title": "Transaction retry expires",
+    "description": "An inapplicable transaction with no retry budget is invalidated."
+  },
+  "docs/prior-spike/workflows/req-tx-duplicate.mmd": {
+    "group": "Workflow comparisons",
+    "title": "Locally applied duplicate",
+    "description": "The known transaction ID is ignored before receipt or ledger application."
+  },
+  "docs/prior-spike/workflows/req-tx-output-collision.mmd": {
+    "group": "Workflow comparisons",
+    "title": "Transaction output collision",
+    "description": "The rule rejects conflicting output names; the interpreter does not own this policy."
+  },
+  "docs/prior-spike/workflows/req-tx-in-flight.mmd": {
+    "group": "Workflow comparisons",
+    "title": "Transaction during a snapshot round",
+    "description": "Local application succeeds while snapshot request selection waits for the current round."
+  },
+  "docs/prior-spike/workflows/req-sn-sign.mmd": {
+    "group": "Workflow comparisons",
+    "title": "Snapshot request succeeds",
+    "description": "The rule resolves transactions, constructs and signs the snapshot, buffers AckSn, then prunes local transactions."
+  },
+  "docs/prior-spike/workflows/req-sn-version-wait.mmd": {
+    "group": "Workflow comparisons",
+    "title": "Snapshot version mismatch",
+    "description": "A future or otherwise different local version waits at the version guard."
+  },
+  "docs/prior-spike/workflows/req-sn-missing-transaction.mmd": {
+    "group": "Workflow comparisons",
+    "title": "Snapshot transaction is missing",
+    "description": "The request waits until the local registry contains the requested transaction."
+  },
+  "docs/prior-spike/workflows/req-sn-decommit.mmd": {
+    "group": "Workflow comparisons",
+    "title": "Snapshot carries a decommit",
+    "description": "The decommit is applied before ordinary transactions; this order matters in the dependency bug."
+  },
+  "docs/prior-spike/workflows/req-dec-record.mmd": {
+    "group": "Workflow comparisons",
+    "title": "Network decommit is recorded",
+    "description": "The network rule reserves the decommit and can broadcast ReqSn; it does not stage SnapshotRequestDecided."
+  },
+  "docs/prior-spike/workflows/req-dec-wait.mmd": {
+    "group": "Workflow comparisons",
+    "title": "Network decommit waits",
+    "description": "An inapplicable decommit waits while retry budget remains."
+  },
+  "docs/prior-spike/workflows/req-dec-timeout.mmd": {
+    "group": "Workflow comparisons",
+    "title": "Network decommit expires",
+    "description": "Without retry budget, the same failure records DecommitInvalid."
+  },
+  "docs/prior-spike/workflows/recover-post.mmd": {
+    "group": "Workflow comparisons",
+    "title": "Recover a registered deposit",
+    "description": "Registration and retained-finalization checks pass, then the rule posts recovery."
+  },
+  "docs/prior-spike/workflows/recover-missing.mmd": {
+    "group": "Workflow comparisons",
+    "title": "Recover an unknown deposit",
+    "description": "The missing-deposit guard rejects before any post."
+  },
+  "docs/prior-spike/workflows/recover-blocked.mmd": {
+    "group": "Workflow comparisons",
+    "title": "Recover a finalized deposit",
+    "description": "A retained finalized increment blocks recovery of its resurfaced deposit."
+  },
+  "docs/prior-spike/workflows/ack-early.mmd": {
+    "group": "Workflow comparisons",
+    "title": "Acknowledgement arrives early",
+    "description": "The acknowledgement waits for the snapshot it signs."
+  },
+  "docs/prior-spike/workflows/ack-partial.mmd": {
+    "group": "Workflow comparisons",
+    "title": "Partial acknowledgement",
+    "description": "The partial path records the signature twice. The migration preserves this observable event order."
+  },
+  "docs/prior-spike/workflows/ack-duplicate.mmd": {
+    "group": "Workflow comparisons",
+    "title": "Duplicate acknowledgement",
+    "description": "An already recorded signer is rejected according to the existing acknowledgement policy."
+  },
+  "docs/prior-spike/workflows/ack-confirm.mmd": {
+    "group": "Workflow comparisons",
+    "title": "Final acknowledgement confirms",
+    "description": "A complete valid multisignature confirms the round and selects subsequent work."
+  },
+  "docs/prior-spike/workflows/ack-invalid.mmd": {
+    "group": "Workflow comparisons",
+    "title": "Invalid final acknowledgement",
+    "description": "The signature is staged before aggregate verification. Verification fails, so rejection discards that staged signature and every buffered effect."
+  },
+  "docs/head-logic/workflows/req-tx-leader-topology.mmd": {
+    "group": "Input and protocol phases",
+    "title": "ReqTx phases",
+    "description": "The ledger reply selects deposit checks or retry directly. Waits and rejection end the Program; guards inside an action are not separate graph vertices."
+  },
+  "docs/head-logic/workflows/req-sn-sign-topology.mmd": {
+    "group": "Input and protocol phases",
+    "title": "ReqSn phases",
+    "description": "The typed ReqSn topology generated from crem. Actions can terminate early with a Program wait or rejection; the graph does not enumerate guards inside each phase."
+  },
+  "docs/head-logic/workflows/ack-confirm-topology.mmd": {
+    "group": "Input and protocol phases",
+    "title": "AckSn phases",
+    "description": "A complete signature set is verified before entering confirmation. Rejection discards the staged signature; partial acknowledgements finish without entering confirmation."
+  },
+  "docs/head-logic/workflows/req-dec-record-topology.mmd": {
+    "group": "Input and protocol phases",
+    "title": "ReqDec phases",
+    "description": "After commit and existing-decommit checks, the ledger reply enters output checks or follows the wait/invalidation path. A wait terminates the Program attempt; it is not a retained Crem phase."
+  },
+  "docs/head-logic/workflows/recover-post-topology.mmd": {
+    "group": "Input and protocol phases",
+    "title": "Recover phases",
+    "description": "The typed Recover topology generated from crem. Actions can terminate early with a Program wait or rejection; the graph does not enumerate guards inside each phase."
+  },
+  "docs/prior-spike/traces/counterexample-v1.json.mmd": {
+    "group": "Protocol investigations and superseded traces",
+    "title": "Historical invalid confirmation (v1)",
+    "description": "Historical fault-injected verification witness. The primitive tape format is superseded; use the v2 counterexample to replay."
+  },
+  "docs/head-logic/traces/counterexample-v2.json.mmd": {
+    "group": "Snapshot rounds and recovery limits",
+    "title": "Invalid confirmation under a verification fault",
+    "description": "The test-only interpreter bypass lets an invalid acknowledgement confirm. Replay with normal verification rejects the same sequence."
+  },
+  "docs/prior-spike/traces/decommit-dependency-v1.json.mmd": {
+    "group": "Protocol investigations and superseded traces",
+    "title": "Decommit dependency failure",
+    "description": "Historical v1 trace of the decommit stall: snapshot 1 pruning restores the reserved input; snapshot 2 applies the decommit before tx2 and all parties reject. Use the v2 historical and corrected commands for current reproduction."
+  },
+  "docs/head-logic/traces/expired-dependency-v2.json.mmd": {
+    "group": "Snapshot rounds and recovery limits",
+    "title": "Dependency retry expires",
+    "description": "A normal-interpreter schedule drains its retries before the dependency arrives. Safety holds, but pending work is stranded."
+  },
+  "docs/head-logic/traces/expiry-search-v2.json.mmd": {
+    "group": "Snapshot rounds and recovery limits",
+    "title": "Explorer finds retry expiry",
+    "description": "A focused bounded retry-window search finds the expiry schedule. The artifact records its bounds and does not establish general liveness."
+  },
+  "docs/prior-spike/traces/registry-demo-v1.json.mmd": {
+    "group": "Protocol investigations and superseded traces",
+    "title": "Cardano witness replacement",
+    "description": "A transaction with stripped witnesses shares a valid transaction body and ID. The frozen rule corrupts the registry; the duplicate guard preserves the validated payload."
+  },
+  "docs/head-logic/traces/registry-regression-v2.json.mmd": {
+    "group": "Snapshot rounds and recovery limits",
+    "title": "Registry regression replay",
+    "description": "A scheduler sequence checks duplicate transaction handling and preservation of the validated registry payload."
+  },
+  "docs/prior-spike/traces/snapshot-round-v1.json.mmd": {
+    "group": "Protocol investigations and superseded traces",
+    "title": "Historical snapshot round (v1)",
+    "description": "The original three-party round artifact. Its v1 primitive tape is historical; use v2 for replay."
+  },
+  "docs/head-logic/traces/snapshot-round-v2.json.mmd": {
+    "group": "Snapshot rounds and recovery limits",
+    "title": "Complete snapshot round",
+    "description": "A normal three-party round with recorded primitive replies, confirmation and subsequent work."
+  },
+  "docs/head-logic/traces/settlement-v1.mmd": {
+    "group": "Snapshot rounds and recovery limits",
+    "title": "Settlement and rollback",
+    "description": "Party lanes show deposit confirmation, on-chain increment, spending, rollback and re-observation. The driver checks outcomes and serialized replay at every prefix."
+  },
+  "docs/head-logic/traces/leader-success.mmd": {
+    "group": "Transaction requests",
+    "title": "ReqTx at the leader",
+    "description": "The leader applies the transaction, selects a checked proposal, retains its request marker, and broadcasts ReqSn."
+  },
+  "docs/head-logic/traces/follower.mmd": {
+    "group": "Transaction requests",
+    "title": "ReqTx at a follower",
+    "description": "The follower applies the transaction without requesting the next round."
+  },
+  "docs/head-logic/traces/snapshot-in-flight.mmd": {
+    "group": "Transaction requests",
+    "title": "ReqTx during a snapshot round",
+    "description": "Local application succeeds while a snapshot is in flight."
+  },
+  "docs/head-logic/traces/output-collision.mmd": {
+    "group": "Transaction requests",
+    "title": "ReqTx output collision",
+    "description": "The output-name guard fails before ledger application."
+  },
+  "docs/head-logic/traces/timeout.mmd": {
+    "group": "Transaction requests",
+    "title": "ReqTx retry expiry",
+    "description": "An inapplicable transaction is invalidated when its retry budget is exhausted."
+  },
+  "docs/head-logic/traces/wait.mmd": {
+    "group": "Transaction requests",
+    "title": "ReqTx dependency wait",
+    "description": "Receipt is retained while the transaction waits for a dependency."
+  },
+  "docs/prior-spike/traces/maintenance-rejected.mmd": {
+    "group": "Protocol investigations and superseded traces",
+    "title": "Maintenance exercise",
+    "description": "A deliberately changed rule guard alters execution and the generated trace without changing the interpreter."
+  },
+  "docs/head-logic/inputs/close-adopt.mmd": {
+    "group": "Complete input execution",
+    "title": "Close adopts an unconfirmed snapshot",
+    "description": "The observed close carries valid signatures for the snapshot still collecting acknowledgements. Confirm it before recording HeadClosed."
+  },
+  "docs/head-logic/inputs/close-request.mmd": {
+    "group": "Complete input execution",
+    "title": "Client close",
+    "description": "Post CloseTx using the confirmed snapshot and current version."
+  },
+  "docs/head-logic/inputs/connectivity.mmd": {
+    "group": "Complete input execution",
+    "title": "Connectivity input",
+    "description": "Admit a connectivity event and record network status."
+  },
+  "docs/head-logic/inputs/contest-adopt.mmd": {
+    "group": "Complete input execution",
+    "title": "Contest adopts an unconfirmed snapshot",
+    "description": "Adopt the matching signed snapshot and record the contest. Successful adoption does not post another contest."
+  },
+  "docs/head-logic/inputs/decommit-invalid.mmd": {
+    "group": "Complete input execution",
+    "title": "Invalid client decommit",
+    "description": "A ledger failure records DecommitInvalid without broadcasting."
+  },
+  "docs/head-logic/inputs/decommit-request.mmd": {
+    "group": "Complete input execution",
+    "title": "Client decommit admission",
+    "description": "Check pending work, ask the ledger, require outputs and local/confirmed capacity, then broadcast ReqDec. Reservation occurs on receipt of ReqDec."
+  },
+  "docs/head-logic/inputs/decrement-adopt.mmd": {
+    "group": "Complete input execution",
+    "title": "Decrement adopts the seen snapshot",
+    "description": "Finalize the decommit, verify the matching seen snapshot, and adopt it."
+  },
+  "docs/head-logic/inputs/deposit-activated.mmd": {
+    "group": "Complete input execution",
+    "title": "Tick activates a deposit",
+    "description": "The common tick prefix records time and deposit status before choosing head-specific work."
+  },
+  "docs/head-logic/inputs/deposit-observed.mmd": {
+    "group": "Complete input execution",
+    "title": "Observe deposit",
+    "description": "Record a deposit for the active head."
+  },
+  "docs/head-logic/inputs/deposit-recovered.mmd": {
+    "group": "Complete input execution",
+    "title": "Observe recovery",
+    "description": "Consume a tracked deposit after its recovery is observed."
+  },
+  "docs/head-logic/inputs/fanout-driver-observation.mmd": {
+    "group": "Complete input execution",
+    "title": "Continue driven fanout",
+    "description": "Record the observed batch and post the next step. An empty remainder still needs the final token-burning step."
+  },
+  "docs/head-logic/inputs/fanout-empty-selection.mmd": {
+    "group": "Complete input execution",
+    "title": "Reject an empty fanout selection",
+    "description": "An empty selection produces CommandFailed without changing the driver state."
+  },
+  "docs/head-logic/inputs/fanout-finished.mmd": {
+    "group": "Complete input execution",
+    "title": "Observe completed fanout",
+    "description": "Record the final distributed set and return the head to Idle."
+  },
+  "docs/head-logic/inputs/fanout-passive-observer.mmd": {
+    "group": "Complete input execution",
+    "title": "Observe another party fanning out",
+    "description": "Record distributed outputs and enter AwaitingSelection. A passive observer does not take over the driver role."
+  },
+  "docs/head-logic/inputs/fanout-post-failure.mmd": {
+    "group": "Complete input execution",
+    "title": "Fanout initiation fails",
+    "description": "A terminal failure of the current step before any outputs are distributed reverts optimistic fanout and reports the error."
+  },
+  "docs/head-logic/inputs/fanout-ready.mmd": {
+    "group": "Complete input execution",
+    "title": "Fanout deadline passes",
+    "description": "The tick prefix advances time before notifying readiness, once."
+  },
+  "docs/head-logic/inputs/fanout-request.mmd": {
+    "group": "Complete input execution",
+    "title": "Start automatic fanout",
+    "description": "Record the driver role before posting full fanout."
+  },
+  "docs/head-logic/inputs/fanout-rollback.mmd": {
+    "group": "Complete input execution",
+    "title": "Rollback during fanout",
+    "description": "Record rollback and repost the currently driven step, without recording a new selection."
+  },
+  "docs/head-logic/inputs/fanout-selection.mmd": {
+    "group": "Complete input execution",
+    "title": "Select the whole remaining fanout",
+    "description": "A selection covering the complete closed head uses full fanout rather than an invalid final-partial transaction."
+  },
+  "docs/head-logic/inputs/fanout-stale-post.mmd": {
+    "group": "Complete input execution",
+    "title": "Fanout post is superseded",
+    "description": "StalePartialFanoutTx is ignored because chain observation already advances the head."
+  },
+  "docs/head-logic/inputs/increment-adopt.mmd": {
+    "group": "Complete input execution",
+    "title": "Increment adopts the seen snapshot",
+    "description": "Finalize the deposit, verify the matching seen snapshot, then adopt it before choosing subsequent work."
+  },
+  "docs/head-logic/inputs/increment-invalid-signatures.mmd": {
+    "group": "Complete input execution",
+    "title": "Increment with invalid adoption signatures",
+    "description": "Finalization is still recorded. Failed verification prevents snapshot adoption without undoing the chain observation."
+  },
+  "docs/head-logic/inputs/init-observed.mmd": {
+    "group": "Complete input execution",
+    "title": "Observe init",
+    "description": "Match the observed parties, participants and periods before opening the head."
+  },
+  "docs/head-logic/inputs/init-request.mmd": {
+    "group": "Complete input execution",
+    "title": "Client init",
+    "description": "Admit a client Init while Idle and buffer the configured on-chain init."
+  },
+  "docs/head-logic/inputs/input-topology.mmd": {
+    "group": "Input and protocol phases",
+    "title": "Complete input phases",
+    "description": "Size admission precedes synchronisation. Typed head-state payloads enter Idle, Open, Closed or FanoutProgress dispatch."
+  },
+  "docs/head-logic/inputs/open-rollback.mmd": {
+    "group": "Complete input execution",
+    "title": "Rollback in an open head",
+    "description": "Record rollback and evaluate retained settlement reposting without undoing L2 state."
+  },
+  "docs/head-logic/inputs/recover-previous-head.mmd": {
+    "group": "Complete input execution",
+    "title": "Recover a previous head deposit",
+    "description": "A recovery event consumes a previous head deposit while a different head is active. The event is exempt from the head-ID filter; the differential test checks the resulting registry."
+  },
+  "docs/head-logic/inputs/side-load-current.mmd": {
+    "group": "Complete input execution",
+    "title": "Side-load the current snapshot",
+    "description": "Check number and L1 fields, verify the multisignature, then confirm and clear optimistic local state."
+  },
+  "docs/head-logic/inputs/side-load-invalid-signatures.mmd": {
+    "group": "Complete input execution",
+    "title": "Side-load with invalid signatures",
+    "description": "The field checks pass but verification fails. The existing client rejection is emitted; no state changes are staged."
+  },
+  "docs/head-logic/inputs/unsynced-chain.mmd": {
+    "group": "Complete input execution",
+    "title": "Chain input while catching up",
+    "description": "Chain observations pass the synchronisation gate and update the head."
+  },
+  "docs/head-logic/inputs/unsynced-client.mmd": {
+    "group": "Complete input execution",
+    "title": "Client input while catching up",
+    "description": "After the size check, synchronisation rejects the client input with the existing drift report."
+  },
+  "docs/head-logic/inputs/unsynced-connectivity.mmd": {
+    "group": "Complete input execution",
+    "title": "Network input while catching up",
+    "description": "Connectivity events follow the same existing wait policy as other network inputs."
+  },
+  "docs/head-logic/inputs/decommit-topology.mmd": {
+    "group": "Input and protocol phases",
+    "title": "Client decommit phases",
+    "description": "Admission checks pending work and asks the ledger. An accepted transaction enters output and capacity checks before broadcast; an invalid one records its failure and finishes."
+  },
+  "docs/head-logic/inputs/settlement-topology.mmd": {
+    "group": "Input and protocol phases",
+    "title": "Settlement phases",
+    "description": "Record finalization, then verify and optionally adopt a matching candidate in one action. Both verification outcomes reach request selection; invalid signatures do not undo finalization."
+  },
+  "docs/head-logic-machines/coordinated.mmd": {
+    "group": "Retained-event machines",
+    "title": "Snapshot and transaction owners",
+    "description": "Generated from the executable Snapshots → Transactions composition. The transaction owner distinguishes local intent from a current-version decommit certificate. AwaitingSettlement cannot transition directly to DecommitPending; adoption can legitimately move NoDecommit straight to AwaitingSettlement. The snapshot storage graph also includes trusted replay and is not a graph of network admission. See [the state-transition analysis](head-logic/state-transitions.md)."
+  },
+  "docs/prior-spike/machines/decommit-ownership.mmd": {
+    "group": "Protocol investigations and superseded traces",
+    "title": "Decommit failure at the owner boundary",
+    "description": "Historical explanation of reservation loss and a premature decommit request, grouped by rules, state owners, and independent checks."
+  },
+  "docs/head-logic-machines/decommit-dependency.mmd": {
+    "group": "Retained-event machines",
+    "title": "Decommit dependencies and reservation",
+    "description": "Rebase preserves the reservation, snapshot 2 confirms the dependency, and newly ready decommit work starts snapshot 3. A carried decommit alone does not start another round. This annotated diagram explains the generated sequence."
+  },
+  "docs/prior-spike/traces/decommit-dependency-historical-v2.json.mmd": {
+    "group": "Protocol investigations and superseded traces",
+    "title": "Historical decommit dependency failure",
+    "description": "The frozen implementation loses the reservation and rejects snapshot 2 after 24 deliveries. This v2 report checks complete outcomes and serialized state at every prefix."
+  },
+  "docs/head-logic/traces/decommit-dependency-fixed-v2.json.mmd": {
+    "group": "Snapshot rounds and recovery limits",
+    "title": "Decommit dependency sequence",
+    "description": "The reservation holds while snapshot 2 confirms the dependency and snapshot 3 confirms the decommit. Independent checks and serialized replay run at every prefix."
+  },
+  "docs/prior-spike/traces/capacity-before-rebase.mmd": {
+    "group": "Protocol investigations and superseded traces",
+    "title": "Oversized snapshot request before rebase",
+    "description": "Historical production trace at 386e95947: the split records a request, ReqSn rejects for capacity, and the later merge cannot request another round. The rejection cannot undo the preceding completed input. The capacity lab now reproduces the defect with frozen programs."
+  },
+  "docs/prior-spike/traces/capacity-historical-v1.json.mmd": {
+    "group": "Protocol investigations and superseded traces",
+    "title": "Historical capacity stall",
+    "description": "Frozen programs accept the split and independent merge locally, but the oversized snapshot 4 request is rejected everywhere. Nine FIFO deliveries leave snapshot 3 confirmed and the leader stuck."
+  },
+  "docs/head-logic/traces/capacity-fixed-v1.json.mmd": {
+    "group": "Snapshot rounds and recovery limits",
+    "title": "Capacity pruning and progress",
+    "description": "The current rules request empty snapshot 4, prune the overflowing split, then confirm the independent merge in snapshot 5. Each delivery checks independent invariants and serialized replay; a capacity check precedes the live request marker."
+  },
+  "docs/head-logic/traces/conflicting-decommit.mmd": {
+    "group": "Protocol investigations",
+    "title": "Conflicting decommit released at confirmation",
+    "description": "The ordinary transaction and decommit compete for input 1. On the final AckSn, party 1 confirms the ordinary transaction and records DecommitInvalid, releasing its reservation. Every delivery checks corrected independent replay and CBOR round trips. See [the state-transition analysis](head-logic/state-transitions.md#the-conflict-repair) and [the executable schedule](../hydra-node/testlib/Test/Hydra/HeadLogic/ConflictingDecommit.hs)."
+  },
+  "docs/prior-spike/traces/conflicting-decommit-before-confirmation-repair.mmd": {
+    "group": "Protocol investigations and superseded traces",
+    "title": "Historical conflicting decommit reservation",
+    "description": "Before the confirmation repair, all three parties confirmed the ordinary spend but party 1 retained the conflicting decommit. The 24-delivery trace used real signatures. The current corrected execution is indexed as Conflicting decommit released at confirmation."
+  },
+  "docs/head-logic/traces/carried-decommit.mmd": {
+    "group": "Decommit regressions",
+    "title": "ReqSn overtakes ReqDec: carried payload survives",
+    "description": "Bob accepts snapshot 1 without ReqDec, retains its decommit through confirmation, then leads and confirms snapshot 2 carrying that transaction. Generated with the normal rules and real signatures; lanes separate decisions, ledger queries, cryptography, staged changes and effects."
+  }
+}

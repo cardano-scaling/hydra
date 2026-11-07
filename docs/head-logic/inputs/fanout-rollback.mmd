@@ -1,0 +1,12 @@
+%%{init: {"sequence": {"wrap": true}}}%%
+sequenceDiagram
+  participant logic as Head logic
+  participant changes as Staged changes
+  participant effects as Buffered effects
+  rect rgb(245, 247, 250)
+    Note over logic,effects: fanout-rollback
+    Note over logic: input is admitted while at this sync status: yes
+    logic->>changes: stage: record chain rollback
+    logic->>effects: buffer: post full fanout
+    Note over logic,effects: finish: commit changes and release effects
+  end

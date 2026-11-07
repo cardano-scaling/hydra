@@ -5,9 +5,9 @@
 -- to `CardanoSigningKey`.
 module Hydra.Model.Payment where
 
-import Hydra.Cardano.Api hiding (CardanoSigningKey (..), getVerificationKey)
+import Hydra.Cardano.Api (PaymentKey, SigningKey, Value, lovelaceToValue, verificationKeyHash)
 import Hydra.Prelude hiding (Any, label, toList)
-import Test.Hydra.Prelude
+import Test.Hydra.Prelude (Arbitrary (arbitrary), Gen)
 import Text.Show qualified
 
 import Data.List qualified as List
@@ -113,6 +113,8 @@ instance IsTx Payment where
         result = Set.toList $ Set.fromList as \\ Set.fromList bs
      in second fromList <$> result
   applyTxTo tx utxo = applyTx utxo tx
+  txInputsAvailable Payment{from, value} = elem (from, value)
+  withoutTxInputs Payment{from, value} = List.delete (from, value)
   filterUTxOByOutputs utxo outputs = filter (`Set.member` outputs) utxo
   removeOneOutputFromUTxO = List.delete
   utxoToElement = encodeUtf8 . show @Text

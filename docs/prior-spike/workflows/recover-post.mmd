@@ -1,0 +1,11 @@
+%%{init: {"sequence": {"wrap": true}}}%%
+sequenceDiagram
+  participant logic as Head logic
+  participant effects as Buffered effects
+  rect rgb(245, 247, 250)
+    Note over logic,effects: Production crem with program actions: recover-post
+    Note over logic: deposit is registered: yes
+    Note over logic: deposit is not claimed by a finalized increment: yes
+    logic->>effects: buffer: post recovery
+    Note over logic,effects: finish: commit changes and release effects
+  end

@@ -1,0 +1,15 @@
+%%{init: {"sequence": {"wrap": true}}}%%
+sequenceDiagram
+  participant logic as Head logic
+  participant crypto as Cryptography
+  participant changes as Staged changes
+  rect rgb(245, 247, 250)
+    Note over logic,changes: decrement-adopt
+    Note over logic: input is admitted while at this sync status: yes
+    logic->>changes: stage: finalize decrement
+    Note over logic: settlement matches the seen snapshot: yes
+    crypto-->>logic: primitive: verify multisignature
+    Note over logic: settlement signatures verify: yes
+    logic->>changes: stage: confirm snapshot
+    Note over logic,changes: finish: commit changes and release effects
+  end

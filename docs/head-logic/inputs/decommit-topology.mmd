@@ -1,0 +1,14 @@
+stateDiagram-v2
+
+CheckPending
+CheckOutputs
+CheckCapacity
+Broadcast
+Finished
+CheckPending --> CheckOutputs
+CheckPending --> Finished
+CheckOutputs --> CheckCapacity
+CheckOutputs --> Finished
+CheckCapacity --> Broadcast
+CheckCapacity --> Finished
+Broadcast --> Finished

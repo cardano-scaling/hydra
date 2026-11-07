@@ -1,0 +1,17 @@
+stateDiagram-v2
+
+CheckCommit
+CheckExistingDecommit
+CheckOutputs
+CheckCapacity
+RecordAndRequest
+Finished
+CheckCommit --> CheckExistingDecommit
+CheckCommit --> Finished
+CheckExistingDecommit --> CheckOutputs
+CheckExistingDecommit --> Finished
+CheckOutputs --> CheckCapacity
+CheckOutputs --> Finished
+CheckCapacity --> RecordAndRequest
+CheckCapacity --> Finished
+RecordAndRequest --> Finished

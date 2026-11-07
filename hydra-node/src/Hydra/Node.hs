@@ -41,7 +41,8 @@ import Hydra.HeadLogic (
   aggregateState,
  )
 import Hydra.HeadLogic qualified as HeadLogic
-import Hydra.HeadLogic.Outcome (StateChanged (..), WaitReason (..))
+import Hydra.HeadLogic.Outcome (StateChanged (..))
+import Hydra.HeadLogic.Retry (RetryDecision (..), retryDecision)
 import Hydra.HeadLogic.State (getHeadParameters)
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.Ledger (Ledger)
@@ -530,23 +531,10 @@ stepHydraNode now node = do
     _ -> pure Nothing
 
   maybeReenqueue reason q@Queued{queuedId, queuedItem} =
-    case queuedItem of
-      -- While the node is catching up it can't process any network message
-      -- yet, so re-enqueuing here would just spin (and never terminate if the
-      -- node stays out of sync). Park the message instead and replay it once
-      -- the node is in sync (see 'releaseParkedWhenSynced'). This also avoids
-      -- burning the message's retry budget during sync, which would otherwise
-      -- drop e.g. ReqTx before catch-up completes.
-      NetworkInput _ _
-        | WaitOnNodeInSync{} <- reason -> park q
-      -- Keep a snapshot request waiting for a settling commit beyond its ttl: it
-      -- resolves once this node's chain time catches up, and dropping it would
-      -- stall the leader.
-      NetworkInput _ ReceivedMessage{msg = ReqSn{}}
-        | WaitOnUnresolvedCommit{} <- reason -> reenqueue waitDelay q
-      NetworkInput ttl msg
-        | ttl > 0 -> reenqueue waitDelay q{queuedItem = NetworkInput (ttl - 1) msg}
-      _ -> traceWith tracer $ DroppedFromQueue{inputId = queuedId, input = queuedItem}
+    case retryDecision reason queuedItem of
+      ParkUntilSynced -> park q
+      RetryInput next -> reenqueue waitDelay q{queuedItem = next}
+      DropInput -> traceWith tracer $ DroppedFromQueue{inputId = queuedId, input = queuedItem}
 
   -- Replay parked network inputs once the node transitions into sync, so
   -- messages received during catch-up are processed rather than lost.
