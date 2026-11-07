@@ -27,6 +27,7 @@ import Hydra.Cardano.Api (
   getTxBody,
   getTxId,
   hashScript,
+  mkTxIn,
   scriptPolicyId,
   toPlutusCurrencySymbol,
   txOutScriptData,
@@ -336,14 +337,18 @@ spec = parallel $ do
                         [ newVersion === version + 1
                         , snapshotNumber === number
                         , signatures === confirmedSignatures confirmedSnapshot
-                        , UTxO.txOutputs distributedUTxO === maybe [] UTxO.txOutputs utxoToDecommit
+                        , distributedUTxO
+                            === UTxO.fromList
+                              (zip (mkTxIn tx <$> [1 ..]) (maybe [] UTxO.txOutputs utxoToDecommit))
                         ]
 
   prop "observes distributed outputs" $
     forAllDecrement' $ \toDistribute utxo tx ->
       case observeDecrementTx utxo tx of
         Just DecrementObservation{distributedUTxO} ->
-          UTxO.txOutputs distributedUTxO === UTxO.txOutputs toDistribute
+          distributedUTxO
+            === UTxO.fromList
+              (zip (mkTxIn tx <$> [1 ..]) (UTxO.txOutputs toDistribute))
         Nothing ->
           False & counterexample ("observeDecrementTx ignored transaction: " <> renderTxWithUTxO utxo tx)
 

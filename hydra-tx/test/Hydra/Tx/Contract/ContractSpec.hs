@@ -75,7 +75,7 @@ import Hydra.Tx.Contract.Contest.ContestCurrent (genContestMutation)
 import Hydra.Tx.Contract.Contest.ContestDec (genContestDecMutation, genContestUsedMutation, healthyContestUsedTx)
 import Hydra.Tx.Contract.Contest.ContestInc (genContestIncMutation, healthyContestIncTx)
 import Hydra.Tx.Contract.Contest.Healthy (healthyContestTx)
-import Hydra.Tx.Contract.Decrement (decrementWithIncompleteSignatures, genDecrementMutation, healthyDecrementTx)
+import Hydra.Tx.Contract.Decrement (decrementWithIncompleteSignatures, genDecrementMutation, healthyDecrementTx, healthySnapshot)
 import Hydra.Tx.Contract.Deposit (genDepositMutation, genHealthyDepositTx, healthyDeadline)
 import Hydra.Tx.Contract.FanOut (fanoutTxWithOverlappingSets, genFanoutMutation, healthyFanoutTx, healthyFanoutTxWithWalletChange)
 import Hydra.Tx.Contract.FanoutSnapshotIdentity (FanoutIdentityScenario (..), excludedUTxO, fanoutIdentityScenarios, liveUTxO, substitutedFullUTxO, victimUTxO)
@@ -198,6 +198,15 @@ spec = parallel $ do
       propMutation healthyDecrementTx genDecrementMutation
     prop "rejects incomplete snapshot evidence" $
       propTransactionFailsPhase2 [toErrorCode SignatureVerificationFailed] decrementWithIncompleteSignatures
+    it "observes decommit outputs with their produced transaction references" $ do
+      let (tx, utxo) = healthyDecrementTx
+      case Observation.observeHeadTx testNetworkId utxo tx of
+        Observation.Decrement decrementObservation -> do
+          let expectedOutputs = maybe [] UTxO.txOutputs $ utxoToDecommit healthySnapshot
+          UTxO.toList (Observation.distributedUTxO decrementObservation)
+            `shouldBe` zip (Api.mkTxIn tx <$> [1 ..]) expectedOutputs
+        other ->
+          expectationFailure $ "Expected Decrement observation, got: " <> show other
 
   describe "Deposit" $ do
     prop "healthy evaluates" $
