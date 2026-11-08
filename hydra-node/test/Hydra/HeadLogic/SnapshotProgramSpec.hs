@@ -12,6 +12,7 @@ import Hydra.HeadLogic qualified as HeadLogic
 import Hydra.HeadLogic.Interpreter qualified as Interpreter
 import Hydra.HeadLogic.Program qualified as Program
 import Hydra.HeadLogic.Trace qualified as Trace
+import Hydra.HeadLogic.Version qualified as Version
 import Hydra.Ledger (Ledger)
 import Hydra.Ledger.Simple (SimpleTx (..), simpleLedger)
 import Hydra.Network.Message (Message (..))
@@ -24,15 +25,68 @@ import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Crypto (Signature, aggregateInOrder, sign)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.Party (Party)
-import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, SnapshotVersion)
+import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, SnapshotVersion, getSnapshot)
 import Test.Hydra.HeadLogic.LegacyReqTx (legacyOnOpenNetworkReqTx)
 import Test.Hydra.HeadLogic.LegacySnapshot
 import Test.Hydra.Ledger.Simple (utxoRef)
 import Test.Hydra.Node.Fixture
 import Test.Hydra.Prelude hiding (pending)
+import Test.QuickCheck (checkCoverage, chooseInteger, cover, forAllShrink, ioProperty, oneof, shrinkIntegral)
 
 spec :: Spec
 spec = do
+  describe "version evidence" $ do
+    versionCases "only establishes a request version when the head and request agree" $ \headVersion ->
+      forM_ (requestVersions headVersion) $ \requestedVersion ->
+        case Version.matchRequestVersion headVersion requestedVersion of
+          Nothing -> headVersion `shouldNotBe` requestedVersion
+          Just (Version.SomeRequestVersion checked) -> do
+            headVersion `shouldBe` requestedVersion
+            Version.requestVersion checked `shouldBe` headVersion
+
+    versionCases "signs exactly the snapshot constructed at the validated request version" $ \headVersion ->
+      case Version.matchRequestVersion headVersion headVersion of
+        Nothing -> failure "equal versions did not match"
+        Just (Version.SomeRequestVersion checked) -> do
+          let expectedSnapshot :: Snapshot SimpleTx
+              expectedSnapshot = initialSnapshot{version = headVersion}
+              program = do
+                signed <- Version.signSnapshot $ Version.snapshotForRequest checked initialSnapshot
+                Program.change SnapshotRequested{requestedSnapshot = Version.signedSnapshot signed, newLocalTxs = mempty, newCurrentDepositTxId = Nothing}
+                Program.emit $ NetworkEffect $ AckSn (Version.snapshotSignature signed) expectedSnapshot.number
+              expected =
+                Continue
+                  [SnapshotRequested{requestedSnapshot = expectedSnapshot, newLocalTxs = mempty, newCurrentDepositTxId = Nothing}]
+                  [NetworkEffect $ AckSn (sign env.signingKey expectedSnapshot) expectedSnapshot.number]
+          Interpreter.runProgramWith (Interpreter.snapshotConfig env simpleLedger) program `shouldBe` expected
+
+    versionCases "matches settlement by snapshot number and exact successor, preserving the snapshot" $ \snapshotVersion ->
+      forM_ ([0, snapshotVersion, snapshotVersion + 1, snapshotVersion + 2] <> [snapshotVersion - 1 | snapshotVersion > 0]) $ \observedVersion ->
+        forM_ [0, 1, 2] $ \observedNumber -> do
+          let snapshot :: Snapshot SimpleTx
+              snapshot = snapshotFixture{version = snapshotVersion}
+              matches = observedNumber == snapshot.number && observedVersion == snapshotVersion + 1
+          case Version.matchSettlement observedNumber observedVersion snapshot of
+            Nothing -> matches `shouldBe` False
+            Just settled -> do
+              matches `shouldBe` True
+              Version.settlementSnapshot settled `shouldBe` snapshot
+              Version.settlementVersion settled `shouldBe` observedVersion
+
+    versionCases "preserves request validation order and outcomes across past, current and future versions" $ \headVersion -> do
+      let coordinated = os.coordinatedHeadState
+          previous :: Snapshot SimpleTx
+          previous = (getSnapshot coordinated.confirmedSnapshot){version = headVersion}
+          confirmed = ConfirmedSnapshot previous (aggregateInOrder (Map.fromList [(p, sign sk previous) | (p, sk) <- zip scenarioParties [aliceSk, bobSk, carolSk]]) scenarioParties)
+          opened = os{coordinatedHeadState = coordinated{version = headVersion, confirmedSnapshot = confirmed}}
+          initialAtVersion = initial{headState = Open opened}
+      forM_ (requestVersions headVersion) $ \requestedVersion ->
+        forM_ [0, 1, 2] $ \requestedNumber ->
+          forM_ [alice, bob] $ \sender -> do
+            let old = legacyOnOpenNetworkReqSn env simpleLedger mempty initialAtVersion.chainPointTime opened 1 sender requestedVersion requestedNumber [1] Nothing Nothing
+                new = runReqSn env simpleLedger mempty initialAtVersion.chainPointTime opened 1 sender requestedVersion requestedNumber [1] Nothing Nothing
+            new `shouldBe` old
+            aggregateState initialAtVersion new `shouldBe` aggregateState initialAtVersion old
   describe "snapshot program migration" $ do
     it "preserves complete ReqSn outcomes and states across waits, deposits, decommits and pruning" $ do
       forM_ [0, 1] $ \ttl ->
@@ -158,6 +212,40 @@ os = base{coordinatedHeadState = c{allTxs = Map.fromList [(txId tx, tx) | tx <- 
  where
   base = openState initialNode
   c = base.coordinatedHeadState
+
+-- | Reuse the same assertions for deterministic boundaries and shrinking
+-- properties. Generate both numeric ranges explicitly so large values are not
+-- lost to QuickCheck's usual size limits.
+versionCases :: String -> (SnapshotVersion -> Expectation) -> Spec
+versionCases description assertVersion = describe description $ do
+  it "covers boundary versions" $
+    forM_ [0, 1, word64Boundary - 1, word64Boundary, word64Boundary + 1, 2 ^ (80 :: Int)] assertVersion
+  prop "covers generated versions" $
+    checkCoverage $
+      forAllShrink genVersion shrinkVersion $ \version ->
+        cover 30 (version < word64Boundary) "within 64 bits" $
+          cover 30 (version >= word64Boundary) "above 64 bits" $
+            ioProperty $
+              assertVersion version $> True
+
+word64Boundary :: SnapshotVersion
+word64Boundary = 2 ^ (64 :: Int)
+
+genVersion :: Gen SnapshotVersion
+genVersion =
+  fromInteger
+    <$> oneof
+      [ chooseInteger (0, toInteger word64Boundary - 1)
+      , chooseInteger (toInteger word64Boundary, 2 ^ (128 :: Int) - 1)
+      ]
+
+shrinkVersion :: SnapshotVersion -> [SnapshotVersion]
+shrinkVersion = fmap fromInteger . filter (>= 0) . shrinkIntegral . toInteger
+
+-- | Derive relationships after shrinking the base version. Natural versions
+-- have no predecessor at zero.
+requestVersions :: SnapshotVersion -> [SnapshotVersion]
+requestVersions version = [0, version, version + 1] <> [version - 1 | version > 0]
 
 env :: Environment
 env = environment 0

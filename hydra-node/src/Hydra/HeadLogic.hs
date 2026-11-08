@@ -80,6 +80,7 @@ import Hydra.HeadLogic.State (
   setChainState,
   snapshotInFlight,
  )
+import Hydra.HeadLogic.Version qualified as Version
 import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Network qualified as Network
 import Hydra.Network.Message (Message (..), NetworkEvent (..))
@@ -318,26 +319,24 @@ onOpenNetworkReqTxProgram env ChainPointTime{currentSlot, currentChainTime} st t
   settlingCommit = settlingCommitAtPeriod env.depositPeriod version currentChainTime pendingDeposits (getSnapshot confirmedSnapshot)
 {-# INLINE onOpenNetworkReqTxProgram #-}
 
-data ReqSnFunding tx = ReqSnFunding
-  { reqSnActiveUTxO :: UTxOType tx
+data ReqSnFunding tx v = ReqSnFunding
+  { reqSnVersion :: Version.RequestVersion v
+  , reqSnActiveUTxO :: UTxOType tx
   , reqSnCommitUTxO :: Maybe (UTxOType tx)
   , reqSnDecommitUTxO :: Maybe (UTxOType tx)
   }
 
-data ReqSnResolved tx = ReqSnResolved
-  { reqSnFunding :: ReqSnFunding tx
+data ReqSnResolved tx v = ReqSnResolved
+  { reqSnFunding :: ReqSnFunding tx v
   , reqSnTransactions :: [tx]
   }
 
-data ReqSnApplied tx = ReqSnApplied
-  { reqSnResolved :: ReqSnResolved tx
+data ReqSnApplied tx v = ReqSnApplied
+  { reqSnResolved :: ReqSnResolved tx v
   , reqSnNextUTxO :: UTxOType tx
   }
 
-data ReqSnReady tx = ReqSnReady
-  { reqSnSnapshot :: Snapshot tx
-  , reqSnSignature :: Signature (Snapshot tx)
-  }
+type ReqSnReady tx v = Version.SignedSnapshot tx v
 
 -- | Process a snapshot request ('ReqSn') from party.
 --
@@ -403,14 +402,14 @@ onOpenNetworkReqSnProgram env pendingDeposits ChainPointTime{currentSlot, curren
  where
   decide :: SnapshotProgram tx ()
   decide = do
-    checkHeader
-    funding <- resolveFunding
+    Version.SomeRequestVersion checked <- checkHeader
+    funding <- resolveFunding checked
     resolved <- resolveTransactions funding
     applied <- applyRequestedTransactions resolved
     ready <- buildSignedSnapshot applied
     acknowledge ready
 
-  checkHeader :: SnapshotProgram tx ()
+  checkHeader :: SnapshotProgram tx Version.SomeRequestVersion
   checkHeader = do
     validNumber <- Program.decide "request is the next snapshot" (sn == seenSn + 1)
     unless validNumber $ Program.reject $ RequireFailed $ ReqSnNumberInvalid{requestedSn = sn, lastSeenSn = seenSn}
@@ -419,27 +418,30 @@ onOpenNetworkReqSnProgram env pendingDeposits ChainPointTime{currentSlot, curren
     confirmed <- Program.decide "previous snapshot is confirmed" (confSn == seenSn)
     unless confirmed $ Program.suspend $ WaitOnSnapshotNumber seenSn
     -- A version bump may reach this follower after the request, so wait.
-    matches <- Program.decide "snapshot version matches" (version == sv)
-    unless matches $ Program.suspend $ WaitOnSnapshotVersion sv
+    let checked = Version.matchRequestVersion version sv
+    matches <- Program.decide "snapshot version matches" (isJust checked)
+    case checked of
+      Just evidence | matches -> pure evidence
+      _ -> Program.suspend $ WaitOnSnapshotVersion sv
 
-  resolveFunding :: SnapshotProgram tx (ReqSnFunding tx)
-  resolveFunding = do
-    (reqSnActiveUTxO, reqSnDecommitUTxO) <- requireApplicableDecommitTx
-    reqSnCommitUTxO <- waitForDeposit
-    pure ReqSnFunding{reqSnActiveUTxO, reqSnCommitUTxO, reqSnDecommitUTxO}
+  resolveFunding :: Version.RequestVersion v -> SnapshotProgram tx (ReqSnFunding tx v)
+  resolveFunding reqSnVersion = do
+    (reqSnActiveUTxO, reqSnDecommitUTxO) <- requireApplicableDecommitTx reqSnVersion
+    reqSnCommitUTxO <- waitForDeposit reqSnVersion
+    pure ReqSnFunding{reqSnVersion, reqSnActiveUTxO, reqSnCommitUTxO, reqSnDecommitUTxO}
 
-  resolveTransactions :: ReqSnFunding tx -> SnapshotProgram tx (ReqSnResolved tx)
+  resolveTransactions :: ReqSnFunding tx v -> SnapshotProgram tx (ReqSnResolved tx v)
   resolveTransactions reqSnFunding = do
     reqSnTransactions <- waitResolvableTxs
     pure ReqSnResolved{reqSnFunding, reqSnTransactions}
 
-  applyRequestedTransactions :: ReqSnResolved tx -> SnapshotProgram tx (ReqSnApplied tx)
+  applyRequestedTransactions :: ReqSnResolved tx v -> SnapshotProgram tx (ReqSnApplied tx v)
   applyRequestedTransactions reqSnResolved@ReqSnResolved{reqSnFunding = ReqSnFunding{reqSnActiveUTxO, reqSnCommitUTxO}, reqSnTransactions} = do
     reqSnNextUTxO <- requireApplyTxs reqSnActiveUTxO reqSnCommitUTxO reqSnTransactions
     pure ReqSnApplied{reqSnResolved, reqSnNextUTxO}
 
-  buildSignedSnapshot :: ReqSnApplied tx -> SnapshotProgram tx (ReqSnReady tx)
-  buildSignedSnapshot ReqSnApplied{reqSnResolved = ReqSnResolved{reqSnFunding = ReqSnFunding{reqSnCommitUTxO, reqSnDecommitUTxO}, reqSnTransactions}, reqSnNextUTxO} = do
+  buildSignedSnapshot :: ReqSnApplied tx v -> SnapshotProgram tx (ReqSnReady tx v)
+  buildSignedSnapshot ReqSnApplied{reqSnResolved = ReqSnResolved{reqSnFunding = ReqSnFunding{reqSnVersion, reqSnCommitUTxO, reqSnDecommitUTxO}, reqSnTransactions}, reqSnNextUTxO} = do
     -- The predecessor is confirmed (checkHeader), so its accumulators can be
     -- updated by the UTxO delta instead of rebuilding from every output.
     let prevSnapshot = getSnapshot confirmedSnapshot
@@ -471,11 +473,12 @@ onOpenNetworkReqSnProgram env pendingDeposits ChainPointTime{currentSlot, curren
             , accumulator
             , appliedAccumulator
             }
-    reqSnSignature <- Program.signSnapshot reqSnSnapshot
-    pure ReqSnReady{reqSnSnapshot, reqSnSignature}
+    Version.signSnapshot $ Version.snapshotForRequest reqSnVersion reqSnSnapshot
 
-  acknowledge :: ReqSnReady tx -> SnapshotProgram tx ()
-  acknowledge ReqSnReady{reqSnSnapshot, reqSnSignature} = do
+  acknowledge :: ReqSnReady tx v -> SnapshotProgram tx ()
+  acknowledge ready = do
+    let reqSnSnapshot = Version.signedSnapshot ready
+        reqSnSignature = Version.snapshotSignature ready
     Program.emit (NetworkEffect $ AckSn reqSnSignature sn)
     -- Prune after staging the acknowledgement to preserve instruction order.
     -- Aggregation rebuilds localUTxO from the snapshot and retained transactions.
@@ -497,8 +500,8 @@ onOpenNetworkReqSnProgram env pendingDeposits ChainPointTime{currentSlot, curren
   -- not added to the active UTxO: a deposit is not spendable on L2 until its
   -- increment lands, otherwise a requested tx could spend it and the snapshot
   -- would count its value twice.
-  waitForDeposit :: SnapshotProgram tx (Maybe (UTxOType tx))
-  waitForDeposit =
+  waitForDeposit :: Version.RequestVersion v -> SnapshotProgram tx (Maybe (UTxOType tx))
+  waitForDeposit checked =
     case mDepositTxId of
       -- A request without a deposit drops the commit the confirmed snapshot is
       -- settling. Allow that only once its increment can no longer land
@@ -534,7 +537,7 @@ onOpenNetworkReqSnProgram env pendingDeposits ChainPointTime{currentSlot, curren
             | status == Inactive -> Program.suspend WaitOnDepositActivation{depositTxId}
             -- NOTE: this makes the commits sequential in a sense that you can't
             -- commit unless the previous commit is settled.
-            | hasPendingSnapshotAction sv confVersion confUTxOToCommit ->
+            | hasPendingSnapshotAction (Version.requestVersion checked) confVersion confUTxOToCommit ->
                 -- NOTE: identity, not just content. Two deposits can record
                 -- the same UTxO, and only the one bound into the confirmed
                 -- snapshot is the pending commit being settled.
@@ -547,8 +550,8 @@ onOpenNetworkReqSnProgram env pendingDeposits ChainPointTime{currentSlot, curren
             | status == Expired -> Program.reject $ RequireFailed RequestedDepositExpired{depositTxId}
             | otherwise -> pure (Just deposited)
 
-  requireApplicableDecommitTx :: SnapshotProgram tx (UTxOType tx, Maybe (UTxOType tx))
-  requireApplicableDecommitTx =
+  requireApplicableDecommitTx :: Version.RequestVersion v -> SnapshotProgram tx (UTxOType tx, Maybe (UTxOType tx))
+  requireApplicableDecommitTx checked =
     case mDecommitTx of
       -- A request without a decommit drops the one the confirmed snapshot is
       -- settling. Unlike a settling commit (see 'waitForDeposit'), a decommit
@@ -560,7 +563,7 @@ onOpenNetworkReqSnProgram env pendingDeposits ChainPointTime{currentSlot, curren
       -- for the version bump), so the head could not be closed and fanned
       -- out from any snapshot the honest nodes hold.
       Nothing
-        | hasPendingSnapshotAction sv confVersion confUTxOToDecommit ->
+        | hasPendingSnapshotAction (Version.requestVersion checked) confVersion confUTxOToDecommit ->
             Program.reject $ RequireFailed ReqSnDecommitNotSettled
         | otherwise -> pure (confirmedUTxO, Nothing)
       -- Spec: require tx𝜔 = ⊥ ∨ tx𝛼 = ⊥
@@ -583,7 +586,7 @@ onOpenNetworkReqSnProgram env pendingDeposits ChainPointTime{currentSlot, curren
         -- Spec:
         -- require 𝑣 = 𝑣 ̂ ∧ 𝑠 = 𝑠 ̂ + 1 ∧ leader(𝑠) = 𝑗
         -- wait 𝑠 ̂ = 𝒮.𝑠
-        if hasPendingSnapshotAction sv confVersion confUTxOToDecommit
+        if hasPendingSnapshotAction (Version.requestVersion checked) confVersion confUTxOToDecommit
           then
             if confUTxOToDecommit == Just (utxoFromTx decommitTx)
               then pure (confirmedUTxO, confUTxOToDecommit)
@@ -1230,11 +1233,6 @@ maybeRequestSnapshotAfterVersionBump parameters party nextSn mRequest version ne
             >> Program.emit (NetworkEffect $ ReqSn newVersion nextSn (txId <$> requestTxs) Nothing requestDepositTxId)
     _ -> pure ()
 
--- | A settlement identifies a snapshot by number and advances its version once.
-matchesSettledSnapshot :: SnapshotNumber -> SnapshotVersion -> Snapshot tx -> Bool
-matchesSettledSnapshot observedNumber newVersion Snapshot{number, version} =
-  observedNumber == number && version + 1 == newVersion
-
 -- | Observe a increment transaction. If the outputs match the ones of the
 -- pending commit UTxO, then we consider the deposit/increment finalized, and remove the
 -- increment UTxO from 'pendingDeposits' from the local state.
@@ -1266,14 +1264,16 @@ onOpenChainIncrementTx env pendingDeposits openState newChainState newVersion de
   adoptObservedSnapshotOrRequestNext =
     case seenSnapshot of
       SeenSnapshot{snapshot = snapshot@Snapshot{number = seenSnNumber, depositTxId = seenDepositTxId}, signableBytes}
-        | matchesSettledSnapshot observedSnapshotNumber newVersion snapshot
+        | Just settled <- Version.matchSettlement observedSnapshotNumber newVersion snapshot
         , seenDepositTxId == Just depositTxId ->
             do
               verified <- Program.verifySnapshot vkeys observedSignatures signableBytes
               case verified of
                 Verified -> do
-                  Program.change SnapshotConfirmed{headId, snapshot = Just snapshot, signatures = observedSignatures}
-                  maybeRequestSnapshotAfterVersionBump parameters party (seenSnNumber + 1) (requestOn snapshot) version newVersion (LastSeenSnapshot seenSnNumber)
+                  let settledSnapshot = Version.settlementSnapshot settled
+                      settledVersion = Version.settlementVersion settled
+                  Program.change SnapshotConfirmed{headId, snapshot = Just settledSnapshot, signatures = observedSignatures}
+                  maybeRequestSnapshotAfterVersionBump parameters party (seenSnNumber + 1) (requestOn settledSnapshot) version settledVersion (LastSeenSnapshot seenSnNumber)
                 _ -> requestNext
       _ -> requestNext
 
@@ -1338,14 +1338,16 @@ onOpenChainDecrementTx env pendingDeposits openState newChainState newVersion di
   adoptObservedSnapshotOrRequestNext =
     case seenSnapshot of
       SeenSnapshot{snapshot = snapshot@Snapshot{number = seenSnNumber, utxoToDecommit = seenDecommit}, signableBytes}
-        | matchesSettledSnapshot observedSnapshotNumber newVersion snapshot
+        | Just settled <- Version.matchSettlement observedSnapshotNumber newVersion snapshot
         , isJust seenDecommit ->
             do
               verified <- Program.verifySnapshot vkeys observedSignatures signableBytes
               case verified of
                 Verified -> do
-                  Program.change SnapshotConfirmed{headId, snapshot = Just snapshot, signatures = observedSignatures}
-                  maybeRequestSnapshotAfterVersionBump parameters party (seenSnNumber + 1) (requestOn snapshot) version newVersion (LastSeenSnapshot seenSnNumber)
+                  let settledSnapshot = Version.settlementSnapshot settled
+                      settledVersion = Version.settlementVersion settled
+                  Program.change SnapshotConfirmed{headId, snapshot = Just settledSnapshot, signatures = observedSignatures}
+                  maybeRequestSnapshotAfterVersionBump parameters party (seenSnNumber + 1) (requestOn settledSnapshot) version settledVersion (LastSeenSnapshot seenSnNumber)
                 _ -> requestNext
       _ -> requestNext
 

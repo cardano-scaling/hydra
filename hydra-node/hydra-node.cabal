@@ -83,6 +83,7 @@ library
     Hydra.HeadLogic.State
     Hydra.HeadLogic.StateEvent
     Hydra.HeadLogic.Trace
+    Hydra.HeadLogic.Version
     Hydra.Ledger
     Hydra.Ledger.Cardano
     Hydra.Ledger.Simple

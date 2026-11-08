@@ -12,6 +12,7 @@ State aggregation, network messages, and persistence use their existing formats.
 - `Hydra.HeadLogic.Program` defines instructions for ledger application,
   signing, verification, state changes, effects, named decisions, and termination.
 - `Hydra.HeadLogic.Interpreter` supplies the primitives and evaluates the program.
+- `Hydra.HeadLogic.Version` holds opaque, version-indexed validation evidence.
 - `Hydra.HeadLogic.Trace` describes the instructions observed during execution.
 - `Hydra.HeadLogic.Retry` defines retry eligibility for the node queue.
 
@@ -46,11 +47,33 @@ instruction order.
 
 Shared predicates keep repeated protocol conditions consistent:
 `hasPendingSnapshotAction` checks whether a commit or decommit is still pending
-at the snapshot's version; `matchesSettledSnapshot` matches a settlement's
+at the snapshot's version; `Version.matchSettlement` matches a settlement's
 snapshot number and successor version; `canRequestSnapshot` checks idle leader
 eligibility; and `depositsWithStatus` selects deposits by lifecycle status.
 Version-bump requests retain their separate eligibility rule because they can
 replace a pending request but cannot interrupt signature collection.
+
+## Version evidence
+
+Snapshot numbers and versions remain distinct. A successful header check returns
+an existential `RequestVersion v` after the existing checks have run in their
+original order. Funding, resolved transactions, applied transactions, and the
+signed snapshot retain that same version index. Snapshot construction assigns
+the validated version, and the signing helper keeps the snapshot paired with the
+signature produced for it. Evidence constructors are private and version roles
+are nominal, preventing callers from changing the index with `coerce`.
+
+`SettledSnapshot` packages a snapshot at version `v` with its successor version
+`v + 1`, after checking the observed snapshot number and version. Increment and
+decrement adoption consume this matched pair; deposit identity and signature
+verification remain separate checks in the rule.
+
+These are internal validation types, not new wire or persistence formats. The
+program still has its ordinary `Monad` instance. A version mismatch still waits;
+re-observation and forward-version aggregation keep their existing comparisons.
+The head can advance while an older in-flight snapshot finishes, and fanout still
+uses its existing equality-based selection. No new rejection is introduced for
+those cases. Version evidence does not by itself prove head or action identity.
 
 ## Completion, waiting, and rejection
 
@@ -96,6 +119,10 @@ promotion, primitive arguments, tracing, alternate interpretations, and comparis
 with the previous transaction handler.
 `SnapshotProgramSpec` compares snapshot outcomes and resulting states with the
 previous handlers across waits, deposits, decommits, pruning, and signatures.
+Version-evidence tests combine deterministic numeric boundaries with shrinking
+QuickCheck properties over values below and above the 64-bit boundary. Related
+request and settlement versions are derived from each generated base version;
+coverage checks require both numeric ranges to be exercised.
 `HeadLogicSpec` retains the real Cardano witness-stripped duplicate regression.
 The previous handlers are test fixtures; shared helpers limit their independence.
 
