@@ -18,7 +18,7 @@ import Hydra.UserValidationRules (MintingOnL2Rule (..), PolicyRule (..), UserVal
 
 newtype PolicyFingerprint = PolicyFingerprint Text
   deriving stock (Eq, Show, Generic)
-  deriving newtype (ToJSON, ToCBOR, FromCBOR)
+  deriving newtype (FromJSON, ToJSON, ToCBOR, FromCBOR)
 
 data PolicyAnnouncement = PolicyAnnouncement
   { session :: Text

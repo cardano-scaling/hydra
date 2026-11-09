@@ -119,6 +119,7 @@ spec =
             , unsyncedPeriod = defaultUnsyncedPeriod
             , participants = deriveOnChainId <$> threeParties
             , configuredPeers = ""
+            , configuredPolicy = Nothing
             }
         aliceEnv =
           Environment
@@ -131,6 +132,7 @@ spec =
             , unsyncedPeriod = defaultUnsyncedPeriod
             , participants = deriveOnChainId <$> threeParties
             , configuredPeers = ""
+            , configuredPolicy = Nothing
             }
 
     describe "Coordinated Head Protocol" $ do
@@ -5881,6 +5883,7 @@ spec =
               , unsyncedPeriod = defaultUnsyncedPeriod
               , participants = ctxParticipants hydraContext
               , configuredPeers = ""
+              , configuredPolicy = Nothing
               }
            where
             party = deriveParty signingKey
@@ -6681,6 +6684,7 @@ spec =
                         , headSeed = testHeadSeed
                         }
                 , deposits = mempty
+                , headPolicies = Nothing
                 , chainPointTime =
                     ChainPointTime
                       { currentSlot = ChainSlot . fromIntegral . unSlotNo $ slotNo + 1
@@ -6730,6 +6734,7 @@ spec =
                       , headSeed = testHeadSeed
                       }
               , deposits = mempty
+              , headPolicies = Nothing
               , chainPointTime =
                   ChainPointTime
                     { currentSlot = ChainSlot 1
@@ -7290,10 +7295,10 @@ mkTimeHandleAt slotNo now =
   eraHistory = eraHistoryWithHorizonAt horizonSlot
 
 catchingUp :: IsTx tx => HeadState tx -> NodeState tx
-catchingUp headState = NodeCatchingUp{headState, deposits = mempty, chainPointTime = zeroChainPointTime}
+catchingUp headState = NodeCatchingUp{headState, deposits = mempty, headPolicies = Nothing, chainPointTime = zeroChainPointTime}
 
 inSync :: IsTx tx => HeadState tx -> NodeState tx
-inSync headState = NodeInSync{headState, deposits = mempty, chainPointTime = zeroChainPointTime}
+inSync headState = NodeInSync{headState, deposits = mempty, headPolicies = Nothing, chainPointTime = zeroChainPointTime}
 
 zeroChainPointTime :: ChainPointTime
 zeroChainPointTime =

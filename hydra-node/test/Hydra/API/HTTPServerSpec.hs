@@ -411,7 +411,7 @@ apiServerSpec = do
                   dummyChainHandle
                   testEnvironment
                   defaultPParams
-                  (pure NodeInSync{headState = Closed closedState, deposits = mempty, chainPointTime = zeroChainPointTime})
+                  (pure NodeInSync{headState = Closed closedState, deposits = mempty, headPolicies = Nothing, chainPointTime = zeroChainPointTime})
                   cantCommit
                   getPendingDeposits
                   putClientInput
@@ -682,7 +682,7 @@ apiServerSpec = do
                 dummyChainHandle
                 testEnvironment
                 defaultPParams
-                (pure NodeInSync{headState = Closed closedState', deposits = mempty, chainPointTime = zeroChainPointTime})
+                (pure NodeInSync{headState = Closed closedState', deposits = mempty, headPolicies = Nothing, chainPointTime = zeroChainPointTime})
                 cantCommit
                 getPendingDeposits
                 putClientInput
@@ -715,7 +715,7 @@ apiServerSpec = do
               dummyChainHandle
               testEnvironment
               defaultPParams
-              (pure NodeInSync{headState = anyHeadState, deposits = mempty, chainPointTime = zeroChainPointTime})
+              (pure NodeInSync{headState = anyHeadState, deposits = mempty, headPolicies = Nothing, chainPointTime = zeroChainPointTime})
               cantCommit
               (pure pendingTxIds)
               putClientInput
@@ -749,7 +749,7 @@ apiServerSpec = do
               workingChainHandle
               testEnvironment
               defaultPParams
-              (pure NodeInSync{headState = openHeadState, deposits = mempty, chainPointTime = zeroChainPointTime})
+              (pure NodeInSync{headState = openHeadState, deposits = mempty, headPolicies = Nothing, chainPointTime = zeroChainPointTime})
               getHeadId
               getPendingDeposits
               putClientInput
@@ -779,7 +779,7 @@ apiServerSpec = do
               )
               testEnvironment
               defaultPParams
-              (pure NodeInSync{headState = openHeadState, deposits = mempty, chainPointTime = zeroChainPointTime})
+              (pure NodeInSync{headState = openHeadState, deposits = mempty, headPolicies = Nothing, chainPointTime = zeroChainPointTime})
               getHeadId
               getPendingDeposits
               putClientInput

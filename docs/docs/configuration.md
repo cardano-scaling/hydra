@@ -594,7 +594,9 @@ scheduler interference; with small UTxO sets the effect is negligible.
 
 ### Head policy
 
-Without a policy file, the node starts normally and does not exchange policy announcements or check other nodes' policies. With a policy file, the node waits up to five minutes for all configured parties to agree before starting the chain layer and API. A party without a policy file does not participate in this agreement. Even an empty policy file (`head-policy: {}`) enables the agreement check.
+Without a policy file, the node starts normally and does not exchange policy announcements or check other nodes' policies. With a policy file, the node checks agreement with all configured parties while the chain layer and API run. If agreement is not reached within five minutes, the node exits. A party without a policy file does not participate in this agreement. Even an empty policy file (`head-policy: {}`) enables the agreement check.
+
+When a Head opens with a policy, the node persists its fingerprint together with the Head ID. Restarting a bound Head requires a policy with the same fingerprint. An unbound Head can restart with or without a policy; supplying one on restart does not create a binding. Older persisted state without policy information is loaded as unbound, so the node cannot enforce a policy requirement from that history.
 
 Use `--policy policy.yaml` to configure additional admission rules. Every participant must use the same policy. For example:
 

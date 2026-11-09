@@ -99,6 +99,7 @@ benchCell n m = do
                   , headSeed = testHeadSeed
                   }
           , deposits = mempty
+          , headPolicies = Nothing
           , chainPointTime =
               ChainPointTime
                 { currentSlot = ChainSlot 1

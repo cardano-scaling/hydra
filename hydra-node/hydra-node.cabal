@@ -215,6 +215,7 @@ library testlib
     Test.Hydra.Network
     Test.Hydra.Network.Authenticate
     Test.Hydra.Network.Message
+    Test.Hydra.Network.Policy
     Test.Hydra.Node.ApiTransactionTimeout
     Test.Hydra.Node.Environment
     Test.Hydra.Node.Fixture

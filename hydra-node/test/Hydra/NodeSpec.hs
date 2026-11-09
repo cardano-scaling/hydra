@@ -14,6 +14,7 @@ import Control.Tracer.JSON qualified as Logging
 import Data.EventSource (EventSink (..), EventSource (..), getEventId, mkEventSink)
 import Data.EventSource.Rotation (EventStore (..), LogId)
 import Data.Map.Strict qualified as Map
+import Data.Text qualified as Text
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.API.Server (Server (..), mkTimedServerOutputFromStateEvent, updateSeenSnapshot)
 import Hydra.API.ServerOutput (ClientMessage (..), ServerOutput (..), TimedServerOutput (..))
@@ -29,11 +30,13 @@ import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), simpleLedger)
 import Hydra.Network (Network (..), StallReason (..))
 import Hydra.Network qualified as Network
 import Hydra.Network.Message (Message (..), NetworkEvent (..))
+import Hydra.Network.Policy (PolicyFingerprint (..))
 import Hydra.Node (
   DraftHydraNode,
   HydraNode (..),
   HydraNodeLog (..),
   NodeStateHandler (..),
+  PolicyBindingException (..),
   broadcastStallBounds,
   checkHeadState,
   connect,
@@ -52,6 +55,7 @@ import Hydra.Node.UnsyncedPeriod (defaultUnsyncedPeriodFor)
 import Hydra.Options (defaultContestationPeriod, defaultDepositActivation, defaultDepositPeriod, defaultUnsyncedPeriod)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod (..))
 import Hydra.Tx.Crypto (HydraKey, sign)
+import Hydra.Tx.HeadId (HeadId (..))
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.Party (Party, deriveParty)
 import Hydra.Tx.Snapshot qualified as Snapshot
@@ -213,6 +217,52 @@ spec = parallel $ do
           action testHydrate
 
   describe "hydrate" $ do
+    describe "policy on restart" $ do
+      let policy = PolicyFingerprint $ Text.replicate 64 "a"
+          otherPolicy = PolicyFingerprint $ Text.replicate 64 "b"
+          otherHeadId = UnsafeHeadId "other-head"
+          opened = HeadOpened (mkHeadParameters testEnvironment) 0 testHeadId testHeadSeed [alice, bob, carol]
+          boundEvents = [opened, HeadPolicyBound testHeadId policy]
+          restart :: Maybe PolicyFingerprint -> [StateChanged SimpleTx] -> IO (NodeState SimpleTx)
+          restart configuredPolicy changes = do
+            let events = zipWith (\i change -> StateEvent i change initialChainTime) [0 ..] changes
+            HydraNode{nodeStateHandler = NodeStateHandler{queryNodeState}} <-
+              hydrate nullTracer testEnvironment{configuredPolicy} simpleLedger 0 (mockEventStore events) []
+                >>= notConnect
+            atomically queryNodeState
+
+      forM_ [("without a policy", Nothing), ("with a policy", Just policy)] $ \(label, configured) ->
+        it ("restarts an unbound Head " <> label <> " and leaves it unbound") $ do
+          restoredState <- restart configured [opened]
+          Head.headIdOf (headState restoredState) `shouldBe` Just testHeadId
+          headPolicies restoredState `shouldBe` Nothing
+
+      it "restarts a bound Head with the matching policy and HeadId" $ do
+        restoredState <- restart (Just policy) boundEvents
+        Head.headIdOf (headState restoredState) `shouldBe` Just testHeadId
+        headPolicies restoredState `shouldBe` Just (testHeadId, policy)
+
+      forM_ [("missing", Nothing), ("different", Just otherPolicy)] $ \(label, configured) ->
+        it ("rejects restarting a bound Head with a " <> label <> " policy") $
+          restart configured boundEvents `shouldThrow` \case
+            HeadPolicyMismatch boundHeadId expected actual ->
+              boundHeadId == testHeadId && expected == policy && actual == configured
+            _ -> False
+
+      it "rejects a matching policy bound to a different HeadId" $ do
+        restoredState <- restart (Just policy) boundEvents
+        let checkpoint = Checkpoint restoredState{headPolicies = Just (otherHeadId, policy)}
+        restart (Just policy) [checkpoint] `shouldThrow` \case
+          PolicyHeadMismatch boundHeadId recoveredHeadId ->
+            boundHeadId == otherHeadId && recoveredHeadId == Just testHeadId
+          _ -> False
+
+      it "rejects a policy binding when no HeadId is recovered" $
+        restart (Just policy) [HeadPolicyBound testHeadId policy] `shouldThrow` \case
+          PolicyHeadMismatch boundHeadId recoveredHeadId ->
+            boundHeadId == testHeadId && isNothing recoveredHeadId
+          _ -> False
+
     around setupHydrate $ do
       it "reads the event source only once when there are no replay sinks" $ \testHydrate -> do
         sourceReads <- newIORef (0 :: Int)
@@ -666,6 +716,7 @@ spec = parallel $ do
             , unsyncedPeriod = defaultUnsyncedPeriod
             , participants = deriveOnChainId <$> [alice, bob]
             , configuredPeers = ""
+            , configuredPolicy = Nothing
             }
         nodeState = inOpenState [alice, bob]
 
@@ -873,6 +924,7 @@ testHydraNode tracer signingKey otherParties contestationPeriod inputs = do
       , unsyncedPeriod = defaultUnsyncedPeriodFor contestationPeriod
       , participants
       , configuredPeers = ""
+      , configuredPolicy = Nothing
       }
 
   party = deriveParty signingKey

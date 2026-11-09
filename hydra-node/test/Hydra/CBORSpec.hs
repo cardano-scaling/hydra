@@ -25,7 +25,10 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Cardano.Binary (decodeFull', serialize')
+import Codec.CBOR.Encoding (Encoding)
 import Codec.CBOR.Write (toStrictByteString)
+import Data.Aeson qualified as Aeson
+import Data.Aeson.KeyMap qualified as KeyMap
 import Data.ByteString qualified as BS
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.HTTPServer (
@@ -66,8 +69,8 @@ import Hydra.Network (Connectivity, Host, NodeId, ProtocolVersion, StallReason, 
 import Hydra.Network.Authenticate (Signed)
 import Hydra.Network.Message (Message)
 import Hydra.Node.ApiTransactionTimeout (ApiTransactionTimeout)
-import Hydra.Node.Environment (Environment)
-import Hydra.Node.State (ChainPointTime, Deposit, DepositStatus, NodeState (..), SyncedStatus, TrackedDeposit, nodeCatchingUpCBORTag, nodeInSyncCBORTag, nodeInSyncCBORTagV1, pendingDeposits, trackedFromPending)
+import Hydra.Node.Environment (Environment (..))
+import Hydra.Node.State (ChainPointTime, Deposit, DepositStatus, NodeState (..), SyncedStatus, TrackedDeposit, nodeCatchingUpCBORTag, nodeCatchingUpCBORTagV1, nodeCatchingUpCBORTagV2, nodeInSyncCBORTag, nodeInSyncCBORTagV1, nodeInSyncCBORTagV2, pendingDeposits, trackedFromPending)
 import Hydra.Node.UnsyncedPeriod (UnsyncedPeriod)
 import Hydra.Tx (ConfirmedSnapshot, HeadId, HeadParameters, HeadSeed, Party, Snapshot (..), SnapshotNumber, SnapshotVersion)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
@@ -274,32 +277,95 @@ spec = parallel $ do
                 <> toCBOR version
       decodeFull' legacy `shouldBe` Right closedState{unconfirmedSnapshot = Nothing}
 
-  -- 'NodeState' gained deposit lifecycle tracking between two released
-  -- layouts, same situation as 'Snapshot' above. The legacy layout carries a
-  -- plain pending deposit map, lifted into fresh lifecycles on decode,
-  -- mirroring the 'FromJSON' instance.
   describe "NodeState layouts" $ do
-    let nodeState = generateWith (resize 3 arbitrary) 42 :: NodeState Tx
+    let sample = generateWith (resize 3 arbitrary) 42 :: NodeState Tx
+    forM_
+      [ (nodeInSyncCBORTag, nodeInSyncCBORTagV2, nodeInSyncCBORTagV1, NodeInSync)
+      , (nodeCatchingUpCBORTag, nodeCatchingUpCBORTagV2, nodeCatchingUpCBORTagV1, NodeCatchingUp)
+      ]
+      $ \(tag, tagV2, tagV1, mkNodeState) -> describe (toString tag) $ do
+        let nodeState = mkNodeState (headState sample) (deposits sample) (chainPointTime sample) Nothing
+            encodeWithoutPolicy :: Text -> Encoding -> Encoding
+            encodeWithoutPolicy layoutTag encodeDeposits =
+              toCBOR layoutTag
+                <> toCBOR (headState nodeState)
+                <> encodeDeposits
+                <> toCBOR (chainPointTime nodeState)
+
+        it "writes the current layout under a tag of its own" $
+          serialize' nodeState `shouldSatisfy` BS.isPrefixOf (serialize' tag)
+
+        it "decodes the layout written before deposit lifecycle tracking existed" $
+          decodeFull' (toStrictByteString $ encodeWithoutPolicy tagV1 $ toCBOR $ pendingDeposits nodeState)
+            `shouldBe` Right nodeState{deposits = trackedFromPending (pendingDeposits nodeState)}
+
+        it "decodes the layout written before policy bindings existed" $
+          decodeFull' (toStrictByteString $ encodeWithoutPolicy tagV2 $ toCBOR $ deposits nodeState)
+            `shouldBe` Right nodeState
+
+        it "does not consume the field following a legacy state" $ do
+          let legacy = encodeWithoutPolicy tagV2 (toCBOR $ deposits nodeState)
+              bytes = toStrictByteString $ toCBOR ("LegacyWrapper" :: Text) <> legacy <> toCBOR (42 :: Int)
+          decodeFull' bytes `shouldBe` Right (LegacyWrapper nodeState 42)
+
+        it "rejects a current layout with a missing policy field" $
+          decodeFull' @(NodeState Tx) (toStrictByteString $ encodeWithoutPolicy tag $ toCBOR $ deposits nodeState)
+            `shouldSatisfy` isLeft
+
+        it "decodes JSON without a policy binding" $
+          Aeson.fromJSON (withoutField "headPolicies" $ toJSON nodeState)
+            `shouldBe` Aeson.Success nodeState
+
+        forM_ [Nothing, Just (generateWith arbitrary 42)] $ \binding ->
+          it ("roundtrips a policy binding of " <> show binding) $ do
+            let bound = nodeState{headPolicies = binding}
+            decodeFull' (serialize' bound) `shouldBe` Right bound
+            Aeson.fromJSON (toJSON bound) `shouldBe` Aeson.Success bound
+
+  describe "Environment layouts" $ do
+    let env = generateWith (resize 3 arbitrary) 42 :: Environment
+        withoutPolicy tag =
+          toCBOR (tag :: Text)
+            <> toCBOR (party env)
+            <> toCBOR (otherParties env)
+            <> toCBOR (participants env)
+            <> toCBOR (contestationPeriod env)
+            <> toCBOR (depositPeriod env)
+            <> toCBOR (depositActivation env)
+            <> toCBOR (unsyncedPeriod env)
+            <> toCBOR (configuredPeers env)
 
     it "writes the current layout under a tag of its own" $
-      serialize' nodeState `shouldSatisfy` \bytes ->
-        BS.isPrefixOf (serialize' nodeInSyncCBORTag) bytes
-          || BS.isPrefixOf (serialize' nodeCatchingUpCBORTag) bytes
+      serialize' env `shouldSatisfy` BS.isPrefixOf (serialize' ("Environment2" :: Text))
 
-    it "decodes the layout written before deposit lifecycle tracking existed" $ do
-      let legacy =
-            toStrictByteString $
-              toCBOR nodeInSyncCBORTagV1
-                <> toCBOR (headState nodeState)
-                <> toCBOR (pendingDeposits nodeState)
-                <> toCBOR (chainPointTime nodeState)
-      decodeFull' legacy
-        `shouldBe` Right
-          NodeInSync
-            { headState = headState nodeState
-            , deposits = trackedFromPending (pendingDeposits nodeState)
-            , chainPointTime = chainPointTime nodeState
-            }
+    it "decodes the layout written before configuredPolicy existed" $
+      decodeFull' (toStrictByteString $ withoutPolicy "Environment")
+        `shouldBe` Right env{configuredPolicy = Nothing}
+
+    it "does not consume the field following a legacy environment" $ do
+      let bytes = toStrictByteString $ toCBOR ("LegacyWrapper" :: Text) <> withoutPolicy "Environment" <> toCBOR (42 :: Int)
+      decodeFull' bytes `shouldBe` Right (LegacyWrapper env{configuredPolicy = Nothing} 42)
+
+    it "rejects a current layout with a missing policy field" $
+      decodeFull' @Environment (toStrictByteString $ withoutPolicy "Environment2")
+        `shouldSatisfy` isLeft
+
+    it "decodes JSON without a configured policy" $
+      Aeson.fromJSON (withoutField "configuredPolicy" $ toJSON env)
+        `shouldBe` Aeson.Success env{configuredPolicy = Nothing}
+
+    forM_ [Nothing, Just (generateWith arbitrary 42)] $ \policy ->
+      it ("roundtrips a configured policy of " <> show policy) $ do
+        let configured = env{configuredPolicy = policy}
+        decodeFull' (serialize' configured) `shouldBe` Right configured
+        Aeson.fromJSON (toJSON configured) `shouldBe` Aeson.Success configured
+
+  describe "goldens before policy bindings" $ do
+    legacyCBOR (Proxy @Environment) "golden/legacy-policy/Environment.cbor"
+    legacyCBOR (Proxy @(NodeState Tx)) "golden/legacy-policy/NodeState.cbor"
+    legacyCBOR (Proxy @(StateEvent Tx)) "golden/legacy-policy/StateEvent.cbor"
+    legacyCBOR (Proxy @(Greetings Tx)) "golden/legacy-policy/Greetings.cbor"
+    legacyCBOR (Proxy @(ServerOutput Tx)) "golden/legacy-policy/ServerOutput.cbor"
 
   describe "protocol types" $ do
     roundtripCBOR $ Proxy @(Snapshot Tx)
@@ -448,3 +514,22 @@ genGoldenStateEvents = do
   ADTArbitrary{adtCAPs} <- resize 5 $ toADTArbitrary (Proxy @(StateChanged Tx))
   forM (zip [0 ..] adtCAPs) $ \(i, ConstructorArbitraryPair{capArbitrary}) ->
     StateEvent i capArbitrary <$> arbitrary
+
+-- | A trailing field detects legacy decoders consuming bytes from their parent.
+data LegacyWrapper a = LegacyWrapper a Int
+  deriving stock (Eq, Show, Generic)
+
+instance FromCBOR a => FromCBOR (LegacyWrapper a) where
+  fromCBOR = genericFromCBOR
+
+withoutField :: Aeson.Key -> Aeson.Value -> Aeson.Value
+withoutField key = \case
+  Aeson.Object fields -> Aeson.Object $ KeyMap.delete key fields
+  value -> value
+
+-- | Old fixtures must decode, but re-encoding uses the new versioned layouts.
+legacyCBOR :: forall a. (FromCBOR a, Show a) => Proxy a -> FilePath -> Spec
+legacyCBOR _ path =
+  it ("decodes " <> path) $ do
+    bytes <- readFileBS path
+    decodeFull' @[a] bytes `shouldSatisfy` isRight

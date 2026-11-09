@@ -5,12 +5,13 @@ module Hydra.Node.State where
 import Hydra.Prelude
 
 import Cardano.Binary (Decoder)
-import Data.Aeson (withObject, (.:))
+import Data.Aeson (withObject, (.:), (.:?))
 import Data.Map.Strict qualified as Map
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import GHC.Records (HasField (..))
 import Hydra.Chain.ChainState (ChainSlot (..), IsChainState (..), chainStateSlot)
 import Hydra.HeadLogic.State (HeadState (Idle), IdleState (..))
+import Hydra.Network.Policy (PolicyFingerprint)
 import Hydra.Tx (
   HeadId,
   IsTx (..),
@@ -153,6 +154,7 @@ data NodeState tx
       -- TODO: could even move the chain state here (also see todo below)
       -- , chainState :: ChainStateType tx
       , chainPointTime :: ChainPointTime
+      , headPolicies :: Maybe (HeadId, PolicyFingerprint)
       }
   | -- | Node is catching up on its view of the chain and should behave
     -- differently.
@@ -164,6 +166,7 @@ data NodeState tx
       -- TODO: could even move the chain state here (also see todo below)
       -- , chainState :: ChainStateType tx
       , chainPointTime :: ChainPointTime
+      , headPolicies :: Maybe (HeadId, PolicyFingerprint)
       }
   deriving stock (Generic)
 
@@ -174,27 +177,34 @@ deriving anyclass instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (Node
 -- | Manual instance: lifecycle-tracked 'deposits' replaced the plain pending
 -- deposit map after 'NodeState' shipped. A checkpoint persisted by an older
 -- version carries a "pendingDeposits" key instead, which is lifted via
--- 'trackedFromPending'.
+-- 'trackedFromPending'. Missing policy bindings decode as 'Nothing'.
 instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (NodeState tx) where
   parseJSON = withObject "NodeState" $ \o -> do
     tag :: Text <- o .: "tag"
     headState <- o .: "headState"
     deposits <- o .: "deposits" <|> (trackedFromPending <$> o .: "pendingDeposits")
     chainPointTime <- o .: "chainPointTime"
+    headPolicies <- o .:? "headPolicies"
     case tag of
-      "NodeInSync" -> pure NodeInSync{headState, deposits, chainPointTime}
-      "NodeCatchingUp" -> pure NodeCatchingUp{headState, deposits, chainPointTime}
+      "NodeInSync" -> pure NodeInSync{headState, deposits, chainPointTime, headPolicies}
+      "NodeCatchingUp" -> pure NodeCatchingUp{headState, deposits, chainPointTime, headPolicies}
       _ -> fail $ "unknown NodeState tag: " <> show tag
 
--- | Tags of the current on-disk\/wire layout, which tracks deposit lifecycles
--- ('TrackedDeposits'). The fields are a bare concatenation with no length
+-- | Tags of the current on-disk\/wire layout, which includes the policy binding.
+-- The fields are a bare concatenation with no length
 -- prefix, so a layout change is only decodable when the tag distinguishes it:
 -- the V1 tags name the layout with a plain pending deposit map written before
 -- lifecycle tracking existed and are still accepted, lifted via
 -- 'trackedFromPending' like the 'FromJSON' instance above.
 nodeInSyncCBORTag, nodeCatchingUpCBORTag :: Text
-nodeInSyncCBORTag = "NodeInSync2"
-nodeCatchingUpCBORTag = "NodeCatchingUp2"
+nodeInSyncCBORTag = "NodeInSync3"
+nodeCatchingUpCBORTag = "NodeCatchingUp3"
+
+-- | Tags of the layout with deposit lifecycles but no policy binding.
+-- Decoded, never written.
+nodeInSyncCBORTagV2, nodeCatchingUpCBORTagV2 :: Text
+nodeInSyncCBORTagV2 = "NodeInSync2"
+nodeCatchingUpCBORTagV2 = "NodeCatchingUp2"
 
 -- | Tags of the layout without deposit lifecycles. Decoded, never written.
 nodeInSyncCBORTagV1, nodeCatchingUpCBORTagV1 :: Text
@@ -207,6 +217,7 @@ instance IsChainState tx => ToCBOR (NodeState tx) where
       <> toCBOR (headState nodeState)
       <> toCBOR (deposits nodeState)
       <> toCBOR (chainPointTime nodeState)
+      <> toCBOR (headPolicies nodeState)
    where
     tag = case nodeState of
       NodeInSync{} -> nodeInSyncCBORTag
@@ -216,20 +227,23 @@ instance IsChainState tx => FromCBOR (NodeState tx) where
   fromCBOR =
     fromCBOR >>= \case
       (tag :: Text)
-        | tag == nodeInSyncCBORTag -> decode NodeInSync fromCBOR
-        | tag == nodeCatchingUpCBORTag -> decode NodeCatchingUp fromCBOR
-        | tag == nodeInSyncCBORTagV1 -> decode NodeInSync (trackedFromPending <$> fromCBOR)
-        | tag == nodeCatchingUpCBORTagV1 -> decode NodeCatchingUp (trackedFromPending <$> fromCBOR)
+        | tag == nodeInSyncCBORTag -> decode NodeInSync fromCBOR fromCBOR
+        | tag == nodeCatchingUpCBORTag -> decode NodeCatchingUp fromCBOR fromCBOR
+        | tag == nodeInSyncCBORTagV2 -> decode NodeInSync fromCBOR (pure Nothing)
+        | tag == nodeCatchingUpCBORTagV2 -> decode NodeCatchingUp fromCBOR (pure Nothing)
+        | tag == nodeInSyncCBORTagV1 -> decode NodeInSync (trackedFromPending <$> fromCBOR) (pure Nothing)
+        | tag == nodeCatchingUpCBORTagV1 -> decode NodeCatchingUp (trackedFromPending <$> fromCBOR) (pure Nothing)
         | otherwise -> fail $ show tag <> " is not a proper CBOR-encoded NodeState"
    where
     decode ::
-      (HeadState tx -> TrackedDeposits tx -> ChainPointTime -> NodeState tx) ->
+      (HeadState tx -> TrackedDeposits tx -> ChainPointTime -> Maybe (HeadId, PolicyFingerprint) -> NodeState tx) ->
       Decoder s (TrackedDeposits tx) ->
+      Decoder s (Maybe (HeadId, PolicyFingerprint)) ->
       Decoder s (NodeState tx)
-    decode mkNodeState decodeDeposits = do
+    decode mkNodeState decodeDeposits decodePolicy = do
       headState <- fromCBOR
       deposits <- decodeDeposits
-      mkNodeState headState deposits <$> fromCBOR
+      mkNodeState headState deposits <$> fromCBOR <*> decodePolicy
 
 initNodeState :: IsChainState tx => ChainStateType tx -> NodeState tx
 initNodeState chainState =
@@ -237,6 +251,7 @@ initNodeState chainState =
     { headState = Idle IdleState{chainState}
     , deposits = mempty
     , chainPointTime = initialChainPointTime chainState
+    , headPolicies = Nothing
     }
 
 initialChainPointTime :: IsChainState tx => ChainStateType tx -> ChainPointTime

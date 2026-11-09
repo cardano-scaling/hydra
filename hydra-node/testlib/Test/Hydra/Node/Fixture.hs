@@ -54,4 +54,5 @@ testEnvironment =
     , unsyncedPeriod = defaultUnsyncedPeriodFor cperiod
     , participants = deriveOnChainId <$> [alice, bob, carol]
     , configuredPeers = ""
+    , configuredPolicy = Nothing
     }

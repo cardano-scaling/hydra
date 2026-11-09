@@ -20,7 +20,7 @@ import PlutusLedgerApi.V3 (CurrencySymbol (..), toBuiltin)
 -- | Uniquely identifies a Hydra Head.
 newtype HeadId = UnsafeHeadId ByteString
   deriving stock (Show, Eq, Ord, Generic)
-  deriving (ToJSON, FromJSON) via (UsingRawBytesHex HeadId)
+  deriving (ToJSON, FromJSON, Aeson.ToJSONKey, Aeson.FromJSONKey) via (UsingRawBytesHex HeadId)
 
 instance ToCBOR HeadId where
   toCBOR = genericToCBOR

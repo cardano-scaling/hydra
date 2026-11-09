@@ -99,8 +99,9 @@ run opts = do
       traceWith tracer LoadingTrustedSetup
       numG1Points <- either (throwIO . TrustedSetupException) pure KZG.warmup
       traceWith tracer TrustedSetupLoaded{numG1Points}
-      env@Environment{party, otherParties, signingKey} <- initEnvironment opts
       rules <- traverse loadUserValidationRules opts.policy
+      let policy = policyFingerprint <$> rules
+      env@Environment{party, otherParties, signingKey} <- initEnvironment opts policy
       -- Ledger
       pparams <- readJsonFileThrow parseJSON (cardanoLedgerProtocolParametersFile ledgerConfig)
       globals <- getGlobalsForChain (contramap DirectChain tracer) chainConfig
@@ -137,7 +138,7 @@ run opts = do
               withNetwork
                 (contramap Network tracer)
                 networkConfiguration
-                (policyFingerprint <$> rules)
+                policy
                 (wireNetworkInput wetHydraNode)
                 $ \network -> do
                   traceWith tracer NetworkStarted

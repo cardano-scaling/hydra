@@ -173,6 +173,16 @@ onIdleChainInitTx env newChainState headId headSeed headParameters participants
           , headSeed
           , parties
           }
+        <> maybe
+          noop
+          ( \fingerprint ->
+              newState
+                HeadPolicyBound
+                  { headId
+                  , policyFingerprint = fingerprint
+                  }
+          )
+          configuredPolicy
   | otherwise =
       newState
         IgnoredHeadInitializing
@@ -194,6 +204,7 @@ onIdleChainInitTx env newChainState headId headSeed headParameters participants
     , contestationPeriod = configuredContestationPeriod
     , depositPeriod = configuredDepositPeriod
     , participants = configuredParticipants
+    , configuredPolicy
     } = env
 
 -- ** Off-chain protocol
@@ -3124,6 +3135,7 @@ aggregateNodeState nodeState sc =
               nodeState
                 { headState = st
                 , chainPointTime = chainPointTimeState{currentSlot = chainStateSlot chainState}
+                , headPolicies = Nothing
                 }
             DepositRecorded{chainState, headId, depositTxId, deposited, created, deadline} ->
               recordDeposit (chainStateSlot chainState) depositTxId Deposit{headId, deposited, created, deadline, status = Inactive} $
@@ -3207,14 +3219,18 @@ aggregateNodeState nodeState sc =
               rollbackDeposits (chainStateSlot chainState) $
                 nodeState{headState = st, chainPointTime = chainPointTimeState{currentSlot = chainStateSlot chainState}}
             NodeUnsynced{chainSlot, chainTime, drift} ->
-              NodeCatchingUp{headState = st, deposits = deposits nodeState, chainPointTime = ChainPointTime chainSlot chainTime drift}
+              NodeCatchingUp{headState = st, deposits = deposits nodeState, chainPointTime = ChainPointTime chainSlot chainTime drift, headPolicies = headPolicies nodeState}
             NodeSynced{chainSlot, chainTime, drift} ->
-              NodeInSync{headState = st, deposits = deposits nodeState, chainPointTime = ChainPointTime chainSlot chainTime drift}
+              NodeInSync{headState = st, deposits = deposits nodeState, chainPointTime = ChainPointTime chainSlot chainTime drift, headPolicies = headPolicies nodeState}
             -- Restore the full snapshot: a checkpoint carries the aggregated
             -- 'pendingDeposits' and 'chainPointTime' (and synced constructor),
             -- which the default arm below would otherwise drop on replay.
             Checkpoint checkpointedNodeState ->
               checkpointedNodeState
+            HeadPolicyBound{headId, policyFingerprint} ->
+              nodeState
+                { headPolicies = Just (headId, policyFingerprint)
+                }
             _ ->
               nodeState{headState = st}
 
@@ -3288,6 +3304,7 @@ eventHeadId = \case
   Checkpoint{} -> Nothing
   NodeUnsynced{} -> Nothing
   NodeSynced{} -> Nothing
+  HeadPolicyBound{headId} -> Just headId
 
 -- | Extract the 'HeadId' from the current 'HeadState', if any.
 headIdOf :: HeadState tx -> Maybe HeadId
@@ -3688,6 +3705,7 @@ applyEvent st = \case
   Checkpoint nodeState -> headState nodeState
   NodeSynced{} -> st
   NodeUnsynced{} -> st
+  HeadPolicyBound{} -> st
 
 aggregateState ::
   IsChainState tx =>
@@ -3747,3 +3765,4 @@ aggregateChainStateHistory history = \case
   Checkpoint nodeState -> initHistory $ getChainState nodeState.headState
   NodeUnsynced{} -> history
   NodeSynced{} -> history
+  HeadPolicyBound{} -> history
