@@ -930,42 +930,15 @@ onOpenClientDecommit ::
   -- | Decommit transaction.
   tx ->
   HeadProgram tx ()
-onOpenClientDecommit headId currentSlot coordinatedHeadState decommitTx =
-  checkNoDecommitInFlight $
-    checkValidDecommitTx $
+onOpenClientDecommit headId currentSlot coordinatedHeadState decommitTx = do
+  result <- checkDecommitAdmission currentSlot localUTxO mExistingDecommitTx decommitTx
+  case result of
+    Left decommitInvalidReason ->
+      Program.change DecommitInvalid{headId, decommitTx, decommitInvalidReason}
+    Right () ->
       requireDecommitOutputs headId localUTxO decommitTx $
         Program.emit (NetworkEffect ReqDec{transaction = decommitTx})
  where
-  checkNoDecommitInFlight continue =
-    case mExistingDecommitTx of
-      Just existingDecommitTx ->
-        Program.change
-          DecommitInvalid
-            { headId
-            , decommitTx
-            , decommitInvalidReason =
-                ServerOutput.DecommitAlreadyInFlight
-                  { otherDecommitTxId = txId existingDecommitTx
-                  }
-            }
-      Nothing -> continue
-
-  checkValidDecommitTx cont = do
-    result <- Program.applyTransaction currentSlot localUTxO decommitTx
-    case result of
-      Left err ->
-        Program.change
-          DecommitInvalid
-            { headId
-            , decommitTx
-            , decommitInvalidReason =
-                ServerOutput.DecommitTxInvalid
-                  { localUTxO
-                  , validationError = err
-                  }
-            }
-      Right _ -> cont
-
   CoordinatedHeadState{decommitTx = mExistingDecommitTx, localUTxO} = coordinatedHeadState
 
 -- | Process the request 'ReqDec' to decommit something from the Open head.
@@ -1021,38 +994,15 @@ onOpenNetworkReqDec env ttl ChainPointTime{currentSlot, currentChainTime} pendin
                 , decommitTx
                 , decommitInvalidReason = DepositInFlight{depositTxId, commitUTxO}
                 }
-    | otherwise =
-        case mExistingDecommitTx of
-          Nothing -> do
-            result <- Program.applyTransaction currentSlot localUTxO decommitTx
-            case result of
-              Right _ -> cont
-              Left validationError
-                | ttl > 0 ->
-                    Program.suspend $
-                      WaitOnNotApplicableDecommitTx
-                        ServerOutput.DecommitTxInvalid{localUTxO, validationError}
-                | otherwise ->
-                    Program.change
-                      DecommitInvalid
-                        { headId
-                        , decommitTx
-                        , decommitInvalidReason =
-                            ServerOutput.DecommitTxInvalid{localUTxO, validationError}
-                        }
-          Just existingDecommitTx
+    | otherwise = do
+        result <- checkDecommitAdmission currentSlot localUTxO mExistingDecommitTx decommitTx
+        case result of
+          Right () -> cont
+          Left decommitInvalidReason
             | ttl > 0 ->
-                Program.suspend $
-                  WaitOnNotApplicableDecommitTx
-                    DecommitAlreadyInFlight{otherDecommitTxId = txId existingDecommitTx}
+                Program.suspend $ WaitOnNotApplicableDecommitTx decommitInvalidReason
             | otherwise ->
-                Program.change
-                  DecommitInvalid
-                    { headId
-                    , decommitTx
-                    , decommitInvalidReason =
-                        DecommitAlreadyInFlight{otherDecommitTxId = txId existingDecommitTx}
-                    }
+                Program.change DecommitInvalid{headId, decommitTx, decommitInvalidReason}
 
   -- May carry a settling commit instead of the decommit.
   maybeRequestSnapshot =
@@ -2331,6 +2281,23 @@ selectNextDeposit absorbableHere pendingDeposits currentDepositTxId mDecommitTx 
     <|> (guard (isNothing mDecommitTx) *> nextActiveDepositId absorbableHere pendingDeposits)
  where
   tracked (depositTxId, Deposit{deposited}) = depositTxId <$ guard (deposited /= mempty && absorbableHere deposited)
+
+-- | Check for an existing decommit before applying the requested transaction to
+-- the local ledger. Callers decide whether a failure is retried or reported.
+checkDecommitAdmission ::
+  IsTx tx =>
+  ChainSlot ->
+  UTxOType tx ->
+  Maybe tx ->
+  tx ->
+  HeadProgram tx (Either (DecommitInvalidReason tx) ())
+checkDecommitAdmission currentSlot localUTxO mExistingDecommitTx decommitTx =
+  case mExistingDecommitTx of
+    Just existingDecommitTx ->
+      pure $ Left DecommitAlreadyInFlight{otherDecommitTxId = txId existingDecommitTx}
+    Nothing -> do
+      result <- Program.applyTransaction currentSlot localUTxO decommitTx
+      pure $ bimap (\validationError -> DecommitTxInvalid{localUTxO, validationError}) (const ()) result
 
 -- | Reject a decommit that materializes no output.
 -- 'Hydra.Contract.Head.checkDecrement' requires at least one, so such a decommit

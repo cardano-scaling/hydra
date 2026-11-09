@@ -379,7 +379,11 @@ request snapshot signatures $hpRS$ is sent. \
 #dparagraph[$hpRD$.]#h(1em) Upon receiving request $(hpRD,tx_omega)$, the
 transaction is checked against the _local_ ledger state and if it is not
 applicable yet or another deposit or decommit is pending still, the protocol does
-#kw("wait") to retry later or eventually marks the decommit as invalid. After
+#kw("wait") to retry later or eventually marks the decommit as invalid.
+The node checks for a blocking deposit first, then an existing decommit, and
+then ledger applicability. Client submission shares the latter two checks but
+reports failure immediately instead of waiting. Both paths reject an applicable
+transaction with no outputs after these checks. After
 applying $tx$, its outputs are removed from _local_ ledger state $hatmL$
 so that they are not available any more and the decommit transaction is kept in
 the local state ($tx_omega$). If there is no current snapshot in flight
@@ -540,6 +544,9 @@ data _handles_↝_ : LocalState → Message → LocalState → Set where
 
   -- on (reqDec, tx): the §6 `wait U_α = ∅ ∧ tx_ω = ⊥ ∧ L̂ ∘ tx ≠ ⊥` guard (no commit/decommit in flight,
   -- and tx applies), all three de-abstracted as premises; then `L̂ ← L̂ ∘ tx ∖ outputs(tx)` and tx_ω ← tx.
+  -- The node's `checkDecommitAdmission` shares the last two premises with client submission,
+  -- checking pendingDecrement before ledger applicability. Retry policy stays in the reqDec handler;
+  -- client submission reports either failure immediately. This relation describes successful steps.
   --
   -- NB this rule reads `U_α = ∅` as "no deposit tx-id is recorded at all", which is the clean case and
   -- a SUFFICIENT condition, not a characterisation. The implementation additionally proceeds when a

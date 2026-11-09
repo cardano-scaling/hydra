@@ -139,6 +139,10 @@ roll back; see [rollback handling](./rollbacks/index.md) for recovery limits.
 An incremental decommit returns funds from L2 to L1 while the head is open.
 Send `POST /decommit` with a **decommit transaction** in the request body.
 The node validates it against its local UTxO set and broadcasts `ReqDec`.
+Both client submission and `ReqDec` handling check for an existing decommit
+before validating the transaction against the local UTxO. A client submission
+reports either failure immediately; a `ReqDec` retries while its retry budget
+remains and reports the failure once that budget is exhausted.
 The snapshot leader then proposes it in `ReqSn`. Each party validates the
 transaction, removes its outputs from the active L2 UTxO, and signs the snapshot.
 Once every party has signed, any participant can submit a `decrementTx`.

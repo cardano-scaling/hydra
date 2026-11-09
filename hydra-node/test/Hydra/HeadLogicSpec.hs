@@ -1482,6 +1482,35 @@ spec =
             _ -> False
 
       describe "Decommit" $ do
+        it "shares decommit admission failures while preserving client rejection and network retries" $ do
+          let decommitTx = SimpleTx 1 (utxoRef 99) mempty
+              existingDecommit = SimpleTx 2 mempty (utxoRef 2)
+          -- The in-flight failure takes precedence over ledger failure, which
+          -- takes precedence over the empty-output check.
+          forM_
+            [ (Just existingDecommit, DecommitAlreadyInFlight{otherDecommitTxId = txId existingDecommit})
+            , (Nothing, DecommitTxInvalid{localUTxO = mempty, validationError = ValidationError "cannot apply transaction"})
+            ]
+            $ \(pendingDecommit, expectedReason) -> do
+              let st = inOpenState' threeParties coordinatedHeadState{decommitTx = pendingDecommit}
+              now <- nowFromSlot st.chainPointTime.currentSlot
+              forM_
+                [ ClientInput (Decommit decommitTx)
+                , NetworkInput 0 $ ReceivedMessage{sender = alice, msg = ReqDec decommitTx}
+                ]
+                $ \input -> do
+                  let outcome = update aliceEnv ledger now st input
+                  outcome `hasStateChangedSatisfying` \case
+                    DecommitInvalid{headId, decommitTx = invalidTx, decommitInvalidReason} ->
+                      headId == testHeadId && invalidTx == decommitTx && decommitInvalidReason == expectedReason
+                    _ -> False
+                  outcome `hasNoEffectSatisfying` const True
+                  outcome `hasNoStateChangedSatisfying` \case
+                    DecommitRecorded{} -> True
+                    _ -> False
+              update aliceEnv ledger now st (NetworkInput 1 $ ReceivedMessage{sender = alice, msg = ReqDec decommitTx})
+                `assertWait` WaitOnNotApplicableDecommitTx expectedReason
+
         it "observes DecommitRecorded and ReqDec in an Open state" $ do
           let outputs = utxoRef 1
               transaction = SimpleTx 1 mempty outputs
@@ -1499,10 +1528,18 @@ spec =
           let decommitTx = SimpleTx 1 mempty mempty
               st = inOpenState threeParties
           now <- nowFromSlot st.chainPointTime.currentSlot
-          update aliceEnv ledger now st (receiveMessage ReqDec{transaction = decommitTx})
-            `hasStateChangedSatisfying` \case
-              DecommitInvalid{decommitTx = invalidTx} -> invalidTx == decommitTx
-              _ -> False
+          forM_
+            [ ClientInput (Decommit decommitTx)
+            , NetworkInput 0 $ ReceivedMessage{sender = alice, msg = ReqDec decommitTx}
+            , NetworkInput 1 $ ReceivedMessage{sender = alice, msg = ReqDec decommitTx}
+            ]
+            $ \input ->
+              update aliceEnv ledger now st input
+                `hasStateChangedSatisfying` \case
+                  DecommitInvalid{decommitTx = invalidTx, decommitInvalidReason} ->
+                    invalidTx == decommitTx
+                      && decommitInvalidReason == DecommitTxInvalid mempty (ValidationError "decommit transaction has no outputs")
+                  _ -> False
 
         it "rejects a ReqSn whose decommit tx materializes no output" $ do
           let decommitTx = SimpleTx 1 mempty mempty
