@@ -262,12 +262,7 @@ onOpenNetworkReqTxProgram env ChainPointTime{currentSlot, currentChainTime} st t
       Map.member (txId tx) allTxs && any ((== txId tx) . txId) localTxs
   unless alreadyApplied $ do
     Program.change TransactionReceived{tx}
-    let outputCheck = checkTransactionOutputs localUTxO tx
-    void $ Program.decide "outputs do not collide with the local UTxO" (isRight outputCheck)
-    result <-
-      case outputCheck of
-        Right () -> Program.applyTransaction currentSlot localUTxO tx
-        Left err -> pure $ Left err
+    result <- applyTransactionWithOutputCheck "outputs do not collide with the local UTxO" currentSlot localUTxO tx
     case result of
       Left err -> notApplicable err
       Right after -> do
@@ -411,10 +406,10 @@ onOpenNetworkReqSnProgram env pendingDeposits ChainPointTime{currentSlot, curren
 
   checkHeader :: SnapshotProgram tx Version.SomeRequestVersion
   checkHeader = do
-    validNumber <- Program.decide "request is the next snapshot" (sn == seenSn + 1)
-    unless validNumber $ Program.reject $ RequireFailed $ ReqSnNumberInvalid{requestedSn = sn, lastSeenSn = seenSn}
-    leader <- Program.decide "sender leads this snapshot" (isLeader parameters otherParty sn)
-    unless leader $ Program.reject $ RequireFailed $ ReqSnNotLeader{requestedSn = sn, leader = otherParty}
+    Program.require "request is the next snapshot" (sn == seenSn + 1) $
+      RequireFailed ReqSnNumberInvalid{requestedSn = sn, lastSeenSn = seenSn}
+    Program.require "sender leads this snapshot" (isLeader parameters otherParty sn) $
+      RequireFailed ReqSnNotLeader{requestedSn = sn, leader = otherParty}
     confirmed <- Program.decide "previous snapshot is confirmed" (confSn == seenSn)
     unless confirmed $ Program.suspend $ WaitOnSnapshotNumber seenSn
     -- A version bump may reach this follower after the request, so wait.
@@ -739,9 +734,9 @@ onOpenNetworkAckSnProgram env@RuleEnvironment{party} ChainPointTime{currentChain
     confirmSnapshot complete
 
   checkAckNumber :: AcknowledgementProgram tx ()
-  checkAckNumber = do
-    valid <- Program.decide "acknowledgement number is admissible" (sn `elem` [seenSn, seenSn + 1])
-    unless valid $ Program.reject $ RequireFailed $ AckSnNumberInvalid{requestedSn = sn, lastSeenSn = seenSn}
+  checkAckNumber =
+    Program.require "acknowledgement number is admissible" (sn `elem` [seenSn, seenSn + 1]) $
+      RequireFailed AckSnNumberInvalid{requestedSn = sn, lastSeenSn = seenSn}
 
   findSeenSnapshot :: AcknowledgementProgram tx (AckSeen tx)
   findSeenSnapshot =
@@ -754,9 +749,9 @@ onOpenNetworkAckSnProgram env@RuleEnvironment{party} ChainPointTime{currentChain
       _ -> Program.suspend WaitOnSeenSnapshot
 
   checkNewSigner :: AckSeen tx -> AcknowledgementProgram tx ()
-  checkNewSigner AckSeen{ackSignatures} = do
-    fresh <- Program.decide "party has not signed this snapshot" (not $ Map.member otherParty ackSignatures)
-    unless fresh $ Program.reject $ RequireFailed $ SnapshotAlreadySigned{knownSignatures = Map.keys ackSignatures, receivedSignature = otherParty}
+  checkNewSigner AckSeen{ackSignatures} =
+    Program.require "party has not signed this snapshot" (not $ Map.member otherParty ackSignatures) $
+      RequireFailed SnapshotAlreadySigned{knownSignatures = Map.keys ackSignatures, receivedSignature = otherParty}
 
   collectSignatures :: AckSeen tx -> AcknowledgementProgram tx (AckComplete tx)
   collectSignatures AckSeen{ackSnapshot, ackSignatures, ackBytes} = do
@@ -1206,33 +1201,13 @@ onOpenChainIncrementTx ::
   HeadProgram tx ()
 onOpenChainIncrementTx env pendingDeposits openState newChainState newVersion depositTxId observedSnapshotNumber observedSignatures =
   Program.change CommitFinalized{chainState = newChainState, headId, newVersion, depositTxId}
-    >> adoptObservedSnapshotOrRequestNext
+    >> adoptSettledSnapshotOrRequestNext party openState newVersion observedSnapshotNumber observedSignatures matchesAction requestOn
  where
-  -- The increment proves on-chain that the snapshot it settled is fully
-  -- signed. If that is the one we are still collecting AckSns for, adopt it
-  -- with the on-chain multisignature instead of waiting on a peer.
-  adoptObservedSnapshotOrRequestNext =
-    case seenSnapshot of
-      SeenSnapshot{snapshot = snapshot@Snapshot{number = seenSnNumber, depositTxId = seenDepositTxId}, signableBytes}
-        | Just settled <- Version.matchSettlement observedSnapshotNumber newVersion snapshot
-        , seenDepositTxId == Just depositTxId ->
-            do
-              verified <- Program.verifySnapshot vkeys observedSignatures signableBytes
-              case verified of
-                Verified -> do
-                  let settledSnapshot = Version.settlementSnapshot settled
-                      settledVersion = Version.settlementVersion settled
-                  Program.change SnapshotConfirmed{headId, snapshot = Just settledSnapshot, signatures = observedSignatures}
-                  maybeRequestSnapshotAfterVersionBump parameters party (seenSnNumber + 1) (requestOn settledSnapshot) version settledVersion (LastSeenSnapshot seenSnNumber)
-                _ -> requestNext
-      _ -> requestNext
+  matchesAction snapshot = snapshot.depositTxId == Just depositTxId
 
-  requestNext =
-    maybeRequestSnapshotAfterVersionBump parameters party nextSn (requestOn (getSnapshot confirmedSnapshot)) version newVersion seenSnapshot
+  OpenState{headId, coordinatedHeadState} = openState
 
-  OpenState{headId, parameters, coordinatedHeadState} = openState
-
-  CoordinatedHeadState{localTxs, confirmedSnapshot, version, seenSnapshot, decommitTx} = coordinatedHeadState
+  CoordinatedHeadState{localTxs, decommitTx} = coordinatedHeadState
 
   -- Built on the snapshot that is confirmed after this increment (the adopted
   -- one, if any), as followers check it. The deposit just settled, so it is
@@ -1240,15 +1215,7 @@ onOpenChainIncrementTx env pendingDeposits openState newChainState newVersion de
   requestOn snapshot =
     chainedSnapshotRequest (settledUTxO newVersion snapshot) localTxs (Map.delete depositTxId pendingDeposits) Nothing decommitTx Nothing
 
-  HeadParameters{parties} = parameters
-
-  vkeys = vkey <$> parties
-
-  Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
-
   Environment{party} = env
-
-  nextSn = confirmedSn + 1
 
 -- | Observe a decrement transaction. If the outputs match the ones of the
 -- pending decommit tx, then we consider the decommit finalized, and remove the
@@ -1281,32 +1248,14 @@ onOpenChainDecrementTx env pendingDeposits openState newChainState newVersion di
       , newVersion
       , distributedUTxO
       }
-    >> adoptObservedSnapshotOrRequestNext
+    >> adoptSettledSnapshotOrRequestNext party openState newVersion observedSnapshotNumber observedSignatures matchesAction requestOn
  where
-  -- Same reasoning as in 'onOpenChainIncrementTx': the decrement proves the
-  -- snapshot it settled is fully signed, so adopt it if it is the one in flight.
-  adoptObservedSnapshotOrRequestNext =
-    case seenSnapshot of
-      SeenSnapshot{snapshot = snapshot@Snapshot{number = seenSnNumber, utxoToDecommit = seenDecommit}, signableBytes}
-        | Just settled <- Version.matchSettlement observedSnapshotNumber newVersion snapshot
-        , isJust seenDecommit ->
-            do
-              verified <- Program.verifySnapshot vkeys observedSignatures signableBytes
-              case verified of
-                Verified -> do
-                  let settledSnapshot = Version.settlementSnapshot settled
-                      settledVersion = Version.settlementVersion settled
-                  Program.change SnapshotConfirmed{headId, snapshot = Just settledSnapshot, signatures = observedSignatures}
-                  maybeRequestSnapshotAfterVersionBump parameters party (seenSnNumber + 1) (requestOn settledSnapshot) version settledVersion (LastSeenSnapshot seenSnNumber)
-                _ -> requestNext
-      _ -> requestNext
+  matchesAction :: Snapshot tx -> Bool
+  matchesAction snapshot = isJust snapshot.utxoToDecommit
 
-  requestNext =
-    maybeRequestSnapshotAfterVersionBump parameters party nextSn (requestOn (getSnapshot confirmedSnapshot)) version newVersion seenSnapshot
+  OpenState{headId, coordinatedHeadState} = openState
 
-  OpenState{headId, parameters, coordinatedHeadState} = openState
-
-  CoordinatedHeadState{localTxs, confirmedSnapshot, currentDepositTxId, version, seenSnapshot, decommitTx} = coordinatedHeadState
+  CoordinatedHeadState{localTxs, currentDepositTxId, decommitTx} = coordinatedHeadState
 
   -- Built on the snapshot that is confirmed after this decrement (the adopted
   -- one, if any), as followers check it. No commit is settling next to a
@@ -1314,15 +1263,48 @@ onOpenChainDecrementTx env pendingDeposits openState newChainState newVersion di
   requestOn snapshot =
     chainedSnapshotRequest (settledUTxO newVersion snapshot) localTxs pendingDeposits currentDepositTxId decommitTx Nothing
 
+  Environment{party} = env
+
+-- | Adopt the snapshot in flight when a matching settlement carries its full
+-- multisignature. Otherwise, build the next request on the confirmed snapshot.
+-- Callers supply the incremental-action check and request construction.
+adoptSettledSnapshotOrRequestNext ::
+  IsTx tx =>
+  Party ->
+  OpenState tx ->
+  SnapshotVersion ->
+  SnapshotNumber ->
+  MultiSignature (Snapshot tx) ->
+  (Snapshot tx -> Bool) ->
+  (Snapshot tx -> Maybe (SnapshotRequest tx)) ->
+  HeadProgram tx ()
+adoptSettledSnapshotOrRequestNext party openState newVersion observedSnapshotNumber observedSignatures matchesAction requestOn =
+  case seenSnapshot of
+    SeenSnapshot{snapshot = snapshot@Snapshot{number = seenSnNumber}, signableBytes}
+      | Just settled <- Version.matchSettlement observedSnapshotNumber newVersion snapshot
+      , matchesAction snapshot -> do
+          verified <- Program.verifySnapshot vkeys observedSignatures signableBytes
+          case verified of
+            Verified -> do
+              let settledSnapshot = Version.settlementSnapshot settled
+                  settledVersion = Version.settlementVersion settled
+              Program.change SnapshotConfirmed{headId, snapshot = Just settledSnapshot, signatures = observedSignatures}
+              maybeRequestSnapshotAfterVersionBump parameters party (seenSnNumber + 1) (requestOn settledSnapshot) version settledVersion (LastSeenSnapshot seenSnNumber)
+            _ -> requestNext
+    _ -> requestNext
+ where
+  requestNext =
+    maybeRequestSnapshotAfterVersionBump parameters party (confirmed.number + 1) (requestOn confirmed) version newVersion seenSnapshot
+
+  confirmed = getSnapshot confirmedSnapshot
+
+  OpenState{headId, parameters, coordinatedHeadState} = openState
+
+  CoordinatedHeadState{confirmedSnapshot, version, seenSnapshot} = coordinatedHeadState
+
   HeadParameters{parties} = parameters
 
   vkeys = vkey <$> parties
-
-  Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
-
-  Environment{party} = env
-
-  nextSn = confirmedSn + 1
 
 -- | On rollback, re-post the IncrementTx if there is a pending deposit whose
 -- confirmed snapshot contains a matching utxoToCommit. The rollback may have
@@ -2509,14 +2491,26 @@ applyTransactionsProgram slot = go
  where
   go u [] = pure $ Right u
   go u (tx : rest) = do
-    let collision = checkTransactionOutputs u tx
-    void $ Program.decide "snapshot transaction outputs are fresh" (isRight collision)
-    result <- case collision of
-      Left err -> pure $ Left err
-      Right () -> Program.applyTransaction slot u tx
+    result <- applyTransactionWithOutputCheck "snapshot transaction outputs are fresh" slot u tx
     case result of
       Left err -> pure $ Left (tx, err)
       Right u' -> go u' rest
+
+-- | Trace the output collision check before querying the ledger. A collision
+-- returns its validation error without applying the transaction.
+applyTransactionWithOutputCheck ::
+  IsTx tx =>
+  Text ->
+  ChainSlot ->
+  UTxOType tx ->
+  tx ->
+  Program.Program tx 'True signing (Either ValidationError (UTxOType tx))
+applyTransactionWithOutputCheck checkLabel slot utxo tx = do
+  let outputCheck = checkTransactionOutputs utxo tx
+  void $ Program.decide checkLabel (isRight outputCheck)
+  case outputCheck of
+    Left err -> pure $ Left err
+    Right () -> Program.applyTransaction slot utxo tx
 
 -- | Shared admission check for transaction requests and snapshot application.
 checkTransactionOutputs :: IsTx tx => UTxOType tx -> tx -> Either ValidationError ()

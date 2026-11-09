@@ -68,11 +68,19 @@ the snapshot's requested transactions, even if a later transaction in that
 request spends it. Leaders and followers enforce the same rule. Transactions,
 including decommits, are also rejected if they create an output reference
 already present in the UTxO set.
+For transaction requests and snapshot transactions, this collision check runs
+before ledger application. A collision skips ledger application and retains
+the handler's usual retry or rejection behavior.
 
 The increment redeemer carries the snapshot's full multisignature. A node
 still collecting `AckSn` for that snapshot can verify the on-chain
 multisignature and adopt the snapshot as confirmed. A peer withholding its
 `AckSn` therefore cannot prevent confirmation once the increment is observed.
+Increment and decrement observations share the settlement validation: the
+snapshot number must match, the observed version must be its exact successor,
+and the multisignature must verify. An increment also checks the snapshot's
+deposit ID; a decrement requires decommit outputs in the snapshot. If adoption
+fails, the node retains its confirmed snapshot for any next snapshot request.
 
 Each deposit has a **deposit deadline**. An increment must claim it before
 that deadline; recovery is allowed only afterward. Nodes reserve part of

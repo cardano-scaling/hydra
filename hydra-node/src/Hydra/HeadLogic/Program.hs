@@ -15,6 +15,7 @@ module Hydra.HeadLogic.Program (
   change,
   emit,
   decide,
+  require,
   applyTransaction,
   signSnapshot,
   verifySnapshot,
@@ -86,6 +87,13 @@ emit = instruction . Emit
 decide :: Text -> Bool -> Program tx ledger signing Bool
 decide label = instruction . Decide label
 {-# INLINE decide #-}
+
+-- | Trace a requirement and reject the program when it does not hold.
+require :: Text -> Bool -> LogicError tx -> Program tx ledger signing ()
+require label condition err = do
+  satisfied <- decide label condition
+  unless satisfied $ reject err
+{-# INLINE require #-}
 
 applyTransaction :: ChainSlot -> UTxOType tx -> tx -> Program tx 'True signing (Either ValidationError (UTxOType tx))
 applyTransaction slot utxo tx = instruction $ ApplyTransaction slot utxo tx

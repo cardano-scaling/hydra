@@ -13,7 +13,7 @@ import Hydra.HeadLogic.Interpreter qualified as Interpreter
 import Hydra.HeadLogic.Program qualified as Program
 import Hydra.HeadLogic.Trace qualified as Trace
 import Hydra.HeadLogic.Version qualified as Version
-import Hydra.Ledger (Ledger)
+import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Ledger.Simple (SimpleTx (..), simpleLedger)
 import Hydra.Network.Message (Message (..))
 import Hydra.Node (defaultTxTTL)
@@ -88,6 +88,24 @@ spec = do
             new `shouldBe` old
             aggregateState initialAtVersion new `shouldBe` aggregateState initialAtVersion old
   describe "snapshot program migration" $ do
+    it "traces a snapshot output collision and rejects before querying the ledger" $ do
+      let previous :: Snapshot SimpleTx
+          previous = initialSnapshot{utxo = utxoRef 1 <> utxoRef 2}
+          opened = os{coordinatedHeadState = os.coordinatedHeadState{confirmedSnapshot = ConfirmedSnapshot previous mempty}}
+          ledger :: Ledger SimpleTx
+          ledger = Ledger $ \_ _ _ -> error "snapshot output collision reaches the ledger"
+          program = onOpenNetworkReqSnProgram (ruleEnvironment env) mempty initial.chainPointTime opened 1 alice 0 1 [1] Nothing Nothing
+          (outcome, trace) = Interpreter.traceProgramWith (Interpreter.snapshotConfig env ledger) program
+      outcome `shouldBe` Error (RequireFailed $ SnapshotDoesNotApply 1 (txId transactionOne) (ValidationError "transaction creates an output the head already holds"))
+      trace
+        `shouldBe` [ Trace.Decided "request is the next snapshot" True
+                   , Trace.Decided "sender leads this snapshot" True
+                   , Trace.Decided "previous snapshot is confirmed" True
+                   , Trace.Decided "snapshot version matches" True
+                   , Trace.Decided "snapshot transaction outputs are fresh" False
+                   , Trace.Rejected
+                   ]
+
     it "preserves complete ReqSn outcomes and states across waits, deposits, decommits and pruning" $ do
       forM_ [0, 1] $ \ttl ->
         forM_ [alice, bob] $ \sender ->

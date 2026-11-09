@@ -218,6 +218,10 @@ before signing such a request, since the leader may have observed the recovery
 or the chain time first; that wait is not bounded by the message's retry budget,
 as it resolves by itself once this party's chain time passes the margin.
 
+Both $hpRT$ and $hpRS$ check for output-reference collisions before ledger
+application. A collision skips that application; $hpRT$ retains its retry
+policy and $hpRS$ rejects the request.
+
 In Agda, a UTxO set is a finite map from output references to outputs, and a
 party's local state and the protocol messages are captured by dedicated record
 types.
@@ -534,6 +538,9 @@ leader-multicast effects are not modelled at this level.
 -- ackSn-confirm multisignature VERIFY is the operational realisation of all-signed and is formalised at
 -- the §7 `confirm` step (`AggVerified`), not duplicated here; the leader-snapshot multicast EFFECTS are
 -- likewise deferred to the §7 system wiring.
+-- The node composes traced rejection guards through `Program.require`; these premises retain
+-- their meaning and order. Its shared `applyTransactionWithOutputCheck` checks output freshness
+-- before ledger application in reqTx and reqSn; this relation abstracts the ledger as `applyTxs`.
 data _handles_↝_ : LocalState → Message → LocalState → Set where
   -- on (reqTx, tx): `wait L̂ ∘ tx ≠ ⊥` (tx applies to the local ledger), then `L̂ ← L̂ ∘ tx` and
   -- `T̂ ← T̂ ∪ {tx}`. The applicability guard is de-abstracted as the witness `applyTxs L̂ [tx] ≡ just L'`,
@@ -627,6 +634,11 @@ certificate, exactly as if the last $hpAS$ had arrived (routine $sans("adopt")$
 in @fig:off-chain-prot). This check is against
 the party's own seen snapshot, so a transaction settling any other snapshot
 leaves $macron(mc(S))$ unchanged.
+The observed version must be the exact successor of the seen snapshot's
+version. Increment adoption also matches the deposit identifier, while
+decrement adoption requires pending decommit outputs. Both observations use
+the same validation and adoption flow; if validation fails, any next request
+is built from the already confirmed snapshot.
 
 Chain observations are transcribed likewise: `ChainEvent` enumerates the
 modelled chain observations and `_observes_↝_` gives one constructor per
@@ -657,6 +669,9 @@ signedMessage snap =
 -- The seen snapshot is the one in flight (ŝ = S̄.s + 1), `snap` is it (its txs are T̂ and its number
 -- ŝ), the observed transaction settled exactly it (s = ŝ), and ξ verifies over it under the head's
 -- aggregate key. Then the transaction proves `snap` fully signed, whether or not every AckSn arrived.
+-- The node shares this validation in `adoptSettledSnapshotOrRequestNext`, together with the
+-- successor-version premise of both adoption rules. Increment/decrement action checks and the
+-- construction of a subsequent request remain specific to each observation handler.
 SettlesSeen : LocalState → ℕ → AggSig → Snapshot → Set
 SettlesSeen st s ξ snap =
     (LocalState.seenNumber st ≡ suc (Snapshot.number (LocalState.confirmed st)))

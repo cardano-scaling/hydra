@@ -49,6 +49,20 @@ import Test.QuickCheck (choose, elements, forAll, resize, suchThat, (===))
 
 spec :: Spec
 spec = do
+  describe "traced requirements" $ do
+    it "continues on success and discards staged work on rejection" $
+      forM_ [False, True] $ \satisfied -> do
+        let program :: Program.TransactionProgram SimpleTx ()
+            program = do
+              Program.change received
+              Program.require "test requirement" satisfied rejection
+              Program.emit firstEffect
+            (outcome, trace) = Interpreter.traceProgram simpleLedger program
+        outcome `shouldBe` if satisfied then Continue [received] [firstEffect] else Error rejection
+        trace
+          `shouldBe` [Trace.Changed "remember transaction", Trace.Decided "test requirement" satisfied]
+          <> if satisfied then [Trace.Emitted "network effect", Trace.Finished] else [Trace.Rejected]
+
   describe "handler boundaries" $ do
     it "finishes only the nearest handler and resumes its caller" $ do
       let program :: Program.TransactionProgram SimpleTx ()
@@ -270,10 +284,18 @@ spec = do
       let st = emptyOpenState{coordinatedHeadState = emptyOpenState.coordinatedHeadState{localUTxO = utxoRef 42}}
           ledger :: Ledger SimpleTx
           ledger = Ledger $ \_ _ _ -> Prelude.error "output collision reaches the ledger"
-      Interpreter.runProgram ledger (reqTxProgram bob 1 st sampleTx)
+          (outcome, trace) = Interpreter.traceProgram ledger (reqTxProgram bob 1 st sampleTx)
+      outcome
         `shouldBe` Wait
           (WaitOnNotApplicableTx $ ValidationError "transaction creates an output the head already holds")
           [received]
+      trace
+        `shouldBe` [ Trace.Decided "transaction is already applied locally" False
+                   , Trace.Changed "remember transaction"
+                   , Trace.Decided "outputs do not collide with the local UTxO" False
+                   , Trace.Decided "retry budget remains" True
+                   , Trace.Suspended
+                   ]
 
     it "reports ledger failure before testing a pending deposit collision" $ do
       let pending = Map.singleton 7 $ depositFixture Active (utxoRef 42)
