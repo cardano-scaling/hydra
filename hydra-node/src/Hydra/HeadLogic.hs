@@ -2912,8 +2912,7 @@ handleChainInput env ledger now _chainPointTime pendingDeposits st ev syncStatus
   ( Open OpenState{headId = ourHeadId, headSeed, parameters, coordinatedHeadState = CoordinatedHeadState{finalizedCommit}}
     , ChainInput Observation{observedTx = OnDepositTx{headId, depositTxId, deposited, created, deadline}, newChainState}
     )
-      | ourHeadId == headId
-      , isRight (checkDepositAdmission ledger depositTxId deposited) ->
+      | ourHeadId == headId ->
           newState DepositRecorded{chainState = newChainState, headId, depositTxId, deposited, created, deadline}
             -- The finalized deposit observed *again* means a rollback erased
             -- both the deposit and its finalized increment, and the deposit tx
@@ -2925,7 +2924,8 @@ handleChainInput env ledger now _chainPointTime pendingDeposits st ev syncStatus
             -- now that the deposit is on chain again, see #2741.
             <> case finalizedCommit of
               Just FinalizedSnapshot{snapshot}
-                | finalizedDepositTxId finalizedCommit == Just depositTxId ->
+                | finalizedDepositTxId finalizedCommit == Just depositTxId
+                , isRight (checkDepositAdmission ledger depositTxId deposited) ->
                     cause
                       OnChainEffect
                         { postChainTx =
@@ -2941,17 +2941,15 @@ handleChainInput env ledger now _chainPointTime pendingDeposits st ev syncStatus
       | otherwise ->
           Continue [] []
   (Closed ClosedState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDepositTx{headId, depositTxId, deposited, created, deadline}, newChainState})
-    | ourHeadId == headId
-    , isRight (checkDepositAdmission ledger depositTxId deposited) ->
+    | ourHeadId == headId ->
         newState DepositRecorded{chainState = newChainState, headId, depositTxId, deposited, created, deadline}
     | otherwise ->
         Continue [] []
   -- Mirror the 'Closed' case while mid-fanout: a deposit observed during a
-  -- (partial) fanout is recorded if allowed, so it remains recoverable via
+  -- (partial) fanout is recorded regardless of policy, so it remains recoverable via
   -- 'Recover'. Without this the input falls through to 'Error' and is dropped.
   (FanoutProgress PartialFanoutState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDepositTx{headId, depositTxId, deposited, created, deadline}, newChainState})
-    | ourHeadId == headId
-    , isRight (checkDepositAdmission ledger depositTxId deposited) ->
+    | ourHeadId == headId ->
         newState DepositRecorded{chainState = newChainState, headId, depositTxId, deposited, created, deadline}
     | otherwise ->
         Continue [] []

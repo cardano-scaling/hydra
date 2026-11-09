@@ -887,11 +887,17 @@ spec =
             ClientEffect SnapshotRequestRejectedByPolicy{} -> True
             _ -> False
 
-        it "refuses a deposit whose own outputs violate the policy" $ do
+        it "records and recovers a deposit whose own outputs violate the policy" $ do
           now <- getCurrentTime
           let st = stateWith mempty
               input = observeTx $ OnDepositTx testHeadId 10 (utxoRefs [1, 2]) now (addUTCTime 7200 now)
-          (aggregateState st $ update soloEnv (bounded 1) now st input).pendingDeposits `shouldBe` mempty
+              next = aggregateState st $ update soloEnv (bounded 1) now st input
+          next.pendingDeposits `shouldBe` Map.singleton 10 (Deposit testHeadId (utxoRefs [1, 2]) now (addUTCTime 7200 now) Inactive)
+          update soloEnv (bounded 1) now next (ClientInput $ Recover 10)
+            `hasEffectSatisfying` \case
+              OnChainEffect{postChainTx = RecoverTx{headId, recoverTxId, recoverUTxO}} ->
+                headId == testHeadId && recoverTxId == 10 && recoverUTxO == utxoRefs [1, 2]
+              _ -> False
           Map.keys (aggregateState st $ update soloEnv (bounded 2) now st input).pendingDeposits `shouldBe` [10]
 
       describe "deposit policy" $ do
@@ -1012,16 +1018,22 @@ spec =
           ]
           $ \(headPhase, st) -> do
             forM_ [[], [2]] $ \allowed ->
-              it ("does not record an unlisted deposit while " <> headPhase <> ", allowlist: " <> show allowed) $ do
+              it ("records and recovers an unlisted deposit while " <> headPhase <> ", allowlist: " <> show allowed) $ do
                 now <- getCurrentTime
                 violation <- DepositNotAllowed <$> generate arbitrary
                 let outcome = update soloEnv (restricted violation allowed) now st $ observeTx $ OnDepositTx testHeadId 1 (utxoRef 1) now (addUTCTime 7200 now)
                     next = aggregateState st outcome
-                next.pendingDeposits `shouldBe` mempty
-                next.deposits `shouldBe` mempty
-                outcome `hasNoStateChangedSatisfying` \case
-                  DepositRecorded{} -> True
+                next.pendingDeposits `shouldBe` Map.singleton 1 (Deposit testHeadId (utxoRef 1) now (addUTCTime 7200 now) Inactive)
+                outcome `hasStateChangedSatisfying` \case
+                  DepositRecorded{depositTxId, deposited} -> depositTxId == 1 && deposited == utxoRef 1
                   _ -> False
+                update soloEnv (restricted violation allowed) now next (ClientInput $ Recover 1)
+                  `hasEffectSatisfying` \case
+                    OnChainEffect{postChainTx = RecoverTx{headId, recoverTxId, recoverUTxO}} ->
+                      headId == testHeadId && recoverTxId == 1 && recoverUTxO == utxoRef 1
+                    _ -> False
+                let recovered = update soloEnv (restricted violation allowed) now next $ observeTx $ OnRecoverTx testHeadId 1 (utxoRef 1)
+                (aggregateState next recovered).pendingDeposits `shouldBe` mempty
 
             it ("records listed deposits while " <> headPhase) $ do
               now <- getCurrentTime
@@ -1046,7 +1058,7 @@ spec =
                 st = inOpenState' [alice] chs
                 policyLedger = restricted violation []
                 outcome = update soloEnv policyLedger now st $ observeTx $ OnDepositTx testHeadId 1 (utxoRef 1) now (addUTCTime 7200 now)
-            (aggregateState st outcome).pendingDeposits `shouldBe` mempty
+            Map.keys (aggregateState st outcome).pendingDeposits `shouldBe` [1]
             outcome `hasNoEffectSatisfying` \case
               OnChainEffect{postChainTx = IncrementTx{}} -> True
               _ -> False
@@ -6130,7 +6142,7 @@ spec =
 
         forM_ [False, True] $ \allowed ->
           forM_ ["NewTx", "ReqTx", "ReqSn", "Deposit"] $ \entryPoint ->
-            it (entryPoint <> " checks transferred assets without minting, allowed: " <> show allowed) $ do
+            it (entryPoint <> (if entryPoint == "Deposit" then " records transferred assets for recovery, allowed: " else " checks transferred assets without minting, allowed: ") <> show allowed) $ do
               (vk, sk) <- generate genKeyPair
               policyId <- generate arbitrary
               txIn <- generate genTxIn
@@ -6152,7 +6164,13 @@ spec =
                     _ -> ChainInput $ Observation (OnDepositTx testHeadId (txId tx) (utxoFromTx tx) now (addUTCTime 7200 now)) ChainStateAt{spendableUTxO = mempty, recordedAt = Nothing}
                   outcome = update soloEnv policyLedger now st input
               if entryPoint == "Deposit"
-                then Map.member (txId tx) (aggregateState st outcome).pendingDeposits `shouldBe` allowed
+                then do
+                  let next = aggregateState st outcome
+                  Map.member (txId tx) next.pendingDeposits `shouldBe` True
+                  update soloEnv policyLedger now next (ClientInput $ Recover $ txId tx)
+                    `hasEffectSatisfying` \case
+                      OnChainEffect{postChainTx = RecoverTx{recoverTxId, recoverUTxO}} -> recoverTxId == txId tx && recoverUTxO == utxoFromTx tx
+                      _ -> False
                 else
                   if allowed
                     then
@@ -6238,7 +6256,7 @@ spec =
               NetworkEffect AckSn{} -> True
               _ -> False
 
-        it "rejects an unlisted deposit and settles a listed deposit with the configured Cardano ledger" $ do
+        it "retains an unlisted deposit for recovery and settles a listed deposit with the configured Cardano ledger" $ do
           (ctx, directOpen, listedTx, spendable, incrementTx, confirmed) <-
             generate $ genIncrementTxWithSnapshot (genDepositTx 1)
           listed <- maybe (failure "expected a deposit transaction") pure $ observeDepositTx ctx.ctxNetworkId listedTx
@@ -6265,14 +6283,14 @@ spec =
               depositObservation observed = observe $ OnDepositTx listed.headId observed.depositTxId observed.deposited created observed.deadline
               rejected = update env policyLedger chainTime st0 (depositObservation unlisted)
               st1 = aggregateState st0 rejected
-          st1 `shouldBe` st0
+          st1.pendingDeposits `shouldBe` Map.singleton unlisted.depositTxId (Deposit listed.headId unlisted.deposited created unlisted.deadline Inactive)
           rejected `hasNoEffectSatisfying` \case
             NetworkEffect{} -> True
             _ -> False
           let st2 = aggregateState st1 $ update env policyLedger chainTime st1 (depositObservation listed)
               activated = update env policyLedger chainTime st2 $ ChainInput $ Tick chainTime ChainPointAtGenesis
               st3 = aggregateState st2 activated
-          Map.keys st3.pendingDeposits `shouldBe` [listed.depositTxId]
+          Map.keysSet st3.pendingDeposits `shouldBe` Set.fromList [unlisted.depositTxId, listed.depositTxId]
           activated `hasEffectSatisfying` \case
             NetworkEffect ReqSn{depositTxId} -> depositTxId == Just listed.depositTxId
             _ -> False
@@ -6295,7 +6313,12 @@ spec =
             maybe (failure "expected an increment transaction") pure $ observeIncrementTx ctx.ctxNetworkId lookupUTxO incrementTx
           let settled = update env policyLedger chainTime st5 $ observe $ OnIncrementTx listed.headId newVersion depositTxId snapshotNumber signatures
               finalState = aggregateState st5 settled
-          finalState.pendingDeposits `shouldBe` mempty
+          Map.keys finalState.pendingDeposits `shouldBe` [unlisted.depositTxId]
+          update env policyLedger chainTime finalState (ClientInput $ Recover unlisted.depositTxId)
+            `hasEffectSatisfying` \case
+              OnChainEffect{postChainTx = RecoverTx{headId, recoverTxId, recoverUTxO}} ->
+                headId == listed.headId && recoverTxId == unlisted.depositTxId && recoverUTxO == unlisted.deposited
+              _ -> False
           case finalState.headState of
             Open OpenState{coordinatedHeadState = chs} -> do
               chs.version `shouldBe` newVersion

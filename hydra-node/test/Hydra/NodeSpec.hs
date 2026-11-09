@@ -25,7 +25,8 @@ import Hydra.Chain.ChainState (ChainSlot (..), IsChainState (..))
 import Hydra.HeadLogic (Input (..), StateChanged (..), TTL)
 import Hydra.HeadLogic qualified as Head
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
-import Hydra.HeadLogicSpec (inOpenState, receiveMessage, receiveMessageFrom, testSnapshot)
+import Hydra.HeadLogicSpec (hasEffectSatisfying, inOpenState, receiveMessage, receiveMessageFrom, testSnapshot)
+import Hydra.Ledger (Ledger (..))
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), simpleLedger)
 import Hydra.Network (Network (..), StallReason (..))
 import Hydra.Network qualified as Network
@@ -59,6 +60,7 @@ import Hydra.Tx.HeadId (HeadId (..))
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.Party (Party, deriveParty)
 import Hydra.Tx.Snapshot qualified as Snapshot
+import Hydra.UserValidationRules (PolicyViolation (..), UserValidation (..))
 import System.FilePath ((</>))
 import Test.Hydra.HeadLogic.Outcome (genStateChanged)
 import Test.Hydra.HeadLogic.StateEvent (genStateEvent)
@@ -78,7 +80,7 @@ import Test.Hydra.Tx.Fixture (
   testHeadSeed,
  )
 import Test.Hydra.Tx.Gen ()
-import Test.QuickCheck (classify, counterexample, elements, forAllBlind, forAllShrink, forAllShrinkBlind, idempotentIOProperty, listOf, listOf1, resize, (==>))
+import Test.QuickCheck (classify, counterexample, elements, forAllBlind, forAllShrink, forAllShrinkBlind, generate, idempotentIOProperty, listOf, listOf1, resize, (==>))
 import Test.Util (isStrictlyMonotonic)
 
 spec :: Spec
@@ -241,6 +243,34 @@ spec = parallel $ do
         restoredState <- restart (Just policy) boundEvents
         Head.headIdOf (headState restoredState) `shouldBe` Just testHeadId
         headPolicies restoredState `shouldBe` Just (testHeadId, policy)
+
+      forM_ [False, True] $ \checkpoint ->
+        it ("recovers a policy-rejected deposit after restart, checkpoint: " <> show checkpoint) $ do
+          now <- getCurrentTime
+          violation <- DepositNotAllowed <$> generate arbitrary
+          let env = testEnvironment{configuredPolicy = Just policy}
+              policyLedger = simpleLedger{userValidation = Just $ UserValidation (const $ Right ()) (const $ Right ()) (const $ Left violation)}
+              initial = foldl' Head.aggregateNodeState (initNodeState 0) boundEvents
+              deposited = utxoRefs [42]
+              deadline = addUTCTime 7200 now
+              observation = ChainInput $ Observation (OnDepositTx testHeadId 42 deposited now deadline) (SimpleChainState 1)
+          Head.Continue{stateChanges} <- pure $ Head.update env policyLedger now initial observation
+          let recorded = DepositRecorded (SimpleChainState 1) testHeadId 42 deposited now deadline
+          stateChanges `shouldBe` [recorded]
+          let changes = boundEvents <> stateChanges
+              persisted = if checkpoint then [Checkpoint $ foldl' Head.aggregateNodeState (initNodeState 0) changes] else changes
+              events = zipWith (\i change -> StateEvent i change now) [0 ..] persisted
+          HydraNode{nodeStateHandler = NodeStateHandler{queryNodeState}} <-
+            hydrate nullTracer env policyLedger 0 (mockEventStore events) [] >>= notConnect
+          restored <- atomically queryNodeState
+          pendingDeposits restored `shouldBe` Map.singleton 42 (Deposit testHeadId deposited now deadline Inactive)
+          let afterDeadline = addUTCTime 1 deadline
+              synced = Head.aggregateNodeState restored (Head.NodeSynced 7201 afterDeadline 0)
+          Head.update env policyLedger afterDeadline synced (ClientInput $ Recover 42)
+            `hasEffectSatisfying` \case
+              Head.OnChainEffect{postChainTx = RecoverTx{headId, recoverTxId, recoverUTxO}} ->
+                headId == testHeadId && recoverTxId == 42 && recoverUTxO == deposited
+              _ -> False
 
       forM_ [("missing", Nothing), ("different", Just otherPolicy)] $ \(label, configured) ->
         it ("rejects restarting a bound Head with a " <> label <> " policy") $
