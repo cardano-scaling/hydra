@@ -533,21 +533,21 @@ spec =
 
         it "requests transactions only up to the capacity limit" $ do
           let u0 = utxoRefs [1 .. limit - 1]
-          (nextSnapshotRequest u0 (Seq.singleton split) mempty Nothing Nothing Nothing).requestTxs `shouldBe` [split]
-          (nextSnapshotRequest fullUTxO (Seq.singleton split) mempty Nothing Nothing Nothing).requestTxs `shouldBe` []
+          (nextSnapshotRequest ledger u0 (Seq.singleton split) mempty Nothing Nothing Nothing).requestTxs `shouldBe` [split]
+          (nextSnapshotRequest ledger fullUTxO (Seq.singleton split) mempty Nothing Nothing Nothing).requestTxs `shouldBe` []
 
         it "reserves outputs owed by pending commits and decommits" $ do
           now <- getCurrentTime
           let u0 = utxoRefs [1 .. limit - 1]
               deposit = Deposit{headId = testHeadId, deposited = utxoRef (limit + 10), created = now, deadline = addUTCTime 3600 now, status = Active}
               requests =
-                [ chainedSnapshotRequest u0 (Seq.singleton split) mempty Nothing Nothing (Just $ ContinueCommit (7, deposit))
-                , chainedSnapshotRequest u0 (Seq.singleton split) mempty Nothing (Just $ SimpleTx 3 mempty deposit.deposited) Nothing
+                [ chainedSnapshotRequest ledger u0 (Seq.singleton split) mempty Nothing Nothing (Just $ ContinueCommit (7, deposit))
+                , chainedSnapshotRequest ledger u0 (Seq.singleton split) mempty Nothing (Just $ SimpleTx 3 mempty deposit.deposited) Nothing
                 ]
           forM_ requests $ \request -> do
             isJust request `shouldBe` True
             fmap (.requestTxs) request `shouldBe` Just []
-          isNothing (chainedSnapshotRequest u0 mempty mempty Nothing Nothing (Just $ ContinueCommit (7, deposit))) `shouldBe` True
+          isNothing (chainedSnapshotRequest ledger u0 mempty mempty Nothing Nothing (Just $ ContinueCommit (7, deposit))) `shouldBe` True
 
         it "prunes transactions blocked by a settling commit so an independent merge can proceed" $ do
           now <- getCurrentTime
@@ -568,7 +568,7 @@ spec =
             headState pruned `shouldSatisfy` \case
               Open OpenState{coordinatedHeadState = CoordinatedHeadState{localTxs}} -> localTxs == Seq.singleton independentMerge
               _ -> False
-            fmap (.requestTxs) (chainedSnapshotRequest u0 (Seq.singleton independentMerge) mempty Nothing Nothing (Just $ ContinueCommit (7, deposit)))
+            fmap (.requestTxs) (chainedSnapshotRequest ledger u0 (Seq.singleton independentMerge) mempty Nothing Nothing (Just $ ContinueCommit (7, deposit)))
               `shouldBe` Just [independentMerge]
 
         it "keeps competing optimistic transactions available for a delayed valid snapshot" $ do
@@ -621,16 +621,16 @@ spec =
           now <- getCurrentTime
           forM_ [(1, Just 7), (3, Nothing)] $ \(count, expectedDeposit) -> do
             let deposit = Deposit{headId = testHeadId, deposited = utxoRefs [limit + 10 .. limit + 9 + count], created = now, deadline = addUTCTime 3600 now, status = Active}
-                request = nextSnapshotRequest fullUTxO (Seq.singleton merge) (Map.singleton 7 deposit) (Just 7) Nothing Nothing
+                request = nextSnapshotRequest ledger fullUTxO (Seq.singleton merge) (Map.singleton 7 deposit) (Just 7) Nothing Nothing
             request.requestDepositTxId `shouldBe` expectedDeposit
             request.requestTxs `shouldBe` [merge]
 
         it "cuts and prunes an overflowing prefix even if a later merge fits" $ do
           let laterMerge = SimpleTx 2 (utxoRefs [2, 3]) (utxoRef (limit + 3))
               txs = Seq.fromList [split, laterMerge]
-              request = nextSnapshotRequest fullUTxO txs mempty Nothing Nothing Nothing
+              request = nextSnapshotRequest ledger fullUTxO txs mempty Nothing Nothing Nothing
           request.requestTxs `shouldBe` []
-          isJust (chainedSnapshotRequest fullUTxO txs mempty Nothing Nothing Nothing) `shouldBe` True
+          isJust (chainedSnapshotRequest ledger fullUTxO txs mempty Nothing Nothing Nothing) `shouldBe` True
           -- The empty snapshot prunes the overflowing tx while retaining the
           -- independent merge, including pending state from before upgrade.
           let st = inOpenState' threeParties coordinatedHeadState{localUTxO = foldl' (flip applyTxTo) fullUTxO txs, localTxs = txs, allTxs = Map.fromList [(txId tx, tx) | tx <- toList txs], confirmedSnapshot = ConfirmedSnapshot (testSnapshot 0 0 [] fullUTxO) mempty}
@@ -870,6 +870,22 @@ spec =
               outcome = update soloEnv (bounded 2) now st (ChainInput $ Tick now 1)
           outcome `hasEffect` NetworkEffect (ReqSn 0 1 [] Nothing (Just 11))
           Map.keys (aggregateState st outcome).pendingDeposits `shouldBe` [10, 11]
+
+        it "skips a new deposit that exceeds the policy limit together with queued transactions" $ do
+          now <- getCurrentTime
+          let tx = SimpleTx 7 (utxoRef 1) (utxoRefs [2, 3])
+              deposit = Deposit testHeadId (utxoRef 4) (addUTCTime (-7200) now) (addUTCTime 7200 now) Active
+              withoutDeposit = stateWith $ utxoRef 1
+              st = withoutDeposit{deposits = trackedFromPending $ Map.singleton 10 deposit}
+              input = receiveMessage $ ReqTx tx
+              outcome = update soloEnv (bounded 2) now st input
+              expected = NetworkEffect (ReqSn 0 1 [txId tx] Nothing Nothing)
+          update soloEnv (bounded 2) now withoutDeposit input `hasEffect` expected
+          (aggregateState st outcome).pendingDeposits `shouldBe` Map.singleton 10 deposit
+          outcome `hasEffect` expected
+          outcome `hasNoEffectSatisfying` \case
+            ClientEffect SnapshotRequestRejectedByPolicy{} -> True
+            _ -> False
 
         it "refuses a deposit whose own outputs violate the policy" $ do
           now <- getCurrentTime
@@ -2377,15 +2393,15 @@ spec =
                 summary :: SnapshotRequest SimpleTx -> ([Integer], Maybe Integer, Maybe Integer)
                 summary r = (txId <$> r.requestTxs, txId <$> r.requestDecommitTx, r.requestDepositTxId)
             -- Only the decommit: not chained.
-            isNothing (chainedSnapshotRequest u0 mempty mempty Nothing (Just decommit) Nothing) `shouldBe` True
+            isNothing (chainedSnapshotRequest ledger u0 mempty mempty Nothing (Just decommit) Nothing) `shouldBe` True
             -- A fresh deposit alone: chained.
-            (summary <$> chainedSnapshotRequest u0 mempty fresh Nothing Nothing Nothing) `shouldBe` Just ([], Nothing, Just 7)
+            (summary <$> chainedSnapshotRequest ledger u0 mempty fresh Nothing Nothing Nothing) `shouldBe` Just ([], Nothing, Just 7)
             -- Only the settling commit: not chained. With txs: cut before the colliding one.
-            isNothing (chainedSnapshotRequest u0 mempty fresh Nothing Nothing settling) `shouldBe` True
-            (summary <$> chainedSnapshotRequest u0 (Seq.fromList [fine, naming, SimpleTx 3 (utxoRef 9) (utxoRef 3)]) fresh Nothing Nothing settling)
+            isNothing (chainedSnapshotRequest ledger u0 mempty fresh Nothing Nothing settling) `shouldBe` True
+            (summary <$> chainedSnapshotRequest ledger u0 (Seq.fromList [fine, naming, SimpleTx 3 (utxoRef 9) (utxoRef 3)]) fresh Nothing Nothing settling)
               `shouldBe` Just ([txId fine], Nothing, Just 7)
             -- A pending tx re-creating a held output: chained, even empty, to prune it.
-            (summary <$> chainedSnapshotRequest u0 (Seq.fromList [recreating]) mempty Nothing Nothing Nothing) `shouldBe` Just ([], Nothing, Nothing)
+            (summary <$> chainedSnapshotRequest ledger u0 (Seq.fromList [recreating]) mempty Nothing Nothing Nothing) `shouldBe` Just ([], Nothing, Nothing)
 
         it "never requests a commit and a decommit in the same snapshot" $ do
           -- An in-flight commit wins: its deposit expires on-chain while a
@@ -2404,8 +2420,8 @@ spec =
                     , status = Active
                     }
               decommitTx = SimpleTx 1 (utxoRef 1) (utxoRef 2)
-              withDeposit = nextSnapshotRequest mempty mempty pendingDeposits (Just depositTxId) (Just decommitTx) Nothing
-              withoutDeposit = nextSnapshotRequest mempty mempty pendingDeposits Nothing (Just decommitTx) Nothing
+              withDeposit = nextSnapshotRequest ledger mempty mempty pendingDeposits (Just depositTxId) (Just decommitTx) Nothing
+              withoutDeposit = nextSnapshotRequest ledger mempty mempty pendingDeposits Nothing (Just decommitTx) Nothing
           (withDeposit.requestDecommitTx, withDeposit.requestDepositTxId) `shouldBe` (Nothing, Just depositTxId)
           (withoutDeposit.requestDecommitTx, withoutDeposit.requestDepositTxId) `shouldBe` (Just decommitTx, Nothing)
 

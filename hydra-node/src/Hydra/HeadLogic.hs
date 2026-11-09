@@ -307,7 +307,7 @@ onOpenNetworkReqTx env ledger ChainPointTime{currentSlot, currentChainTime} st t
    where
     -- Build against the same UTxO the followers use, checking capacity before
     -- persisting a request. Other parties and in-flight rounds skip this work.
-    requestSnapshot = case chainedSnapshotRequest confirmedUTxO localTxs' pendingDeposits currentDepositTxId decommitTx settlingCommit of
+    requestSnapshot = case chainedSnapshotRequest ledger confirmedUTxO localTxs' pendingDeposits currentDepositTxId decommitTx settlingCommit of
       Just request@SnapshotRequest{requestTxs, requestDecommitTx, requestDepositTxId} ->
         (outcome <>) $
           withSnapshotRequestPolicy ledger headId nextSn version (getSnapshot confirmedSnapshot) pendingDeposits request $
@@ -779,7 +779,7 @@ onOpenNetworkAckSn env@Environment{party} ledger ChainPointTime{currentChainTime
   maybeRequestNextSnapshot previous outcome =
     -- Checked against the snapshot just confirmed: the followers check the
     -- request against that snapshot too.
-    case chainedSnapshotRequest (settledUTxO version previous) localTxs pendingDeposits currentDepositTxId decommitTx (settlingCommitAt env version currentChainTime pendingDeposits previous) of
+    case chainedSnapshotRequest ledger (settledUTxO version previous) localTxs pendingDeposits currentDepositTxId decommitTx (settlingCommitAt env version currentChainTime pendingDeposits previous) of
       Just request@SnapshotRequest{requestTxs, requestDecommitTx, requestDepositTxId}
         | isLeader parameters party nextSn ->
             (outcome <>) $
@@ -1047,7 +1047,7 @@ onOpenNetworkReqDec env ledger ttl ChainPointTime{currentSlot, currentChainTime}
       else noop
 
   request@SnapshotRequest{requestTxs, requestDecommitTx, requestDepositTxId} =
-    nextSnapshotRequest confirmedUTxO localTxs pendingDeposits currentDepositTxId (Just decommitTx) (settlingCommitAt env version currentChainTime pendingDeposits (getSnapshot confirmedSnapshot))
+    nextSnapshotRequest ledger confirmedUTxO localTxs pendingDeposits currentDepositTxId (Just decommitTx) (settlingCommitAt env version currentChainTime pendingDeposits (getSnapshot confirmedSnapshot))
 
   Environment{party} = env
 
@@ -1131,7 +1131,7 @@ onOpenChainTick env ledger chainTime pendingDeposits st
   | snapshotInFlight seenSnapshot || not (isLeader parameters party nextSn) = noop
   | otherwise =
       let settling = settlingCommitAt env version chainTime deposits confirmed
-          built = nextSnapshotRequest (settledUTxO version (getSnapshot confirmedSnapshot)) localTxs deposits currentDepositTxId decommitTx settling
+          built = nextSnapshotRequest ledger (settledUTxO version (getSnapshot confirmedSnapshot)) localTxs deposits currentDepositTxId decommitTx settling
        in case (settling, built) of
             -- The commit is still settling; requests carrying txs continue it.
             (Just (ContinueCommit _), _) -> noop
@@ -1271,7 +1271,7 @@ onOpenChainIncrementTx env ledger pendingDeposits openState newChainState newVer
   -- one, if any), as followers check it. The deposit just settled, so it is
   -- excluded.
   requestOn snapshot =
-    chainedSnapshotRequest (settledUTxO newVersion snapshot) localTxs (Map.delete depositTxId pendingDeposits) Nothing decommitTx Nothing
+    chainedSnapshotRequest ledger (settledUTxO newVersion snapshot) localTxs (Map.delete depositTxId pendingDeposits) Nothing decommitTx Nothing
 
   HeadParameters{parties} = parameters
 
@@ -1339,7 +1339,7 @@ onOpenChainDecrementTx env ledger pendingDeposits openState newChainState newVer
   -- one, if any), as followers check it. No commit is settling next to a
   -- decommit.
   requestOn snapshot =
-    chainedSnapshotRequest (settledUTxO newVersion snapshot) localTxs pendingDeposits currentDepositTxId decommitTx Nothing
+    chainedSnapshotRequest ledger (settledUTxO newVersion snapshot) localTxs pendingDeposits currentDepositTxId decommitTx Nothing
 
   HeadParameters{parties} = parameters
 
@@ -2384,6 +2384,7 @@ data SnapshotRequest tx = SnapshotRequest
 -- with it are held back.
 nextSnapshotRequest ::
   IsTx tx =>
+  Ledger tx ->
   -- | The UTxO 'onOpenNetworkReqSn' applies the request's transactions to.
   UTxOType tx ->
   -- | Pending local transactions.
@@ -2395,8 +2396,8 @@ nextSnapshotRequest ::
   -- | The commit the confirmed snapshot is settling, see 'settlingCommitAt'
   Maybe (SettlingCommit tx) ->
   SnapshotRequest tx
-nextSnapshotRequest utxo localTxs pendingDeposits currentDepositTxId mDecommitTx mSettlingCommit =
-  fst (buildSnapshotRequest utxo localTxs pendingDeposits currentDepositTxId mDecommitTx mSettlingCommit)
+nextSnapshotRequest ledger utxo localTxs pendingDeposits currentDepositTxId mDecommitTx mSettlingCommit =
+  fst (buildSnapshotRequest ledger utxo localTxs pendingDeposits currentDepositTxId mDecommitTx mSettlingCommit)
 
 -- | 'nextSnapshotRequest', if worth sending right away: it carries a tx or a
 -- new deposit, or it prunes a pending tx no node accepts. A request carrying
@@ -2404,6 +2405,7 @@ nextSnapshotRequest utxo localTxs pendingDeposits currentDepositTxId mDecommitTx
 -- forever at the same version.
 chainedSnapshotRequest ::
   IsTx tx =>
+  Ledger tx ->
   UTxOType tx ->
   Seq tx ->
   PendingDeposits tx ->
@@ -2411,15 +2413,16 @@ chainedSnapshotRequest ::
   Maybe tx ->
   Maybe (SettlingCommit tx) ->
   Maybe (SnapshotRequest tx)
-chainedSnapshotRequest utxo localTxs pendingDeposits currentDepositTxId mDecommitTx mSettlingCommit =
+chainedSnapshotRequest ledger utxo localTxs pendingDeposits currentDepositTxId mDecommitTx mSettlingCommit =
   request <$ guard worthChaining
  where
-  (request, worthChaining) = buildSnapshotRequest utxo localTxs pendingDeposits currentDepositTxId mDecommitTx mSettlingCommit
+  (request, worthChaining) = buildSnapshotRequest ledger utxo localTxs pendingDeposits currentDepositTxId mDecommitTx mSettlingCommit
 
 -- | The request and whether it is worth chaining, see 'chainedSnapshotRequest'.
 buildSnapshotRequest ::
   forall tx.
   IsTx tx =>
+  Ledger tx ->
   UTxOType tx ->
   Seq tx ->
   PendingDeposits tx ->
@@ -2427,7 +2430,7 @@ buildSnapshotRequest ::
   Maybe tx ->
   Maybe (SettlingCommit tx) ->
   (SnapshotRequest tx, Bool)
-buildSnapshotRequest utxo localTxs pendingDeposits currentDepositTxId mDecommitTx mSettlingCommit =
+buildSnapshotRequest ledger utxo localTxs pendingDeposits currentDepositTxId mDecommitTx mSettlingCommit =
   case mSettlingCommit of
     Just (ContinueCommit (depositTxId, Deposit{deposited})) ->
       let requestTxs = requestable (Just deposited) Nothing
@@ -2435,7 +2438,7 @@ buildSnapshotRequest utxo localTxs pendingDeposits currentDepositTxId mDecommitT
     Just DropCommit -> withoutDeposit
     Nothing ->
       case selectNextDeposit canAbsorb pendingDeposits currentDepositTxId mDecommitTx of
-        Just depositTxId -> (SnapshotRequest{requestTxs = requestable Nothing Nothing, requestDecommitTx = Nothing, requestDepositTxId = Just depositTxId}, True)
+        Just depositTxId -> (SnapshotRequest{requestTxs = ordinaryTxs, requestDecommitTx = Nothing, requestDepositTxId = Just depositTxId}, True)
         Nothing -> withoutDeposit
  where
   withoutDeposit :: (SnapshotRequest tx, Bool)
@@ -2444,12 +2447,20 @@ buildSnapshotRequest utxo localTxs pendingDeposits currentDepositTxId mDecommitT
      in (SnapshotRequest{requestTxs, requestDecommitTx = mDecommitTx, requestDepositTxId = Nothing}, hasPendingTransactions)
 
   -- A new deposit must fit alongside the actual request. Defer it rather
-  -- than blocking ordinary transactions; a settling commit is always carried.
+  -- than blocking valid ordinary transactions. Policy checks include every
+  -- requested transaction result; a settling commit is always carried.
   canAbsorb deposited =
     absorbable utxo candidates deposited
       && isRight (checkSnapshotUTxOSize requestedUTxO (Just deposited) Nothing)
+      && ( ordinaryRequestInvalid
+            || isRight (checkUserTransactions ledger (utxo <> deposited) ordinaryTxs)
+         )
 
-  requestedUTxO = foldl' (flip applyTxTo) utxo (requestable Nothing Nothing)
+  -- If the transactions already violate policy, retain the final request
+  -- validation so it reports the rejection instead of silently deferring work.
+  ordinaryRequestInvalid = isLeft (checkUserTransactions ledger utxo ordinaryTxs)
+  ordinaryTxs = requestable Nothing Nothing
+  requestedUTxO = foldl' (flip applyTxTo) utxo ordinaryTxs
 
   -- With pending transactions, the selected request either carries a prefix
   -- or prunes its first blocked transaction in that request's commit/decommit
