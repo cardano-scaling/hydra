@@ -46,6 +46,7 @@ module Hydra.Node.Network (
 import Hydra.Prelude hiding (fromList, replicate)
 
 import Cardano.Binary (decodeFull', serialize')
+import Control.Concurrent.Class.MonadSTM (retry)
 import Control.Lens ((^.), (^..))
 import Control.Tracer (Tracer)
 import Crypto.Random (getRandomBytes)
@@ -73,8 +74,19 @@ withNetwork ::
   NetworkComponent IO (Authenticated (Message tx)) (Message tx) ()
 withNetwork tracer conf fingerprint callback action = do
   session <- encodeBase16 <$> (getRandomBytes 32 :: IO ByteString)
-  let setup conn =
-        withPolicyAgreement (contramap PolicyAgreement tracer) signingKey otherParties fingerprint session (policyStore conn)
+  let setup conn runNetwork =
+        raceLabelled_
+          ( "policy-agreement"
+          , withPolicyAgreement
+              (contramap PolicyAgreement tracer)
+              signingKey
+              otherParties
+              fingerprint
+              session
+              (policyStore conn)
+              (atomically retry)
+          )
+          ("network", runNetwork)
   withAuthentication
     (contramap Authenticate tracer)
     signingKey

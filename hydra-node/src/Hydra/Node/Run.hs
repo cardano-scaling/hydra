@@ -114,33 +114,34 @@ run opts = do
           let eventSinks :: [EventSink (StateEvent Tx) IO] = []
           wetHydraNode <- hydrate (contramap Node tracer) env ledger initialChainState eventStore eventSinks
           traceWith tracer NodeHydrated
-          -- When configured, agree on the policy before starting the chain, API, or main loop.
-          let networkConfiguration =
-                NetworkConfiguration
-                  { persistenceDir
-                  , signingKey
-                  , otherParties
-                  , listen
-                  , advertise = fromMaybe listen advertise
-                  , peers
-                  , nodeId
-                  , whichEtcd
-                  }
-          withNetwork
-            (contramap Network tracer)
-            networkConfiguration
-            (policyFingerprint <$> rules)
-            (wireNetworkInput wetHydraNode)
-            $ \network -> do
-              traceWith tracer NetworkStarted
-              -- Chain
-              withChain <- prepareChainComponent tracer env chainConfig
-              withChain (chainStateHistory wetHydraNode) (wireChainInput wetHydraNode) $ \chain -> do
-                traceWith tracer ChainBackendStarted
-                -- API
-                let apiServerConfig = APIServerConfig{host = apiHost, port = apiPort, tlsCertPath, tlsKeyPath, apiTransactionTimeout, listenSocket = Nothing}
-                let broadcastStall = fmap fst <$> outboxStalled (networkOutbox wetHydraNode)
-                withAPIServer apiServerConfig opts env party eventSource (contramap APIServer tracer) initialChainState chain pparams serverOutputFilter broadcastStall (wireClientInput wetHydraNode) $ \(apiSink, server) -> do
+          -- Chain
+          withChain <- prepareChainComponent tracer env chainConfig
+          withChain (chainStateHistory wetHydraNode) (wireChainInput wetHydraNode) $ \chain -> do
+            traceWith tracer ChainBackendStarted
+            -- API
+            let apiServerConfig = APIServerConfig{host = apiHost, port = apiPort, tlsCertPath, tlsKeyPath, apiTransactionTimeout, listenSocket = Nothing}
+            let broadcastStall = fmap fst <$> outboxStalled (networkOutbox wetHydraNode)
+            withAPIServer apiServerConfig opts env party eventSource (contramap APIServer tracer) initialChainState chain pparams serverOutputFilter broadcastStall (wireClientInput wetHydraNode) $ \(apiSink, server) -> do
+              -- Network
+              let networkConfiguration =
+                    NetworkConfiguration
+                      { persistenceDir
+                      , signingKey
+                      , otherParties
+                      , listen
+                      , advertise = fromMaybe listen advertise
+                      , peers
+                      , nodeId
+                      , whichEtcd
+                      }
+              withNetwork
+                (contramap Network tracer)
+                networkConfiguration
+                (policyFingerprint <$> rules)
+                (wireNetworkInput wetHydraNode)
+                $ \network -> do
+                  traceWith tracer NetworkStarted
+                  -- Main loop
                   node <-
                     connect chain network server wetHydraNode
                       <&> addEventSink apiSink
