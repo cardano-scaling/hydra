@@ -3647,6 +3647,11 @@ components:
           $ref: "api.yaml#/components/schemas/UnsyncedPeriod"
         configuredPeers:
           type: string
+        configuredPolicy:
+          description: The configured policy fingerprint, or null when no policy is configured.
+          oneOf:
+            - type: "null"
+            - $ref: "api.yaml#/components/schemas/PolicyFingerprint"
 
     NetworkInfo:
       type: object
@@ -4217,6 +4222,25 @@ components:
         drift:
           $ref: "api.yaml#/components/schemas/NominalDiffTime"
 
+    PolicyFingerprint:
+      type: string
+      description: A hex-encoded Blake2b-256 hash of the user policy rules.
+      pattern: "^[0-9a-f]{64}$"
+
+    HeadPolicyBinding:
+      $schema: "http://json-schema.org/draft-07/schema#"
+      description: |
+        The Head identifier and policy fingerprint bound to this node, or null
+        when no policy is bound.
+      oneOf:
+        - type: "null"
+        - type: array
+          minItems: 2
+          maxItems: 2
+          items:
+            - $ref: "api.yaml#/components/schemas/HeadId"
+            - $ref: "api.yaml#/components/schemas/PolicyFingerprint"
+
     NodeState:
       oneOf:
         - title: NodeInSync
@@ -4241,6 +4265,8 @@ components:
                 $ref: "api.yaml#/components/schemas/TrackedDeposit"
             chainPointTime:
               $ref: "api.yaml#/components/schemas/ChainPointTime"
+            headPolicies:
+              $ref: "api.yaml#/components/schemas/HeadPolicyBinding"
         - title: NodeCatchingUp
           type: object
           additionalProperties: false
@@ -4263,6 +4289,8 @@ components:
                 $ref: "api.yaml#/components/schemas/TrackedDeposit"
             chainPointTime:
               $ref: "api.yaml#/components/schemas/ChainPointTime"
+            headPolicies:
+              $ref: "api.yaml#/components/schemas/HeadPolicyBinding"
 
     SubmitTxPolicyInvalid:
       type: object
