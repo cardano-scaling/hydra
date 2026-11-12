@@ -151,7 +151,8 @@ spec =
                   atomically (replicateM 2 (readTQueue queue))
                     >>= (`shouldSatisfyAll` [matchGreetings, matchGreetings])
 
-                arbitraryEvent <- generate genStateEventForApi
+                -- Exercise broadcasting without generating expensive snapshots.
+                arbitraryEvent <- generate $ genStateEvent Outcome.NetworkConnected
                 let expectedMessage =
                       toJSON $
                         fromMaybe (error "failed to convert stateEvent") $
@@ -162,7 +163,7 @@ spec =
 
     it "sends server output history to all connected clients (using given event source)" $ do
       showLogsOnFailure "ServerSpec" $ \tracer -> failAfter 5 $ do
-        stateEvent <- generate genStateEventForApi
+        stateEvent <- generate $ genStateEvent Outcome.NetworkConnected
         let expectedMessage =
               toJSON $
                 fromMaybe (error "failed to convert stateEvent") $
@@ -431,7 +432,7 @@ spec =
               withTestAPIServer sock port alice (mockSource []) tracer $ \(EventSink{putEvent}, _) ->
                 withClient port "/?encoding=cbor&history=no" $ \conn -> do
                   _greeting :: ByteString <- receiveData conn
-                  arbitraryEvent <- generate genStateEventForApi
+                  arbitraryEvent <- generate $ genStateEvent Outcome.NetworkConnected
                   let expectedMessage =
                         fromMaybe (error "failed to convert stateEvent") $
                           mkTimedServerOutputFromStateEvent Nothing arbitraryEvent
