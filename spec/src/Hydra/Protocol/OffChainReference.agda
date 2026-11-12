@@ -918,3 +918,27 @@ partial-ack-records-once :
   ackSnOutcomeRef collectingSignaturesᶜ 1 1 [] 0 2 true false 0 ≡
     snapshotCompletedᶜ (recordSignatureᶜ ∷ []) []
 partial-ack-records-once = refl
+
+-- Releasing a reservation restores the ledger rebuilt from the owned candidate,
+-- or the confirmed snapshot if none is owned, followed by retained ordinary
+-- transactions. The projection takes that rebuilt ledger as a premise; it does
+-- not validate the snapshot or transactions. Old observations keep the local view.
+settlementUTxORef : Bool → Nat → Nat → List Nat → List Nat → List Nat
+settlementUTxORef pending old observed current rebuilt =
+  if pending && (old < observed) then rebuilt else current
+
+-- The candidate spends input 1; a different reservation holds input 2, and an
+-- ordinary transaction spends input 3 to create 30. Release restores only 2.
+settlement-releases-unspent-reservation :
+  settlementUTxORef true 0 1 (30 ∷ []) (2 ∷ 30 ∷ []) ≡ (2 ∷ 30 ∷ [])
+settlement-releases-unspent-reservation = refl
+
+settlement-without-reservation-preserves-ledger : ∀ old observed current rebuilt →
+  settlementUTxORef false old observed current rebuilt ≡ current
+settlement-without-reservation-preserves-ledger _ _ _ _ = refl
+
+repeated-settlement-preserves-new-reservation : ∀ current rebuilt →
+  settlementUTxORef true 1 1 current rebuilt ≡ current
+repeated-settlement-preserves-new-reservation _ _ = refl
+
+{-# COMPILE GHC settlementUTxORef as hsSettlementUTxORef #-}

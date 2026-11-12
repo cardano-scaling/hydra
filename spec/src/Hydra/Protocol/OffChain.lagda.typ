@@ -846,11 +846,18 @@ data _handles_↝_ : LocalState → Message → LocalState → Set where
     → st handles (reqSn v s txReq txα txω) ↝ record st { seenNumber = s }
 ```
 #dparagraph[$mono("decrementTx")$.]#h(1em) Upon observing the $mtxDecrement$
-transaction, which removed outputs $U$ from the head, the corresponding pending
-decrement transaction is cleared and the observed version $v$ is used for future
-snapshots by setting $hatv <- v$. Note that the version of the open head state
-is incremented on each $mtxDecrement$ transaction as described in
-@sec:decrement-tx. \
+transaction, which removed outputs $U$ from the head, run
+$sans("settleDecommit")(v)$. When $v > hatv$, set $hatv <- v$ and clear the
+pending decrement transaction. Before releasing an existing reservation, rebuild
+$hatmL$ from the settled base of the latest accepted candidate, or the confirmed
+snapshot if no candidate is owned, followed by the retained ordinary transactions
+in order. Use the newly observed version for that base. This restores only inputs
+that remain unspent; it neither restores inputs already spent by the candidate
+nor drops pending ordinary transactions. The rule also applies when settlement
+precedes the final acknowledgement or supplies the candidate's certificate.
+Equal or older versions preserve the ledger and any newer reservation.
+The version of the open head state is incremented on each $mtxDecrement$
+transaction as described in @sec:decrement-tx. \
 \
 #dparagraph[$mono("incrementTx")$.]#h(1em) Upon observing the $mtxIncrement$
 transaction, which added outputs $U$ to the head, the local ledger state
@@ -935,8 +942,9 @@ data _observes_↝_ : LocalState → ChainEvent → LocalState → Set where
                     (LocalState.deposits st) }
 
   -- §6 chain observations that bump the open-state version (increment/decrement). Increment adds the
-  -- committed UTxO to the local ledger (`L̂ ← L̂ ∪ U`); decrement leaves L̂ (its outputs left earlier, at
-  -- the decommit request). Each bumps v̂ and clears the matching in-flight pending (tx_α / tx_ω).
+  -- committed UTxO to the local ledger (`L̂ ← L̂ ∪ U`). Decrement projects the version and pending
+  -- action here; its optimistic-ledger reconstruction is specified by the owner refinement below
+  -- and settlementUTxORef. Each bumps v̂ and clears the matching in-flight pending (tx_α / tx_ω).
   -- NB the seen number ŝ is PRESERVED, not reset to S̄.s: an unconditional `ŝ ← S̄.s` would
   -- drop ŝ below an in-flight signature's number and break `signNumBound` (§7). The §6 figure, this
   -- model and the node agree: the seen snapshot is carried across the version bump (the node keeps an
@@ -1464,9 +1472,8 @@ preventing inconsistency between the on-chain and off-chain state.
             ]
 
             #proc([#kw("on") $(mtxDecrement, U, v, s, xi)$ #kw("from") chain])[
+              $sans("settleDecommit")(v)$ \
               $sans("adopt")(s, xi)$ \
-              $hatv <- v$ \
-              $tx_omega <- bot$ \
               #kw("if") $hats = macron(mc(S)).s and hpLdr(macron(mc(S)).s + 1) = i and (hatmT != emptyset or sans("newDecommit")(hatv, macron(mc(S)), tx_omega))$
               #nst[
                 #kw("multicast") $(hpRS, hatv, macron(mc(S)).s + 1, sans("requestable")(hatmT, tx_alpha, bot), tx_alpha, bot)$
@@ -1810,8 +1817,10 @@ the type system. Replay trusts retained events
 and skips verification. The snapshot owner also handles explicit adoption,
 clearing, settlement retention and version changes. The transaction owner checks
 whether a deposit fits, applies settled outputs and releases reservations. The
-commit owner applies selection and recovery updates. A repeated settlement does
-not release a newer reservation; rollback only updates the chain context.
+commit owner applies selection and recovery updates. A fresh decrement rebuilds
+the optimistic ledger before releasing a reservation, using the owned candidate
+when signatures are still being collected. A repeated settlement does not release
+a newer reservation; rollback only updates the chain context.
 Lifecycle owns closed-state snapshot adoption. Checkpoint restoration rebuilds
 all owners from the unchanged persisted representation.
 
@@ -1823,9 +1832,10 @@ compare batched application with event-by-event application and serialized repla
 The conversion preserves Complete, Wait and Reject semantics and event ordering,
 except that a partial acknowledgement records its signature once. State and event
 encodings remain unchanged; replay accepts older duplicate signature events
-idempotently. Two decommit corrections accompany the implementation: rebase
-removes pending spending inputs after rebuilding, and request selection defers
-new decommits until their required inputs are confirmed. A newly eligible
+idempotently. Decommit corrections accompany the implementation: rebase
+removes pending spending inputs after rebuilding, request selection defers
+new decommits until their required inputs are confirmed, and settlement restores
+still-unspent inputs when releasing a reservation. A newly eligible
 decommit can start a round without ordinary transactions; a carried one cannot.
 
 OffChainReference.agda independently states reservation exclusion, confirmed
@@ -1838,9 +1848,13 @@ ledger validation.
 Checkpoint restoration retains its old representation and does not repair
 historically inconsistent state by itself.
 
-The reference also projects the version and reservation after decrement
-observations. Bounded tests cover fresh, equal and older versions with and without
-a pending reservation. Complete Haskell sequence tests cover deposit activation,
+The reference also projects the version, reservation and local ledger after
+decrement observations, taking the reconstructed ledger as a premise. Bounded
+tests cover fresh, equal and older versions with and without a pending reservation.
+Haskell sequences cover absent, matching and different reservations, settlement
+before and after acknowledgements, and adoption from an observed certificate;
+they check pending transactions and spending a released input after recovery.
+Complete Haskell sequence tests cover deposit activation,
 settlement before acknowledgement, reobservation, rollback, explicit adoption,
 clearing and recovery, comparing uninterrupted continuations with reconstruction
 and CBOR round trips at every prefix. The natural-number projection does not
