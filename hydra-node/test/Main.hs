@@ -25,9 +25,19 @@ import Hydra.Events.S3Spec qualified
 import Hydra.Events.SQLiteBasedSpec qualified
 import Hydra.Events.UDPSpec qualified
 import Hydra.HeadLogic.CommitPhaseSpec qualified
+import Hydra.HeadLogic.CapacitySpec qualified
+import Hydra.HeadLogic.CoordinatedSpec qualified
+import Hydra.HeadLogic.IncrementalWorkflowSpec qualified
+import Hydra.HeadLogic.InputWorkflowSpec qualified
 import Hydra.HeadLogic.InterpreterSpec qualified
+import Hydra.HeadLogic.MachineSpec qualified
 import Hydra.HeadLogic.OutcomeSpec qualified
+import Hydra.HeadLogic.ProgramSpec qualified
 import Hydra.HeadLogic.ReplaySpec qualified
+import Hydra.HeadLogic.RulesSpec qualified
+import Hydra.HeadLogic.SnapshotDecommitSpec qualified
+import Hydra.HeadLogic.SnapshotOwnerSpec qualified
+import Hydra.HeadLogic.SnapshotProgramSpec qualified
 import Hydra.HeadLogic.WorkflowSpec qualified
 import Hydra.HeadLogicSnapshotSpec qualified
 import Hydra.HeadLogicSpec qualified
@@ -84,11 +94,21 @@ main =
     , testSpec "Events.S3" Hydra.Events.S3Spec.spec
     , testSpec "Events.SQLiteBased" Hydra.Events.SQLiteBasedSpec.spec
     , testSpec "Events.UDP" Hydra.Events.UDPSpec.spec
+    , testSpec "HeadLogic.Capacity" Hydra.HeadLogic.CapacitySpec.spec
+    , testSpec "HeadLogic.Coordinated" Hydra.HeadLogic.CoordinatedSpec.spec
+    , testSpec "HeadLogic.Machine" Hydra.HeadLogic.MachineSpec.spec
+    , testSpec "HeadLogic.Outcome" Hydra.HeadLogic.OutcomeSpec.spec
     , testSpec "HeadLogic.Interpreter" Hydra.HeadLogic.InterpreterSpec.spec
     , testSpec "HeadLogic.CommitPhase" Hydra.HeadLogic.CommitPhaseSpec.spec
     , testSpec "HeadLogic.Workflow" Hydra.HeadLogic.WorkflowSpec.spec
-    , testSpec "HeadLogic.Outcome" Hydra.HeadLogic.OutcomeSpec.spec
+    , testSpec "HeadLogic.Program" Hydra.HeadLogic.ProgramSpec.spec
     , testSpec "HeadLogic.Replay" Hydra.HeadLogic.ReplaySpec.spec
+    , testSpec "HeadLogic.IncrementalWorkflow" Hydra.HeadLogic.IncrementalWorkflowSpec.spec
+    , testSpec "HeadLogic.Rules" Hydra.HeadLogic.RulesSpec.spec
+    , testSpec "HeadLogic.InputWorkflow" Hydra.HeadLogic.InputWorkflowSpec.spec
+    , testSpec "HeadLogic.SnapshotProgram" Hydra.HeadLogic.SnapshotProgramSpec.spec
+    , testSpec "HeadLogic.SnapshotDecommit" Hydra.HeadLogic.SnapshotDecommitSpec.spec
+    , testSpec "HeadLogic.SnapshotOwner" Hydra.HeadLogic.SnapshotOwnerSpec.spec
     , testSpec "HeadLogicSnapshot" Hydra.HeadLogicSnapshotSpec.spec
     , testSpec "HeadLogic" Hydra.HeadLogicSpec.spec
     , testSpec "JSONSchema" Hydra.JSONSchemaSpec.spec

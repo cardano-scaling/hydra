@@ -37,6 +37,7 @@ import Hydra.HeadLogic.Outcome (
   noop,
  )
 import Hydra.HeadLogic.Program (Program)
+import Hydra.HeadLogic.Rules.AckSn qualified as AckSn
 import Hydra.HeadLogic.Rules.Client (openFinalizedDeposit)
 import Hydra.HeadLogic.Rules.Environment (RuleEnvironment)
 import Hydra.HeadLogic.Rules.Fanout.Selection (
@@ -52,6 +53,8 @@ import Hydra.HeadLogic.Rules.Fanout.Selection (
   onChainFanoutDatum,
  )
 import Hydra.HeadLogic.Rules.Input qualified as Input
+import Hydra.HeadLogic.Rules.ReqSn qualified as ReqSn
+import Hydra.HeadLogic.Rules.ReqTx qualified as ReqTx
 import Hydra.HeadLogic.Rules.SnapshotRequest (
   SettlingCommit (..),
   SnapshotRequest,
@@ -109,11 +112,76 @@ import Hydra.HeadLogic.State.Operations (
   settledUTxO,
  )
 import Hydra.HeadLogic.Workflow qualified as Workflow
-import Hydra.Node.State (NodeState (..))
+import Hydra.Node.State (ChainPointTime, NodeState (..), PendingDeposits)
 import Hydra.Prelude
+import Hydra.Tx (TxIdType)
+import Hydra.Tx.Crypto (Signature)
+import Hydra.Tx.Party (Party)
+import Hydra.Tx.Snapshot (Snapshot, SnapshotNumber, SnapshotVersion)
 
 updateProgram :: IsChainState tx => RuleEnvironment -> UTCTime -> NodeState tx -> Input tx -> Program tx ()
 updateProgram env now st input = Workflow.run $ Input.machine env now st input
+
+-- | The actual transaction rule as an inspectable program. Interpreters supply
+-- ledger application; collision checks, retry decisions, and snapshot selection
+-- belong to this rule. The event format remains compatible with existing replay.
+onOpenNetworkReqTxProgram ::
+  forall tx.
+  IsChainState tx =>
+  RuleEnvironment ->
+  ChainPointTime ->
+  OpenState tx ->
+  TTL ->
+  PendingDeposits tx ->
+  tx ->
+  Program tx ()
+onOpenNetworkReqTxProgram env chainTime st ttl pendingDeposits tx =
+  Workflow.run $ ReqTx.machine env chainTime st ttl pendingDeposits tx
+{-# INLINE onOpenNetworkReqTxProgram #-}
+
+-- | Snapshot selection, validation order, pruning and effect selection remain in
+-- the rule. The interpreter only supplies ledger and cryptographic primitives.
+onOpenNetworkReqSnProgram ::
+  forall tx.
+  IsChainState tx =>
+  RuleEnvironment ->
+  PendingDeposits tx ->
+  ChainPointTime ->
+  OpenState tx ->
+  TTL ->
+  -- | Party which sent the ReqSn.
+  Party ->
+  -- | Requested snapshot version.
+  SnapshotVersion ->
+  -- | Requested snapshot number.
+  SnapshotNumber ->
+  -- | List of transactions to snapshot.
+  [TxIdType tx] ->
+  -- | Optional decommit transaction of removing funds from the head.
+  Maybe tx ->
+  -- | Optional commit of additional funds into the head.
+  Maybe (TxIdType tx) ->
+  Program tx ()
+onOpenNetworkReqSnProgram env pendingDeposits chainTime st ttl otherParty sv sn txs decommit deposit =
+  Workflow.run $ ReqSn.machine env pendingDeposits chainTime st ttl otherParty sv sn txs decommit deposit
+{-# INLINE onOpenNetworkReqSnProgram #-}
+
+onOpenNetworkAckSnProgram ::
+  IsChainState tx =>
+  RuleEnvironment ->
+  ChainPointTime ->
+  PendingDeposits tx ->
+  OpenState tx ->
+  -- | Party which sent the AckSn.
+  Party ->
+  -- | Signature from other party.
+  Signature (Snapshot tx) ->
+  -- | Snapshot number of this AckSn.
+  SnapshotNumber ->
+  Program tx ()
+onOpenNetworkAckSnProgram env chainTime pendingDeposits st otherParty signature sn =
+  Workflow.run $ AckSn.machine env chainTime pendingDeposits st otherParty signature sn
+{-# INLINE onOpenNetworkAckSnProgram #-}
 
 aggregateNodeState :: IsChainState tx => NodeState tx -> StateChanged tx -> NodeState tx
 aggregateNodeState = Machine.apply

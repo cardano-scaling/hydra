@@ -6,7 +6,7 @@
 
 -- | Head phases observed or recorded by the node. Pending fanout is optimistic:
 -- a selection is recorded, but no distributed output has been observed yet.
-module Hydra.HeadLogic.Machine.Lifecycle (Phase (..), LifecycleTopology, lifecycleTopology, sLifecycleTopology, machine) where
+module Hydra.HeadLogic.Machine.Lifecycle (Phase (..), LifecycleTopology, lifecycleTopology, sLifecycleTopology, phase, machine) where
 
 import Crem.BaseMachine (ActionResult, BaseMachineT (..), InitialState (..), pureResult, withStateInspector)
 import Crem.Render.RenderableVertices (AllVertices (..), RenderableVertices)
@@ -32,7 +32,7 @@ import Hydra.HeadLogic.Outcome (StateChanged (..))
 import Hydra.HeadLogic.State qualified as Head
 import Hydra.HeadLogic.State.Operations (closedToPartialFanout, fanoutProgressToClosed, nullOutputs, recordedSelectionMode)
 import Hydra.Prelude hiding (State, state)
-import Hydra.Tx (HeadId, HeadParameters, HeadSeed)
+import Hydra.Tx (HeadId, HeadParameters, HeadSeed, IsTx (..))
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..))
 
 $( singletons
@@ -58,6 +58,16 @@ deriving stock instance Enum Phase
 deriving stock instance Bounded Phase
 
 deriving via AllVertices Phase instance RenderableVertices Phase
+
+-- | ReadyToFanout records the notification flag, not the current clock guard.
+-- Event replay permits HeadOpened to replace any phase, hence the Open edges.
+phase :: IsTx tx => Head.HeadState tx -> Phase
+phase = \case
+  Head.Idle{} -> Idle
+  Head.Open{} -> Open
+  Head.Closed Head.ClosedState{readyToFanoutSent} -> if readyToFanoutSent then ReadyToFanout else Closed
+  Head.FanoutProgress Head.PartialFanoutState{distributedOutputs} ->
+    if null (outputsOfUTxO distributedOutputs) then PendingFanout else FanoutProgress
 
 -- | Each constructor owns its phase's payload. Open owns the continuation of
 -- the snapshot/transaction composition, not a second mutable copy of its fields.
