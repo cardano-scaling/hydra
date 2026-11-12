@@ -6,6 +6,7 @@ open import Hydra.Protocol.Preliminaries
 open import Hydra.Protocol.Setup
 open import Hydra.Protocol.OnChain using (outputRef-eqᵇ)
 open import Hydra.Protocol.OffChainReference using (snapshotCapacityRef; decommitCapacityRef; pendingTxFitsRef)
+import Hydra.Protocol.OffChainReference as ReqTxRef
 -- Extra list/nat helpers for the off-chain handler model (the deposit registry + tick).
 open import Data.List using (map; _++_)
 open import Data.List.Properties using (length-map)
@@ -200,6 +201,14 @@ These are alternative future fanouts, not a union of all three sets. Unions are
 by output reference, so equal output values at different references count twice.
 An absent incremental action contributes the empty set.
 
+The implementation supplies this bound through public rule configuration:
+$sans("fits")_L(U,C,D)$ requires both counts to be at most $L$.
+Cardano runtime wiring fixes $L=32767$; selection, pruning, follower requests,
+decommit admission, and side-load validation use the same configured bound.
+The API rejects oversized side-loads before queueing, using the Cardano default,
+and the core repeats the non-forcing check. This is an implementation parameter;
+it adds no negotiated setting or protocol transition.
+
 Optimistic transaction acceptance does not enforce this bound. The leader's
 $sans("requestable")(T,tx_alpha,tx_omega)$ selects the longest prefix of its
 bounded candidate list that avoids re-creating references held by the settled
@@ -227,6 +236,40 @@ an unconfirmed merge may lie outside the next request's transaction prefix.
 Arithmetic application removes named inputs that exist and adds outputs; it
 does not require the decommit to be ledger-applicable against confirmed state.
 Both client decommit submission and the received $hpRD$ handler use these guards.
+
+The executable reference also checks a small-set cycle with capacity three.
+The split spends reference 1 into 4 and 5; the independent merge spends 2 and 3
+into 6. Selection stops before the split. Pruning skips it and keeps the merge,
+which is then requestable. These equalities cover that finite example, not
+distributed liveness. Haskell tests exercise the supplied small bound directly
+and bridge it to the deployed one with untouched background outputs. They also
+run the actual request/sign/confirm sequence including the retained request
+marker and checkpoint recovery.
+
+```
+capacity-configured-boundary :
+  ReqTxRef.capacityFitsRef 2 (1 ∷ []) (2 ∷ []) (3 ∷ []) ≡ true
+capacity-configured-boundary = refl
+
+capacity-configured-overflow :
+  ReqTxRef.capacityFitsRef 1 (1 ∷ []) (2 ∷ []) (3 ∷ []) ≡ false
+capacity-configured-overflow = refl
+
+capacity-stops-at-split :
+  ReqTxRef.capacityPrefixRef 3 (1 ∷ 2 ∷ 3 ∷ []) []
+    ((1 ∷ []) ∷ (2 ∷ 3 ∷ []) ∷ []) ((4 ∷ 5 ∷ []) ∷ (6 ∷ []) ∷ []) ≡ 0
+capacity-stops-at-split = refl
+
+capacity-pruning-keeps-merge :
+  ReqTxRef.capacityPruneRef 3 (1 ∷ 2 ∷ 3 ∷ []) [] []
+    ((1 ∷ []) ∷ (2 ∷ 3 ∷ []) ∷ []) ((4 ∷ 5 ∷ []) ∷ (6 ∷ []) ∷ []) ≡ (2 ∷ [])
+capacity-pruning-keeps-merge = refl
+
+capacity-merge-is-requestable :
+  ReqTxRef.capacityPrefixRef 3 (1 ∷ 2 ∷ 3 ∷ []) []
+    ((2 ∷ 3 ∷ []) ∷ []) ((6 ∷ []) ∷ []) ≡ 1
+capacity-merge-is-requestable = refl
+```
 
 A settling commit — $macron(mc(S)).U_alpha != bot$ at the current version — is
 dropped, by a request claiming no deposit, only once its increment can no
@@ -466,13 +509,64 @@ was configurable, the Coordinated Head protocol does specify a snapshot to be
 created after each transaction.\
 \
 #dparagraph[$hpRT$.]#h(1em) Upon receiving request $(hpRT,tx)$, the transaction
-is applied to the _local_ ledger state $hatmL applytx tx$. If not
+is ignored if its identifier already names a locally applied transaction with a
+retained registry entry; otherwise it is applied to the _local_ ledger state $hatmL applytx tx$. If not
 applicable yet, the protocol does #kw("wait") to retry later or eventually marks
 this transaction as invalid (see assumption about events piling up). After
 applying and if there is no current snapshot in flight ($hats = macron(mc(S)).s$)
 and the receiving party $party_(i)$ is the next snapshot leader, a message to
 request snapshot signatures $hpRS$ is sent. \
 \
+#dparagraph[Bounded reqTx execution model.]#h(1em)
+`OffChainReference.reqTxOutcomeRef` records the terminal result and ordered
+committed-change and effect tags of one attempt. Its domain has no deposits or
+decommit, no previously pending local transactions, fresh transaction output
+names, and a local ledger equal to the settled confirmed ledger. Ledger
+applicability is an explicit primitive answer; the model computes leader
+eligibility from the party count, next
+snapshot number, and local party index. A successful transaction is therefore
+requestable in this domain. Payloads, collision checks, and retry scheduling are
+outside this projection.
+
+The received-transaction change survives a wait. Exhausting the retry budget
+records an invalid transaction and finishes normally; it is not a rejection.
+A successful attempt records application before deciding and emitting a snapshot
+request, and emits no request when another snapshot is in flight. The relation
+below uses the extracted computation directly, so these outcome rules have one
+Agda definition. Differential tests bind this bounded result to the Haskell
+handler; these lemmas do not establish equivalence of the complete node or a
+refinement of the broader `_handles_↝_` relation.
+
+```
+-- The bounded duplicate policy protects validated registry payloads. This is
+-- a one-attempt lemma, not a theorem about arbitrary registry histories.
+reqTx-applied-is-idempotent : ∀ applicable ttl inFlight m nextSn partyIndex →
+  ReqTxRef.reqTxKnownOutcomeRef true applicable ttl inFlight m nextSn partyIndex ≡
+    ReqTxRef.reqTxOutcomeᶜ ReqTxRef.reqTxFinishedᶜ [] []
+reqTx-applied-is-idempotent _ _ _ _ _ _ = refl
+
+ReqTxAttempt : Bool → ℕ → Bool → ℕ → ℕ → ℕ → ReqTxRef.ReqTxOutcomeᶜ → Set
+ReqTxAttempt applicable ttl inFlight m nextSn partyIndex result =
+  ReqTxRef.reqTxOutcomeRef applicable ttl inFlight m nextSn partyIndex ≡ result
+
+reqTx-wait-retains-received : ∀ ttl inFlight m nextSn partyIndex →
+  ReqTxAttempt false (suc ttl) inFlight m nextSn partyIndex
+    (ReqTxRef.reqTxOutcomeᶜ ReqTxRef.reqTxWaitingᶜ (ReqTxRef.reqTxReceivedᶜ ∷ []) [])
+reqTx-wait-retains-received _ _ _ _ _ = refl
+
+reqTx-timeout-finishes : ∀ inFlight m nextSn partyIndex →
+  ReqTxAttempt false zero inFlight m nextSn partyIndex
+    (ReqTxRef.reqTxOutcomeᶜ ReqTxRef.reqTxFinishedᶜ
+      (ReqTxRef.reqTxReceivedᶜ ∷ ReqTxRef.reqTxInvalidᶜ ∷ []) [])
+reqTx-timeout-finishes _ _ _ _ = refl
+
+reqTx-inflight-does-not-propose : ∀ ttl m nextSn partyIndex →
+  ReqTxAttempt true ttl true m nextSn partyIndex
+    (ReqTxRef.reqTxOutcomeᶜ ReqTxRef.reqTxFinishedᶜ
+      (ReqTxRef.reqTxReceivedᶜ ∷ ReqTxRef.reqTxAppliedᶜ ∷ []) [])
+reqTx-inflight-does-not-propose _ _ _ _ = refl
+```
+
 #dparagraph[$hpRD$.]#h(1em) Upon receiving request $(hpRD,tx_omega)$, the
 transaction is checked against the _local_ ledger state and if it is not
 applicable yet or another deposit or decommit is pending still, the protocol does
@@ -481,8 +575,11 @@ applying $tx$, its outputs are removed from _local_ ledger state $hatmL$
 so that they are not available any more and the decommit transaction is kept in
 the local state ($tx_omega$). If there is no current snapshot in flight
 ($hats = macron(mc(S)).s$) and the receiving party $party_(i)$ is the next
-snapshot leader, a message to request snapshot signatures $hpRS$ containing the
-decrement transaction $tx_omega$ is sent. \
+snapshot leader, it requests useful snapshot work. A new decommit is included
+only when all its spending, reference and collateral inputs are present in the
+confirmed base (including a settled increment). Otherwise the ordinary
+transactions confirm its dependencies first. A decommit already carried by the
+same-version confirmed snapshot is carried again without reapplication. \
 \
 #dparagraph[$mono("depositTx")$.]#h(1em) Upon observing a deposit transaction,
 each party records the deposit index by deposit transaction id to their local
@@ -585,13 +682,19 @@ message $(hpAS,hats,msSig_i)$. Finally, the local ledger state $hatmL$ and
 pending transaction set $hatmT$ get pruned by re-applying all locally pending
 transactions $hatmT$ to the just requested snapshot's UTxO set iteratively.
 A transaction is kept only if it applies without re-creating a held output,
-does not name a carried commit output, and its resulting ledger satisfies
-$sans("fits")$ with that snapshot's pending commit/decommit. Pruned transactions
-leave the running ledger unchanged; subsequent transactions are still considered,
-so an independent merge can survive a capacity rejection. Ledger applicability
-alone is insufficient: a ledger-valid transaction can exceed fanout capacity.
-The Agda `prunePending` function models this postprocessing; `reqSn-sign` tracks
-the round counter and the system's `signHonest` rule requires `SnapshotFits`. \
+avoids the carried commit's output references and fits both fanout alternatives.
+Skipping a transaction leaves the running ledger unchanged and still considers
+later transactions, so an independent merge can survive a capacity rejection.
+The Agda `prunePending` function models this filtering; `signHonest` separately
+requires `SnapshotFits`. After this rebuild,
+the spending inputs of the locally pending decommit are removed again. This
+reservation survives while the requested snapshot is unconfirmed, even when
+that snapshot does not carry the decommit. A signed candidate alone does not
+authorise releasing the reservation. An accepted request also retains its decommit
+transaction in $T_(sans("all"))$ if it is not already held locally. This payload
+is separate from the local reservation: `ReqSn` can arrive before `ReqDec`, or
+carry a different decommit. While the candidate is collecting signatures, a
+duplicate `ReqTx` cannot overwrite or evict this payload. \
 \
 #dparagraph[$hpAS$.]#h(1em) Upon receiving acknowledgment $(hpAS,s,msSig_j)$, all
 participants #kw("require") that it is from an expected snapshot (either the last seen
@@ -610,9 +713,49 @@ commitment $eta'$ for the updated UTxO set. If, however, there
 was a pending deposit, any participant can now submit an $mono("incrementTx")$
 by providing the confirmed snapshot with its accumulator commitment $eta'$
 for the updated UTxO set. Lastly, if $party_i$ is the next snapshot
-leader and there are already transactions to snapshot in $hatmT$, a
-corresponding $hpRS$ is distributed. \
+leader and there are transactions to snapshot in $hatmT$ or a newly eligible
+decommit, a corresponding $hpRS$ is distributed. An already-carried decommit
+alone does not start another round. \
 \
+
+For request selection, $sans("requestDecommit")(hatv, macron(mc(S)), tx_omega)$
+is $tx_omega$ when it is already carried at that version or all its required
+inputs are in the settled confirmed base; otherwise it is $bot$.
+$sans("newDecommit")(hatv, macron(mc(S)), tx_omega)$ additionally excludes a
+carried decommit. Neither test replaces ledger validation in $hpRS$.
+Define $sans("reconcileReservation")$ as follows. When a snapshot is confirmed or adopted, reconstruct the optimistic ledger from
+its settled base and the retained ordinary transactions, before removing any
+local reservation. Keep the locally recorded $tx_omega$ if this snapshot carries
+it at the current version. Otherwise keep it only if every required input remains
+in that reconstructed ledger and no different decommit is authorised. If these
+conditions fail, clear $tx_omega$, restore that reconstructed ledger (including
+any still-unspent reserved inputs), and report `DecommitInvalid`. This step runs
+on confirmation, not on signing a candidate. Required inputs include spending,
+reference and collateral inputs; retaining a dependency in the ordinary sequence
+therefore preserves a still-possible decommit. The next proposal uses the updated
+reservation, not the pre-confirmation value. When the certificate authorises a
+decommit at the current version, transfer its matching retained transaction into
+$tx_omega$ and remove that registry entry. Prefer a matching local reservation;
+otherwise find the payload retained from `ReqSn`. Identity here is the non-empty
+output UTxO, as in the receiver's carry check; Cardano output references include
+the transaction body hash. If settlement already advanced the version, remove
+the retained payload without reviving the decommit.
+
+A request at the same version must carry the authorised decommit and no deposit.
+If an older checkpoint has the certificate but lacks its transaction, request
+selection waits for settlement; it cannot emit a request that omits the decommit
+or retain a marker for that request. The persistence encoding is unchanged:
+`TransactionReceived` retains the accepted payload before `SnapshotRequested`,
+and `SnapshotConfirmed` transfers it to the decommit slot.
+
+A current-version confirmed snapshot with decommit outputs blocks a new decommit
+even at a party that never received its `ReqDec`. Settlement advances the version
+and retires this authority. The bounded operational reference below includes
+these admission and confirmation refinements; the `_handles_↝_` relation's
+`ackSn-confirm` projects the certificate update and does not model local conflict
+notifications or optimistic-ledger reconstruction.
+Ticks and settlement observations also request newly eligible work when this
+party leads and no round is in flight.
 
 The network-message handlers above are transcribed as the relation
 `_handles_↝_`: one constructor per handler arm, each carrying
@@ -663,7 +806,8 @@ data _handles_↝_ : LocalState → Message → LocalState → Set where
   -- premise to `deposit-add`, which is deliberately left as its own change rather than folded in here.
   reqDec-pending : ∀ {st tx L'}
     → LocalState.currentDepositTxId st ≡ nothing         -- U_α = ∅ (no commit in flight)
-    → LocalState.pendingDecrement st ≡ nothing       -- tx_ω = ⊥ (no decommit in flight)
+    → LocalState.pendingDecrement st ≡ nothing       -- no local reservation
+    → (¬ (Snapshot.version (LocalState.confirmed st) ≡ LocalState.seenVersion st)) ⊎ (Snapshot.utxoDec (LocalState.confirmed st) ≡ εᵘ) -- no unsettled decommit certificate
     → applyTxs (LocalState.localLedger st) (tx ∷ []) ≡ just L'   -- L̂ ∘ tx ≠ ⊥ (applicability, witnessed)
     → DecommitFits st tx L'                         -- non-empty outputs; local AND confirmed capacity
     → st handles (reqDec tx) ↝ record st { localLedger = L' ∖ᵘ outputs tx ; pendingDecrement = just tx }
@@ -851,7 +995,7 @@ tick-preserves-deposits-length {st = st} tick-update = length-map _ (LocalState.
 reqDec-starts-decommit : ∀ {st tx st'}
   → st handles (reqDec tx) ↝ st'
   → (LocalState.pendingDecrement st ≡ nothing) × (LocalState.pendingDecrement st' ≡ just tx)
-reqDec-starts-decommit (reqDec-pending _ q _ _) = q , refl
+reqDec-starts-decommit (reqDec-pending _ q _ _ _) = q , refl
 
 -- The de-abstracted reqTx guard is load-bearing too: reqTx fires only for transactions that APPLY to
 -- the local ledger (the §6 `wait L̂ ∘ tx ≠ ⊥`). Deleting the `applyTxs … ≡ just L'` witness premise on
@@ -979,7 +1123,7 @@ noBothInFlight-step : ∀ {st st'} → st ⟶ᴴ st' → NoBothInFlight st → N
 
 ```
 noBothInFlight-step (hstep (reqTx-pending _))     inv = inv
-noBothInFlight-step (hstep (reqDec-pending p _ _ _)) _  = inj₁ p
+noBothInFlight-step (hstep (reqDec-pending p _ _ _ _)) _  = inj₁ p
 noBothInFlight-step (hstep (ackSn-collect _))     inv = inv
 noBothInFlight-step (hstep (ackSn-confirm _ _ _ _)) inv = inv
 noBothInFlight-step (hstep (reqSn-sign _ _))      inv = inv
@@ -1031,7 +1175,7 @@ versionDiscipline-step : ∀ {st st'} → st ⟶ᴴ st' → VersionDiscipline st
 
 ```
 versionDiscipline-step (hstep (reqTx-pending _))       inv = inv
-versionDiscipline-step (hstep (reqDec-pending _ _ _ _))  inv = inv
+versionDiscipline-step (hstep (reqDec-pending _ _ _ _ _))  inv = inv
 versionDiscipline-step (hstep (ackSn-collect _))       inv = inv
 versionDiscipline-step (hstep (ackSn-confirm _ _ _ d)) _   = d
 versionDiscipline-step (hstep (reqSn-sign _ _))        inv = inv
@@ -1164,15 +1308,16 @@ preventing inconsistency between the on-chain and off-chain state.
                   #nst[
                     $tx_alpha <-$ oldest $D in mc(D)$ with $D.sans("status") = sans("Active") and D.U inter macron(mc(S)).U = emptyset and D.U inter sans("outputs")(hatmT) = emptyset and sans("depositFits")(D)$
                   ]
-                  #kw("multicast") $(hpRS, hatv, macron(mc(S)).s + 1, sans("requestable")(hatmT, tx_alpha, tx_omega), tx_alpha, tx_omega)$
+                  #kw("multicast") $(hpRS, hatv, macron(mc(S)).s + 1, sans("requestable")(hatmT, tx_alpha, sans("requestDecommit")(hatv, macron(mc(S)), tx_omega)), tx_alpha, sans("requestDecommit")(hatv, macron(mc(S)), tx_omega))$
                 ]
               ]
             ]
 
             #proc([#kw("on") $(hpRD, tx)$ #kw("from") $party_j$])[
-              #kw("wait") $U_alpha = emptyset and tx_omega = bot and hatmL applytx tx != bot$
+              #kw("wait") $U_alpha = emptyset and tx_omega = bot and (macron(mc(S)).v != hatv or macron(mc(S)).U_omega = bot) and hatmL applytx tx != bot$
               #nst[
-                #kw("require") $sans("outputs")(tx) != emptyset and |hatmL applytx tx| <= 32767 and |sans("applyUTxO")(sans("settled")(macron(mc(S)),hatv),tx)| <= 32767$ \\
+                #kw("require") $sans("outputs")(tx) != emptyset and |hatmL applytx tx| <= 32767 and |sans("applyUTxO")(sans("settled")(macron(mc(S)),hatv),tx)| <= 32767$ \
+
                 $hatmL <- hatmL applytx tx without sans("outputs")(tx)$ \
                 $tx_omega <- tx$ \
                 #kw("if") $hats = macron(mc(S)).s and hpLdr(macron(mc(S)).s + 1) = i$
@@ -1181,9 +1326,9 @@ preventing inconsistency between the on-chain and off-chain state.
                   #nst[
                     #kw("multicast") $(hpRS, hatv, macron(mc(S)).s + 1, sans("requestable")(hatmT, tx_alpha, bot), tx_alpha, bot)$
                   ]
-                  #kw("else")
+                  #kw("else if") $hatmT != emptyset or sans("newDecommit")(hatv, macron(mc(S)), tx_omega)$
                   #nst[
-                    #kw("multicast") $(hpRS, hatv, macron(mc(S)).s + 1, sans("requestable")(hatmT, bot, tx_omega), bot, tx_omega)$
+                    #kw("multicast") $(hpRS, hatv, macron(mc(S)).s + 1, sans("requestable")(hatmT, bot, sans("requestDecommit")(hatv, macron(mc(S)), tx_omega)), bot, sans("requestDecommit")(hatv, macron(mc(S)), tx_omega))$
                   ]
                 ]
               ]
@@ -1233,6 +1378,7 @@ preventing inconsistency between the on-chain and off-chain state.
                 #kw("require") $sans("outputs")(underline(tx)_(sans("req"))) inter U_(sans("active")) = emptyset$ #text(size: 0.8em)[(no output reference is re-created)] \
                 #kw("require") $U_(sans("active")) applytx underline(tx)_(sans("req")) != bot$ \
                 $U <- U_(sans("active")) applytx underline(tx)_(sans("req"))$ \
+                #kw("require") $sans("fits")(U,U_alpha,sans("outputs")(tx_omega))$ \
                 $hats <- s$ \
                 $eta' <- accUTxO(U)$ \
                 $(eta')^(\#) <- hash(eta')$ \
@@ -1250,6 +1396,7 @@ preventing inconsistency between the on-chain and off-chain state.
                   $hatmT <- hatmT union {tx}$ \
                   $hatmL <- hatmL applytx tx$
                 ]
+                $hatmL <- hatmL without sans("spendingInputs")(sans("locallyPendingDecommit"))$
               ]
             ]
 
@@ -1263,7 +1410,8 @@ preventing inconsistency between the on-chain and off-chain state.
                 #kw("if") $msVfy(hydraKeysAgg, (cid || hatv || hats || (eta')^(\#) || delta^(\#) || kappa^(\#)), xi)$
                 #nst[
                   $macron(mc(S)) <- Sno(hatv, hats, hatmT, hatmU, U_alpha, U_omega)$ \
-                  $macron(mc(S)).sigma <- xi$
+                  $macron(mc(S)).sigma <- xi$ \
+                  $sans("reconcileReservation")()$
                 ]
               ]
             ]
@@ -1285,6 +1433,7 @@ preventing inconsistency between the on-chain and off-chain state.
                   #kw("require") $msVfy(hydraKeysAgg, (cid || hatv || hats || (eta')^(\#) || delta^(\#) || kappa^(\#)), msCSig)$ \
                   $macron(mc(S)) <- Sno(hatv, hats, hatmT, hatmU, U_alpha, U_omega)$ \
                   $macron(mc(S)).sigma <- msCSig$ \
+                  $sans("reconcileReservation")()$ \
                   $forall tx in mT_(sans("req")) :$ #kw("output") $(hpConf, tx)$ \
                   #kw("if") $macron(S).U_omega != bot$
                   #nst[
@@ -1294,13 +1443,13 @@ preventing inconsistency between the on-chain and off-chain state.
                   #nst[
                     #kw("postTx") $(mtxIncrement, hatv, hats, (eta')^(\#), macron(mc(S)).sigma)$
                   ]
-                  #kw("if") $hpLdr(s + 1) = i and hatmT != emptyset$
+                  #kw("if") $hpLdr(s + 1) = i and (hatmT != emptyset or sans("newDecommit")(hatv, macron(mc(S)), tx_omega))$
                   #nst[
                     #kw("if") $tx_alpha = bot and tx_omega = bot and macron(mc(S)).U_alpha = emptyset$
                     #nst[
                       $tx_alpha <-$ oldest $D in mc(D)$ with $D.sans("status") = sans("Active") and D.U inter macron(mc(S)).U = emptyset and D.U inter sans("outputs")(hatmT) = emptyset and sans("depositFits")(D)$
                     ]
-                    #kw("multicast") $(hpRS, hatv, macron(mc(S)).s + 1, sans("requestable")(hatmT, tx_alpha, tx_omega), tx_alpha, tx_omega)$
+                    #kw("multicast") $(hpRS, hatv, macron(mc(S)).s + 1, sans("requestable")(hatmT, tx_alpha, sans("requestDecommit")(hatv, macron(mc(S)), tx_omega)), tx_alpha, sans("requestDecommit")(hatv, macron(mc(S)), tx_omega))$
                   ]
                 ]
               ]
@@ -1318,7 +1467,7 @@ preventing inconsistency between the on-chain and off-chain state.
               $sans("adopt")(s, xi)$ \
               $hatv <- v$ \
               $tx_omega <- bot$ \
-              #kw("if") $hats = macron(mc(S)).s and hpLdr(macron(mc(S)).s + 1) = i and hatmT != emptyset$
+              #kw("if") $hats = macron(mc(S)).s and hpLdr(macron(mc(S)).s + 1) = i and (hatmT != emptyset or sans("newDecommit")(hatv, macron(mc(S)), tx_omega))$
               #nst[
                 #kw("multicast") $(hpRS, hatv, macron(mc(S)).s + 1, sans("requestable")(hatmT, tx_alpha, bot), tx_alpha, bot)$
               ]
@@ -1329,9 +1478,9 @@ preventing inconsistency between the on-chain and off-chain state.
               $hatv <- v$ \
               $tx_alpha <- bot$ \
               $hatmL <- hatmL union U$ \
-              #kw("if") $hats = macron(mc(S)).s and hpLdr(macron(mc(S)).s + 1) = i and hatmT != emptyset$
+              #kw("if") $hats = macron(mc(S)).s and hpLdr(macron(mc(S)).s + 1) = i and (hatmT != emptyset or sans("newDecommit")(hatv, macron(mc(S)), tx_omega))$
               #nst[
-                #kw("multicast") $(hpRS, hatv, macron(mc(S)).s + 1, sans("requestable")(hatmT, bot, bot), bot, bot)$
+                #kw("multicast") $(hpRS, hatv, macron(mc(S)).s + 1, sans("requestable")(hatmT, bot, sans("requestDecommit")(hatv, macron(mc(S)), tx_omega)), bot, sans("requestDecommit")(hatv, macron(mc(S)), tx_omega))$
               ]
             ]
 
@@ -1350,6 +1499,10 @@ preventing inconsistency between the on-chain and off-chain state.
                     $tx_alpha <- D$
                   ]
                 ]
+              ]
+              #kw("if") $sans("newDecommit")(hatv, macron(mc(S)), tx_omega) and hats = macron(mc(S)).s and hpLdr(macron(mc(S)).s + 1) = i$
+              #nst[
+                #kw("multicast") $(hpRS, hatv, macron(mc(S)).s + 1, sans("requestable")(hatmT, bot, tx_omega), bot, tx_omega)$
               ]
               #kw("if") $exists D in mc(D) : D.sans("status") = sans("Active")$
               #nst[
@@ -1392,3 +1545,309 @@ preventing inconsistency between the on-chain and off-chain state.
   },
   caption: [Head-protocol machine for the _coordinated head_ from the perspective of party $party_i$.],
 ) <fig:off-chain-prot>
+
+== Operational snapshot-round refinement
+
+The node executes `reqTx`, `reqSn`, `ackSn`, network `reqDec` and client
+`Recover` as typed crem phases whose actions are inspectable programs. Ledger application,
+signing and multisignature verification are primitives. Snapshot construction,
+incremental-action selection, transaction pruning and effect ordering remain
+protocol rules. Signing keys are interpreter configuration, never trace data.
+The runtime supplies public rule parameters and primitive implementations to the
+pure entry point. Each interpreter configuration supplies transaction application,
+signing and verification; debugger recording uses the same verifier, while replay
+consumes its retained answer. Concrete Cardano helpers maintain the two accumulator
+deltas, canonical snapshot encoding and committee-ordered certificate assembly.
+These boundaries preserve the existing bytes, query order and decisions.
+Completion commits the ordered changes and releases effects; waiting retains
+only the ordered change prefix; rejection discards both buffers. In particular,
+a failed multisignature check discards the preceding tentative signature record.
+
+Each input starts a fresh workflow; its phase is not persisted or resumed on
+retry. The workflow exposes instructions to the existing primitive interpreter
+and terminal semantics. Independent Agda projections check the bounded outcomes;
+interpreter and replay tests check execution and recovery consistency. Crem constrains phase edges
+and payload types; it does not prove the guards or the primitive replies. Its
+static topology omits decisions inside actions and early wait/reject exits;
+concrete instruction traces retain those decisions and exits.
+
+The extended Crem API selects the next typed phase inside a Program
+after a primitive reply. `reqTx` branches directly to deposit checks or retry;
+client decommit and `reqDec` branch to output checks or their existing failure
+path. `ackSn` branches directly to confirmation with a verified snapshot or
+rejects. Settlement verifies and optionally adopts its candidate in one action,
+after recording finalization, then enters the next-request phase.
+Queries, rejection, invalidation and adoption instructions keep their order.
+The independent Agda outcome projection states concrete wait,
+decommit-precedence, settlement and invalid-final-acknowledgement equations pin
+these boundaries; they do not prove equivalence of the Haskell implementations.
+Every workflow and state owner has optional phase descriptions. These inspect
+constructors without evaluating retained payloads and make no strictness claim.
+The live owner composition drops rendering metadata from its inspectable
+definition; this does not change its allowed transitions.
+
+Live snapshot admission and trusted event recovery use separate entry points.
+They share storage updates, but importing a retained request marker does not add
+an edge from collecting signatures to sending a request in the live topology.
+A live candidate requires this Head, the current version, the next confirmed
+number, and no candidate already collecting signatures. A local request marker
+must name that same number.
+
+Only the owner issues a candidate handle. It binds the Head, snapshot version,
+number, canonical signing bytes and ordered committee. Signature recording and
+confirmation consume that handle; a generally verified certificate is sufficient
+only for the separate adoption operation. Owner refusal rejects the entire
+Program attempt, including any staged signature. Restoration derives signing
+bytes from snapshot contents instead of trusting an in-memory byte cache.
+Within a runtime, the getter and machine share that restored candidate. The
+composition carries the typed snapshot state through its output, so signature
+updates do not re-encode the same snapshot. Confirmation retires the candidate;
+accepting another round issues a new one. A persisted checkpoint restores a fresh
+candidate. This changes evaluation and allocation, not the protocol transitions.
+Settlement can advance the working version without replacing a collecting
+candidate, so its late final acknowledgement remains admissible.
+
+The independent owner projection excludes cryptographic and ledger correctness:
+it treats canonical signing contents as an abstract identity and signature
+validity as a premise. It checks the live edge relation and complete candidate
+identity; it does not model heap sharing or allocation. Haskell tests exercise
+real signatures, stale and foreign handles,
+cache inconsistencies and event/checkpoint recovery. These checks do not make
+raw retained events safe to import from untrusted sources.
+
+Partial acknowledgements retain the existing two identical signature events.
+Replay treats them as idempotent assignments. An acknowledgement for the last
+confirmed snapshot is ignored only after its number guard succeeds. Rejected
+final verification discards the current input's staged signature. The abstract
+transition relation describes one signature map assignment; the ordered outcome
+reference preserves the repeated assignment in the implementation.
+
+`OffChainReference.agda` independently computes bounded ordered snapshot outcome
+values with named phase, change, effect, wait and rejection constructors, including number/leader rejection, predecessor/version/missing-transaction
+waits, ledger rejection, early and duplicate acknowledgements, verification
+failure, confirmation and the next request. This projection excludes payloads,
+pruning contents, output collisions, accumulator overflow, incremental actions
+and scheduler behavior. `reqDecOutcomeRef` separately checks selected-commit,
+existing-decommit, ledger and nonempty-output guard priority, retry expiry,
+recording and request selection for decommits whose inputs are confirmed.
+`carriedDecommitPayloadRef` separately selects a matching reservation or registry
+entry using bounded output-reference sets. `carriedDecommitRequestRef` checks the
+same-version carry obligation. Neither models transaction witnesses, ledger
+validity, registry key integrity or serialization; Haskell sequence tests cover
+reordering, invalid signatures, hostile duplicates and event/checkpoint recovery.
+Deferred work and the decommit-only wake-up are checked by the separate readiness
+projection. `recoverOutcomeRef` checks registration before
+the finalized-increment guard. These projections exclude deposit selection,
+ledger/cryptographic payloads and chain deadline validation. The Haskell tests
+also compare the complete ordered outcomes and serialized states. Neither these
+comparisons nor the bounded explorer establish an unbounded protocol proof.
+
+The development scheduler uses the node's retry eligibility: unsynced inputs
+park, unresolved-commit snapshot requests retain their budget, other network
+inputs decrement a positive budget, and exhausted inputs drop. Delivery order
+and delay are explored only within explicit limits.
+
+A focused retry-window search receives an initial message prefix, varies each
+party's retry budget independently, then drains remaining messages. It finds the
+finite-expiry progress witness within the default limits. This is a restricted
+schedule family, not exhaustive exploration of all delivery orders or a model of
+the node queue's wall-clock timing.
+
+Separate Haskell sequences exercise three parties through deposit activation,
+signed confirmation, increment, spending the deposit, rollback and re-observation.
+They vary the rollback boundary, confirmation timing and re-observation order,
+and check serialized events and checkpoints after every transition. Chain inputs
+are assumed valid; these checks do not validate Cardano settlement transactions
+or extend the Agda model to rollback, crash recovery or general liveness.
+
+A fixed three-party Haskell sequence preserves the historical decommit failure:
+`reqDec` accepts a decommit against the optimistic local ledger, but `reqSn`
+applies it before ordinary transactions against the confirmed ledger. The old
+leader therefore requests a decommit before its dependency exists. Its snapshot
+rebase also restores the reserved input. The corrected sequence preserves the
+reservation, confirms the dependency in snapshot 2, and starts a decommit-only
+snapshot 3. The regression checks serialized events and checkpoints at every prefix.
+It is a deterministic SimpleTx witness, not a general progress proof.
+
+The development checks independently require exact registry payload equality for
+locally pending transactions, reconstruct the local UTxO from the current
+snapshot and pending sequence, and check for stranded work when an honest
+scenario has no queued deliveries or retries. Random scheduled prefixes check
+safety; fair delivery before retry exhaustion checks confirmation of dependent
+work. None is a proof of chain progress or Byzantine liveness.
+
+The implemented duplicate policy ignores a transaction identifier already in the
+local sequence and registry before staging receipt or consulting the ledger.
+It prevents an invalid same-ID witness variant replacing a validated payload and
+a duplicate timeout deleting it. `reqTxKnownOutcomeRef` models this guard; the
+lemma above establishes its no-change outcome independently of the primitive
+answer. The original one-attempt projection remains for fresh IDs. This does not
+repair a registry already corrupted by historical events.
+
+Finite retry expiry still drops a missing dependency; progress then requires
+client re-submission. The normal-interpreter witness and recovery test make this
+policy explicit. An invalid early acknowledgement is still retained until the
+aggregate check and blocks replacement from that party. Rejection is safe, but
+there is no automatic recovery or Byzantine progress guarantee; closing the head
+remains the protocol exit. Altering this acknowledgement policy requires a
+separate protocol decision. Regression tests preserve its ordered events.
+
+The instruction language, evaluator and trace vocabulary are separate modules.
+A rule's public environment excludes signing keys. All programs use the same
+interpreter configuration with functions for each primitive.
+
+=== Retained-event machines
+
+The Haskell implementation applies retained `StateChanged` events through
+three sequential owners: tracked deposits, head lifecycle, and the node clock.
+The open lifecycle state contains the composed snapshot and transaction owners.
+Their ports carry owned projections and settlement context, never a mutable
+NodeState. The deposit registry supplies a deposit value before consuming it.
+The input rules above still choose events and effects. A rejected input commits
+no events; a waiting input commits its retained prefix. Event replay performs
+neither admission checks nor signature verification.
+
+The lifecycle projection distinguishes Idle, Open, Closed, ReadyToFanout,
+PendingFanout and FanoutProgress. Init opens the head directly in this branch.
+ReadyToFanout records that a notification was sent; contestation can extend the
+deadline without resetting that flag. PendingFanout represents optimistic
+fanout with no distributed output observed. Reverting it restores Closed with
+the notification flag set. Rollback updates chain state and tracked deposit
+history; it does not undo off-chain transactions or snapshot versions.
+
+An open head separately tracks a selected deposit and a pending decommit. Raw
+persisted events can represent both, so the replay machine includes that state;
+the mutual-exclusion guards above remain necessary. A deposit's recorded,
+active, expired and consumed phases are distinct from its selection for a
+snapshot. Re-observation resets its record slot; rollback can remove the record
+or undo its consumption while retaining its stored activation status.
+
+Snapshot coordination has no request seen, idle after a snapshot, request sent,
+and collecting signatures phases. Outside Open the coordination component is
+inactive, although a closed head can adopt the signed snapshot of a contest.
+Transaction receipt and partial acknowledgement do not create new coordination
+phases. A fresh settlement preserves a snapshot collecting signatures and resets
+other coordination phases to the last confirmed number. A repeated settlement
+preserves the phase. Retry queues and waiting inputs are scheduler state.
+
+`OffChainReference.agda` defines independent lifecycle, coordination and tracked
+deposit phase functions, plus the pending-action projection. Differential tests
+compare these abstractions with event application. Separate tests check complete
+states across continuous execution, reconstruction and CBOR recovery. The finite phase graphs permit raw replay
+transitions that admission guards exclude. They do not enumerate ledger
+contents, signature maps, versions, scheduler states or arbitrary history, and
+the comparison is not a proof of the complete node. Checkpoints restore all
+components together; foreign-head filtering precedes their execution.
+
+=== Complete input workflow
+
+Every Haskell input now enters a crem workflow with `Program` actions. Admission
+checks client accumulator bounds before echoing any input, then applies the
+synchronisation gate. Chain inputs remain admissible while catching up; client
+inputs report rejection and network inputs wait. Typed phases carry the Idle,
+Open, Closed or FanoutProgress state into dispatch. Multi-step transaction,
+snapshot, decommit and settlement rules have their own phases; small actions
+compose directly as programs. The interpreter supplies primitives and terminal
+semantics, not protocol decisions.
+
+Tick handling records time, updates synchronisation, changes deposit statuses,
+and finally selects head-specific work. Settlement records finalization before
+attempting snapshot adoption. Adoption requires a matching number, the seen
+snapshot version plus one, the matching incremental action, and valid signatures.
+A failed verification still retains finalization. Rollback reposts retained
+settlements only strictly before their observed slot; it preserves L2 state.
+Closing and contesting may adopt an unconfirmed signed snapshot. Side-loading
+checks snapshot number and L1-relevant fields before signature verification;
+failed requirements report to the client without staging changes.
+
+The independent reference additionally projects input admission, client decommit
+failure priority, settlement adoption, the strict repost boundary, and fanout
+continuation mode. Haskell tests compare these projections with ordered outcomes and check
+serialized replay at each input prefix. These checks do not prove the routing table,
+fanout multiset arithmetic, chain validity, termination or distributed progress.
+
+A two-head recovery test checks that a recovery observation consumes a registered
+deposit from a previous head while another head is active. `DepositRecovered` is
+node-level and is explicitly exempt from the retained-event head-id filter.
+
+=== Composed snapshot and transaction state
+
+ReqTx, ReqDec, ReqSn, AckSn, settlement and side-loading stage their core changes
+through live crem transitions. Event recovery shares the storage updates without
+repeating live snapshot admission. One component owns the candidate snapshot,
+signature map and confirmed snapshot; another owns the transaction registry,
+local transaction sequence, local UTxO and pending decommit. Crem's sequential
+composition connects them with a typed rebase command. The snapshot component
+supplies the snapshot and retained transactions; only the transaction component
+chooses how to reconstruct its UTxO. Neither component receives a NodeState.
+
+Live confirmation requires an opaque result from successful multisignature
+verification of an owner-issued candidate handle. The handle binds the Head,
+version, number, canonical signing contents and ordered committee. Confirmation
+checks that it still identifies the owned candidate. Adoption uses separate
+certificate evidence and checks the Head and committee. A refusal rejects the
+Program, discarding staged changes and effects. Restoring a candidate derives its
+signing bytes from the snapshot rather than trusting a supplied cache. This still
+depends on the primitive implementation; it is not a proof of cryptography in
+the type system. Replay trusts retained events
+and skips verification. The snapshot owner also handles explicit adoption,
+clearing, settlement retention and version changes. The transaction owner handles
+deposit selection, recovery and reservation release. A repeated settlement does
+not release a newer reservation; rollback only updates the chain context.
+Lifecycle owns closed-state snapshot adoption. Checkpoint restoration rebuilds
+all owners from the unchanged persisted representation.
+
+Applying one retained outcome shares a runtime across its event list, including
+wait prefixes. A checkpoint in that list resets every component. Execution after
+each input still resumes from NodeState; no continuation is persisted. Tests
+compare batched application with event-by-event application and serialized replay, including checkpoints and foreign-head events.
+
+The conversion preserves Complete, Wait and Reject semantics and event ordering,
+including duplicate partial-ack signature events. State and event encodings
+remain unchanged. Two decommit corrections accompany the implementation: rebase
+removes pending spending inputs after rebuilding, and request selection defers
+new decommits until their required inputs are confirmed. A newly eligible
+decommit can start a round without ordinary transactions; a carried one cannot.
+
+OffChainReference.agda independently states reservation exclusion, confirmed
+input availability, reservation-preserving rebase and the decommit-only wake-up
+condition. Tests compare the actual owner and request selection against these
+functions over subsets of three output identities. Cardano input-availability
+tests cover spending, reference and collateral references separately. The Agda
+projection excludes scripts, time validity, settlement history and Cardano
+ledger validation.
+Checkpoint restoration retains its old representation and does not repair
+historically inconsistent state by itself.
+
+The reference also projects the version and reservation after decrement
+observations. Bounded tests cover fresh, equal and older versions with and without
+a pending reservation. Complete Haskell sequence tests cover deposit activation,
+settlement before acknowledgement, reobservation, rollback, explicit adoption,
+clearing and recovery, comparing uninterrupted continuations with reconstruction
+and CBOR round trips at every prefix. The natural-number projection does not
+model settlement payload identity; the sequence tests cover that separately.
+
+
+=== Decommit authority and confirmation disposition
+
+The transaction owner distinguishes `NoDecommit`, `DecommitPending` and
+`AwaitingSettlement`. These describe local intent and current-version authority,
+not merely whether a transaction field is populated. Recording a local decommit
+enters `DecommitPending`; confirmation carrying it enters `AwaitingSettlement`;
+a conflicting confirmation releases it to `NoDecommit`. Adoption can enter
+`AwaitingSettlement` without a local transaction. Fresh decrement observation
+returns to `NoDecommit`; repeated observations and rollback do not reinstate old
+work. `AwaitingSettlement` cannot transition directly to `DecommitPending`.
+Crem checks that missing edge; guards additionally prevent replacing an operation
+within a phase, since Crem permits identity transitions.
+
+`OffChainReference.agda` independently defines this transition relation and proves
+that the replacement edge is impossible. Its `retainReservationRef` checks carried
+authority or surviving required inputs, `decommitAdmissionRef` accounts for both
+local intent and confirmed authority, and `verificationContextRef` compares Head
+identity and ordered committees. Haskell tests compare these predicates over
+bounded sets and real signature verification. The reference abstracts keys and
+UTxO names; it does not prove cryptography, ledger validity, crash safety or
+progress under arbitrary delivery. Separate integration schedules check 24
+orders of competing ordinary and decommit spends, with serialized replay at
+every delivery. Persisted constructors and their encodings are unchanged.

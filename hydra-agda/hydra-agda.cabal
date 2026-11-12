@@ -42,7 +42,9 @@ library
   -- only the hand-written shims in src/.
   other-modules:
     MAlonzo.Code.Agda.Builtin.Bool
+    MAlonzo.Code.Agda.Builtin.Equality
     MAlonzo.Code.Agda.Builtin.List
+    MAlonzo.Code.Agda.Builtin.Maybe
     MAlonzo.Code.Agda.Builtin.Nat
     MAlonzo.Code.Agda.Primitive
     MAlonzo.Code.Hydra.Protocol.OffChainReference

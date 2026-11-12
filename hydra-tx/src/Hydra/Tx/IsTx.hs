@@ -6,7 +6,8 @@
 
 module Hydra.Tx.IsTx where
 
-import Hydra.Cardano.Api
+import Hydra.Cardano.Api (CtxUTxO, IsShelleyBasedEra, LedgerEra, Tx, TxId, TxOut, UTxO, Value, deserialiseFromCBOR, fromLedgerTx, getTxBody, getTxId, ledgerEraVersion, parseUTxOFromJSON, proxyToAsType, serialiseToCBOR, serialiseToRawBytes, serialiseToTextEnvelope, shelleyBasedEra, toPlutusTxOut, pattern UTxO)
+import Hydra.Cardano.Api qualified as Cardano
 import Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
@@ -14,7 +15,7 @@ import Cardano.Ledger.Binary (decCBOR, decodeFullAnnotator)
 import Cardano.Ledger.Shelley.UTxO qualified as Ledger
 import Codec.CBOR.Decoding qualified as CBOR
 import Codec.CBOR.Encoding qualified as CBOR
-import Data.Aeson ((.:), (.:?))
+import Data.Aeson (FromJSONKey, ToJSONKey, (.:), (.:?))
 import Data.Aeson qualified as Aeson
 import Data.Aeson.KeyMap qualified as KeyMap
 import Data.Aeson.Types (withObject)
@@ -103,6 +104,14 @@ class
 
   -- | Return the left-hand side without the right-hand side.
   withoutUTxO :: UTxOType tx -> UTxOType tx -> UTxOType tx
+
+  -- | Whether every input the transaction refers to is available, including
+  -- reference and collateral inputs. This does not validate scripts or time.
+  txInputsAvailable :: tx -> UTxOType tx -> Bool
+
+  -- | Remove spending inputs that are present, without adding outputs. This
+  -- also works when some inputs are absent, as when retaining a reservation.
+  withoutTxInputs :: tx -> UTxOType tx -> UTxOType tx
 
   -- | Apply a transaction to a UTxO via pure UTxO arithmetic, returning the
   -- post-tx UTxO. Removes the tx's inputs from the given UTxO and adds the
@@ -224,7 +233,20 @@ instance IsTx Tx where
 
   withoutUTxO = UTxO.difference
 
-  applyTxTo tx utxo = (utxo `UTxO.difference` Api.resolveInputsUTxO utxo tx) <> Api.utxoFromTx tx
+  txInputsAvailable tx (UTxO available) = all (`Map.member` available) required
+   where
+    body = Cardano.getTxBodyContent $ getTxBody tx
+    required = (fst <$> Cardano.txIns body) <> references <> collateral
+    references = case Cardano.txInsReference body of
+      Cardano.TxInsReferenceNone -> []
+      Cardano.TxInsReference inputs _ -> inputs
+    collateral = case Cardano.txInsCollateral body of
+      Cardano.TxInsCollateralNone -> []
+      Cardano.TxInsCollateral inputs -> inputs
+
+  withoutTxInputs tx utxo = utxo `UTxO.difference` Api.resolveInputsUTxO utxo tx
+
+  applyTxTo tx utxo = withoutTxInputs tx utxo <> Api.utxoFromTx tx
 
   filterUTxOByOutputs utxo outputs = UTxO.filter (`Set.member` outputs) utxo
 

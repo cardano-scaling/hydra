@@ -421,7 +421,7 @@ runHydraNode ::
   ) =>
   HydraNode tx m ->
   m ()
-runHydraNode node@HydraNode{tracer, networkOutbox, nodeStateHandler = NodeStateHandler{queryNodeState}} = flip finally reportDiscarded . withNetworkOutbox node . raceLabelled_ ("node-health", monitorNodeHealth node) . ("node-loop",) $ do
+runHydraNode node@HydraNode{tracer, env, ledger, networkOutbox, nodeStateHandler = NodeStateHandler{queryNodeState}} = flip finally reportDiscarded . withNetworkOutbox node . raceLabelled_ ("node-health", monitorNodeHealth node) . ("node-loop",) $ do
   -- On startup, resume an interrupted fanout: if the node is mid-fanout
   -- ('FanoutProgress'), re-emit the next fanout step so an auto-drain whose
   -- driver crashed after its last observed chunk continues instead of stalling
@@ -436,7 +436,7 @@ runHydraNode node@HydraNode{tracer, networkOutbox, nodeStateHandler = NodeStateH
   -- computes an outcome, and this calls 'repostFanoutStep' directly rather than
   -- going through an input.
   atomically queryNodeState >>= \ns -> case headState ns of
-    FanoutProgress pfs -> case HeadLogic.repostFanoutStep pfs of
+    FanoutProgress pfs -> case HeadLogic.repostFanoutStep (HeadLogic.interpreterConfig env ledger) pfs of
       Continue{effects} -> processEffects node tracer 0 effects
       _ -> pure ()
     _ -> pure ()

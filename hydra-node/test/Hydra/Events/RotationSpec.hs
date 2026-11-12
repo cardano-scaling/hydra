@@ -11,10 +11,10 @@ import Data.List qualified as List
 import Data.Map.Strict qualified as Map
 import Hydra.Chain (OnChainTx (..))
 import Hydra.Chain.ChainState (IsChainState)
+import Hydra.HeadLogic (HeadState (..), StateChanged (..), aggregateNodeState)
 import Hydra.HeadLogic.StateEvent (StateEvent (..), mkCheckpoint)
 import Hydra.Ledger.Simple (SimpleTx, simpleLedger)
 import Hydra.Node (DraftHydraNode, hydrate)
-import Hydra.Node.HeadLogic (HeadState (..), StateChanged (..), aggregateNodeState)
 import Hydra.Node.State (NodeState (..), initNodeState, pendingDeposits)
 import Hydra.NodeSpec (createMockEventStore, inputsToOpenHead, notConnect, observationInput, primeWith, primeWithTime, runToCompletion)
 import Hydra.Tx.ContestationPeriod (toNominalDiffTime)

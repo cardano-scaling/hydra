@@ -30,8 +30,8 @@ import Database.SQLite.Simple.FromField (FromField (..), ResultError (..), retur
 import Database.SQLite.Simple.Internal (Field (..))
 import Database.SQLite.Simple.Ok (Ok (..))
 import Hydra.Chain.ChainState (IsChainState)
+import Hydra.HeadLogic (aggregateNodeState)
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
-import Hydra.Node.HeadLogic (aggregateNodeState)
 import Hydra.Node.State (NodeState)
 
 -- | One entry in the scrub-able history: the persisted event and the
