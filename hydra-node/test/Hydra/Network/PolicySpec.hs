@@ -5,7 +5,7 @@ import Test.Hydra.Prelude
 
 import Cardano.Binary (decodeFull', serialize')
 import Control.Concurrent.Class.MonadSTM (modifyTVar', readTVarIO, retry, writeTVar)
-import Control.Tracer (nullTracer)
+import Control.Tracer (Tracer (..), emit, nullTracer)
 import Data.Aeson.Types (parseEither)
 import Data.Map.Strict qualified as Map
 import Data.Secret (Secret)
@@ -69,21 +69,22 @@ spec = do
         let recordAccess = atomically $ modifyTVar' accessed (+ 1)
             store = PolicyStore{publish = const recordAccess, load = recordAccess >> pure []}
         start <- getMonotonicTime
-        started <- withPolicyAgreement nullTracer aliceSk [bob] Nothing "alice-new" store $ do
-          started <- getMonotonicTime
+        started <- newLabelledTVarIO "started" Nothing
+        withPolicyAgreement nullTracer aliceSk [bob] Nothing "alice-new" store $ do
+          now <- getMonotonicTime
+          atomically $ writeTVar started (Just $ diffTime now start)
           threadDelay 2
-          pure started
-        (diffTime started start,) <$> readTVarIO accessed
-      elapsed `shouldBe` 0
+        (,) <$> readTVarIO started <*> readTVarIO accessed
+      elapsed `shouldBe` Just 0
       accesses `shouldBe` 0
 
     it "starts a single-party node immediately" $ do
       elapsed <- shouldRunInSim $ do
         store <- newStore []
         start <- getMonotonicTime
-        withPolicyAgreement nullTracer aliceSk [] (Just policy) "alice-new" store $ do
-          end <- getMonotonicTime
-          pure $ diffTime end start
+        withPolicyAgreement nullTracer aliceSk [] (Just policy) "alice-new" store $ pure ()
+        end <- getMonotonicTime
+        pure $ diffTime end start
       elapsed `shouldBe` 0
 
     it "waits for every party, then runs the action" $ do
@@ -108,76 +109,90 @@ spec = do
       early `shouldBe` False
       completed `shouldBe` True
 
-    it "fails after exactly five minutes and names the missing party" $ do
-      (result, elapsed, started) <- shouldRunInSim $ do
+    it "logs the missing party and stops polling after exactly five minutes" $ do
+      (logs, elapsed, started, accessesAtTimeout, accessesLater) <- shouldRunInSim $ do
+        (tracer, readLogs) <- newPolicyTracer
         store <- newStore []
         started <- newLabelledTVarIO "started" False
+        accessed <- newLabelledTVarIO "policy-store-accesses" (0 :: Int)
+        let recordAccess = atomically $ modifyTVar' accessed (+ 1)
+            countedStore =
+              store
+                { publish = \declaration -> recordAccess >> publish store declaration
+                , load = recordAccess >> load store
+                }
         start <- getMonotonicTime
-        result <-
-          try $
-            withPolicyAgreement nullTracer aliceSk [bob] (Just policy) "alice-new" store $
-              atomically $
-                writeTVar started True
+        withPolicyAgreement tracer aliceSk [bob] (Just policy) "alice-new" countedStore $
+          atomically $
+            writeTVar started True
         end <- getMonotonicTime
-        (result,diffTime end start,) <$> readTVarIO started
-      result `shouldBe` Left (PolicyAgreementTimedOut policy [bob] [])
+        accessesAtTimeout <- readTVarIO accessed
+        threadDelay 10
+        (,,,,) <$> readLogs <*> pure (diffTime end start) <*> readTVarIO started <*> pure accessesAtTimeout <*> readTVarIO accessed
+      logs `shouldBe` [WaitingForPolicyAgreement policy [bob], PolicyAgreementTimedOut policy [bob] []]
+      elapsed `shouldBe` 300
+      started `shouldBe` False
+      accessesAtTimeout `shouldSatisfy` (> 0)
+      accessesLater `shouldBe` accessesAtTimeout
+
+    it "reports a different policy without running the action" $ do
+      (logs, elapsed, started) <- shouldRunInSim $ do
+        (tracer, readLogs) <- newPolicyTracer
+        store <- newStore [response bobSk bob otherPolicy "alice-new"]
+        started <- newLabelledTVarIO "started" False
+        start <- getMonotonicTime
+        withPolicyAgreement tracer aliceSk [bob] (Just policy) "alice-new" store $
+          atomically $
+            writeTVar started True
+        end <- getMonotonicTime
+        (,,) <$> readLogs <*> pure (diffTime end start) <*> readTVarIO started
+      logs `shouldBe` [WaitingForPolicyAgreement policy [bob], PolicyAgreementTimedOut policy [] [(bob, otherPolicy)]]
       elapsed `shouldBe` 300
       started `shouldBe` False
 
-    it "reports a different policy without running the action" $ do
-      (result, elapsed) <- shouldRunInSim $ do
-        store <- newStore [response bobSk bob otherPolicy "alice-new"]
-        start <- getMonotonicTime
-        result <-
-          try $
-            withPolicyAgreement nullTracer aliceSk [bob] (Just policy) "alice-new" store $
-              pure ()
-        end <- getMonotonicTime
-        pure (result, diffTime end start)
-      result `shouldBe` Left (PolicyAgreementTimedOut policy [] [(bob, otherPolicy)])
-      elapsed `shouldBe` 300
-
     it "keeps the five-minute deadline when the store is unreachable" $ do
-      (result, elapsed) <- shouldRunInSim $ do
+      (logs, elapsed, started) <- shouldRunInSim $ do
+        (tracer, readLogs) <- newPolicyTracer
         store <- newStore []
+        started <- newLabelledTVarIO "started" False
         start <- getMonotonicTime
-        result <-
-          try $
-            withPolicyAgreement nullTracer aliceSk [bob] (Just policy) "alice-new" store{publish = const $ atomically retry} $
-              pure ()
+        withPolicyAgreement tracer aliceSk [bob] (Just policy) "alice-new" store{publish = const $ atomically retry} $
+          atomically $
+            writeTVar started True
         end <- getMonotonicTime
-        pure (result, diffTime end start)
-      result `shouldBe` Left (PolicyAgreementTimedOut policy [bob] [])
+        (,,) <$> readLogs <*> pure (diffTime end start) <*> readTVarIO started
+      logs `shouldBe` [WaitingForPolicyAgreement policy [bob], PolicyAgreementTimedOut policy [bob] []]
       elapsed `shouldBe` 300
+      started `shouldBe` False
 
     it "allows a mismatched peer to align before the deadline" $ do
       elapsed <- shouldRunInSim $ do
         store <- newStore [response bobSk bob otherPolicy "alice-new"]
         start <- getMonotonicTime
-        (_, elapsed) <-
-          concurrentlyLabelled
-            ("align", threadDelay 290 >> publish store (response bobSk bob policy "alice-new"))
-            ( "alice"
-            , withPolicyAgreement nullTracer aliceSk [bob] (Just policy) "alice-new" store $ do
-                end <- getMonotonicTime
-                pure $ diffTime end start
-            )
-        pure elapsed
+        concurrentlyLabelled_
+          ("align", threadDelay 290 >> publish store (response bobSk bob policy "alice-new"))
+          ("alice", withPolicyAgreement nullTracer aliceSk [bob] (Just policy) "alice-new" store $ pure ())
+        end <- getMonotonicTime
+        pure $ diffTime end start
       elapsed `shouldSatisfy` (>= 290)
       elapsed `shouldSatisfy` (< 300)
 
     forM_ ["stale session", "unknown party", "forged signature"] $ \reason ->
       it ("does not accept a " <> reason) $ do
-        result <- shouldRunInSim $ do
+        (logs, started) <- shouldRunInSim $ do
+          (tracer, readLogs) <- newPolicyTracer
           let declaration = case reason of
                 "stale session" -> response bobSk bob policy "alice-old"
                 "unknown party" -> response carolSk carol policy "alice-new"
                 _ -> response carolSk bob policy "alice-new"
           store <- newStore [declaration]
-          try $
-            withPolicyAgreement nullTracer aliceSk [bob] (Just policy) "alice-new" store $
-              pure ()
-        result `shouldBe` Left (PolicyAgreementTimedOut policy [bob] [])
+          started <- newLabelledTVarIO "started" False
+          withPolicyAgreement tracer aliceSk [bob] (Just policy) "alice-new" store $
+            atomically $
+              writeTVar started True
+          (,) <$> readLogs <*> readTVarIO started
+        logs `shouldBe` [WaitingForPolicyAgreement policy [bob], PolicyAgreementTimedOut policy [bob] []]
+        started `shouldBe` False
 
     it "allows all parties to restart with a new policy" $ do
       completed <- shouldRunInSim $ do
@@ -207,6 +222,11 @@ spec = do
             )
         readTVarIO started
       completed `shouldBe` True
+
+newPolicyTracer :: MonadLabelledSTM m => m (Tracer m PolicyLog, m [PolicyLog])
+newPolicyTracer = do
+  logs <- newLabelledTVarIO "policy-logs" []
+  pure (Tracer . emit $ \entry -> atomically $ modifyTVar' logs (entry :), reverse <$> readTVarIO logs)
 
 newStore :: MonadLabelledSTM m => [Signed PolicyAnnouncement] -> m (PolicyStore m)
 newStore initial = do

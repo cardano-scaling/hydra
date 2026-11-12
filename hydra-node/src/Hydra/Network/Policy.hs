@@ -41,25 +41,14 @@ data PolicyStore m = PolicyStore
   , load :: m [Signed PolicyAnnouncement]
   }
 
-data PolicyAgreementException = PolicyAgreementTimedOut
-  { ourPolicy :: PolicyFingerprint
-  , missingParties :: [Party]
-  , mismatchedPolicies :: [(Party, PolicyFingerprint)]
-  }
-  deriving stock (Eq, Show)
-
-instance Exception PolicyAgreementException where
-  displayException PolicyAgreementTimedOut{ourPolicy = PolicyFingerprint fingerprint, missingParties, mismatchedPolicies} =
-    "Policy agreement timed out after five minutes. Local policy: "
-      <> toString fingerprint
-      <> ". Parties without a fresh acknowledgement: "
-      <> show missingParties
-      <> ". Parties using a different policy: "
-      <> show mismatchedPolicies
-
 data PolicyLog
   = WaitingForPolicyAgreement PolicyFingerprint [Party]
   | PolicyAgreementReached PolicyFingerprint
+  | PolicyAgreementTimedOut
+      { ourPolicy :: PolicyFingerprint
+      , missingParties :: [Party]
+      , mismatchedPolicies :: [(Party, PolicyFingerprint)]
+      }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON)
 
@@ -86,15 +75,15 @@ policyFingerprint =
       Just (AllowOnlyPolicies policies) -> Just $ Set.toAscList policies
 
 withPolicyAgreement ::
-  (MonadAsync m, MonadTimer m, MonadDelay m, MonadMask m, MonadLabelledSTM m) =>
+  (MonadAsync m, MonadTimer m, MonadDelay m, MonadLabelledSTM m) =>
   Tracer m PolicyLog ->
   Secret (SigningKey HydraKey) ->
   [Party] ->
   Maybe PolicyFingerprint ->
   Text ->
   PolicyStore m ->
-  m a ->
-  m a
+  m () ->
+  m ()
 withPolicyAgreement _ _ _ Nothing _ _ action = action
 withPolicyAgreement tracer signingKey otherParties (Just fingerprint) session PolicyStore{publish, load} action = do
   observed <- newLabelledTVarIO "peer-policies" Map.empty
@@ -126,7 +115,8 @@ withPolicyAgreement tracer signingKey otherParties (Just fingerprint) session Po
           Just () -> traceWith tracer (PolicyAgreementReached fingerprint) >> action
           Nothing -> do
             peers <- readTVarIO observed
-            throwIO
+            traceWith
+              tracer
               PolicyAgreementTimedOut
                 { ourPolicy = fingerprint
                 , missingParties = Set.toList $ expected Set.\\ Map.keysSet peers
