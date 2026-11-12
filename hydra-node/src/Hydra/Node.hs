@@ -49,6 +49,7 @@ import Hydra.Network (Host (..), Network (..), NetworkCallback (..))
 import Hydra.Network qualified as Network
 import Hydra.Network.Authenticate (Authenticated (..))
 import Hydra.Network.Message (Message (..), NetworkEvent (..))
+import Hydra.Network.Policy (PolicyFingerprint)
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.InputQueue (InputQueue (..), Queued (..), createInputQueue)
 import Hydra.Node.Outbox (Outbox (..), StallBounds (..), newOutbox)
@@ -58,14 +59,14 @@ import Hydra.Node.Stats (NodeStats, nodeStats)
 import Hydra.Node.UnsyncedPeriod (UnsyncedPeriod (..))
 import Hydra.Node.Util (readFileTextEnvelopeThrow, readSigningKey, readVerificationKey)
 import Hydra.Options (CardanoChainConfig (..), ChainConfig (..), RunOptions (..), defaultContestationPeriod, defaultDepositActivation, defaultDepositPeriod)
-import Hydra.Tx (HeadParameters (..), Party (..), deriveParty)
+import Hydra.Tx (HeadId, HeadParameters (..), Party (..), deriveParty)
 import Hydra.Tx.Utils (verificationKeyToOnChainId)
 
 -- * Environment Handling
 
 -- | Initialize the 'Environment' from command line options.
-initEnvironment :: RunOptions -> IO Environment
-initEnvironment options = do
+initEnvironment :: RunOptions -> Maybe PolicyFingerprint -> IO Environment
+initEnvironment options policy = do
   -- Wrap the raw key as soon as it leaves disk: every in-process holder
   -- after this point sees only a 'Secret'.
   sk <- mkSecret <$> readFileTextEnvelopeThrow hydraSigningKey
@@ -82,6 +83,7 @@ initEnvironment options = do
       , depositActivation
       , unsyncedPeriod
       , configuredPeers
+      , configuredPolicy = policy
       }
  where
   -- XXX: This is mostly a cardano-specific initialization step of loading
@@ -166,6 +168,38 @@ checkHeadState tracer env headState = do
 
   Environment{contestationPeriod = configuredCp, depositPeriod = configuredDp, otherParties, party} = env
 
+-- * User Policy handling
+
+--
+data PolicyBindingException
+  = PolicyHeadMismatch HeadId (Maybe HeadId)
+  | HeadPolicyMismatch
+      HeadId
+      PolicyFingerprint
+      (Maybe PolicyFingerprint)
+  deriving stock (Show)
+
+instance Exception PolicyBindingException
+
+checkHeadPolicy :: MonadThrow m => Environment -> NodeState tx -> m ()
+checkHeadPolicy env nodeState =
+  case headPolicies nodeState of
+    Nothing ->
+      pure ()
+    Just (boundHeadId, expectedPolicy) -> do
+      let recoveredHeadId = HeadLogic.headIdOf (headState nodeState)
+
+      unless (recoveredHeadId == Just boundHeadId) $
+        throwIO $
+          PolicyHeadMismatch boundHeadId recoveredHeadId
+
+      unless (configuredPolicy env == Just expectedPolicy) $
+        throwIO $
+          HeadPolicyMismatch
+            boundHeadId
+            expectedPolicy
+            (configuredPolicy env)
+
 -- * Create and run a hydra node
 
 -- | A draft version of the 'HydraNode' that holds state, but is not yet
@@ -214,6 +248,7 @@ hydrate tracer env ledger initialChainState EventStore{eventSource, eventSink} e
   -- Check whether the loaded state matches our configuration (env)
   -- XXX: re-stream events just for this?
   checkHeadState tracer env (headState nodeState)
+  checkHeadPolicy env nodeState
   -- (Re-)submit events to sinks; de-duplication is handled by the sinks
   unless (null eventSinks) $ do
     traceWith tracer ReplayingState

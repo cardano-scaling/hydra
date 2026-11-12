@@ -54,6 +54,7 @@ sampleEnvironment =
     , unsyncedPeriod = defaultUnsyncedPeriodFor cperiod
     , participants = deriveOnChainId <$> [alice, bob, carol]
     , configuredPeers = ""
+    , configuredPolicy = Nothing
     }
 
 -- | The mock ledger used by every sample party.

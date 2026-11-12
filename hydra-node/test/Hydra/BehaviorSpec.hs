@@ -1957,6 +1957,7 @@ createHydraNodeWithEventStore EventStore{eventSource, eventSink} events tracer l
       , unsyncedPeriod = defaultUnsyncedPeriodFor cp
       , participants
       , configuredPeers = ""
+      , configuredPolicy = Nothing
       }
   party = deriveParty signingKey
 

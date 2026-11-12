@@ -66,7 +66,7 @@ import Test.Hydra.Ledger.Simple (aValidTx, utxoRefs)
 import Test.Hydra.Node.Fixture (testEnvironment)
 import Test.Hydra.Tx.Fixture (alice, defaultPParams, testHeadId)
 import Test.Hydra.Tx.Gen ()
-import Test.QuickCheck (checkCoverage, cover, forAllShrink, generate, listOf, suchThat)
+import Test.QuickCheck (checkCoverage, cover, forAllShrink, generate, listOf, resize, suchThat)
 import Test.QuickCheck.Arbitrary.ADT (ADTArbitrary (..), ConstructorArbitraryPair (..), toADTArbitrary)
 import Test.QuickCheck.Monadic (monadicIO, monitor, pick, run)
 
@@ -273,7 +273,9 @@ spec =
                 guard $ isNothing $ v ^? key "utxo"
 
     it "sequence numbers on history are based on the event id" $
-      forAllShrink (listOf genStateEventForApi) shrink $ \events -> do
+      -- Vary history length independently of payload size: large snapshots
+      -- add serialization work unrelated to the sequence numbers under test.
+      forAllShrink (listOf $ resize 5 genStateEventForApi) shrink $ \events -> do
         monadicIO $ do
           run $
             -- NOTE: 20s, matching the similar property test above, so the
@@ -739,6 +741,7 @@ spec =
 surfacedOutputs :: [(String, Maybe Text)]
 surfacedOutputs =
   [ ("HeadOpened", Just "HeadIsOpen")
+  , ("HeadPolicyBound", Nothing)
   , ("HeadClosed", Just "HeadIsClosed")
   , ("HeadContested", Just "HeadIsContested")
   , ("HeadIsReadyToFanout", Just "ReadyToFanout")

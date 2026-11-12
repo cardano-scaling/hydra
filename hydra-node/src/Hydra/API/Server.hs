@@ -311,6 +311,7 @@ mkTimedServerOutputFromStateEvent mSeenSnapshot event =
     StateChanged.Checkpoint{state} -> Just $ EventLogRotated state
     StateChanged.NodeUnsynced{..} -> Just NodeUnsynced{..}
     StateChanged.NodeSynced{..} -> Just NodeSynced{..}
+    StateChanged.HeadPolicyBound{} -> Nothing
 
 -- | Advance the seen-snapshot state as events are processed sequentially.
 updateSeenSnapshot :: Maybe (Snapshot tx) -> StateChanged.StateChanged tx -> Maybe (Snapshot tx)

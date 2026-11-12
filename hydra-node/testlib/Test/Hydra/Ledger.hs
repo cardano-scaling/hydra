@@ -10,10 +10,15 @@ import Test.Hydra.Prelude
 import Hydra.Chain.ChainState (ChainSlot (..))
 import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Tx.IsTx (UTxOType)
+import Hydra.UserValidationRules (PolicyViolation)
+import Test.Hydra.Tx.Gen ()
 import Test.QuickCheck.Instances.Natural ()
 import Test.QuickCheck.Instances.Text ()
 
 instance Arbitrary ValidationError where
+  arbitrary = genericArbitrary
+
+instance Arbitrary PolicyViolation where
   arbitrary = genericArbitrary
 
 -- | Get the next chain slot. Use this instead of giving 'Enum' or 'Num'

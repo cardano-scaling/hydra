@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedRecordDot #-}
+
 module Hydra.Node.Run where
 
 import Hydra.Prelude hiding (fromList)
@@ -32,6 +34,7 @@ import Hydra.Ledger (Ledger)
 import Hydra.Ledger.Cardano (cardanoLedger, newLedgerEnv)
 import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Logging.Monitoring (isMetricSample, withMonitoringForBackend)
+import Hydra.Network.Policy (policyFingerprint)
 import Hydra.Node (
   DraftHydraNode (networkOutbox),
   HydraNode (eventSinks),
@@ -58,6 +61,7 @@ import Hydra.Options (
   RunOptions (..),
   validateRunOptions,
  )
+import Hydra.UserValidationRules (UserValidationRules, loadUserValidationRules)
 import Hydra.Utils (readJsonFileThrow)
 import Ouroboros.Consensus.HardFork.History qualified as Consensus
 import System.FilePath ((</>))
@@ -95,11 +99,13 @@ run opts = do
       traceWith tracer LoadingTrustedSetup
       numG1Points <- either (throwIO . TrustedSetupException) pure KZG.warmup
       traceWith tracer TrustedSetupLoaded{numG1Points}
-      env@Environment{party, otherParties, signingKey} <- initEnvironment opts
+      rules <- traverse loadUserValidationRules opts.policy
+      let policy = policyFingerprint <$> rules
+      env@Environment{party, otherParties, signingKey} <- initEnvironment opts policy
       -- Ledger
       pparams <- readJsonFileThrow parseJSON (cardanoLedgerProtocolParametersFile ledgerConfig)
       globals <- getGlobalsForChain (contramap DirectChain tracer) chainConfig
-      withCardanoLedger pparams globals $ \ledger -> do
+      withCardanoLedger rules pparams globals $ \ledger -> do
         -- Hydrate with event source and sinks
         let stateFile = persistenceDir </> "state"
             dbFile = persistenceDir </> "hydra.db"
@@ -132,6 +138,7 @@ run opts = do
               withNetwork
                 (contramap Network tracer)
                 networkConfiguration
+                policy
                 (wireNetworkInput wetHydraNode)
                 $ \network -> do
                   traceWith tracer NetworkStarted
@@ -150,10 +157,10 @@ run opts = do
   addEventSink :: EventSink (StateEvent tx) m -> HydraNode tx m -> HydraNode tx m
   addEventSink sink node = node{eventSinks = sink : eventSinks node}
 
-  withCardanoLedger :: PParams LedgerEra -> Globals -> (Ledger Tx -> m a) -> m a
-  withCardanoLedger protocolParams globals action =
+  withCardanoLedger :: Maybe UserValidationRules -> PParams LedgerEra -> Globals -> (Ledger Tx -> m a) -> m a
+  withCardanoLedger rules protocolParams globals action =
     let ledgerEnv = newLedgerEnv protocolParams
-     in action (cardanoLedger globals ledgerEnv)
+     in action (cardanoLedger rules globals ledgerEnv)
 
   prepareChainComponent ::
     Monad m =>

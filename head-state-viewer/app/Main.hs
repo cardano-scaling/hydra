@@ -217,6 +217,7 @@ main = do
               , unsyncedPeriod = defaultUnsyncedPeriodFor cperiod
               , participants = deriveOnChainId <$> [alice, bob, carol]
               , configuredPeers = ""
+              , configuredPolicy = Nothing
               }
           mkSpec self sk peers =
             PartySpec

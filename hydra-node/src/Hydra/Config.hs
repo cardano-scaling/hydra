@@ -186,6 +186,7 @@ parseRunOptions = withObject "RunOptions" $ \o -> do
     , "ledger-protocol-parameters"
     , "use-system-etcd"
     , "api-transaction-timeout"
+    , "policy"
     ]
     o
   quiet <- o .:? "quiet" .!= False
@@ -219,6 +220,7 @@ parseRunOptions = withObject "RunOptions" $ \o -> do
   useSystemEtcd <- o .:? "use-system-etcd" .!= False
   let whichEtcd = if useSystemEtcd then SystemEtcd else EmbeddedEtcd
   apiTransactionTimeout <- o .:? "api-transaction-timeout" .!= ApiTransactionTimeout 300
+  policy <- o .:? "policy" .!= Nothing
   pure
     RunOptions
       { verbosity
@@ -239,6 +241,7 @@ parseRunOptions = withObject "RunOptions" $ \o -> do
       , ledgerConfig
       , whichEtcd
       , apiTransactionTimeout
+      , policy
       }
 
 -- ---------------------------------------------------------------------------

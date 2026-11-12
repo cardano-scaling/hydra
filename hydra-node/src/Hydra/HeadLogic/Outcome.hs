@@ -15,6 +15,7 @@ import Hydra.HeadLogic.State (FanoutMode (..))
 import Hydra.Ledger (ValidationError)
 import Hydra.Network (Host, ProtocolVersion, StallReason)
 import Hydra.Network.Message (Message)
+import Hydra.Network.Policy (PolicyFingerprint)
 import Hydra.Node.State (Deposit, NodeState)
 import Hydra.Tx (
   HeadId,
@@ -176,6 +177,10 @@ data StateChanged tx
   | Checkpoint {state :: NodeState tx}
   | NodeUnsynced {chainSlot :: ChainSlot, chainTime :: UTCTime, drift :: NominalDiffTime}
   | NodeSynced {chainSlot :: ChainSlot, chainTime :: UTCTime, drift :: NominalDiffTime}
+  | HeadPolicyBound
+      { headId :: HeadId
+      , policyFingerprint :: PolicyFingerprint
+      }
   deriving stock (Generic)
 
 deriving stock instance (IsChainState tx, IsTx tx, Eq (NodeState tx), Eq (ChainStateType tx)) => Eq (StateChanged tx)
