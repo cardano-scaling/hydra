@@ -385,7 +385,9 @@ restartedNodeCanClose tracer workDir opts hydraScriptsTxId = do
   withUnsyncedSoloHydraNode hydraTracer aliceChainConfig workDir 1 aliceSk [] $ \n1 -> do
     waitMatch (20 * blockTime * 10) n1 $ \v -> do
       guard $ v ^? key "tag" == Just "Greetings"
-      guard $ v ^? key "headStatus" == Just "Closed"
+      guard $ v ^? key "hydraHeadId" == Just (toJSON headId1)
+      -- The contestation deadline can elapse while the node restarts.
+      guard $ (v ^? key "headStatus") `elem` [Just "Closed", Just "FanoutPossible"]
       guard $ v ^? key "me" == Just (toJSON alice)
       guard $ isJust (v ^? key "hydraNodeVersion")
  where

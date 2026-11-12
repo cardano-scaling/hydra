@@ -679,10 +679,7 @@ d_ackSnOutcomeRef_286 v0 v1 v2 v3 v4 v5 v6 v7 v8
                      (coe
                         MAlonzo.Code.Agda.Builtin.List.C__'8759'__22
                         (coe C_recordSignature'7580'_218)
-                        (coe
-                           MAlonzo.Code.Agda.Builtin.List.C__'8759'__22
-                           (coe C_recordSignature'7580'_218)
-                           (coe MAlonzo.Code.Agda.Builtin.List.C_'91''93'_16)))
+                        (coe MAlonzo.Code.Agda.Builtin.List.C_'91''93'_16))
                      (coe MAlonzo.Code.Agda.Builtin.List.C_'91''93'_16))
                   (coe
                      du_if_then_else__16 (coe d_not_54 (coe v6))
@@ -1931,3 +1928,7 @@ d_tick'45'does'45'not'45'erase'45'retained'45'activation_924
 d_tick'45'does'45'not'45'erase'45'retained'45'expiry_926 ::
   MAlonzo.Code.Agda.Builtin.Equality.T__'8801'__12
 d_tick'45'does'45'not'45'erase'45'retained'45'expiry_926 = erased
+-- Hydra.Protocol.OffChainReference.partial-ack-records-once
+d_partial'45'ack'45'records'45'once_928 ::
+  MAlonzo.Code.Agda.Builtin.Equality.T__'8801'__12
+d_partial'45'ack'45'records'45'once_928 = erased

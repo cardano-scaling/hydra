@@ -1611,3 +1611,6 @@ checks this boundary independently; the workflow tests compare it with both the
 returned view and event replay. The status decision itself remains
 `depositStatusRef`. Empty deposits and finalized claims remain excluded from
 new requests by their existing selection rules.
+
+Each accepted partial acknowledgement records one signature event. Replay still
+accepts older duplicate records idempotently; persistence encodings are unchanged.
