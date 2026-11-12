@@ -35,18 +35,18 @@ import Hydra.Chain (Chain (..))
 import Hydra.Chain.ChainState (ChainStateType, IsChainState)
 import Hydra.Chain.Direct.State ()
 import Hydra.Config (renderConfig)
-import Hydra.HeadLogic (
+import Hydra.HeadLogic.Outcome qualified as StateChanged
+import Hydra.HeadLogic.StateEvent (StateEvent (..))
+import Hydra.Network (IP, PortNumber, StallReason)
+import Hydra.Node.ApiTransactionTimeout (ApiTransactionTimeout)
+import Hydra.Node.Environment (Environment)
+import Hydra.Node.HeadLogic (
   CoordinatedHeadState (..),
   HeadState (..),
   OpenState (..),
   SeenSnapshot (..),
   aggregateNodeState,
  )
-import Hydra.HeadLogic.Outcome qualified as StateChanged
-import Hydra.HeadLogic.StateEvent (StateEvent (..))
-import Hydra.Network (IP, PortNumber, StallReason)
-import Hydra.Node.ApiTransactionTimeout (ApiTransactionTimeout)
-import Hydra.Node.Environment (Environment)
 import Hydra.Node.State (Deposit (..), NodeState (..), initNodeState, pendingDeposits)
 import Hydra.Options (RunOptions)
 import Hydra.Tx (IsTx (..), Party, Snapshot, txId, utxoFromTx)
