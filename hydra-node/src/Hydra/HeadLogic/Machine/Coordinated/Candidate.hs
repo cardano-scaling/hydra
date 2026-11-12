@@ -1,0 +1,24 @@
+{-# LANGUAGE OverloadedRecordDot #-}
+
+-- | Internal candidate identity. Only the snapshot owner issues handles; public
+-- callers receive the abstract type through Coordinated.
+module Hydra.HeadLogic.Machine.Coordinated.Candidate (Candidate (..), sameCandidate) where
+
+import Hydra.Prelude
+
+import Hydra.Tx.Crypto (HydraKey, VerificationKey)
+import Hydra.Tx.Snapshot (Snapshot (..))
+
+data Candidate tx = Candidate
+  { snapshot :: Snapshot tx
+  , committee :: [VerificationKey HydraKey]
+  , representation :: ~ByteString
+  }
+
+sameCandidate :: Candidate tx -> Candidate tx -> Bool
+sameCandidate expected supplied =
+  expected.snapshot.headId == supplied.snapshot.headId
+    && expected.snapshot.version == supplied.snapshot.version
+    && expected.snapshot.number == supplied.snapshot.number
+    && expected.committee == supplied.committee
+    && expected.representation == supplied.representation

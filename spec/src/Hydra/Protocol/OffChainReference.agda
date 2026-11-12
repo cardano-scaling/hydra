@@ -18,11 +18,19 @@
 -- Interpreter configuration supplies transaction application, signing and verification
 -- as functions. Their availability is not a protocol guard; these reference decisions
 -- depend on the supplied protocol inputs and primitive results.
+-- `reqTxOutcomeRef` additionally models terminal outcomes and ordered change/effect tags for one
+-- reqTx attempt in the bounded domain documented beside its definition.
+-- The Haskell retry-window search and settlement/rollback sequences are separate
+-- integration checks. This reference has no scheduler, chain history or restart
+-- semantics; agreement with it does not establish progress or rollback safety.
+-- Payload evaluation and Haskell strictness are outside this projection too.
 module Hydra.Protocol.OffChainReference where
 
 open import Agda.Builtin.Bool
 open import Agda.Builtin.Nat
 open import Agda.Builtin.List
+open import Agda.Builtin.Maybe using (Maybe; just; nothing)
+open import Agda.Builtin.Equality using (_≡_; refl)
 
 -- ── boundary types, bound to clean Haskell at extraction ──────────────────────────────────
 
@@ -197,6 +205,56 @@ modSuc a b = mod-helper 0 b a b
 leaderRef : Nat → Nat → Nat → Bool   -- (m where #parties = suc m, sn, party index i)
 leaderRef m sn i = modSuc (sn + m) m == i
 
+-- A complete outcome shape for a bounded reqTx attempt, rather than an acceptance Bool.
+-- The domain has no deposits or decommit, no pending local transactions, and a local ledger equal
+-- to the settled confirmed ledger. Transaction outputs have fresh names. A successful application
+-- therefore supplies a requestable tx.
+-- Applicability is the ledger primitive's answer; leader selection remains a decision of this model.
+-- Transaction/UTxO payloads, collision checks, and retry scheduling remain outside this projection.
+data ReqTxTerminalᶜ : Set where
+  reqTxFinishedᶜ reqTxWaitingᶜ : ReqTxTerminalᶜ
+{-# FOREIGN GHC data HsReqTxTerminal = ReqTxFinished | ReqTxWaiting deriving (Eq, Show) #-}
+{-# COMPILE GHC ReqTxTerminalᶜ = data HsReqTxTerminal (ReqTxFinished | ReqTxWaiting) #-}
+
+data ReqTxChangeᶜ : Set where
+  reqTxReceivedᶜ reqTxAppliedᶜ reqTxInvalidᶜ reqTxSnapshotDecidedᶜ : ReqTxChangeᶜ
+{-# FOREIGN GHC data HsReqTxChange = ReqTxReceived | ReqTxApplied | ReqTxInvalid | ReqTxSnapshotDecided
+                   deriving (Eq, Show) #-}
+{-# COMPILE GHC ReqTxChangeᶜ = data HsReqTxChange (ReqTxReceived | ReqTxApplied | ReqTxInvalid | ReqTxSnapshotDecided) #-}
+
+data ReqTxEffectᶜ : Set where
+  reqTxRequestSnapshotᶜ : ReqTxEffectᶜ
+{-# FOREIGN GHC data HsReqTxEffect = ReqTxRequestSnapshot deriving (Eq, Show) #-}
+{-# COMPILE GHC ReqTxEffectᶜ = data HsReqTxEffect (ReqTxRequestSnapshot) #-}
+
+record ReqTxOutcomeᶜ : Set where
+  constructor reqTxOutcomeᶜ
+  field
+    reqTxTerminalᶜ : ReqTxTerminalᶜ
+    reqTxChangesᶜ : List ReqTxChangeᶜ
+    reqTxEffectsᶜ : List ReqTxEffectᶜ
+{-# FOREIGN GHC data HsReqTxOutcome = HsReqTxOutcome
+                   { reqTxTerminal :: HsReqTxTerminal
+                   , reqTxChanges :: [HsReqTxChange]
+                   , reqTxEffects :: [HsReqTxEffect]
+                   } deriving (Eq, Show) #-}
+{-# COMPILE GHC ReqTxOutcomeᶜ = data HsReqTxOutcome (HsReqTxOutcome) #-}
+
+-- Inputs: ledger applicability, remaining TTL, snapshot in flight, party count minus one,
+-- next snapshot number, and this party's zero-based index. No Error outcome is reachable here:
+-- exhausted TTL records an invalid transaction and completes normally.
+reqTxOutcomeRef : Bool → Nat → Bool → Nat → Nat → Nat → ReqTxOutcomeᶜ
+reqTxOutcomeRef false zero _ _ _ _ =
+  reqTxOutcomeᶜ reqTxFinishedᶜ (reqTxReceivedᶜ ∷ reqTxInvalidᶜ ∷ []) []
+reqTxOutcomeRef false (suc _) _ _ _ _ =
+  reqTxOutcomeᶜ reqTxWaitingᶜ (reqTxReceivedᶜ ∷ []) []
+reqTxOutcomeRef true _ inFlight m nextSn partyIndex =
+  if not inFlight && leaderRef m nextSn partyIndex then
+    reqTxOutcomeᶜ reqTxFinishedᶜ
+      (reqTxReceivedᶜ ∷ reqTxAppliedᶜ ∷ reqTxSnapshotDecidedᶜ ∷ []) (reqTxRequestSnapshotᶜ ∷ [])
+  else
+    reqTxOutcomeᶜ reqTxFinishedᶜ (reqTxReceivedᶜ ∷ reqTxAppliedᶜ ∷ []) []
+
 -- ══ extraction surface: the stable Haskell names ═══════════════════════════════════════════════
 -- See `Reference.agda`'s section of the same name: MAlonzo's mangled names carry a definition-order
 -- index that any additive edit above renumbers, so the shim binds these fixed names instead. Every
@@ -214,6 +272,331 @@ leaderRef m sn i = modSuc (sn + m) m == i
 {-# COMPILE GHC allSignedRef            as hsAllSignedRef            #-}
 {-# COMPILE GHC contestEligibleRef      as hsContestEligibleRef      #-}
 {-# COMPILE GHC leaderRef               as hsLeaderRef               #-}
+{-# COMPILE GHC reqTxOutcomeRef         as hsReqTxOutcomeRef         #-}
+
+-- Bounded snapshot outcomes use named terminals, reasons, changes and effects.
+-- Domain: no incremental actions, fresh output names, bounded accumulators and
+-- three authenticated parties. Payload validity, reconciliation, chain progress
+-- and retry scheduling are checked separately; this model does not prove them.
+data SnapshotPhaseᶜ : Set where
+  neverSeenᶜ requestPendingᶜ collectingSignaturesᶜ lastConfirmedᶜ : SnapshotPhaseᶜ
+{-# FOREIGN GHC data HsSnapshotPhase = NeverSeen | RequestPending | CollectingSignatures | LastConfirmed
+                   deriving (Eq, Show, Enum, Bounded) #-}
+{-# COMPILE GHC SnapshotPhaseᶜ = data HsSnapshotPhase (NeverSeen | RequestPending | CollectingSignatures | LastConfirmed) #-}
+
+data SnapshotChangeᶜ : Set where
+  recordSignatureᶜ confirmSnapshotᶜ decideNextSnapshotᶜ recordSnapshotᶜ : SnapshotChangeᶜ
+{-# FOREIGN GHC data HsSnapshotChange = RecordSignature | ConfirmSnapshot | DecideNextSnapshot | RecordSnapshot
+                   deriving (Eq, Show) #-}
+{-# COMPILE GHC SnapshotChangeᶜ = data HsSnapshotChange (RecordSignature | ConfirmSnapshot | DecideNextSnapshot | RecordSnapshot) #-}
+
+data SnapshotEffectᶜ : Set where
+  sendAcknowledgementᶜ sendSnapshotRequestᶜ : SnapshotEffectᶜ
+{-# FOREIGN GHC data HsSnapshotEffect = SendAcknowledgement | SendSnapshotRequest deriving (Eq, Show) #-}
+{-# COMPILE GHC SnapshotEffectᶜ = data HsSnapshotEffect (SendAcknowledgement | SendSnapshotRequest) #-}
+
+data SnapshotWaitᶜ : Set where
+  previousUnconfirmedᶜ versionMismatchᶜ missingTransactionsᶜ snapshotNotSeenᶜ : SnapshotWaitᶜ
+{-# FOREIGN GHC data HsSnapshotWait = PreviousUnconfirmed | VersionMismatch | MissingTransactions | SnapshotNotSeen
+                   deriving (Eq, Show) #-}
+{-# COMPILE GHC SnapshotWaitᶜ = data HsSnapshotWait (PreviousUnconfirmed | VersionMismatch | MissingTransactions | SnapshotNotSeen) #-}
+
+data SnapshotRejectionᶜ : Set where
+  invalidNumberᶜ notLeaderᶜ transactionDoesNotApplyᶜ alreadySignedᶜ invalidSignatureSetᶜ : SnapshotRejectionᶜ
+{-# FOREIGN GHC data HsSnapshotRejection = InvalidNumber | NotLeader | TransactionDoesNotApply | AlreadySigned | InvalidSignatureSet
+                   deriving (Eq, Show) #-}
+{-# COMPILE GHC SnapshotRejectionᶜ = data HsSnapshotRejection (InvalidNumber | NotLeader | TransactionDoesNotApply | AlreadySigned | InvalidSignatureSet) #-}
+
+data SnapshotOutcomeᶜ : Set where
+  snapshotCompletedᶜ : List SnapshotChangeᶜ → List SnapshotEffectᶜ → SnapshotOutcomeᶜ
+  snapshotWaitingᶜ : SnapshotWaitᶜ → SnapshotOutcomeᶜ
+  snapshotRejectedᶜ : SnapshotRejectionᶜ → SnapshotOutcomeᶜ
+{-# FOREIGN GHC data HsSnapshotOutcome
+                   = SnapshotCompleted [HsSnapshotChange] [HsSnapshotEffect]
+                   | SnapshotWaiting HsSnapshotWait
+                   | SnapshotRejected HsSnapshotRejection
+                   deriving (Eq, Show) #-}
+{-# COMPILE GHC SnapshotOutcomeᶜ = data HsSnapshotOutcome (SnapshotCompleted | SnapshotWaiting | SnapshotRejected) #-}
+
+reqSnOutcomeRef : Nat → Nat → Nat → Nat → Nat → Nat → Nat → Nat → Bool → SnapshotOutcomeᶜ
+reqSnOutcomeRef seen confirmed localVersion requestedVersion sn m sender missing applicable =
+  if not (sn == suc seen) then snapshotRejectedᶜ invalidNumberᶜ
+  else if not (leaderRef m sn sender) then snapshotRejectedᶜ notLeaderᶜ
+  else if not (confirmed == seen) then snapshotWaitingᶜ previousUnconfirmedᶜ
+  else if not (localVersion == requestedVersion) then snapshotWaitingᶜ versionMismatchᶜ
+  else if 0 < missing then snapshotWaitingᶜ missingTransactionsᶜ
+  else if not applicable then snapshotRejectedᶜ transactionDoesNotApplyᶜ
+  else snapshotCompletedᶜ (recordSnapshotᶜ ∷ []) (sendAcknowledgementᶜ ∷ [])
+
+isLastConfirmed : SnapshotPhaseᶜ → Bool
+isLastConfirmed lastConfirmedᶜ = true
+isLastConfirmed _ = false
+
+isCollecting : SnapshotPhaseᶜ → Bool
+isCollecting collectingSignaturesᶜ = true
+isCollecting _ = false
+
+-- Partial collection retains the existing event order. Invalid final
+-- verification discards this input's tentative signature, not earlier inputs.
+ackSnOutcomeRef : SnapshotPhaseᶜ → Nat → Nat → List Nat → Nat → Nat → Bool → Bool → Nat → SnapshotOutcomeᶜ
+ackSnOutcomeRef phase seen sn signers sender m verifies useful localParty =
+  if not ((sn == seen) || (sn == suc seen)) then snapshotRejectedᶜ invalidNumberᶜ
+  else if isLastConfirmed phase && (sn == seen) then snapshotCompletedᶜ [] []
+  else if not (isCollecting phase && (sn == seen)) then snapshotWaitingᶜ snapshotNotSeenᶜ
+  else if elemᵇ sender signers then snapshotRejectedᶜ alreadySignedᶜ
+  else if not (allSignedRef (suc m) (sender ∷ signers)) then
+    snapshotCompletedᶜ (recordSignatureᶜ ∷ recordSignatureᶜ ∷ []) []
+  else if not verifies then snapshotRejectedᶜ invalidSignatureSetᶜ
+  else if useful && leaderRef m (suc sn) localParty then
+    snapshotCompletedᶜ (recordSignatureᶜ ∷ confirmSnapshotᶜ ∷ decideNextSnapshotᶜ ∷ []) (sendSnapshotRequestᶜ ∷ [])
+  else snapshotCompletedᶜ (recordSignatureᶜ ∷ confirmSnapshotᶜ ∷ []) []
+
+-- An already-applied ID is a no-op before receipt, validation or timeout. This
+-- protects the validated payload against both witness replacement and deletion.
+reqTxKnownOutcomeRef : Bool → Bool → Nat → Bool → Nat → Nat → Nat → ReqTxOutcomeᶜ
+reqTxKnownOutcomeRef true _ _ _ _ _ _ = reqTxOutcomeᶜ reqTxFinishedᶜ [] []
+reqTxKnownOutcomeRef false applicable ttl inFlight m sn party = reqTxOutcomeRef applicable ttl inFlight m sn party
+
+{-# COMPILE GHC reqSnOutcomeRef as hsReqSnOutcomeRef #-}
+{-# COMPILE GHC ackSnOutcomeRef as hsAckSnOutcomeRef #-}
+{-# COMPILE GHC reqTxKnownOutcomeRef as hsReqTxKnownOutcomeRef #-}
+
+-- Retained-event phase projections. These are replay
+-- semantics, not admission rules. Checkpoints replace the complete machine;
+-- foreign-head filtering occurs before these functions. Payloads, signature
+-- maps, versions and slot history are outside this abstraction. The Booleans
+-- below are explicit abstraction inputs, not proofs.
+data LifecyclePhaseᶜ : Set where
+  idleHeadᶜ openHeadᶜ closedHeadᶜ readyHeadᶜ pendingFanoutᶜ fanoutProgressᶜ : LifecyclePhaseᶜ
+{-# FOREIGN GHC data HsLifecyclePhase = IdleHead | OpenHead | ClosedHead | ReadyHead | PendingFanout | FanoutProgress deriving (Eq, Show, Enum, Bounded) #-}
+{-# COMPILE GHC LifecyclePhaseᶜ = data HsLifecyclePhase (IdleHead | OpenHead | ClosedHead | ReadyHead | PendingFanout | FanoutProgress) #-}
+
+data LifecycleEventᶜ : Set where
+  openedᶜ closedᶜ readyᶜ fanoutStartedᶜ partialObservedᶜ fanoutRevertedᶜ fannedOutᶜ unchangedᶜ : LifecycleEventᶜ
+{-# FOREIGN GHC data HsLifecycleEvent = Opened | Closed | Ready | FanoutStarted | PartialObserved | FanoutReverted | FannedOut | Unchanged deriving (Eq, Show, Enum, Bounded) #-}
+{-# COMPILE GHC LifecycleEventᶜ = data HsLifecycleEvent (Opened | Closed | Ready | FanoutStarted | PartialObserved | FanoutReverted | FannedOut | Unchanged) #-}
+
+-- distributed means the accumulated outputs after this observation are nonempty.
+lifecyclePhaseRef : LifecyclePhaseᶜ → LifecycleEventᶜ → Bool → LifecyclePhaseᶜ
+lifecyclePhaseRef _ openedᶜ _ = openHeadᶜ
+lifecyclePhaseRef openHeadᶜ closedᶜ _ = closedHeadᶜ
+lifecyclePhaseRef closedHeadᶜ readyᶜ _ = readyHeadᶜ
+lifecyclePhaseRef closedHeadᶜ fanoutStartedᶜ _ = pendingFanoutᶜ
+lifecyclePhaseRef readyHeadᶜ fanoutStartedᶜ _ = pendingFanoutᶜ
+lifecyclePhaseRef closedHeadᶜ partialObservedᶜ distributed = if distributed then fanoutProgressᶜ else pendingFanoutᶜ
+lifecyclePhaseRef readyHeadᶜ partialObservedᶜ distributed = if distributed then fanoutProgressᶜ else pendingFanoutᶜ
+lifecyclePhaseRef pendingFanoutᶜ partialObservedᶜ distributed = if distributed then fanoutProgressᶜ else pendingFanoutᶜ
+lifecyclePhaseRef fanoutProgressᶜ partialObservedᶜ distributed = if distributed then fanoutProgressᶜ else pendingFanoutᶜ
+lifecyclePhaseRef pendingFanoutᶜ fanoutRevertedᶜ _ = readyHeadᶜ
+lifecyclePhaseRef fanoutProgressᶜ fanoutRevertedᶜ _ = readyHeadᶜ
+lifecyclePhaseRef closedHeadᶜ fannedOutᶜ _ = idleHeadᶜ
+lifecyclePhaseRef readyHeadᶜ fannedOutᶜ _ = idleHeadᶜ
+lifecyclePhaseRef pendingFanoutᶜ fannedOutᶜ _ = idleHeadᶜ
+lifecyclePhaseRef fanoutProgressᶜ fannedOutᶜ _ = idleHeadᶜ
+lifecyclePhaseRef phase _ _ = phase
+
+-- Coordination is absent outside Open. A request can replace an in-flight
+-- snapshot in raw replay; protocol guards normally prevent that replacement.
+data CoordinationPhaseᶜ : Set where
+  outsideHeadᶜ noRequestSeenᶜ snapshotIdleᶜ requestSentᶜ collectingᶜ : CoordinationPhaseᶜ
+{-# FOREIGN GHC data HsCoordinationPhase = OutsideHead | NoRequestSeen | SnapshotIdle | RequestSent | Collecting deriving (Eq, Show, Enum, Bounded) #-}
+{-# COMPILE GHC CoordinationPhaseᶜ = data HsCoordinationPhase (OutsideHead | NoRequestSeen | SnapshotIdle | RequestSent | Collecting) #-}
+
+data CoordinationEventᶜ : Set where
+  headOpenedᶜ headClosedᶜ requestDecidedᶜ snapshotRequestedᶜ snapshotConfirmedᶜ localClearedᶜ settlementObservedᶜ otherEventᶜ : CoordinationEventᶜ
+{-# FOREIGN GHC data HsCoordinationEvent = HeadOpened | HeadClosed | RequestDecided | SnapshotRequested | SnapshotConfirmed | LocalCleared | SettlementObserved | OtherEvent deriving (Eq, Show, Enum, Bounded) #-}
+{-# COMPILE GHC CoordinationEventᶜ = data HsCoordinationEvent (HeadOpened | HeadClosed | RequestDecided | SnapshotRequested | SnapshotConfirmed | LocalCleared | SettlementObserved | OtherEvent) #-}
+
+coordinationPhaseRef : CoordinationPhaseᶜ → CoordinationEventᶜ → Bool → Bool → Bool → CoordinationPhaseᶜ
+coordinationPhaseRef _ headOpenedᶜ _ _ _ = noRequestSeenᶜ
+coordinationPhaseRef _ headClosedᶜ _ _ _ = outsideHeadᶜ
+coordinationPhaseRef outsideHeadᶜ _ _ _ _ = outsideHeadᶜ
+coordinationPhaseRef _ requestDecidedᶜ _ _ _ = requestSentᶜ
+coordinationPhaseRef _ snapshotRequestedᶜ _ _ _ = collectingᶜ
+coordinationPhaseRef collectingᶜ snapshotConfirmedᶜ _ _ _ = snapshotIdleᶜ
+coordinationPhaseRef phase snapshotConfirmedᶜ _ explicit _ = if explicit then snapshotIdleᶜ else phase
+coordinationPhaseRef _ localClearedᶜ initial _ _ = if initial then noRequestSeenᶜ else snapshotIdleᶜ
+coordinationPhaseRef collectingᶜ settlementObservedᶜ _ _ _ = collectingᶜ
+coordinationPhaseRef phase settlementObservedᶜ _ _ fresh = if fresh then snapshotIdleᶜ else phase
+coordinationPhaseRef phase _ _ _ _ = phase
+
+-- The tracked deposit has a status and a separate consuming observation. A
+-- rollback restores the stored status; it does not recompute it from time.
+data TrackedPhaseᶜ : Set where
+  missingDepositᶜ inactiveDepositᶜ activeDepositᶜ expiredDepositᶜ consumedDepositᶜ : TrackedPhaseᶜ
+{-# FOREIGN GHC data HsTrackedPhase = MissingDeposit | InactiveDeposit | ActiveDeposit | ExpiredDeposit | ConsumedDeposit deriving (Eq, Show, Enum, Bounded) #-}
+{-# COMPILE GHC TrackedPhaseᶜ = data HsTrackedPhase (MissingDeposit | InactiveDeposit | ActiveDeposit | ExpiredDeposit | ConsumedDeposit) #-}
+
+statusPhase : DepositStatusᶜ → TrackedPhaseᶜ
+statusPhase inactiveᶜ = inactiveDepositᶜ
+statusPhase activeᶜ = activeDepositᶜ
+statusPhase expiredᶜ = expiredDepositᶜ
+
+-- action: 0 observe, 1 update, 2 consume, 3 rollback. status is the new
+-- payload status for observe/update, otherwise the retained payload status.
+trackedDepositPhaseRef : TrackedPhaseᶜ → Nat → DepositStatusᶜ → Bool → Bool → TrackedPhaseᶜ
+trackedDepositPhaseRef _ 0 status _ _ = statusPhase status
+trackedDepositPhaseRef missingDepositᶜ _ _ _ _ = missingDepositᶜ
+trackedDepositPhaseRef consumedDepositᶜ 1 _ _ _ = consumedDepositᶜ
+trackedDepositPhaseRef _ 1 status _ _ = statusPhase status
+trackedDepositPhaseRef _ 2 _ _ _ = consumedDepositᶜ
+trackedDepositPhaseRef _ 3 _ true _ = missingDepositᶜ
+trackedDepositPhaseRef consumedDepositᶜ 3 status false true = statusPhase status
+trackedDepositPhaseRef phase _ _ _ _ = phase
+
+-- Pending action projection: outside=0, none=1, deposit=2, decommit=3, both=4.
+-- The last case is representable in persisted data; admission prevents it.
+pendingIncrementPhaseRef : Bool → Bool → Bool → Nat
+pendingIncrementPhaseRef false _ _ = 0
+pendingIncrementPhaseRef true false false = 1
+pendingIncrementPhaseRef true true false = 2
+pendingIncrementPhaseRef true false true = 3
+pendingIncrementPhaseRef true true true = 4
+
+{-# COMPILE GHC lifecyclePhaseRef as hsLifecyclePhaseRef #-}
+{-# COMPILE GHC coordinationPhaseRef as hsCoordinationPhaseRef #-}
+{-# COMPILE GHC trackedDepositPhaseRef as hsTrackedDepositPhaseRef #-}
+{-# COMPILE GHC pendingIncrementPhaseRef as hsPendingIncrementPhaseRef #-}
+
+-- ReqTx, ReqSn and AckSn comparisons run against the production crem phase
+-- machines with program actions. This reference is independent of that
+-- control-flow encoding. Phase typing adds no coverage
+-- of primitive correctness, payloads or Haskell evaluation to this projection.
+
+-- ReqDec terminal and event/effect projection. The selected-commit flag is
+-- supplied after deposit selection. Accepted decommits have confirmed inputs.
+-- This excludes deferred work, ledger payloads and requested snapshot contents.
+-- Each result names the whole ordered outcome: invalidation has one change and
+-- no effects; acceptance records one decommit and optionally sends one ReqSn.
+-- In particular ReqDec does not record SnapshotRequestDecided.
+data ReqDecOutcomeᶜ : Set where
+  decWaitCommitᶜ decInvalidCommitᶜ decWaitExistingᶜ decInvalidExistingᶜ
+    decWaitLedgerᶜ decInvalidLedgerᶜ decEmptyOutputsᶜ decRecordedᶜ decRequestedᶜ : ReqDecOutcomeᶜ
+{-# FOREIGN GHC data HsReqDecOutcome = ReqDecWaitCommit | ReqDecInvalidCommit
+                   | ReqDecWaitExisting | ReqDecInvalidExisting | ReqDecWaitLedger
+                   | ReqDecInvalidLedger | ReqDecEmptyOutputs | ReqDecRecorded
+                   | ReqDecRequested deriving (Eq, Show) #-}
+{-# COMPILE GHC ReqDecOutcomeᶜ = data HsReqDecOutcome
+    (ReqDecWaitCommit | ReqDecInvalidCommit | ReqDecWaitExisting | ReqDecInvalidExisting
+    | ReqDecWaitLedger | ReqDecInvalidLedger | ReqDecEmptyOutputs | ReqDecRecorded | ReqDecRequested) #-}
+
+-- Selected commit, existing decommit, applicability, nonempty outputs, TTL,
+-- snapshot in flight, party count minus one, next number and local party index.
+reqDecOutcomeRef : Bool → Bool → Bool → Bool → Nat → Bool → Nat → Nat → Nat → ReqDecOutcomeᶜ
+reqDecOutcomeRef true _ _ _ zero _ _ _ _ = decInvalidCommitᶜ
+reqDecOutcomeRef true _ _ _ (suc _) _ _ _ _ = decWaitCommitᶜ
+reqDecOutcomeRef false true _ _ zero _ _ _ _ = decInvalidExistingᶜ
+reqDecOutcomeRef false true _ _ (suc _) _ _ _ _ = decWaitExistingᶜ
+reqDecOutcomeRef false false false _ zero _ _ _ _ = decInvalidLedgerᶜ
+reqDecOutcomeRef false false false _ (suc _) _ _ _ _ = decWaitLedgerᶜ
+reqDecOutcomeRef false false true false _ _ _ _ _ = decEmptyOutputsᶜ
+reqDecOutcomeRef false false true true _ inFlight m sn party =
+  if not inFlight && leaderRef m sn party then decRequestedᶜ else decRecordedᶜ
+
+-- Recover checks registration before the finalized-increment guard. Deposit
+-- status is not an admission guard here; the chain enforces the deadline.
+data RecoverOutcomeᶜ : Set where
+  recoveryMissingᶜ recoveryBlockedᶜ recoveryPostedᶜ : RecoverOutcomeᶜ
+{-# FOREIGN GHC data HsRecoverOutcome = RecoveryMissing | RecoveryBlocked | RecoveryPosted deriving (Eq, Show) #-}
+{-# COMPILE GHC RecoverOutcomeᶜ = data HsRecoverOutcome (RecoveryMissing | RecoveryBlocked | RecoveryPosted) #-}
+recoverOutcomeRef : Bool → Bool → RecoverOutcomeᶜ
+recoverOutcomeRef false _ = recoveryMissingᶜ
+recoverOutcomeRef true true = recoveryBlockedᶜ
+recoverOutcomeRef true false = recoveryPostedᶜ
+
+{-# COMPILE GHC reqDecOutcomeRef as hsReqDecOutcomeRef #-}
+{-# COMPILE GHC recoverOutcomeRef as hsRecoverOutcomeRef #-}
+
+-- Complete-input migration: bounded decisions outside the snapshot round.
+-- These projections check admission ordering and scalar guards, not the full
+-- routing table, fanout multiset arithmetic, ledger/crypto, or chain validity.
+-- Input kind: client=0, network=1, chain=2. Result: dispatch=0, unsafe=1,
+-- unsynced client=2, wait for sync=3. Only client inputs have a size guard.
+inputAdmissionRef : Nat → Bool → Bool → Nat
+inputAdmissionRef 0 false _ = 1
+inputAdmissionRef 0 true false = 2
+inputAdmissionRef 1 _ false = 3
+inputAdmissionRef _ _ _ = 0
+
+-- Existing decommit, ledger applicability, nonempty outputs. Results follow
+-- the client's priority: already pending=0, ledger invalid=1, empty=2, send=3.
+clientDecommitRef : Bool → Bool → Bool → Nat
+clientDecommitRef true _ _ = 0
+clientDecommitRef false false _ = 1
+clientDecommitRef false true false = 2
+clientDecommitRef false true true = 3
+
+-- An observed settlement can adopt a seen snapshot only at that number, with
+-- its version exactly one behind the new version, matching incremental action,
+-- and valid multisignature. Finalization itself does not depend on adoption.
+adoptSettlementRef : Nat → Nat → Nat → Nat → Bool → Bool → Bool
+adoptSettlementRef observed seen snapshotVersion newVersion actionMatches signaturesValid =
+  (observed == seen) && ((suc snapshotVersion == newVersion) && (actionMatches && signaturesValid))
+
+-- When no still-pending settlement can be reposted, retained finalized work is
+-- reposted only for a rollback strictly before its observation slot.
+repostFinalizedRef : Bool → Nat → Nat → Bool
+repostFinalizedRef pending rolledBack observed = pending || (rolledBack < observed)
+
+-- Remaining set empty; mode auto=0, selection=1, awaiting=2.
+-- Action: wait=0, post remainder=1, post selection=2. Empty always burns tokens.
+fanoutContinuationRef : Bool → Nat → Nat
+fanoutContinuationRef true _ = 1
+fanoutContinuationRef false 0 = 1
+fanoutContinuationRef false 1 = 2
+fanoutContinuationRef false _ = 0
+
+{-# COMPILE GHC inputAdmissionRef as hsInputAdmissionRef #-}
+{-# COMPILE GHC clientDecommitRef as hsClientDecommitRef #-}
+{-# COMPILE GHC adoptSettlementRef as hsAdoptSettlementRef #-}
+{-# COMPILE GHC repostFinalizedRef as hsRepostFinalizedRef #-}
+{-# COMPILE GHC fanoutContinuationRef as hsFanoutContinuationRef #-}
+
+-- Independent invariants for the coordinated state owners. These are
+-- requirements, not a translation of the current event reducer: the historical
+-- decommit schedule violates both. Outputs are natural-number identities, as
+-- in SimpleTx. There is no Cardano validation, reference input, script, slot or
+-- settlement model here; 'carried' means the same decommit is already signed.
+reservationHeldRef : List Nat → List Nat → Bool
+reservationHeldRef [] available = true
+reservationHeldRef (input ∷ rest) available =
+  not (elemᵇ input available) && reservationHeldRef rest available
+
+decommitReadyRef : Bool → List Nat → List Nat → Bool
+decommitReadyRef true inputs confirmed = true
+decommitReadyRef false [] confirmed = true
+decommitReadyRef false (input ∷ rest) confirmed =
+  elemᵇ input confirmed && decommitReadyRef false rest confirmed
+
+{-# COMPILE GHC reservationHeldRef as hsReservationHeldRef #-}
+{-# COMPILE GHC decommitReadyRef as hsDecommitReadyRef #-}
+
+-- Version and reservation projection of a decrement observation. Chain rollback
+-- preserves both; a repeated observation must not release a newer reservation.
+settlementVersionRef : Nat → Nat → Nat
+settlementVersionRef old observed = if old < observed then observed else old
+
+settlementReservationRef : Bool → Nat → Nat → Bool
+settlementReservationRef pending old observed = pending && not (old < observed)
+
+{-# COMPILE GHC settlementVersionRef as hsSettlementVersionRef #-}
+{-# COMPILE GHC settlementReservationRef as hsSettlementReservationRef #-}
+
+-- Rebuilding the optimistic ledger must preserve the pending reservation.
+reserveRebaseRef : List Nat → List Nat → List Nat
+reserveRebaseRef reserved [] = []
+reserveRebaseRef reserved (input ∷ rest) =
+  if elemᵇ input reserved then reserveRebaseRef reserved rest
+  else (input ∷ reserveRebaseRef reserved rest)
+
+-- Newly available inputs warrant a decommit-only round. Carrying an already
+-- signed decommit does not, on its own, warrant another round.
+newDecommitReadyRef : Bool → List Nat → List Nat → Bool
+newDecommitReadyRef carried inputs confirmed =
+  not carried && decommitReadyRef false inputs confirmed
+
+{-# COMPILE GHC reserveRebaseRef as hsReserveRebaseRef #-}
+{-# COMPILE GHC newDecommitReadyRef as hsNewDecommitReadyRef #-}
 
 -- Capacity policy for the deployed 32768-power setup. Counts are over output
 -- references, after forming each union; overlapping entries count only once.
@@ -240,3 +623,247 @@ pendingTxFitsRef applicable outputsDisjoint withDecommit withCommit =
 {-# COMPILE GHC snapshotCapacityRef    as hsSnapshotCapacityRef    #-}
 {-# COMPILE GHC decommitCapacityRef    as hsDecommitCapacityRef    #-}
 {-# COMPILE GHC pendingTxFitsRef       as hsPendingTxFitsRef       #-}
+
+-- The limit argument below models RuleEnvironment.snapshotLimits. Cardano
+-- wiring supplies accumulatorCapacityRef; agreement tests also supply smaller
+-- bounds directly, as well as padding to the deployed bound. The parameter does
+-- not introduce a negotiated setting or change the deployed transition rules.
+-- Small-set capacity model. Inputs are natural-number references; union removes
+-- duplicate names. Prefix selection below covers ordinary transactions and a
+-- carried commit. New deposits use the selected final ledger, and decommits are
+-- covered by the separate admission predicates above. No script or slot model.
+capacityUnique : List Nat → List Nat
+capacityUnique [] = []
+capacityUnique (x ∷ xs) = if elemᵇ x xs then capacityUnique xs else (x ∷ capacityUnique xs)
+
+capacityUnion : List Nat → List Nat → List Nat
+capacityUnion [] ys = capacityUnique ys
+capacityUnion (x ∷ xs) ys = capacityUnion xs (if elemᵇ x ys then ys else (x ∷ ys))
+
+capacityLength : List Nat → Nat
+capacityLength [] = 0
+capacityLength (_ ∷ xs) = suc (capacityLength xs)
+
+capacityFitsRef : Nat → List Nat → List Nat → List Nat → Bool
+capacityFitsRef limit active commit decommit =
+  (capacityLength (capacityUnion active decommit) < suc limit) &&
+  (capacityLength (capacityUnion active commit) < suc limit)
+
+capacityApply : List Nat → List Nat → List Nat → List Nat
+capacityApply available inputs outputs = capacityUnion (reserveRebaseRef inputs available) outputs
+
+-- The returned count identifies the requested prefix. The held names belong to
+-- the original base and carried commit, not just the running spendable ledger.
+capacityPrefixRef : Nat → List Nat → List Nat → List (List Nat) → List (List Nat) → Nat
+capacityPrefixRef limit base commit = go base
+ where
+  go : List Nat → List (List Nat) → List (List Nat) → Nat
+  go available (inputs ∷ ins) (outputs ∷ outs) =
+    if reservationHeldRef outputs (capacityUnion base commit) &&
+       capacityFitsRef limit (capacityApply available inputs outputs) commit []
+    then suc (go (capacityApply available inputs outputs) ins outs) else 0
+  go _ _ _ = 0
+
+-- Pruning can skip a blocked transaction and retain an independent later one.
+-- Return the one-based positions kept, so tests compare identities, not counts.
+capacityPruneRef : Nat → List Nat → List Nat → List Nat → List (List Nat) → List (List Nat) → List Nat
+capacityPruneRef limit base commit decommit = go 1 base
+ where
+  go : Nat → List Nat → List (List Nat) → List (List Nat) → List Nat
+  go index available (inputs ∷ ins) (outputs ∷ outs) =
+    if decommitReadyRef false inputs available &&
+       reservationHeldRef outputs (capacityUnion available commit) &&
+       capacityFitsRef limit (capacityApply available inputs outputs) commit decommit
+    then (index ∷ go (suc index) (capacityApply available inputs outputs) ins outs)
+    else go (suc index) available ins outs
+  go _ _ _ _ = []
+
+{-# COMPILE GHC capacityFitsRef as hsCapacityFitsRef #-}
+{-# COMPILE GHC capacityPrefixRef as hsCapacityPrefixRef #-}
+{-# COMPILE GHC capacityPruneRef as hsCapacityPruneRef #-}
+
+-- A reservation is local intent; a current-version certificate is authority to
+-- decrement. Adoption can supply that authority without a local reservation.
+-- These are protocol stages, not the presence/absence of a stored transaction.
+data DecommitPhaseᶜ : Set where
+  noDecommitᶜ pendingDecommitᶜ awaitingSettlementᶜ : DecommitPhaseᶜ
+
+-- Legal non-identity transitions. AwaitingSettlement -> Pending is absent:
+-- a different local decommit cannot replace an unsettled certificate.
+data DecommitTransitionᶜ : DecommitPhaseᶜ → DecommitPhaseᶜ → Set where
+  unchangedᵈ : ∀ {phase} → DecommitTransitionᶜ phase phase
+  reserveᵈ : DecommitTransitionᶜ noDecommitᶜ pendingDecommitᶜ
+  invalidateᵈ : DecommitTransitionᶜ pendingDecommitᶜ noDecommitᶜ
+  confirmᵈ : DecommitTransitionᶜ pendingDecommitᶜ awaitingSettlementᶜ
+  adoptᵈ : DecommitTransitionᶜ noDecommitᶜ awaitingSettlementᶜ
+  settleᵈ : DecommitTransitionᶜ awaitingSettlementᶜ noDecommitᶜ
+
+-- An empty type expresses the forbidden transition independently of Haskell.
+data ImpossibleDecommitTransition : Set where
+
+cannotReplaceAuthorisedDecommit :
+  DecommitTransitionᶜ awaitingSettlementᶜ pendingDecommitᶜ → ImpossibleDecommitTransition
+cannotReplaceAuthorisedDecommit ()
+
+-- Natural-number output identities; `available` includes the retained ordinary
+-- dependency chain, before removing the reservation. Missing confirmed inputs
+-- alone do not establish a conflict. Scripts and time validity are excluded.
+retainReservationRef : Bool → Bool → List Nat → List Nat → Bool
+retainReservationRef carried otherAuthorised inputs available =
+  carried || (not otherAuthorised && decommitReadyRef false inputs available)
+
+-- The same predicate controls admission with or without a locally stored tx.
+decommitAdmissionRef : Bool → Bool → Bool
+decommitAdmissionRef pending authorised = not (pending || authorised)
+
+-- Verification context uses ordered committee identities, not sets. These are
+-- abstract identities; cryptographic verification remains an external premise.
+sameCommittee : List Nat → List Nat → Bool
+sameCommittee [] [] = true
+sameCommittee (x ∷ xs) (y ∷ ys) = (x == y) && sameCommittee xs ys
+sameCommittee _ _ = false
+
+verificationContextRef : Nat → Nat → List Nat → List Nat → Bool
+verificationContextRef head verifiedHead committee verifiedCommittee =
+  (head == verifiedHead) && sameCommittee committee verifiedCommittee
+
+{-# COMPILE GHC retainReservationRef as hsRetainReservationRef #-}
+{-# COMPILE GHC decommitAdmissionRef as hsDecommitAdmissionRef #-}
+{-# COMPILE GHC verificationContextRef as hsVerificationContextRef #-}
+
+-- Candidate payloads outlive local ReqDec ordering. Outputs are finite sets of
+-- natural-number references. Result 0 selects the local reservation; suc n
+-- selects registry entry n. Empty outputs do not identify a decommit. Ledger
+-- validity, witnesses, persistence bytes and registry key integrity are excluded.
+sameDecommitOutputs : List Nat → List Nat → Bool
+sameDecommitOutputs [] _ = false
+sameDecommitOutputs expected actual =
+  decommitReadyRef false expected actual && decommitReadyRef false actual expected
+
+findDecommitPayload : Nat → List Nat → List (List Nat) → Maybe Nat
+findDecommitPayload index outputs [] = nothing
+findDecommitPayload index outputs (candidate ∷ rest) =
+  if sameDecommitOutputs outputs candidate then just index
+  else findDecommitPayload (suc index) outputs rest
+
+carriedDecommitPayloadRef : Bool → List Nat → List Nat → List (List Nat) → Maybe Nat
+carriedDecommitPayloadRef false _ _ _ = nothing
+carriedDecommitPayloadRef true outputs reserved registry =
+  if sameDecommitOutputs outputs reserved then just zero
+  else findDecommitPayload 1 outputs registry
+
+-- Request selection must satisfy the same carry obligation as the receiver.
+carriedDecommitRequestRef : Bool → Bool → Bool → Bool
+carriedDecommitRequestRef sameVersion authorised matchingPayload =
+  not (sameVersion && authorised) || matchingPayload
+
+reqSn-before-reqDec-retains-payload :
+  carriedDecommitPayloadRef true (10 ∷ []) [] ((10 ∷ []) ∷ []) ≡ just 1
+reqSn-before-reqDec-retains-payload = refl
+
+settlement-does-not-revive-payload : ∀ outputs reserved registry →
+  carriedDecommitPayloadRef false outputs reserved registry ≡ nothing
+settlement-does-not-revive-payload _ _ _ = refl
+
+missing-carried-payload-blocks-request :
+  carriedDecommitRequestRef true true false ≡ false
+missing-carried-payload-blocks-request = refl
+
+{-# COMPILE GHC carriedDecommitPayloadRef as hsCarriedDecommitPayloadRef #-}
+{-# COMPILE GHC carriedDecommitRequestRef as hsCarriedDecommitRequestRef #-}
+
+-- Reply-handling Crem phases are internal to Haskell. Removing them must not
+-- change these observable terminal boundaries. These are concrete bounded
+-- equations, not a proof about the Haskell interpreter or primitive effects.
+reqTx-wait-retains-receipt :
+  reqTxOutcomeRef false 1 false 2 1 0 ≡
+    reqTxOutcomeᶜ reqTxWaitingᶜ (reqTxReceivedᶜ ∷ []) []
+reqTx-wait-retains-receipt = refl
+
+invalid-final-ack-discards-staged-signature :
+  ackSnOutcomeRef collectingSignaturesᶜ 1 1 (0 ∷ 1 ∷ []) 2 2 false true 0 ≡
+    snapshotRejectedᶜ invalidSignatureSetᶜ
+invalid-final-ack-discards-staged-signature = refl
+
+client-decommit-checks-ledger-before-empty-outputs :
+  clientDecommitRef false false false ≡ 1
+client-decommit-checks-ledger-before-empty-outputs = refl
+
+reqDec-ledger-failure-waits-with-budget :
+  reqDecOutcomeRef false false false false 1 false 3 1 1 ≡ decWaitLedgerᶜ
+reqDec-ledger-failure-waits-with-budget = refl
+
+settlement-invalid-signatures-prevent-adoption :
+  adoptSettlementRef 1 1 0 1 true false ≡ false
+settlement-invalid-signatures-prevent-adoption = refl
+
+-- Version advancement is independent of the adoption predicate above.
+settlement-still-advances-version : settlementVersionRef 0 1 ≡ 1
+settlement-still-advances-version = refl
+
+-- Live snapshot ownership is distinct from importing retained events. A
+-- collecting owner cannot start another request; recovery has no live edge.
+data SnapshotOwnerPhaseᶜ : Set where
+  availableOwnerᶜ requestedOwnerᶜ collectingOwnerᶜ : SnapshotOwnerPhaseᶜ
+
+data SnapshotOwnerTransitionᶜ : SnapshotOwnerPhaseᶜ → SnapshotOwnerPhaseᶜ → Set where
+  unchangedˢ : ∀ {phase} → SnapshotOwnerTransitionᶜ phase phase
+  requestˢ : SnapshotOwnerTransitionᶜ availableOwnerᶜ requestedOwnerᶜ
+  receiveˢ : SnapshotOwnerTransitionᶜ availableOwnerᶜ collectingOwnerᶜ
+  acceptˢ : SnapshotOwnerTransitionᶜ requestedOwnerᶜ collectingOwnerᶜ
+  resetRequestˢ : SnapshotOwnerTransitionᶜ requestedOwnerᶜ availableOwnerᶜ
+  finishCandidateˢ : SnapshotOwnerTransitionᶜ collectingOwnerᶜ availableOwnerᶜ
+
+data ImpossibleSnapshotTransition : Set where
+
+cannotRestartCollecting :
+  SnapshotOwnerTransitionᶜ collectingOwnerᶜ requestedOwnerᶜ → ImpossibleSnapshotTransition
+cannotRestartCollecting ()
+
+-- Numeric bridge for the three phases above: available=0, requested=1,
+-- collecting=2. Other numbers are outside the projection.
+liveSnapshotEdgeRef : Nat → Nat → Bool
+liveSnapshotEdgeRef 0 0 = true
+liveSnapshotEdgeRef 0 1 = true
+liveSnapshotEdgeRef 0 2 = true
+liveSnapshotEdgeRef 1 0 = true
+liveSnapshotEdgeRef 1 1 = true
+liveSnapshotEdgeRef 1 2 = true
+liveSnapshotEdgeRef 2 0 = true
+liveSnapshotEdgeRef 2 2 = true
+liveSnapshotEdgeRef _ _ = false
+
+-- Identities contain exactly Head, version, number and signing-content token.
+-- The token abstracts canonical bytes; this does not model hashing, the cache,
+-- ledger validity, or cryptographic verification. Valid signatures are a premise.
+candidateIdentityRef : List Nat → List Nat → Bool
+candidateIdentityRef (h ∷ v ∷ n ∷ b ∷ []) (h′ ∷ v′ ∷ n′ ∷ b′ ∷ []) =
+  (h == h′) && (v == v′) && (n == n′) && (b == b′)
+candidateIdentityRef _ _ = false
+
+candidateConfirmationRef : Bool → List Nat → List Nat → List Nat → List Nat → Bool
+candidateConfirmationRef collecting current supplied committee verifiedCommittee =
+  collecting && candidateIdentityRef current supplied && sameCommittee committee verifiedCommittee
+
+no-owner-no-confirmation : ∀ current supplied committee verifiedCommittee →
+  candidateConfirmationRef false current supplied committee verifiedCommittee ≡ false
+no-owner-no-confirmation _ _ _ _ = refl
+
+another-round-is-not-this-candidate :
+  candidateConfirmationRef true (0 ∷ 0 ∷ 1 ∷ 0 ∷ []) (0 ∷ 0 ∷ 2 ∷ 0 ∷ [])
+    (1 ∷ 2 ∷ 3 ∷ []) (1 ∷ 2 ∷ 3 ∷ []) ≡ false
+another-round-is-not-this-candidate = refl
+
+-- The working settlement version is deliberately absent: settlement alone
+-- does not replace the candidate whose final acknowledgement can arrive later.
+same-owned-candidate-confirms :
+  candidateConfirmationRef true (0 ∷ 0 ∷ 1 ∷ 0 ∷ []) (0 ∷ 0 ∷ 1 ∷ 0 ∷ [])
+    (1 ∷ 2 ∷ 3 ∷ []) (1 ∷ 2 ∷ 3 ∷ []) ≡ true
+same-owned-candidate-confirms = refl
+
+{-# COMPILE GHC liveSnapshotEdgeRef as hsLiveSnapshotEdgeRef #-}
+{-# COMPILE GHC candidateConfirmationRef as hsCandidateConfirmationRef #-}
+
+-- Haskell shares the owned identity through signature collection and settlement,
+-- retiring it on confirmation. Heap sharing and encoding counts are outside this
+-- value-level projection; the same identity and phase predicates still apply.
