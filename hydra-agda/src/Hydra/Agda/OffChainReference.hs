@@ -19,6 +19,7 @@ module Hydra.Agda.OffChainReference (
   capacityPruneRef,
   settlementVersionRef,
   settlementReservationRef,
+  settlementUTxORef,
   reservationHeldRef,
   retainReservationRef,
   decommitAdmissionRef,
@@ -302,6 +303,10 @@ settlementVersionRef = M.hsSettlementVersionRef
 
 settlementReservationRef :: Bool -> Integer -> Integer -> Bool
 settlementReservationRef = M.hsSettlementReservationRef
+
+-- | Local outputs after settlement, given the ledger rebuilt without a reservation.
+settlementUTxORef :: Bool -> Integer -> Integer -> [Integer] -> [Integer] -> [Integer]
+settlementUTxORef = M.hsSettlementUTxORef
 
 -- | Rebuilt local outputs with reserved spending inputs removed.
 reserveRebaseRef :: [Integer] -> [Integer] -> [Integer]

@@ -10,6 +10,7 @@ import Test.Hydra.Prelude (Spec, describe, it, shouldBe, shouldSatisfy)
 import Cardano.Binary (decodeFull', serialize')
 import Data.Map.Strict qualified as Map
 import Data.Secret (Secret)
+import Data.Sequence qualified as Seq
 import Hydra.API.ClientInput qualified as Client
 import Hydra.Agda.OffChainReference qualified as Agda
 import Hydra.Chain (ChainEvent (Observation), OnChainTx (OnDecrementTx))
@@ -21,6 +22,7 @@ import Hydra.Ledger.Simple (SimpleChainState (SimpleChainState), SimpleTx (..), 
 import Hydra.Network.Message (Message (..), NetworkEvent (ReceivedMessage))
 import Hydra.Node.HeadLogic qualified as Head
 import Hydra.Node.State (NodeState (..), initialChainTime)
+import Hydra.Tx (UTxOType)
 import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Crypto (HydraKey, SigningKey, aggregateInOrder, sign)
 import Hydra.Tx.Party (Party)
@@ -103,6 +105,36 @@ spec = describe "snapshot decommit retention" $ do
     let next = run confirmed bob $ ReqTx ordinary
     requests next `shouldBe` [ReqSn 1 2 [20] Nothing Nothing]
 
+  describe "settlement releases reserved inputs" $
+    forM_ [("without a reservation", Nothing), ("with the same reservation", Just decommit), ("with a different reservation", Just otherDecommit)] $ \(reservationLabel, reservation) ->
+      forM_ [False, True] $ \settleFirst ->
+        forM_ [False, True] $ \observedCertificate ->
+          it (reservationLabel <> ", settlement " <> (if settleFirst then "before" else "after") <> " acknowledgements, certificate " <> show observedCertificate) $ do
+            let start = initialWith $ utxoRef 1 <> utxoRef 2 <> utxoRef 3
+                pending = SimpleTx 30 (utxoRef 3) (utxoRef 30)
+            reserved <- maybe (pure start) (deliver start bob . ReqDec) reservation
+            requested <- deliver reserved alice $ ReqSn 0 1 [] (Just decommit) Nothing
+            candidate <- candidateOf requested
+            withPending <- deliver requested bob $ ReqTx pending
+            let signatures = aggregateInOrder (Map.fromList [(p, sign sk candidate) | (p, sk) <- signers]) Scenario.scenarioParties
+                observation = Head.ChainInput $ Observation (OnDecrementTx testHeadId 1 (utxoRef 10) 1 (if observedCertificate then signatures else mempty)) (SimpleChainState 1)
+                settle node = accept node $ Head.update (Scenario.environment 1) simpleLedger initialChainTime node observation
+                acknowledge node = foldlM (\current (p, sk) -> deliver current p $ AckSn (sign sk candidate) candidate.number) node signers
+            final <-
+              if settleFirst
+                then do
+                  settled <- settle withPending
+                  if observedCertificate then pure settled else acknowledge settled
+                else acknowledge withPending >>= settle
+            let current = (Scenario.openState final).coordinatedHeadState
+            current.version `shouldBe` 1
+            current.decommitTx `shouldBe` Nothing
+            current.localUTxO `shouldBe` utxoRef 2 <> utxoRef 30
+            current.localTxs `shouldBe` Seq.singleton pending
+            (getSnapshot current.confirmedSnapshot).utxo `shouldBe` utxoRef 2 <> utxoRef 3
+            spent <- accept final $ run final bob $ ReqTx ordinary
+            (Scenario.openState spent).coordinatedHeadState.localUTxO `shouldBe` utxoRef 20 <> utxoRef 30
+
   it "side-loading and clearing local work preserve the authorised payload" $ do
     requested <- deliver initial alice $ ReqSn 0 1 [] (Just decommit) Nothing
     confirmed <- confirm requested
@@ -156,11 +188,15 @@ spec = describe "snapshot decommit retention" $ do
               let matching = case status of CarryDecommit{} -> not (null outputs) && outputs == reservedOutputs; _ -> False
                   proposal = nextSnapshotRequest cardanoSnapshotLimits (if sameVersion then 0 else 1) snapshot mempty mempty Nothing status Nothing
               isJust proposal `shouldBe` Agda.carriedDecommitRequestRef sameVersion True matching
+ where
+  otherDecommit = SimpleTx 11 (utxoRef 2) (utxoRef 11)
 
 initial :: NodeState SimpleTx
-initial =
-  let utxo = utxoRef 1 <> utxoRef 2
-      base :: Snapshot SimpleTx
+initial = initialWith $ utxoRef 1 <> utxoRef 2
+
+initialWith :: UTxOType SimpleTx -> NodeState SimpleTx
+initialWith utxo =
+  let base :: Snapshot SimpleTx
       base = Scenario.initialSnapshot{utxo, accumulator = Accumulator.buildFromUTxO @SimpleTx utxo, appliedAccumulator = Accumulator.buildFromUTxO @SimpleTx utxo}
       signed = aggregateInOrder (Map.fromList [(p, sign sk base) | (p, sk) <- signers]) Scenario.scenarioParties
       open = Scenario.openState Scenario.initialNode
