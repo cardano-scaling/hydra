@@ -1615,12 +1615,12 @@ real signatures, stale and foreign handles,
 cache inconsistencies and event/checkpoint recovery. These checks do not make
 raw retained events safe to import from untrusted sources.
 
-Partial acknowledgements retain the existing two identical signature events.
-Replay treats them as idempotent assignments. An acknowledgement for the last
-confirmed snapshot is ignored only after its number guard succeeds. Rejected
-final verification discards the current input's staged signature. The abstract
-transition relation describes one signature map assignment; the ordered outcome
-reference preserves the repeated assignment in the implementation.
+Each accepted partial `ackSn` records one signature event. Old event logs can
+contain two identical records; replay remains idempotent and accepts both forms.
+An acknowledgement for the last confirmed snapshot is ignored only after its
+number guard succeeds. Rejected final verification discards the current input's
+staged signature. The abstract transition relation describes one signature map
+assignment, as does the ordered outcome reference.
 
 `OffChainReference.agda` independently computes bounded ordered snapshot outcome
 values with named phase, change, effect, wait and rejection constructors, including number/leader rejection, predecessor/version/missing-transaction
@@ -1821,8 +1821,9 @@ each input still resumes from NodeState; no continuation is persisted. Tests
 compare batched application with event-by-event application and serialized replay, including checkpoints and foreign-head events.
 
 The conversion preserves Complete, Wait and Reject semantics and event ordering,
-including duplicate partial-ack signature events. State and event encodings
-remain unchanged. Two decommit corrections accompany the implementation: rebase
+except that a partial acknowledgement records its signature once. State and event
+encodings remain unchanged; replay accepts older duplicate signature events
+idempotently. Two decommit corrections accompany the implementation: rebase
 removes pending spending inputs after rebuilding, and request selection defers
 new decommits until their required inputs are confirmed. A newly eligible
 decommit can start a round without ordinary transactions; a carried one cannot.
