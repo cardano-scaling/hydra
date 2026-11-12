@@ -340,7 +340,7 @@ isCollecting : SnapshotPhaseᶜ → Bool
 isCollecting collectingSignaturesᶜ = true
 isCollecting _ = false
 
--- Partial collection retains the existing event order. Invalid final
+-- Partial collection records the signature once. Invalid final
 -- verification discards this input's tentative signature, not earlier inputs.
 ackSnOutcomeRef : SnapshotPhaseᶜ → Nat → Nat → List Nat → Nat → Nat → Bool → Bool → Nat → SnapshotOutcomeᶜ
 ackSnOutcomeRef phase seen sn signers sender m verifies useful localParty =
@@ -349,7 +349,7 @@ ackSnOutcomeRef phase seen sn signers sender m verifies useful localParty =
   else if not (isCollecting phase && (sn == seen)) then snapshotWaitingᶜ snapshotNotSeenᶜ
   else if elemᵇ sender signers then snapshotRejectedᶜ alreadySignedᶜ
   else if not (allSignedRef (suc m) (sender ∷ signers)) then
-    snapshotCompletedᶜ (recordSignatureᶜ ∷ recordSignatureᶜ ∷ []) []
+    snapshotCompletedᶜ (recordSignatureᶜ ∷ []) []
   else if not verifies then snapshotRejectedᶜ invalidSignatureSetᶜ
   else if useful && leaderRef m (suc sn) localParty then
     snapshotCompletedᶜ (recordSignatureᶜ ∷ confirmSnapshotᶜ ∷ decideNextSnapshotᶜ ∷ []) (sendSnapshotRequestᶜ ∷ [])
@@ -988,3 +988,9 @@ tick-does-not-erase-retained-activation = refl
 tick-does-not-erase-retained-expiry :
   effectiveDepositStatusRef expiredᶜ inactiveᶜ ≡ expiredᶜ
 tick-does-not-erase-retained-expiry = refl
+
+-- One persisted assignment per accepted partial acknowledgement.
+partial-ack-records-once :
+  ackSnOutcomeRef collectingSignaturesᶜ 1 1 [] 0 2 true false 0 ≡
+    snapshotCompletedᶜ (recordSignatureᶜ ∷ []) []
+partial-ack-records-once = refl
