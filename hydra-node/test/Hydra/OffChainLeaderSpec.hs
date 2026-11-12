@@ -15,7 +15,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Hydra.Agda.OffChainReference (leaderRef)
-import Hydra.HeadLogic (isLeader)
+import Hydra.Node.HeadLogic (isLeader)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.Snapshot (SnapshotNumber)
 import Test.Hydra.Tx.Fixture (alice, bob, carol)

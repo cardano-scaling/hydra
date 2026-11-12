@@ -73,10 +73,10 @@ library
     Hydra.Chain.Offline
     Hydra.Chain.ScriptRegistry
     Hydra.Config
-    Hydra.HeadLogic
     Hydra.HeadLogic.Error
     Hydra.HeadLogic.Input
     Hydra.HeadLogic.Outcome
+    Hydra.HeadLogic.Retry
     Hydra.HeadLogic.State
     Hydra.HeadLogic.StateEvent
     Hydra.Ledger
@@ -95,8 +95,10 @@ library
     Hydra.NetworkVersions
     Hydra.Node
     Hydra.Node.ApiTransactionTimeout
+    Hydra.Node.Deposit
     Hydra.Node.EmbedTH
     Hydra.Node.Environment
+    Hydra.Node.HeadLogic
     Hydra.Node.InputQueue
     Hydra.Node.Network
     Hydra.Node.Outbox

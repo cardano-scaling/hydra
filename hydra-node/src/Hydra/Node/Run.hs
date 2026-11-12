@@ -26,7 +26,6 @@ import Hydra.Chain.Direct.Handlers (CardanoChainLog (BlockfrostRateLimit))
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.Chain.Offline (loadGenesisFile, withOfflineChain)
 import Hydra.Contract.KZGTrustedSetup qualified as KZG
-import Hydra.HeadLogic (aggregateNodeState)
 import Hydra.HeadLogic.StateEvent (StateEvent (StateEvent, stateChanged), mkCheckpoint)
 import Hydra.Ledger (Ledger)
 import Hydra.Ledger.Cardano (cardanoLedger, newLedgerEnv)
@@ -45,6 +44,7 @@ import Hydra.Node (
   wireNetworkInput,
  )
 import Hydra.Node.Environment (Environment (..))
+import Hydra.Node.HeadLogic (aggregateNodeState)
 import Hydra.Node.Network (NetworkConfiguration (..), withNetwork)
 import Hydra.Node.Outbox (Outbox (outboxStalled))
 import Hydra.Node.State (NodeState (..), initNodeState)
