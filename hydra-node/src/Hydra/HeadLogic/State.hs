@@ -4,6 +4,7 @@
 
 module Hydra.HeadLogic.State where
 
+import Hydra.HeadLogic.Cardano (snapshotSigningBytes)
 import Hydra.Prelude
 
 import Cardano.Binary (Decoder)
@@ -17,7 +18,7 @@ import Hydra.Tx (
   IsTx (..),
   Party,
  )
-import Hydra.Tx.Crypto (Signature, getSignableRepresentation)
+import Hydra.Tx.Crypto (Signature)
 import Hydra.Tx.Snapshot (
   ConfirmedSnapshot,
   Snapshot (..),
@@ -58,14 +59,6 @@ instance IsChainState tx => ToCBOR (HeadState tx) where
 
 instance IsChainState tx => FromCBOR (HeadState tx) where
   fromCBOR = genericFromCBOR
-
--- | Update the chain state in any 'HeadState'.
-setChainState :: ChainStateType tx -> HeadState tx -> HeadState tx
-setChainState chainState = \case
-  Idle st -> Idle st{chainState}
-  Open st -> Open st{chainState}
-  Closed st -> Closed st{chainState}
-  FanoutProgress st -> FanoutProgress st{chainState}
 
 -- | Get the chain state in any 'HeadState'.
 getChainState :: HeadState tx -> ChainStateType tx
@@ -143,7 +136,8 @@ data CoordinatedHeadState tx = CoordinatedHeadState
   -- application. Spec: T̂
   , allTxs :: !(Map.Map (TxIdType tx) tx)
   -- ^ Map containing all the transactions ever seen by this node and not yet
-  -- included in a snapshot. Spec: Tall
+  -- included as ordinary transactions in a snapshot. Also retains a candidate
+  -- decommit until confirmation promotes it into 'decommitTx'. Spec: Tall
   , confirmedSnapshot :: ConfirmedSnapshot tx
   -- ^ The latest confirmed snapshot. Spec: S̅
   , seenSnapshot :: SeenSnapshot tx
@@ -238,7 +232,7 @@ data SeenSnapshot tx
       , signatories :: Map Party (Signature (Snapshot tx))
       -- ^ Collected signatures so far.
       , signableBytes :: ~ByteString
-      -- ^ Pre-computed result of 'getSignableRepresentation snapshot', cached
+      -- ^ Pre-computed result of 'snapshotSigningBytes snapshot', cached
       -- to avoid recomputing the expensive UTxO hash on every AckSn
       -- verification. Explicitly lazy under StrictData: state hydration folds
       -- every historical 'NodeState' to WHNF, and a strict field here would
@@ -317,7 +311,7 @@ mkSeenSnapshot ::
   Map Party (Signature (Snapshot tx)) ->
   SeenSnapshot tx
 mkSeenSnapshot snapshot signatories =
-  SeenSnapshot{snapshot, signatories, signableBytes = getSignableRepresentation snapshot}
+  SeenSnapshot{snapshot, signatories, signableBytes = snapshotSigningBytes snapshot}
 
 -- | Get the last seen snapshot number given a 'SeenSnapshot'.
 seenSnapshotNumber :: SeenSnapshot tx -> SnapshotNumber
@@ -362,7 +356,7 @@ data ClosedState tx = ClosedState
   , unconfirmedSnapshot :: Maybe (Snapshot tx)
   -- ^ The snapshot this node signed but had not seen confirmed when the head
   -- closed. A close or contest carrying its full multisignature confirms it,
-  -- see 'Hydra.HeadLogic.onClosedChainContestTx'.
+  -- see 'Hydra.HeadLogic.Rules.Close.onClosedChainContestTx'.
   }
   deriving stock (Generic)
 

@@ -215,13 +215,6 @@ data Outcome tx
     Error {error :: LogicError tx}
   deriving stock (Generic)
 
-instance Semigroup (Outcome tx) where
-  e@Error{} <> _ = e
-  _ <> e@Error{} = e
-  Continue scA _ <> Wait r scB = Wait r (scA <> scB)
-  Wait r scA <> _ = Wait r scA
-  Continue scA efA <> Continue scB efB = Continue (scA <> scB) (efA <> efB)
-
 deriving stock instance IsChainState tx => Eq (Outcome tx)
 deriving stock instance IsChainState tx => Show (Outcome tx)
 deriving anyclass instance IsChainState tx => ToJSON (Outcome tx)
@@ -229,20 +222,11 @@ deriving anyclass instance IsChainState tx => ToJSON (Outcome tx)
 noop :: Outcome tx
 noop = Continue [] []
 
-wait :: WaitReason tx -> Outcome tx
-wait reason = Wait reason []
-
 newState :: StateChanged tx -> Outcome tx
 newState change = Continue [change] []
 
 cause :: Effect tx -> Outcome tx
 cause e = Continue [] [e]
-
-causes :: [Effect tx] -> Outcome tx
-causes = Continue []
-
-changes :: [StateChanged tx] -> Outcome tx
-changes stateChanges = Continue stateChanges []
 
 data WaitReason tx
   = WaitOnNotApplicableTx {validationError :: ValidationError}

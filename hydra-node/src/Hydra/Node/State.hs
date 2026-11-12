@@ -10,6 +10,7 @@ import Data.Map.Strict qualified as Map
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import GHC.Records (HasField (..))
 import Hydra.Chain.ChainState (ChainSlot (..), IsChainState (..), chainStateSlot)
+import Hydra.HeadLogic.Machine.Deposit qualified as DepositMachine
 import Hydra.HeadLogic.State (HeadState (Idle), IdleState (..))
 import Hydra.Node.Deposit as Deposit (Deposit (..), DepositStatus (..), TrackedDeposit (..))
 import Hydra.Tx (
@@ -44,15 +45,9 @@ recordDeposit :: IsTx tx => ChainSlot -> TxIdType tx -> Deposit tx -> NodeState 
 recordDeposit slot depositTxId deposit nodeState =
   nodeState
     { deposits =
-        Map.insert depositTxId TrackedDeposit{deposit, recordedAt = slot, consumedAt = Nothing} $
+        Map.alter (DepositMachine.transition $ DepositMachine.Observe slot deposit) depositTxId $
           pruneConsumedDeposits slot (deposits nodeState)
     }
-
--- | Update a tracked deposit (e.g. on status changes); its lifecycle slots are
--- unaffected. Unknown ids are ignored.
-updateDeposit :: IsTx tx => TxIdType tx -> Deposit tx -> NodeState tx -> NodeState tx
-updateDeposit depositTxId deposit nodeState =
-  nodeState{deposits = Map.adjust (\tracked -> tracked{deposit}) depositTxId (deposits nodeState)}
 
 -- | Mark a deposit consumed at the given slot: its increment or recover was
 -- observed on chain. Re-consuming (the consuming transaction re-landed after a
@@ -62,7 +57,7 @@ consumeDeposit :: IsTx tx => ChainSlot -> TxIdType tx -> NodeState tx -> NodeSta
 consumeDeposit slot depositTxId nodeState =
   nodeState
     { deposits =
-        Map.adjust (\tracked -> tracked{consumedAt = Just slot}) depositTxId $
+        Map.alter (DepositMachine.transition $ DepositMachine.Consume slot) depositTxId $
           pruneConsumedDeposits slot (deposits nodeState)
     }
 
@@ -70,11 +65,7 @@ consumeDeposit slot depositTxId nodeState =
 -- 'TrackedDeposit'.
 rollbackDeposits :: ChainSlot -> NodeState tx -> NodeState tx
 rollbackDeposits slot nodeState =
-  nodeState{deposits = Map.mapMaybe rollbackOne (deposits nodeState)}
- where
-  rollbackOne tracked@TrackedDeposit{recordedAt, consumedAt}
-    | recordedAt > slot = Nothing
-    | otherwise = Just tracked{consumedAt = mfilter (<= slot) consumedAt}
+  nodeState{deposits = Map.mapMaybe (DepositMachine.transition (DepositMachine.Rollback slot) . Just) (deposits nodeState)}
 
 -- | Drop consumed deposits beyond 'depositRetentionHorizon': no rollback can
 -- resurface them anymore, so retaining them would only grow persisted state

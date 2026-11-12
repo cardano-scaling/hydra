@@ -1,10 +1,11 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# OPTIONS_GHC -Wno-ambiguous-fields #-}
 {-# OPTIONS_GHC -Wno-unused-do-bind #-}
 
 module Hydra.HeadLogicSnapshotSpec where
 
 import Hydra.Prelude hiding (label)
-import Test.Hydra.Prelude
+import Test.Hydra.Prelude (Arbitrary (arbitrary), Spec, describe, expectationFailure, it, parallel, prop, shouldBe)
 
 import Data.List qualified as List
 import Data.Map.Strict qualified as Map
@@ -93,7 +94,7 @@ spec = do
         mkSeenSnapshot poisoned mempty `seq` pure @IO ()
 
     describe "On ReqTx" $ do
-      prop "always emit ReqSn given head has 1 member" prop_singleMemberHeadAlwaysSnapshotOnReqTx
+      prop "emits ReqSn in a single-member Head without an unsettled decommit" prop_singleMemberHeadAlwaysSnapshotOnReqTx
 
       it "sends ReqSn when leader and no snapshot in flight" $ do
         let tx = aValidTx 1
@@ -202,7 +203,11 @@ spec = do
           other -> expectationFailure $ "Expected to be in open state: " <> show other
 
 prop_singleMemberHeadAlwaysSnapshotOnReqTx :: ConfirmedSnapshot SimpleTx -> Property
-prop_singleMemberHeadAlwaysSnapshotOnReqTx sn = monadicIO $ do
+prop_singleMemberHeadAlwaysSnapshotOnReqTx original = monadicIO $ do
+  -- No unsettled decommit needs carrying; the Head and snapshot share identity.
+  let sn = case original of
+        InitialSnapshot{} -> InitialSnapshot testHeadId
+        ConfirmedSnapshot snapshot signatures -> ConfirmedSnapshot snapshot{headId = testHeadId, utxoToDecommit = Nothing} signatures
   (seenSnapshot, version) <-
     pick $
       oneof
