@@ -36,7 +36,6 @@ import Hydra.Chain (
  )
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot), ChainStateType, IsChainState, chainStatePoint, chainStateSlot)
 import Hydra.Chain.Direct.Handlers (LocalChainState, getLatest, newLocalChainState, pushNew, rollback)
-import Hydra.HeadLogic (CoordinatedHeadState (..), Effect (..), HeadState (..), Input (..), OpenState (..), aggregateChainStateHistory, aggregateNodeState)
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.HeadLogicSpec (testSnapshot)
 import Hydra.Ledger (Ledger)
@@ -58,6 +57,7 @@ import Hydra.Node (
   waitDelay,
  )
 import Hydra.Node.Environment (Environment (..))
+import Hydra.Node.HeadLogic (CoordinatedHeadState (..), Effect (..), HeadState (..), Input (..), OpenState (..), aggregateChainStateHistory, aggregateNodeState)
 import Hydra.Node.InputQueue (InputQueue (enqueue), createInputQueue)
 import Hydra.Node.Outbox (newOutbox)
 import Hydra.Node.State (NodeState (..), initNodeState)
