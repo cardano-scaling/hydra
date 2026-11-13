@@ -3,12 +3,31 @@
 module Hydra.HeadLogic.InterpreterSpec (spec) where
 
 import Hydra.HeadLogic.Interpreter qualified as Interpreter
-import Hydra.HeadLogic.Program qualified as Program
+import Hydra.HeadLogic.Program (
+  Instruction (ApplyTransaction),
+  Program,
+  applyTransaction,
+  change,
+  decide,
+  emit,
+  foldProgram,
+  instruction,
+  reject,
+  signSnapshot,
+  suspend,
+  verifySnapshot,
+ )
 import Hydra.HeadLogic.Trace qualified as Trace
 import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Ledger.Simple (SimpleTx, simpleLedger)
 import Hydra.Network.Message (Message (ReqTx))
-import Hydra.Node.HeadLogic (Effect (NetworkEffect), LogicError (AssertionFailed), Outcome (..), StateChanged (TransactionAppliedToLocalUTxO, TransactionReceived), WaitReason (WaitOnSnapshotNumber))
+import Hydra.Node.HeadLogic (
+  Effect (NetworkEffect),
+  LogicError (AssertionFailed),
+  Outcome (..),
+  StateChanged (TransactionAppliedToLocalUTxO, TransactionReceived),
+  WaitReason (WaitOnSnapshotNumber),
+ )
 import Hydra.Prelude hiding (trace)
 import Hydra.Prelude qualified as Prelude
 import Hydra.Tx.Crypto (Verified (..), aggregate, getSignableRepresentation, getVerificationKey, sign)
@@ -22,50 +41,50 @@ spec :: Spec
 spec = do
   describe "program termination" $ do
     it "preserves change and effect order on completion" $ do
-      let program :: Program.Program SimpleTx ()
+      let program :: Program SimpleTx ()
           program = do
-            Program.change received
-            Program.emit firstEffect
-            Program.change applied
-            Program.emit secondEffect
+            change received
+            emit firstEffect
+            change applied
+            emit secondEffect
       Interpreter.runProgram (testInterpreterConfig simpleLedger) program
         `shouldBe` Continue [received, applied] [firstEffect, secondEffect]
 
     it "commits the change prefix and discards effects when suspended" $ do
-      let program :: Program.Program SimpleTx ()
+      let program :: Program SimpleTx ()
           program = do
-            Program.change received
-            Program.emit firstEffect
-            Program.change applied
-            _ <- Program.suspend waitReason
+            change received
+            emit firstEffect
+            change applied
+            _ <- suspend waitReason
             Prelude.error "suspension evaluates its continuation"
       Interpreter.runProgram (testInterpreterConfig simpleLedger) program
         `shouldBe` Wait waitReason [received, applied]
 
     it "discards all changes and effects when rejected" $ do
-      let program :: Program.Program SimpleTx ()
+      let program :: Program SimpleTx ()
           program = do
-            Program.change received
-            Program.emit firstEffect
-            Program.change applied
-            _ <- Program.reject rejection
+            change received
+            emit firstEffect
+            change applied
+            _ <- reject rejection
             Prelude.error "rejection evaluates its continuation"
       Interpreter.runProgram (testInterpreterConfig simpleLedger) program `shouldBe` Error rejection
 
     it "does not evaluate a rejection after suspension" $ do
-      let program :: Program.Program SimpleTx ()
+      let program :: Program SimpleTx ()
           program = do
-            Program.change received
-            _ <- Program.suspend waitReason
-            Program.reject rejection
+            change received
+            _ <- suspend waitReason
+            reject rejection
       Interpreter.runProgram (testInterpreterConfig simpleLedger) program `shouldBe` Wait waitReason [received]
 
     it "uses the result of a named decision to select its continuation" $ do
       forM_ [False, True] $ \predicate -> do
-        let program :: Program.Program SimpleTx ()
+        let program :: Program SimpleTx ()
             program = do
-              accepted <- Program.decide "example guard" predicate
-              Program.change $ if accepted then applied else received
+              accepted <- decide "example guard" predicate
+              change $ if accepted then applied else received
         Interpreter.runProgram (testInterpreterConfig simpleLedger) program
           `shouldBe` Continue [if predicate then applied else received] []
 
@@ -76,29 +95,29 @@ spec = do
             if slot == 7 && utxo == oldUTxO && txs == [sampleTx]
               then Right returnedUTxO
               else Prelude.error "ledger query arguments differ from the instruction"
-          program :: Program.Program SimpleTx ()
+          program :: Program SimpleTx ()
           program = do
-            result <- Program.applyTransaction 7 oldUTxO sampleTx
+            result <- applyTransaction 7 oldUTxO sampleTx
             if result == Right returnedUTxO
-              then Program.change applied
-              else Program.reject rejection
+              then change applied
+              else reject rejection
       Interpreter.runProgram (testInterpreterConfig ledger) program `shouldBe` Continue [applied] []
 
     it "returns ledger failures to the rule without rejecting the attempt" $ do
-      let program :: Program.Program SimpleTx ()
+      let program :: Program SimpleTx ()
           program = do
-            result <- Program.applyTransaction 0 mempty sampleTx
+            result <- applyTransaction 0 mempty sampleTx
             if result == Left ledgerFailure
-              then Program.change received
-              else Program.reject rejection
+              then change received
+              else reject rejection
       Interpreter.runProgram (testInterpreterConfig rejectingLedger) program `shouldBe` Continue [received] []
 
     it "traces tentative work and the disposition that discards it" $ do
-      let program :: Program.Program SimpleTx ()
+      let program :: Program SimpleTx ()
           program = do
-            Program.change received
-            Program.emit firstEffect
-            Program.reject rejection
+            change received
+            emit firstEffect
+            reject rejection
           (outcome, trace) = Interpreter.traceProgram (testInterpreterConfig simpleLedger) program
       outcome `shouldBe` Error rejection
       trace `shouldBe` [Trace.Changed "transaction received", Trace.Emitted "broadcast ReqTx", Trace.Rejected]
@@ -117,37 +136,41 @@ spec = do
                     then Verified
                     else FailedKeys [key]
               }
-          program :: Program.Program SimpleTx ()
+          program :: Program SimpleTx ()
           program = do
-            signed <- Program.signSnapshot snapshot
-            result <- Program.verifySnapshot [key] (aggregate [signed]) bytes
+            signed <- signSnapshot snapshot
+            result <- verifySnapshot [key] (aggregate [signed]) bytes
             case result of
-              Verified -> Program.change received
-              _ -> Program.reject rejection
+              Verified -> change received
+              _ -> reject rejection
       Interpreter.runExecution (Interpreter.Execution config program) `shouldBe` Continue [received] []
       Interpreter.signingIdentity config.snapshotSigner `shouldBe` key
 
     it "uses the configured verifier" $ do
-      let program :: Program.Program SimpleTx ()
+      let program :: Program SimpleTx ()
           program = do
-            result <- Program.verifySnapshot [] (aggregate []) "contents"
+            result <- verifySnapshot [] (aggregate []) "contents"
             case result of
-              FailedKeys [] -> Program.change received
-              _ -> Program.reject rejection
+              FailedKeys [] -> change received
+              _ -> reject rejection
           config :: Interpreter.InterpreterConfig SimpleTx
           config = (testInterpreterConfig simpleLedger){Interpreter.snapshotVerifier = \_ _ _ -> FailedKeys []}
       Interpreter.runProgram config program `shouldBe` Continue [received] []
 
     it "can replace a ledger reply while preserving the program continuation" $ do
-      let program :: Program.Program SimpleTx ()
+      let program :: Program SimpleTx ()
           program = do
-            result <- Program.applyTransaction 0 mempty sampleTx
-            either (const $ Program.change received) (const $ Program.reject rejection) result
-          replace :: Program.Instruction SimpleTx a -> Program.Program SimpleTx a
+            result <- applyTransaction 0 mempty sampleTx
+            either (const $ change received) (const $ reject rejection) result
+          replace :: Instruction SimpleTx a -> Program SimpleTx a
           replace = \case
-            Program.ApplyTransaction{} -> pure $ Left ledgerFailure
-            op -> Program.instruction op
-      Interpreter.runProgram (testInterpreterConfig simpleLedger) (Program.foldProgram replace program) `shouldBe` Continue [received] []
+            ApplyTransaction{} -> pure $ Left ledgerFailure
+            op -> instruction op
+
+      Interpreter.runProgram
+        (testInterpreterConfig simpleLedger)
+        (foldProgram replace program)
+        `shouldBe` Continue [received] []
 
 sampleTx :: SimpleTx
 sampleTx = aValidTx 42
