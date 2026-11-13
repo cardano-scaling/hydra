@@ -366,6 +366,13 @@ reqTxKnownOutcomeRef false applicable ttl inFlight m sn party = reqTxOutcomeRef 
 -- foreign-head filtering occurs before these functions. Payloads, signature
 -- maps, versions and slot history are outside this abstraction. The Booleans
 -- below are explicit abstraction inputs, not proofs.
+-- DepositRecorded and DepositExpired change the tracked-deposit projection,
+-- not the coordination phase. CommitApproved and DecommitApproved report a
+-- preceding snapshot confirmation; DecommitInvalid reports rejection or an
+-- already released reservation. They project to otherEventᶜ.
+-- Activation and recovery can change the selected deposit independently of
+-- its tracked status. Only fresh settlement makes deposited outputs spendable;
+-- payload reconstruction and repeated-settlement idempotence are Haskell checks.
 data LifecyclePhaseᶜ : Set where
   idleHeadᶜ openHeadᶜ closedHeadᶜ readyHeadᶜ pendingFanoutᶜ fanoutProgressᶜ : LifecyclePhaseᶜ
 {-# FOREIGN GHC data HsLifecyclePhase = IdleHead | OpenHead | ClosedHead | ReadyHead | PendingFanout | FanoutProgress deriving (Eq, Show, Enum, Bounded) #-}
