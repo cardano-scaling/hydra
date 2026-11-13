@@ -15,6 +15,7 @@ data Candidate tx = Candidate
   , representation :: ~ByteString
   }
 
+-- | Check whether the candidate snapshot and the expected snapshot agree.
 sameCandidate :: Candidate tx -> Candidate tx -> Bool
 sameCandidate expected supplied =
   expected.snapshot.headId == supplied.snapshot.headId
