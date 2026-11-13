@@ -83,19 +83,21 @@ Three tiers, from strongest to weakest guarantee:
      the obvious tool and is unavailable, because `--safe` *bans postulates* and
      this specification rests on 66 of them by design (and `--safe` is contagious
      through imports, so nothing downstream of `Prelude` could carry it). The
-     enumerated list buys the same protection.
+     enumerated list detects changes to this declared trust base; it does not
+     remove the assumptions or turn the development into a `--safe` proof.
 
    It also gates which on-chain transitions the solvency argument reaches: every
    `*Valid` bundle must be consumed by a step or listed with the reason it is
    out of reach, so a new transition cannot narrow the theorem silently.
 
-The bridge direction is *completeness*: `ReferenceBridge.agda` proves that a
-spec-valid transaction makes the extracted checker accept, so a
-reference-reject implies a spec-reject. Joined with the agreement tests'
-`reference === validator`, a spec-valid transaction is accepted by the real
-validator and vice versa, modulo the documented mocks, each of which the
-tests exercise with real crypto (Ed25519 signatures, BLS/KZG pairings) in both
-accept and reject directions.
+The bridge direction is *completeness*: under its documented assumptions,
+`ReferenceBridge.agda` proves that a spec-valid transaction makes the extracted
+checker accept, so a reference rejection implies a spec rejection. It does not
+prove the converse. The agreement tests compare `reference === validator` on
+generated cases, including real-crypto accept and reject cases for the mocked
+operations (Ed25519 signatures and BLS/KZG pairings). This gives evidence of
+implementation agreement on those cases, not a proof that the validator and
+specification agree on every input.
 
 ## The extraction pipeline
 
@@ -150,7 +152,7 @@ Two layers bind the extracted spec to the real implementation:
   and `Hydra.OffChainLeaderSpec` (hydra-node) bind the extracted §6 handler
   decisions (snapshot-signing eligibility, decommit recording, deposit status,
   ack counting, contest eligibility, leader election) against the real
-  `HeadLogic.update` outcomes.
+  `Node.HeadLogic.update` outcomes.
 
 ## How do I ...
 

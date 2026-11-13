@@ -24,6 +24,7 @@ import Hydra.API.ClientInput qualified as Client
 import Hydra.API.HTTPServer (observeL1)
 import Hydra.API.ServerOutput (ClientMessage (RejectedInputBecauseBroadcastStalled))
 import Hydra.API.ServerOutput qualified as Output
+import Hydra.HeadLogic (Input (ClientInput))
 import Hydra.HeadLogic.Outcome (Effect (ClientEffect), Outcome (..), StateChanged (..))
 import Hydra.HeadLogicSpec (inIdleState, inOpenState, receiveMessage, testSnapshot)
 import Hydra.Ledger.Simple (SimpleTx)
@@ -33,7 +34,6 @@ import Hydra.Network (Host (Host), StallReason (..))
 import Hydra.Network.Etcd qualified as Etcd
 import Hydra.Network.Message (Message (ReqTx))
 import Hydra.Node (HydraNodeLog (..))
-import Hydra.Node.HeadLogic (Input (ClientInput))
 import Hydra.Node.Network qualified as Network
 
 import Network.HTTP.Req (GET (..), NoReqBody (..), bsResponse, defaultHttpConfig, http, port, req, responseBody, runReq, (/:))

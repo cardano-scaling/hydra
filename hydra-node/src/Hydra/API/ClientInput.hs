@@ -1,10 +1,11 @@
 module Hydra.API.ClientInput where
 
+import Hydra.HeadLogic.Cardano (cardanoSnapshotLimits, checkCommitmentCapacity)
+import Hydra.HeadLogic.Limits (SnapshotLimits)
 import Hydra.Prelude
 
 import Hydra.Tx (ConfirmedSnapshot, IsTx (..), Snapshot (..), TxIdType, getSnapshot)
 import Hydra.Tx.Accumulator (AccumulatorTooLarge)
-import Hydra.Tx.Accumulator qualified as Accumulator
 
 data ClientInput tx
   = Init
@@ -60,14 +61,18 @@ instance IsTx tx => FromCBOR (ClientInput tx) where
 -- an independent backstop for the same invariant.
 --
 -- This must not force the accumulators, so it goes through
--- 'Accumulator.checkAccumulatorSize' (an element-map fold) and never 'toJSON'
+-- 'checkCommitmentCapacity' (an element-map fold) and never 'toJSON'
 -- or 'Accumulator.getAccumulatorHash'.
 validateClientInput :: IsTx tx => ClientInput tx -> Either AccumulatorTooLarge (ClientInput tx)
-validateClientInput = \case
+validateClientInput = validateClientInputWith cardanoSnapshotLimits
+
+-- | Apply the same non-forcing check with the limits supplied to the core.
+validateClientInputWith :: IsTx tx => SnapshotLimits -> ClientInput tx -> Either AccumulatorTooLarge (ClientInput tx)
+validateClientInputWith limits = \case
   input@SideLoadSnapshot{snapshot} ->
     let Snapshot{accumulator, appliedAccumulator} = getSnapshot snapshot
      in input
           <$ traverse_
-            Accumulator.checkAccumulatorSize
+            (checkCommitmentCapacity limits)
             [accumulator, appliedAccumulator]
   input -> Right input
