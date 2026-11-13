@@ -36,5 +36,5 @@ reject() {
 }
 
 reject SnapshotRestart 'No instance for' 'AllowedTransition' 'CollectingSignatures' 'RequestSent'
-reject DecommitReplacement 'No instance for' 'AllowedTransition' 'AwaitingSettlement' 'DecommitPending'
+reject DecommitReplacement 'No instance for' 'AllowedTransition' 'AwaitingDecommitSettlement' 'DecommitPending'
 reject CertificateAsCandidate 'VerifiedCandidate' 'VerifiedSnapshot' "Couldn't match type"

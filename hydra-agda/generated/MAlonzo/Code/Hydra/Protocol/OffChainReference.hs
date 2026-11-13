@@ -60,6 +60,7 @@ data HsReqDecOutcome = ReqDecWaitCommit | ReqDecInvalidCommit
    | ReqDecInvalidLedger | ReqDecEmptyOutputs | ReqDecRecorded
    | ReqDecRequested deriving (Eq, Show)
 data HsRecoverOutcome = RecoveryMissing | RecoveryBlocked | RecoveryPosted deriving (Eq, Show)
+data HsCommitPhase = NoCommit | CommitSelected | AwaitingCommitSettlement deriving (Eq, Show)
 -- Hydra.Protocol.OffChainReference.DepositStatusᶜ
 d_DepositStatus'7580'_6 = ()
 type T_DepositStatus'7580'_6 = HsDepositStatus
@@ -1539,7 +1540,7 @@ du_go_660 v0 v1 v2 v3 v4 v5 v6
 d_DecommitPhase'7580'_674 = ()
 data T_DecommitPhase'7580'_674
   = C_noDecommit'7580'_676 | C_pendingDecommit'7580'_678 |
-    C_awaitingSettlement'7580'_680
+    C_awaitingDecommitSettlement'7580'_680
 -- Hydra.Protocol.OffChainReference.DecommitTransitionᶜ
 d_DecommitTransition'7580'_682 a0 a1 = ()
 data T_DecommitTransition'7580'_682
@@ -1839,3 +1840,53 @@ d_another'45'round'45'is'45'not'45'this'45'candidate_868 = erased
 d_same'45'owned'45'candidate'45'confirms_870 ::
   MAlonzo.Code.Agda.Builtin.Equality.T__'8801'__12
 d_same'45'owned'45'candidate'45'confirms_870 = erased
+-- Hydra.Protocol.OffChainReference.CommitPhaseᶜ
+d_CommitPhase'7580'_872 = ()
+type T_CommitPhase'7580'_872 = HsCommitPhase
+pattern C_noCommit'7580'_874 = NoCommit
+pattern C_selectedCommit'7580'_876 = CommitSelected
+pattern C_awaitingCommitSettlement'7580'_878 = AwaitingCommitSettlement
+check_noCommit'7580'_874 :: T_CommitPhase'7580'_872
+check_noCommit'7580'_874 = NoCommit
+check_selectedCommit'7580'_876 :: T_CommitPhase'7580'_872
+check_selectedCommit'7580'_876 = CommitSelected
+check_awaitingCommitSettlement'7580'_878 :: T_CommitPhase'7580'_872
+check_awaitingCommitSettlement'7580'_878 = AwaitingCommitSettlement
+cover_CommitPhase'7580'_872 :: HsCommitPhase -> ()
+cover_CommitPhase'7580'_872 x
+  = case x of
+      NoCommit -> ()
+      CommitSelected -> ()
+      AwaitingCommitSettlement -> ()
+-- Hydra.Protocol.OffChainReference.commitPhaseRef
+hsCommitPhaseRef ::
+  Bool -> Integer -> Integer -> Bool -> T_CommitPhase'7580'_872
+hsCommitPhaseRef = coe d_commitPhaseRef_880
+d_commitPhaseRef_880 ::
+  Bool -> Integer -> Integer -> Bool -> T_CommitPhase'7580'_872
+d_commitPhaseRef_880 v0 v1 v2 v3
+  = coe
+      du_if_then_else__16
+      (coe d__'38''38'__34 (coe eqInt (coe v1) (coe v2)) (coe v3))
+      (coe C_awaitingCommitSettlement'7580'_878)
+      (coe
+         du_if_then_else__16 (coe v0) (coe C_selectedCommit'7580'_876)
+         (coe C_noCommit'7580'_874))
+-- Hydra.Protocol.OffChainReference.CommitTransitionᶜ
+d_CommitTransition'7580'_890 a0 a1 = ()
+data T_CommitTransition'7580'_890
+  = C_unchanged'7580'_894 | C_select'7580'_896 |
+    C_release'7580'_898 | C_confirm'7580'_900 | C_adopt'7580'_902 |
+    C_retire'7580'_904 | C_retireSelected'7580'_906
+-- Hydra.Protocol.OffChainReference.adoption-without-selection-awaits
+d_adoption'45'without'45'selection'45'awaits_908 ::
+  MAlonzo.Code.Agda.Builtin.Equality.T__'8801'__12
+d_adoption'45'without'45'selection'45'awaits_908 = erased
+-- Hydra.Protocol.OffChainReference.settlement-before-confirmation-retires
+d_settlement'45'before'45'confirmation'45'retires_910 ::
+  MAlonzo.Code.Agda.Builtin.Equality.T__'8801'__12
+d_settlement'45'before'45'confirmation'45'retires_910 = erased
+-- Hydra.Protocol.OffChainReference.retirement-preserves-selection
+d_retirement'45'preserves'45'selection_912 ::
+  MAlonzo.Code.Agda.Builtin.Equality.T__'8801'__12
+d_retirement'45'preserves'45'selection_912 = erased
