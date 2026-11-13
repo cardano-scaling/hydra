@@ -67,7 +67,7 @@ statePhase = \case
   Collecting{} -> CollectingSignatures
 
 restore :: IsTx tx => [VerificationKey HydraKey] -> SnapshotState tx -> InitialState (State tx)
-restore committee Port.SnapshotState{version, chainSlot, confirmed, seen, finalizedCommit, finalizedDecommit} =
+restore parties Port.SnapshotState{version, chainSlot, confirmed, seen, finalizedCommit, finalizedDecommit} =
   let context = Context{version, chainSlot, confirmed, finalizedCommit, finalizedDecommit}
    in case seen of
         NoSeenSnapshot ->
@@ -77,7 +77,7 @@ restore committee Port.SnapshotState{version, chainSlot, confirmed, seen, finali
         RequestedSnapshot lastSeen requested ->
           InitialState $ Requested context lastSeen requested
         SeenSnapshot{snapshot, signatories} ->
-          InitialState $ Collecting context (issue committee snapshot) signatories
+          InitialState $ Collecting context (issue parties snapshot) signatories
 
 -- Never authorise a candidate using a caller-supplied signing-byte cache.
 issue ::
@@ -85,7 +85,7 @@ issue ::
   [VerificationKey HydraKey] ->
   Snapshot tx ->
   Candidate tx
-issue committee snapshot = Candidate snapshot committee (snapshotSigningBytes snapshot)
+issue parties snapshot = Candidate snapshot parties (snapshotSigningBytes snapshot)
 
 request ::
   State tx from ->
@@ -105,9 +105,9 @@ accept ::
   Seq tx ->
   Maybe (TxIdType tx) ->
   Update tx 'CollectingSignatures
-accept committee state snapshot txs deposit =
+accept parties state snapshot txs deposit =
   Update
-    (Collecting (contextOf state) (issue committee snapshot) mempty)
+    (Collecting (contextOf state) (issue parties snapshot) mempty)
     (Rebase snapshot txs deposit)
     [SnapshotRequested snapshot txs deposit]
 

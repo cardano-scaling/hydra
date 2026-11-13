@@ -33,7 +33,7 @@ verifiedSnapshot (VerifiedSnapshot snapshot _ _) = snapshot
 verifiedSignatures :: VerifiedSnapshot tx -> MultiSignature (Snapshot tx)
 verifiedSignatures (VerifiedSnapshot _ signatures _) = signatures
 
--- | Verification authorises one Head and its ordered committee, not just bytes.
+-- | Verification authorises one Head and its ordered parties, not just bytes.
 verifiedFor :: HeadId -> [VerificationKey HydraKey] -> VerifiedSnapshot tx -> Bool
 verifiedFor expectedHead expectedKeys (VerifiedSnapshot Snapshot{headId} _ verifiedKeys) =
   headId == expectedHead && verifiedKeys == expectedKeys
@@ -49,18 +49,18 @@ verify vkeys snapshot bytes signatures = do
     failure -> Left failure
 
 verifyCandidate :: Candidate tx -> MultiSignature (Snapshot tx) -> Program tx (Either (LogicError tx) (VerifiedCandidate tx))
-verifyCandidate candidate@Candidate{snapshot, committee, representation} signatures = do
-  result <- verify committee snapshot representation signatures
-  pure $ VerifiedCandidate candidate <$> first (verificationError committee signatures) result
+verifyCandidate candidate@Candidate{snapshot, parties, representation} signatures = do
+  result <- verify parties snapshot representation signatures
+  pure $ VerifiedCandidate candidate <$> first (verificationError parties signatures) result
 
 -- | Chain adoption verifies snapshot contents without issuing a live handle.
 verifySeenSnapshot :: IsTx tx => [VerificationKey HydraKey] -> SeenSnapshot tx -> MultiSignature (Snapshot tx) -> Program tx (Either (LogicError tx) (VerifiedSnapshot tx))
-verifySeenSnapshot committee seen signatures = case seen of
-  SeenSnapshot{snapshot} -> first (verificationError committee signatures) <$> verifySignedSnapshot committee snapshot signatures
+verifySeenSnapshot parties seen signatures = case seen of
+  SeenSnapshot{snapshot} -> first (verificationError parties signatures) <$> verifySignedSnapshot parties snapshot signatures
   _ -> Program.suspend WaitOnSeenSnapshot
 
 verificationError :: [VerificationKey HydraKey] -> MultiSignature (Snapshot tx) -> Verified -> LogicError tx
-verificationError committee signatures failure =
+verificationError parties signatures failure =
   RequireFailed $ InvalidMultisignature (show signatures) $ case failure of
     FailedKeys failures -> failures
-    _ -> committee
+    _ -> parties

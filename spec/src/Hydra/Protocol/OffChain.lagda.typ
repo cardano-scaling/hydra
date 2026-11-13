@@ -1557,7 +1557,7 @@ The runtime supplies public rule parameters and primitive implementations to the
 pure entry point. Each interpreter configuration supplies transaction application,
 signing and verification; debugger recording uses the same verifier, while replay
 consumes its retained answer. Concrete Cardano helpers maintain the two accumulator
-deltas, canonical snapshot encoding and committee-ordered certificate assembly.
+deltas, canonical snapshot encoding and certificate assembly in party order.
 These boundaries preserve the existing bytes, query order and decisions.
 Completion commits the ordered changes and releases effects; waiting retains
 only the ordered change prefix; rejection discards both buffers. In particular,
@@ -1594,7 +1594,7 @@ number, and no candidate already collecting signatures. A local request marker
 must name that same number.
 
 Only the owner issues a candidate handle. It binds the Head, snapshot version,
-number, canonical signing bytes and ordered committee. Signature recording and
+number, canonical signing bytes and ordered parties. Signature recording and
 confirmation consume that handle; a generally verified certificate is sufficient
 only for the separate adoption operation. Owner refusal rejects the entire
 Program attempt, including any staged signature. Restoration derives signing
@@ -1798,9 +1798,9 @@ chooses how to reconstruct its UTxO. Neither component receives a NodeState.
 
 Live confirmation requires an opaque result from successful multisignature
 verification of an owner-issued candidate handle. The handle binds the Head,
-version, number, canonical signing contents and ordered committee. Confirmation
+version, number, canonical signing contents and ordered parties. Confirmation
 checks that it still identifies the owned candidate. Adoption uses separate
-certificate evidence and checks the Head and committee. A refusal rejects the
+certificate evidence and checks the Head and parties. A refusal rejects the
 Program, discarding staged changes and effects. Restoring a candidate derives its
 signing bytes from the snapshot rather than trusting a supplied cache. This still
 depends on the primitive implementation; it is not a proof of cryptography in
@@ -1860,7 +1860,7 @@ within a phase, since Crem permits identity transitions.
 that the replacement edge is impossible. Its `retainReservationRef` checks carried
 authority or surviving required inputs, `decommitAdmissionRef` accounts for both
 local intent and confirmed authority, and `verificationContextRef` compares Head
-identity and ordered committees. Haskell tests compare these predicates over
+identity and ordered lists of parties. Haskell tests compare these predicates over
 bounded sets and real signature verification. The reference abstracts keys and
 UTxO names; it does not prove cryptography, ledger validity, crash safety or
 progress under arbitrary delivery. Separate integration schedules check 24

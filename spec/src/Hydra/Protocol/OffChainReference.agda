@@ -725,16 +725,16 @@ retainReservationRef carried otherAuthorised inputs available =
 decommitAdmissionRef : Bool → Bool → Bool
 decommitAdmissionRef pending authorised = not (pending || authorised)
 
--- Verification context uses ordered committee identities, not sets. These are
+-- Verification context uses ordered party identities, not sets. These are
 -- abstract identities; cryptographic verification remains an external premise.
-sameCommittee : List Nat → List Nat → Bool
-sameCommittee [] [] = true
-sameCommittee (x ∷ xs) (y ∷ ys) = (x == y) && sameCommittee xs ys
-sameCommittee _ _ = false
+sameParties : List Nat → List Nat → Bool
+sameParties [] [] = true
+sameParties (x ∷ xs) (y ∷ ys) = (x == y) && sameParties xs ys
+sameParties _ _ = false
 
 verificationContextRef : Nat → Nat → List Nat → List Nat → Bool
-verificationContextRef head verifiedHead committee verifiedCommittee =
-  (head == verifiedHead) && sameCommittee committee verifiedCommittee
+verificationContextRef head verifiedHead parties verifiedParties =
+  (head == verifiedHead) && sameParties parties verifiedParties
 
 {-# COMPILE GHC retainReservationRef as hsRetainReservationRef #-}
 {-# COMPILE GHC decommitAdmissionRef as hsDecommitAdmissionRef #-}
@@ -851,11 +851,11 @@ candidateIdentityRef (h ∷ v ∷ n ∷ b ∷ []) (h′ ∷ v′ ∷ n′ ∷ b�
 candidateIdentityRef _ _ = false
 
 candidateConfirmationRef : Bool → List Nat → List Nat → List Nat → List Nat → Bool
-candidateConfirmationRef collecting current supplied committee verifiedCommittee =
-  collecting && candidateIdentityRef current supplied && sameCommittee committee verifiedCommittee
+candidateConfirmationRef collecting current supplied parties verifiedParties =
+  collecting && candidateIdentityRef current supplied && sameParties parties verifiedParties
 
-no-owner-no-confirmation : ∀ current supplied committee verifiedCommittee →
-  candidateConfirmationRef false current supplied committee verifiedCommittee ≡ false
+no-owner-no-confirmation : ∀ current supplied parties verifiedParties →
+  candidateConfirmationRef false current supplied parties verifiedParties ≡ false
 no-owner-no-confirmation _ _ _ _ = refl
 
 another-round-is-not-this-candidate :

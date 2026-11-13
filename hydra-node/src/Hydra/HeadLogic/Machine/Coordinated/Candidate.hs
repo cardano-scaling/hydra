@@ -11,7 +11,7 @@ import Hydra.Tx.Snapshot (Snapshot (..))
 
 data Candidate tx = Candidate
   { snapshot :: Snapshot tx
-  , committee :: [VerificationKey HydraKey]
+  , parties :: [VerificationKey HydraKey]
   , representation :: ~ByteString
   }
 
@@ -21,5 +21,5 @@ sameCandidate expected supplied =
   expected.snapshot.headId == supplied.snapshot.headId
     && expected.snapshot.version == supplied.snapshot.version
     && expected.snapshot.number == supplied.snapshot.number
-    && expected.committee == supplied.committee
+    && expected.parties == supplied.parties
     && expected.representation == supplied.representation
