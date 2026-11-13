@@ -342,7 +342,7 @@ retainReservationRef = M.hsRetainReservationRef
 decommitAdmissionRef :: Bool -> Bool -> Bool
 decommitAdmissionRef = M.hsDecommitAdmissionRef
 
--- | Head identity and ordered committee must match the verification context.
+-- | Head identity and ordered parties must match the verification context.
 verificationContextRef :: Integer -> Integer -> [Integer] -> [Integer] -> Bool
 verificationContextRef = M.hsVerificationContextRef
 
@@ -351,7 +351,7 @@ liveSnapshotEdgeRef :: Integer -> Integer -> Bool
 liveSnapshotEdgeRef = M.hsLiveSnapshotEdgeRef
 
 -- | Collecting, owned/supplied [Head, version, number, content] identities and
--- ordered committees. Signature validity and canonical content are premises.
+-- ordered lists of parties. Signature validity and canonical content are premises.
 candidateConfirmationRef :: Bool -> [Integer] -> [Integer] -> [Integer] -> [Integer] -> Bool
 candidateConfirmationRef = M.hsCandidateConfirmationRef
 

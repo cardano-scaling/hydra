@@ -24,10 +24,10 @@ import Hydra.Events.RotationSpec qualified
 import Hydra.Events.S3Spec qualified
 import Hydra.Events.SQLiteBasedSpec qualified
 import Hydra.Events.UDPSpec qualified
-import Hydra.HeadLogic.CommitPhaseSpec qualified
-import Hydra.HeadLogic.DepositSpec qualified
 import Hydra.HeadLogic.CapacitySpec qualified
+import Hydra.HeadLogic.CommitPhaseSpec qualified
 import Hydra.HeadLogic.CoordinatedSpec qualified
+import Hydra.HeadLogic.DepositSpec qualified
 import Hydra.HeadLogic.IncrementalWorkflowSpec qualified
 import Hydra.HeadLogic.InputWorkflowSpec qualified
 import Hydra.HeadLogic.InterpreterSpec qualified
