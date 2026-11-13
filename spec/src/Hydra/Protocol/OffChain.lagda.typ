@@ -1707,6 +1707,19 @@ The input rules above still choose events and effects. A rejected input commits
 no events; a waiting input commits its retained prefix. Event replay performs
 neither admission checks nor signature verification.
 
+`Snapshots.Replay` enumerates every retained event. Returning `Nothing` there
+means that the snapshot and transaction owners have no update; the other owners
+still process the event. `DepositRecorded` and `DepositExpired` update the
+registry. Activation can select a deposit, but does not make its outputs
+spendable. Recovery consumes the registry entry and clears a matching selection.
+`CommitFinalized` consumes the entry and, at a fresh version, adds the deposit
+value to the local UTxO. Repeated settlement must not restore outputs already
+spent on L2. Expiry does not erase a selected or signed claim: an increment may
+still land before the deposit is recovered. `CommitApproved` and
+`DecommitApproved` are notifications after `SnapshotConfirmed`; they do not
+apply the incremental change again. `DecommitInvalid` likewise reports a
+rejection or a reservation already released by snapshot confirmation.
+
 The lifecycle projection distinguishes Idle, Open, Closed, ReadyToFanout,
 PendingFanout and FanoutProgress. Init opens the head directly in this branch.
 ReadyToFanout records that a notification was sent; contestation can extend the

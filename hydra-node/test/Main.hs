@@ -26,6 +26,7 @@ import Hydra.Events.SQLiteBasedSpec qualified
 import Hydra.Events.UDPSpec qualified
 import Hydra.HeadLogic.InterpreterSpec qualified
 import Hydra.HeadLogic.OutcomeSpec qualified
+import Hydra.HeadLogic.ReplaySpec qualified
 import Hydra.HeadLogic.WorkflowSpec qualified
 import Hydra.HeadLogicSnapshotSpec qualified
 import Hydra.HeadLogicSpec qualified
@@ -85,6 +86,7 @@ main =
     , testSpec "HeadLogic.Interpreter" Hydra.HeadLogic.InterpreterSpec.spec
     , testSpec "HeadLogic.Workflow" Hydra.HeadLogic.WorkflowSpec.spec
     , testSpec "HeadLogic.Outcome" Hydra.HeadLogic.OutcomeSpec.spec
+    , testSpec "HeadLogic.Replay" Hydra.HeadLogic.ReplaySpec.spec
     , testSpec "HeadLogicSnapshot" Hydra.HeadLogicSnapshotSpec.spec
     , testSpec "HeadLogic" Hydra.HeadLogicSpec.spec
     , testSpec "JSONSchema" Hydra.JSONSchemaSpec.spec
