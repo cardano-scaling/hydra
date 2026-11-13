@@ -1577,9 +1577,9 @@ hsDecommitAdmissionRef = coe d_decommitAdmissionRef_712
 d_decommitAdmissionRef_712 :: Bool -> Bool -> Bool
 d_decommitAdmissionRef_712 v0 v1
   = coe d_not_54 (coe d__'124''124'__50 (coe v0) (coe v1))
--- Hydra.Protocol.OffChainReference.sameCommittee
-d_sameCommittee_718 :: [Integer] -> [Integer] -> Bool
-d_sameCommittee_718 v0 v1
+-- Hydra.Protocol.OffChainReference.sameParties
+d_sameParties_718 :: [Integer] -> [Integer] -> Bool
+d_sameParties_718 v0 v1
   = let v2 = coe MAlonzo.Code.Agda.Builtin.Bool.C_false_8 in
     coe
       (case coe v0 of
@@ -1592,7 +1592,7 @@ d_sameCommittee_718 v0 v1
                 (:) v5 v6
                   -> coe
                        d__'38''38'__34 (coe eqInt (coe v3) (coe v5))
-                       (coe d_sameCommittee_718 (coe v4) (coe v6))
+                       (coe d_sameParties_718 (coe v4) (coe v6))
                 _ -> coe v2
          _ -> MAlonzo.RTE.mazUnreachableError)
 -- Hydra.Protocol.OffChainReference.verificationContextRef
@@ -1607,7 +1607,7 @@ d_verificationContextRef_728 ::
 d_verificationContextRef_728 v0 v1 v2 v3
   = coe
       d__'38''38'__34 (coe eqInt (coe v0) (coe v1))
-      (coe d_sameCommittee_718 (coe v2) (coe v3))
+      (coe d_sameParties_718 (coe v2) (coe v3))
 -- Hydra.Protocol.OffChainReference.sameDecommitOutputs
 d_sameDecommitOutputs_738 :: [Integer] -> [Integer] -> Bool
 d_sameDecommitOutputs_738 v0 v1
@@ -1823,7 +1823,7 @@ d_candidateConfirmationRef_846 v0 v1 v2 v3 v4
       d__'38''38'__34 (coe v0)
       (coe
          d__'38''38'__34 (coe d_candidateIdentityRef_828 (coe v1) (coe v2))
-         (coe d_sameCommittee_718 (coe v3) (coe v4)))
+         (coe d_sameParties_718 (coe v3) (coe v4)))
 -- Hydra.Protocol.OffChainReference.no-owner-no-confirmation
 d_no'45'owner'45'no'45'confirmation_866 ::
   [Integer] ->
