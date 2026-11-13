@@ -210,6 +210,7 @@ library testlib
     Test.Hydra.Chain.Direct.State
     Test.Hydra.Chain.Direct.TimeHandle
     Test.Hydra.HeadLogic.Input
+    Test.Hydra.HeadLogic.Interpreter
     Test.Hydra.HeadLogic.Outcome
     Test.Hydra.HeadLogic.State
     Test.Hydra.HeadLogic.StateEvent
