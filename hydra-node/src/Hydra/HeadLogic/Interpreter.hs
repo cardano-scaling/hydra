@@ -1,5 +1,4 @@
--- | Primitive implementations and the single evaluator for completion, waiting
--- and rejection. Presentation belongs to development tools.
+-- | The evaluator of `Program`s.
 module Hydra.HeadLogic.Interpreter where
 
 import Hydra.Chain.ChainState (ChainSlot)
@@ -34,11 +33,21 @@ data SnapshotSigner tx = SnapshotSigner
   , signingIdentity :: VerificationKey HydraKey
   }
 
+-- | An interpreter config controls how transactions are applied, how
+-- snapshots are signed, and a process for verifying snapshots.
+--
+-- The bools let us control at which point certain capabilities; for example, creating
+-- a snapshot requires the ledger and signing; but acknowledging a snapshot doesn't require
 data InterpreterConfig tx (ledger :: Bool) (signing :: Bool) = InterpreterConfig
-  { transactionApplication :: Capability ledger (ChainSlot -> UTxOType tx -> tx -> Either ValidationError (UTxOType tx))
-  , snapshotSigner :: Capability signing (SnapshotSigner tx)
-  , snapshotVerifier :: [VerificationKey HydraKey] -> MultiSignature (Snapshot tx) -> ByteString -> Verified
-  -- ^ Verification remains available when ledger application and signing are disabled.
+  { transactionApplication ::
+      Capability ledger (ChainSlot -> UTxOType tx -> tx -> Either ValidationError (UTxOType tx))
+  , snapshotSigner ::
+      Capability signing (SnapshotSigner tx)
+  , snapshotVerifier ::
+      [VerificationKey HydraKey] ->
+      MultiSignature (Snapshot tx) ->
+      ByteString ->
+      Verified
   }
 
 ledgerConfig :: Ledger tx -> InterpreterConfig tx 'True 'False
@@ -79,7 +88,13 @@ traceProgramWith config program =
 
 -- | Completion commits changes and effects; waiting commits only the prefix;
 -- rejection discards both. All interpreters use this definition.
-evaluateProgram :: forall trace tx ledger signing. (trace -> TraceStep -> trace) -> trace -> InterpreterConfig tx ledger signing -> Program tx ledger signing () -> (Outcome tx, trace)
+evaluateProgram ::
+  forall trace tx ledger signing.
+  (trace -> TraceStep -> trace) ->
+  trace ->
+  InterpreterConfig tx ledger signing ->
+  Program tx ledger signing () ->
+  (Outcome tx, trace)
 evaluateProgram observe initialTrace InterpreterConfig{transactionApplication, snapshotSigner, snapshotVerifier} (Program program) =
   program done step [] [] initialTrace
  where
