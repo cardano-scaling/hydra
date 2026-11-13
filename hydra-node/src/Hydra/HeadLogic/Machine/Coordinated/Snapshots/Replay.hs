@@ -36,14 +36,14 @@ replay ::
   UTxOType tx ->
   StateChanged tx ->
   Maybe (SnapshotOutput tx)
-replay headId committee initial deposited event = withInitialState initial $ \state _ -> importEvent state
+replay headId parties initial deposited event = withInitialState initial $ \state _ -> importEvent state
  where
   importEvent :: State tx phase -> Maybe (SnapshotOutput tx)
   importEvent state = case event of
     SnapshotRequestDecided number ->
       Just $ retained $ State.request state number
     SnapshotRequested snapshot txs deposit ->
-      Just $ retained $ State.accept committee state snapshot txs deposit
+      Just $ retained $ State.accept parties state snapshot txs deposit
     PartySignedSnapshot number party signature -> case state of
       Collecting{} -> Just $ retained $ State.recordSignature state number party signature
       Idle{} -> Nothing
@@ -112,4 +112,4 @@ replay headId committee initial deposited event = withInitialState initial $ \st
 
   -- Reuse commands whose storage updates also apply to retained events. This
   -- runs a pure state machine; replay does not publish the resulting events.
-  live command = fst $ runIdentity $ run (Executable $ Snapshots.machine headId committee initial) command
+  live command = fst $ runIdentity $ run (Executable $ Snapshots.machine headId parties initial) command

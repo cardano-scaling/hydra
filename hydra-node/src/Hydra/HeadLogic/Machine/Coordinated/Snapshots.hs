@@ -70,7 +70,7 @@ machine ::
   [VerificationKey HydraKey] ->
   InitialState (State tx) ->
   BaseMachineT m SnapshotTopology (Command tx) (SnapshotOutput tx)
-machine headId committee initial =
+machine headId parties initial =
   BaseMachineT (withStateInspector (describeOnly (show . statePhase)) initial) action
  where
   -- Our main state transition logic.
@@ -85,26 +85,26 @@ machine headId committee initial =
         | requestMatches headId context.version (getSnapshot context.confirmed) request ->
             transition $ State.request state (requestNumber request)
       AcceptSnapshot snapshot txs deposit
-        | nextRound state snapshot -> transition $ State.accept committee state snapshot txs deposit
+        | nextRound state snapshot -> transition $ State.accept parties state snapshot txs deposit
       _ -> common state command
     Requested _ _ requested -> case command of
       AcceptSnapshot snapshot txs deposit
         | nextRound state snapshot
         , snapshot.number == requested ->
-            transition $ State.accept committee state snapshot txs deposit
+            transition $ State.accept parties state snapshot txs deposit
       _ -> common state command
     Collecting _ owned signatures -> case command of
       RecordSignature supplied party signature
         | sameCandidate owned supplied
-        , party.vkey `elem` committee
+        , party.vkey `elem` parties
         , maybe True (== signature) (Map.lookup party signatures) ->
             transition $ State.recordSignature state owned.snapshot.number party signature
         | otherwise -> refuse state "signature does not belong to this candidate or replaces a retained signature"
       ConfirmSnapshot evidence
         | sameCandidate owned (verifiedCandidate evidence)
-        , verifiedFor headId committee (candidateEvidence evidence) ->
+        , verifiedFor headId parties (candidateEvidence evidence) ->
             transition $ State.confirm headId state (verifiedSignatures $ candidateEvidence evidence)
-        | otherwise -> refuse state "confirmation evidence does not match this Head, committee and candidate"
+        | otherwise -> refuse state "confirmation evidence does not match this Head, parties and candidate"
       _ -> common state command
 
   -- Round ownership is checked here; ledger validity and capacity remain ReqSn rules.
@@ -131,10 +131,10 @@ machine headId committee initial =
     AcceptSnapshot{} ->
       refuse state "candidate admission requires the next round and no candidate collecting signatures"
     AdoptSnapshot evidence
-      | verifiedFor headId committee evidence ->
+      | verifiedFor headId parties evidence ->
           transition $ State.adoptSnapshot headId state (verifiedSnapshot evidence) (verifiedSignatures evidence)
       | otherwise ->
-          refuse state "adoption evidence does not match this Head and committee"
+          refuse state "adoption evidence does not match this Head and parties"
     ClearLocalState number ->
       transition $ State.clear headId state number
     ActivateDeposit depositId chainTime deposit ->

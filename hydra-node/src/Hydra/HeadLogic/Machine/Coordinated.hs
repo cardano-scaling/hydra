@@ -61,18 +61,18 @@ import Hydra.Tx.Snapshot (Snapshot, SnapshotNumber, SnapshotVersion)
 data Runtime tx = Runtime HeadId [VerificationKey HydraKey] ~(CoordinatedHeadState tx) (InitialState (State.State tx)) ~(StateMachineT Identity (Command tx) (Output tx))
 
 start :: IsChainState tx => OpenState tx -> Runtime tx
-start os = Runtime os.headId committee os.coordinatedHeadState snapshots (withoutRendering $ compose os.headId committee snapshots os.coordinatedHeadState)
+start os = Runtime os.headId parties os.coordinatedHeadState snapshots (withoutRendering $ compose os.headId parties snapshots os.coordinatedHeadState)
  where
-  committee = vkey <$> os.parameters.parties
-  snapshots = restoreSnapshots committee os
+  parties = vkey <$> os.parameters.parties
+  snapshots = restoreSnapshots parties os
 
 compose :: IsChainState tx => HeadId -> [VerificationKey HydraKey] -> InitialState (State.State tx) -> CoordinatedHeadState tx -> StateMachineT Identity (Command tx) (Output tx)
-compose headId committee snapshots chs =
-  Basic (Snapshots.machine headId committee snapshots)
+compose headId parties snapshots chs =
+  Basic (Snapshots.machine headId parties snapshots)
     `Sequential` Basic (Transactions.machine headId (State.viewInitial snapshots) (transactionState chs) chs.decommitTx)
 
 restoreSnapshots :: IsChainState tx => [VerificationKey HydraKey] -> OpenState tx -> InitialState (State.State tx)
-restoreSnapshots committee os = State.restore committee $ SnapshotState chs.version (chainStateSlot os.chainState) chs.confirmedSnapshot chs.seenSnapshot chs.finalizedCommit chs.finalizedDecommit
+restoreSnapshots parties os = State.restore parties $ SnapshotState chs.version (chainStateSlot os.chainState) chs.confirmedSnapshot chs.seenSnapshot chs.finalizedCommit chs.finalizedDecommit
  where
   chs = os.coordinatedHeadState
 
@@ -91,9 +91,9 @@ step :: Runtime tx -> Command tx -> ([StateChanged tx], Runtime tx)
 step runtime command = fromRight ([], runtime) $ advance runtime command
 
 advance :: Runtime tx -> Command tx -> Either Text ([StateChanged tx], Runtime tx)
-advance (Runtime headId committee _ _ machine) command =
+advance (Runtime headId parties _ _ machine) command =
   let (output@Output{snapshots, events, refusal}, next) = runIdentity $ run machine command
-   in maybe (Right (events, Runtime headId committee (project output) snapshots next)) Left refusal
+   in maybe (Right (events, Runtime headId parties (project output) snapshots next)) Left refusal
 
 project :: Output tx -> CoordinatedHeadState tx
 project Output{snapshots = owned, transactions, decommit} =
@@ -167,11 +167,11 @@ requestSnapshot = RequestSnapshot
 -- consumption; protocol admission and cryptography have already happened.
 -- Replay commands stay private: live rules cannot stage unverified evidence.
 replayEvent :: IsChainState tx => UTxOType tx -> StateChanged tx -> Runtime tx -> Runtime tx
-replayEvent deposited event runtime@(Runtime headId committee current snapshots _) =
-  case Replay.replay headId committee snapshots deposited event of
+replayEvent deposited event runtime@(Runtime headId parties current snapshots _) =
+  case Replay.replay headId parties snapshots deposited event of
     Nothing -> runtime
     Just restored ->
       let transactions = Executable $ Transactions.machine headId (State.viewInitial snapshots) (transactionState current) current.decommitTx
           (output, _) = runIdentity $ run transactions restored
           updated = project output
-       in Runtime headId committee updated output.snapshots (withoutRendering $ compose headId committee output.snapshots updated)
+       in Runtime headId parties updated output.snapshots (withoutRendering $ compose headId parties output.snapshots updated)
