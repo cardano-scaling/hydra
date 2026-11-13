@@ -75,10 +75,14 @@ library
     Hydra.Config
     Hydra.HeadLogic.Error
     Hydra.HeadLogic.Input
+    Hydra.HeadLogic.Interpreter
     Hydra.HeadLogic.Outcome
+    Hydra.HeadLogic.Program
     Hydra.HeadLogic.Retry
     Hydra.HeadLogic.State
     Hydra.HeadLogic.StateEvent
+    Hydra.HeadLogic.Trace
+    Hydra.HeadLogic.Workflow
     Hydra.Ledger
     Hydra.Ledger.Cardano
     Hydra.Ledger.Simple
@@ -138,6 +142,7 @@ library
     , containers
     , contra-tracer
     , contra-tracer-json
+    , crem                         ==0.1.1.0
     , crypton
     , data-default
     , directory
@@ -205,6 +210,7 @@ library testlib
     Test.Hydra.Chain.Direct.State
     Test.Hydra.Chain.Direct.TimeHandle
     Test.Hydra.HeadLogic.Input
+    Test.Hydra.HeadLogic.Interpreter
     Test.Hydra.HeadLogic.Outcome
     Test.Hydra.HeadLogic.State
     Test.Hydra.HeadLogic.StateEvent
@@ -403,7 +409,9 @@ test-suite tests
     Hydra.Events.S3Spec
     Hydra.Events.SQLiteBasedSpec
     Hydra.Events.UDPSpec
+    Hydra.HeadLogic.InterpreterSpec
     Hydra.HeadLogic.OutcomeSpec
+    Hydra.HeadLogic.WorkflowSpec
     Hydra.HeadLogicSnapshotSpec
     Hydra.HeadLogicSpec
     Hydra.JSONSchemaSpec
@@ -463,6 +471,7 @@ test-suite tests
     , containers
     , contra-tracer
     , contra-tracer-json
+    , crem
     , directory
     , event-sourcing
     , filepath

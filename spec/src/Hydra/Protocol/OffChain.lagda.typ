@@ -60,6 +60,11 @@ The behavior is fully specified in @fig:off-chain-prot, while the
 following paragraphs introduce notation, explain variables and walk-through the
 protocol flow.
 
+The Haskell interpreter receives transaction application, snapshot signing and
+signature verification as functions in one configuration. Their returned results
+feed the protocol rules below; the configuration does not select different
+completion, waiting or rejection semantics.
+
 == Assumptions
 
 On top of the statements of the protocol setup in @sec:setup, the
