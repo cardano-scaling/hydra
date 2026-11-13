@@ -404,6 +404,8 @@ lifecyclePhaseRef phase _ _ = phase
 
 -- Coordination is absent outside Open. A request can replace an in-flight
 -- snapshot in raw replay; protocol guards normally prevent that replacement.
+-- Without a collecting candidate, acknowledgements and confirmations without
+-- an explicit snapshot leave the coordinated owner unchanged.
 data CoordinationPhaseᶜ : Set where
   outsideHeadᶜ noRequestSeenᶜ snapshotIdleᶜ requestSentᶜ collectingᶜ : CoordinationPhaseᶜ
 {-# FOREIGN GHC data HsCoordinationPhase = OutsideHead | NoRequestSeen | SnapshotIdle | RequestSent | Collecting deriving (Eq, Show, Enum, Bounded) #-}
