@@ -145,7 +145,7 @@ spec = describe "live snapshot ownership" $ do
         (from == to || any (\(source, destinations) -> source == from && to `elem` destinations) edges)
           `shouldBe` Agda.liveSnapshotEdgeRef (fromIntegral $ fromEnum from) (fromIntegral $ fromEnum to)
 
-  it "matches Agda on 96 ownership and ordered-committee combinations with real signatures" $
+  it "matches Agda on 96 ownership and party ordering combinations with real signatures" $
     forM_ [False, True] $ \collects ->
       forM_ [False, True] $ \foreignHead ->
         forM_ [0, 1] $ \version ->

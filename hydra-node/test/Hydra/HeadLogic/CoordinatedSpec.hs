@@ -181,15 +181,15 @@ spec = describe "coordinated state owners" $ do
       `shouldSatisfy` \case Error AssertionFailed{} -> True; _ -> False
     Interpreter.runProgram (testInterpreterConfig simpleLedger) (confirm $ Coordinated.start open)
       `shouldSatisfy` \case Error AssertionFailed{} -> True; _ -> False
-  it "binds confirmation and adoption to the Head and ordered committee" $
-    forM_ [[], [alice], [bob, alice, carol]] $ \committee ->
+  it "binds confirmation and adoption to the Head and ordered parties" $
+    forM_ [[], [alice], [bob, alice, carol]] $ \parties ->
       forM_ [Coordinated.confirmSnapshot, Coordinated.adoptSnapshot . candidateEvidence] $ \command -> do
-        let signed = aggregateInOrder (Map.fromList [(p, sign sk candidate) | (p, sk) <- [(alice, aliceSk), (bob, bobSk), (carol, carolSk)]]) committee
+        let signed = aggregateInOrder (Map.fromList [(p, sign sk candidate) | (p, sk) <- [(alice, aliceSk), (bob, bobSk), (carol, carolSk)]]) parties
             program :: Program.Program SimpleTx ()
             program = do
               let target = owner candidate Scenario.scenarioParties
               staged <- Coordinated.stage target $ Coordinated.recordSignature (ownedCandidate target) alice (sign aliceSk candidate)
-              evidence <- verifyCandidate (ownedCandidate $ owner candidate committee) signed >>= either Program.reject pure
+              evidence <- verifyCandidate (ownedCandidate $ owner candidate parties) signed >>= either Program.reject pure
               void $ Coordinated.stage staged $ command evidence
         Interpreter.runProgram (testInterpreterConfig simpleLedger) program
           `shouldSatisfy` \case Error AssertionFailed{} -> True; _ -> False
@@ -271,16 +271,16 @@ spec = describe "coordinated state owners" $ do
       accepts (run $ Head.ClientInput $ Client.Decommit tx) `shouldBe` Agda.decommitAdmissionRef pending authorised
 
   it "compares certificate context with Agda using real signatures" $
-    forM_ [(sameHead, committee) | sameHead <- [False, True], committee <- [] : [[(1, alice)]] <> permutations [(1, alice), (2, bob), (3, carol)]] $ \(sameHead, committee) -> do
+    forM_ [(sameHead, parties) | sameHead <- [False, True], parties <- [] : [[(1, alice)]] <> permutations [(1, alice), (2, bob), (3, carol)]] $ \(sameHead, parties) -> do
       let snapshot :: Snapshot SimpleTx
           snapshot = candidate{headId = if sameHead then testHeadId else UnsafeHeadId "another head"}
-          signed = aggregateInOrder (Map.fromList [(p, sign sk snapshot) | (p, sk) <- [(alice, aliceSk), (bob, bobSk), (carol, carolSk)]]) (snd <$> committee)
+          signed = aggregateInOrder (Map.fromList [(p, sign sk snapshot) | (p, sk) <- [(alice, aliceSk), (bob, bobSk), (carol, carolSk)]]) (snd <$> parties)
           program :: Program.Program SimpleTx ()
           program = do
-            evidence <- verifyCandidate (ownedCandidate $ owner snapshot (snd <$> committee)) signed >>= either Program.reject pure
+            evidence <- verifyCandidate (ownedCandidate $ owner snapshot (snd <$> parties)) signed >>= either Program.reject pure
             void $ Coordinated.stage (Coordinated.start open{coordinatedHeadState = open.coordinatedHeadState{seenSnapshot = mkSeenSnapshot snapshot mempty}}) $ Coordinated.confirmSnapshot evidence
           accepted = case Interpreter.runProgram (testInterpreterConfig simpleLedger) program of Continue [SnapshotConfirmed{}] [] -> True; _ -> False
-      accepted `shouldBe` Agda.verificationContextRef 0 (if sameHead then 0 else 1) [1, 2, 3] (fst <$> committee)
+      accepted `shouldBe` Agda.verificationContextRef 0 (if sameHead then 0 else 1) [1, 2, 3] (fst <$> parties)
  where
   open = Scenario.openState Scenario.initialNode
   candidate :: Snapshot SimpleTx
@@ -289,9 +289,9 @@ spec = describe "coordinated state owners" $ do
   signatures = aggregateInOrder (Map.fromList [(p, sign sk candidate) | (p, sk) <- [(alice, aliceSk), (bob, bobSk), (carol, carolSk)]]) Scenario.scenarioParties
 
   owner :: Snapshot SimpleTx -> [Party] -> Coordinated.Runtime SimpleTx
-  owner snapshot committee =
+  owner snapshot parties =
     let parameters :: HeadParameters
-        parameters = open.parameters{parties = committee}
+        parameters = open.parameters{parties = parties}
      in Coordinated.start open{headId = snapshot.headId, parameters, coordinatedHeadState = open.coordinatedHeadState{seenSnapshot = mkSeenSnapshot snapshot mempty}}
 
   ownedCandidate :: Coordinated.Runtime SimpleTx -> Coordinated.Candidate SimpleTx
