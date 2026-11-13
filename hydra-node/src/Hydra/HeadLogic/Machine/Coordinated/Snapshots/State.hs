@@ -1,8 +1,8 @@
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# OPTIONS_GHC -Wno-ambiguous-fields #-}
 
--- | Snapshot storage updates shared by live transitions and trusted recovery.
--- Updates name a destination; only the live machine requires an allowed edge.
+-- | This module organises the state transitions in snapshots and defines the
+-- state updates.
 module Hydra.HeadLogic.Machine.Coordinated.Snapshots.State where
 
 import Hydra.HeadLogic.Cardano (snapshotSigningBytes)
@@ -23,6 +23,7 @@ import Hydra.Tx.Crypto (HydraKey, MultiSignature, Signature, VerificationKey)
 import Hydra.Tx.Party (Party)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, SnapshotVersion)
 
+-- | Every snapshot phase has this information.
 data Context tx = Context
   { version :: SnapshotVersion
   , chainSlot :: ChainSlot
@@ -31,10 +32,22 @@ data Context tx = Context
   , finalizedDecommit :: Maybe (FinalizedSnapshot tx)
   }
 
+-- | Other snapshot phases have different information they need.
 data State tx phase where
-  Idle :: Context tx -> Maybe SnapshotNumber -> State tx 'AwaitingRequest
-  Requested :: Context tx -> SnapshotNumber -> SnapshotNumber -> State tx 'RequestSent
-  Collecting :: Context tx -> Candidate tx -> Map Party (Signature (Snapshot tx)) -> State tx 'CollectingSignatures
+  Idle ::
+    Context tx ->
+    Maybe SnapshotNumber ->
+    State tx 'AwaitingRequest
+  Requested ::
+    Context tx ->
+    SnapshotNumber ->
+    SnapshotNumber ->
+    State tx 'RequestSent
+  Collecting ::
+    Context tx ->
+    Candidate tx ->
+    Map Party (Signature (Snapshot tx)) ->
+    State tx 'CollectingSignatures
 
 data Update tx phase = Update (State tx phase) (LedgerUpdate tx) [StateChanged tx]
 
@@ -57,39 +70,99 @@ restore :: IsTx tx => [VerificationKey HydraKey] -> SnapshotState tx -> InitialS
 restore committee Port.SnapshotState{version, chainSlot, confirmed, seen, finalizedCommit, finalizedDecommit} =
   let context = Context{version, chainSlot, confirmed, finalizedCommit, finalizedDecommit}
    in case seen of
-        NoSeenSnapshot -> InitialState $ Idle context Nothing
-        LastSeenSnapshot number -> InitialState $ Idle context (Just number)
-        RequestedSnapshot lastSeen requested -> InitialState $ Requested context lastSeen requested
-        SeenSnapshot{snapshot, signatories} -> InitialState $ Collecting context (issue committee snapshot) signatories
+        NoSeenSnapshot ->
+          InitialState $ Idle context Nothing
+        LastSeenSnapshot number ->
+          InitialState $ Idle context (Just number)
+        RequestedSnapshot lastSeen requested ->
+          InitialState $ Requested context lastSeen requested
+        SeenSnapshot{snapshot, signatories} ->
+          InitialState $ Collecting context (issue committee snapshot) signatories
 
 -- Never authorise a candidate using a caller-supplied signing-byte cache.
-issue :: IsTx tx => [VerificationKey HydraKey] -> Snapshot tx -> Candidate tx
+issue ::
+  IsTx tx =>
+  [VerificationKey HydraKey] ->
+  Snapshot tx ->
+  Candidate tx
 issue committee snapshot = Candidate snapshot committee (snapshotSigningBytes snapshot)
 
-request :: State tx from -> SnapshotNumber -> Update tx 'RequestSent
-request state number = Update (Requested (contextOf state) (seenSnapshotNumber (view state).seen) number) Unchanged [SnapshotRequestDecided number]
+request ::
+  State tx from ->
+  SnapshotNumber ->
+  Update tx 'RequestSent
+request state number =
+  Update
+    (Requested (contextOf state) (seenSnapshotNumber (view state).seen) number)
+    Unchanged
+    [SnapshotRequestDecided number]
 
-accept :: IsTx tx => [VerificationKey HydraKey] -> State tx from -> Snapshot tx -> Seq tx -> Maybe (TxIdType tx) -> Update tx 'CollectingSignatures
+accept ::
+  IsTx tx =>
+  [VerificationKey HydraKey] ->
+  State tx from ->
+  Snapshot tx ->
+  Seq tx ->
+  Maybe (TxIdType tx) ->
+  Update tx 'CollectingSignatures
 accept committee state snapshot txs deposit =
-  Update (Collecting (contextOf state) (issue committee snapshot) mempty) (Rebase snapshot txs deposit) [SnapshotRequested snapshot txs deposit]
+  Update
+    (Collecting (contextOf state) (issue committee snapshot) mempty)
+    (Rebase snapshot txs deposit)
+    [SnapshotRequested snapshot txs deposit]
 
-recordSignature :: State tx 'CollectingSignatures -> SnapshotNumber -> Party -> Signature (Snapshot tx) -> Update tx 'CollectingSignatures
+recordSignature ::
+  State tx 'CollectingSignatures ->
+  SnapshotNumber ->
+  Party ->
+  Signature (Snapshot tx) ->
+  Update tx 'CollectingSignatures
 recordSignature (Collecting context candidate signatures) number party signature =
-  Update (Collecting context candidate (Map.insert party signature signatures)) Unchanged [PartySignedSnapshot number party signature]
+  Update
+    (Collecting context candidate (Map.insert party signature signatures))
+    Unchanged
+    [PartySignedSnapshot number party signature]
 
-confirm :: IsTx tx => HeadId -> State tx 'CollectingSignatures -> MultiSignature (Snapshot tx) -> Update tx 'AwaitingRequest
+confirm ::
+  IsTx tx =>
+  HeadId ->
+  State tx 'CollectingSignatures ->
+  MultiSignature (Snapshot tx) ->
+  Update tx 'AwaitingRequest
 confirm headId (Collecting context candidate _) signatures =
   let snapshot = candidate.snapshot
-   in Update (Idle (adopt context snapshot signatures) $ Just snapshot.number) ConfirmTransactions [SnapshotConfirmed headId Nothing signatures]
+   in Update
+        (Idle (adopt context snapshot signatures) $ Just snapshot.number)
+        ConfirmTransactions
+        [SnapshotConfirmed headId Nothing signatures]
 
-adoptSnapshot :: IsTx tx => HeadId -> State tx from -> Snapshot tx -> MultiSignature (Snapshot tx) -> Update tx 'AwaitingRequest
+adoptSnapshot ::
+  IsTx tx =>
+  HeadId ->
+  State tx from ->
+  Snapshot tx ->
+  MultiSignature (Snapshot tx) ->
+  Update tx 'AwaitingRequest
 adoptSnapshot headId state snapshot signatures =
-  Update (Idle (adopt (contextOf state) snapshot signatures) $ Just snapshot.number) ConfirmTransactions [SnapshotConfirmed headId (Just snapshot) signatures]
+  Update
+    (Idle (adopt (contextOf state) snapshot signatures) $ Just snapshot.number)
+    ConfirmTransactions
+    [SnapshotConfirmed headId (Just snapshot) signatures]
 
-clear :: HeadId -> State tx from -> SnapshotNumber -> Update tx 'AwaitingRequest
+clear ::
+  HeadId ->
+  State tx from ->
+  SnapshotNumber ->
+  Update tx 'AwaitingRequest
 clear headId state number =
   let context = contextOf state
-   in Update (Idle context $ case context.confirmed of InitialSnapshot{} -> Nothing; ConfirmedSnapshot{} -> Just number) ClearTransactions [LocalStateCleared headId number]
+      maybeNumber = \case
+        InitialSnapshot{} -> Nothing
+        ConfirmedSnapshot{} -> Just number
+   in Update
+        (Idle context $ maybeNumber context.confirmed)
+        ClearTransactions
+        [LocalStateCleared headId number]
 
 adopt :: IsTx tx => Context tx -> Snapshot tx -> MultiSignature (Snapshot tx) -> Context tx
 adopt context snapshot signatures =
@@ -119,12 +192,16 @@ view state = Port.SnapshotState{version, chainSlot, confirmed, seen, finalizedCo
  where
   Context{version, chainSlot, confirmed, finalizedCommit, finalizedDecommit} = contextOf state
   seen = case state of
-    Idle _ number -> maybe NoSeenSnapshot LastSeenSnapshot number
-    Requested _ lastSeen requested -> RequestedSnapshot lastSeen requested
-    Collecting _ Candidate{snapshot, representation} signatories -> SeenSnapshot{snapshot, signatories, signableBytes = representation}
+    Idle _ number ->
+      maybe NoSeenSnapshot LastSeenSnapshot number
+    Requested _ lastSeen requested ->
+      RequestedSnapshot lastSeen requested
+    Collecting _ Candidate{snapshot, representation} signatories ->
+      SeenSnapshot{snapshot, signatories, signableBytes = representation}
 
 viewInitial :: InitialState (State tx) -> SnapshotState tx
 viewInitial initial = withInitialState initial $ \state _ -> view state
 
 retained :: Update tx phase -> SnapshotOutput tx
-retained (Update next ledgerUpdate events) = SnapshotOutput{snapshots = InitialState next, ledgerUpdate, events, refusal = Nothing}
+retained (Update next ledgerUpdate events) =
+  SnapshotOutput{snapshots = InitialState next, ledgerUpdate, events, refusal = Nothing}
