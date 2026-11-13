@@ -40,14 +40,21 @@ spec = do
     counterexample ("capacity: " <> show capacity) $
       ioProperty $
         withTempDir "persistent-queue" $ \dir -> do
+          traces <- newTVarIO []
+          let tracer = traceInTVar traces "PersistentQueueSpec"
           q <- newPersistentQueue nullTracer dir capacity
           shouldNotBlock_ $ mapM (writePersistentQueue nullTracer q) items
-          -- This is expected to block as we reached capacity
-          _ <- timeout 0.01 (writePersistentQueue nullTracer q 123)
+          withAsync (writePersistentQueue tracer q 123) $ \writer -> do
+            -- The full-queue trace follows the disk write. Wait for it before
+            -- cancelling, so even an initially empty queue has an item to reload.
+            shouldNotBlock_ . atomically $ do
+              entries <- readTVar traces
+              check $ PersistentQueueFull `elem` (message <$> entries)
+            timeout 0.01 (wait writer) `shouldReturn` Nothing
           -- A new queue should be initialized with all the elements
           q2 <- shouldNotBlock $ newPersistentQueue @_ @Int nullTracer dir capacity
           let expected = maybe 123 head (nonEmpty items)
-          peekPersistentQueue q2 `shouldReturn` expected
+          shouldNotBlock (peekPersistentQueue q2) `shouldReturn` expected
 
   it "pop unblocks a blocked writer when at capacity" $ do
     withTempDir "persistent-queue" $ \dir -> do
