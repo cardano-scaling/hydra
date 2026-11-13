@@ -198,7 +198,7 @@ spec = do
       reqSnOutcomeRef 0 0 0 1 1 2 0 1 True `shouldBe` SnapshotWaiting VersionMismatch
       reqSnOutcomeRef 0 0 0 0 1 2 0 1 True `shouldBe` SnapshotWaiting MissingTransactions
     it "retains partial signature ordering and discards rejected prefixes" $ do
-      ackSnOutcomeRef CollectingSignatures 1 1 [] 0 2 True False 0 `shouldBe` SnapshotCompleted [RecordSignature, RecordSignature] []
+      ackSnOutcomeRef CollectingSignatures 1 1 [] 0 2 True False 0 `shouldBe` SnapshotCompleted [RecordSignature] []
       ackSnOutcomeRef CollectingSignatures 1 1 [0, 1] 2 2 False True 1 `shouldBe` SnapshotRejected InvalidSignatureSet
     it "confirms and requests the next round as its leader" $
       ackSnOutcomeRef CollectingSignatures 1 1 [0, 1] 2 2 True True 1 `shouldBe` SnapshotCompleted [RecordSignature, ConfirmSnapshot, DecideNextSnapshot] [SendSnapshotRequest]

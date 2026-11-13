@@ -134,8 +134,6 @@ machine env ChainPointTime{currentChainTime} pendingDeposits openState otherPart
                   Left err -> Program.reject err
         else continue (const Done) $ do
           void $ Program.decide "all parties have signed" False
-          owned <- requireCandidate runtime
-          void $ Coordinated.stage runtime $ Coordinated.recordSignature owned otherParty signature
     Confirm signed runtime -> continue (const Done) $ do
       confirmedRuntime <- Coordinated.stage runtime $ Coordinated.confirmSnapshot signed
       let snapshot = verifiedSnapshot $ candidateEvidence signed

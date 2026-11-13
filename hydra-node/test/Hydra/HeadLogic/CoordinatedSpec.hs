@@ -140,11 +140,14 @@ spec = describe "coordinated state owners" $ do
   it "matches the Agda settlement projection, including repeated observations" $
     forM_ [(old, new, pending) | old <- [0 .. 3], new <- [0 .. 3], pending <- [False, True]] $ \(old, new, pending) -> do
       let tx = SimpleTx 3 (utxoRef 1) (utxoRef 4)
-          runtime = Coordinated.start open{coordinatedHeadState = open.coordinatedHeadState{version = fromInteger old, decommitTx = tx <$ guard pending}}
+          available = [1 | not pending]
+          startingUTxO = fromList $ fromInteger <$> available
+          runtime = Coordinated.start open{coordinatedHeadState = open.coordinatedHeadState{version = fromInteger old, decommitTx = tx <$ guard pending, localUTxO = startingUTxO}}
           (_, next) = Coordinated.step runtime $ Coordinated.settleDecommit (SimpleChainState 3) (fromInteger new) (utxoRef 4)
           actual = Coordinated.currentState next
       toInteger actual.version `shouldBe` Agda.settlementVersionRef old new
       isJust actual.decommitTx `shouldBe` Agda.settlementReservationRef pending old new
+      actual.localUTxO `shouldBe` fromList (fromInteger <$> Agda.settlementUTxORef pending old new available [1])
 
   it "does not demand signing bytes when replaying a retained confirmation" $ do
     let before = open{coordinatedHeadState = open.coordinatedHeadState{seenSnapshot = SeenSnapshot candidate mempty (error "replay computes signing bytes")}}

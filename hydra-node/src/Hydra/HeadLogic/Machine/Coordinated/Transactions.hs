@@ -135,7 +135,13 @@ machine headId snapshots0 initial initialDecommit = BaseMachineT (withStateInspe
         then changeCommit (SetCommitSelection Nothing) local{localUTxO = local.localUTxO <> deposited}
         else changeCommit (ReleaseCommit depositId) local
     DecommitSettled fresh
-      | fresh -> output local Nothing RefreshCommit (Available local) events
+      | fresh ->
+          let next = case reserved of
+                Nothing -> local
+                -- Settlement can precede confirmation of a different decommit.
+                -- Release against the latest base, preserving ordinary transactions.
+                Just _ -> local{localUTxO = foldl' (flip applyTxTo) requestUTxO local.localTxs}
+           in output next Nothing RefreshCommit (Available next) events
       | otherwise -> unchanged local
     ReplayTransaction tx ->
       changed local{localUTxO = applyTxTo tx local.localUTxO, localTxs = local.localTxs Seq.|> tx} $ TransactionAppliedToLocalUTxO headId tx

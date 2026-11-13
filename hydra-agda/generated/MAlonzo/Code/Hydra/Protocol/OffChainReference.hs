@@ -679,10 +679,7 @@ d_ackSnOutcomeRef_286 v0 v1 v2 v3 v4 v5 v6 v7 v8
                      (coe
                         MAlonzo.Code.Agda.Builtin.List.C__'8759'__22
                         (coe C_recordSignature'7580'_218)
-                        (coe
-                           MAlonzo.Code.Agda.Builtin.List.C__'8759'__22
-                           (coe C_recordSignature'7580'_218)
-                           (coe MAlonzo.Code.Agda.Builtin.List.C_'91''93'_16)))
+                        (coe MAlonzo.Code.Agda.Builtin.List.C_'91''93'_16))
                      (coe MAlonzo.Code.Agda.Builtin.List.C_'91''93'_16))
                   (coe
                      du_if_then_else__16 (coe d_not_54 (coe v6))
@@ -1890,3 +1887,41 @@ d_settlement'45'before'45'confirmation'45'retires_910 = erased
 d_retirement'45'preserves'45'selection_912 ::
   MAlonzo.Code.Agda.Builtin.Equality.T__'8801'__12
 d_retirement'45'preserves'45'selection_912 = erased
+-- Hydra.Protocol.OffChainReference.partial-ack-records-once
+d_partial'45'ack'45'records'45'once_914 ::
+  MAlonzo.Code.Agda.Builtin.Equality.T__'8801'__12
+d_partial'45'ack'45'records'45'once_914 = erased
+-- Hydra.Protocol.OffChainReference.settlementUTxORef
+hsSettlementUTxORef ::
+  Bool ->
+  Integer ->
+  Integer ->
+  MAlonzo.Code.Agda.Builtin.List.T_List_10 () Integer ->
+  MAlonzo.Code.Agda.Builtin.List.T_List_10 () Integer ->
+  MAlonzo.Code.Agda.Builtin.List.T_List_10 () Integer
+hsSettlementUTxORef = coe d_settlementUTxORef_916
+d_settlementUTxORef_916 ::
+  Bool -> Integer -> Integer -> [Integer] -> [Integer] -> [Integer]
+d_settlementUTxORef_916 v0 v1 v2 v3 v4
+  = coe
+      du_if_then_else__16
+      (coe d__'38''38'__34 (coe v0) (coe ltInt (coe v1) (coe v2)))
+      (coe v4) (coe v3)
+-- Hydra.Protocol.OffChainReference.settlement-releases-unspent-reservation
+d_settlement'45'releases'45'unspent'45'reservation_928 ::
+  MAlonzo.Code.Agda.Builtin.Equality.T__'8801'__12
+d_settlement'45'releases'45'unspent'45'reservation_928 = erased
+-- Hydra.Protocol.OffChainReference.settlement-without-reservation-preserves-ledger
+d_settlement'45'without'45'reservation'45'preserves'45'ledger_938 ::
+  Integer ->
+  Integer ->
+  [Integer] ->
+  [Integer] -> MAlonzo.Code.Agda.Builtin.Equality.T__'8801'__12
+d_settlement'45'without'45'reservation'45'preserves'45'ledger_938
+  = erased
+-- Hydra.Protocol.OffChainReference.repeated-settlement-preserves-new-reservation
+d_repeated'45'settlement'45'preserves'45'new'45'reservation_944 ::
+  [Integer] ->
+  [Integer] -> MAlonzo.Code.Agda.Builtin.Equality.T__'8801'__12
+d_repeated'45'settlement'45'preserves'45'new'45'reservation_944
+  = erased
