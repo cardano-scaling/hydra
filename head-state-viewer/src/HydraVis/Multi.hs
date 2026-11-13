@@ -23,12 +23,12 @@ import Data.Text qualified as T
 import Data.Text.Encoding qualified as TE
 import Data.Vector qualified as V
 import Hydra.Chain.ChainState (IsChainState)
-import Hydra.HeadLogic qualified as HL
 import Hydra.HeadLogic.Input (Input (..))
 import Hydra.HeadLogic.Outcome (Effect (NetworkEffect), Outcome (Continue), StateChanged)
 import Hydra.Ledger (Ledger)
 import Hydra.Network.Message (Message, NetworkEvent (..))
 import Hydra.Node.Environment (Environment (..))
+import Hydra.Node.HeadLogic qualified as HL
 import Hydra.Node.State (NodeState, initialChainTime)
 import Hydra.Tx.Party (Party)
 import HydraVis.History (HistoryStep (..))

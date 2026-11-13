@@ -19,12 +19,12 @@ import Data.Aeson qualified as Aeson
 import Data.EventSource (EventId)
 import Data.Vector qualified as V
 import Hydra.Chain.ChainState (IsChainState)
-import Hydra.HeadLogic qualified as HL
 import Hydra.HeadLogic.Input (Input)
 import Hydra.HeadLogic.Outcome (Outcome (..))
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.Ledger (Ledger)
 import Hydra.Node.Environment (Environment)
+import Hydra.Node.HeadLogic qualified as HL
 import Hydra.Node.State (initialChainTime)
 import HydraVis.History (HistoryStep (..), buildHistory, extendHistory, loadEventsAfter)
 import HydraVis.UI.Model (

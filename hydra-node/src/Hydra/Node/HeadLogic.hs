@@ -12,8 +12,8 @@
 -- As the specification is using a more imperative way of specifying the protocol
 -- behavior, one would find the decision logic in 'update' while state updates
 -- can be found in the corresponding 'applyEvent' branch.
-module Hydra.HeadLogic (
-  module Hydra.HeadLogic,
+module Hydra.Node.HeadLogic (
+  module Hydra.Node.HeadLogic,
   module Hydra.HeadLogic.Input,
   module Hydra.HeadLogic.Error,
   module Hydra.HeadLogic.State,

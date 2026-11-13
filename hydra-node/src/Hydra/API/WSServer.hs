@@ -42,12 +42,12 @@ import Hydra.API.ServerOutputFilter (
 import Hydra.API.WireFormat (decodeWire, describeWire)
 import Hydra.Chain (Chain (..))
 import Hydra.Chain.ChainState (IsChainState)
-import Hydra.HeadLogic (ClosedState (ClosedState, readyToFanoutSent), HeadState, OpenState (..), PartialFanoutState (..), StateChanged)
 import Hydra.HeadLogic.Error (SideLoadRequirementFailure (..))
 import Hydra.HeadLogic.State qualified as HeadState
 import Hydra.Network (StallReason)
 import Hydra.NetworkVersions qualified as NetworkVersions
 import Hydra.Node.Environment (Environment (..))
+import Hydra.Node.HeadLogic (ClosedState (ClosedState, readyToFanoutSent), HeadState, OpenState (..), PartialFanoutState (..), StateChanged)
 import Hydra.Node.State (ChainPointTime (..), NodeState (..), syncedStatus)
 import Hydra.Tx (HeadId, Party)
 import Hydra.Tx.Accumulator (AccumulatorTooLarge (..))

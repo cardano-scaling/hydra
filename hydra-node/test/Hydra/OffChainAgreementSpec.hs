@@ -96,7 +96,11 @@ import Hydra.Agda.OffChainReference (
   snapshotCapacityRef,
  )
 import Hydra.Chain (ChainEvent (..), OnChainTx (..), PostChainTx (..))
-import Hydra.HeadLogic (
+import Hydra.HeadLogicSpec (assertWait, inOpenState, inOpenState', observeTx, receiveMessageFrom, testSnapshot)
+import Hydra.Ledger.Simple (SimpleTx (..), simpleLedger)
+import Hydra.Network.Message (Message (..))
+import Hydra.Node.Environment (Environment (..))
+import Hydra.Node.HeadLogic (
   CoordinatedHeadState (..),
   Effect (..),
   HeadState (..),
@@ -112,10 +116,6 @@ import Hydra.HeadLogic (
   mkSeenSnapshot,
   update,
  )
-import Hydra.HeadLogicSpec (assertWait, inOpenState, inOpenState', observeTx, receiveMessageFrom, testSnapshot)
-import Hydra.Ledger.Simple (SimpleTx (..), simpleLedger)
-import Hydra.Network.Message (Message (..))
-import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.State (Deposit (..), DepositStatus (..), NodeState (..), trackedFromPending)
 import Hydra.Options (defaultContestationPeriod, defaultDepositActivation, defaultDepositPeriod, defaultUnsyncedPeriod)
 import Hydra.Prelude qualified as Prelude

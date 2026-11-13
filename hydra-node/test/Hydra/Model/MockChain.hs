@@ -57,13 +57,6 @@ import Hydra.Chain.Direct.Handlers (
 import Hydra.Chain.Direct.State (ChainContext (..), ChainStateAt (..), initialChainState)
 import Hydra.Chain.Direct.TimeHandle (TimeHandle, mkTimeHandle)
 import Hydra.Chain.Direct.Wallet (TinyWallet (..))
-import Hydra.HeadLogic (
-  ClosedState (..),
-  HeadState (..),
-  IdleState (..),
-  Input (..),
-  OpenState (..),
- )
 import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano (adjustUTxO, fromChainSlot)
 import Hydra.Ledger.Cardano.Evaluate (renderEvaluationReport)
@@ -72,6 +65,13 @@ import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message (..))
 import Hydra.Node (DraftHydraNode (..), HydraNode (..), NodeStateHandler (..), connect, mkNetworkInput)
 import Hydra.Node.Environment (Environment (Environment, depositPeriod, participants, party))
+import Hydra.Node.HeadLogic (
+  ClosedState (..),
+  HeadState (..),
+  IdleState (..),
+  Input (..),
+  OpenState (..),
+ )
 import Hydra.Node.InputQueue (InputQueue (..))
 import Hydra.Node.State (ChainPointTime (..), NodeState (..))
 import Hydra.NodeSpec (mockServer)
