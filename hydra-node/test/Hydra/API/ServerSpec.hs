@@ -66,7 +66,7 @@ import Test.Hydra.Ledger.Simple (aValidTx, utxoRefs)
 import Test.Hydra.Node.Fixture (testEnvironment)
 import Test.Hydra.Tx.Fixture (alice, defaultPParams, testHeadId)
 import Test.Hydra.Tx.Gen ()
-import Test.QuickCheck (checkCoverage, cover, forAllShrink, generate, listOf, suchThat)
+import Test.QuickCheck (checkCoverage, cover, forAllShrink, generate, listOf, resize, suchThat)
 import Test.QuickCheck.Arbitrary.ADT (ADTArbitrary (..), ConstructorArbitraryPair (..), toADTArbitrary)
 import Test.QuickCheck.Monadic (monadicIO, monitor, pick, run)
 
@@ -151,8 +151,8 @@ spec =
                   atomically (replicateM 2 (readTQueue queue))
                     >>= (`shouldSatisfyAll` [matchGreetings, matchGreetings])
 
-                -- Exercise broadcasting without generating expensive snapshots.
-                arbitraryEvent <- generate $ genStateEvent Outcome.NetworkConnected
+                -- Keep generated payloads small for the transport deadline.
+                arbitraryEvent <- generate $ resize 1 genStateEventForApi
                 let expectedMessage =
                       toJSON $
                         fromMaybe (error "failed to convert stateEvent") $
@@ -163,7 +163,7 @@ spec =
 
     it "sends server output history to all connected clients (using given event source)" $ do
       showLogsOnFailure "ServerSpec" $ \tracer -> failAfter 5 $ do
-        stateEvent <- generate $ genStateEvent Outcome.NetworkConnected
+        stateEvent <- generate $ resize 1 genStateEventForApi
         let expectedMessage =
               toJSON $
                 fromMaybe (error "failed to convert stateEvent") $
@@ -432,7 +432,7 @@ spec =
               withTestAPIServer sock port alice (mockSource []) tracer $ \(EventSink{putEvent}, _) ->
                 withClient port "/?encoding=cbor&history=no" $ \conn -> do
                   _greeting :: ByteString <- receiveData conn
-                  arbitraryEvent <- generate $ genStateEvent Outcome.NetworkConnected
+                  arbitraryEvent <- generate $ resize 1 genStateEventForApi
                   let expectedMessage =
                         fromMaybe (error "failed to convert stateEvent") $
                           mkTimedServerOutputFromStateEvent Nothing arbitraryEvent
