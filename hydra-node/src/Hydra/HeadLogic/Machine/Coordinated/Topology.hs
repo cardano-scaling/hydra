@@ -2,8 +2,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE UndecidableInstances #-}
 
--- | Live ownership transitions. Runtime machines, inspection and compile-fail
--- checks import these definitions; trusted replay does not widen their edges.
 module Hydra.HeadLogic.Machine.Coordinated.Topology (
   SnapshotPhase (..),
   SnapshotTopology,
@@ -19,10 +17,19 @@ import Hydra.Prelude
 
 import Crem.Render.RenderableVertices (AllVertices (..), RenderableVertices)
 import Crem.Topology (STopology (STopology), Topology (Topology), TopologySym0)
-import Data.Singletons.Base.TH (NilSym0, SList (SCons, SNil), STuple2 (STuple2), Tuple2Sym0, singletons, type (:@#@$))
+import Data.Singletons.Base.TH (
+  NilSym0,
+  SList (SCons, SNil),
+  STuple2 (STuple2),
+  Tuple2Sym0,
+  singletons,
+  type (:@#@$),
+ )
 
 $( singletons
     [d|
+     -- | A snapshot can only be awaiting for a snapshot, requesting a
+     -- snapshot, or collecting signatures.
       data SnapshotPhase = AwaitingRequest | RequestSent | CollectingSignatures
 
       snapshotTopology :: Topology SnapshotPhase
@@ -33,6 +40,7 @@ $( singletons
           , (CollectingSignatures, [AwaitingRequest])
           ]
 
+      -- |
       data TransactionPhase = NoDecommit | DecommitPending | AwaitingSettlement
 
       transactionTopology :: Topology TransactionPhase
