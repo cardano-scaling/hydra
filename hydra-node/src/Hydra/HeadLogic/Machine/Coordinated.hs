@@ -26,6 +26,7 @@ module Hydra.HeadLogic.Machine.Coordinated (
   settleCommit,
   settleDecommit,
   replayEvent,
+  components,
 ) where
 
 import Hydra.Prelude
@@ -35,6 +36,7 @@ import Crem.StateMachine (StateMachineT (..), run, withoutRendering)
 import Hydra.Chain.ChainState (IsChainState (ChainStateType), chainStateSlot)
 import Hydra.HeadLogic.Error (LogicError (AssertionFailed))
 import Hydra.HeadLogic.Machine.Coordinated.Candidate (Candidate)
+import Hydra.HeadLogic.Machine.Coordinated.Commits qualified as Commits
 import Hydra.HeadLogic.Machine.Coordinated.Snapshots qualified as Snapshots
 import Hydra.HeadLogic.Machine.Coordinated.Snapshots.Replay qualified as Replay
 import Hydra.HeadLogic.Machine.Coordinated.Snapshots.State qualified as State
@@ -58,7 +60,7 @@ import Hydra.Tx.Snapshot (Snapshot, SnapshotNumber, SnapshotVersion)
 -- Forcing that projection would repeat ledger work just to emit the next event.
 -- Recovery reads the projection without running live commands, so constructing
 -- the next live composition is also deferred until a command needs it.
-data Runtime tx = Runtime HeadId [VerificationKey HydraKey] ~(CoordinatedHeadState tx) (InitialState (State.State tx)) ~(StateMachineT Identity (Command tx) (Output tx))
+data Runtime tx = Runtime HeadId [VerificationKey HydraKey] ~(CoordinatedHeadState tx) (InitialState (State.State tx)) ~(StateMachineT Identity (Command tx) (Commits.Output tx))
 
 start :: IsChainState tx => OpenState tx -> Runtime tx
 start os = Runtime os.headId parties os.coordinatedHeadState snapshots (withoutRendering $ compose os.headId parties snapshots os.coordinatedHeadState)
@@ -66,10 +68,17 @@ start os = Runtime os.headId parties os.coordinatedHeadState snapshots (withoutR
   parties = vkey <$> os.parameters.parties
   snapshots = restoreSnapshots parties os
 
-compose :: IsChainState tx => HeadId -> [VerificationKey HydraKey] -> InitialState (State.State tx) -> CoordinatedHeadState tx -> StateMachineT Identity (Command tx) (Output tx)
+-- | Inspect the same composition used by live execution, with rendering enabled.
+components :: IsChainState tx => OpenState tx -> StateMachineT Identity (Command tx) (Commits.Output tx)
+components os = compose os.headId parties (restoreSnapshots parties os) os.coordinatedHeadState
+ where
+  parties = vkey <$> os.parameters.parties
+
+compose :: IsChainState tx => HeadId -> [VerificationKey HydraKey] -> InitialState (State.State tx) -> CoordinatedHeadState tx -> StateMachineT Identity (Command tx) (Commits.Output tx)
 compose headId parties snapshots chs =
   Basic (Snapshots.machine headId parties snapshots)
     `Sequential` Basic (Transactions.machine headId (State.viewInitial snapshots) (transactionState chs) chs.decommitTx)
+    `Sequential` Basic (Commits.machine (State.viewInitial snapshots) chs.currentDepositTxId)
 
 restoreSnapshots :: IsChainState tx => [VerificationKey HydraKey] -> OpenState tx -> InitialState (State.State tx)
 restoreSnapshots parties os = State.restore parties $ SnapshotState chs.version (chainStateSlot os.chainState) chs.confirmedSnapshot chs.seenSnapshot chs.finalizedCommit chs.finalizedDecommit
@@ -77,7 +86,7 @@ restoreSnapshots parties os = State.restore parties $ SnapshotState chs.version 
   chs = os.coordinatedHeadState
 
 transactionState :: CoordinatedHeadState tx -> TransactionState tx
-transactionState chs = TransactionState chs.localUTxO chs.localTxs chs.allTxs chs.currentDepositTxId
+transactionState chs = TransactionState chs.localUTxO chs.localTxs chs.allTxs
 
 currentState :: Runtime tx -> CoordinatedHeadState tx
 currentState (Runtime _ _ current _ _) = current
@@ -92,11 +101,11 @@ step runtime command = fromRight ([], runtime) $ advance runtime command
 
 advance :: Runtime tx -> Command tx -> Either Text ([StateChanged tx], Runtime tx)
 advance (Runtime headId parties _ _ machine) command =
-  let (output@Output{snapshots, events, refusal}, next) = runIdentity $ run machine command
+  let (output@Commits.Output{transactions = Output{snapshots, events, refusal}}, next) = runIdentity $ run machine command
    in maybe (Right (events, Runtime headId parties (project output) snapshots next)) Left refusal
 
-project :: Output tx -> CoordinatedHeadState tx
-project Output{snapshots = owned, transactions, decommit} =
+project :: Commits.Output tx -> CoordinatedHeadState tx
+project Commits.Output{transactions = Output{snapshots = owned, transactions, decommit}, currentDepositTxId} =
   CoordinatedHeadState
     { version = snapshots.version
     , confirmedSnapshot = snapshots.confirmed
@@ -106,7 +115,7 @@ project Output{snapshots = owned, transactions, decommit} =
     , localUTxO = transactions.localUTxO
     , localTxs = transactions.localTxs
     , allTxs = transactions.allTxs
-    , currentDepositTxId = transactions.currentDepositTxId
+    , currentDepositTxId
     , decommitTx = decommit
     }
  where
@@ -171,7 +180,10 @@ replayEvent deposited event runtime@(Runtime headId parties current snapshots _)
   case Replay.replay headId parties snapshots deposited event of
     Nothing -> runtime
     Just restored ->
-      let transactions = Executable $ Transactions.machine headId (State.viewInitial snapshots) (transactionState current) current.decommitTx
+      let transactions =
+            Executable (Transactions.machine headId (State.viewInitial snapshots) (transactionState current) current.decommitTx)
+              `Sequential` Executable (Commits.machine (State.viewInitial snapshots) current.currentDepositTxId)
           (output, _) = runIdentity $ run transactions restored
           updated = project output
-       in Runtime headId parties updated output.snapshots (withoutRendering $ compose headId parties output.snapshots updated)
+          nextSnapshots = output.transactions.snapshots
+       in Runtime headId parties updated nextSnapshots (withoutRendering $ compose headId parties nextSnapshots updated)

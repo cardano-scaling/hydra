@@ -1700,7 +1700,7 @@ interpreter configuration with functions for each primitive.
 
 The Haskell implementation applies retained `StateChanged` events through
 three sequential owners: tracked deposits, head lifecycle, and the node clock.
-The open lifecycle state contains the composed snapshot and transaction owners.
+The open lifecycle state contains composed snapshot, transaction and commit owners.
 Their ports carry owned projections and settlement context, never a mutable
 NodeState. The deposit registry supplies a deposit value before consuming it.
 The input rules above still choose events and effects. A rejected input commits
@@ -1708,7 +1708,7 @@ no events; a waiting input commits its retained prefix. Event replay performs
 neither admission checks nor signature verification.
 
 `Snapshots.Replay` enumerates every retained event. Returning `Nothing` there
-means that the snapshot and transaction owners have no update; the other owners
+means that the coordinated owners have no update; the other owners
 still process the event. This also covers acknowledgements and confirmations
 without an explicit snapshot when no candidate is collecting signatures.
 `DepositRecorded` and `DepositExpired` update the
@@ -1792,9 +1792,11 @@ through live crem transitions. Event recovery shares the storage updates without
 repeating live snapshot admission. One component owns the candidate snapshot,
 signature map and confirmed snapshot; another owns the transaction registry,
 local transaction sequence, local UTxO and pending decommit. Crem's sequential
-composition connects them with a typed rebase command. The snapshot component
+composition connects them with a typed rebase command. A third component owns
+deposit selection and the commit phase relative to the confirmed certificate.
+The snapshot component
 supplies the snapshot and retained transactions; only the transaction component
-chooses how to reconstruct its UTxO. Neither component receives a NodeState.
+chooses how to reconstruct its UTxO. No component receives a NodeState.
 
 Live confirmation requires an opaque result from successful multisignature
 verification of an owner-issued candidate handle. The handle binds the Head,
@@ -1806,8 +1808,9 @@ signing bytes from the snapshot rather than trusting a supplied cache. This stil
 depends on the primitive implementation; it is not a proof of cryptography in
 the type system. Replay trusts retained events
 and skips verification. The snapshot owner also handles explicit adoption,
-clearing, settlement retention and version changes. The transaction owner handles
-deposit selection, recovery and reservation release. A repeated settlement does
+clearing, settlement retention and version changes. The transaction owner checks
+whether a deposit fits, applies settled outputs and releases reservations. The
+commit owner applies selection and recovery updates. A repeated settlement does
 not release a newer reservation; rollback only updates the chain context.
 Lifecycle owns closed-state snapshot adoption. Checkpoint restoration rebuilds
 all owners from the unchanged persisted representation.
@@ -1846,13 +1849,13 @@ model settlement payload identity; the sequence tests cover that separately.
 === Decommit authority and confirmation disposition
 
 The transaction owner distinguishes `NoDecommit`, `DecommitPending` and
-`AwaitingSettlement`. These describe local intent and current-version authority,
+`AwaitingDecommitSettlement` in `DecommitPhase`. These describe local intent and current-version authority,
 not merely whether a transaction field is populated. Recording a local decommit
-enters `DecommitPending`; confirmation carrying it enters `AwaitingSettlement`;
+enters `DecommitPending`; confirmation carrying it enters `AwaitingDecommitSettlement`;
 a conflicting confirmation releases it to `NoDecommit`. Adoption can enter
-`AwaitingSettlement` without a local transaction. Fresh decrement observation
+`AwaitingDecommitSettlement` without a local transaction. Fresh decrement observation
 returns to `NoDecommit`; repeated observations and rollback do not reinstate old
-work. `AwaitingSettlement` cannot transition directly to `DecommitPending`.
+work. `AwaitingDecommitSettlement` cannot transition directly to `DecommitPending`.
 Crem checks that missing edge; guards additionally prevent replacing an operation
 within a phase, since Crem permits identity transitions.
 
@@ -1866,3 +1869,42 @@ UTxO names; it does not prove cryptography, ledger validity, crash safety or
 progress under arbitrary delivery. Separate integration schedules check 24
 orders of competing ordinary and decommit spends, with serialized replay at
 every delivery. Persisted constructors and their encodings are unchanged.
+
+=== Commit selection and authority
+
+`CommitPhase` distinguishes `NoCommit`, `CommitSelected` and
+`AwaitingCommitSettlement`. A selected deposit is local intent, not spendable
+funds. A current-version confirmed snapshot containing a commit takes precedence
+over that selection when determining the phase. Adoption can therefore enter
+`AwaitingCommitSettlement` without a selected deposit, including legacy
+certificates without a deposit identifier. Clearing local state or recovering
+the selected deposit does not erase the certificate.
+
+A fresh increment advances the version, adds the deposited outputs once and
+clears selection. If it arrives before acknowledgement, subsequent confirmation
+of the older snapshot does not restore its settlement phase. Reobservation
+does not restore outputs spent in the meantime or clear another selection.
+Expiry only changes the deposit registry; recovery clears a matching selection;
+rollback does not undo the signed certificate or the off-chain version.
+
+A pending commit can be dropped after recovery or after its deadline plus the
+rollback margin. Until a replacement snapshot confirms, its old certificate
+remains visible as `AwaitingCommitSettlement`. A replacement certificate can
+retire the claim while leaving another selection, so the commit graph permits
+`AwaitingCommitSettlement` to `CommitSelected`. All three phase pairs can occur:
+the graph alone does not prevent replacement within a phase or premature
+dropping. `settlingCommitAtPeriod`, ReqSn and ReqDec enforce eligibility, carry
+obligations and mutual exclusion. These guards also prevent selecting both a
+commit and a decommit in a proposed snapshot. The phase is not a substitute for
+the registry and time checks.
+
+`OffChainReference.agda` defines this commit transition relation and the phase
+projection from selection, version and signed claim. Bounded tests compare it
+with the live owner, including missing deposit identifiers. Command sequences
+compare live continuations, retained-event replay and serialized reconstruction
+after every transition. They cover both settlement orders, adoption, clearing,
+replacement, retained selections and spendability after repeated settlement.
+Replay sequences cover expiry, recovery and rollback of a signed claim; ReqDec
+tests check the settlement-window boundary without a local selection. These
+checks supplement the raw selected-deposit/pending-decommit projection, which
+does not describe signed authority.

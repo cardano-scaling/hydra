@@ -695,23 +695,23 @@ capacityPruneRef limit base commit decommit = go 1 base
 -- decrement. Adoption can supply that authority without a local reservation.
 -- These are protocol stages, not the presence/absence of a stored transaction.
 data DecommitPhaseᶜ : Set where
-  noDecommitᶜ pendingDecommitᶜ awaitingSettlementᶜ : DecommitPhaseᶜ
+  noDecommitᶜ pendingDecommitᶜ awaitingDecommitSettlementᶜ : DecommitPhaseᶜ
 
--- Legal non-identity transitions. AwaitingSettlement -> Pending is absent:
+-- Legal non-identity transitions. AwaitingDecommitSettlement -> Pending is absent:
 -- a different local decommit cannot replace an unsettled certificate.
 data DecommitTransitionᶜ : DecommitPhaseᶜ → DecommitPhaseᶜ → Set where
   unchangedᵈ : ∀ {phase} → DecommitTransitionᶜ phase phase
   reserveᵈ : DecommitTransitionᶜ noDecommitᶜ pendingDecommitᶜ
   invalidateᵈ : DecommitTransitionᶜ pendingDecommitᶜ noDecommitᶜ
-  confirmᵈ : DecommitTransitionᶜ pendingDecommitᶜ awaitingSettlementᶜ
-  adoptᵈ : DecommitTransitionᶜ noDecommitᶜ awaitingSettlementᶜ
-  settleᵈ : DecommitTransitionᶜ awaitingSettlementᶜ noDecommitᶜ
+  confirmᵈ : DecommitTransitionᶜ pendingDecommitᶜ awaitingDecommitSettlementᶜ
+  adoptᵈ : DecommitTransitionᶜ noDecommitᶜ awaitingDecommitSettlementᶜ
+  settleᵈ : DecommitTransitionᶜ awaitingDecommitSettlementᶜ noDecommitᶜ
 
 -- An empty type expresses the forbidden transition independently of Haskell.
 data ImpossibleDecommitTransition : Set where
 
 cannotReplaceAuthorisedDecommit :
-  DecommitTransitionᶜ awaitingSettlementᶜ pendingDecommitᶜ → ImpossibleDecommitTransition
+  DecommitTransitionᶜ awaitingDecommitSettlementᶜ pendingDecommitᶜ → ImpossibleDecommitTransition
 cannotReplaceAuthorisedDecommit ()
 
 -- Natural-number output identities; `available` includes the retained ordinary
@@ -876,3 +876,39 @@ same-owned-candidate-confirms = refl
 -- Haskell shares the owned identity through signature collection and settlement,
 -- retiring it on confirmation. Heap sharing and encoding counts are outside this
 -- value-level projection; the same identity and phase predicates still apply.
+
+-- Selection and signed authority are independent of deposit registry status.
+-- The signed claim remains visible until a new version or certificate retires
+-- it, even if recovery or the rollback margin already permits dropping it.
+data CommitPhaseᶜ : Set where
+  noCommitᶜ selectedCommitᶜ awaitingCommitSettlementᶜ : CommitPhaseᶜ
+{-# FOREIGN GHC data HsCommitPhase = NoCommit | CommitSelected | AwaitingCommitSettlement deriving (Eq, Show) #-}
+{-# COMPILE GHC CommitPhaseᶜ = data HsCommitPhase (NoCommit | CommitSelected | AwaitingCommitSettlement) #-}
+
+commitPhaseRef : Bool → Nat → Nat → Bool → CommitPhaseᶜ
+commitPhaseRef selected version signedVersion claimsCommit =
+  if (version == signedVersion) && claimsCommit then awaitingCommitSettlementᶜ
+  else if selected then selectedCommitᶜ else noCommitᶜ
+
+-- Unlike a decommit, an outstanding commit can be dropped. Replacing its
+-- certificate can leave another selected deposit, so every phase pair is legal;
+-- the request guards, not missing topology edges, enforce when this may happen.
+data CommitTransitionᶜ : CommitPhaseᶜ → CommitPhaseᶜ → Set where
+  unchangedᶜ : ∀ {phase} → CommitTransitionᶜ phase phase
+  selectᶜ : CommitTransitionᶜ noCommitᶜ selectedCommitᶜ
+  releaseᶜ : CommitTransitionᶜ selectedCommitᶜ noCommitᶜ
+  confirmᶜ : CommitTransitionᶜ selectedCommitᶜ awaitingCommitSettlementᶜ
+  adoptᶜ : CommitTransitionᶜ noCommitᶜ awaitingCommitSettlementᶜ
+  retireᶜ : CommitTransitionᶜ awaitingCommitSettlementᶜ noCommitᶜ
+  retireSelectedᶜ : CommitTransitionᶜ awaitingCommitSettlementᶜ selectedCommitᶜ
+
+adoption-without-selection-awaits : commitPhaseRef false 0 0 true ≡ awaitingCommitSettlementᶜ
+adoption-without-selection-awaits = refl
+
+settlement-before-confirmation-retires : commitPhaseRef false 1 0 true ≡ noCommitᶜ
+settlement-before-confirmation-retires = refl
+
+retirement-preserves-selection : commitPhaseRef true 1 0 true ≡ selectedCommitᶜ
+retirement-preserves-selection = refl
+
+{-# COMPILE GHC commitPhaseRef as hsCommitPhaseRef #-}

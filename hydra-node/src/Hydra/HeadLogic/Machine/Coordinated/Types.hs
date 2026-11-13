@@ -51,6 +51,15 @@ data LedgerUpdate tx
   | ReplayTransaction tx
   | ReplayDecommit tx
 
+-- | The transaction owner checks whether a deposit fits the local ledger; the
+-- commit owner alone changes the selection and tracks the signed claim's phase.
+data CommitUpdate tx
+  = KeepCommit
+  | RefreshCommit
+  | SelectCommit (TxIdType tx)
+  | SetCommitSelection (Maybe (TxIdType tx))
+  | ReleaseCommit (TxIdType tx)
+
 data SnapshotState tx = SnapshotState
   { version :: SnapshotVersion
   , chainSlot :: ChainSlot
