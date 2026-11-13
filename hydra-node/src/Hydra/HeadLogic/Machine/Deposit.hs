@@ -2,7 +2,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 -- | One deposit's recorded lifecycle, including consumption and restoration.
-module Hydra.HeadLogic.Machine.Deposit (Phase (..), DepositTopology, Change (..), machine, transition) where
+module Hydra.HeadLogic.Machine.Deposit (Phase (..), DepositTopology, Change (..), phase, machine, transition) where
 
 import Crem.BaseMachine (ActionResult, BaseMachineT (..), InitialState (..), pureResult, runBaseMachineT, withStateInspector)
 import Crem.StateInspection (describeOnly)
@@ -42,6 +42,16 @@ data DepositState tx (phase :: Phase) where
   ActiveState :: TrackedDeposit tx -> DepositState tx 'ActiveDeposit
   ExpiredState :: TrackedDeposit tx -> DepositState tx 'ExpiredDeposit
   ConsumedState :: TrackedDeposit tx -> DepositState tx 'ConsumedDeposit
+
+phase :: Maybe (TrackedDeposit tx) -> Phase
+phase = \case
+  Nothing -> MissingDeposit
+  Just tracked
+    | isJust tracked.consumedAt -> ConsumedDeposit
+    | otherwise -> case tracked.deposit.status of
+        Inactive -> InactiveDeposit
+        Active -> ActiveDeposit
+        Expired -> ExpiredDeposit
 
 statePhase :: DepositState tx phase -> Phase
 statePhase = \case

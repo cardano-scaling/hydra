@@ -260,9 +260,24 @@ library testlib
     Test.Hydra.Chain
     Test.Hydra.Chain.Direct.State
     Test.Hydra.Chain.Direct.TimeHandle
+    Test.Hydra.HeadLogic.Capacity
+    Test.Hydra.HeadLogic.ConflictingDecommit
+    Test.Hydra.HeadLogic.CoordinatedAudit
+    Test.Hydra.HeadLogic.Debugger
+    Test.Hydra.HeadLogic.DecommitDependency
+    Test.Hydra.HeadLogic.DecommitSequences
+    Test.Hydra.HeadLogic.Explorer
     Test.Hydra.HeadLogic.Input
+    Test.Hydra.HeadLogic.InputFixtures
     Test.Hydra.HeadLogic.Interpreter
     Test.Hydra.HeadLogic.Outcome
+    Test.Hydra.HeadLogic.Projection.Incremental
+    Test.Hydra.HeadLogic.Projection.OffChain
+    Test.Hydra.HeadLogic.Recovery
+    Test.Hydra.HeadLogic.Registry
+    Test.Hydra.HeadLogic.Replay
+    Test.Hydra.HeadLogic.Scenario
+    Test.Hydra.HeadLogic.Settlement
     Test.Hydra.HeadLogic.State
     Test.Hydra.HeadLogic.StateEvent
     Test.Hydra.Ledger
@@ -460,10 +475,20 @@ test-suite tests
     Hydra.Events.S3Spec
     Hydra.Events.SQLiteBasedSpec
     Hydra.Events.UDPSpec
+    Hydra.HeadLogic.CapacitySpec
     Hydra.HeadLogic.CommitPhaseSpec
+    Hydra.HeadLogic.CoordinatedSpec
+    Hydra.HeadLogic.IncrementalWorkflowSpec
+    Hydra.HeadLogic.InputWorkflowSpec
     Hydra.HeadLogic.InterpreterSpec
+    Hydra.HeadLogic.MachineSpec
     Hydra.HeadLogic.OutcomeSpec
+    Hydra.HeadLogic.ProgramSpec
     Hydra.HeadLogic.ReplaySpec
+    Hydra.HeadLogic.RulesSpec
+    Hydra.HeadLogic.SnapshotDecommitSpec
+    Hydra.HeadLogic.SnapshotOwnerSpec
+    Hydra.HeadLogic.SnapshotProgramSpec
     Hydra.HeadLogic.WorkflowSpec
     Hydra.HeadLogicSnapshotSpec
     Hydra.HeadLogicSpec

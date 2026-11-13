@@ -9,7 +9,42 @@
 -- As there, every 'Integer' stands for an Agda ℕ and callers must pass non-negative values; see that
 -- module's header for what a negative one does.
 module Hydra.Agda.OffChainReference (
+  accumulatorCapacityRef,
+  snapshotCapacityRef,
+  decommitCapacityRef,
+  pendingTxFitsRef,
+  capacityFitsRef,
+  capacityPrefixRef,
+  capacityPruneRef,
+  settlementVersionRef,
+  settlementReservationRef,
+  reservationHeldRef,
+  retainReservationRef,
+  decommitAdmissionRef,
+  carriedDecommitPayloadRef,
+  carriedDecommitRequestRef,
+  verificationContextRef,
+  liveSnapshotEdgeRef,
+  candidateConfirmationRef,
+  decommitReadyRef,
+  reserveRebaseRef,
+  newDecommitReadyRef,
+  HsReqDecOutcome (..),
+  HsRecoverOutcome (..),
+  inputAdmissionRef,
+  clientDecommitRef,
+  adoptSettlementRef,
+  repostFinalizedRef,
+  fanoutContinuationRef,
+  reqDecOutcomeRef,
+  recoverOutcomeRef,
+
   -- * deposit lifecycle (the @tick@ handler)
+  HsLifecyclePhase (..),
+  HsLifecycleEvent (..),
+  HsCoordinationPhase (..),
+  HsCoordinationEvent (..),
+  HsTrackedPhase (..),
   HsDepositStatus (..),
   depositStatusRef,
 
@@ -37,14 +72,49 @@ module Hydra.Agda.OffChainReference (
   -- * round-robin leader (bound to the real 'Hydra.HeadLogic.isLeader')
   leaderRef,
 
-  -- * accumulator capacity and pruning
-  accumulatorCapacityRef,
-  snapshotCapacityRef,
-  decommitCapacityRef,
-  pendingTxFitsRef,
+  -- * bounded reqTx outcomes, including committed changes and effects
+  HsReqTxTerminal (..),
+  HsReqTxChange (..),
+  HsReqTxEffect (..),
+  HsReqTxOutcome (..),
+  reqTxOutcomeRef,
+  HsSnapshotPhase (..),
+  HsSnapshotChange (..),
+  HsSnapshotEffect (..),
+  HsSnapshotWait (..),
+  HsSnapshotRejection (..),
+  HsSnapshotOutcome (..),
+  reqTxKnownOutcomeRef,
+  reqSnOutcomeRef,
+  ackSnOutcomeRef,
+  lifecyclePhaseRef,
+  coordinationPhaseRef,
+  trackedDepositPhaseRef,
+  pendingIncrementPhaseRef,
 ) where
 
-import MAlonzo.Code.Hydra.Protocol.OffChainReference (HsCommitPhase (..), HsDepositStatus (..), HsPendingCommit (..))
+import MAlonzo.Code.Hydra.Protocol.OffChainReference (
+  HsCommitPhase (..),
+  HsCoordinationEvent (..),
+  HsCoordinationPhase (..),
+  HsDepositStatus (..),
+  HsLifecycleEvent (..),
+  HsLifecyclePhase (..),
+  HsPendingCommit (..),
+  HsRecoverOutcome (..),
+  HsReqDecOutcome (..),
+  HsReqTxChange (..),
+  HsReqTxEffect (..),
+  HsReqTxOutcome (..),
+  HsReqTxTerminal (..),
+  HsSnapshotChange (..),
+  HsSnapshotEffect (..),
+  HsSnapshotOutcome (..),
+  HsSnapshotPhase (..),
+  HsSnapshotRejection (..),
+  HsSnapshotWait (..),
+  HsTrackedPhase (..),
+ )
 import MAlonzo.Code.Hydra.Protocol.OffChainReference qualified as M
 
 -- | Extracted decidable deposit-status decision of the §6 @tick@ handler: given a deposit's
@@ -147,18 +217,149 @@ contestEligibleRef = M.hsContestEligibleRef
 leaderRef :: Integer -> Integer -> Integer -> Bool
 leaderRef = M.hsLeaderRef
 
--- | Capacity of the deployed accumulator setup, in output references.
+-- | Outcome of one reqTx attempt with no deposits, decommit, or previously pending
+-- transactions, fresh transaction output names, and a local UTxO equal to the
+-- settled confirmed UTxO. Inputs are
+-- ledger applicability, TTL, snapshot-in-flight, party count minus one, next
+-- snapshot number, and the local party's zero-based index. The model decides
+-- leader eligibility itself and retains ordered committed change/effect tags.
+-- Payloads, collision checks, and retry scheduling are outside this projection.
+-- All Integer arguments represent naturals; the party index must be in range.
+reqTxOutcomeRef :: Bool -> Integer -> Bool -> Integer -> Integer -> Integer -> HsReqTxOutcome
+reqTxOutcomeRef = M.hsReqTxOutcomeRef
+
+-- | Named bounded snapshot outcomes, documented in OffChainReference.agda.
+-- No deposits/decommit, output collisions, oversized accumulators or payloads.
+reqSnOutcomeRef :: Integer -> Integer -> Integer -> Integer -> Integer -> Integer -> Integer -> Integer -> Bool -> HsSnapshotOutcome
+reqSnOutcomeRef = M.hsReqSnOutcomeRef
+
+-- | Phase, seen/requested numbers, signer indices, sender, party count minus one,
+-- verification reply, useful next work, and local party index. Naturals only.
+ackSnOutcomeRef :: HsSnapshotPhase -> Integer -> Integer -> [Integer] -> Integer -> Integer -> Bool -> Bool -> Integer -> HsSnapshotOutcome
+ackSnOutcomeRef = M.hsAckSnOutcomeRef
+
+-- | Extend the bounded receipt outcome with the already-applied-ID guard.
+reqTxKnownOutcomeRef :: Bool -> Bool -> Integer -> Bool -> Integer -> Integer -> Integer -> HsReqTxOutcome
+reqTxKnownOutcomeRef = M.hsReqTxKnownOutcomeRef
+
+-- | Phase projections of retained events; guards and payloads are outside these abstractions.
+lifecyclePhaseRef :: HsLifecyclePhase -> HsLifecycleEvent -> Bool -> HsLifecyclePhase
+lifecyclePhaseRef = M.hsLifecyclePhaseRef
+
+coordinationPhaseRef :: HsCoordinationPhase -> HsCoordinationEvent -> Bool -> Bool -> Bool -> HsCoordinationPhase
+coordinationPhaseRef = M.hsCoordinationPhaseRef
+
+trackedDepositPhaseRef :: HsTrackedPhase -> Integer -> HsDepositStatus -> Bool -> Bool -> HsTrackedPhase
+trackedDepositPhaseRef = M.hsTrackedDepositPhaseRef
+
+pendingIncrementPhaseRef :: Bool -> Bool -> Bool -> Integer
+pendingIncrementPhaseRef = M.hsPendingIncrementPhaseRef
+
+-- | Whole ReqDec outcome tags within the bounded domain of the Agda reference.
+reqDecOutcomeRef :: Bool -> Bool -> Bool -> Bool -> Integer -> Bool -> Integer -> Integer -> Integer -> HsReqDecOutcome
+reqDecOutcomeRef = M.hsReqDecOutcomeRef
+
+-- | Registration and finalized-increment guards, in their execution order.
+recoverOutcomeRef :: Bool -> Bool -> HsRecoverOutcome
+recoverOutcomeRef = M.hsRecoverOutcomeRef
+
+-- | Bounded input admission. Kind: client=0, network=1, chain=2. Result:
+-- dispatch=0, unsafe=1, unsynced client=2, wait for sync=3.
+inputAdmissionRef :: Integer -> Bool -> Bool -> Integer
+inputAdmissionRef = M.hsInputAdmissionRef
+
+-- | Existing decommit, applicability, nonempty outputs; failure priority or send.
+clientDecommitRef :: Bool -> Bool -> Bool -> Integer
+clientDecommitRef = M.hsClientDecommitRef
+
+-- | Observed/seen number, snapshot/new version, action matches, signatures valid.
+adoptSettlementRef :: Integer -> Integer -> Integer -> Integer -> Bool -> Bool -> Bool
+adoptSettlementRef = M.hsAdoptSettlementRef
+
+-- | Pending work, rollback slot, finalized observation slot. Naturals only.
+repostFinalizedRef :: Bool -> Integer -> Integer -> Bool
+repostFinalizedRef = M.hsRepostFinalizedRef
+
+-- | Empty remainder and mode (auto=0, selection=1, awaiting=2); wait=0,
+-- post remainder=1, post selection=2.
+fanoutContinuationRef :: Bool -> Integer -> Integer
+fanoutContinuationRef = M.hsFanoutContinuationRef
+
+-- | Pending decommit inputs must be absent from the available local UTxO.
+-- Bounded SimpleTx output identities, represented by nonnegative integers.
+reservationHeldRef :: [Integer] -> [Integer] -> Bool
+reservationHeldRef = M.hsReservationHeldRef
+
+-- | A new decommit needs its inputs in the confirmed base, before ordinary
+-- snapshot transactions run. A decommit already carried needs no reapplication.
+decommitReadyRef :: Bool -> [Integer] -> [Integer] -> Bool
+decommitReadyRef = M.hsDecommitReadyRef
+
+-- | Retained version and decommit reservation after a decrement observation.
+settlementVersionRef :: Integer -> Integer -> Integer
+settlementVersionRef = M.hsSettlementVersionRef
+
+settlementReservationRef :: Bool -> Integer -> Integer -> Bool
+settlementReservationRef = M.hsSettlementReservationRef
+
+-- | Rebuilt local outputs with reserved spending inputs removed.
+reserveRebaseRef :: [Integer] -> [Integer] -> [Integer]
+reserveRebaseRef = M.hsReserveRebaseRef
+
+-- | Whether a pending decommit warrants a round without ordinary transactions.
+newDecommitReadyRef :: Bool -> [Integer] -> [Integer] -> Bool
+newDecommitReadyRef = M.hsNewDecommitReadyRef
+
+-- | Deployed accumulator bound and independent count predicates from #2927.
 accumulatorCapacityRef :: Integer
 accumulatorCapacityRef = M.hsAccumulatorCapacityRef
 
--- | Counts of the active set united with owed decommit and commit outputs.
 snapshotCapacityRef :: Integer -> Integer -> Bool
 snapshotCapacityRef = M.hsSnapshotCapacityRef
 
--- | Output count and post-application local/confirmed counts before exclusion.
 decommitCapacityRef :: Integer -> Integer -> Integer -> Bool
 decommitCapacityRef = M.hsDecommitCapacityRef
 
--- | Ledger applicability, held-output disjointness and both fanout counts.
 pendingTxFitsRef :: Bool -> Bool -> Integer -> Integer -> Bool
 pendingTxFitsRef = M.hsPendingTxFitsRef
+
+-- | Set-based checks with a small bound. Callers bridge to production by adding
+-- untouched background outputs; transactions must not name that background.
+capacityFitsRef :: Integer -> [Integer] -> [Integer] -> [Integer] -> Bool
+capacityFitsRef = M.hsCapacityFitsRef
+
+capacityPrefixRef :: Integer -> [Integer] -> [Integer] -> [[Integer]] -> [[Integer]] -> Integer
+capacityPrefixRef = M.hsCapacityPrefixRef
+
+capacityPruneRef :: Integer -> [Integer] -> [Integer] -> [Integer] -> [[Integer]] -> [[Integer]] -> [Integer]
+capacityPruneRef = M.hsCapacityPruneRef
+
+-- | Retain local intent if carried, or if its dependencies survive confirmation.
+retainReservationRef :: Bool -> Bool -> [Integer] -> [Integer] -> Bool
+retainReservationRef = M.hsRetainReservationRef
+
+-- | Local reservations and unsettled certificates both block a new decommit.
+decommitAdmissionRef :: Bool -> Bool -> Bool
+decommitAdmissionRef = M.hsDecommitAdmissionRef
+
+-- | Head identity and ordered parties must match the verification context.
+verificationContextRef :: Integer -> Integer -> [Integer] -> [Integer] -> Bool
+verificationContextRef = M.hsVerificationContextRef
+
+-- | Live owner phases (available=0, requested=1, collecting=2), including stays.
+liveSnapshotEdgeRef :: Integer -> Integer -> Bool
+liveSnapshotEdgeRef = M.hsLiveSnapshotEdgeRef
+
+-- | Collecting, owned/supplied [Head, version, number, content] identities and
+-- ordered lists of parties. Signature validity and canonical content are premises.
+candidateConfirmationRef :: Bool -> [Integer] -> [Integer] -> [Integer] -> [Integer] -> Bool
+candidateConfirmationRef = M.hsCandidateConfirmationRef
+
+-- | Zero selects the reservation, positive indices select registry entries.
+-- Output identities are finite sets; empty outputs identify no transaction.
+carriedDecommitPayloadRef :: Bool -> [Integer] -> [Integer] -> [[Integer]] -> Maybe Integer
+carriedDecommitPayloadRef = M.hsCarriedDecommitPayloadRef
+
+-- | A same-version certificate requires a matching carried transaction.
+carriedDecommitRequestRef :: Bool -> Bool -> Bool -> Bool
+carriedDecommitRequestRef = M.hsCarriedDecommitRequestRef
