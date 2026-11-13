@@ -44,14 +44,14 @@ replay headId committee initial deposited event = withInitialState initial $ \st
       Just $ retained $ State.request state number
     SnapshotRequested snapshot txs deposit ->
       Just $ retained $ State.accept committee state snapshot txs deposit
-    PartySignedSnapshot number party signature -> Just $ case state of
-      Collecting{} -> retained $ State.recordSignature state number party signature
-      Idle{} -> unchanged state
-      Requested{} -> unchanged state
-    SnapshotConfirmed{snapshot = Nothing, signatures} -> Just $ case state of
-      Collecting{} -> retained $ State.confirm headId state signatures
-      Idle{} -> unchanged state
-      Requested{} -> unchanged state
+    PartySignedSnapshot number party signature -> case state of
+      Collecting{} -> Just $ retained $ State.recordSignature state number party signature
+      Idle{} -> Nothing
+      Requested{} -> Nothing
+    SnapshotConfirmed{snapshot = Nothing, signatures} -> case state of
+      Collecting{} -> Just $ retained $ State.confirm headId state signatures
+      Idle{} -> Nothing
+      Requested{} -> Nothing
     SnapshotConfirmed{snapshot = Just snapshot, signatures} ->
       Just $ retained $ State.adoptSnapshot headId state snapshot signatures
     TransactionAppliedToLocalUTxO{tx} ->
@@ -110,8 +110,6 @@ replay headId committee initial deposited event = withInitialState initial $ \st
     -- Machine.step restores every owner directly from the checkpoint.
     Checkpoint{} -> Nothing
 
-  unchanged :: State tx phase -> SnapshotOutput tx
-  unchanged state = retained $ Update state Unchanged []
   -- Reuse commands whose storage updates also apply to retained events. This
   -- runs a pure state machine; replay does not publish the resulting events.
   live command = fst $ runIdentity $ run (Executable $ Snapshots.machine headId committee initial) command
