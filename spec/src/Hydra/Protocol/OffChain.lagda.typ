@@ -1709,7 +1709,9 @@ neither admission checks nor signature verification.
 
 `Snapshots.Replay` enumerates every retained event. Returning `Nothing` there
 means that the snapshot and transaction owners have no update; the other owners
-still process the event. `DepositRecorded` and `DepositExpired` update the
+still process the event. This also covers acknowledgements and confirmations
+without an explicit snapshot when no candidate is collecting signatures.
+`DepositRecorded` and `DepositExpired` update the
 registry. Activation can select a deposit, but does not make its outputs
 spendable. Recovery consumes the registry entry and clears a matching selection.
 `CommitFinalized` consumes the entry and, at a fresh version, adds the deposit
