@@ -1813,6 +1813,24 @@ spec =
           update aliceEnv ledger now s0 (receiveMessage ReqDec{transaction = reqDecDecommitTx})
             `assertWait` WaitOnUnresolvedCommit{commitUTxO = reqDecDepositedUTxO}
 
+        it "checks signed commit eligibility even without a locally selected deposit" $ do
+          let margin = toNominalDiffTime aliceEnv.depositPeriod
+              signed = withAccumulators $ (testSnapshot 1 0 [] mempty){utxoToCommit = Just reqDecDepositedUTxO, depositTxId = Just reqDecDepositTxId}
+              deposit offset = Deposit testHeadId reqDecDepositedUTxO initialChainTime (addUTCTime offset initialChainTime) Expired
+          forM_ [(Just 3600, True), (Just (negate margin), True), (Just (negate margin - 1), False), (Nothing, False)] $ \(deadline, blocks) -> do
+            let initial = inOpenState threeParties
+                chs = case initial.headState of
+                  Open os -> os.coordinatedHeadState
+                  _ -> Hydra.Prelude.error "fixture does not open a Head"
+                node = (inOpenState' threeParties chs{confirmedSnapshot = ConfirmedSnapshot signed mempty}){deposits = trackedFromPending $ maybe mempty (Map.singleton reqDecDepositTxId . deposit) deadline}
+                result = update aliceEnv ledger initialChainTime node (receiveMessage ReqDec{transaction = reqDecDecommitTx})
+            if blocks
+              then result `assertWait` WaitOnUnresolvedCommit{commitUTxO = reqDecDepositedUTxO}
+              else
+                result `hasStateChangedSatisfying` \case
+                  DecommitRecorded{decommitTx = recorded} -> recorded == reqDecDecommitTx
+                  _ -> False
+
         -- Once ttl is exhausted the pending-deposit wait turns into a rejection
         -- (DepositInFlight) so the client learns it must recover the deposit,
         -- rather than the ReqDec being silently dropped.
@@ -1839,8 +1857,8 @@ spec =
               DecommitRecorded{decommitTx = recorded} -> recorded == reqDecDecommitTx
               _ -> False
 
-        -- Nor may a deposit that has already been recovered: 'DepositRecovered' deletes the map
-        -- entry and also leaves 'currentDepositTxId' set.
+        -- A stale selection from a checkpoint must not block after recovery
+        -- removes the registry entry. Normal recovery also clears the selection.
         it "records a ReqDec when the recorded deposit was already recovered" $ do
           let s0 = reqDecStateWith threeParties Nothing
           now <- nowFromSlot s0.chainPointTime.currentSlot
@@ -6189,8 +6207,8 @@ reqDecDepositedUTxO :: UTxOType SimpleTx
 reqDecDepositedUTxO = utxoRef 42
 
 -- | An open state whose 'currentDepositTxId' is set, with the deposit registered at the given
--- status. 'Nothing' registers no deposit at all, modelling one that has already been recovered:
--- 'DepositRecovered' deletes the map entry but leaves 'currentDepositTxId' pointing at it.
+-- status. 'Nothing' registers no deposit, modelling a checkpoint with a stale
+-- selection after recovery. Normal recovery also clears the selection.
 reqDecStateWith :: [Party] -> Maybe DepositStatus -> NodeState SimpleTx
 reqDecStateWith parties mStatus =
   (inOpenState' parties headState)

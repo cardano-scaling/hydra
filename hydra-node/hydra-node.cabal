@@ -158,6 +158,7 @@ library
 
   other-modules:
     Hydra.HeadLogic.Machine.Coordinated.Candidate
+    Hydra.HeadLogic.Machine.Coordinated.Commits
     Hydra.HeadLogic.Machine.Coordinated.Snapshots
     Hydra.HeadLogic.Machine.Coordinated.Snapshots.Replay
     Hydra.HeadLogic.Machine.Coordinated.Snapshots.State
@@ -459,6 +460,7 @@ test-suite tests
     Hydra.Events.S3Spec
     Hydra.Events.SQLiteBasedSpec
     Hydra.Events.UDPSpec
+    Hydra.HeadLogic.CommitPhaseSpec
     Hydra.HeadLogic.InterpreterSpec
     Hydra.HeadLogic.OutcomeSpec
     Hydra.HeadLogic.ReplaySpec

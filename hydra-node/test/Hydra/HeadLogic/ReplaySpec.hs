@@ -8,8 +8,11 @@ import Test.Hydra.Prelude (Expectation, Spec, describe, it, shouldBe)
 
 import Cardano.Binary (decodeFull', serialize')
 import Control.Monad (foldM)
+import Crem.Inspect (Component (RightComponent), inspectStates)
+import Data.List qualified as List
 import Data.Map.Strict qualified as Map
 import Hydra.HeadLogic.Machine qualified as Machine
+import Hydra.HeadLogic.Machine.Coordinated qualified as Coordinated
 import Hydra.HeadLogic.Outcome (StateChanged (..))
 import Hydra.HeadLogic.State (CoordinatedHeadState (..), FinalizedSnapshot (..), HeadState (..), OpenState (..), SeenSnapshot (..))
 import Hydra.HeadLogicSpec (inOpenState, testSnapshot, withAccumulators)
@@ -119,6 +122,26 @@ spec = describe "commit and deposit replay" $ do
             node.deposits `shouldBe` mempty
             checkLocal Nothing mempty 0 node
         )
+      ]
+
+  it "retains a signed commit through expiry, recovery and rollback until a replacement is confirmed" $ do
+    let expired = active{status = Expired}
+        signatures = aggregate [sign aliceSk snapshot]
+        replacement = testSnapshot 2 0 [] mempty
+        phase :: Text -> NodeState SimpleTx -> Expectation
+        phase expected node = case node.headState of
+          Open open -> join (List.lookup [RightComponent] $ inspectStates $ Coordinated.components open) `shouldBe` Just expected
+          _ -> fail "expected an open Head"
+        awaiting = phase "AwaitingCommitSettlement"
+    checkReplay
+      [ (recorded, phase "NoCommit")
+      , (activated, phase "CommitSelected")
+      , (SnapshotConfirmed testHeadId (Just snapshot) signatures, awaiting)
+      , (DepositExpired depositId initialChainTime expired, awaiting)
+      , (DepositRecovered (SimpleChainState 3) testHeadId depositId deposited, \node -> awaiting node >> checkLocal Nothing mempty 0 node)
+      , (ChainRolledBack (SimpleChainState 2), awaiting)
+      , (SnapshotRequested replacement mempty Nothing, awaiting)
+      , (SnapshotConfirmed testHeadId Nothing (aggregate [sign aliceSk replacement]), phase "NoCommit")
       ]
  where
   depositId = 7

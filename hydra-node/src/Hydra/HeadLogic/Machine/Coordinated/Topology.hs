@@ -7,10 +7,14 @@ module Hydra.HeadLogic.Machine.Coordinated.Topology (
   SnapshotTopology,
   snapshotTopology,
   sSnapshotTopology,
-  TransactionPhase (..),
-  TransactionTopology,
-  transactionTopology,
-  sTransactionTopology,
+  DecommitPhase (..),
+  DecommitTopology,
+  decommitTopology,
+  sDecommitTopology,
+  CommitPhase (..),
+  CommitTopology,
+  commitTopology,
+  sCommitTopology,
 ) where
 
 import Hydra.Prelude
@@ -28,8 +32,8 @@ import Data.Singletons.Base.TH (
 
 $( singletons
     [d|
-     -- | A snapshot can only be awaiting for a snapshot, requesting a
-     -- snapshot, or collecting signatures.
+      -- \| A snapshot can only be awaiting for a snapshot, requesting a
+      -- snapshot, or collecting signatures.
       data SnapshotPhase = AwaitingRequest | RequestSent | CollectingSignatures
 
       snapshotTopology :: Topology SnapshotPhase
@@ -40,15 +44,29 @@ $( singletons
           , (CollectingSignatures, [AwaitingRequest])
           ]
 
-      -- |
-      data TransactionPhase = NoDecommit | DecommitPending | AwaitingSettlement
+      -- \| Local reservation and current-version authority to decrement are
+      -- distinct: a certificate can arrive without the local transaction.
+      data DecommitPhase = NoDecommit | DecommitPending | AwaitingDecommitSettlement
 
-      transactionTopology :: Topology TransactionPhase
-      transactionTopology =
+      decommitTopology :: Topology DecommitPhase
+      decommitTopology =
         Topology
-          [ (NoDecommit, [DecommitPending, AwaitingSettlement])
-          , (DecommitPending, [NoDecommit, AwaitingSettlement])
-          , (AwaitingSettlement, [NoDecommit])
+          [ (NoDecommit, [DecommitPending, AwaitingDecommitSettlement])
+          , (DecommitPending, [NoDecommit, AwaitingDecommitSettlement])
+          , (AwaitingDecommitSettlement, [NoDecommit])
+          ]
+
+      -- \| Selection is local intent; a current-version signed claim awaits
+      -- settlement. Expiry and recovery affect eligibility, not the certificate.
+      data CommitPhase = NoCommit | CommitSelected | AwaitingCommitSettlement
+
+      commitTopology :: Topology CommitPhase
+      commitTopology =
+        Topology
+          [ (NoCommit, [CommitSelected, AwaitingCommitSettlement])
+          , (CommitSelected, [NoCommit, AwaitingCommitSettlement])
+          , -- A replaced certificate or newer version can leave a local selection.
+            (AwaitingCommitSettlement, [NoCommit, CommitSelected])
           ]
       |]
  )
@@ -59,8 +77,14 @@ deriving stock instance Enum SnapshotPhase
 deriving stock instance Bounded SnapshotPhase
 deriving via AllVertices SnapshotPhase instance RenderableVertices SnapshotPhase
 
-deriving stock instance Eq TransactionPhase
-deriving stock instance Show TransactionPhase
-deriving stock instance Enum TransactionPhase
-deriving stock instance Bounded TransactionPhase
-deriving via AllVertices TransactionPhase instance RenderableVertices TransactionPhase
+deriving stock instance Eq DecommitPhase
+deriving stock instance Show DecommitPhase
+deriving stock instance Enum DecommitPhase
+deriving stock instance Bounded DecommitPhase
+deriving via AllVertices DecommitPhase instance RenderableVertices DecommitPhase
+
+deriving stock instance Eq CommitPhase
+deriving stock instance Show CommitPhase
+deriving stock instance Enum CommitPhase
+deriving stock instance Bounded CommitPhase
+deriving via AllVertices CommitPhase instance RenderableVertices CommitPhase
