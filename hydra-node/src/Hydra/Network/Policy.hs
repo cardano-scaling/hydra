@@ -122,6 +122,7 @@ withPolicyAgreement tracer signingKey otherParties (Just fingerprint) session Po
                 , missingParties = Set.toList $ expected Set.\\ Map.keysSet peers
                 , mismatchedPolicies = [(party, peerPolicy) | (party, PolicyAnnouncement{fingerprint = peerPolicy}) <- Map.toList peers, peerPolicy /= fingerprint]
                 }
+            action
   -- Keep responding after startup so a restarting peer can check us as well.
   either pure pure
     =<< raceLabelled

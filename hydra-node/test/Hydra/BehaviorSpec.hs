@@ -1,4 +1,5 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module Hydra.BehaviorSpec where
 
@@ -7,6 +8,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude hiding (shouldBe, shouldNotBe, shouldReturn, shouldSatisfy)
 
 import Control.Concurrent.Class.MonadSTM (
+  check,
   modifyTVar,
   modifyTVar',
   newTVarIO,
@@ -43,6 +45,7 @@ import Hydra.Ledger (Ledger)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), simpleLedger)
 import Hydra.Network (Network (..))
 import Hydra.Network.Message (Message (..))
+import Hydra.Network.Policy (PolicyFingerprint (..), PolicyStore (..), withPolicyAgreement)
 import Hydra.Node (
   DraftHydraNode (..),
   HydraNode (..),
@@ -60,7 +63,7 @@ import Hydra.Node (
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.InputQueue (InputQueue (enqueue), createInputQueue)
 import Hydra.Node.Outbox (newOutbox)
-import Hydra.Node.State (NodeState (..), initNodeState)
+import Hydra.Node.State (ChainPointTime (..), NodeState (..), initNodeState)
 import Hydra.Node.UnsyncedPeriod (defaultUnsyncedPeriodFor)
 import Hydra.NodeSpec (createMockEventStore)
 import Hydra.Options (defaultContestationPeriod, defaultDepositActivation, defaultDepositPeriod)
@@ -97,6 +100,42 @@ import Test.Util (
 
 spec :: Spec
 spec = parallel $ do
+  describe "policy agreement timeout" $ do
+    it "keeps processing chain events after five minutes without a responding peer" $
+      failAfter 10 $
+        shouldRunInSim $
+          withSimulatedChainAndNetwork $ \chain -> do
+            outputs <- newLabelledTQueueIO "hydra-node-outputs"
+            messages <- newLabelledTQueueIO "hydra-node-messages"
+            outputHistory <- newLabelledTVarIO "hydra-node-output-history" []
+            node@HydraNode{nodeStateHandler = NodeStateHandler{queryNodeState = readState}} <-
+              createHydraNode traceInIOSim simpleLedger 0 aliceSk [bob] outputs messages outputHistory chain defaultContestationPeriod defaultDepositPeriod
+            let policy = PolicyFingerprint "test-policy"
+                store = PolicyStore{publish = const $ pure (), load = pure []}
+                configurePolicy :: HydraNode tx m -> HydraNode tx m
+                configurePolicy HydraNode{..} = HydraNode{env = env{configuredPolicy = Just policy}, ..}
+                readSlot = currentSlot . chainPointTime <$> readState
+            result <-
+              timeout 330 $
+                raceLabelled
+                  ( "network"
+                  , -- Match the policy/network race in 'Hydra.Node.Network.withNetwork'.
+                    raceLabelled_
+                      ("policy-agreement", withPolicyAgreement traceInIOSim aliceSk [bob] (Just policy) "alice-new" store $ atomically retry)
+                      ("node", runHydraNode $ configurePolicy node)
+                  )
+                  ( "chain-events"
+                  , do
+                      beforeTimeout <- getCurrentTime
+                      handleChainEvent node $ Tick beforeTimeout 1
+                      atomically $ readSlot >>= check . (== 1)
+                      threadDelay 301
+                      now <- getCurrentTime
+                      handleChainEvent node $ Tick now 1000
+                      atomically $ readSlot >>= check . (== 1000)
+                  )
+            result `shouldBe` Just (Right ())
+
   describe "Sanity tests of test suite" $ do
     it "does not delay for real" $
       -- If it works, it simulates a lot of time passing within 1 second

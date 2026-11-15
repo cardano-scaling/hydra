@@ -109,11 +109,11 @@ spec = do
       early `shouldBe` False
       completed `shouldBe` True
 
-    it "logs the missing party and stops polling after exactly five minutes" $ do
-      (logs, elapsed, started, accessesAtTimeout, accessesLater) <- shouldRunInSim $ do
+    it "logs the missing party after five minutes and keeps polling while running the action" $ do
+      (logs, elapsed, accessesAtTimeout, accessesLater) <- shouldRunInSim $ do
         (tracer, readLogs) <- newPolicyTracer
         store <- newStore []
-        started <- newLabelledTVarIO "started" False
+        started <- newLabelledTVarIO "started" Nothing
         accessed <- newLabelledTVarIO "policy-store-accesses" (0 :: Int)
         let recordAccess = atomically $ modifyTVar' accessed (+ 1)
             countedStore =
@@ -122,20 +122,19 @@ spec = do
                 , load = recordAccess >> load store
                 }
         start <- getMonotonicTime
-        withPolicyAgreement tracer aliceSk [bob] (Just policy) "alice-new" countedStore $
-          atomically $
-            writeTVar started True
-        end <- getMonotonicTime
-        accessesAtTimeout <- readTVarIO accessed
-        threadDelay 10
-        (,,,,) <$> readLogs <*> pure (diffTime end start) <*> readTVarIO started <*> pure accessesAtTimeout <*> readTVarIO accessed
+        withPolicyAgreement tracer aliceSk [bob] (Just policy) "alice-new" countedStore $ do
+          now <- getMonotonicTime
+          accessesAtTimeout <- readTVarIO accessed
+          atomically $ writeTVar started $ Just (diffTime now start, accessesAtTimeout)
+          threadDelay 10
+        Just (elapsed, accessesAtTimeout) <- readTVarIO started
+        (,,,) <$> readLogs <*> pure elapsed <*> pure accessesAtTimeout <*> readTVarIO accessed
       logs `shouldBe` [WaitingForPolicyAgreement policy [bob], PolicyAgreementTimedOut policy [bob] []]
       elapsed `shouldBe` 300
-      started `shouldBe` False
       accessesAtTimeout `shouldSatisfy` (> 0)
-      accessesLater `shouldBe` accessesAtTimeout
+      accessesLater `shouldSatisfy` (> accessesAtTimeout)
 
-    it "reports a different policy without running the action" $ do
+    it "reports a different policy and runs the action after the deadline" $ do
       (logs, elapsed, started) <- shouldRunInSim $ do
         (tracer, readLogs) <- newPolicyTracer
         store <- newStore [response bobSk bob otherPolicy "alice-new"]
@@ -148,7 +147,7 @@ spec = do
         (,,) <$> readLogs <*> pure (diffTime end start) <*> readTVarIO started
       logs `shouldBe` [WaitingForPolicyAgreement policy [bob], PolicyAgreementTimedOut policy [] [(bob, otherPolicy)]]
       elapsed `shouldBe` 300
-      started `shouldBe` False
+      started `shouldBe` True
 
     it "keeps the five-minute deadline when the store is unreachable" $ do
       (logs, elapsed, started) <- shouldRunInSim $ do
@@ -163,7 +162,7 @@ spec = do
         (,,) <$> readLogs <*> pure (diffTime end start) <*> readTVarIO started
       logs `shouldBe` [WaitingForPolicyAgreement policy [bob], PolicyAgreementTimedOut policy [bob] []]
       elapsed `shouldBe` 300
-      started `shouldBe` False
+      started `shouldBe` True
 
     it "allows a mismatched peer to align before the deadline" $ do
       elapsed <- shouldRunInSim $ do
@@ -192,7 +191,7 @@ spec = do
               writeTVar started True
           (,) <$> readLogs <*> readTVarIO started
         logs `shouldBe` [WaitingForPolicyAgreement policy [bob], PolicyAgreementTimedOut policy [bob] []]
-        started `shouldBe` False
+        started `shouldBe` True
 
     it "allows all parties to restart with a new policy" $ do
       completed <- shouldRunInSim $ do

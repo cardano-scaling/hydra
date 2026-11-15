@@ -75,8 +75,8 @@ withNetwork ::
 withNetwork tracer conf fingerprint callback action = do
   session <- encodeBase16 <$> (getRandomBytes 32 :: IO ByteString)
   let setup conn runNetwork =
-        raceLabelled_
-          ( "policy-agreement"
+        withAsyncLabelled
+          ( "network-and-policy"
           , withPolicyAgreement
               (contramap PolicyAgreement tracer)
               signingKey
@@ -86,7 +86,8 @@ withNetwork tracer conf fingerprint callback action = do
               (policyStore conn)
               (atomically retry)
           )
-          ("network", runNetwork)
+          (const runNetwork)
+
   withAuthentication
     (contramap Authenticate tracer)
     signingKey
