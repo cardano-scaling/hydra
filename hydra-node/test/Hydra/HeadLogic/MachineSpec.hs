@@ -28,7 +28,8 @@ import Hydra.HeadLogic (
     decommitTx,
     version
   ),
-  HeadState (FanoutProgress, Open),
+  FinalizedState (headId),
+  HeadState (FanoutProgress, Finalized, Open),
   OpenState (OpenState, coordinatedHeadState),
   Outcome (Continue, Error, Wait, stateChanges),
   PartialFanoutState (distributedOutputs),
@@ -155,7 +156,7 @@ spec = describe "crem event application" $ do
           ]
         nodes = map Machine.currentState $ scanl Machine.step (Machine.start initialNode) events
     map (Lifecycle.phase . headState) nodes
-      `shouldBe` [Lifecycle.Open, Lifecycle.Closed, Lifecycle.ReadyToFanout, Lifecycle.PendingFanout, Lifecycle.ReadyToFanout, Lifecycle.ReadyToFanout, Lifecycle.Idle]
+      `shouldBe` [Lifecycle.Open, Lifecycle.Closed, Lifecycle.Closed, Lifecycle.Closed, Lifecycle.Closed, Lifecycle.Closed, Lifecycle.Finalized]
     nodes `shouldBe` scanl aggregateNodeState initialNode events
 
   it "reconstructs every component after checkpoint restoration" $ do
@@ -220,18 +221,21 @@ incrementalReference node =
 
 lifecycleReference :: NodeState SimpleTx -> StateChanged SimpleTx -> NodeState SimpleTx -> Property
 lifecycleReference before event after =
-  project (Lifecycle.phase after.headState) === Agda.lifecyclePhaseRef (project $ Lifecycle.phase before.headState) tag distributed
+  project (Lifecycle.phase after.headState) === Agda.lifecyclePhaseRef initialPhase tag distributed
  where
+  -- A different identity starts a fresh lifecycle at the node boundary. It
+  -- does not add an outgoing edge to the completed Head's Agda projection.
+  initialPhase = if startsNewHead before event then Agda.IdleHead else project $ Lifecycle.phase before.headState
   project = \case
     Lifecycle.Idle -> Agda.IdleHead
     Lifecycle.Open -> Agda.OpenHead
     Lifecycle.Closed -> Agda.ClosedHead
-    Lifecycle.ReadyToFanout -> Agda.ReadyHead
-    Lifecycle.PendingFanout -> Agda.PendingFanout
     Lifecycle.FanoutProgress -> Agda.FanoutProgress
+    Lifecycle.Finalized -> Agda.FinalizedHead
   tag = case event of
     HeadOpened{} -> Agda.Opened
     HeadClosed{} -> Agda.Closed
+    HeadContested{} -> Agda.Contested
     HeadIsReadyToFanout{} -> Agda.Ready
     HeadFanoutInitiated{} -> Agda.FanoutStarted
     HeadPartialFanoutSelected{} -> Agda.FanoutStarted
@@ -260,7 +264,7 @@ coordinationReference before event after =
     OffChain.CollectingSignatures -> Agda.Collecting
   tag = case event of
     -- Coordination starts only after the lifecycle accepts an opening.
-    HeadOpened{} | Lifecycle.phase before.headState == Lifecycle.Idle -> Agda.HeadOpened
+    HeadOpened{} | Lifecycle.phase before.headState == Lifecycle.Idle || startsNewHead before event -> Agda.HeadOpened
     HeadClosed{} -> Agda.HeadClosed
     SnapshotRequestDecided{} -> Agda.RequestDecided
     SnapshotRequested{} -> Agda.SnapshotRequested
@@ -312,9 +316,15 @@ projectTracked = \case
 ignored :: NodeState SimpleTx -> StateChanged SimpleTx -> Bool
 ignored node event = case event of
   Checkpoint{} -> True
+  HeadOpened{} | startsNewHead node event -> False
   _ -> case (headIdOf node.headState, eventHeadId event) of
     (Just ours, Just theirs) -> ours /= theirs
     _ -> False
+
+startsNewHead :: NodeState tx -> StateChanged tx -> Bool
+startsNewHead node event = case (node.headState, event) of
+  (Finalized previous, HeadOpened{Outcome.headId = nextHeadId}) -> previous.headId /= nextHeadId
+  _ -> False
 
 -- Only event fields used by the production filter are rebased.
 scope :: HeadId -> StateChanged tx -> StateChanged tx
