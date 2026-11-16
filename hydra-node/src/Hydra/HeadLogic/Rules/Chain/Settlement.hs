@@ -126,11 +126,11 @@ data Args tx = Args
   , signatures :: ~(MultiSignature (Snapshot tx))
   }
 
-workflow :: forall tx. IsChainState tx => Args tx -> Workflow tx SettlementTopology
+workflow :: forall tx. IsChainState tx => Args tx -> Workflow tx SettlementTopology ()
 workflow Args{openState = openState@OpenState{..}, ..} =
   Workflow.workflow (show . statePhase) Record step
  where
-  step :: State tx from -> Transition tx SettlementTopology (State tx) from
+  step :: State tx from -> Transition tx SettlementTopology (State tx) from ()
   step = \case
     Record -> continue Candidate $ Staging.stage (Coordinated.start openState) $ case settlement of
       Increment depositId ->
@@ -171,7 +171,7 @@ workflow Args{openState = openState@OpenState{..}, ..} =
           version
           newVersion
           seen
-    Done -> finish Done
+    Done -> finish Done ()
 
   matchesSettlement :: Snapshot tx -> Bool
   matchesSettlement snapshot = case settlement of

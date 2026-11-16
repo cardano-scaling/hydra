@@ -100,6 +100,7 @@ library
     Hydra.HeadLogic.Rules.Client.Recover
     Hydra.HeadLogic.Rules.Client.SideLoad
     Hydra.HeadLogic.Rules.Coordinated
+    Hydra.HeadLogic.Rules.Decommit
     Hydra.HeadLogic.Rules.Environment
     Hydra.HeadLogic.Rules.Fanout
     Hydra.HeadLogic.Rules.Input
@@ -166,6 +167,7 @@ library
     Hydra.HeadLogic.State.Coordinated.Snapshots
     Hydra.HeadLogic.State.Coordinated.Snapshots.State
     Hydra.HeadLogic.State.Coordinated.Transactions
+    Hydra.HeadLogic.Validation
     Paths_hydra_node
 
   build-depends:
@@ -294,6 +296,7 @@ library testlib
     Test.Hydra.HeadLogic.Settlement
     Test.Hydra.HeadLogic.State
     Test.Hydra.HeadLogic.StateEvent
+    Test.Hydra.HeadLogic.Validated
     Test.Hydra.Ledger
     Test.Hydra.Ledger.Cardano
     Test.Hydra.Ledger.Simple

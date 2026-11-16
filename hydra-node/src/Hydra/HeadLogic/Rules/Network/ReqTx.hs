@@ -18,7 +18,6 @@ import Hydra.Chain.ChainState (IsChainState)
 import Hydra.HeadLogic.Input (TTL)
 import Hydra.HeadLogic.Outcome (WaitReason (..))
 import Hydra.HeadLogic.Program (
-  applyTransaction,
   decide,
   suspend,
  )
@@ -28,7 +27,8 @@ import Hydra.HeadLogic.Rules.Coordinated qualified as Staging (
  )
 import Hydra.HeadLogic.Rules.Environment (RuleEnvironment (..))
 import Hydra.HeadLogic.Rules.Transactions (
-  checkTransactionOutputs,
+  ValidatedTransaction,
+  validateTransaction,
  )
 import Hydra.HeadLogic.Snapshot.Request (
   SettlingCommit (..),
@@ -111,7 +111,7 @@ deriving stock instance Bounded Stage
 data State tx phase where
   DuplicateCheck :: State tx 'CheckDuplicate
   OutputCheck :: Coordinated.Runtime tx -> State tx 'CheckOutputs
-  DepositCheck :: Coordinated.Runtime tx -> ~(UTxOType tx) -> State tx 'CheckDeposits
+  DepositCheck :: Coordinated.Runtime tx -> ValidatedTransaction tx -> State tx 'CheckDeposits
   Select :: Coordinated.Runtime tx -> State tx 'SelectSnapshot
   Retry :: Coordinated.Runtime tx -> ValidationError -> State tx 'RetryOrInvalidate
   Done :: State tx 'Finished
@@ -134,11 +134,11 @@ data Args tx = Args
   , transaction :: ~tx
   }
 
-workflow :: forall tx. IsChainState tx => Args tx -> Workflow tx ReqTxTopology
+workflow :: forall tx. IsChainState tx => Args tx -> Workflow tx ReqTxTopology ()
 workflow Args{chainPointTime = ChainPointTime{currentSlot, currentChainTime}, ..} =
   Workflow.workflow (show . statePhase) DuplicateCheck step
  where
-  step :: State tx from -> Transition tx ReqTxTopology (State tx) from
+  step :: State tx from -> Transition tx ReqTxTopology (State tx) from ()
   step = \case
     DuplicateCheck
       | SeenSnapshot snapshot _ _ <- seenSnapshot
@@ -151,18 +151,15 @@ workflow Args{chainPointTime = ChainPointTime{currentSlot, currentChainTime}, ..
       | otherwise -> continue OutputCheck $ do
           void $ decide "transaction is already applied locally" False
           Staging.stage (Coordinated.start openState) $ Coordinated.receiveTransaction transaction
-    OutputCheck runtime -> case checkTransactionOutputs localUTxO transaction of
-      Right () -> choose $ do
-        void $ decide "outputs do not collide with the local UTxO" True
-        result <- applyTransaction currentSlot localUTxO transaction
-        pure $ case result of
-          Right after -> next $ DepositCheck runtime after
-          Left err -> next $ Retry runtime err
-      Left err -> continue (const $ Retry runtime err) $ decide "outputs do not collide with the local UTxO" False
-    DepositCheck runtime after
+    OutputCheck runtime -> choose $ do
+      result <- validateTransaction "outputs do not collide with the local UTxO" currentSlot localUTxO transaction
+      pure $ case result of
+        Right checked -> next $ DepositCheck runtime checked
+        Left err -> next $ Retry runtime err
+    DepositCheck runtime checked
       | namesNoneOf (utxoFromTx transaction) namedByDepositsInPlay -> continue Select $ do
           void $ decide "outputs do not collide with pending deposits" True
-          Staging.stage runtime $ Coordinated.applyTransaction transaction localUTxO after
+          Staging.stage runtime $ Coordinated.applyTransaction checked
       | otherwise ->
           continue (const $ Retry runtime $ ValidationError "transaction creates an output a pending deposit names") $
             decide "outputs do not collide with pending deposits" False
@@ -193,7 +190,7 @@ workflow Args{chainPointTime = ChainPointTime{currentSlot, currentChainTime}, ..
       if canRetry
         then suspend $ WaitOnNotApplicableTx err
         else void $ Staging.stage runtime $ Coordinated.markTransactionInvalid localUTxO transaction err
-    Done -> finish Done
+    Done -> finish Done ()
 
   namedByDepositsInPlay :: UTxOType tx
   namedByDepositsInPlay =

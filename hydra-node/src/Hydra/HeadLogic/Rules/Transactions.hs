@@ -1,4 +1,4 @@
-module Hydra.HeadLogic.Rules.Transactions where
+module Hydra.HeadLogic.Rules.Transactions (ValidatedTransaction, validateTransaction, applyTransactionsWithoutCollision, applyTransactionsProgram, checkTransactionOutputs, pruneTransactions) where
 
 import Data.Sequence qualified as Seq (
   Seq (Empty, (:<|)),
@@ -14,6 +14,7 @@ import Hydra.HeadLogic.Program (
  )
 import Hydra.HeadLogic.Snapshot.Capacity (checkSnapshotCapacity)
 import Hydra.HeadLogic.Transaction.Outputs (namesNoneOf)
+import Hydra.HeadLogic.Validation (ValidatedTransaction (..))
 import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Prelude
 import Hydra.Tx (IsTx, UTxOType, utxoFromTx)
@@ -33,24 +34,27 @@ applyTransactionsWithoutCollision Ledger{applyTransactions = apply} slot =
     first (tx,) $ checkTransactionOutputs utxo tx
     apply slot utxo [tx]
 
-applyTransactionsProgram ::
-  IsTx tx =>
-  ChainSlot ->
-  UTxOType tx ->
-  [tx] ->
-  Program tx (Either (tx, ValidationError) (UTxOType tx))
+-- | Validate one ledger application, retaining its result for the live owner.
+-- The caller supplies the decision label used in its surrounding workflow.
+validateTransaction :: IsTx tx => Text -> ChainSlot -> UTxOType tx -> tx -> Program tx (Either ValidationError (ValidatedTransaction tx))
+validateTransaction decision slot before tx = do
+  let collision = checkTransactionOutputs before tx
+  void $ decide decision (isRight collision)
+  case collision of
+    Left err -> pure $ Left err
+    Right () -> fmap (ValidatedTransaction tx) <$> applyTransaction slot before tx
+
+-- | Apply the same validation used for a transaction request to each member of
+-- the snapshot in order, stopping at its first invalid transaction.
+applyTransactionsProgram :: IsTx tx => ChainSlot -> UTxOType tx -> [tx] -> Program tx (Either (tx, ValidationError) (UTxOType tx))
 applyTransactionsProgram slot = go
  where
   go u [] = pure $ Right u
   go u (tx : rest) = do
-    let collision = checkTransactionOutputs u tx
-    void $ decide "snapshot transaction outputs are fresh" (isRight collision)
-    result <- case collision of
-      Left err -> pure $ Left err
-      Right () -> applyTransaction slot u tx
+    result <- validateTransaction "snapshot transaction outputs are fresh" slot u tx
     case result of
       Left err -> pure $ Left (tx, err)
-      Right u' -> go u' rest
+      Right (ValidatedTransaction _ after) -> go after rest
 
 checkTransactionOutputs ::
   IsTx tx =>

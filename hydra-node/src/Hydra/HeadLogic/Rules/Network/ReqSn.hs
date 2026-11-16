@@ -8,6 +8,12 @@ module Hydra.HeadLogic.Rules.Network.ReqSn (
   ReqSnTopology,
   Args (..),
   workflow,
+  ValidationStage (..),
+  ValidationTopology,
+  ValidatedSnapshot,
+  validatedSnapshot,
+  validate,
+  validationWorkflow,
 ) where
 
 import Crem.Topology (Topology (Topology))
@@ -72,6 +78,7 @@ import Hydra.HeadLogic.State.Coordinated qualified as Coordinated (
   start,
  )
 import Hydra.HeadLogic.Transaction.Outputs (absorbable)
+import Hydra.HeadLogic.Validation (ValidatedSnapshot (..))
 import Hydra.HeadLogic.Workflow (
   Transition,
   Workflow,
@@ -79,7 +86,14 @@ import Hydra.HeadLogic.Workflow (
   finish,
  )
 import Hydra.HeadLogic.Workflow qualified as Workflow (
+  run,
   workflow,
+  ValidationStage (..),
+  ValidationTopology,
+  ValidatedSnapshot,
+  validatedSnapshot,
+  validate,
+  validationWorkflow,
  )
 import Hydra.Network.Message (Message (..))
 import Hydra.Node.State (
@@ -109,73 +123,41 @@ import Hydra.Tx.Snapshot (
   getSnapshot,
  )
 
-data Stage
-  = CheckRequest
-  | ResolveDecommit
-  | ResolveDeposit
-  | ResolveTransactions
-  | ApplyTransactions
-  | BuildSnapshot
-  | SignAndAcknowledge
-  | PruneLocalTransactions
-  | Finished
+data ValidationStage = CheckRequest | ResolveDecommit | ResolveDeposit | ResolveTransactions | ApplyTransactions | BuildSnapshot | Validated
 
-type ReqSnTopology =
+type ValidationTopology =
   'Topology
     '[ '( 'CheckRequest, '[ 'ResolveDecommit])
      , '( 'ResolveDecommit, '[ 'ResolveDeposit])
      , '( 'ResolveDeposit, '[ 'ResolveTransactions])
      , '( 'ResolveTransactions, '[ 'ApplyTransactions])
      , '( 'ApplyTransactions, '[ 'BuildSnapshot])
-     , '( 'BuildSnapshot, '[ 'SignAndAcknowledge])
-     , '( 'SignAndAcknowledge, '[ 'PruneLocalTransactions])
-     , '( 'PruneLocalTransactions, '[ 'Finished])
+     , '( 'BuildSnapshot, '[ 'Validated])
      ]
 
-deriving stock instance Eq Stage
-deriving stock instance Show Stage
-deriving stock instance Enum Stage
-deriving stock instance Bounded Stage
+deriving stock instance Eq ValidationStage
+deriving stock instance Show ValidationStage
+deriving stock instance Enum ValidationStage
+deriving stock instance Bounded ValidationStage
 
-data State tx phase where
-  Request :: State tx 'CheckRequest
-  Checked :: State tx 'ResolveDecommit
-  DecommitResolved ::
-    ~(UTxOType tx) ->
-    Maybe (UTxOType tx) ->
-    State tx 'ResolveDeposit
-  DepositResolved ::
-    ~(UTxOType tx) ->
-    Maybe (UTxOType tx) ->
-    Maybe (UTxOType tx) ->
-    State tx 'ResolveTransactions
-  TransactionsResolved ::
-    ~(UTxOType tx) ->
-    Maybe (UTxOType tx) ->
-    Maybe (UTxOType tx) ->
-    [tx] ->
-    State tx 'ApplyTransactions
-  TransactionsApplied ::
-    ~(UTxOType tx) ->
-    Maybe (UTxOType tx) ->
-    Maybe (UTxOType tx) ->
-    [tx] ->
-    State tx 'BuildSnapshot
-  Built :: Snapshot tx -> State tx 'SignAndAcknowledge
-  Acknowledged :: Snapshot tx -> State tx 'PruneLocalTransactions
-  Done :: State tx 'Finished
+data ValidationState tx phase where
+  Request :: ValidationState tx 'CheckRequest
+  Checked :: ValidationState tx 'ResolveDecommit
+  DecommitResolved :: ~(UTxOType tx) -> Maybe (UTxOType tx) -> ValidationState tx 'ResolveDeposit
+  DepositResolved :: ~(UTxOType tx) -> Maybe (UTxOType tx) -> Maybe (UTxOType tx) -> ValidationState tx 'ResolveTransactions
+  TransactionsResolved :: ~(UTxOType tx) -> Maybe (UTxOType tx) -> Maybe (UTxOType tx) -> [tx] -> ValidationState tx 'ApplyTransactions
+  TransactionsApplied :: ~(UTxOType tx) -> Maybe (UTxOType tx) -> Maybe (UTxOType tx) -> [tx] -> ValidationState tx 'BuildSnapshot
+  Built :: ValidatedSnapshot tx -> ValidationState tx 'Validated
 
-statePhase :: State tx phase -> Stage
-statePhase = \case
+validationPhase :: ValidationState tx phase -> ValidationStage
+validationPhase = \case
   Request -> CheckRequest
   Checked -> ResolveDecommit
   DecommitResolved{} -> ResolveDeposit
   DepositResolved{} -> ResolveTransactions
   TransactionsResolved{} -> ApplyTransactions
   TransactionsApplied{} -> BuildSnapshot
-  Built{} -> SignAndAcknowledge
-  Acknowledged{} -> PruneLocalTransactions
-  Done -> Finished
+  Built{} -> Validated
 
 data Args tx = Args
   { env :: ~RuleEnvironment
@@ -191,11 +173,14 @@ data Args tx = Args
   , depositTxId :: ~(Maybe (TxIdType tx))
   }
 
-workflow :: forall tx. IsChainState tx => Args tx -> Workflow tx ReqSnTopology
-workflow Args{chainPointTime = ChainPointTime{currentSlot, currentChainTime}, decommitTx = mDecommitTx, depositTxId = mDepositTxId, ..} =
-  Workflow.workflow (show . statePhase) Request step
+validatedSnapshot :: ValidatedSnapshot tx -> Snapshot tx
+validatedSnapshot (ValidatedSnapshot value) = value
+
+validationWorkflow :: forall tx. IsChainState tx => Args tx -> Workflow tx ValidationTopology (ValidatedSnapshot tx)
+validationWorkflow Args{chainPointTime = ChainPointTime{currentSlot, currentChainTime}, decommitTx = mDecommitTx, depositTxId = mDepositTxId, ..} =
+  Workflow.workflow (show . validationPhase) Request step
  where
-  step :: State tx from -> Transition tx ReqSnTopology (State tx) from
+  step :: ValidationState tx from -> Transition tx ValidationTopology (ValidationState tx) from (ValidatedSnapshot tx)
   step = \case
     Request -> continue (const Checked) $ do
       validNumber <- decide "request is the next snapshot" (snapshotNumber == seenSn + 1)
@@ -234,17 +219,8 @@ workflow Args{chainPointTime = ChainPointTime{currentSlot, currentChainTime}, de
       let (accumulator, appliedAccumulator) = advanceCommitments previous utxo utxoToCommit utxoToDecommit
       checkSize "unsettled fanout fits accumulator capacity" accumulator
       checkSize "settled fanout fits accumulator capacity" appliedAccumulator
-      pure Snapshot{number = snapshotNumber, depositTxId = mDepositTxId, ..}
-    Built snapshot -> continue (const $ Acknowledged snapshot) $ do
-      signed <- signSnapshot snapshot
-      emit $ NetworkEffect AckSn{..}
-    Acknowledged snapshot -> continue (const Done) $ do
-      -- The acknowledgement is buffered before pruning; SnapshotRequested then
-      -- reconstructs localUTxO by applying the retained transactions in order.
-      newLocalTxs <- pruneTransactions env.snapshotLimits currentSlot snapshot.utxoToCommit snapshot.utxoToDecommit snapshot.utxo localTxs
-      runtime <- maybe (pure $ Coordinated.start openState) (Staging.stage (Coordinated.start openState) . Coordinated.retainSnapshotDecommit) mDecommitTx
-      void $ Staging.stage runtime $ Coordinated.acceptSnapshot snapshot newLocalTxs mDepositTxId
-    Done -> finish Done
+      pure $ ValidatedSnapshot Snapshot{number = snapshotNumber, depositTxId = mDepositTxId, ..}
+    Built checked -> finish (Built checked) checked
 
   resolveDecommit :: Program tx (UTxOType tx, Maybe (UTxOType tx))
   resolveDecommit = case mDecommitTx of
@@ -307,3 +283,54 @@ workflow Args{chainPointTime = ChainPointTime{currentSlot, currentChainTime}, de
   confirmedUTxO = settledUTxO version previous
   CoordinatedHeadState{..} = coordinatedHeadState
   OpenState{..} = openState
+
+-- | Validate a request without signing or changing live state. Only a complete
+-- successful validation can produce the value accepted by the snapshot owner.
+validate :: forall tx. IsChainState tx => Args tx -> Program tx (ValidatedSnapshot tx)
+validate = Workflow.run . validationWorkflow
+
+data Stage = ValidateRequest | SignAndAcknowledge | PruneLocalTransactions | Finished
+
+type ReqSnTopology =
+  'Topology
+    '[ '( 'ValidateRequest, '[ 'SignAndAcknowledge])
+     , '( 'SignAndAcknowledge, '[ 'PruneLocalTransactions])
+     , '( 'PruneLocalTransactions, '[ 'Finished])
+     ]
+
+deriving stock instance Eq Stage
+deriving stock instance Show Stage
+deriving stock instance Enum Stage
+deriving stock instance Bounded Stage
+
+data State tx phase where
+  Validate :: State tx 'ValidateRequest
+  Sign :: ValidatedSnapshot tx -> State tx 'SignAndAcknowledge
+  Acknowledged :: ValidatedSnapshot tx -> State tx 'PruneLocalTransactions
+  Done :: State tx 'Finished
+
+statePhase :: State tx phase -> Stage
+statePhase = \case
+  Validate -> ValidateRequest
+  Sign{} -> SignAndAcknowledge
+  Acknowledged{} -> PruneLocalTransactions
+  Done -> Finished
+
+workflow :: forall tx. IsChainState tx => Args tx -> Workflow tx ReqSnTopology ()
+workflow args@Args{..} = Workflow.workflow (show . statePhase) Validate step
+ where
+  step :: State tx from -> Transition tx ReqSnTopology (State tx) from ()
+  step = \case
+    Validate -> continue Sign $ validate args
+    Sign checked -> continue (const $ Acknowledged checked) $ do
+      signed <- signSnapshot $ validatedSnapshot checked
+      emit $ NetworkEffect AckSn{..}
+    Acknowledged checked -> continue (const Done) $ do
+      -- Buffer the acknowledgement before pruning. SnapshotRequested reconstructs
+      -- the local ledger by applying the retained transactions in order.
+      let candidate = validatedSnapshot checked
+      newLocalTxs <- pruneTransactions env.snapshotLimits chainPointTime.currentSlot candidate.utxoToCommit candidate.utxoToDecommit candidate.utxo openState.coordinatedHeadState.localTxs
+      runtime <- maybe (pure $ Coordinated.start openState) (Staging.stage (Coordinated.start openState) . Coordinated.retainSnapshotDecommit) decommitTx
+      void $ Staging.stage runtime $ Coordinated.acceptSnapshot checked newLocalTxs
+    Done -> finish Done ()
+

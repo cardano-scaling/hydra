@@ -108,10 +108,10 @@ data Args tx = Args
   , input :: ~(Input tx)
   }
 
-workflow :: forall tx. IsChainState tx => Args tx -> Workflow tx InputTopology
+workflow :: forall tx. IsChainState tx => Args tx -> Workflow tx InputTopology ()
 workflow Args{..} = Workflow.workflow (show . statePhase) CheckSize step
  where
-  step :: State tx from -> Transition tx InputTopology (State tx) from
+  step :: State tx from -> Transition tx InputTopology (State tx) from ()
   step = \case
     CheckSize -> continue (const CheckSync) $ case input of
       ClientInput clientInput -> do
@@ -140,7 +140,7 @@ workflow Args{..} = Workflow.workflow (show . statePhase) CheckSize step
     InClosed st -> continue (const Done) $ dispatch (Closed st)
     InFanout st -> continue (const Done) $ dispatch (FanoutProgress st)
     InFinalized st -> continue (const Done) $ dispatch (Finalized st)
-    Done -> finish Done
+    Done -> finish Done ()
 
   admitted :: Program tx ()
   admitted = void $ decide "input is admitted while at this sync status" True

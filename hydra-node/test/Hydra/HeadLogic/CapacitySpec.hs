@@ -8,7 +8,7 @@ import Hydra.HeadLogic.Program (change)
 import Hydra.HeadLogic.Rules.Input qualified as Input
 import Hydra.HeadLogic.Workflow qualified as Workflow
 import Hydra.Prelude hiding (local)
-import Test.Hydra.HeadLogic.Interpreter (testInterpreterConfig)
+import Test.Hydra.HeadLogic.Interpreter (evaluateResult, testInterpreterConfig)
 import Test.Hydra.Prelude (Spec, describe, it, shouldBe, shouldSatisfy)
 
 import Data.Map.Strict qualified as Map
@@ -23,7 +23,7 @@ import Hydra.HeadLogic.Limits (SnapshotLimits (..))
 import Hydra.HeadLogic.Outcome (Effect (NetworkEffect), Outcome (Continue, Error), StateChanged (DecommitInvalid, DecommitRecorded, SnapshotRequestDecided, SnapshotRequested))
 import Hydra.HeadLogic.Rules.Coordinated (sendSnapshot)
 import Hydra.HeadLogic.Rules.Environment (RuleEnvironment (snapshotLimits))
-import Hydra.HeadLogic.Rules.Transactions (applyTransactionsWithoutCollision, pruneTransactions)
+import Hydra.HeadLogic.Rules.Transactions (applyTransactionsProgram, pruneTransactions)
 import Hydra.HeadLogic.Snapshot.Capacity (checkSnapshotCapacity)
 import Hydra.HeadLogic.Snapshot.Request (DecommitStatus (CarryDecommit, NoDecommit), SettlingCommit (ContinueCommit), nextSnapshotRequest, requestDepositTxId, requestMessage, requestTxs)
 import Hydra.HeadLogic.State (CoordinatedHeadState (..), HeadState (Open), OpenState (..), SeenSnapshot (RequestedSnapshot), mkSeenSnapshot)
@@ -75,7 +75,7 @@ spec = describe "snapshot capacity" $ do
           expected = Agda.capacityPruneRef (toInteger limit) [1, 2, 3] commit [] spentInputs outputs
       -- Selection consumes an already admitted sequence. Pruning also covers
       -- invalid dependencies and repeated/colliding outputs after a rebase.
-      when (isRight $ applyTransactionsWithoutCollision simpleLedger 0 active txs) $
+      when (isRight $ either (error . show) id $ evaluateResult (testInterpreterConfig simpleLedger) $ applyTransactionsProgram 0 active txs) $
         fmap (toInteger . length . requestTxs) request
           `shouldBe` Just (Agda.capacityPrefixRef (toInteger limit) [1, 2, 3] commit spentInputs outputs)
       case Interpreter.runProgram (Configuration.interpreterConfig (Scenario.environment 0) simpleLedger) pruning of

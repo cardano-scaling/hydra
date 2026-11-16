@@ -18,6 +18,7 @@ import Hydra.HeadLogic.Rules.Chain.Settlement qualified as Settlement (
 import Hydra.HeadLogic.Rules.Client.Decommit qualified as Decommit (
   workflow,
  )
+import Hydra.HeadLogic.Rules.Decommit qualified as DecommitAdmission (workflow)
 import Hydra.HeadLogic.Rules.Input qualified as Input (workflow)
 import Hydra.HeadLogic.Rules.Network.AckSn qualified as AckSn (
   workflow,
@@ -26,6 +27,7 @@ import Hydra.HeadLogic.Rules.Network.ReqDec qualified as ReqDec (
   workflow,
  )
 import Hydra.HeadLogic.Rules.Network.ReqSn qualified as ReqSn (
+  validationWorkflow,
   workflow,
  )
 import Hydra.HeadLogic.Rules.Network.ReqTx qualified as ReqTx (
@@ -121,6 +123,11 @@ primitives =
         , "Check competing incremental work and transaction validity before recording a pending decommit."
         )
       ,
+        ( "Snapshot validation"
+        , 'ReqSn.validationWorkflow
+        , "Resolve incremental work, apply transactions and check commitment capacity before issuing a checked snapshot."
+        )
+      ,
         ( "ReqSn: Receive a snapshot request"
         , 'ReqSn.workflow
         , "Resolve any incremental work and transactions before building, signing and retaining the snapshot."
@@ -129,6 +136,11 @@ primitives =
         ( "AckSn: Receive a snapshot acknowledgement"
         , 'AckSn.workflow
         , "Collect a signature for the owned candidate; a complete certificate permits confirmation and continuation."
+        )
+      ,
+        ( "Decommit admission"
+        , 'DecommitAdmission.workflow
+        , "Check availability, ledger applicability, nonempty outputs and capacity once. Client and network callers retain distinct refusal and retry policies."
         )
       ,
         ( "Client decommit"

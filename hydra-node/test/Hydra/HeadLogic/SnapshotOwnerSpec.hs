@@ -7,6 +7,7 @@ import Hydra.HeadLogic.Program (reject)
 import Hydra.HeadLogic.Rules.Coordinated qualified as Staging
 import Hydra.Prelude
 import Test.Hydra.HeadLogic.Interpreter (testInterpreterConfig)
+import Test.Hydra.HeadLogic.Validated (checkedSnapshot)
 import Test.Hydra.Prelude (Spec, describe, it, shouldBe, shouldSatisfy)
 
 import Crem.Topology (Topology (Topology))
@@ -44,16 +45,16 @@ spec = describe "live snapshot ownership" $ do
       either (fail . toString) (const $ pure ()) $ Sequences.runSchedule schedule
 
   it "admits the next follower candidate and refuses replacement while collecting" $ do
-    let command = Owner.acceptSnapshot snapshot mempty Nothing
+    let command = Owner.acceptSnapshot (checkedSnapshot snapshot) mempty
     run (void $ Staging.stage initial command) `shouldBe` Continue [SnapshotRequested snapshot mempty Nothing] []
     forM_ [snapshot, different, snapshot{number = 2}] $ \replacement ->
-      run (void $ Staging.stage collecting $ Owner.acceptSnapshot replacement mempty Nothing) `shouldSatisfy` refused
+      run (void $ Staging.stage collecting $ Owner.acceptSnapshot (checkedSnapshot replacement) mempty) `shouldSatisfy` refused
 
   it "refuses a foreign Head, wrong version, skipped round or conflicting request marker" $ do
     forM_ ([snapshot{Snapshot.headId = UnsafeHeadId "other"}, snapshot{Snapshot.version = 1}, snapshot{number = 2}] :: [Snapshot SimpleTx]) $ \invalid ->
-      run (void $ Staging.stage initial $ Owner.acceptSnapshot invalid mempty Nothing) `shouldSatisfy` refused
+      run (void $ Staging.stage initial $ Owner.acceptSnapshot (checkedSnapshot invalid) mempty) `shouldSatisfy` refused
     let requested = Owner.replayEvent mempty (SnapshotRequestDecided 2) initial
-    run (void $ Staging.stage requested $ Owner.acceptSnapshot snapshot mempty Nothing) `shouldSatisfy` refused
+    run (void $ Staging.stage requested $ Owner.acceptSnapshot (checkedSnapshot snapshot) mempty) `shouldSatisfy` refused
 
   it "binds signature recording to candidate content, version and number" $
     forM_ ([different, snapshot{Snapshot.version = 1}, snapshot{number = 2}] :: [Snapshot SimpleTx]) $ \other -> do
@@ -98,7 +99,7 @@ spec = describe "live snapshot ownership" $ do
           when (isJust $ Owner.candidate confirmed) $
             reject $
               AssertionFailed "confirmed owner still exposes a candidate"
-          next <- Staging.stage confirmed $ Owner.acceptSnapshot nextSnapshot mempty Nothing
+          next <- Staging.stage confirmed $ Owner.acceptSnapshot (checkedSnapshot nextSnapshot) mempty
           nextEvidence <- verifyCandidate (owned next) (signatures nextSnapshot) >>= either reject pure
           finished <- Staging.stage next $ Owner.confirmSnapshot nextEvidence
           when (isJust $ Owner.candidate finished) $
