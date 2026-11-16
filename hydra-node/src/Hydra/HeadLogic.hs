@@ -2449,7 +2449,7 @@ checkSnapshotUTxOSize utxo mCommit mDecommit =
     | n > Accumulator.maxAccumulatorSize = Left AccumulatorTooLarge{utxoCount = n, maxAllowed = Accumulator.maxAccumulatorSize}
     | otherwise = Right ()
    where
-    n = length (outputsOfUTxO u)
+    n = utxoSize u
 
 -- | The deposit claimed by a retained finalized increment ('finalizedCommit'),
 -- if any. Such a deposit only resurfaces in 'pendingDeposits' when a rollback

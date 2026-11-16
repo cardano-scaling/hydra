@@ -101,6 +101,9 @@ class
   -- | Get only the outputs in given UTxO.
   outputsOfUTxO :: UTxOType tx -> [TxOutType tx]
 
+  -- | Number of outputs, using the underlying collection's cached size.
+  utxoSize :: UTxOType tx -> Int
+
   -- | Return the left-hand side without the right-hand side.
   withoutUTxO :: UTxOType tx -> UTxOType tx -> UTxOType tx
 
@@ -221,6 +224,8 @@ instance IsTx Tx where
   utxoFromTx = Api.utxoFromTx
 
   outputsOfUTxO = UTxO.txOutputs
+
+  utxoSize = Map.size . UTxO.unUTxO
 
   withoutUTxO = UTxO.difference
 
