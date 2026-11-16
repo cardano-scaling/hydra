@@ -66,6 +66,7 @@ import Hydra.HeadLogic.State.Coordinated.Types (
   TransactionUpdate (..),
   VersionChange (..),
  )
+import Hydra.HeadLogic.Validation (ValidatedSnapshot (..))
 import Hydra.Prelude hiding (State, state)
 import Hydra.Tx (HeadId)
 import Hydra.Tx.Crypto (HydraKey, VerificationKey)
@@ -104,14 +105,14 @@ machine headId parties initial =
       RequestSnapshot request
         | requestMatches headId context.version (getSnapshot context.confirmed) request ->
             transition $ State.request state (requestNumber request)
-      AcceptSnapshot snapshot txs deposit
-        | nextRound state snapshot -> transition $ State.accept parties state snapshot txs deposit
+      AcceptSnapshot (ValidatedSnapshot snapshot) txs
+        | nextRound state snapshot -> transition $ State.accept parties state snapshot txs snapshot.depositTxId
       _ -> common state command
     Requested _ _ requested -> case command of
-      AcceptSnapshot snapshot txs deposit
+      AcceptSnapshot (ValidatedSnapshot snapshot) txs
         | nextRound state snapshot
         , snapshot.number == requested ->
-            transition $ State.accept parties state snapshot txs deposit
+            transition $ State.accept parties state snapshot txs snapshot.depositTxId
       _ -> common state command
     Collecting _ owned signatures -> case command of
       RecordSignature supplied party signature

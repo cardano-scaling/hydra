@@ -12,6 +12,7 @@ import Hydra.HeadLogic.Snapshot.Verification (
   VerifiedSnapshot,
  )
 import Hydra.HeadLogic.State (FinalizedSnapshot, SeenSnapshot)
+import Hydra.HeadLogic.Validation (ValidatedDecommit, ValidatedSnapshot, ValidatedTransaction)
 import Hydra.Ledger (ValidationError)
 import Hydra.Prelude
 import Hydra.Tx (HeadId, TxIdType, UTxOType)
@@ -28,7 +29,7 @@ import Hydra.Tx.Snapshot (
 data Command tx
   = Transactions (LocalTransactionCommand tx)
   | RequestSnapshot (SnapshotRequest tx)
-  | AcceptSnapshot (Snapshot tx) (Seq tx) (Maybe (TxIdType tx))
+  | AcceptSnapshot (ValidatedSnapshot tx) (Seq tx)
   | RecordSignature (Candidate tx) Party (Signature (Snapshot tx))
   | ConfirmSnapshot (VerifiedCandidate tx)
   | AdoptSnapshot (VerifiedSnapshot tx)
@@ -57,9 +58,9 @@ data Command tx
 data LocalTransactionCommand tx
   = ReceiveTransaction tx
   | RetainSnapshotDecommit tx
-  | ApplyValidatedTransaction tx ~(UTxOType tx) ~(UTxOType tx)
+  | ApplyValidatedTransaction (ValidatedTransaction tx)
   | MarkTransactionInvalid (UTxOType tx) tx ValidationError
-  | RecordPending tx
+  | RecordPending (ValidatedDecommit tx)
 
 data TransactionUpdate tx
   = TransactionsUnchanged

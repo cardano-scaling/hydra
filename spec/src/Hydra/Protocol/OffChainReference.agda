@@ -960,3 +960,14 @@ partial-fanout-finalizes = refl
 
 finalized-is-terminal : ∀ event → lifecyclePhaseRef finalizedHeadᶜ event ≡ finalizedHeadᶜ
 finalized-is-terminal event = refl
+
+-- Shared Haskell admission returns opaque checked inputs. The caller still owns
+-- retry/report policy; the independent equations above remain unchanged. These
+-- boundary equations also exclude retrying intrinsically empty-output requests.
+reqDec-empty-outputs-do-not-wait :
+  reqDecOutcomeRef false false true false 1 false 3 1 1 ≡ decEmptyOutputsᶜ
+reqDec-empty-outputs-do-not-wait = refl
+
+reqDec-expired-ledger-failure-is-invalid :
+  reqDecOutcomeRef false false false true 0 false 3 1 1 ≡ decInvalidLedgerᶜ
+reqDec-expired-ledger-failure-is-invalid = refl

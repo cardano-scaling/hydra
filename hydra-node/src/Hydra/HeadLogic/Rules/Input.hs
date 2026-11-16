@@ -95,10 +95,10 @@ statePhase = \case
   InFinalized{} -> HandleFinalized
   Done -> Finished
 
-workflow :: forall tx. IsChainState tx => RuleEnvironment -> UTCTime -> NodeState tx -> Input tx -> Workflow tx InputTopology
+workflow :: forall tx. IsChainState tx => RuleEnvironment -> UTCTime -> NodeState tx -> Input tx -> Workflow tx InputTopology ()
 workflow env now nodeState input = Workflow.workflow (show . statePhase) CheckSize step
  where
-  step :: State tx from -> Transition tx InputTopology (State tx) from
+  step :: State tx from -> Transition tx InputTopology (State tx) from ()
   step = \case
     CheckSize -> continue (const CheckSync) $ case input of
       ClientInput clientInput -> case validateClientInputWith env.snapshotLimits clientInput of
@@ -125,7 +125,7 @@ workflow env now nodeState input = Workflow.workflow (show . statePhase) CheckSi
     InClosed st -> continue (const Done) $ dispatch (Closed st)
     InFanout st -> continue (const Done) $ dispatch (FanoutProgress st)
     InFinalized st -> continue (const Done) $ dispatch (Finalized st)
-    Done -> finish Done
+    Done -> finish Done ()
 
   admitted :: Program tx ()
   admitted = void $ Program.decide "input is admitted while at this sync status" True

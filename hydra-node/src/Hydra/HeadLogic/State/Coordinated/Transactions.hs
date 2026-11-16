@@ -49,6 +49,7 @@ import Hydra.HeadLogic.State.Coordinated.Types (
   VersionChange (..),
  )
 import Hydra.HeadLogic.Transaction.Outputs (absorbable)
+import Hydra.HeadLogic.Validation (ValidatedDecommit (..), ValidatedTransaction (..))
 import Hydra.Ledger (ValidationError (ValidationError))
 import Hydra.Prelude hiding (State, local, state)
 import Hydra.Tx (HeadId, IsTx (..))
@@ -106,7 +107,7 @@ machine headId snapshots0 initial initialDecommit =
     ActionResult m DecommitTopology (State tx) from (Output tx)
   action state input = case state of
     Available local -> case input.transactionUpdate of
-      RunLocalTransactionCommand (RecordPending tx) -> recordPending local tx input
+      RunLocalTransactionCommand (RecordPending (ValidatedDecommit tx)) -> recordPending local tx input
       ReplayPendingDecommit tx -> recordPending local tx input
       _ -> update local Nothing Available input
     Pending local tx -> case input.transactionUpdate of
@@ -234,7 +235,7 @@ machine headId snapshots0 initial initialDecommit =
         RetainSnapshotDecommit tx
           | any ((== utxoFromTx tx) . utxoFromTx) reserved || Map.lookup (txId tx) local.allTxs == Just tx -> unchanged local
           | otherwise -> changed local{allTxs = Map.insert (txId tx) tx local.allTxs} $ TransactionReceived tx
-        ApplyValidatedTransaction tx _ after ->
+        ApplyValidatedTransaction (ValidatedTransaction tx after) ->
           changed local{localUTxO = after, localTxs = local.localTxs Seq.|> tx} $ TransactionAppliedToLocalUTxO headId tx
         MarkTransactionInvalid utxo tx err ->
           changed local{allTxs = Map.delete (txId tx) local.allTxs} $ TxInvalid headId utxo tx err

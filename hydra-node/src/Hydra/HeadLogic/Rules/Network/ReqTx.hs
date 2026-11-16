@@ -15,7 +15,6 @@ import Hydra.HeadLogic.Input (TTL)
 import Hydra.HeadLogic.Outcome (WaitReason (..))
 import Hydra.HeadLogic.Program (Program)
 import Hydra.HeadLogic.Program qualified as Program (
-  applyTransaction,
   decide,
   suspend,
  )
@@ -25,7 +24,8 @@ import Hydra.HeadLogic.Rules.Coordinated qualified as Staging (
 import Hydra.HeadLogic.Rules.Environment (RuleEnvironment (..))
 import Hydra.HeadLogic.Rules.SendSnapshot (sendSnapshot)
 import Hydra.HeadLogic.Rules.Transactions (
-  checkTransactionOutputs,
+  ValidatedTransaction,
+  validateTransaction,
  )
 import Hydra.HeadLogic.Snapshot.Request (
   SettlingCommit (..),
@@ -103,7 +103,7 @@ deriving stock instance Bounded Stage
 data State tx phase where
   DuplicateCheck :: State tx 'CheckDuplicate
   OutputCheck :: Coordinated.Runtime tx -> State tx 'CheckOutputs
-  DepositCheck :: Coordinated.Runtime tx -> ~(UTxOType tx) -> State tx 'CheckDeposits
+  DepositCheck :: Coordinated.Runtime tx -> ValidatedTransaction tx -> State tx 'CheckDeposits
   Select :: Coordinated.Runtime tx -> State tx 'SelectSnapshot
   Retry :: Coordinated.Runtime tx -> ValidationError -> State tx 'RetryOrInvalidate
   Done :: State tx 'Finished
@@ -117,11 +117,11 @@ statePhase = \case
   Retry{} -> RetryOrInvalidate
   Done -> Finished
 
-workflow :: forall tx. IsChainState tx => RuleEnvironment -> ChainPointTime -> OpenState tx -> TTL -> PendingDeposits tx -> tx -> Workflow tx ReqTxTopology
+workflow :: forall tx. IsChainState tx => RuleEnvironment -> ChainPointTime -> OpenState tx -> TTL -> PendingDeposits tx -> tx -> Workflow tx ReqTxTopology ()
 workflow env ChainPointTime{currentSlot, currentChainTime} st ttl pendingDeposits tx =
   Workflow.workflow (show . statePhase) DuplicateCheck step
  where
-  step :: State tx from -> Transition tx ReqTxTopology (State tx) from
+  step :: State tx from -> Transition tx ReqTxTopology (State tx) from ()
   step = \case
     DuplicateCheck
       | SeenSnapshot snapshot _ _ <- seenSnapshot
@@ -134,18 +134,15 @@ workflow env ChainPointTime{currentSlot, currentChainTime} st ttl pendingDeposit
       | otherwise -> continue OutputCheck $ do
           void $ Program.decide "transaction is already applied locally" False
           Staging.stage (Coordinated.start st) $ Coordinated.receiveTransaction tx
-    OutputCheck runtime -> case checkTransactionOutputs localUTxO tx of
-      Right () -> choose $ do
-        void $ Program.decide "outputs do not collide with the local UTxO" True
-        result <- Program.applyTransaction currentSlot localUTxO tx
-        pure $ case result of
-          Right after -> next $ DepositCheck runtime after
-          Left err -> next $ Retry runtime err
-      Left err -> continue (const $ Retry runtime err) $ Program.decide "outputs do not collide with the local UTxO" False
-    DepositCheck runtime after
+    OutputCheck runtime -> choose $ do
+      result <- validateTransaction "outputs do not collide with the local UTxO" currentSlot localUTxO tx
+      pure $ case result of
+        Right checked -> next $ DepositCheck runtime checked
+        Left err -> next $ Retry runtime err
+    DepositCheck runtime checked
       | namesNoneOf (utxoFromTx tx) namedByDepositsInPlay -> continue Select $ do
           void $ Program.decide "outputs do not collide with pending deposits" True
-          Staging.stage runtime $ Coordinated.applyTransaction tx localUTxO after
+          Staging.stage runtime $ Coordinated.applyTransaction checked
       | otherwise ->
           continue (const $ Retry runtime $ ValidationError "transaction creates an output a pending deposit names") $
             Program.decide "outputs do not collide with pending deposits" False
@@ -166,7 +163,7 @@ workflow env ChainPointTime{currentSlot, currentChainTime} st ttl pendingDeposit
       if canRetry
         then Program.suspend $ WaitOnNotApplicableTx err
         else void $ Staging.stage runtime $ Coordinated.markTransactionInvalid localUTxO tx err
-    Done -> finish Done
+    Done -> finish Done ()
 
   namedByDepositsInPlay :: UTxOType tx
   namedByDepositsInPlay =

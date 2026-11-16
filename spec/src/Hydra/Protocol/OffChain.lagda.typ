@@ -1613,7 +1613,7 @@ selection and cannot restore outputs already spent on L2.
 == Operational snapshot-round refinement
 
 The node executes `reqTx`, `reqSn`, `ackSn`, network `reqDec` and client
-`Recover` as typed crem phases whose actions are inspectable programs. Ledger application,
+decommit as typed crem phases whose actions are inspectable programs. Ledger application,
 signing and multisignature verification are primitives. Snapshot construction,
 incremental-action selection, transaction pruning and effect ordering remain
 protocol rules. Signing keys are interpreter configuration, never trace data.
@@ -1649,6 +1649,25 @@ Every workflow and state owner has optional phase descriptions. These inspect
 constructors without evaluating retained payloads and make no strictness claim.
 The live owner composition drops rendering metadata from its inspectable
 definition; this does not change its allowed transitions.
+
+Workflows return typed results to their enclosing Program. Shared decommit
+admission checks existing intent or unsettled authority, ledger applicability,
+nonempty outputs, then both fanout capacities. Client refusal is immediate;
+network requests retain their deposit-precedence check and retry only availability
+or ledger failures while their TTL remains positive. Sharing validation does not
+share those input-specific policies.
+
+Live transaction application, decommit recording and snapshot acceptance consume
+opaque validation results. Only the rule validators construct these values;
+transaction output-collision and ledger checks, decommit admission, or complete
+snapshot-request validation establish them respectively. The transaction request
+still checks pending-deposit collisions before staging its command. Snapshot
+validation returns before signing, acknowledgement emission, and local pruning.
+The accepted snapshot itself supplies its deposit identifier. These results are
+local to the input invocation: they are not persisted, linear-use tokens, or
+proofs that a caller has not reused an old context. Existing owner checks still
+bind snapshot acceptance to the live Head, version and round. Trusted replay
+continues to import recorded facts without repeating admission or ledger checks.
 
 Live snapshot admission and trusted event recovery use separate entry points.
 They share storage updates, but importing a retained request marker does not add

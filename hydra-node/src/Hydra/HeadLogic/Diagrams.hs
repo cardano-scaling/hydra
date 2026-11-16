@@ -28,6 +28,7 @@ import Hydra.HeadLogic.Rules.Chain.Settlement qualified as Settlement (
 import Hydra.HeadLogic.Rules.Client.Decommit qualified as Decommit (
   workflow,
  )
+import Hydra.HeadLogic.Rules.Decommit qualified as DecommitAdmission (workflow)
 import Hydra.HeadLogic.Rules.Input qualified as Input (workflow)
 import Hydra.HeadLogic.Rules.Network.AckSn qualified as AckSn (
   workflow,
@@ -36,6 +37,7 @@ import Hydra.HeadLogic.Rules.Network.ReqDec qualified as ReqDec (
   workflow,
  )
 import Hydra.HeadLogic.Rules.Network.ReqSn qualified as ReqSn (
+  validationWorkflow,
   workflow,
  )
 import Hydra.HeadLogic.Rules.Network.ReqTx qualified as ReqTx (
@@ -107,8 +109,10 @@ primitives =
       [ ("Input admission and dispatch", 'Input.workflow, "Each input starts a fresh workflow. Admission checks precede dispatch by head state.")
       , ("Receive a transaction", 'ReqTx.workflow, "Check duplicates, outputs and deposits before selecting a snapshot or deciding whether to retry.")
       , ("Receive a decommit request", 'ReqDec.workflow, "Check competing incremental work and transaction validity before recording a pending decommit.")
+      , ("Snapshot validation", 'ReqSn.validationWorkflow, "Resolve incremental work, apply transactions and check commitment capacity before issuing a checked snapshot.")
       , ("Receive a snapshot request", 'ReqSn.workflow, "Resolve the requested incremental work and transactions before building, signing and retaining the candidate.")
       , ("Receive a snapshot acknowledgement", 'AckSn.workflow, "Collect a signature for the owned candidate; a complete certificate permits confirmation and continuation.")
+      , ("Decommit admission", 'DecommitAdmission.workflow, "Check availability, ledger applicability, nonempty outputs and capacity once. Client and network callers retain distinct refusal and retry policies.")
       , ("Client decommit", 'Decommit.workflow, "Validate a client decommit before broadcasting it. Recording and approval occur later.")
       , ("Observe incremental settlement", 'Settlement.workflow, "Record the chain observation, reconcile a matching candidate and consider requesting the next snapshot.")
       , ("Head lifecycle", 'Head.machine, "This is the lifecycle of one Head identity. Contest updates a Closed Head's snapshot and deadline while staying Closed. A local fanout request and its cancellation also leave that protocol phase unchanged; only an observed partial distribution enters PartialFanout. Further partial distributions stay there. Full or final partial fanout reaches Finalized, which is terminal and survives checkpoint recovery. Starting a different Head creates a new machine at the node boundary. Named self-loops identify increment, decrement, contest and repeated partial distribution.")

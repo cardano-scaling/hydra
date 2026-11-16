@@ -80,6 +80,7 @@ import Hydra.HeadLogic.State.Coordinated.Types (
   LocalTransactionCommand (..),
   SnapshotState (..),
  )
+import Hydra.HeadLogic.Validation (ValidatedDecommit, ValidatedSnapshot, ValidatedTransaction)
 import Hydra.Ledger (ValidationError)
 import Hydra.Prelude
 import Hydra.Tx (HeadId, TxIdType, UTxOType)
@@ -190,8 +191,8 @@ receiveTransaction = Transactions . ReceiveTransaction
 retainSnapshotDecommit :: tx -> Command tx
 retainSnapshotDecommit = Transactions . RetainSnapshotDecommit
 
-applyTransaction :: tx -> UTxOType tx -> UTxOType tx -> Command tx
-applyTransaction tx before after = Transactions $ ApplyValidatedTransaction tx before after
+applyTransaction :: ValidatedTransaction tx -> Command tx
+applyTransaction = Transactions . ApplyValidatedTransaction
 
 markTransactionInvalid :: UTxOType tx -> tx -> ValidationError -> Command tx
 markTransactionInvalid utxo tx err = Transactions $ MarkTransactionInvalid utxo tx err
@@ -217,10 +218,10 @@ recordDecommitFinalization ::
   Command tx
 recordDecommitFinalization = RecordDecommitFinalization
 
-recordDecommit :: tx -> Command tx
+recordDecommit :: ValidatedDecommit tx -> Command tx
 recordDecommit = Transactions . RecordPending
 
-acceptSnapshot :: Snapshot tx -> Seq tx -> Maybe (TxIdType tx) -> Command tx
+acceptSnapshot :: ValidatedSnapshot tx -> Seq tx -> Command tx
 acceptSnapshot = AcceptSnapshot
 
 recordSignature :: Candidate tx -> Party -> Signature (Snapshot tx) -> Command tx
