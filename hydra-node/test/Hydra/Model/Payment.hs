@@ -107,6 +107,7 @@ instance IsTx Payment where
     _ -> error "cant spend from multiple utxo in one payment"
   utxoFromTx Payment{to, value} = [(to, value)]
   outputsOfUTxO = id
+  utxoSize = length
   withoutUTxO a b =
     let as = second toList <$> a
         bs = second toList <$> b

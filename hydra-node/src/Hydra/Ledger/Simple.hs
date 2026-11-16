@@ -83,6 +83,7 @@ instance IsTx SimpleTx where
   txIdBytes = toStrict . serialise
   utxoFromTx = txOutputs
   outputsOfUTxO = toList
+  utxoSize = Set.size
   withoutUTxO = Set.difference
 
   applyTxTo (SimpleTx _ ins outs) utxo = (utxo `Set.difference` ins) <> outs

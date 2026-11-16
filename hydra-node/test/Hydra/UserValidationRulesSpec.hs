@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedRecordDot #-}
 -- NOTE: Uses the TxBody/TxBodyContent API that cardano-api deprecated in favour of
 -- Cardano.Api.Experimental; the migration is tracked separately in
 -- https://github.com/cardano-scaling/hydra/issues/2896
@@ -12,6 +13,7 @@ import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Credential qualified as Ledger
 import Data.Aeson.Types (object, parseEither, (.=))
 import Data.ByteString qualified as BS
+import Data.Map.Strict qualified as Map
 import Data.Set qualified as Set
 import Data.Yaml qualified as Yaml
 import GHC.IsList (toList)
@@ -40,8 +42,11 @@ import Hydra.Cardano.Api (
 import Hydra.Cardano.Api qualified as Api
 import Hydra.Ledger.Cardano.Builder (addTxInsSpending, unsafeBuildTransaction)
 import Hydra.Prelude hiding (toList)
+import Hydra.Tx (applyTxTo)
+import Hydra.UserValidation.Incremental (prepareCardanoPolicyContext)
 import Hydra.UserValidationRules (
   MintingOnL2Rule (..),
+  PolicyContext (..),
   PolicyRule (..),
   PolicyViolation (..),
   UserValidation (..),
@@ -69,6 +74,7 @@ import Test.QuickCheck (
   forAll,
   forAllBlind,
   generate,
+  listOf,
   listOf1,
   oneof,
   resize,
@@ -154,6 +160,18 @@ spec = do
       ada <- outputs [fromList [(AdaAssetId, Quantity 2000000)]]
       check unrestricted{maxOutputValueAssets = Just 0} ada `shouldBe` Right ()
 
+    it "keeps an asset counted until its last output is removed" $ do
+      policy <- generate arbitrary
+      let asset = AssetId policy (Api.UnsafeAssetName "shared")
+      utxo <- outputs $ replicate 2 (assetValue asset)
+      let rules = unrestricted{maxOutputValueAssets = Just 0}
+          initial = prepareCardanoPolicyContext rules utxo mempty
+          consume input = unsafeBuildTransaction $ Api.defaultTxBodyContent & addTxInsSpending [input]
+          states = scanl (\current input -> current.applyPolicyTx $ consume input) initial (Map.keys $ UTxO.unUTxO utxo)
+      map policyResult states `shouldBe` [Left (MaxOutputValueAssetsExceeded 1 0), Left (MaxOutputValueAssetsExceeded 1 0), Right ()]
+      -- An invalid candidate does not alter the context it was derived from.
+      initial.policyResult `shouldBe` Left (MaxOutputValueAssetsExceeded 1 0)
+
     it "excludes outgoing outputs only from the UTxO count" $ do
       policy <- generate arbitrary
       outgoing <- outputs [assetValue $ AssetId policy (Api.UnsafeAssetName "one"), assetValue $ AssetId policy (Api.UnsafeAssetName "two")]
@@ -186,6 +204,33 @@ spec = do
           atScript = UTxO.map (\(TxOut _ value datum script) -> TxOut address value datum script) utxo
       check unrestricted{allowedScriptAddresses = Just mempty} atScript `shouldBe` Left (ScriptAddressNotAllowed address)
       check unrestricted{allowedScriptAddresses = Just $ Set.singleton address} atScript `shouldBe` Right ()
+
+  describe "incremental UTxO policy" $ do
+    prop "matches full validation after every transaction and deposit, including overlapping outputs" $
+      forAll genPolicyUpdates $ \(initial, outgoing, updates) ->
+        let unrestricted = UserValidationRules Nothing AllowMinting Nothing Nothing Nothing Nothing Nothing
+            allowed = Set.fromList [policy | AssetId policy _ <- Set.toList $ outputAssets $ UTxO.txOutputs outgoing]
+            policies =
+              [ unrestricted
+              , unrestricted{maxUTxOCount = Just 3}
+              , unrestricted{policyRule = Just ForbidAnyPolicy}
+              , unrestricted{policyRule = Just $ AllowOnlyPolicies allowed}
+              , unrestricted{maxOutputValueAssets = Just 2}
+              , unrestricted{maxDatumSize = Just 0}
+              , unrestricted{allowedScriptAddresses = Just mempty}
+              , unrestricted{maxUTxOCount = Just 6, policyRule = Just ForbidAnyPolicy, maxOutputValueAssets = Just 2, maxDatumSize = Just 0, allowedScriptAddresses = Just mempty}
+              ]
+            check rules =
+              let advance :: (Api.UTxO, PolicyContext Api.Tx) -> Either Api.UTxO Api.Tx -> (Api.UTxO, PolicyContext Api.Tx)
+                  advance (utxo, policyContext) = \case
+                    Left deposit -> (utxo <> deposit, policyContext.addPolicyUTxO deposit)
+                    Right tx -> (applyTxTo tx utxo, policyContext.applyPolicyTx tx)
+               in conjoin
+                    [ counterexample ("rules: " <> show rules <> "; prefix: " <> show prefix) $
+                      policyContext.policyResult === validateUserUTxOWith rules utxo outgoing
+                    | (prefix, (utxo, policyContext)) <- zip [0 :: Int ..] $ scanl advance (initial, prepareCardanoPolicyContext rules initial outgoing) updates
+                    ]
+         in conjoin $ check <$> policies
 
   describe "deposit policy handle" $ do
     prop "uses the configured deposit allowlist" $ \rules depositTxId ->
@@ -426,3 +471,28 @@ prop_checkDeposit =
                   depositTxId
                   === rejected
             ]
+
+-- Spend existing references so removal, shared asset counts, and recovery from
+-- invalid starting states are exercised as well as insertion. Deposits can
+-- overlap both active and outgoing references.
+genPolicyUpdates :: Gen (Api.UTxO, Api.UTxO, [Either Api.UTxO Api.Tx])
+genPolicyUpdates = do
+  initial <- resize 6 genUTxO
+  outgoing <- resize 3 genUTxO
+  shadowed <- UTxO.UTxO <$> traverse (const genTxOut) (UTxO.unUTxO initial)
+  updates <- go 8 initial
+  pure (initial, shadowed <> outgoing, updates)
+ where
+  go :: Int -> Api.UTxO -> Gen [Either Api.UTxO Api.Tx]
+  go 0 _ = pure []
+  go n current = do
+    update <-
+      oneof
+        [ Left . (current <>) <$> resize 3 genUTxO
+        , do
+            inputs <- sublistOf $ Map.keys $ UTxO.unUTxO current
+            outputs <- resize 3 $ listOf genTxOut
+            pure . Right $ unsafeBuildTransaction $ Api.defaultTxBodyContent & addTxInsSpending inputs & Api.addTxOuts outputs
+        ]
+    let next = either (current <>) (`applyTxTo` current) update
+    (update :) <$> go (n - 1) next

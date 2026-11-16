@@ -23,7 +23,7 @@ import Data.Yaml qualified as Yaml
 import GHC.IsList (toList)
 import Hydra.Cardano.Api (AddressInEra, PolicyId, Tx, TxId, TxOut, UTxO, toLedgerAddr, txOuts', pattern TxOut)
 import Hydra.Prelude hiding (Key, toList)
-import Hydra.Tx (IsTx (TxIdType, UTxOType))
+import Hydra.Tx (IsTx (TxIdType, UTxOType), applyTxTo)
 
 -- | Loading and parsing of user policy
 loadUserValidationRules :: FilePath -> IO UserValidationRules
@@ -181,7 +181,43 @@ data UserValidation tx = UserValidation
   , validateResultingUTxO :: UTxOType tx -> UTxOType tx -> Either PolicyViolation ()
   -- ^ Active outputs (including reserved deposits), then outgoing decommit outputs.
   , validateDeposit :: TxIdType tx -> Either PolicyViolation ()
+  , incrementalValidation :: Maybe (IncrementalValidation tx)
   }
+
+-- | A policy view and its derived validation result. Candidate updates are
+-- immutable: rejecting one leaves the original context available for reuse.
+data PolicyContext tx = PolicyContext
+  { policyResult :: Either PolicyViolation ()
+  , applyPolicyTx :: tx -> PolicyContext tx
+  , addPolicyUTxO :: UTxOType tx -> PolicyContext tx
+  }
+
+data IncrementalValidation tx = IncrementalValidation
+  { preparePolicyUTxO :: UTxOType tx -> UTxOType tx -> PolicyContext tx
+  , localPolicyContext :: Maybe (PolicyContext tx)
+  }
+
+-- | Build a context even when its starting state violates policy: a subsequent
+-- transaction can remove the offending outputs. Validation checks each result.
+preparePolicyContext :: IsTx tx => UserValidation tx -> UTxOType tx -> UTxOType tx -> PolicyContext tx
+preparePolicyContext validation utxo outgoing =
+  case validation.incrementalValidation of
+    Just incremental -> incremental.preparePolicyUTxO utxo outgoing
+    Nothing -> go utxo
+ where
+  go current =
+    PolicyContext
+      { policyResult = validation.validateResultingUTxO current outgoing
+      , applyPolicyTx = \tx -> go (applyTxTo tx current)
+      , addPolicyUTxO = \incoming -> go (current <> incoming)
+      }
+
+-- | The node supplies the context for its current local policy view. Pure
+-- callers without a runtime cache construct the same view on demand.
+localPolicyContextFor :: IsTx tx => UserValidation tx -> (UTxOType tx, UTxOType tx) -> PolicyContext tx
+localPolicyContextFor validation (utxo, outgoing) =
+  fromMaybe (preparePolicyContext validation utxo outgoing) $
+    validation.incrementalValidation >>= localPolicyContext
 
 validateUserTransactionWith ::
   UserValidation tx ->
@@ -200,6 +236,7 @@ cardanoUserValidation rules =
     , validateResultingUTxO = validateUserUTxOWith rules
     , validateDeposit = \depositTxId ->
         for_ rules.allowedDeposits $ \allowed -> checkDeposit allowed depositTxId
+    , incrementalValidation = Nothing
     }
 
 preValidateUserTransactionWith ::

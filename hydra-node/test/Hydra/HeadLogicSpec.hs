@@ -46,6 +46,7 @@ import Hydra.Chain.Direct.State (ChainStateAt (..), HasKnownUTxO (getKnownUTxO),
 import Hydra.Chain.Direct.State qualified as Direct
 import Hydra.Chain.Direct.TimeHandle (TimeHandle, mkTimeHandle, slotToUTCTime)
 import Hydra.HeadLogic (ClosedState (..), CoordinatedHeadState (..), Effect (..), FanoutMode (..), HeadState (..), Input (..), LogicError (..), OpenState (..), Outcome (..), PartialFanoutState (..), RequirementFailure (..), SettlingCommit (..), SideLoadRequirementFailure (..), SnapshotRequest (..), StateChanged (..), TTL, WaitReason (..), absorbable, aggregateState, applyTransactionsWithoutCollision, cause, chainedSnapshotRequest, existingDeposit, maxTxsPerSnapshot, namesNoneOf, newState, nextSnapshotRequest, noop, settlingCommitAt, update)
+import Hydra.HeadLogic qualified as HeadLogic
 import Hydra.HeadLogic.State (FinalizedSnapshot (..), IdleState (..), SeenSnapshot (..), getHeadParameters, mkSeenSnapshot)
 import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano (cardanoLedger, mkSimpleTx)
@@ -80,7 +81,7 @@ import Hydra.Tx.Increment (IncrementObservation (..), observeIncrementTx)
 import Hydra.Tx.IsTx (IsTx (..))
 import Hydra.Tx.Party (Party (..), deriveParty)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, SnapshotVersion, getSnapshot)
-import Hydra.UserValidationRules (PolicyViolation (..), UserValidation (..), checkPolicies, parsePolicyFile)
+import Hydra.UserValidationRules (IncrementalValidation (..), PolicyContext (..), PolicyViolation (..), UserValidation (..), checkPolicies, parsePolicyFile, preparePolicyContext)
 import Test.Gen.Cardano.Api.Typed (genBlockHeaderHash)
 import Test.Hydra.API.ClientInput ()
 import Test.Hydra.Chain ()
@@ -156,7 +157,7 @@ spec =
         let violation = PolicyMintingViolation mempty mempty
             policyError = PolicyValidationError violation
             allowAll :: UserValidation SimpleTx
-            allowAll = UserValidation (const $ Right ()) (\_ _ -> Right ()) (const $ Right ())
+            allowAll = UserValidation (const $ Right ()) (\_ _ -> Right ()) (const $ Right ()) Nothing
             rejectTransactions = allowAll{validateTransaction = const $ Left violation}
             limitUTxO = limitOutputs 1
             limitOutputs limit =
@@ -172,6 +173,51 @@ spec =
                 coordinatedHeadState{allTxs = Map.fromList [(txId t, t) | t <- txs]}
             reqSn :: [SimpleTx] -> Input SimpleTx
             reqSn txs = receiveMessage $ ReqSn 0 1 (txId <$> txs) Nothing Nothing
+
+        prop "advances the runtime policy view consistently with source events" $ \chs candidate probeTx ->
+          let validation = limitOutputs 3
+              incremental = validation{incrementalValidation = Just $ IncrementalValidation (preparePolicyContext validation) Nothing}
+              policyLedger = withValidation incremental
+              initial = inOpenState' threeParties chs
+              cached = HeadLogic.prepareLocalPolicyContext policyLedger initial Nothing
+              (next, advanced) = HeadLogic.aggregateStateWithPolicy policyLedger initial cached $ newState TransactionAppliedToLocalUTxO{headId = testHeadId, tx = candidate}
+              recovered = HeadLogic.prepareLocalPolicyContext policyLedger next Nothing
+              results :: PolicyContext SimpleTx -> (Either PolicyViolation (), Either PolicyViolation ())
+              results policyContext = (policyContext.policyResult, (policyContext.applyPolicyTx probeTx).policyResult)
+           in fmap results advanced === fmap results recovered
+
+        it "keeps runtime policy context equivalent to recovered state across local and snapshot changes" $ do
+          let validation = limitOutputs 3
+              incremental = validation{incrementalValidation = Just $ IncrementalValidation (preparePolicyContext validation) Nothing}
+              policyLedger = withValidation incremental
+              seed = utxoRefs [1, 2]
+              grow = SimpleTx 10 (utxoRef 1) (utxoRefs [3, 4])
+              decommit = SimpleTx 11 (utxoRef 2) (utxoRef 5)
+              recreate = SimpleTx 12 (utxoRef 3) (utxoRef 2)
+              snapshot = (testSnapshot 1 0 [] (utxoRef 6) :: Snapshot SimpleTx){utxoToCommit = Just $ utxoRef 7, utxoToDecommit = Just $ utxoRef 8}
+              initial = inOpenState' threeParties coordinatedHeadState{localUTxO = seed}
+              outcomes =
+                [ newState TransactionReceived{tx = grow}
+                , newState TransactionAppliedToLocalUTxO{headId = testHeadId, tx = grow}
+                , newState DecommitRecorded{headId = testHeadId, decommitTx = decommit}
+                , newState TransactionAppliedToLocalUTxO{headId = testHeadId, tx = recreate}
+                , newState SnapshotRequested{requestedSnapshot = snapshot, newLocalTxs = Seq.singleton $ SimpleTx 13 (utxoRef 6) (utxoRefs [9, 10]), newCurrentDepositTxId = Just 14}
+                , newState SnapshotConfirmed{headId = testHeadId, snapshot = Nothing, signatures = mempty}
+                , newState $ Checkpoint initial
+                ]
+              contexts = scanl (\(st, cached) outcome -> HeadLogic.aggregateStateWithPolicy policyLedger st cached outcome) (initial, HeadLogic.prepareLocalPolicyContext policyLedger initial Nothing) outcomes
+              replayed = scanl aggregateState initial outcomes
+          map fst contexts `shouldBe` replayed
+          forM_ contexts $ \(st, cached) -> do
+            let recovered = HeadLogic.prepareLocalPolicyContext policyLedger st Nothing
+                probe :: PolicyContext SimpleTx -> (Either PolicyViolation (), [Either PolicyViolation ()])
+                probe policyContext = (policyContext.policyResult, [(policyContext.applyPolicyTx candidate).policyResult | candidate <- [grow, decommit, recreate]])
+            fmap probe cached `shouldBe` fmap probe recovered
+            forM_ [grow, decommit, recreate] $ \candidate -> do
+              now <- nowFromSlot st.chainPointTime.currentSlot
+              update aliceEnv (HeadLogic.withLocalPolicyContext policyLedger cached) now st (ClientInput $ NewTx candidate)
+                `shouldBe` update aliceEnv (withValidation validation) now st (ClientInput $ NewTx candidate)
+          isNothing (HeadLogic.prepareLocalPolicyContext ledger initial Nothing) `shouldBe` True
 
         it "does not emit ReqTx when a client transaction violates the transaction policy" $ do
           let st = inOpenState threeParties
@@ -770,7 +816,7 @@ spec =
 
       describe "complete snapshot policy" $ do
         let soloEnv = aliceEnv{otherParties = [], participants = [deriveOnChainId alice]}
-            bounded limit = ledger{userValidation = Just $ UserValidation (const $ Right ()) (\u _ -> let n = fromIntegral $ Set.size u in if n <= limit then Right () else Left $ MaxUTxOCountExceeded n limit) (const $ Right ())}
+            bounded limit = ledger{userValidation = Just $ UserValidation (const $ Right ()) (\u _ -> let n = fromIntegral $ Set.size u in if n <= limit then Right () else Left $ MaxUTxOCountExceeded n limit) (const $ Right ()) Nothing}
             rejects :: Outcome SimpleTx -> IO ()
             rejects outcome = do
               outcome `hasNoStateChangedSatisfying` \case
@@ -987,6 +1033,7 @@ spec =
                         { validateTransaction = const $ Right ()
                         , validateResultingUTxO = \_ _ -> Right ()
                         , validateDeposit = \depositId -> if depositId `elem` allowed then Right () else Left violation
+                        , incrementalValidation = Nothing
                         }
                 }
             deposit now n =

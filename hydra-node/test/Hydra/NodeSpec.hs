@@ -294,7 +294,7 @@ spec = parallel $ do
           now <- getCurrentTime
           violation <- DepositNotAllowed <$> generate arbitrary
           let env = testEnvironment{configuredPolicy = Just policy}
-              policyLedger = simpleLedger{userValidation = Just $ UserValidation (const $ Right ()) (\_ _ -> Right ()) (const $ Left violation)}
+              policyLedger = simpleLedger{userValidation = Just $ UserValidation (const $ Right ()) (\_ _ -> Right ()) (const $ Left violation) Nothing}
               initial = foldl' Head.aggregateNodeState (initNodeState 0) boundEvents
               deposited = utxoRefs [42]
               deadline = addUTCTime 7200 now
