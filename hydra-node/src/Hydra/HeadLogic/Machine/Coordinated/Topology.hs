@@ -34,7 +34,10 @@ $( singletons
     [d|
       -- \| A snapshot can only be awaiting for a snapshot, requesting a
       -- snapshot, or collecting signatures.
-      data SnapshotPhase = AwaitingRequest | RequestSent | CollectingSignatures
+      data SnapshotPhase
+        = AwaitingRequest
+        | RequestSent
+        | CollectingSignatures
 
       snapshotTopology :: Topology SnapshotPhase
       snapshotTopology =
@@ -44,9 +47,10 @@ $( singletons
           , (CollectingSignatures, [AwaitingRequest])
           ]
 
-      -- \| Local reservation and current-version authority to decrement are
-      -- distinct: a certificate can arrive without the local transaction.
-      data DecommitPhase = NoDecommit | DecommitPending | AwaitingDecommitSettlement
+      data DecommitPhase
+        = NoDecommit
+        | DecommitPending
+        | AwaitingDecommitSettlement
 
       decommitTopology :: Topology DecommitPhase
       decommitTopology =
@@ -56,17 +60,17 @@ $( singletons
           , (AwaitingDecommitSettlement, [NoDecommit])
           ]
 
-      -- \| Selection is local intent; a current-version signed claim awaits
-      -- settlement. Expiry and recovery affect eligibility, not the certificate.
-      data CommitPhase = NoCommit | CommitSelected | AwaitingCommitSettlement
+      data CommitPhase
+        = NoCommit
+        | CommitSelected
+        | AwaitingCommitSettlement
 
       commitTopology :: Topology CommitPhase
       commitTopology =
         Topology
           [ (NoCommit, [CommitSelected, AwaitingCommitSettlement])
           , (CommitSelected, [NoCommit, AwaitingCommitSettlement])
-          , -- A replaced certificate or newer version can leave a local selection.
-            (AwaitingCommitSettlement, [NoCommit, CommitSelected])
+          , (AwaitingCommitSettlement, [NoCommit, CommitSelected])
           ]
       |]
  )
