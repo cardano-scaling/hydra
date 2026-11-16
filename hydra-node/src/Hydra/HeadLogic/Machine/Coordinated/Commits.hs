@@ -90,20 +90,30 @@ machine initialSnapshots initialSelection =
     ActionResult m CommitTopology (State tx) from (Output tx)
   update state input = case input.commitUpdate of
     CommitUnchanged -> output state
-    RecomputeCommitPhase -> updatePhase updatedSnapshots currentSelection
-    SelectDepositIfUnselected depositId -> updatePhase updatedSnapshots $ currentSelection <|> Just depositId
-    SetDepositSelection nextSelection -> updatePhase updatedSnapshots nextSelection
-    DeselectDeposit depositId -> updatePhase updatedSnapshots $ mfilter (/= depositId) currentSelection
+    RecomputeCommitPhase ->
+      updatePhase updatedSnapshots currentSelection
+    SelectDepositIfUnselected depositId ->
+      updatePhase updatedSnapshots $ currentSelection <|> Just depositId
+    SetDepositSelection nextSelection ->
+      updatePhase updatedSnapshots nextSelection
+    DeselectDeposit depositId ->
+      updatePhase updatedSnapshots $ mfilter (/= depositId) currentSelection
    where
     currentSelection = selection state
     updatedSnapshots = Snapshots.viewInitial input.snapshots
-    -- A newer version or a replacement certificate retires the signed approval.
-    -- A pending selection can survive either, so Approved -> Selected is legal.
-    updatePhase :: SnapshotState tx -> Maybe (TxIdType tx) -> ActionResult m CommitTopology (State tx) from (Output tx)
+
+    updatePhase ::
+      SnapshotState tx ->
+      Maybe (TxIdType tx) ->
+      ActionResult m CommitTopology (State tx) from (Output tx)
     updatePhase snapshots nextSelection
       | hasCurrentCommitApproval snapshots = output $ Approved nextSelection
       | otherwise = maybe (output Unselected) (output . Selected) nextSelection
-    output :: AllowedTransition CommitTopology from to => State tx to -> ActionResult m CommitTopology (State tx) from (Output tx)
+
+    output ::
+      AllowedTransition CommitTopology from to =>
+      State tx to ->
+      ActionResult m CommitTopology (State tx) from (Output tx)
     output next = pureResult (Output input $ selection next) next
 
 hasCurrentCommitApproval :: IsTx tx => SnapshotState tx -> Bool
