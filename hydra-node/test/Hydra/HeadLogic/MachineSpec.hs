@@ -29,10 +29,9 @@ import Hydra.HeadLogic (
     version
   ),
   FinalizedState (headId),
-  HeadState (FanoutProgress, Finalized, Open),
+  HeadState (Finalized, Open),
   OpenState (OpenState, coordinatedHeadState),
   Outcome (Continue, Error, Wait, stateChanges),
-  PartialFanoutState (distributedOutputs),
   StateChanged (
     Checkpoint,
     CommitApproved,
@@ -57,14 +56,12 @@ import Hydra.HeadLogic (
     SnapshotRequested,
     TransactionAppliedToLocalUTxO,
     TxInvalid,
-    distributedOutputs,
     newVersion,
     snapshot
   ),
   aggregateState,
   eventHeadId,
   headIdOf,
-  nullOutputs,
  )
 import Hydra.HeadLogic.Deposit qualified as Deposit
 import Hydra.HeadLogic.Outcome qualified as Outcome
@@ -221,7 +218,7 @@ incrementalReference node =
 
 lifecycleReference :: NodeState SimpleTx -> StateChanged SimpleTx -> NodeState SimpleTx -> Property
 lifecycleReference before event after =
-  project (Lifecycle.phase after.headState) === Agda.lifecyclePhaseRef initialPhase tag distributed
+  project (Lifecycle.phase after.headState) === Agda.lifecyclePhaseRef initialPhase tag
  where
   -- A different identity starts a fresh lifecycle at the node boundary. It
   -- does not add an outgoing edge to the completed Head's Agda projection.
@@ -243,14 +240,6 @@ lifecycleReference before event after =
     HeadFanoutReverted{} -> Agda.FanoutReverted
     HeadFannedOut{} -> Agda.FannedOut
     _ -> Agda.Unchanged
-  distributed = case event of
-    HeadPartialFannedOut{distributedOutputs = added} ->
-      not $
-        nullOutputs $
-          added <> case before.headState of
-            FanoutProgress st -> st.distributedOutputs
-            _ -> mempty
-    _ -> False
 
 coordinationReference :: NodeState SimpleTx -> StateChanged SimpleTx -> NodeState SimpleTx -> Property
 coordinationReference before event after =
