@@ -16,8 +16,8 @@ request = ChooseTransition $ pure $ Transition () (At @'RequestSent)
 confirm :: ActionResult Identity SnapshotTopology At 'CollectingSignatures ()
 confirm = ChooseTransition $ pure $ Transition () (At @'AwaitingRequest)
 
-reserve :: ActionResult Identity DecommitTopology At 'NoDecommit ()
-reserve = ChooseTransition $ pure $ Transition () (At @'DecommitPending)
+recordPending :: ActionResult Identity DecommitTopology At 'NoDecommit ()
+recordPending = ChooseTransition $ pure $ Transition () (At @'DecommitPending)
 
 settle :: ActionResult Identity DecommitTopology At 'AwaitingDecommitSettlement ()
 settle = ChooseTransition $ pure $ Transition () (At @'NoDecommit)

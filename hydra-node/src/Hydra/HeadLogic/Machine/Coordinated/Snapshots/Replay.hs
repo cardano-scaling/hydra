@@ -17,7 +17,7 @@ import Hydra.HeadLogic.Machine.Coordinated.Snapshots.State (
 import Hydra.HeadLogic.Machine.Coordinated.Snapshots.State qualified as State
 import Hydra.HeadLogic.Machine.Coordinated.Types (
   Command (..),
-  TransactionCommand (..),
+  LocalTransactionCommand (..),
   TransactionUpdate (..),
  )
 import Hydra.HeadLogic.Outcome (StateChanged (..))
@@ -57,7 +57,7 @@ replay headId parties initial deposited event = withInitialState initial $ \stat
     TransactionAppliedToLocalUTxO{tx} ->
       Just $ retained $ Update state (ReplayTransactionApplication tx) []
     DecommitRecorded{decommitTx = tx} ->
-      Just $ retained $ Update state (ReplayDecommitReservation tx) []
+      Just $ retained $ Update state (ReplayPendingDecommit tx) []
     ChainRolledBack{chainState} ->
       Just $ retained $ Update (withContext (contextOf state){State.chainSlot = chainStateSlot chainState} state) TransactionsUnchanged []
     TransactionReceived tx ->

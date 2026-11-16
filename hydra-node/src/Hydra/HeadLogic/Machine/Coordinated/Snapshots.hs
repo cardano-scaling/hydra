@@ -126,7 +126,7 @@ machine headId parties initial =
     ActionResult m SnapshotTopology (State tx) from (SnapshotOutput tx)
   common state = \case
     Transactions command ->
-      output state (RunTransactionCommand command) []
+      output state (RunLocalTransactionCommand command) []
     RequestSnapshot{} ->
       output state TransactionsUnchanged []
     AcceptSnapshot{} ->

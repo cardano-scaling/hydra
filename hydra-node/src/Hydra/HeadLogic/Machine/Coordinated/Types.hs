@@ -17,7 +17,7 @@ import Hydra.Tx.Party (Party)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot, Snapshot, SnapshotNumber, SnapshotVersion)
 
 data Command tx
-  = Transactions (TransactionCommand tx)
+  = Transactions (LocalTransactionCommand tx)
   | RequestSnapshot (SnapshotRequest tx)
   | AcceptSnapshot (Snapshot tx) (Seq tx) (Maybe (TxIdType tx))
   | RecordSignature (Candidate tx) Party (Signature (Snapshot tx))
@@ -32,13 +32,17 @@ data Command tx
   | -- | Record an observed decrement that finalizes a decommit.
     RecordDecommitFinalization (ChainStateType tx) SnapshotVersion ~(UTxOType tx)
 
-data TransactionCommand tx
+-- | Operations on locally tracked transactions, including decommit payloads.
+-- Deposit selection and settlement arrive through the other coordinated commands.
+data LocalTransactionCommand tx
   = ReceiveTransaction tx
   | RetainSnapshotDecommit tx
   | ApplyValidatedTransaction tx ~(UTxOType tx) ~(UTxOType tx)
   | -- | Report invalidity and remove the transaction from the registry.
     MarkTransactionInvalid (UTxOType tx) tx ValidationError
-  | ReserveDecommit tx
+  | -- | Record a pending decommit and exclude its inputs from the local UTxO.
+    -- The ReqDec workflow checks validity and capacity before issuing this command.
+    RecordPending tx
 
 -- | Updates for the transaction owner's registry, local ledger and reservation.
 -- Only the snapshot owner constructs a 'RebuildFromSnapshot'; the transaction
@@ -49,7 +53,7 @@ data TransactionUpdate tx
   = -- | Preserve transaction and commit state, even if snapshot state changes.
     TransactionsUnchanged
   | -- | Execute a command in the transaction owner.
-    RunTransactionCommand (TransactionCommand tx)
+    RunLocalTransactionCommand (LocalTransactionCommand tx)
   | -- | Rebuild the local ledger while preserving reserved decommit inputs.
     -- Arguments: requested snapshot, already-pruned retained transactions in
     -- application order, and selected deposit identifier. Also replace the
@@ -78,9 +82,9 @@ data TransactionUpdate tx
   | -- | Restore a recorded transaction application to the local ledger and
     -- transaction sequence, without repeating ledger validation.
     ReplayTransactionApplication tx
-  | -- | Restore a recorded decommit reservation and its effect on the local
+  | -- | Restore a recorded pending decommit and its effect on the local
     -- UTxO, without repeating live command admission.
-    ReplayDecommitReservation tx
+    ReplayPendingDecommit tx
 
 -- | Whether a settlement observation advances the working snapshot version.
 data VersionChange

@@ -597,7 +597,7 @@ settlementReservationRef pending old observed = pending && not (old < observed)
 
 -- RebuildFromSnapshot reconstructs the optimistic ledger from an already-pruned
 -- transaction sequence. This projection requires it to preserve the pending
--- reservation; ReplayDecommitReservation restores that recorded reservation.
+-- reservation; ReplayPendingDecommit restores the recorded pending decommit.
 reserveRebaseRef : List Nat → List Nat → List Nat
 reserveRebaseRef reserved [] = []
 reserveRebaseRef reserved (input ∷ rest) =
@@ -697,19 +697,20 @@ capacityPruneRef limit base commit decommit = go 1 base
 {-# COMPILE GHC capacityPrefixRef as hsCapacityPrefixRef #-}
 {-# COMPILE GHC capacityPruneRef as hsCapacityPruneRef #-}
 
--- A reservation is local intent; a current-version certificate is authority to
--- decrement. Adoption can supply that authority without a local reservation.
+-- A locally recorded decommit is intent; a current-version certificate is
+-- authority to decrement. Adoption can supply it without a recorded decommit.
 -- These are protocol stages, not the presence/absence of a stored transaction.
 data DecommitPhaseᶜ : Set where
   noDecommitᶜ pendingDecommitᶜ awaitingDecommitSettlementᶜ : DecommitPhaseᶜ
 
 -- Legal non-identity transitions. AwaitingDecommitSettlement -> Pending is absent:
 -- a different local decommit cannot replace an unsettled certificate.
--- The Haskell owner refuses live reservations in either occupied phase,
--- keeping its state and emitting no events. Replay imports recorded facts.
+-- RecordPending records a checked decommit. The Haskell owner refuses this
+-- command in either occupied phase, keeping its state and emitting no events.
+-- Replay imports recorded facts.
 data DecommitTransitionᶜ : DecommitPhaseᶜ → DecommitPhaseᶜ → Set where
   unchangedᵈ : ∀ {phase} → DecommitTransitionᶜ phase phase
-  reserveᵈ : DecommitTransitionᶜ noDecommitᶜ pendingDecommitᶜ
+  recordPendingᵈ : DecommitTransitionᶜ noDecommitᶜ pendingDecommitᶜ
   invalidateᵈ : DecommitTransitionᶜ pendingDecommitᶜ noDecommitᶜ
   confirmᵈ : DecommitTransitionᶜ pendingDecommitᶜ awaitingDecommitSettlementᶜ
   adoptᵈ : DecommitTransitionᶜ noDecommitᶜ awaitingDecommitSettlementᶜ
