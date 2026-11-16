@@ -3,16 +3,19 @@
 
 module Hydra.HeadLogic.OperationWorkflowSpec (spec) where
 
+import Cardano.Binary (decodeFull', serialize')
 import Data.Map.Strict qualified as Map
 import Data.Sequence qualified as Seq
+import Hydra.API.ClientInput qualified as Client
 import Hydra.API.ServerOutput qualified as Server
 import Hydra.Agda.OffChainReference qualified as Agda
-import Hydra.Chain (ChainEvent (..), OnChainTx (..))
+import Hydra.Chain (ChainEvent (..), OnChainTx (..), PostChainTx (FinalPartialFanoutTx))
 import Hydra.HeadLogic.Error (LogicError (AssertionFailed))
 import Hydra.HeadLogic.Interpreter qualified as Interpreter
 import Hydra.HeadLogic.Program qualified as Program
 import Hydra.HeadLogic.Rules.Chain.Deposits qualified as Deposits
 import Hydra.HeadLogic.Rules.Network.AckSn qualified as AckSn
+import Hydra.HeadLogic.State (HeadState (FanoutProgress), OnChainFanoutDatum (DatumFanoutProgress), PartialFanoutState (distributedOutputs, fanoutDatum, remainingOutputs))
 import Hydra.HeadLogic.Trace (TraceStep (..))
 import Hydra.HeadLogicSpec (withAccumulators)
 import Hydra.Ledger.Simple (SimpleTx (..), simpleLedger)
@@ -40,6 +43,30 @@ spec = describe "operation workflow boundaries" $ do
     (refused, trace) <- fixture "fanout-empty-selection"
     signals trace `shouldBe` [Emitted "client effect"]
     refused `shouldSatisfy` \case Continue [] [ClientEffect Server.CommandFailed{}] -> True; _ -> False
+
+  it "plans and reposts against the observed datum when distribution matches no local outputs" $ do
+    (before, input) <- example "fanout-passive-observer"
+    observed <- case input of
+      ChainInput observation@Observation{observedTx = tx@OnPartialFanoutTx{}} ->
+        pure $ ChainInput observation{observedTx = tx{distributedOutputs = utxoRef 999}}
+      _ -> fail "expected partial fanout observation"
+    let node = aggregateState before $ fst $ run before observed
+    progress <- case node.headState of
+      FanoutProgress st -> pure st
+      _ -> fail "expected partial fanout state"
+    progress.distributedOutputs `shouldBe` mempty
+    progress.fanoutDatum `shouldBe` DatumFanoutProgress
+    let (planned, _) = run node $ ClientInput $ Client.PartialFanout progress.remainingOutputs
+        selected = aggregateState node planned
+    transaction <- case planned of
+      Continue _ [OnChainEffect tx@FinalPartialFanoutTx{}] -> pure tx
+      _ -> fail $ "expected final partial fanout, got " <> show planned
+    restored <- either (fail . show) pure $ decodeFull' $ serialize' selected
+    -- Rollback retains the protocol phase; this checks the selected transaction
+    -- kind without claiming to reconcile fanout against a divergent chain.
+    case fst $ run restored $ ChainInput $ Rollback initialChainTime 0 of
+      Continue _ effects -> [tx | OnChainEffect tx <- effects] `shouldBe` [transaction]
+      other -> fail $ "expected fanout re-post, got " <> show other
 
   it "verifies and adopts before clearing local work, reporting invalid side-loads as client refusals" $ do
     (_, trace) <- fixture "side-load-current"
