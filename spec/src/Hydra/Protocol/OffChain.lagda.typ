@@ -1664,8 +1664,8 @@ A fixed three-party Haskell sequence preserves the historical decommit failure:
 `reqDec` accepts a decommit against the optimistic local ledger, but `reqSn`
 applies it before ordinary transactions against the confirmed ledger. The old
 leader therefore requests a decommit before its dependency exists. Its snapshot
-rebase also restores the reserved input. The corrected sequence preserves the
-reservation, confirms the dependency in snapshot 2, and starts a decommit-only
+ledger rebuild also restores the reserved input. The corrected sequence preserves
+the reservation, confirms the dependency in snapshot 2, and starts a decommit-only
 snapshot 3. The regression checks serialized events and checkpoints at every prefix.
 It is a deterministic SimpleTx witness, not a general progress proof.
 
@@ -1792,14 +1792,30 @@ through live crem transitions. Event recovery shares the storage updates without
 repeating live snapshot admission. One component owns the candidate snapshot,
 signature map and confirmed snapshot; another owns the transaction registry,
 local transaction sequence, local UTxO and pending decommit. Crem's sequential
-composition connects them with a typed rebase command. A third component owns
+composition connects them with a typed rebuild command. A third component owns
 deposit selection and the commit phase relative to the confirmed certificate.
 The snapshot component
 supplies the snapshot and retained transactions; only the transaction component
 chooses how to reconstruct its UTxO. No component receives a NodeState.
 
 `TransactionUpdate` directs changes to the transaction owner's registry, local
-ledger and reservations. `ReconcileConfirmedSnapshot` reconciles reservations
+ledger and reservations. `TransactionsUnchanged` preserves transaction and commit
+state even when snapshot state changes. `RunTransactionCommand` executes a
+transaction-owner command. `RebuildFromSnapshot` takes the requested snapshot,
+already-pruned retained transactions in application order and selected deposit
+identifier. It rebuilds the local ledger, preserves reserved decommit inputs,
+replaces the local transaction sequence, removes the snapshot's transactions
+from the registry and updates selection; it does not confirm the snapshot.
+
+`ResetTransactionState` discards the local transaction sequence and registry.
+With a confirmed snapshot, it restores the spendable base, clears deposit
+selection and keeps only the snapshot's approved decommit. With an initial
+snapshot, it empties the local ledger while leaving selection and reservation
+unchanged. `ReplayTransactionApplication` restores a recorded ledger application;
+`ReplayDecommitReservation` restores a recorded reservation and its ledger effect.
+These replay updates trust retained events and do not repeat live validation.
+
+`ReconcileConfirmedSnapshot` reconciles reservations
 and commit state after either confirmation or adoption. `TrySelectDeposit`
 checks whether a deposit fits before attempting selection; `ClearDepositSelection`
 clears only a matching selection. `MarkTransactionInvalid` reports invalidity
@@ -1811,6 +1827,9 @@ They preserve the existing persistence events. Settlement updates carry
 `VersionAdvanced` when the observed version exceeds the working version, and
 `VersionNotAdvanced` for equal or older observations. This distinction controls
 whether settled outputs are added and decommit reservations are released.
+`CommitSettled` with `VersionNotAdvanced` still clears a matching deposit
+selection; `DecommitSettled` with `VersionNotAdvanced` leaves transaction state
+unchanged.
 
 Live confirmation requires an opaque result from successful multisignature
 verification of an owner-issued candidate handle. The handle binds the Head,
@@ -1836,13 +1855,13 @@ compare batched application with event-by-event application and serialized repla
 
 The conversion preserves Complete, Wait and Reject semantics and event ordering,
 including duplicate partial-ack signature events. State and event encodings
-remain unchanged. Two decommit corrections accompany the implementation: rebase
-removes pending spending inputs after rebuilding, and request selection defers
+remain unchanged. Two decommit corrections accompany the implementation: the
+ledger rebuild excludes pending spending inputs, and request selection defers
 new decommits until their required inputs are confirmed. A newly eligible
 decommit can start a round without ordinary transactions; a carried one cannot.
 
 OffChainReference.agda independently states reservation exclusion, confirmed
-input availability, reservation-preserving rebase and the decommit-only wake-up
+input availability, reservation-preserving rebuild and the decommit-only wake-up
 condition. Tests compare the actual owner and request selection against these
 functions over subsets of three output identities. Cardano input-availability
 tests cover spending, reference and collateral references separately. The Agda

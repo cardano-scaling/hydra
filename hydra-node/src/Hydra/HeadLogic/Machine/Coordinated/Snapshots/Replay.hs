@@ -55,11 +55,11 @@ replay headId parties initial deposited event = withInitialState initial $ \stat
     SnapshotConfirmed{snapshot = Just snapshot, signatures} ->
       Just $ retained $ State.adoptSnapshot headId state snapshot signatures
     TransactionAppliedToLocalUTxO{tx} ->
-      Just $ retained $ Update state (ReplayTransaction tx) []
+      Just $ retained $ Update state (ReplayTransactionApplication tx) []
     DecommitRecorded{decommitTx = tx} ->
-      Just $ retained $ Update state (ReplayDecommit tx) []
+      Just $ retained $ Update state (ReplayDecommitReservation tx) []
     ChainRolledBack{chainState} ->
-      Just $ retained $ Update (withContext (contextOf state){State.chainSlot = chainStateSlot chainState} state) Unchanged []
+      Just $ retained $ Update (withContext (contextOf state){State.chainSlot = chainStateSlot chainState} state) TransactionsUnchanged []
     TransactionReceived tx ->
       Just $ live $ Transactions $ ReceiveTransaction tx
     TxInvalid{utxo, transaction = tx, validationError = err} ->
