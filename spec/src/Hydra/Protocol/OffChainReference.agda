@@ -705,6 +705,8 @@ data DecommitPhaseᶜ : Set where
 
 -- Legal non-identity transitions. AwaitingDecommitSettlement -> Pending is absent:
 -- a different local decommit cannot replace an unsettled certificate.
+-- The Haskell owner refuses live reservations in either occupied phase,
+-- keeping its state and emitting no events. Replay imports recorded facts.
 data DecommitTransitionᶜ : DecommitPhaseᶜ → DecommitPhaseᶜ → Set where
   unchangedᵈ : ∀ {phase} → DecommitTransitionᶜ phase phase
   reserveᵈ : DecommitTransitionᶜ noDecommitᶜ pendingDecommitᶜ
