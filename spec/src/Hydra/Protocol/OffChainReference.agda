@@ -885,6 +885,10 @@ data CommitPhaseᶜ : Set where
 {-# FOREIGN GHC data HsCommitPhase = NoCommit | CommitSelected | AwaitingCommitSettlement deriving (Eq, Show) #-}
 {-# COMPILE GHC CommitPhaseᶜ = data HsCommitPhase (NoCommit | CommitSelected | AwaitingCommitSettlement) #-}
 
+-- RecomputeCommitPhase applies this projection with the existing selection.
+-- SelectDepositIfUnselected, SetDepositSelection and DeselectDeposit apply it
+-- after updating selection. CommitUnchanged preserves both selection and phase.
+-- Registry eligibility and signed approval remain separate from selection.
 commitPhaseRef : Bool → Nat → Nat → Bool → CommitPhaseᶜ
 commitPhaseRef selected version signedVersion claimsCommit =
   if (version == signedVersion) && claimsCommit then awaitingCommitSettlementᶜ

@@ -79,7 +79,7 @@ machine headId snapshots0 initial initialDecommit = BaseMachineT (withStateInspe
   replayReservation :: TransactionState tx -> tx -> (TransactionState tx -> tx -> State tx from) -> SnapshotOutput tx -> ActionResult m DecommitTopology (State tx) from (Output tx)
   replayReservation local tx keep input =
     let next = reserveUTxO local tx
-     in pureResult (Output input.snapshots next (Just tx) KeepCommit (input.events <> [DecommitRecorded headId tx]) input.refusal) (keep next tx)
+     in pureResult (Output input.snapshots next (Just tx) CommitUnchanged (input.events <> [DecommitRecorded headId tx]) input.refusal) (keep next tx)
 
   reserveUTxO :: TransactionState tx -> tx -> TransactionState tx
   reserveUTxO local tx = local{localUTxO = applyTxTo tx local.localUTxO `withoutUTxO` utxoFromTx tx}
@@ -89,7 +89,7 @@ machine headId snapshots0 initial initialDecommit = BaseMachineT (withStateInspe
   reserve :: TransactionState tx -> tx -> SnapshotOutput tx -> ActionResult m DecommitTopology (State tx) 'NoDecommit (Output tx)
   reserve local tx input =
     let next = reserveUTxO local tx
-     in pureResult (Output input.snapshots next (Just tx) KeepCommit (input.events <> [DecommitRecorded headId tx]) input.refusal) (Pending next tx)
+     in pureResult (Output input.snapshots next (Just tx) CommitUnchanged (input.events <> [DecommitRecorded headId tx]) input.refusal) (Pending next tx)
 
   update :: (AllowedTransition DecommitTopology from 'NoDecommit, AllowedTransition DecommitTopology from 'AwaitingDecommitSettlement) => TransactionState tx -> Maybe tx -> (TransactionState tx -> State tx from) -> SnapshotOutput tx -> ActionResult m DecommitTopology (State tx) from (Output tx)
   update local reserved keep SnapshotOutput{snapshots = owned, ledgerUpdate, events, refusal} = case ledgerUpdate of
@@ -101,41 +101,41 @@ machine headId snapshots0 initial initialDecommit = BaseMachineT (withStateInspe
               , localTxs = txs
               , allTxs = foldr (Map.delete . txId) local.allTxs snapshot.confirmed
               }
-       in changeCommit (SetCommitSelection deposit) next
+       in changeCommit (SetDepositSelection deposit) next
     ConfirmTransactions -> case reserved of
       Nothing
-        | settling snapshots -> output confirmedLocal authorised RefreshCommit (Settling confirmedLocal authorised) events
-        | otherwise -> changeCommit RefreshCommit confirmedLocal
+        | settling snapshots -> output confirmedLocal authorised RecomputeCommitPhase (Settling confirmedLocal authorised) events
+        | otherwise -> changeCommit RecomputeCommitPhase confirmedLocal
       Just tx
-        | carries tx -> output confirmedLocal reserved RefreshCommit (Settling confirmedLocal reserved) events
-        | not (settling snapshots) && txInputsAvailable tx rebuilt -> changeCommit RefreshCommit confirmedLocal
+        | carries tx -> output confirmedLocal reserved RecomputeCommitPhase (Settling confirmedLocal reserved) events
+        | not (settling snapshots) && txInputsAvailable tx rebuilt -> changeCommit RecomputeCommitPhase confirmedLocal
         | otherwise ->
             let next = confirmedLocal{localUTxO = rebuilt}
                 invalid = DecommitInvalid headId tx $ DecommitTxInvalid rebuilt (ValidationError "decommit superseded by confirmed snapshot")
              in if settling snapshots
-                  then output next authorised RefreshCommit (Settling next authorised) (events <> [invalid])
-                  else output next Nothing RefreshCommit (Available next) (events <> [invalid])
+                  then output next authorised RecomputeCommitPhase (Settling next authorised) (events <> [invalid])
+                  else output next Nothing RecomputeCommitPhase (Available next) (events <> [invalid])
     ClearTransactions -> case snapshots.confirmed of
       InitialSnapshot{} -> unchanged local{localUTxO = mempty, localTxs = mempty, allTxs = mempty}
       ConfirmedSnapshot{snapshot} ->
         let next = TransactionState (settledUTxO snapshots.version snapshot) mempty mempty
          in if settling snapshots
-              then output next authorised (SetCommitSelection Nothing) (Settling next authorised) events
-              else output next Nothing (SetCommitSelection Nothing) (Available next) events
+              then output next authorised (SetDepositSelection Nothing) (Settling next authorised) events
+              else output next Nothing (SetDepositSelection Nothing) (Available next) events
     SelectDeposit depositId deposit
       | deposit.headId == headId
       , isNothing reserved
       , finalizedDepositTxId snapshots.finalizedCommit /= Just depositId
       , absorbable requestUTxO (toList $ Seq.take maxTxsPerSnapshot local.localTxs) deposit.deposited ->
-          changeCommit (SelectCommit depositId) local
+          changeCommit (SelectDepositIfUnselected depositId) local
       | otherwise -> unchanged local
-    ReleaseDeposit depositId -> changeCommit (ReleaseCommit depositId) local
+    ReleaseDeposit depositId -> changeCommit (DeselectDeposit depositId) local
     CommitSettled fresh depositId deposited ->
       if fresh
-        then changeCommit (SetCommitSelection Nothing) local{localUTxO = local.localUTxO <> deposited}
-        else changeCommit (ReleaseCommit depositId) local
+        then changeCommit (SetDepositSelection Nothing) local{localUTxO = local.localUTxO <> deposited}
+        else changeCommit (DeselectDeposit depositId) local
     DecommitSettled fresh
-      | fresh -> output local Nothing RefreshCommit (Available local) events
+      | fresh -> output local Nothing RecomputeCommitPhase (Available local) events
       | otherwise -> unchanged local
     ReplayTransaction tx ->
       changed local{localUTxO = applyTxTo tx local.localUTxO, localTxs = local.localTxs Seq.|> tx} $ TransactionAppliedToLocalUTxO headId tx
@@ -150,7 +150,7 @@ machine headId snapshots0 initial initialDecommit = BaseMachineT (withStateInspe
         changed local{localUTxO = after, localTxs = local.localTxs Seq.|> tx} $ TransactionAppliedToLocalUTxO headId tx
       ForgetTransaction utxo tx err -> changed local{allTxs = Map.delete (txId tx) local.allTxs} $ TxInvalid headId utxo tx err
       ReserveDecommit{} ->
-        pureResult (Output owned local reserved KeepCommit [] (Just "a decommit is already pending or awaiting settlement")) (keep local)
+        pureResult (Output owned local reserved CommitUnchanged [] (Just "a decommit is already pending or awaiting settlement")) (keep local)
    where
     snapshots = Snapshots.viewInitial owned
     -- A decommit can depend on a retained transaction. Rebuild first, then
@@ -172,9 +172,9 @@ machine headId snapshots0 initial initialDecommit = BaseMachineT (withStateInspe
     requestUTxO = settledUTxO snapshots.version $ case snapshots.seen of
       SeenSnapshot{snapshot} -> snapshot
       _ -> getSnapshot snapshots.confirmed
-    unchanged = changeCommit KeepCommit
+    unchanged = changeCommit CommitUnchanged
     changeCommit commitUpdate next = output next reserved commitUpdate (keep next) events
-    changed next event = output next reserved KeepCommit (keep next) (events <> [event])
+    changed next event = output next reserved CommitUnchanged (keep next) (events <> [event])
     output :: AllowedTransition DecommitTopology from to => TransactionState tx -> Maybe tx -> CommitUpdate tx -> State tx to -> [StateChanged tx] -> ActionResult m DecommitTopology (State tx) from (Output tx)
     output transactions decommit commitUpdate next retained = pureResult Output{snapshots = owned, transactions, decommit, commitUpdate, events = retained, refusal} next
 

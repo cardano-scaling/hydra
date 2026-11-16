@@ -25,11 +25,13 @@ import Hydra.Tx (IsTx, TxIdType)
 import Hydra.Tx.Snapshot (Snapshot (..), getSnapshot)
 
 data State tx phase where
-  -- | No deposit present.
+  -- | No deposit is selected and no current-version snapshot approves a commit.
   Unselected :: State tx 'NoCommit
-  -- | There's a commit to select and will be included in the next snapshot.
+  -- | A deposit is selected for snapshot processing; approval is still pending.
   Selected :: TxIdType tx -> State tx 'CommitSelected
-  -- | There's a commit in this snapshot, and we might bring it in (or maybe not; it might be recovered.)
+  -- | The current-version confirmed snapshot approves a commit. The optional id
+  -- records the local selection, which can be absent or name another deposit.
+  -- Recovery can prevent settlement while the signed approval is still retained.
   Approved :: Maybe (TxIdType tx) -> State tx 'AwaitingCommitSettlement
 
 data Output tx = Output
@@ -49,17 +51,17 @@ selection = \case
   Selected depositId -> Just depositId
   Approved selected -> selected
 
-machine
-  :: forall tx m
-  . (IsTx tx, Applicative m)
-  => SnapshotState tx
-  -> Maybe (TxIdType tx)
-  -> BaseMachineT m CommitTopology (Transactions.Output tx) (Output tx)
+machine ::
+  forall tx m.
+  (IsTx tx, Applicative m) =>
+  SnapshotState tx ->
+  Maybe (TxIdType tx) ->
+  BaseMachineT m CommitTopology (Transactions.Output tx) (Output tx)
 machine initialSnapshots initialSelection =
   BaseMachineT (withStateInspector (describeOnly (show . statePhase)) initialState) action
  where
   initialState
-    | settling initialSnapshots = InitialState $ Approved initialSelection
+    | hasCurrentCommitApproval initialSnapshots = InitialState $ Approved initialSelection
     | otherwise = maybe (InitialState Unselected) (InitialState . Selected) initialSelection
 
   -- Note: We need to help poor Haskell with type inference here, which is why
@@ -68,16 +70,17 @@ machine initialSnapshots initialSelection =
   --
   -- See also: "Total Type Classes"
   --   * https://spiral.imperial.ac.uk/server/api/core/bitstreams/156e9c88-3021-4886-b222-38f0c10c7857/content
-  action
-      :: State tx from
-      -> Transactions.Output tx
-      -> ActionResult m CommitTopology (State tx) from (Output tx)
+  action ::
+    State tx from ->
+    Transactions.Output tx ->
+    ActionResult m CommitTopology (State tx) from (Output tx)
   action state input = case state of
     Unselected -> update state input
     Selected{} -> update state input
     Approved{} -> update state input
 
   update ::
+    forall from.
     ( AllowedTransition CommitTopology from 'NoCommit
     , AllowedTransition CommitTopology from 'CommitSelected
     , AllowedTransition CommitTopology from 'AwaitingCommitSettlement
@@ -86,23 +89,24 @@ machine initialSnapshots initialSelection =
     Transactions.Output tx ->
     ActionResult m CommitTopology (State tx) from (Output tx)
   update state input = case input.commitUpdate of
-    KeepCommit -> output state
-    RefreshCommit -> restore selected
-    SelectCommit depositId -> restore $ selected <|> Just depositId
-    SetCommitSelection next -> restore next
-    ReleaseCommit depositId -> restore $ mfilter (/= depositId) selected
+    CommitUnchanged -> output state
+    RecomputeCommitPhase -> updatePhase updatedSnapshots currentSelection
+    SelectDepositIfUnselected depositId -> updatePhase updatedSnapshots $ currentSelection <|> Just depositId
+    SetDepositSelection nextSelection -> updatePhase updatedSnapshots nextSelection
+    DeselectDeposit depositId -> updatePhase updatedSnapshots $ mfilter (/= depositId) currentSelection
    where
-    selected = selection state
-    snapshots = Snapshots.viewInitial input.snapshots
-    -- A newer version or a replacement certificate retires signed authority.
+    currentSelection = selection state
+    updatedSnapshots = Snapshots.viewInitial input.snapshots
+    -- A newer version or a replacement certificate retires the signed approval.
     -- A pending selection can survive either, so Approved -> Selected is legal.
-    restore next
-      | settling snapshots = output $ Approved next
-      | otherwise = maybe (output Unselected) (output . Selected) next
+    updatePhase :: SnapshotState tx -> Maybe (TxIdType tx) -> ActionResult m CommitTopology (State tx) from (Output tx)
+    updatePhase snapshots nextSelection
+      | hasCurrentCommitApproval snapshots = output $ Approved nextSelection
+      | otherwise = maybe (output Unselected) (output . Selected) nextSelection
     output :: AllowedTransition CommitTopology from to => State tx to -> ActionResult m CommitTopology (State tx) from (Output tx)
     output next = pureResult (Output input $ selection next) next
 
-settling :: IsTx tx => SnapshotState tx -> Bool
-settling snapshots =
+hasCurrentCommitApproval :: IsTx tx => SnapshotState tx -> Bool
+hasCurrentCommitApproval snapshots =
   let snapshot = getSnapshot snapshots.confirmed
    in snapshot.version == snapshots.version && isJust snapshot.utxoToCommit

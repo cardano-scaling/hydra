@@ -53,12 +53,19 @@ data LedgerUpdate tx
 
 -- | The transaction owner checks whether a deposit fits the local ledger; the
 -- commit owner alone changes the selection and tracks the signed claim's phase.
+-- Every update except 'CommitUnchanged' recomputes the phase from the supplied
+-- confirmed snapshot and head version.
 data CommitUpdate tx
-  = KeepCommit
-  | RefreshCommit
-  | SelectCommit (TxIdType tx)
-  | SetCommitSelection (Maybe (TxIdType tx))
-  | ReleaseCommit (TxIdType tx)
+  = -- | Preserve both the selection and the phase.
+    CommitUnchanged
+  | -- | Preserve the selection and recompute the phase.
+    RecomputeCommitPhase
+  | -- | Select this deposit only when no deposit is selected.
+    SelectDepositIfUnselected (TxIdType tx)
+  | -- | Replace the selection, or clear it with 'Nothing'.
+    SetDepositSelection (Maybe (TxIdType tx))
+  | -- | Clear the selection only if it names this deposit.
+    DeselectDeposit (TxIdType tx)
 
 data SnapshotState tx = SnapshotState
   { version :: SnapshotVersion

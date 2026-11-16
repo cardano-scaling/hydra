@@ -1870,7 +1870,7 @@ progress under arbitrary delivery. Separate integration schedules check 24
 orders of competing ordinary and decommit spends, with serialized replay at
 every delivery. Persisted constructors and their encodings are unchanged.
 
-=== Commit selection and authority
+=== Commit selection and approval
 
 `CommitPhase` distinguishes `NoCommit`, `CommitSelected` and
 `AwaitingCommitSettlement`. A selected deposit is local intent, not spendable
@@ -1879,6 +1879,16 @@ over that selection when determining the phase. Adoption can therefore enter
 `AwaitingCommitSettlement` without a selected deposit, including legacy
 certificates without a deposit identifier. Clearing local state or recovering
 the selected deposit does not erase the certificate.
+
+The commit owner represents these phases as `Unselected`, `Selected` and
+`Approved`. Its `CommitUnchanged` update preserves both selection and phase;
+`RecomputeCommitPhase` preserves the selection and derives the phase from the
+updated confirmed snapshot and head version.
+
+`SelectDepositIfUnselected` fills an absent selection; `SetDepositSelection`
+replaces or clears it; `DeselectDeposit` clears only a matching selection.
+Each of these selection updates also recomputes the phase. Deselecting a deposit
+does not recover funds or erase the snapshot's signed approval.
 
 A fresh increment advances the version, adds the deposited outputs once and
 clears selection. If it arrives before acknowledgement, subsequent confirmation
