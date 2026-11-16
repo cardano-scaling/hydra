@@ -98,6 +98,18 @@ spec = do
     toString (rmDetail rendered) `shouldContain` "Transaction ID: None"
     toString (rmDetail rendered) `shouldContain` toString (prettyTxId depositId)
 
+  it "renders a transaction pruned by policy" $ do
+    now <- getCurrentTime
+    transactionId <- either (failure . show) pure $ deserialiseFromRawBytes AsTxId (BS.replicate 32 2)
+    let headId = UnsafeHeadId (BS.replicate 28 1)
+        rendered = renderMessage now $ ApiClientMessage $ TxPrunedByPolicy headId 7 transactionId (MaxUTxOCountExceeded 21 20)
+    rmSeverity rendered `shouldBe` Error
+    rmTime rendered `shouldBe` now
+    rmSummary rendered `shouldBe` "Transaction pruned by policy"
+    toString (rmDetail rendered) `shouldContain` "Snapshot: 7"
+    toString (rmDetail rendered) `shouldContain` toString (prettyTxId transactionId)
+    toString (rmDetail rendered) `shouldContain` "MaxUTxOCountExceeded"
+
   context "end-to-end smoke tests" $ do
     it "can quit before connected" $
       setupBadHostNodeAndTUI $ \TUITest{sendInputEvent, shouldRender, shouldNotRender} -> do

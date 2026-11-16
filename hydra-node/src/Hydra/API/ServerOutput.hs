@@ -118,6 +118,15 @@ data ClientMessage tx
       , depositTxId :: Maybe (TxIdType tx)
       , policyViolation :: PolicyViolation
       }
+  | -- | A pending transaction no longer satisfies the resulting UTxO policy
+    -- after rebasing on this snapshot. It is removed from local proposals but
+    -- remains available to resolve future snapshot requests.
+    TxPrunedByPolicy
+      { headId :: HeadId
+      , snapshotNumber :: SnapshotNumber
+      , prunedTransactionId :: TxIdType tx
+      , policyViolation :: PolicyViolation
+      }
   deriving stock (Eq, Show, Generic)
 
 instance IsChainState tx => ToJSON (ClientMessage tx) where
@@ -150,6 +159,7 @@ decodeClientMessageBody = \case
   "RejectedInputBecauseBroadcastStalled" -> RejectedInputBecauseBroadcastStalled <$> fromCBOR <*> fromCBOR <*> fromCBOR
   "SideLoadSnapshotRejected" -> SideLoadSnapshotRejected <$> fromCBOR <*> fromCBOR
   "SnapshotRequestRejectedByPolicy" -> SnapshotRequestRejectedByPolicy <$> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR
+  "TxPrunedByPolicy" -> TxPrunedByPolicy <$> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR
   tag -> fail $ show tag <> " is not a proper CBOR-encoded ClientMessage"
 
 -- | A friendly welcome message which tells a client something about the

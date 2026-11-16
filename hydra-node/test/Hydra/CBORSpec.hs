@@ -42,7 +42,7 @@ import Hydra.API.HTTPServer (
   TransactionSubmitted,
  )
 import Hydra.API.ServerOutput (
-  ApiMessage,
+  ApiMessage (..),
   ClientMessage (..),
   DecommitInvalidReason,
   FanoutProgressMode,
@@ -97,7 +97,7 @@ import Test.Hydra.Node.Environment ()
 import Test.Hydra.Node.State ()
 import Test.Hydra.Node.UnsyncedPeriod ()
 import Test.Hydra.Tx.Gen ()
-import Test.QuickCheck (resize, suchThat)
+import Test.QuickCheck (generate, resize, suchThat)
 import Test.QuickCheck.Arbitrary.ADT (ADTArbitrary (..), ConstructorArbitraryPair (..), ToADTArbitrary, toADTArbitrary)
 
 -- * ToADTArbitrary instances for per-constructor golden samples
@@ -188,6 +188,13 @@ spec = parallel $ do
         Right v -> expectationFailure $ "unexpectedly decoded: " <> show v
 
   describe "API types" $ do
+    it "roundtrips policy-pruning notifications through the API codecs" $ do
+      headId <- generate arbitrary
+      transactionId <- generate arbitrary
+      let message = ApiClientMessage (TxPrunedByPolicy headId 7 transactionId (MaxUTxOCountExceeded 5 4)) :: ApiMessage Tx
+      decodeFull' (serialize' message) `shouldBe` Right message
+      Aeson.eitherDecode (Aeson.encode message) `shouldBe` Right message
+
     roundtripCBOR $ Proxy @(ClientInput Tx)
     roundtripCBOR $ Proxy @(ServerOutput Tx)
     roundtripCBOR $ Proxy @(TimedServerOutput Tx)

@@ -441,42 +441,63 @@ spec =
             NetworkEffect AckSn{snapshotNumber = 1} -> True
             _ -> False
 
-        it "retains ledger-valid local transactions during pruning but checks them before proposing or signing" $ do
-          let localTx = SimpleTx 2 mempty (utxoRef 2)
-              policyLedger = withValidation limitUTxO
-              snapshot = testSnapshot 1 0 [tx] (utxoRef 1)
+        it "prunes transactions that exceed policy after rebasing and notifies clients without blocking the next leader" $ do
+          let seed = utxoRefs [1, 2, 3]
+              localGrow = SimpleTx 10 (utxoRef 1) (utxoRefs [4, 5])
+              snapshotGrow = SimpleTx 11 (utxoRef 2) (utxoRefs [6, 7])
+              dependent = SimpleTx 12 (utxoRefs [4, 5]) (utxoRef 8)
+              independent = SimpleTx 13 (utxoRef 3) (utxoRef 9)
+              policyLedger = withValidation (limitOutputs 4)
+              snapshot = testSnapshot 1 0 [snapshotGrow] (utxoRefs [1, 3, 6, 7])
               st =
                 inOpenState' threeParties $
                   coordinatedHeadState
-                    { allTxs = Map.fromList [(txId tx, tx), (txId localTx, localTx)]
-                    , localTxs = Seq.singleton localTx
-                    , localUTxO = utxoRef 2
+                    { confirmedSnapshot = ConfirmedSnapshot (testSnapshot 0 0 [] seed) mempty
+                    , localUTxO = seed
                     }
-          now <- nowFromSlot st.chainPointTime.currentSlot
-          let outcome = update bobEnv policyLedger now st (reqSn [tx])
-          outcome `hasStateChangedSatisfying` \case
-            SnapshotRequested{newLocalTxs} -> newLocalTxs == Seq.singleton localTx
+          (admitted, waiting, dependentAdmitted, independentAdmitted, rebased, afterRebase) <- runHeadLogic bobEnv policyLedger st $ do
+            admitted <- step $ receiveMessage $ ReqTx localGrow
+            waiting <- step $ receiveMessage $ ReqTx snapshotGrow
+            dependentAdmitted <- step $ receiveMessage $ ReqTx dependent
+            independentAdmitted <- step $ receiveMessage $ ReqTx independent
+            rebased <- step $ reqSn [snapshotGrow]
+            afterRebase <- getState
+            pure (admitted, waiting, dependentAdmitted, independentAdmitted, rebased, afterRebase)
+          forM_ [(admitted, localGrow), (dependentAdmitted, dependent), (independentAdmitted, independent)] $ \(outcome, transaction) ->
+            outcome `hasStateChangedSatisfying` \case
+              TransactionAppliedToLocalUTxO{tx = applied} -> applied == transaction
+              _ -> False
+          waiting `assertWait` WaitOnNotApplicableTx (PolicyValidationError $ MaxUTxOCountExceeded 5 4)
+          rebased `hasStateChangedSatisfying` \case
+            SnapshotRequested{newLocalTxs} -> newLocalTxs == Seq.singleton independent
             _ -> False
-          (confirmed, nextRequest) <- runHeadLogic bobEnv policyLedger (aggregateState st outcome) $ do
+          rebased `hasEffectSatisfying` \case
+            ClientEffect message ->
+              toJSON message
+                == object
+                  [ "tag" .= ("TxPrunedByPolicy" :: Text)
+                  , "headId" .= testHeadId
+                  , "snapshotNumber" .= snapshot.number
+                  , "prunedTransactionId" .= txId localGrow
+                  , "policyViolation" .= MaxUTxOCountExceeded 5 4
+                  ]
+            _ -> False
+          case afterRebase.headState of
+            Open OpenState{coordinatedHeadState = chs} -> do
+              chs.localUTxO `shouldBe` utxoRefs [1, 6, 7, 9]
+              -- Keep the transaction available to resolve another leader's request.
+              Map.lookup (txId localGrow) chs.allTxs `shouldBe` Just localGrow
+            _ -> failure "expected an open head"
+          (nextRequest, signed) <- runHeadLogic bobEnv policyLedger afterRebase $ do
             step $ receiveMessageFrom alice $ AckSn (sign aliceSk snapshot) 1
             step $ receiveMessageFrom bob $ AckSn (sign bobSk snapshot) 1
             nextRequest <- step $ receiveMessageFrom carol $ AckSn (sign carolSk snapshot) 1
-            confirmed <- getState
-            pure (confirmed, nextRequest)
-          nextRequest `hasNoEffectSatisfying` \case
-            NetworkEffect ReqSn{} -> True
+            signed <- step $ receiveMessageFrom bob $ ReqSn 0 2 [txId independent] Nothing Nothing
+            pure (nextRequest, signed)
+          nextRequest `hasEffect` NetworkEffect (ReqSn 0 2 [txId independent] Nothing Nothing)
+          signed `hasEffectSatisfying` \case
+            NetworkEffect AckSn{snapshotNumber = 2} -> True
             _ -> False
-          nextRequest
-            `hasEffect` ClientEffect
-              SnapshotRequestRejectedByPolicy
-                { headId = testHeadId
-                , snapshotNumber = 2
-                , transactionId = Just $ txId localTx
-                , depositTxId = Nothing
-                , policyViolation = MaxUTxOCountExceeded 2 1
-                }
-          update bobEnv policyLedger now confirmed (receiveMessageFrom bob $ ReqSn 0 2 [txId localTx] Nothing Nothing)
-            `hasEffect` ClientEffect (SnapshotRequestRejectedByPolicy testHeadId 2 (Just $ txId localTx) Nothing (MaxUTxOCountExceeded 2 1))
 
         forM_ [Nothing, Just limitUTxO] $ \validation -> do
           it ("emits ReqTx for a permitted client transaction with " <> if isNothing validation then "no policy" else "a configured policy") $ do
@@ -857,6 +878,35 @@ spec =
                     outcome `hasStateChangedSatisfying` \case
                       TxInvalid{validationError = PolicyValidationError (MaxUTxOCountExceeded 3 2)} -> True
                       _ -> False
+
+        it "prunes against reserved deposits while excluding outgoing withdrawals from the count" $
+          forM_ ["commit", "decommit"] $ \(settlement :: Text) -> do
+            now <- getCurrentTime
+            let tx = SimpleTx 7 mempty (utxoRef 7)
+                withdrawal = SimpleTx 8 (utxoRef 1) (utxoRefs [2, 3])
+                deposit = Deposit testHeadId (utxoRef 2) (addUTCTime (-7200) now) (addUTCTime 7200 now) Active
+                chs =
+                  coordinatedHeadState
+                    { localUTxO = utxoRefs [1, 7]
+                    , confirmedSnapshot = ConfirmedSnapshot (testSnapshot 0 0 [] (utxoRef 1)) mempty
+                    , localTxs = Seq.singleton tx
+                    , allTxs = Map.singleton (txId tx) tx
+                    }
+                st = (inOpenState' [alice] chs){deposits = trackedFromPending $ if settlement == "commit" then Map.singleton 10 deposit else mempty}
+                request =
+                  if settlement == "commit"
+                    then ReqSn 0 1 [] Nothing (Just 10)
+                    else ReqSn 0 1 [] (Just withdrawal) Nothing
+                outcome = update soloEnv (bounded 2) now st (receiveMessage request)
+            outcome `hasStateChangedSatisfying` \case
+              SnapshotRequested{newLocalTxs} -> newLocalTxs == if settlement == "commit" then mempty else Seq.singleton tx
+              _ -> False
+            if settlement == "commit"
+              then outcome `hasEffect` ClientEffect (TxPrunedByPolicy testHeadId 1 (txId tx) (MaxUTxOCountExceeded 3 2))
+              else
+                outcome `hasNoEffectSatisfying` \case
+                  ClientEffect TxPrunedByPolicy{} -> True
+                  _ -> False
 
         it "uses the snapshot's decommit instead of a competing local decommit" $ do
           now <- getCurrentTime

@@ -424,6 +424,18 @@ renderClientMessage now msg raw = case msg of
       , fld "Policy violation" (show policyViolation)
       ]
       raw
+  TxPrunedByPolicy{headId, snapshotNumber, prunedTransactionId, policyViolation} ->
+    mk
+      Error
+      now
+      "Transaction pruned by policy"
+      [ fld "Head ID" (prettyHeadId headId)
+      , fld "Snapshot" (show snapshotNumber)
+      , fld "Transaction ID" (prettyTxId prunedTransactionId)
+      , fld "Policy violation" (show policyViolation)
+      , "Removed from local proposals after rebasing; other transactions can continue."
+      ]
+      raw
   SideLoadSnapshotRejected{clientInput, requirementFailure} ->
     mk
       Error

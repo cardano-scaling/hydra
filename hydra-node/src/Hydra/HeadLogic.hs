@@ -453,13 +453,17 @@ onOpenNetworkReqSn env ledger pendingDeposits ChainPointTime{currentSlot, curren
                         --
                         -- NOTE: 'SnapshotRequested' rebuilds 'localUTxO' from
                         -- 'nextUTxO', so every kept tx applies there.
-                        let newLocalTxs = pruneTransactions nextUTxO mUtxoToCommit mUtxoToDecommit
+                        let (newLocalTxs, pruned) = pruneTransactions nextUTxO mUtxoToCommit mUtxoToDecommit
                         newState
                           SnapshotRequested
                             { requestedSnapshot = nextSnapshot
                             , newLocalTxs
                             , newCurrentDepositTxId = mDepositTxId
                             }
+                          <> causes
+                            [ ClientEffect ServerOutput.TxPrunedByPolicy{headId, snapshotNumber = sn, prunedTransactionId = txId tx, policyViolation}
+                            | (tx, policyViolation) <- pruned
+                            ]
  where
   requireReqSn continue
     | sn /= seenSn + 1 =
@@ -627,12 +631,12 @@ onOpenNetworkReqSn env ledger pendingDeposits ChainPointTime{currentSlot, curren
         Error $ RequireFailed ReqSnUTxOSetTooLarge{utxoCount, maxAllowed}
       Right () -> continue
 
-  -- \| Filter 'localTxs' to those that still apply against the running UTxO
-  -- after each previous successful tx. The post-snapshot UTxO is not returned:
-  -- aggregate will recompute it.
+  -- \| Keep transactions that still apply and satisfy the resulting UTxO policy.
+  -- A rejected transaction leaves the running UTxO unchanged so independent
+  -- transactions can still proceed. Keep 'allTxs' for resolving future requests.
   pruneTransactions utxo0 mCommit mDecommit = go utxo0 localTxs
    where
-    go _ Seq.Empty = Seq.empty
+    go _ Seq.Empty = (Seq.empty, [])
     go u (tx Seq.:<| rest) =
       -- XXX: We prune transactions on any error, while only some of them are
       -- actually expected.
@@ -643,7 +647,9 @@ onOpenNetworkReqSn env ledger pendingDeposits ChainPointTime{currentSlot, curren
         Right u'
           | namesNoneOf (utxoFromTx tx) (fold mCommit)
           , isRight (checkSnapshotUTxOSize u' mCommit mDecommit) ->
-              tx Seq.<| go u' rest
+              case checkUserUTxO ledger (u' <> fold mCommit, fold mDecommit) of
+                Right () -> first (tx Seq.<|) $ go u' rest
+                Left violation -> second ((tx, violation) :) $ go u rest
           | otherwise -> go u rest
   confSn = case confirmedSnapshot of
     InitialSnapshot{} -> 0
