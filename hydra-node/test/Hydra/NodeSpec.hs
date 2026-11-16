@@ -225,6 +225,9 @@ spec = parallel $ do
           otherHeadId = UnsafeHeadId "other-head"
           opened = HeadOpened (mkHeadParameters testEnvironment) 0 testHeadId testHeadSeed [alice, bob, carol]
           boundEvents = [opened, HeadPolicyBound testHeadId policy]
+          boundOpen = foldl' Head.aggregateNodeState (initNodeState 0) boundEvents
+          boundClosed = Head.aggregateNodeState boundOpen (HeadClosed testHeadId 0 0 initialChainTime)
+          boundPartialFanout = Head.aggregateNodeState boundClosed (HeadPartialFannedOut testHeadId (utxoRefs [1]) (utxoRefs [2]) 1 Head.AutoDrain)
           restart :: Maybe PolicyFingerprint -> [StateChanged SimpleTx] -> IO (NodeState SimpleTx)
           restart configuredPolicy changes = do
             let events = zipWith (\i change -> StateEvent i change initialChainTime) [0 ..] changes
@@ -243,6 +246,48 @@ spec = parallel $ do
         restoredState <- restart (Just policy) boundEvents
         Head.headIdOf (headState restoredState) `shouldBe` Just testHeadId
         headPolicies restoredState `shouldBe` Just (testHeadId, policy)
+
+      it "clears the policy binding when fanout completes" $ do
+        forM_ [boundClosed, boundPartialFanout] $ \bound -> do
+          let completed = Head.aggregateNodeState bound (HeadFannedOut testHeadId mempty 1)
+          Head.headIdOf (headState completed) `shouldBe` Nothing
+          headPolicies completed `shouldBe` Nothing
+
+      it "restarts after fanout and keeps pending deposits recoverable" $ do
+        now <- getCurrentTime
+        let deposited = utxoRefs [42]
+            deadline = addUTCTime 7200 now
+            deposit = Deposit testHeadId deposited now deadline Inactive
+            bound = recordDeposit 0 42 deposit boundClosed
+            fanout = HeadFannedOut testHeadId mempty 1
+            completed = Head.aggregateNodeState bound fanout
+            -- Older checkpoints retain the completed Head's policy binding.
+            oldCheckpoint = Checkpoint completed{headPolicies = Just (testHeadId, policy)}
+        forM_ [[Checkpoint bound, fanout], [Checkpoint completed], [oldCheckpoint]] $ \persisted ->
+          forM_ [Nothing, Just policy, Just otherPolicy] $ \configured -> do
+            restored <- restart configured persisted
+            Head.headIdOf (headState restored) `shouldBe` Nothing
+            headPolicies restored `shouldBe` Nothing
+            pendingDeposits restored `shouldBe` Map.singleton 42 deposit
+            let afterDeadline = addUTCTime 1 deadline
+                synced = Head.aggregateNodeState restored (Head.NodeSynced 7201 afterDeadline 0)
+            Head.update testEnvironment{configuredPolicy = configured} simpleLedger afterDeadline synced (ClientInput $ Recover 42)
+              `hasEffectSatisfying` \case
+                Head.OnChainEffect{postChainTx = RecoverTx{headId, recoverTxId, recoverUTxO}} ->
+                  headId == testHeadId && recoverTxId == 42 && recoverUTxO == deposited
+                _ -> False
+
+      it "keeps the binding while the Head is open, closed, or partially fanned out" $ do
+        Head.aggregateNodeState boundOpen (HeadFannedOut testHeadId mempty 1) `shouldBe` boundOpen
+        forM_ [boundOpen, boundClosed, boundPartialFanout] $ \bound -> do
+          Head.aggregateNodeState bound (HeadFannedOut otherHeadId mempty 1) `shouldBe` bound
+          restored <- restart (Just policy) [Checkpoint bound]
+          headPolicies restored `shouldBe` Just (testHeadId, policy)
+          forM_ [Nothing, Just otherPolicy] $ \configured ->
+            restart configured [Checkpoint bound] `shouldThrow` \case
+              HeadPolicyMismatch boundHeadId expected actual ->
+                boundHeadId == testHeadId && expected == policy && actual == configured
+              _ -> False
 
       forM_ [False, True] $ \checkpoint ->
         it ("recovers a policy-rejected deposit after restart, checkpoint: " <> show checkpoint) $ do

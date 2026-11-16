@@ -3171,6 +3171,9 @@ aggregateNodeState nodeState sc =
                 , chainPointTime = chainPointTimeState{currentSlot = chainStateSlot chainState}
                 , headPolicies = Nothing
                 }
+            HeadFannedOut{}
+              | Idle{} <- st ->
+                  nodeState{headState = st, headPolicies = Nothing}
             DepositRecorded{chainState, headId, depositTxId, deposited, created, deadline} ->
               recordDeposit (chainStateSlot chainState) depositTxId Deposit{headId, deposited, created, deadline, status = Inactive} $
                 nodeState{headState = st}
@@ -3260,7 +3263,10 @@ aggregateNodeState nodeState sc =
             -- 'pendingDeposits' and 'chainPointTime' (and synced constructor),
             -- which the default arm below would otherwise drop on replay.
             Checkpoint checkpointedNodeState ->
-              checkpointedNodeState
+              case headState checkpointedNodeState of
+                -- Older checkpoints can retain the binding after fanout.
+                Idle{} -> checkpointedNodeState{headPolicies = Nothing}
+                _ -> checkpointedNodeState
             HeadPolicyBound{headId, policyFingerprint} ->
               nodeState
                 { headPolicies = Just (headId, policyFingerprint)

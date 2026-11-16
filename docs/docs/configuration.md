@@ -598,6 +598,8 @@ Without a policy file, the node starts normally and does not exchange policy ann
 
 When a Head opens with a policy, the node persists its fingerprint together with the Head ID. Restarting a bound Head requires a policy with the same fingerprint. An unbound Head can restart with or without a policy; supplying one on restart does not create a binding. Older persisted state without policy information is loaded as unbound, so the node cannot enforce a policy requirement from that history.
 
+The binding remains in place while the Head is closed or partially fanned out. Completing fanout clears it, so the idle node can restart with any policy or without one and recover pending deposits. When loading older checkpoints, the node also clears stale bindings from idle Heads.
+
 Use `--policy policy.yaml` to configure additional admission rules. Every participant must use the same policy. For example:
 
 ```yaml
