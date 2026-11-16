@@ -119,7 +119,7 @@ spec = do
 
   describe "complete UTxO policy" $ do
     let unrestricted = UserValidationRules Nothing AllowMinting Nothing Nothing Nothing Nothing Nothing
-        check rules = validateResultingUTxO (cardanoUserValidation rules)
+        check rules utxo = validateResultingUTxO (cardanoUserValidation rules) utxo mempty
         outputs :: [Api.Value] -> IO Api.UTxO
         outputs values = do
           TxOut address _ _ _ <- generate (genTxOut :: Gen (TxOut Api.CtxUTxO))
@@ -153,6 +153,16 @@ spec = do
       check unrestricted{maxUTxOCount = Just 1} utxo `shouldBe` Left (MaxUTxOCountExceeded 2 1)
       ada <- outputs [fromList [(AdaAssetId, Quantity 2000000)]]
       check unrestricted{maxOutputValueAssets = Just 0} ada `shouldBe` Right ()
+
+    it "excludes outgoing outputs only from the UTxO count" $ do
+      policy <- generate arbitrary
+      outgoing <- outputs [assetValue $ AssetId policy (Api.UnsafeAssetName "one"), assetValue $ AssetId policy (Api.UnsafeAssetName "two")]
+      let rules = unrestricted{maxUTxOCount = Just 0}
+      validateResultingUTxO (cardanoUserValidation rules) mempty outgoing `shouldBe` Right ()
+      validateResultingUTxO (cardanoUserValidation rules{maxOutputValueAssets = Just 1}) mempty outgoing
+        `shouldBe` Left (MaxOutputValueAssetsExceeded 2 1)
+      validateResultingUTxO (cardanoUserValidation rules{policyRule = Just $ AllowOnlyPolicies mempty}) mempty outgoing
+        `shouldBe` Left (PolicyAssetsViolation (Set.singleton policy) mempty)
 
     it "checks datums on outputs already held in the UTxO" $ do
       utxo <- outputs [fromList [(AdaAssetId, Quantity 2000000)]]
@@ -194,7 +204,7 @@ prop_validateUserTransactionWith =
   forAll genCase $ \(tx, utxo, rules) ->
     tabulate "Policy rule" [policyCategory (policyRule rules)] $
       tabulate "L2 minting rule" [show (l2MintingRule rules)] $
-        validateUserTransactionWith (cardanoUserValidation rules) utxo tx
+        validateUserTransactionWith (cardanoUserValidation rules) utxo mempty tx
           === expectedResult rules utxo tx
  where
   genCase =
@@ -214,7 +224,7 @@ prop_validateUserTransactionWith =
       ForbidMinting -> checkPolicies Set.empty tx
       AllowMinting -> Right ()
     for_ (maxDatumSize rules) $ \limit -> traverse_ (checkMaxDatumSize limit) (txOuts' tx)
-    validateUserUTxOWith rules utxo
+    validateUserUTxOWith rules utxo mempty
 
 prop_checkMintedAssets :: Property
 prop_checkMintedAssets =

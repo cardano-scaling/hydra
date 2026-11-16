@@ -156,12 +156,12 @@ spec =
         let violation = PolicyMintingViolation mempty mempty
             policyError = PolicyValidationError violation
             allowAll :: UserValidation SimpleTx
-            allowAll = UserValidation (const $ Right ()) (const $ Right ()) (const $ Right ())
+            allowAll = UserValidation (const $ Right ()) (\_ _ -> Right ()) (const $ Right ())
             rejectTransactions = allowAll{validateTransaction = const $ Left violation}
             limitUTxO = limitOutputs 1
             limitOutputs limit =
               allowAll
-                { validateResultingUTxO = \utxo ->
+                { validateResultingUTxO = \utxo _ ->
                     let count = fromIntegral $ Set.size utxo
                      in if count <= limit then Right () else Left $ MaxUTxOCountExceeded count limit
                 }
@@ -197,13 +197,12 @@ spec =
             _ -> False
 
         forM_ ["transaction policy", "UTxO policy"] $ \policyName ->
-          forM_ ["ReqTx", "AckSn", "ReqDec", "Tick", "Increment", "Decrement"] $ \trigger ->
+          forM_ ["ReqTx", "AckSn", "Tick", "Increment", "Decrement"] $ \trigger ->
             it ("suppresses the whole outgoing ReqSn after " <> trigger <> " when the " <> policyName <> " fails") $ do
               now <- getCurrentTime
               let prefixTx = SimpleTx 9 mempty (utxoRef 8)
                   largeTx = SimpleTx 10 mempty (utxoRefs [1, 2])
                   drainTx = SimpleTx 11 (utxoRefs [1, 2, 8]) mempty
-                  decommit = SimpleTx 12 mempty (utxoRef 4)
                   soloEnv = aliceEnv{otherParties = [], participants = [deriveOnChainId alice]}
                   pendingState =
                     coordinatedHeadState
@@ -225,7 +224,6 @@ spec =
                   (st, input) = case trigger of
                     "ReqTx" -> (inOpenState' [alice] pendingState, receiveMessage $ ReqTx drainTx)
                     "AckSn" -> (inOpenState' [alice] pendingState{seenSnapshot = mkSeenSnapshot snapshot mempty}, receiveMessage $ AckSn (sign aliceSk snapshot) 1)
-                    "ReqDec" -> (inOpenState' [alice] pendingState, receiveMessage $ ReqDec decommit)
                     "Tick" -> ((inOpenState' [alice] pendingState){deposits = trackedFromPending $ Map.singleton 9 deposit}, ChainInput $ Tick now 1)
                     "Increment" -> (inOpenState' [alice] pendingState{confirmedSnapshot = ConfirmedSnapshot committing mempty, seenSnapshot = LastSeenSnapshot 1}, observeTx $ OnIncrementTx testHeadId 1 9 1 mempty)
                     _ -> (inOpenState' [alice] pendingState{confirmedSnapshot = ConfirmedSnapshot decommitting mempty, seenSnapshot = LastSeenSnapshot 1}, observeTx $ OnDecrementTx testHeadId 1 (utxoRef 9) 1 mempty)
@@ -245,7 +243,7 @@ spec =
                 ClientEffect SnapshotRequestRejectedByPolicy{headId, snapshotNumber, transactionId, policyViolation} ->
                   headId == testHeadId
                     && snapshotNumber == (if trigger `elem` ["AckSn", "Increment", "Decrement"] then 2 else 1)
-                    && transactionId == Just (txId (if policyName == "UTxO policy" && trigger `elem` ["Increment", "Tick", "ReqDec"] then prefixTx else largeTx))
+                    && transactionId == Just (txId (if policyName == "UTxO policy" && trigger `elem` ["Increment", "Tick"] then prefixTx else largeTx))
                     && if policyName == "UTxO policy"
                       then case policyViolation of
                         MaxUTxOCountExceeded{} -> True
@@ -259,7 +257,6 @@ spec =
               outcome `hasStateChangedSatisfying` \event -> case (trigger, event) of
                 ("ReqTx", TransactionAppliedToLocalUTxO{}) -> True
                 ("AckSn", SnapshotConfirmed{}) -> True
-                ("ReqDec", DecommitRecorded{}) -> True
                 ("Tick", TickObserved{}) -> True
                 ("Increment", CommitFinalized{}) -> True
                 ("Decrement", DecommitFinalized{}) -> True
@@ -316,7 +313,7 @@ spec =
                   , snapshotNumber = 2
                   , transactionId = Just $ txId pendingTx
                   , depositTxId = Nothing
-                  , policyViolation = MaxUTxOCountExceeded (if trigger == "AckSn" then 3 else 2) 1
+                  , policyViolation = MaxUTxOCountExceeded 2 1
                   }
 
         it "waits for the snapshot version before checking its policies" $ do
@@ -752,7 +749,7 @@ spec =
 
       describe "complete snapshot policy" $ do
         let soloEnv = aliceEnv{otherParties = [], participants = [deriveOnChainId alice]}
-            bounded limit = ledger{userValidation = Just $ UserValidation (const $ Right ()) (\u -> let n = fromIntegral $ Set.size u in if n <= limit then Right () else Left $ MaxUTxOCountExceeded n limit) (const $ Right ())}
+            bounded limit = ledger{userValidation = Just $ UserValidation (const $ Right ()) (\u _ -> let n = fromIntegral $ Set.size u in if n <= limit then Right () else Left $ MaxUTxOCountExceeded n limit) (const $ Right ())}
             rejects :: Outcome SimpleTx -> IO ()
             rejects outcome = do
               outcome `hasNoStateChangedSatisfying` \case
@@ -785,21 +782,50 @@ spec =
           now <- getCurrentTime
           rejects $ update soloEnv (bounded 0) now (stateWith $ utxoRef 1) (receiveMessage $ ReqSn 0 1 [] Nothing Nothing)
 
-        it "counts outputs owed by a new decommit" $ do
+        it "excludes withdrawal outputs from the count when admitting and signing a decommit" $ do
           now <- getCurrentTime
           let tx = SimpleTx 7 (utxoRef 1) (utxoRefs [3, 4])
               st = stateWith $ utxoRefs [1, 2]
               request = receiveMessage $ ReqSn 0 1 [] (Just tx) Nothing
-          rejects $ update soloEnv (bounded 2) now st request
-          rejects $ update soloEnv (bounded 2) now st (receiveMessage $ ReqDec tx)
-          update soloEnv (bounded 3) now st request `hasEffectSatisfying` \case
-            NetworkEffect AckSn{} -> True
-            _ -> False
+          forM_ [1, 2] $ \limit -> do
+            update soloEnv (bounded limit) now st (ClientInput $ Decommit tx)
+              `hasEffect` NetworkEffect (ReqDec tx)
+            let recorded = update soloEnv (bounded limit) now st (receiveMessage $ ReqDec tx)
+            recorded `hasStateChangedSatisfying` \case
+              DecommitRecorded{decommitTx} -> decommitTx == tx
+              _ -> False
+            recorded `hasEffect` NetworkEffect (ReqSn 0 1 [] (Just tx) Nothing)
+            update soloEnv (bounded limit) now st request `hasEffectSatisfying` \case
+              NetworkEffect AckSn{} -> True
+              _ -> False
 
-        forM_ ["commit", "decommit"] $ \settlement ->
-          forM_ ["confirmed", "seen", "settled"] $ \phase ->
-            forM_ ["NewTx", "ReqTx"] $ \entryPoint ->
-              it (entryPoint <> " counts " <> phase <> " " <> settlement <> " outputs exactly once") $ do
+        it "keeps processing transactions while a split-output decommit awaits settlement" $ do
+          let withdrawal = SimpleTx 7 (utxoRef 1) (utxoRefs [3, 4])
+              transfer = SimpleTx 8 (utxoRef 2) (utxoRefs [5, 6])
+              st = stateWith $ utxoRefs [1, 2]
+          (received, signed, final) <- runHeadLogic soloEnv (bounded 2) st $ do
+            step $ receiveMessage $ ReqDec withdrawal
+            step $ receiveMessage $ ReqSn 0 1 [] (Just withdrawal) Nothing
+            step $ receiveMessage $ AckSn (sign aliceSk $ withAccumulators (testSnapshot 1 0 [] (utxoRef 2)){utxoToDecommit = Just (utxoRefs [3, 4])}) 1
+            received <- step $ receiveMessage $ ReqTx transfer
+            signed <- step $ receiveMessage $ ReqSn 0 2 [txId transfer] (Just withdrawal) Nothing
+            final <- getState
+            pure (received, signed, final)
+          received `hasStateChangedSatisfying` \case
+            TransactionAppliedToLocalUTxO{tx} -> tx == transfer
+            _ -> False
+          received `hasEffect` NetworkEffect (ReqSn 0 2 [txId transfer] (Just withdrawal) Nothing)
+          signed `hasEffectSatisfying` \case
+            NetworkEffect AckSn{snapshotNumber = 2} -> True
+            _ -> False
+          case final.headState of
+            Open OpenState{coordinatedHeadState = chs} -> chs.localUTxO `shouldBe` utxoRefs [5, 6]
+            _ -> failure "expected an open head"
+
+        it "reserves incoming deposits but excludes withdrawals across settlement phases" $
+          forM_ ["commit", "decommit"] $ \(settlement :: Text) ->
+            forM_ ["confirmed", "seen", "settled"] $ \(phase :: Text) ->
+              forM_ ["NewTx", "ReqTx"] $ \(entryPoint :: Text) -> do
                 now <- getCurrentTime
                 let snapshot =
                       withAccumulators
@@ -819,7 +845,7 @@ spec =
                     st = inOpenState' [alice] chs
                     input = if entryPoint == "NewTx" then ClientInput (NewTx tx) else NetworkInput 0 ReceivedMessage{sender = alice, msg = ReqTx tx}
                     outcome = update soloEnv (bounded 2) now st input
-                if phase == "settled"
+                if phase == "settled" || settlement == "decommit"
                   then
                     if entryPoint == "NewTx"
                       then outcome `hasEffect` NetworkEffect (ReqTx tx)
@@ -845,8 +871,8 @@ spec =
           update soloEnv (bounded 2) now (inOpenState' [alice] chs) (ClientInput $ NewTx tx)
             `hasEffect` NetworkEffect (ReqTx tx)
 
-        forM_ [mempty, utxoRefs [1, 2]] $ \localOutputs ->
-          it ("counts a pending decommit once when its inputs are locally present: " <> show (localOutputs /= mempty)) $ do
+        it "excludes pending withdrawals whether their inputs are still locally present" $
+          forM_ [mempty, utxoRefs [1, 2]] $ \localOutputs -> do
             now <- getCurrentTime
             let chs =
                   coordinatedHeadState
@@ -854,7 +880,7 @@ spec =
                     , decommitTx = Just $ SimpleTx 9 (utxoRefs [1, 2]) (utxoRef 4)
                     }
                 tx = SimpleTx 7 mempty (utxoRef 3)
-            update soloEnv (bounded 2) now (inOpenState' [alice] chs) (ClientInput $ NewTx tx)
+            update soloEnv (bounded 1) now (inOpenState' [alice] chs) (ClientInput $ NewTx tx)
               `hasEffect` NetworkEffect (ReqTx tx)
 
         it "skips a deposit that exceeds the total limit and selects one that fits" $ do
@@ -909,7 +935,7 @@ spec =
                     Just $
                       UserValidation
                         { validateTransaction = const $ Right ()
-                        , validateResultingUTxO = const $ Right ()
+                        , validateResultingUTxO = \_ _ -> Right ()
                         , validateDeposit = \depositId -> if depositId `elem` allowed then Right () else Left violation
                         }
                 }
@@ -6014,6 +6040,61 @@ spec =
               rules <- either failure pure $ parseEither parsePolicyFile $ object ["head-policy" .= fields]
               pure $ cardanoLedger (Just rules) Fixture.defaultGlobals Fixture.defaultLedgerEnv
             soloEnv = aliceEnv{otherParties = [], participants = [deriveOnChainId alice]}
+
+        it "admits split-output withdrawals without counting them and never queues a policy-invalid decommit" $ do
+          (vk, sk) <- generate genKeyPair
+          [withdrawnInput, retainedInput] <- generate $ vectorOf 2 genTxIn
+          let address = mkVkAddress Fixture.testNetworkId vk
+              scriptHash = Cardano.hashScript $ Cardano.SimpleScript $ Cardano.RequireAllOf []
+              scriptAddress = Cardano.makeShelleyAddressInEra Api.shelleyBasedEra Fixture.testNetworkId (Cardano.PaymentCredentialByScript scriptHash) Cardano.NoStakeAddress
+              output :: Api.AddressInEra -> Api.Quantity -> Api.TxOut ctx
+              output addr amount = Api.TxOut addr (Api.valueFromList [(Api.AdaAssetId, amount)]) Api.TxOutDatumNone Api.ReferenceScriptNone
+              seed = forceUTxO $ UTxO.fromList [(withdrawnInput, output address 5000000), (retainedInput, output address 5000000)]
+              withdrawal addr =
+                Api.signShelleyTransaction
+                  (getTxBody $ unsafeBuildTransaction $ Api.defaultTxBodyContent & addTxInsSpending [withdrawnInput] & Api.addTxOuts (replicate 2 $ output addr 2500000))
+                  [Api.WitnessPaymentKey sk]
+              st = openWith seed []
+              invalid :: Outcome Tx -> IO ()
+              invalid outcome =
+                outcome `hasStateChangedSatisfying` \case
+                  DecommitInvalid{decommitInvalidReason = DecommitTxInvalid{validationError = PolicyValidationError ScriptAddressNotAllowed{}}} -> True
+                  _ -> False
+          policyLedger <- ledgerWithPolicy $ object ["max-utxo-count" .= (2 :: Int), "allowed-script-addresses" .= ([] :: [Api.AddressInEra])]
+          now <- nowFromSlot st.chainPointTime.currentSlot
+          forM_ [address, scriptAddress] $ \target -> do
+            let tx = withdrawal target
+                allowed = target == address
+            applyTransactions policyLedger st.chainPointTime.currentSlot seed [tx] `shouldSatisfy` isRight
+            forM_ [ClientInput $ Decommit tx, receiveMessage $ ReqDec tx, receiveMessage $ ReqSn 0 1 [] (Just tx) Nothing] $ \input -> do
+              let outcome = update soloEnv policyLedger now st input
+              if allowed
+                then
+                  outcome `hasEffectSatisfying` \case
+                    NetworkEffect{} -> True
+                    _ -> False
+                else do
+                  outcome `hasNoEffectSatisfying` \case
+                    NetworkEffect{} -> True
+                    _ -> False
+                  outcome `hasNoStateChangedSatisfying` \case
+                    DecommitRecorded{} -> True
+                    SnapshotRequested{} -> True
+                    _ -> False
+                  case input of
+                    ClientInput{} -> invalid outcome
+                    NetworkInput _ ReceivedMessage{msg = ReqDec{}} -> invalid outcome
+                    _ -> outcome `hasEffect` ClientEffect (SnapshotRequestRejectedByPolicy testHeadId 1 Nothing Nothing (ScriptAddressNotAllowed scriptAddress))
+                  let next = aggregateState st outcome
+                  case next.headState of
+                    Open OpenState{coordinatedHeadState = chs} -> do
+                      chs.decommitTx `shouldBe` Nothing
+                      chs.localUTxO `shouldBe` seed
+                    _ -> failure "expected an open head"
+                  update soloEnv policyLedger now next (receiveMessage $ ReqDec $ withdrawal address)
+                    `hasStateChangedSatisfying` \case
+                      DecommitRecorded{} -> True
+                      _ -> False
 
         forM_ [-1, 0, 1] $ \quantity ->
           forM_ ["Decommit", "ReqDec", "ReqSn"] $ \entryPoint ->

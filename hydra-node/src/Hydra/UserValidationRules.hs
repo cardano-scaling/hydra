@@ -178,18 +178,20 @@ data UserValidationRules = UserValidationRules
 -- | Abstract handle around utxo and tx types
 data UserValidation tx = UserValidation
   { validateTransaction :: tx -> Either PolicyViolation ()
-  , validateResultingUTxO :: UTxOType tx -> Either PolicyViolation ()
+  , validateResultingUTxO :: UTxOType tx -> UTxOType tx -> Either PolicyViolation ()
+  -- ^ Active outputs (including reserved deposits), then outgoing decommit outputs.
   , validateDeposit :: TxIdType tx -> Either PolicyViolation ()
   }
 
 validateUserTransactionWith ::
   UserValidation tx ->
   UTxOType tx ->
+  UTxOType tx ->
   tx ->
   Either PolicyViolation ()
-validateUserTransactionWith validation resultingUTxO tx = do
+validateUserTransactionWith validation resultingUTxO decommitted tx = do
   validation.validateTransaction tx
-  validation.validateResultingUTxO resultingUTxO
+  validation.validateResultingUTxO resultingUTxO decommitted
 
 cardanoUserValidation :: UserValidationRules -> UserValidation Tx
 cardanoUserValidation rules =
@@ -213,9 +215,10 @@ preValidateUserTransactionWith rules tx = do
   -- Supplemental datums become hashes in the UTxO, so check their payload here too.
   for_ rules.maxDatumSize $ \limit -> traverse_ (checkMaxDatumSize limit) (txOuts' tx)
 
--- | Check every output the Head holds, including pending settlement outputs.
-validateUserUTxOWith :: UserValidationRules -> UTxO -> Either PolicyViolation ()
-validateUserUTxOWith rules utxo = do
+-- | Bound active outputs and reserved deposits by count. Other rules also check
+-- outgoing decommit outputs until settlement.
+validateUserUTxOWith :: UserValidationRules -> UTxO -> UTxO -> Either PolicyViolation ()
+validateUserUTxOWith rules utxo decommitted = do
   for_ rules.maxUTxOCount $ \limit -> checkMaxUTxOCount limit utxo
   for_ rules.policyRule $ \rule -> do
     let allowed = case rule of
@@ -229,7 +232,7 @@ validateUserUTxOWith rules utxo = do
   for_ rules.maxDatumSize $ \limit -> traverse_ (checkMaxDatumSize limit) outputs
   for_ rules.allowedScriptAddresses $ \allowed -> traverse_ (checkAllowedScriptAddresses allowed) outputs
  where
-  outputs = UTxO.txOutputs utxo
+  outputs = UTxO.txOutputs (utxo <> decommitted)
   assets = outputAssets outputs
 
 checkPolicies :: Set PolicyId -> Tx -> Either PolicyViolation ()

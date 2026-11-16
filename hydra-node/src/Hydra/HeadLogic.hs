@@ -220,7 +220,7 @@ onOpenClientNewTx ::
   tx ->
   Outcome tx
 onOpenClientNewTx ledger OpenState{headId, coordinatedHeadState} tx =
-  case checkUserTransactions ledger (completeLocalUTxO coordinatedHeadState) [tx] of
+  case checkUserTransactions ledger (localPolicyUTxO coordinatedHeadState) [tx] of
     Left (_, violation) ->
       newState TxInvalid{headId, utxo = localUTxO, transaction = tx, validationError = PolicyValidationError violation}
     Right () -> cause . NetworkEffect $ ReqTx tx
@@ -263,7 +263,7 @@ onOpenNetworkReqTx env ledger ChainPointTime{currentSlot, currentChainTime} st t
             & maybeRequestSnapshot (confirmedSn + 1)
  where
   waitApplyTx cont =
-    case checkUserUTxO ledger (applyTxTo tx $ completeLocalUTxO coordinatedHeadState) of
+    case checkUserUTxO ledger (first (applyTxTo tx) $ localPolicyUTxO coordinatedHeadState) of
       Left violation -> notApplicable $ PolicyValidationError violation
       Right () ->
         case applyTransactionsWithoutCollision ledger currentSlot localUTxO [tx] of
@@ -613,7 +613,7 @@ onOpenNetworkReqSn env ledger pendingDeposits ChainPointTime{currentSlot, curren
     , not (absorbable utxo requestedTxs deposited) =
         Error $ RequireFailed ReqSnDepositOutputsHeld{depositTxId}
     | otherwise =
-        withSnapshotPolicy ledger headId sn mDepositTxId (combinedUTxO utxo mUtxoToCommit' mUtxoToDecommit') requestedTxs $
+        withSnapshotPolicy ledger headId sn mDepositTxId (utxo <> fold mUtxoToCommit', fold mUtxoToDecommit') requestedTxs $
           -- Spec: require outputs(Treq) ∩ 𝑈_active = ∅
           case applyTransactionsWithoutCollision ledger currentSlot utxo requestedTxs of
             Left (tx, err) ->
@@ -942,7 +942,11 @@ onOpenClientDecommit headId ledger currentSlot coordinatedHeadState decommitTx =
                   , validationError = err
                   }
             }
-      Right _ -> cont
+      Right _ ->
+        case checkUserUTxO ledger (decommitPolicyUTxO coordinatedHeadState decommitTx) of
+          Left violation ->
+            newState DecommitInvalid{headId, decommitTx, decommitInvalidReason = DecommitTxInvalid{localUTxO, validationError = PolicyValidationError violation}}
+          Right () -> cont
 
   confirmedUTxO = settledUTxO version (getSnapshot confirmedSnapshot)
 
@@ -1010,7 +1014,11 @@ onOpenNetworkReqDec env ledger ttl ChainPointTime{currentSlot, currentChainTime}
         case mExistingDecommitTx of
           Nothing ->
             case applyTransactions currentSlot localUTxO [decommitTx] of
-              Right _ -> cont
+              Right _ ->
+                case checkUserUTxO ledger (decommitPolicyUTxO coordinatedHeadState decommitTx) of
+                  Left violation ->
+                    newState DecommitInvalid{headId, decommitTx, decommitInvalidReason = DecommitTxInvalid{localUTxO, validationError = PolicyValidationError violation}}
+                  Right () -> cont
               Left (_, validationError)
                 | ttl > 0 ->
                     wait $
@@ -2453,12 +2461,12 @@ buildSnapshotRequest ledger utxo localTxs pendingDeposits currentDepositTxId mDe
     absorbable utxo candidates deposited
       && isRight (checkSnapshotUTxOSize requestedUTxO (Just deposited) Nothing)
       && ( ordinaryRequestInvalid
-            || isRight (checkUserTransactions ledger (utxo <> deposited) ordinaryTxs)
+            || isRight (checkUserTransactions ledger (utxo <> deposited, mempty) ordinaryTxs)
          )
 
   -- If the transactions already violate policy, retain the final request
   -- validation so it reports the rejection instead of silently deferring work.
-  ordinaryRequestInvalid = isLeft (checkUserTransactions ledger utxo ordinaryTxs)
+  ordinaryRequestInvalid = isLeft (checkUserTransactions ledger (utxo, mempty) ordinaryTxs)
   ordinaryTxs = requestable Nothing Nothing
   requestedUTxO = foldl' (flip applyTxTo) utxo ordinaryTxs
 
@@ -2528,17 +2536,17 @@ checkUserDeposit :: Ledger tx -> TxIdType tx -> Either PolicyViolation ()
 checkUserDeposit ledger depositTxId =
   for_ ledger.userValidation $ \validation -> validation.validateDeposit depositTxId
 
-checkDepositAdmission :: Ledger tx -> TxIdType tx -> UTxOType tx -> Either PolicyViolation ()
+checkDepositAdmission :: IsTx tx => Ledger tx -> TxIdType tx -> UTxOType tx -> Either PolicyViolation ()
 checkDepositAdmission ledger depositTxId deposited = do
   checkUserDeposit ledger depositTxId
-  checkUserUTxO ledger deposited
+  checkUserUTxO ledger (deposited, mempty)
 
 -- | Deposits allowed by the policy and belonging to this head. Finalized
 -- deposits are handled separately by re-posting their increment.
 scopedDeposits :: IsTx tx => Ledger tx -> OpenState tx -> PendingDeposits tx -> PendingDeposits tx
 scopedDeposits ledger OpenState{headId, coordinatedHeadState = chs} =
   maybe id Map.delete (finalizedDepositTxId chs.finalizedCommit)
-    . Map.filterWithKey (\depositTxId deposit -> isRight (checkUserDeposit ledger depositTxId >> checkUserUTxO ledger (nextRequestUTxO chs <> deposit.deposited)))
+    . Map.filterWithKey (\depositTxId deposit -> isRight (checkUserDeposit ledger depositTxId >> checkUserUTxO ledger (nextRequestUTxO chs <> deposit.deposited, mempty)))
     . depositsForHead headId
 
 -- | What the next request does with a commit the confirmed snapshot claims but
@@ -2705,47 +2713,58 @@ checkUserTransaction :: Ledger tx -> tx -> Either PolicyViolation ()
 checkUserTransaction ledger tx =
   for_ ledger.userValidation $ \validation -> validation.validateTransaction tx
 
--- | Check the complete resulting UTxO after each transaction, or once for an empty list.
-checkUserTransactions :: IsTx tx => Ledger tx -> UTxOType tx -> [tx] -> Either (Maybe tx, PolicyViolation) ()
-checkUserTransactions ledger utxo txs =
+-- | Check each transaction result, or the initial UTxO for an empty list.
+-- The pair separates active outputs and reserved deposits from outgoing outputs.
+checkUserTransactions :: IsTx tx => Ledger tx -> (UTxOType tx, UTxOType tx) -> [tx] -> Either (Maybe tx, PolicyViolation) ()
+checkUserTransactions ledger (utxo, decommitted) txs =
   for_ ledger.userValidation $ \validation ->
     case txs of
-      [] -> first (Nothing,) $ validation.validateResultingUTxO utxo
+      [] -> first (Nothing,) $ validation.validateResultingUTxO utxo decommitted
       _ -> do
         let check current tx = do
               let resulting = applyTxTo tx current
-              first (Just tx,) $ validateUserTransactionWith validation resulting tx
+              first (Just tx,) $ validateUserTransactionWith validation resulting decommitted tx
               pure resulting
         void $ foldlM check utxo txs
 
-checkUserUTxO :: Ledger tx -> UTxOType tx -> Either PolicyViolation ()
-checkUserUTxO ledger utxo =
-  for_ ledger.userValidation $ \validation -> validation.validateResultingUTxO utxo
+checkUserUTxO :: Ledger tx -> (UTxOType tx, UTxOType tx) -> Either PolicyViolation ()
+checkUserUTxO ledger (utxo, decommitted) =
+  for_ ledger.userValidation $ \validation -> validation.validateResultingUTxO utxo decommitted
 
--- | Include outputs still owed by a commit or decommit, without making them spendable.
-completeLocalUTxO :: IsTx tx => CoordinatedHeadState tx -> UTxOType tx
-completeLocalUTxO chs =
-  localWithDecommit <> owed
+-- | Reserve incoming deposits, but exclude outgoing outputs from the count limit.
+-- Other UTxO policies still check the outgoing outputs until settlement.
+localPolicyUTxO :: IsTx tx => CoordinatedHeadState tx -> (UTxOType tx, UTxOType tx)
+localPolicyUTxO chs =
+  (active <> incoming, outgoing)
  where
   snapshot = case chs.seenSnapshot of
     SeenSnapshot{snapshot = seen} -> seen
     _ -> getSnapshot chs.confirmedSnapshot
-  -- A signed decommit takes precedence over a locally queued one.
-  localWithDecommit
-    | chs.version == snapshot.version && isJust snapshot.utxoToDecommit = chs.localUTxO
-    | otherwise = maybe chs.localUTxO (`applyTxTo` chs.localUTxO) chs.decommitTx
-  owed
-    | chs.version == snapshot.version = fold snapshot.utxoToCommit <> fold snapshot.utxoToDecommit
+  incoming
+    | chs.version == snapshot.version = fold snapshot.utxoToCommit
     | otherwise = mempty
+  -- A signed decommit takes precedence over a locally queued one.
+  (active, outgoing)
+    | chs.version == snapshot.version, Just withdrawn <- snapshot.utxoToDecommit = (chs.localUTxO, withdrawn)
+    | Just tx <- chs.decommitTx = (applyTxTo tx chs.localUTxO `withoutUTxO` utxoFromTx tx, utxoFromTx tx)
+    | otherwise = (chs.localUTxO, mempty)
 
--- | A new decommit spends its inputs first. Its outputs remain part of the policy UTxO.
-snapshotRequestUTxO :: IsTx tx => SnapshotVersion -> Snapshot tx -> Maybe tx -> UTxOType tx
+-- | Apply a decommit before admission without making its outputs spendable.
+decommitPolicyUTxO :: IsTx tx => CoordinatedHeadState tx -> tx -> (UTxOType tx, UTxOType tx)
+decommitPolicyUTxO chs tx =
+  (applyTxTo tx active `withoutUTxO` utxoFromTx tx, outgoing <> utxoFromTx tx)
+ where
+  (active, outgoing) = localPolicyUTxO chs
+
+-- | A new decommit spends its inputs first. Its outputs are checked separately.
+snapshotRequestUTxO :: IsTx tx => SnapshotVersion -> Snapshot tx -> Maybe tx -> (UTxOType tx, UTxOType tx)
 snapshotRequestUTxO version snapshot decommit =
   case decommit of
     Just tx
-      | version /= snapshot.version || isNothing snapshot.utxoToDecommit -> applyTxTo tx utxo
-      | otherwise -> utxo <> fold snapshot.utxoToDecommit
-    _ -> utxo
+      | version /= snapshot.version || isNothing snapshot.utxoToDecommit ->
+          (applyTxTo tx utxo `withoutUTxO` utxoFromTx tx, utxoFromTx tx)
+      | otherwise -> (utxo, fold snapshot.utxoToDecommit)
+    _ -> (utxo, mempty)
  where
   utxo = settledUTxO version snapshot
 
@@ -2765,11 +2784,11 @@ withSnapshotRequestPolicy ledger headId sn version snapshot deposits SnapshotReq
       withSnapshotPolicy ledger headId sn requestDepositTxId candidateUTxO requestTxs continue
  where
   candidateUTxO =
-    snapshotRequestUTxO version snapshot requestDecommitTx
-      <> requestedDepositUTxO deposits requestDepositTxId
+    first (<> requestedDepositUTxO deposits requestDepositTxId) $
+      snapshotRequestUTxO version snapshot requestDecommitTx
 
 -- | Refuse to request or sign a snapshot that violates the policy.
-withSnapshotPolicy :: IsTx tx => Ledger tx -> HeadId -> SnapshotNumber -> Maybe (TxIdType tx) -> UTxOType tx -> [tx] -> Outcome tx -> Outcome tx
+withSnapshotPolicy :: IsTx tx => Ledger tx -> HeadId -> SnapshotNumber -> Maybe (TxIdType tx) -> (UTxOType tx, UTxOType tx) -> [tx] -> Outcome tx -> Outcome tx
 withSnapshotPolicy ledger headId snapshotNumber depositTxId utxo txs continue =
   case checkUserTransactions ledger utxo txs of
     Left (tx, policyViolation) -> rejectSnapshotPolicy headId snapshotNumber depositTxId (txId <$> tx) policyViolation
