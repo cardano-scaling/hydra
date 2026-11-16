@@ -65,14 +65,14 @@ machine headId snapshots0 initial initialDecommit = BaseMachineT (withStateInspe
   action :: forall from. State tx from -> SnapshotOutput tx -> ActionResult m DecommitTopology (State tx) from (Output tx)
   action state input = case state of
     Available local -> case input.transactionUpdate of
-      Transaction (ReserveDecommit tx) -> reserve local tx input
-      ReplayDecommit tx -> reserve local tx input
+      RunTransactionCommand (ReserveDecommit tx) -> reserve local tx input
+      ReplayDecommitReservation tx -> reserve local tx input
       _ -> update local Nothing Available input
     Pending local tx -> case input.transactionUpdate of
-      ReplayDecommit recorded -> replayReservation local recorded Pending input
+      ReplayDecommitReservation recorded -> replayReservation local recorded Pending input
       _ -> update local (Just tx) (`Pending` tx) input
     Settling local tx -> case input.transactionUpdate of
-      ReplayDecommit recorded -> replayReservation local recorded (\next -> Settling next . Just) input
+      ReplayDecommitReservation recorded -> replayReservation local recorded (\next -> Settling next . Just) input
       _ -> update local tx (`Settling` tx) input
 
   -- Replay imports retained facts. It cannot supply an unverified live command.
@@ -93,8 +93,8 @@ machine headId snapshots0 initial initialDecommit = BaseMachineT (withStateInspe
 
   update :: (AllowedTransition DecommitTopology from 'NoDecommit, AllowedTransition DecommitTopology from 'AwaitingDecommitSettlement) => TransactionState tx -> Maybe tx -> (TransactionState tx -> State tx from) -> SnapshotOutput tx -> ActionResult m DecommitTopology (State tx) from (Output tx)
   update local reserved keep SnapshotOutput{snapshots = owned, transactionUpdate, events, refusal} = case transactionUpdate of
-    Unchanged -> unchanged local
-    Rebase snapshot txs deposit ->
+    TransactionsUnchanged -> unchanged local
+    RebuildFromSnapshot snapshot txs deposit ->
       let next =
             local
               { localUTxO = reserveInputs $ rebuild snapshot txs
@@ -115,7 +115,7 @@ machine headId snapshots0 initial initialDecommit = BaseMachineT (withStateInspe
              in if settling snapshots
                   then output next authorised RecomputeCommitPhase (Settling next authorised) (events <> [invalid])
                   else output next Nothing RecomputeCommitPhase (Available next) (events <> [invalid])
-    ClearTransactions -> case snapshots.confirmed of
+    ResetTransactionState -> case snapshots.confirmed of
       InitialSnapshot{} -> unchanged local{localUTxO = mempty, localTxs = mempty, allTxs = mempty}
       ConfirmedSnapshot{snapshot} ->
         let next = TransactionState (settledUTxO snapshots.version snapshot) mempty mempty
@@ -136,10 +136,10 @@ machine headId snapshots0 initial initialDecommit = BaseMachineT (withStateInspe
       changeCommit (DeselectDeposit depositId) local
     DecommitSettled VersionAdvanced -> output local Nothing RecomputeCommitPhase (Available local) events
     DecommitSettled VersionNotAdvanced -> unchanged local
-    ReplayTransaction tx ->
+    ReplayTransactionApplication tx ->
       changed local{localUTxO = applyTxTo tx local.localUTxO, localTxs = local.localTxs Seq.|> tx} $ TransactionAppliedToLocalUTxO headId tx
-    ReplayDecommit{} -> unchanged local
-    Transaction command -> case command of
+    ReplayDecommitReservation{} -> unchanged local
+    RunTransactionCommand command -> case command of
       ReceiveTransaction tx ->
         changed local{allTxs = Map.insert (txId tx) tx local.allTxs} $ TransactionReceived tx
       RetainSnapshotDecommit tx

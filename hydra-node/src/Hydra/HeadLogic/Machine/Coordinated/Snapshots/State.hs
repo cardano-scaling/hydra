@@ -94,7 +94,7 @@ request ::
 request state number =
   Update
     (Requested (contextOf state) (seenSnapshotNumber (view state).seen) number)
-    Unchanged
+    TransactionsUnchanged
     [SnapshotRequestDecided number]
 
 accept ::
@@ -108,7 +108,7 @@ accept ::
 accept parties state snapshot txs deposit =
   Update
     (Collecting (contextOf state) (issue parties snapshot) mempty)
-    (Rebase snapshot txs deposit)
+    (RebuildFromSnapshot snapshot txs deposit)
     [SnapshotRequested snapshot txs deposit]
 
 recordSignature ::
@@ -120,7 +120,7 @@ recordSignature ::
 recordSignature (Collecting context candidate signatures) number party signature =
   Update
     (Collecting context candidate (Map.insert party signature signatures))
-    Unchanged
+    TransactionsUnchanged
     [PartySignedSnapshot number party signature]
 
 confirm ::
@@ -161,7 +161,7 @@ clear headId state number =
         ConfirmedSnapshot{} -> Just number
    in Update
         (Idle context $ maybeNumber context.confirmed)
-        ClearTransactions
+        ResetTransactionState
         [LocalStateCleared headId number]
 
 adopt :: IsTx tx => Context tx -> Snapshot tx -> MultiSignature (Snapshot tx) -> Context tx

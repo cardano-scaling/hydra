@@ -595,7 +595,9 @@ settlementReservationRef pending old observed = pending && not (old < observed)
 {-# COMPILE GHC settlementVersionRef as hsSettlementVersionRef #-}
 {-# COMPILE GHC settlementReservationRef as hsSettlementReservationRef #-}
 
--- Rebuilding the optimistic ledger must preserve the pending reservation.
+-- RebuildFromSnapshot reconstructs the optimistic ledger from an already-pruned
+-- transaction sequence. This projection requires it to preserve the pending
+-- reservation; ReplayDecommitReservation restores that recorded reservation.
 reserveRebaseRef : List Nat → List Nat → List Nat
 reserveRebaseRef reserved [] = []
 reserveRebaseRef reserved (input ∷ rest) =

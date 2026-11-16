@@ -41,24 +41,46 @@ data TransactionCommand tx
   | ReserveDecommit tx
 
 -- | Updates for the transaction owner's registry, local ledger and reservation.
--- Only the snapshot owner constructs a 'Rebase'; the transaction owner chooses
--- how to rebuild its UTxO, including any reservation it retains. Selection
--- updates are passed to the commit owner after the transaction owner's checks.
+-- Only the snapshot owner constructs a 'RebuildFromSnapshot'; the transaction
+-- owner chooses how to rebuild its UTxO, including any reservation it retains.
+-- Selection updates are passed to the commit owner after the transaction
+-- owner's checks.
 data TransactionUpdate tx
-  = Unchanged
-  | Transaction (TransactionCommand tx)
-  | Rebase (Snapshot tx) (Seq tx) (Maybe (TxIdType tx))
+  = -- | Preserve transaction and commit state, even if snapshot state changes.
+    TransactionsUnchanged
+  | -- | Execute a command in the transaction owner.
+    RunTransactionCommand (TransactionCommand tx)
+  | -- | Rebuild the local ledger while preserving reserved decommit inputs.
+    -- Arguments: requested snapshot, already-pruned retained transactions in
+    -- application order, and selected deposit identifier. Also replace the
+    -- local transaction sequence, remove the snapshot's transactions from the
+    -- registry and update deposit selection. The snapshot can be unconfirmed.
+    RebuildFromSnapshot (Snapshot tx) (Seq tx) (Maybe (TxIdType tx))
   | -- | Reconcile reservations and commit state after confirmation or adoption.
     ReconcileConfirmedSnapshot
-  | ClearTransactions
+  | -- | Discard the local transaction sequence and registry. With a confirmed
+    -- snapshot, restore its spendable base, clear deposit selection and keep
+    -- only its approved decommit. With an initial snapshot, empty the local
+    -- ledger while leaving selection and reservation unchanged.
+    ResetTransactionState
   | -- | Check whether the deposit fits before attempting selection.
     TrySelectDeposit (TxIdType tx) (Deposit tx)
   | -- | Clear the selection only if it names this deposit.
     ClearDepositSelection (TxIdType tx)
-  | CommitSettled VersionChange (TxIdType tx) ~(UTxOType tx)
-  | DecommitSettled VersionChange
-  | ReplayTransaction tx
-  | ReplayDecommit tx
+  | -- | Apply an observed commit settlement.
+    -- Arguments: version change, deposit identifier and deposited UTxO.
+    -- 'VersionAdvanced' adds the UTxO and clears selection;
+    -- 'VersionNotAdvanced' only clears a matching selection.
+    CommitSettled VersionChange (TxIdType tx) ~(UTxOType tx)
+  | -- | Apply an observed decommit settlement. 'VersionAdvanced' releases the
+    -- reservation; 'VersionNotAdvanced' leaves transaction state unchanged.
+    DecommitSettled VersionChange
+  | -- | Restore a recorded transaction application to the local ledger and
+    -- transaction sequence, without repeating ledger validation.
+    ReplayTransactionApplication tx
+  | -- | Restore a recorded decommit reservation and its effect on the local
+    -- UTxO, without repeating live command admission.
+    ReplayDecommitReservation tx
 
 -- | Whether a settlement observation advances the working snapshot version.
 data VersionChange

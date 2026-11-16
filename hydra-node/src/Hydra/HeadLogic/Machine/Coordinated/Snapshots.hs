@@ -126,9 +126,9 @@ machine headId parties initial =
     ActionResult m SnapshotTopology (State tx) from (SnapshotOutput tx)
   common state = \case
     Transactions command ->
-      output state (Transaction command) []
+      output state (RunTransactionCommand command) []
     RequestSnapshot{} ->
-      output state Unchanged []
+      output state TransactionsUnchanged []
     AcceptSnapshot{} ->
       refuse state "candidate admission requires the next round and no candidate collecting signatures"
     AdoptSnapshot evidence
@@ -216,7 +216,7 @@ machine headId parties initial =
     pureResult
       SnapshotOutput
         { snapshots = InitialState state
-        , transactionUpdate = Unchanged
+        , transactionUpdate = TransactionsUnchanged
         , events = []
         , refusal = Just reason
         }
