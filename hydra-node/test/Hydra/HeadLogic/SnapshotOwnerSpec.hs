@@ -3,6 +3,7 @@
 
 module Hydra.HeadLogic.SnapshotOwnerSpec (spec) where
 
+import Hydra.HeadLogic.Rules.Coordinated qualified as Staging
 import Hydra.Prelude
 import Test.Hydra.HeadLogic.Interpreter (testInterpreterConfig)
 import Test.Hydra.Prelude (Spec, describe, it, shouldBe, shouldSatisfy)
@@ -12,12 +13,12 @@ import Data.Map.Strict qualified as Map
 import Hydra.Agda.OffChainReference qualified as Agda
 import Hydra.HeadLogic.Error (LogicError (AssertionFailed, RequireFailed), RequirementFailure (InvalidMultisignature))
 import Hydra.HeadLogic.Interpreter qualified as Interpreter
-import Hydra.HeadLogic.State.Coordinated qualified as Owner
-import Hydra.HeadLogic.State.Coordinated.Snapshots.Topology (SnapshotPhase, snapshotTopology)
 import Hydra.HeadLogic.Outcome (Outcome (Continue, Error), StateChanged (DecommitFinalized, PartySignedSnapshot, SnapshotConfirmed, SnapshotRequestDecided, SnapshotRequested))
 import Hydra.HeadLogic.Program qualified as Program
 import Hydra.HeadLogic.Snapshot.Verification (verifyCandidate, verifySeenSnapshot)
 import Hydra.HeadLogic.State (CoordinatedHeadState (..), HeadState (Open), OpenState (..), SeenSnapshot (RequestedSnapshot, SeenSnapshot), mkSeenSnapshot)
+import Hydra.HeadLogic.State.Coordinated qualified as Owner
+import Hydra.HeadLogic.State.Coordinated.Snapshots.Topology (SnapshotPhase, snapshotTopology)
 import Hydra.Ledger.Simple (SimpleChainState (SimpleChainState), SimpleTx (..), simpleLedger)
 import Hydra.Network.Message (Message (AckSn), NetworkEvent (ReceivedMessage))
 import Hydra.Node.HeadLogic qualified as Head
@@ -43,46 +44,46 @@ spec = describe "live snapshot ownership" $ do
 
   it "admits the next follower candidate and refuses replacement while collecting" $ do
     let command = Owner.acceptSnapshot snapshot mempty Nothing
-    run (void $ Owner.stage initial command) `shouldBe` Continue [SnapshotRequested snapshot mempty Nothing] []
+    run (void $ Staging.stage initial command) `shouldBe` Continue [SnapshotRequested snapshot mempty Nothing] []
     forM_ [snapshot, different, snapshot{number = 2}] $ \replacement ->
-      run (void $ Owner.stage collecting $ Owner.acceptSnapshot replacement mempty Nothing) `shouldSatisfy` refused
+      run (void $ Staging.stage collecting $ Owner.acceptSnapshot replacement mempty Nothing) `shouldSatisfy` refused
 
   it "refuses a foreign Head, wrong version, skipped round or conflicting request marker" $ do
     forM_ ([snapshot{Snapshot.headId = UnsafeHeadId "other"}, snapshot{Snapshot.version = 1}, snapshot{number = 2}] :: [Snapshot SimpleTx]) $ \invalid ->
-      run (void $ Owner.stage initial $ Owner.acceptSnapshot invalid mempty Nothing) `shouldSatisfy` refused
+      run (void $ Staging.stage initial $ Owner.acceptSnapshot invalid mempty Nothing) `shouldSatisfy` refused
     let requested = Owner.replayEvent mempty (SnapshotRequestDecided 2) initial
-    run (void $ Owner.stage requested $ Owner.acceptSnapshot snapshot mempty Nothing) `shouldSatisfy` refused
+    run (void $ Staging.stage requested $ Owner.acceptSnapshot snapshot mempty Nothing) `shouldSatisfy` refused
 
   it "binds signature recording to candidate content, version and number" $
     forM_ ([different, snapshot{Snapshot.version = 1}, snapshot{number = 2}] :: [Snapshot SimpleTx]) $ \other -> do
       let stale = owned $ owner other
           program = do
-            staged <- Owner.stage collecting $ Owner.recordSignature (owned collecting) alice (sign aliceSk snapshot)
-            void $ Owner.stage staged $ Owner.recordSignature stale bob (sign bobSk other)
+            staged <- Staging.stage collecting $ Owner.recordSignature (owned collecting) alice (sign aliceSk snapshot)
+            void $ Staging.stage staged $ Owner.recordSignature stale bob (sign bobSk other)
       run program `shouldSatisfy` refused
 
   it "refuses a replacement signature and discards the attempt's staged prefix" $ do
     let program :: Program.Program SimpleTx ()
         program = do
-          staged <- Owner.stage collecting $ Owner.recordSignature (owned collecting) alice (sign aliceSk snapshot)
-          void $ Owner.stage staged $ Owner.recordSignature (owned staged) alice (sign aliceSk different)
+          staged <- Staging.stage collecting $ Owner.recordSignature (owned collecting) alice (sign aliceSk snapshot)
+          void $ Staging.stage staged $ Owner.recordSignature (owned staged) alice (sign aliceSk different)
     run program `shouldSatisfy` refused
 
   it "refuses stale confirmation evidence even after staging a current signature" $ do
     let program :: Program.Program SimpleTx ()
         program = do
           evidence <- verifyCandidate (owned $ owner different) (signatures different) >>= either Program.reject pure
-          staged <- Owner.stage collecting $ Owner.recordSignature (owned collecting) alice (sign aliceSk snapshot)
-          void $ Owner.stage staged $ Owner.confirmSnapshot evidence
+          staged <- Staging.stage collecting $ Owner.recordSignature (owned collecting) alice (sign aliceSk snapshot)
+          void $ Staging.stage staged $ Owner.confirmSnapshot evidence
     run program `shouldSatisfy` refused
 
   it "keeps a candidate handle valid when settlement precedes its final acknowledgement" $ do
     let ownedCandidate = owned collecting
         program :: Program.Program SimpleTx ()
         program = do
-          settled <- Owner.stage collecting $ Owner.recordDecommitFinalization (SimpleChainState 2) 1 mempty
+          settled <- Staging.stage collecting $ Owner.recordDecommitFinalization (SimpleChainState 2) 1 mempty
           evidence <- verifyCandidate ownedCandidate (signatures snapshot) >>= either Program.reject pure
-          void $ Owner.stage settled $ Owner.confirmSnapshot evidence
+          void $ Staging.stage settled $ Owner.confirmSnapshot evidence
     run program `shouldSatisfy` \case
       Continue [DecommitFinalized{}, SnapshotConfirmed{}] [] -> True
       _ -> False
@@ -92,13 +93,13 @@ spec = describe "live snapshot ownership" $ do
         program :: Program.Program SimpleTx ()
         program = do
           firstEvidence <- verifyCandidate (owned collecting) (signatures snapshot) >>= either Program.reject pure
-          confirmed <- Owner.stage collecting $ Owner.confirmSnapshot firstEvidence
+          confirmed <- Staging.stage collecting $ Owner.confirmSnapshot firstEvidence
           when (isJust $ Owner.candidate confirmed) $
             Program.reject $
               AssertionFailed "confirmed owner still exposes a candidate"
-          next <- Owner.stage confirmed $ Owner.acceptSnapshot nextSnapshot mempty Nothing
+          next <- Staging.stage confirmed $ Owner.acceptSnapshot nextSnapshot mempty Nothing
           nextEvidence <- verifyCandidate (owned next) (signatures nextSnapshot) >>= either Program.reject pure
-          finished <- Owner.stage next $ Owner.confirmSnapshot nextEvidence
+          finished <- Staging.stage next $ Owner.confirmSnapshot nextEvidence
           when (isJust $ Owner.candidate finished) $
             Program.reject $
               AssertionFailed "second confirmation retains a candidate"
@@ -164,7 +165,7 @@ spec = describe "live snapshot ownership" $ do
                     proof = aggregateInOrder (Map.fromList [(p, sign sk supplied) | (p, sk) <- selected]) (fst <$> selected)
                     program = do
                       verified <- verifyCandidate (owned issuer) proof >>= either Program.reject pure
-                      void $ Owner.stage (if collects then collecting else initial) $ Owner.confirmSnapshot verified
+                      void $ Staging.stage (if collects then collecting else initial) $ Owner.confirmSnapshot verified
                     accepted = case run program of Continue [SnapshotConfirmed{}] [] -> True; _ -> False
                     suppliedIdentity = [if foreignHead then 1 else 0, fromIntegral version, fromIntegral number, if otherContents then 1 else 0]
                 accepted `shouldBe` Agda.candidateConfirmationRef collects [0, 0, 1, 0] suppliedIdentity [0, 1, 2] members

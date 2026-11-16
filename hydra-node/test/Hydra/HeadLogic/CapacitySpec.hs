@@ -17,15 +17,15 @@ import Hydra.HeadLogic.Error (LogicError (RequireFailed, SideLoadSnapshotFailed)
 import Hydra.HeadLogic.Input (Input (ClientInput, NetworkInput))
 import Hydra.HeadLogic.Interpreter qualified as Interpreter
 import Hydra.HeadLogic.Limits (SnapshotLimits (..))
-import Hydra.HeadLogic.State.Coordinated qualified as Coordinated
 import Hydra.HeadLogic.Outcome (Effect (NetworkEffect), Outcome (Continue, Error), StateChanged (DecommitInvalid, DecommitRecorded, SnapshotRequestDecided, SnapshotRequested))
 import Hydra.HeadLogic.Program qualified as Program
 import Hydra.HeadLogic.Rules.Environment (RuleEnvironment (snapshotLimits))
 import Hydra.HeadLogic.Rules.SendSnapshot (sendSnapshot)
+import Hydra.HeadLogic.Rules.Transactions (applyTransactionsWithoutCollision, pruneTransactions)
 import Hydra.HeadLogic.Snapshot.Capacity (checkSnapshotCapacity)
 import Hydra.HeadLogic.Snapshot.Request (DecommitStatus (CarryDecommit, NoDecommit), SettlingCommit (ContinueCommit), nextSnapshotRequest, requestDepositTxId, requestMessage, requestTxs)
-import Hydra.HeadLogic.Rules.Transactions (applyTransactionsWithoutCollision, pruneTransactions)
 import Hydra.HeadLogic.State (CoordinatedHeadState (..), HeadState (Open), OpenState (..), SeenSnapshot (RequestedSnapshot), mkSeenSnapshot)
+import Hydra.HeadLogic.State.Coordinated qualified as Coordinated
 import Hydra.Ledger.Simple (SimpleTx (..), SimpleTxOut (..), simpleLedger)
 import Hydra.Network.Message (Message (AckSn, ReqDec, ReqSn, ReqTx), NetworkEvent (ReceivedMessage))
 import Hydra.Node.HeadLogic (aggregateState, update, updateProgram)
