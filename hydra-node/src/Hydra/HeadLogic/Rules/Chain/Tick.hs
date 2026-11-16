@@ -33,9 +33,9 @@ handleTick :: IsChainState tx => RuleEnvironment -> UTCTime -> PendingDeposits t
 handleTick env now pendingDeposits st chainTime chainPoint syncStatus = do
   change TickObserved{chainPoint, chainTime}
   handleOutOfSync env now chainPoint chainTime syncStatus
-  onChainTick env pendingDeposits chainTime
+  depositsAtTick <- onChainTick env pendingDeposits chainTime
   case st of
-    Open open -> onOpenChainTick env chainTime (scopedDeposits open pendingDeposits) open
+    Open open -> onOpenChainTick env chainTime (scopedDeposits open depositsAtTick) open
     _ | Just ClosedState{contestationDeadline, readyToFanoutSent, headId} <- getClosedState st -> do
       ready <- decide "fanout deadline passed and notification is unsent" (chainTime > contestationDeadline && not readyToFanoutSent)
       when ready $ change HeadIsReadyToFanout{headId}

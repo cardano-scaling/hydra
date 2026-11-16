@@ -2106,3 +2106,38 @@ Replay sequences cover expiry, recovery and rollback of a signed claim; ReqDec
 tests check the settlement-window boundary without a local selection. These
 checks supplement the raw selected-deposit/pending-decommit projection, which
 does not describe signed authority.
+
+
+=== Operation workflows and shared request context
+
+Client fanout validates a selection before recording intent, then posts the
+transaction bound to that same checked plan. Full fanout, subset selection and
+final distribution share the transaction constructor with chain continuation
+and reposting. Observations still record progress independently; passive
+observers do not become drivers, an empty local remainder cannot justify an
+empty final partial-fanout batch, and reposts emit only effects. Current-step correlation still decides whether a
+failed post can revert optimistic intent.
+
+Side-loading checks compatibility before certificate verification, then adopts
+before clearing local work. An identical initial snapshot needs no certificate.
+A failed requirement emits a client refusal and makes no state change. Close and
+contest observations attempt adoption before recording the chain fact, even
+when verification fails. Close compares the pre-adoption confirmed snapshot;
+contest does not post another contest after adopting the observed candidate.
+Settlement deliberately keeps its different order: record finalization first.
+
+Acknowledgement processing confirms the verified candidate, publishes commit or
+decommit approval and its chain effect, then considers another request. Shared
+request contexts assemble the version, snapshot, local transactions, deposits,
+selection and incremental statuses. Each caller retains its scheduling policy:
+ticks may drop expired commits through an empty round; chained requests require
+useful work; `reqDec` broadcasts without retaining a local request marker.
+
+Tick handling computes one effective deposit view for status events and request
+selection. Activation events precede expiry events, each in identifier order.
+A computed inactive status produces no event and preserves a retained active or
+expired status after backwards time movement. `effectiveDepositStatusRef`
+checks this boundary independently; the workflow tests compare it with both the
+returned view and event replay. The status decision itself remains
+`depositStatusRef`. Empty deposits and finalized claims remain excluded from
+new requests by their existing selection rules.

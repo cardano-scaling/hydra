@@ -22,12 +22,15 @@ import Data.Text qualified as Text (
  )
 import Hydra.HeadLogic.Diagrams.TH (compositionSources, machineDiagrams)
 import Hydra.HeadLogic.Outcome (StateChanged (HeadOpened))
+import Hydra.HeadLogic.Rules.Chain.Lifecycle qualified as Lifecycle (workflow)
 import Hydra.HeadLogic.Rules.Chain.Settlement qualified as Settlement (
   workflow,
  )
 import Hydra.HeadLogic.Rules.Client.Decommit qualified as Decommit (
   workflow,
  )
+import Hydra.HeadLogic.Rules.Client.Fanout qualified as Fanout (workflow)
+import Hydra.HeadLogic.Rules.Client.SideLoad qualified as SideLoad (workflow)
 import Hydra.HeadLogic.Rules.Decommit qualified as DecommitAdmission (workflow)
 import Hydra.HeadLogic.Rules.Input qualified as Input (workflow)
 import Hydra.HeadLogic.Rules.Network.AckSn qualified as AckSn (
@@ -114,6 +117,9 @@ primitives =
       , ("Receive a snapshot acknowledgement", 'AckSn.workflow, "Collect a signature for the owned candidate; a complete certificate permits confirmation and continuation.")
       , ("Decommit admission", 'DecommitAdmission.workflow, "Check availability, ledger applicability, nonempty outputs and capacity once. Client and network callers retain distinct refusal and retry policies.")
       , ("Client decommit", 'Decommit.workflow, "Validate a client decommit before broadcasting it. Recording and approval occur later.")
+      , ("Client fanout", 'Fanout.workflow, "Validate a selection, retain its matching intent and post the planned transaction. Chain continuations and reposts do not create new intent.")
+      , ("Side-load a snapshot", 'SideLoad.workflow, "Check compatibility, verify a signed snapshot, adopt and clear local work. Refusals notify the client.")
+      , ("Observe close or contest", 'Lifecycle.workflow, "Attempt adoption, record the observed chain fact even when verification fails, then consider contesting with a newer certificate.")
       , ("Observe incremental settlement", 'Settlement.workflow, "Record the chain observation, reconcile a matching candidate and consider requesting the next snapshot.")
       , ("Head lifecycle", 'Head.machine, "This is the lifecycle of one Head identity. Contest updates a Closed Head's snapshot and deadline while staying Closed. A local fanout request and its cancellation also leave that protocol phase unchanged; only an observed partial distribution enters PartialFanout. Further partial distributions stay there. Full or final partial fanout reaches Finalized, which is terminal and survives checkpoint recovery. Starting a different Head creates a new machine at the node boundary. Named self-loops identify increment, decrement, contest and repeated partial distribution.")
       , ("Snapshot ownership", 'Snapshots.machine, "Normal request processing cannot restart a round while collecting signatures. Confirmation and certificate adoption finish it; administrative side-loading can instead discard the candidate and reset the seen number to the confirmed number. This administrative escape hatch is outside the Agda signing-discipline theorem. Retained-event restoration is separate from both operations.")
@@ -152,7 +158,7 @@ page = do
       , ""
       , "Arrows show permitted transitions, not conditions under which a transition runs. Named self-loops show protocol operations such as increment, decrement, contest and further partial fanout. Primitive diagrams label the meanings of selected edges; the composition renderer shows the same allowed edges without operation labels. Crem also permits staying in the same state everywhere; unlabelled identity edges are omitted. Program guards, ledger checks, early waits and rejections occur inside actions and are not additional arrows. A one-state graph owns mutable data without restricting it to protocol phases."
       , ""
-      , "Workflow stages last for one input. State owners survive across retained events and are reconstructed from persisted data. Deposit recovery and other small handlers compose Program operations directly and have no separate Crem graph."
+      , "Workflow stages last for one input. A validation workflow returns a typed result to its caller; these input-local results are not persisted state. State owners survive across retained events and are reconstructed from persisted data. Deposit recovery and other small handlers compose Program operations directly and have no separate Crem graph."
       , ""
       , "The composition arrows below carry outputs between owners; they are not protocol transitions. The head owner delegates open-state events to the coordinated composition."
       , ""

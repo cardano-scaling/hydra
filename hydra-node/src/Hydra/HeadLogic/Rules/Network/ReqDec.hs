@@ -27,20 +27,17 @@ import Hydra.HeadLogic.Rules.Environment (
  )
 import Hydra.HeadLogic.Rules.SendSnapshot (broadcastSnapshot)
 import Hydra.HeadLogic.Snapshot.Request (
-  buildSnapshotRequest,
-  decommitStatus,
+  buildRequest,
+  currentRequestContext,
   isLeader,
   requestDepositTxId,
-  settlingCommitAtPeriod,
  )
 import Hydra.HeadLogic.State (
   CoordinatedHeadState (
     CoordinatedHeadState,
     confirmedSnapshot,
-    currentDepositTxId,
-    localTxs,
-    seenSnapshot,
-    version
+    decommitTx,
+    seenSnapshot
   ),
   OpenState (OpenState, coordinatedHeadState, headId, parameters),
   snapshotInFlight,
@@ -135,10 +132,10 @@ workflow env ttl ChainPointTime{currentSlot, currentChainTime} pendingDeposits o
     if canRetry then Program.suspend $ WaitOnNotApplicableDecommitTx reason else invalid reason
   selectedDeposit = selectedRequest >>= requestDepositTxId . fst
   selectedRequest =
-    buildSnapshotRequest env.snapshotLimits version previous localTxs pendingDeposits currentDepositTxId (decommitStatus version previous $ Just decommitTx) (settlingCommitAtPeriod env.depositPeriod version currentChainTime pendingDeposits previous)
+    buildRequest env.snapshotLimits $ currentRequestContext env.depositPeriod currentChainTime pendingDeposits coordinatedHeadState{decommitTx = Just decommitTx}
   previous = getSnapshot confirmedSnapshot
   nextSn = previous.number + 1
-  CoordinatedHeadState{confirmedSnapshot, localTxs, version, seenSnapshot, currentDepositTxId} = coordinatedHeadState
+  CoordinatedHeadState{confirmedSnapshot, seenSnapshot} = coordinatedHeadState
   OpenState{headId, parameters, coordinatedHeadState} = openState
 
 -- | Handle one input through the inspectable workflow.

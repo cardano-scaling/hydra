@@ -1,109 +1,79 @@
-{-# LANGUAGE DuplicateRecordFields #-}
-{-# OPTIONS_GHC -Wno-ambiguous-fields #-}
+{-# LANGUAGE UndecidableInstances #-}
 
+-- | Validate a fanout decision, retain the matching intent, then post its step.
 module Hydra.HeadLogic.Rules.Client.Fanout where
 
-import Hydra.API.ClientInput (ClientInput (..))
-import Hydra.API.ServerOutput qualified as ServerOutput (
-  ClientMessage (CommandFailed),
- )
-import Hydra.HeadLogic.Fanout.Outputs (
-  isSubMultisetOf,
-  nullOutputs,
- )
-import Hydra.HeadLogic.Fanout.Selection (
-  NextFanoutStep (FullFanoutStep),
-  computeFullFanoutUTxO,
-  nextFanoutStep,
- )
-import Hydra.HeadLogic.Outcome (Effect (ClientEffect))
-import Hydra.HeadLogic.Program (Program, emit)
-import Hydra.HeadLogic.Rules.Fanout (
-  emitFanoutStep,
-  fanoutStepStateChange,
- )
-import Hydra.HeadLogic.State (
-  ClosedState (
-    ClosedState,
-    confirmedSnapshot,
-    contestationDeadline,
-    headId,
-    headSeed,
-    version
-  ),
-  HeadState (Closed, FanoutProgress),
-  OnChainFanoutDatum (..),
-  PartialFanoutState (
-    PartialFanoutState,
-    confirmedSnapshot,
-    contestationDeadline,
-    fanoutDatum,
-    headId,
-    headSeed,
-    remainingOutputs,
-    version
-  ),
- )
-import Hydra.Prelude
-import Hydra.Tx (IsTx (UTxOType))
+import Crem.Topology (Topology (Topology))
+import Hydra.API.ClientInput qualified as Client
+import Hydra.API.ServerOutput qualified as ServerOutput (ClientMessage (CommandFailed))
+import Hydra.HeadLogic.Fanout.Plan (FanoutPlan, closedSelectionPlan, fullPlan, planChange, planTransaction, remainingSelectionPlan)
+import Hydra.HeadLogic.Outcome (Effect (ClientEffect, OnChainEffect))
+import Hydra.HeadLogic.Program (Program)
+import Hydra.HeadLogic.Program qualified as Program
+import Hydra.HeadLogic.State (ClosedState, HeadState (Closed, FanoutProgress), PartialFanoutState)
+import Hydra.HeadLogic.Workflow (Transition, Workflow, choose, continue, finish, next)
+import Hydra.HeadLogic.Workflow qualified as Workflow
+import Hydra.Prelude hiding (State, state)
+import Hydra.Tx (IsTx, UTxOType)
 
-onClosedClientFanout ::
-  IsTx tx =>
-  ClosedState tx ->
-  Program tx ()
-onClosedClientFanout closedState =
-  -- A plain 'Fanout' is a full fanout by definition, and is only reachable from
-  -- 'Closed'.
-  fanoutStepStateChange headId FullFanoutStep fullUTxO
-    *> emitFanoutStep FullFanoutStep confirmedSnapshot version headSeed contestationDeadline
+data Command tx = Drain (ClosedState tx) | SelectClosed (ClosedState tx) (UTxOType tx) | SelectRemaining (PartialFanoutState tx) (UTxOType tx)
+
+data Stage = ValidateSelection | RecordIntent | PostStep | Finished
+
+type FanoutTopology =
+  'Topology
+    '[ '( 'ValidateSelection, '[ 'RecordIntent, 'Finished])
+     , '( 'RecordIntent, '[ 'PostStep])
+     , '( 'PostStep, '[ 'Finished])
+     ]
+
+deriving stock instance Eq Stage
+deriving stock instance Show Stage
+deriving stock instance Enum Stage
+deriving stock instance Bounded Stage
+
+data State tx phase where
+  Validate :: State tx 'ValidateSelection
+  Record :: FanoutPlan tx -> State tx 'RecordIntent
+  Post :: FanoutPlan tx -> State tx 'PostStep
+  Done :: State tx 'Finished
+
+statePhase :: State tx phase -> Stage
+statePhase = \case
+  Validate -> ValidateSelection
+  Record{} -> RecordIntent
+  Post{} -> PostStep
+  Done -> Finished
+
+workflow :: forall tx. IsTx tx => Command tx -> Workflow tx FanoutTopology ()
+workflow command = Workflow.workflow (show . statePhase) Validate step
  where
-  fullUTxO = computeFullFanoutUTxO closedState
+  step :: State tx from -> Transition tx FanoutTopology (State tx) from ()
+  step = \case
+    Validate -> choose $ do
+      let planned = case command of
+            Drain closed -> Just $ fullPlan closed
+            SelectClosed closed selection -> closedSelectionPlan closed selection
+            SelectRemaining progress selection -> remainingSelectionPlan progress selection
+      void $ Program.decide "fanout selection is valid" (isJust planned)
+      case planned of
+        Just plan -> pure $ next $ Record plan
+        Nothing -> do
+          let (input, headState) = case command of
+                Drain closed -> (Client.Fanout, Closed closed)
+                SelectClosed closed selection -> (Client.PartialFanout selection, Closed closed)
+                SelectRemaining progress selection -> (Client.PartialFanout selection, FanoutProgress progress)
+          Program.emit $ ClientEffect $ ServerOutput.CommandFailed input headState
+          pure $ next Done
+    Record plan -> continue (const $ Post plan) $ Program.change $ planChange plan
+    Post plan -> continue (const Done) $ Program.emit $ OnChainEffect $ planTransaction plan
+    Done -> finish Done ()
 
-  ClosedState{headId, confirmedSnapshot, version, headSeed, contestationDeadline} = closedState
+onClosedClientFanout :: IsTx tx => ClosedState tx -> Program tx ()
+onClosedClientFanout = Workflow.run . workflow . Drain
 
-onClosedClientPartialFanout ::
-  IsTx tx =>
-  ClosedState tx ->
-  UTxOType tx ->
-  Program tx ()
-onClosedClientPartialFanout closedState selection
-  | nullOutputs selection || not (selection `isSubMultisetOf` fullUTxO) =
-      emit . ClientEffect $ ServerOutput.CommandFailed (PartialFanout selection) (Closed closedState)
-  | otherwise =
-      -- A selection covering the whole head becomes a full fanout - what the user
-      -- means by "fan out everything", and the only option for a head holding a
-      -- single UTxO, since a non-final batch has to leave one behind.
-      fanoutStepStateChange headId step fullUTxO
-        *> emitFanoutStep step confirmedSnapshot version headSeed contestationDeadline
- where
-  -- Fresh head: the on-chain datum is still @Closed@.
-  step = nextFanoutStep confirmedSnapshot version selection fullUTxO DatumClosed
+onClosedClientPartialFanout :: IsTx tx => ClosedState tx -> UTxOType tx -> Program tx ()
+onClosedClientPartialFanout closed selection = Workflow.run $ workflow $ SelectClosed closed selection
 
-  fullUTxO = computeFullFanoutUTxO closedState
-  ClosedState{headId, confirmedSnapshot, version, headSeed, contestationDeadline} = closedState
-
--- | Client request to continue a selective partial fanout. Validates the
--- selection against the current 'remainingOutputs' and emits whichever step
--- 'nextFanoutStep' decides on, which is not always a recorded selection: one
--- covering the whole remainder finalizes the head, or, if nothing has been
--- distributed yet, becomes a full fanout that drains it automatically.
---
--- __Transition__: 'PartialFanoutState' → 'PartialFanoutState'
-onPartialFanoutClientPartialFanout ::
-  IsTx tx =>
-  PartialFanoutState tx ->
-  UTxOType tx ->
-  Program tx ()
-onPartialFanoutClientPartialFanout pfs selection
-  | nullOutputs selection || not (selection `isSubMultisetOf` remainingOutputs) =
-      emit . ClientEffect $ ServerOutput.CommandFailed (PartialFanout selection) (FanoutProgress pfs)
-  | otherwise =
-      fanoutStepStateChange headId step remainingOutputs
-        *> emitFanoutStep step confirmedSnapshot version headSeed contestationDeadline
- where
-  -- The on-chain datum is only @FanoutProgress@ once a partial fanout has
-  -- actually landed, regardless of which outputs match our local snapshot.
-  -- A pending request still spends @Closed@, as does its rollback re-post.
-  step = nextFanoutStep confirmedSnapshot version selection remainingOutputs fanoutDatum
-
-  PartialFanoutState{headId, confirmedSnapshot, version, headSeed, contestationDeadline, remainingOutputs, fanoutDatum} = pfs
+onPartialFanoutClientPartialFanout :: IsTx tx => PartialFanoutState tx -> UTxOType tx -> Program tx ()
+onPartialFanoutClientPartialFanout progress selection = Workflow.run $ workflow $ SelectRemaining progress selection

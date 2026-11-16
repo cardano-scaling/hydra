@@ -33,6 +33,7 @@ import Hydra.HeadLogic.InputWorkflowSpec qualified
 import Hydra.HeadLogic.InterpreterSpec qualified
 import Hydra.HeadLogic.LifecycleSpec qualified
 import Hydra.HeadLogic.MachineSpec qualified
+import Hydra.HeadLogic.OperationWorkflowSpec qualified
 import Hydra.HeadLogic.OutcomeSpec qualified
 import Hydra.HeadLogic.ProgramSpec qualified
 import Hydra.HeadLogic.ReplaySpec qualified
@@ -99,6 +100,7 @@ main =
     , testSpec "HeadLogic.Capacity" Hydra.HeadLogic.CapacitySpec.spec
     , testSpec "HeadLogic.Coordinated" Hydra.HeadLogic.CoordinatedSpec.spec
     , testSpec "HeadLogic.Machine" Hydra.HeadLogic.MachineSpec.spec
+    , testSpec "HeadLogic.OperationWorkflow" Hydra.HeadLogic.OperationWorkflowSpec.spec
     , testSpec "HeadLogic.Outcome" Hydra.HeadLogic.OutcomeSpec.spec
     , testSpec "HeadLogic.Interpreter" Hydra.HeadLogic.InterpreterSpec.spec
     , testSpec "HeadLogic.Deposit" Hydra.HeadLogic.DepositSpec.spec

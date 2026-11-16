@@ -50,11 +50,12 @@ import Hydra.HeadLogic.Rules.SendSnapshot (sendSnapshot)
 import Hydra.HeadLogic.Snapshot.Request (
   DecommitStatus (ReadyToDecommit),
   SettlingCommit (ContinueCommit, DropCommit),
-  decommitStatus,
+  buildRequest,
+  contextDecommit,
+  contextSettlingCommit,
+  currentRequestContext,
   isLeader,
-  nextSnapshotRequest,
   requestDepositTxId,
-  settlingCommitAtPeriod,
  )
 import Hydra.HeadLogic.Snapshot.Settlement (finalizedDepositTxId)
 import Hydra.HeadLogic.State (
@@ -62,12 +63,9 @@ import Hydra.HeadLogic.State (
   CoordinatedHeadState (
     CoordinatedHeadState,
     confirmedSnapshot,
-    currentDepositTxId,
     decommitTx,
     finalizedCommit,
-    localTxs,
-    seenSnapshot,
-    version
+    seenSnapshot
   ),
   FinalizedSnapshot (FinalizedSnapshot, snapshot),
   HeadState (..),
@@ -116,11 +114,12 @@ determineNextDepositStatus env pendingDeposits chainTime =
 -- __Transition__: 'AnyState' → 'AnyState'
 --
 -- This is primarily used to track deposits status changes.
-onChainTick :: IsTx tx => RuleEnvironment -> PendingDeposits tx -> UTCTime -> Program tx ()
+onChainTick :: IsTx tx => RuleEnvironment -> PendingDeposits tx -> UTCTime -> Program tx (PendingDeposits tx)
 onChainTick env pendingDeposits chainTime =
-  mkDepositActivated newActive *> mkDepositExpired newExpired
+  mkDepositActivated newActive *> mkDepositExpired newExpired $> (nextActive <> nextExpired <> pendingDeposits)
  where
-  -- XXX: This is a bit messy
+  -- Only activation and expiry produce events. A computed Inactive status
+  -- leaves the retained status intact, including after time moves backwards.
   newActive = Map.difference nextActive pendingActive
 
   newExpired = Map.difference nextExpired pendingExpired
@@ -151,8 +150,8 @@ onOpenChainTick :: forall tx. IsChainState tx => RuleEnvironment -> UTCTime -> P
 onOpenChainTick env chainTime pendingDeposits st
   | snapshotInFlight seenSnapshot || not (isLeader parameters party nextSn) = pure ()
   | otherwise =
-      let settling = settlingCommitAtPeriod env.depositPeriod version chainTime deposits confirmed
-          built = nextSnapshotRequest env.snapshotLimits version confirmed localTxs deposits currentDepositTxId decommit settling
+      let settling = contextSettlingCommit context
+          built = fst <$> buildRequest env.snapshotLimits context
        in case (settling, built) of
             -- The commit is still settling; requests carrying txs continue it.
             (Just (ContinueCommit _), _) -> pure ()
@@ -165,30 +164,23 @@ onOpenChainTick env chainTime pendingDeposits st
               | ReadyToDecommit{} <- decommit -> sendSnapshot (Coordinated.start st) request
             _ -> pure ()
  where
-  decommit = decommitStatus version confirmed decommitTx
-  nextDeposits = determineNextDepositStatus env pendingDeposits chainTime
+  context = currentRequestContext env.depositPeriod chainTime deposits coordinatedHeadState
+  decommit = contextDecommit context
 
-  newActive = Map.filter (\Deposit{status} -> status == Active) nextDeposits
+  -- Statuses already reflect this tick's emitted events. Ignore empty deposits:
+  -- an increment carrying no outputs cannot be posted.
+  deposits = Map.filter (\Deposit{deposited} -> deposited /= mempty) pendingDeposits
 
-  newExpired = Map.filter (\Deposit{status} -> status == Expired) nextDeposits
-
-  -- All deposits, with their status updated to this tick's time. Empty
-  -- deposits are ignored, because an empty increment cannot be posted.
-  deposits = Map.filter (\Deposit{deposited} -> deposited /= mempty) (newActive <> newExpired <> pendingDeposits)
-
-  confirmed@Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
+  Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
 
   nextSn = confirmedSn + 1
 
   RuleEnvironment{party} = env
 
   CoordinatedHeadState
-    { localTxs
-    , confirmedSnapshot
+    { confirmedSnapshot
     , seenSnapshot
-    , version
     , decommitTx
-    , currentDepositTxId
     } = coordinatedHeadState
 
   OpenState{coordinatedHeadState, parameters} = st

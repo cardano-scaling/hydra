@@ -79,6 +79,7 @@ library
     Hydra.HeadLogic.Diagrams
     Hydra.HeadLogic.Error
     Hydra.HeadLogic.Fanout.Outputs
+    Hydra.HeadLogic.Fanout.Plan
     Hydra.HeadLogic.Fanout.Selection
     Hydra.HeadLogic.Input
     Hydra.HeadLogic.Interpreter
@@ -506,6 +507,7 @@ test-suite tests
     Hydra.HeadLogic.InterpreterSpec
     Hydra.HeadLogic.LifecycleSpec
     Hydra.HeadLogic.MachineSpec
+    Hydra.HeadLogic.OperationWorkflowSpec
     Hydra.HeadLogic.OutcomeSpec
     Hydra.HeadLogic.ProgramSpec
     Hydra.HeadLogic.ReplaySpec
