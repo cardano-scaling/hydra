@@ -8,7 +8,13 @@ module Hydra.HeadLogic.Machine.Coordinated.Commits (Output (..), machine) where
 
 import Hydra.Prelude hiding (State, state)
 
-import Crem.BaseMachine (ActionResult, BaseMachineT (..), InitialState (..), pureResult, withStateInspector)
+import Crem.BaseMachine (
+  ActionResult,
+  BaseMachineT (..),
+  InitialState (..),
+  pureResult,
+  withStateInspector,
+ )
 import Crem.StateInspection (describeOnly)
 import Crem.Topology (AllowedTransition)
 import Hydra.HeadLogic.Machine.Coordinated.Snapshots.State qualified as Snapshots
@@ -50,7 +56,16 @@ machine initialSnapshots initialSelection =
     | settling initialSnapshots = InitialState $ Authorised initialSelection
     | otherwise = maybe (InitialState Unselected) (InitialState . Selected) initialSelection
 
-  action :: State tx from -> Transactions.Output tx -> ActionResult m CommitTopology (State tx) from (Output tx)
+  -- Note: We need to help poor Haskell with type inference here, which is why
+  -- this function can't be simply removed even though it's a trivial
+  -- operation.
+  --
+  -- See also: "Total Type Classes"
+  --   * https://spiral.imperial.ac.uk/server/api/core/bitstreams/156e9c88-3021-4886-b222-38f0c10c7857/content
+  action
+      :: State tx from
+      -> Transactions.Output tx
+      -> ActionResult m CommitTopology (State tx) from (Output tx)
   action state input = case state of
     Unselected -> update state input
     Selected{} -> update state input
