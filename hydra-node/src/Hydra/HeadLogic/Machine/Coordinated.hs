@@ -1,8 +1,6 @@
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# OPTIONS_GHC -Wno-ambiguous-fields #-}
 
--- | Compose snapshot coordination and transaction ownership. The command port
--- is separate from persistence; accepted commands produce the existing events.
 module Hydra.HeadLogic.Machine.Coordinated (
   Runtime,
   Command,
@@ -40,9 +38,16 @@ import Hydra.HeadLogic.Machine.Coordinated.Commits qualified as Commits
 import Hydra.HeadLogic.Machine.Coordinated.Snapshots qualified as Snapshots
 import Hydra.HeadLogic.Machine.Coordinated.Snapshots.Replay qualified as Replay
 import Hydra.HeadLogic.Machine.Coordinated.Snapshots.State qualified as State
-import Hydra.HeadLogic.Machine.Coordinated.Transactions (Output (..), TransactionState (..))
+import Hydra.HeadLogic.Machine.Coordinated.Transactions (
+  Output (..),
+  TransactionState (..),
+ )
 import Hydra.HeadLogic.Machine.Coordinated.Transactions qualified as Transactions
-import Hydra.HeadLogic.Machine.Coordinated.Types (Command (..), LocalTransactionCommand (..), SnapshotState (..))
+import Hydra.HeadLogic.Machine.Coordinated.Types (
+  Command (..),
+  LocalTransactionCommand (..),
+  SnapshotState (..),
+ )
 import Hydra.HeadLogic.Outcome (StateChanged (..))
 import Hydra.HeadLogic.Program (Program)
 import Hydra.HeadLogic.Program qualified as Program
@@ -56,10 +61,6 @@ import Hydra.Tx.HeadParameters (HeadParameters (parties))
 import Hydra.Tx.Party (Party (vkey))
 import Hydra.Tx.Snapshot (Snapshot, SnapshotNumber, SnapshotVersion)
 
--- Staging can carry the continuation without reading its persisted projection.
--- Forcing that projection would repeat ledger work just to emit the next event.
--- Recovery reads the projection without running live commands, so constructing
--- the next live composition is also deferred until a command needs it.
 data Runtime tx = Runtime
   { headId :: HeadId
   , parties :: [VerificationKey HydraKey]
@@ -81,20 +82,40 @@ start os =
   parties = vkey <$> os.parameters.parties
   snapshots = restoreSnapshots parties os
 
--- | Inspect the same composition used by live execution, with rendering enabled.
-components :: IsChainState tx => OpenState tx -> StateMachineT Identity (Command tx) (Commits.Output tx)
+components ::
+  IsChainState tx =>
+  OpenState tx ->
+  StateMachineT Identity (Command tx) (Commits.Output tx)
 components os = compose os.headId parties (restoreSnapshots parties os) os.coordinatedHeadState
  where
   parties = vkey <$> os.parameters.parties
 
-compose :: IsChainState tx => HeadId -> [VerificationKey HydraKey] -> InitialState (State.State tx) -> CoordinatedHeadState tx -> StateMachineT Identity (Command tx) (Commits.Output tx)
+compose ::
+  IsChainState tx =>
+  HeadId ->
+  [VerificationKey HydraKey] ->
+  InitialState (State.State tx) ->
+  CoordinatedHeadState tx ->
+  StateMachineT Identity (Command tx) (Commits.Output tx)
 compose headId parties snapshots chs =
   Basic (Snapshots.machine headId parties snapshots)
     `Sequential` Basic (Transactions.machine headId (State.viewInitial snapshots) (transactionState chs) chs.decommitTx)
     `Sequential` Basic (Commits.machine (State.viewInitial snapshots) chs.currentDepositTxId)
 
-restoreSnapshots :: IsChainState tx => [VerificationKey HydraKey] -> OpenState tx -> InitialState (State.State tx)
-restoreSnapshots parties os = State.restore parties $ SnapshotState chs.version (chainStateSlot os.chainState) chs.confirmedSnapshot chs.seenSnapshot chs.finalizedCommit chs.finalizedDecommit
+restoreSnapshots ::
+  IsChainState tx =>
+  [VerificationKey HydraKey] ->
+  OpenState tx ->
+  InitialState (State.State tx)
+restoreSnapshots parties os =
+  State.restore parties $
+    SnapshotState
+      chs.version
+      (chainStateSlot os.chainState)
+      chs.confirmedSnapshot
+      chs.seenSnapshot
+      chs.finalizedCommit
+      chs.finalizedDecommit
  where
   chs = os.coordinatedHeadState
 
@@ -104,8 +125,6 @@ transactionState chs = TransactionState chs.localUTxO chs.localTxs chs.allTxs
 currentState :: Runtime tx -> CoordinatedHeadState tx
 currentState Runtime{coordinatedState} = coordinatedState
 
--- | Obtain the owner's current candidate. Its constructor and cached bytes are
--- inaccessible to rule callers; a restored candidate derives its bytes afresh.
 candidate :: Runtime tx -> Maybe (Candidate tx)
 candidate Runtime{headId, snapshots} = Snapshots.candidate headId snapshots
 
@@ -134,8 +153,6 @@ project Commits.Output{transactions = Output{snapshots = owned, transactions, de
  where
   snapshots = State.viewInitial owned
 
--- | Staging preserves Program's transaction boundary: a later wait retains the
--- prefix; a rejection discards it. The returned continuation is only tentative.
 stage :: Runtime tx -> Command tx -> Program tx (Runtime tx)
 stage runtime command = case advance runtime command of
   Left message -> Program.reject $ AssertionFailed message
@@ -144,13 +161,9 @@ stage runtime command = case advance runtime command of
 receiveTransaction :: tx -> Command tx
 receiveTransaction = Transactions . ReceiveTransaction
 
--- | Keep the accepted request's payload without replacing a local reservation.
--- Confirmation promotes it; the existing TransactionReceived event persists it.
 retainSnapshotDecommit :: tx -> Command tx
 retainSnapshotDecommit = Transactions . RetainSnapshotDecommit
 
--- | The live ledger reply supplies the new UTxO; replay reconstructs it from
--- the existing event. Experimental resolved replay uses the same endpoints.
 applyTransaction :: tx -> UTxOType tx -> UTxOType tx -> Command tx
 applyTransaction tx before after = Transactions $ ApplyValidatedTransaction tx before after
 
@@ -163,13 +176,21 @@ adoptSnapshot = AdoptSnapshot
 clearLocalState :: SnapshotNumber -> Command tx
 clearLocalState = ClearLocalState
 
-recordCommitFinalization :: ChainStateType tx -> SnapshotVersion -> TxIdType tx -> UTxOType tx -> Command tx
+recordCommitFinalization ::
+  ChainStateType tx ->
+  SnapshotVersion ->
+  TxIdType tx ->
+  UTxOType tx ->
+  Command tx
 recordCommitFinalization = RecordCommitFinalization
 
-recordDecommitFinalization :: ChainStateType tx -> SnapshotVersion -> UTxOType tx -> Command tx
+recordDecommitFinalization ::
+  ChainStateType tx ->
+  SnapshotVersion ->
+  UTxOType tx ->
+  Command tx
 recordDecommitFinalization = RecordDecommitFinalization
 
--- | Record a checked decommit as pending and reserve its spending inputs.
 recordDecommit :: tx -> Command tx
 recordDecommit = Transactions . RecordPending
 
@@ -179,17 +200,18 @@ acceptSnapshot = AcceptSnapshot
 recordSignature :: Candidate tx -> Party -> Signature (Snapshot tx) -> Command tx
 recordSignature = RecordSignature
 
--- | The token binds the signatures to the candidate verified by the rule.
 confirmSnapshot :: VerifiedCandidate tx -> Command tx
 confirmSnapshot = ConfirmSnapshot
 
 requestSnapshot :: SnapshotRequest tx -> Command tx
 requestSnapshot = RequestSnapshot
 
--- | Trusted replay adapter. The registry supplies the deposited UTxO before
--- consumption; protocol admission and cryptography have already happened.
--- Replay commands stay private: live rules cannot stage unverified evidence.
-replayEvent :: IsChainState tx => UTxOType tx -> StateChanged tx -> Runtime tx -> Runtime tx
+replayEvent ::
+  IsChainState tx =>
+  UTxOType tx ->
+  StateChanged tx ->
+  Runtime tx ->
+  Runtime tx
 replayEvent deposited event runtime@Runtime{headId, parties, coordinatedState = current, snapshots} =
   case Replay.replay headId parties snapshots deposited event of
     Nothing -> runtime
