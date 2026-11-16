@@ -1,5 +1,3 @@
--- | Internal ports between the snapshot, transaction and commit owners. These
--- ports carry no NodeState and cannot assign another component's fields.
 module Hydra.HeadLogic.Machine.Coordinated.Types where
 
 import Hydra.Prelude
@@ -16,6 +14,7 @@ import Hydra.Tx.Crypto (Signature)
 import Hydra.Tx.Party (Party)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot, Snapshot, SnapshotNumber, SnapshotVersion)
 
+-- | All the things that can occur in relation to a snapshot.
 data Command tx
   = Transactions (LocalTransactionCommand tx)
   | RequestSnapshot (SnapshotRequest tx)
@@ -92,10 +91,14 @@ data VersionChange
   | -- | The observed version is equal to or older than the working version.
     VersionNotAdvanced
 
--- | The transaction owner checks whether a deposit fits the local ledger; the
--- commit owner alone changes the selection and tracks the signed claim's phase.
--- Every update except 'CommitUnchanged' recomputes the phase from the supplied
--- confirmed snapshot and head version.
+-- | Instructions from the transaction owner for updating the commit owner's
+-- selected deposit and commit phase.
+--
+-- 'CommitUnchanged' keeps both as they are. Every other update applies its
+-- selection change (if any), then derives the phase from the resulting selection
+-- and snapshot state. A commit approved by the confirmed snapshot at the current
+-- head version awaits settlement, even without a selected deposit. Otherwise,
+-- a selected deposit awaits approval; no selection means no pending commit.
 data CommitUpdate tx
   = -- | Preserve both the selection and the phase.
     CommitUnchanged
