@@ -25,11 +25,12 @@ import Hydra.Tx (IsTx, TxIdType)
 import Hydra.Tx.Snapshot (Snapshot (..), getSnapshot)
 
 data State tx phase where
+  -- | No deposit present.
   Unselected :: State tx 'NoCommit
+  -- | There's a commit to select and will be included in the next snapshot.
   Selected :: TxIdType tx -> State tx 'CommitSelected
-  -- The selected pointer may be absent after adoption, clearing or recovery,
-  -- or name a different deposit queued while a certificate is outstanding.
-  Authorised :: Maybe (TxIdType tx) -> State tx 'AwaitingCommitSettlement
+  -- | There's a commit in this snapshot, and we might bring it in (or maybe not; it might be recovered.)
+  Approved :: Maybe (TxIdType tx) -> State tx 'AwaitingCommitSettlement
 
 data Output tx = Output
   { transactions :: Transactions.Output tx
@@ -40,20 +41,25 @@ statePhase :: State tx phase -> CommitPhase
 statePhase = \case
   Unselected -> NoCommit
   Selected{} -> CommitSelected
-  Authorised{} -> AwaitingCommitSettlement
+  Approved{} -> AwaitingCommitSettlement
 
 selection :: State tx phase -> Maybe (TxIdType tx)
 selection = \case
   Unselected -> Nothing
   Selected depositId -> Just depositId
-  Authorised selected -> selected
+  Approved selected -> selected
 
-machine :: forall tx m. (IsTx tx, Applicative m) => SnapshotState tx -> Maybe (TxIdType tx) -> BaseMachineT m CommitTopology (Transactions.Output tx) (Output tx)
+machine
+  :: forall tx m
+  . (IsTx tx, Applicative m)
+  => SnapshotState tx
+  -> Maybe (TxIdType tx)
+  -> BaseMachineT m CommitTopology (Transactions.Output tx) (Output tx)
 machine initialSnapshots initialSelection =
   BaseMachineT (withStateInspector (describeOnly (show . statePhase)) initialState) action
  where
   initialState
-    | settling initialSnapshots = InitialState $ Authorised initialSelection
+    | settling initialSnapshots = InitialState $ Approved initialSelection
     | otherwise = maybe (InitialState Unselected) (InitialState . Selected) initialSelection
 
   -- Note: We need to help poor Haskell with type inference here, which is why
@@ -69,7 +75,7 @@ machine initialSnapshots initialSelection =
   action state input = case state of
     Unselected -> update state input
     Selected{} -> update state input
-    Authorised{} -> update state input
+    Approved{} -> update state input
 
   update ::
     ( AllowedTransition CommitTopology from 'NoCommit
@@ -89,9 +95,9 @@ machine initialSnapshots initialSelection =
     selected = selection state
     snapshots = Snapshots.viewInitial input.snapshots
     -- A newer version or a replacement certificate retires signed authority.
-    -- A pending selection can survive either, so Authorised -> Selected is legal.
+    -- A pending selection can survive either, so Approved -> Selected is legal.
     restore next
-      | settling snapshots = output $ Authorised next
+      | settling snapshots = output $ Approved next
       | otherwise = maybe (output Unselected) (output . Selected) next
     output :: AllowedTransition CommitTopology from to => State tx to -> ActionResult m CommitTopology (State tx) from (Output tx)
     output next = pureResult (Output input $ selection next) next
