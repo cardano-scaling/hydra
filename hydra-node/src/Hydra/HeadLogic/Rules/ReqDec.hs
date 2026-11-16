@@ -132,7 +132,7 @@ machine env ttl ChainPointTime{currentSlot, currentChainTime} pendingDeposits op
         invalid DecommitTxInvalid{localUTxO, validationError}
       Right () -> continue (const Record) $ Program.decide "decommit fits local and confirmed capacity" True
     Record -> continue (const Done) $ do
-      void $ Coordinated.stage (Coordinated.start openState) $ Coordinated.reserveDecommit decommitTx
+      void $ Coordinated.stage (Coordinated.start openState) $ Coordinated.recordDecommit decommitTx
       noSnapshot <- Program.decide "no snapshot is in flight" (not $ snapshotInFlight seenSnapshot)
       when noSnapshot $ do
         leader <- Program.decide "this party leads the next snapshot" (isLeader parameters env.party nextSn)

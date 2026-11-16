@@ -1799,13 +1799,19 @@ supplies the snapshot and retained transactions; only the transaction component
 chooses how to reconstruct its UTxO. No component receives a NodeState.
 
 Transaction results carry forward the snapshot owner's events and refusal,
-appending transaction events as needed. Rejecting a live decommit reservation
-while one is pending or awaiting settlement keeps the transaction state,
-emits no events and supplies an explicit refusal.
+appending transaction events as needed. Rejecting an attempt to record a decommit
+while one is pending or awaiting settlement keeps the transaction state, emits
+no events and supplies an explicit refusal.
+
+`LocalTransactionCommand` describes operations on locally tracked transactions,
+including decommit payloads. `RecordPending` records a checked decommit, excludes
+its spending inputs from the local UTxO and produces `DecommitRecorded`.
+`recordDecommit` constructs this command for the ReqDec workflow after its
+validity and capacity checks. Approval and settlement occur later.
 
 `TransactionUpdate` directs changes to the transaction owner's registry, local
 ledger and reservations. `TransactionsUnchanged` preserves transaction and commit
-state even when snapshot state changes. `RunTransactionCommand` executes a
+state even when snapshot state changes. `RunLocalTransactionCommand` executes a
 transaction-owner command. `RebuildFromSnapshot` takes the requested snapshot,
 already-pruned retained transactions in application order and selected deposit
 identifier. It rebuilds the local ledger, preserves reserved decommit inputs,
@@ -1817,7 +1823,7 @@ With a confirmed snapshot, it restores the spendable base, clears deposit
 selection and keeps only the snapshot's approved decommit. With an initial
 snapshot, it empties the local ledger while leaving selection and reservation
 unchanged. `ReplayTransactionApplication` restores a recorded ledger application;
-`ReplayDecommitReservation` restores a recorded reservation and its ledger effect.
+`ReplayPendingDecommit` restores a recorded pending decommit and its ledger effect.
 These replay updates trust retained events and do not repeat live validation.
 
 `ReconcileConfirmedSnapshot` reconciles reservations

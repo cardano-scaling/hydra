@@ -12,7 +12,7 @@ module Hydra.HeadLogic.Machine.Coordinated (
   step,
   currentState,
   stage,
-  reserveDecommit,
+  recordDecommit,
   acceptSnapshot,
   recordSignature,
   confirmSnapshot,
@@ -42,7 +42,7 @@ import Hydra.HeadLogic.Machine.Coordinated.Snapshots.Replay qualified as Replay
 import Hydra.HeadLogic.Machine.Coordinated.Snapshots.State qualified as State
 import Hydra.HeadLogic.Machine.Coordinated.Transactions (Output (..), TransactionState (..))
 import Hydra.HeadLogic.Machine.Coordinated.Transactions qualified as Transactions
-import Hydra.HeadLogic.Machine.Coordinated.Types (Command (..), SnapshotState (..), TransactionCommand (..))
+import Hydra.HeadLogic.Machine.Coordinated.Types (Command (..), LocalTransactionCommand (..), SnapshotState (..))
 import Hydra.HeadLogic.Outcome (StateChanged (..))
 import Hydra.HeadLogic.Program (Program)
 import Hydra.HeadLogic.Program qualified as Program
@@ -156,8 +156,9 @@ recordCommitFinalization = RecordCommitFinalization
 recordDecommitFinalization :: ChainStateType tx -> SnapshotVersion -> UTxOType tx -> Command tx
 recordDecommitFinalization = RecordDecommitFinalization
 
-reserveDecommit :: tx -> Command tx
-reserveDecommit = Transactions . ReserveDecommit
+-- | Record a checked decommit as pending and reserve its spending inputs.
+recordDecommit :: tx -> Command tx
+recordDecommit = Transactions . RecordPending
 
 acceptSnapshot :: Snapshot tx -> Seq tx -> Maybe (TxIdType tx) -> Command tx
 acceptSnapshot = AcceptSnapshot

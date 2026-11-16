@@ -1544,7 +1544,7 @@ data T_DecommitPhase'7580'_674
 -- Hydra.Protocol.OffChainReference.DecommitTransitionᶜ
 d_DecommitTransition'7580'_682 a0 a1 = ()
 data T_DecommitTransition'7580'_682
-  = C_unchanged'7496'_686 | C_reserve'7496'_688 |
+  = C_unchanged'7496'_686 | C_recordPending'7496'_688 |
     C_invalidate'7496'_690 | C_confirm'7496'_692 | C_adopt'7496'_694 |
     C_settle'7496'_696
 -- Hydra.Protocol.OffChainReference.ImpossibleDecommitTransition

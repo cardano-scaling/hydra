@@ -23,8 +23,8 @@ import Hydra.HeadLogic.Machine.Coordinated.Snapshots.State qualified as Snapshot
 import Hydra.HeadLogic.Machine.Coordinated.Topology (DecommitPhase (..), DecommitTopology)
 import Hydra.HeadLogic.Machine.Coordinated.Types (
   CommitUpdate (..),
+  LocalTransactionCommand (..),
   SnapshotState (..),
-  TransactionCommand (..),
   TransactionUpdate (..),
   VersionChange (..),
  )
@@ -91,24 +91,24 @@ machine headId snapshots0 initial initialDecommit =
     ActionResult m DecommitTopology (State tx) from (Output tx)
   action state input = case state of
     Available local -> case input.transactionUpdate of
-      RunTransactionCommand (ReserveDecommit tx) -> reserve local tx input
-      ReplayDecommitReservation tx -> reserve local tx input
+      RunLocalTransactionCommand (RecordPending tx) -> recordPending local tx input
+      ReplayPendingDecommit tx -> recordPending local tx input
       _ -> update local Nothing Available input
     Pending local tx -> case input.transactionUpdate of
-      ReplayDecommitReservation recorded -> replayReservation local recorded Pending input
+      ReplayPendingDecommit recorded -> replayPending local recorded Pending input
       _ -> update local (Just tx) (`Pending` tx) input
     Settling local tx -> case input.transactionUpdate of
-      ReplayDecommitReservation recorded ->
-        replayReservation local recorded (\next -> Settling next . Just) input
+      ReplayPendingDecommit recorded ->
+        replayPending local recorded (\next -> Settling next . Just) input
       _ -> update local tx (`Settling` tx) input
 
-  replayReservation ::
+  replayPending ::
     TransactionState tx ->
     tx ->
     (TransactionState tx -> tx -> State tx from) ->
     SnapshotOutput tx ->
     ActionResult m DecommitTopology (State tx) from (Output tx)
-  replayReservation local tx keep input =
+  replayPending local tx keep input =
     let next = reserveUTxO local tx
      in output
           input.snapshots
@@ -122,12 +122,12 @@ machine headId snapshots0 initial initialDecommit =
   reserveUTxO :: TransactionState tx -> tx -> TransactionState tx
   reserveUTxO local tx = local{localUTxO = applyTxTo tx local.localUTxO `withoutUTxO` utxoFromTx tx}
 
-  reserve ::
+  recordPending ::
     TransactionState tx ->
     tx ->
     SnapshotOutput tx ->
     ActionResult m DecommitTopology (State tx) 'NoDecommit (Output tx)
-  reserve local tx input =
+  recordPending local tx input =
     let next = reserveUTxO local tx
      in output
           input.snapshots
@@ -212,8 +212,8 @@ machine headId snapshots0 initial initialDecommit =
       DecommitSettled VersionNotAdvanced -> unchanged local
       ReplayTransactionApplication tx ->
         changed local{localUTxO = applyTxTo tx local.localUTxO, localTxs = local.localTxs Seq.|> tx} $ TransactionAppliedToLocalUTxO headId tx
-      ReplayDecommitReservation{} -> unchanged local
-      RunTransactionCommand command -> case command of
+      ReplayPendingDecommit{} -> unchanged local
+      RunLocalTransactionCommand command -> case command of
         ReceiveTransaction tx ->
           changed local{allTxs = Map.insert (txId tx) tx local.allTxs} $ TransactionReceived tx
         RetainSnapshotDecommit tx
@@ -223,7 +223,7 @@ machine headId snapshots0 initial initialDecommit =
           changed local{localUTxO = after, localTxs = local.localTxs Seq.|> tx} $ TransactionAppliedToLocalUTxO headId tx
         MarkTransactionInvalid utxo tx err ->
           changed local{allTxs = Map.delete (txId tx) local.allTxs} $ TxInvalid headId utxo tx err
-        ReserveDecommit{} ->
+        RecordPending{} ->
           output owned (Just "a decommit is already pending or awaiting settlement") local reserved CommitUnchanged (keep local) []
    where
     snapshots = Snapshots.viewInitial owned
