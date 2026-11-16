@@ -80,7 +80,7 @@ spec = describe "live snapshot ownership" $ do
     let ownedCandidate = owned collecting
         program :: Program.Program SimpleTx ()
         program = do
-          settled <- Owner.stage collecting $ Owner.settleDecommit (SimpleChainState 2) 1 mempty
+          settled <- Owner.stage collecting $ Owner.recordDecommitFinalization (SimpleChainState 2) 1 mempty
           evidence <- verifyCandidate ownedCandidate (signatures snapshot) >>= either Program.reject pure
           void $ Owner.stage settled $ Owner.confirmSnapshot evidence
     run program `shouldSatisfy` \case

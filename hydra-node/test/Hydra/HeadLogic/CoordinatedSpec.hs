@@ -141,7 +141,7 @@ spec = describe "coordinated state owners" $ do
     forM_ [(old, new, pending) | old <- [0 .. 3], new <- [0 .. 3], pending <- [False, True]] $ \(old, new, pending) -> do
       let tx = SimpleTx 3 (utxoRef 1) (utxoRef 4)
           runtime = Coordinated.start open{coordinatedHeadState = open.coordinatedHeadState{version = fromInteger old, decommitTx = tx <$ guard pending}}
-          (_, next) = Coordinated.step runtime $ Coordinated.settleDecommit (SimpleChainState 3) (fromInteger new) (utxoRef 4)
+          (_, next) = Coordinated.step runtime $ Coordinated.recordDecommitFinalization (SimpleChainState 3) (fromInteger new) (utxoRef 4)
           actual = Coordinated.currentState next
       toInteger actual.version `shouldBe` Agda.settlementVersionRef old new
       isJust actual.decommitTx `shouldBe` Agda.settlementReservationRef pending old new
@@ -245,7 +245,7 @@ spec = describe "coordinated state owners" $ do
         stage :: Coordinated.Runtime SimpleTx -> Outcome SimpleTx
         stage target = Interpreter.runProgram (testInterpreterConfig simpleLedger) (void $ Coordinated.stage target command)
     stage runtime `shouldSatisfy` \case Error AssertionFailed{} -> True; _ -> False
-    let (_, settled) = Coordinated.step runtime $ Coordinated.settleDecommit (SimpleChainState 3) 1 (utxoRef 10)
+    let (_, settled) = Coordinated.step runtime $ Coordinated.recordDecommitFinalization (SimpleChainState 3) 1 (utxoRef 10)
     stage settled `shouldSatisfy` \case Continue [DecommitRecorded{}] [] -> True; _ -> False
 
   it "compares confirmation disposition with Agda over bounded input sets" $
