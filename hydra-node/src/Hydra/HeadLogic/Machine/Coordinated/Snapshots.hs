@@ -37,8 +37,9 @@ import Hydra.HeadLogic.Machine.Coordinated.Topology (
  )
 import Hydra.HeadLogic.Machine.Coordinated.Types (
   Command (..),
-  LedgerUpdate (..),
   SnapshotState (seen),
+  TransactionUpdate (..),
+  VersionChange (..),
  )
 import Hydra.HeadLogic.Outcome (StateChanged (..))
 import Hydra.HeadLogic.Rules.SnapshotRequest (requestMatches, requestNumber)
@@ -140,14 +141,14 @@ machine headId parties initial =
     ActivateDeposit depositId chainTime deposit ->
       output
         state
-        (SelectDeposit depositId deposit)
+        (TrySelectDeposit depositId deposit)
         [DepositActivated depositId chainTime deposit]
-    RecoverDeposit chainState observedHead depositId recovered ->
+    RecordDepositRecovery chainState observedHead depositId recovered ->
       output
         state
-        (ReleaseDeposit depositId)
+        (ClearDepositSelection depositId)
         [DepositRecovered chainState observedHead depositId recovered]
-    SettleCommit chainState newVersion depositId deposited ->
+    RecordCommitFinalization chainState newVersion depositId deposited ->
       let slot = chainStateSlot chainState
           commit = retainFinalizedCommit slot depositId context.confirmed context.finalizedCommit
           updated = context{chainSlot = slot, finalizedCommit = commit}
@@ -155,9 +156,9 @@ machine headId parties initial =
             state
             updated
             newVersion
-            (CommitSettled (newVersion > context.version) depositId deposited)
+            (CommitSettled (versionChange newVersion) depositId deposited)
             [CommitFinalized chainState headId newVersion depositId]
-    SettleDecommit chainState newVersion distributed ->
+    RecordDecommitFinalization chainState newVersion distributed ->
       let slot = chainStateSlot chainState
           commit = retainFinalizedDecommit slot newVersion context.confirmed context.finalizedDecommit
           updated = context{chainSlot = slot, finalizedDecommit = commit}
@@ -165,30 +166,33 @@ machine headId parties initial =
             state
             updated
             newVersion
-            (DecommitSettled $ newVersion > context.version)
+            (DecommitSettled $ versionChange newVersion)
             [DecommitFinalized{chainState, headId, newVersion, distributedUTxO = distributed}]
     RecordSignature{} -> refuse state "signature recording requires a candidate collecting signatures"
     ConfirmSnapshot{} -> refuse state "confirmation requires a candidate collecting signatures"
    where
     context = contextOf state
+    versionChange newVersion
+      | newVersion > context.version = VersionAdvanced
+      | otherwise = VersionNotAdvanced
 
   settle ::
     AllowedTransition SnapshotTopology from 'AwaitingRequest =>
     State tx from ->
     Context tx ->
     SnapshotVersion ->
-    LedgerUpdate tx ->
+    TransactionUpdate tx ->
     [StateChanged tx] ->
     ActionResult m SnapshotTopology (State tx) from (SnapshotOutput tx)
-  settle state context newVersion ledger events
-    | newVersion <= context.version = output (withContext context state) ledger events
+  settle state context newVersion transactionUpdate events
+    | newVersion <= context.version = output (withContext context state) transactionUpdate events
     | otherwise =
         let updated :: Context tx
             updated = context{version = newVersion}
          in case state of
               Collecting _ owned signatures ->
-                output (Collecting updated owned signatures) ledger events
-              _ -> output (Idle updated $ Just (getSnapshot context.confirmed).number) ledger events
+                output (Collecting updated owned signatures) transactionUpdate events
+              _ -> output (Idle updated $ Just (getSnapshot context.confirmed).number) transactionUpdate events
 
   transition ::
     AllowedTransition SnapshotTopology from to =>
@@ -199,10 +203,10 @@ machine headId parties initial =
   output ::
     AllowedTransition SnapshotTopology from to =>
     State tx to ->
-    LedgerUpdate tx ->
+    TransactionUpdate tx ->
     [StateChanged tx] ->
     ActionResult m SnapshotTopology (State tx) from (SnapshotOutput tx)
-  output updated ledger events = transition $ Update updated ledger events
+  output updated transactionUpdate events = transition $ Update updated transactionUpdate events
 
   refuse ::
     State tx from ->
@@ -212,7 +216,7 @@ machine headId parties initial =
     pureResult
       SnapshotOutput
         { snapshots = InitialState state
-        , ledgerUpdate = Unchanged
+        , transactionUpdate = Unchanged
         , events = []
         , refusal = Just reason
         }

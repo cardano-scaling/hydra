@@ -1,5 +1,5 @@
--- | Internal ports between the snapshot and transaction owners. Neither port
--- carries a NodeState or permits assigning another component's fields.
+-- | Internal ports between the snapshot, transaction and commit owners. These
+-- ports carry no NodeState and cannot assign another component's fields.
 module Hydra.HeadLogic.Machine.Coordinated.Types where
 
 import Hydra.Prelude
@@ -25,31 +25,46 @@ data Command tx
   | AdoptSnapshot (VerifiedSnapshot tx)
   | ClearLocalState SnapshotNumber
   | ActivateDeposit (TxIdType tx) UTCTime (Deposit tx)
-  | RecoverDeposit (ChainStateType tx) HeadId (TxIdType tx) ~(UTxOType tx)
-  | SettleCommit (ChainStateType tx) SnapshotVersion (TxIdType tx) ~(UTxOType tx)
-  | SettleDecommit (ChainStateType tx) SnapshotVersion ~(UTxOType tx)
+  | -- | Record a deposit recovery observed on-chain.
+    RecordDepositRecovery (ChainStateType tx) HeadId (TxIdType tx) ~(UTxOType tx)
+  | -- | Record an observed increment that finalizes a commit.
+    RecordCommitFinalization (ChainStateType tx) SnapshotVersion (TxIdType tx) ~(UTxOType tx)
+  | -- | Record an observed decrement that finalizes a decommit.
+    RecordDecommitFinalization (ChainStateType tx) SnapshotVersion ~(UTxOType tx)
 
 data TransactionCommand tx
   = ReceiveTransaction tx
   | RetainSnapshotDecommit tx
   | ApplyValidatedTransaction tx ~(UTxOType tx) ~(UTxOType tx)
-  | ForgetTransaction (UTxOType tx) tx ValidationError
+  | -- | Report invalidity and remove the transaction from the registry.
+    MarkTransactionInvalid (UTxOType tx) tx ValidationError
   | ReserveDecommit tx
 
--- | Only the snapshot owner constructs a Rebase. The transaction owner chooses
--- how to rebuild its UTxO, including any reservation it retains.
-data LedgerUpdate tx
+-- | Updates for the transaction owner's registry, local ledger and reservation.
+-- Only the snapshot owner constructs a 'Rebase'; the transaction owner chooses
+-- how to rebuild its UTxO, including any reservation it retains. Selection
+-- updates are passed to the commit owner after the transaction owner's checks.
+data TransactionUpdate tx
   = Unchanged
   | Transaction (TransactionCommand tx)
   | Rebase (Snapshot tx) (Seq tx) (Maybe (TxIdType tx))
-  | ConfirmTransactions
+  | -- | Reconcile reservations and commit state after confirmation or adoption.
+    ReconcileConfirmedSnapshot
   | ClearTransactions
-  | SelectDeposit (TxIdType tx) (Deposit tx)
-  | ReleaseDeposit (TxIdType tx)
-  | CommitSettled Bool (TxIdType tx) ~(UTxOType tx)
-  | DecommitSettled Bool
+  | -- | Check whether the deposit fits before attempting selection.
+    TrySelectDeposit (TxIdType tx) (Deposit tx)
+  | -- | Clear the selection only if it names this deposit.
+    ClearDepositSelection (TxIdType tx)
+  | CommitSettled VersionChange (TxIdType tx) ~(UTxOType tx)
+  | DecommitSettled VersionChange
   | ReplayTransaction tx
   | ReplayDecommit tx
+
+-- | Whether a settlement observation advances the working snapshot version.
+data VersionChange
+  = VersionAdvanced
+  | -- | The observed version is equal to or older than the working version.
+    VersionNotAdvanced
 
 -- | The transaction owner checks whether a deposit fits the local ledger; the
 -- commit owner alone changes the selection and tracks the signed claim's phase.

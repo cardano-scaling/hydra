@@ -42,7 +42,7 @@ spec = describe "commit ownership phases" $ do
       owned <- maybe (fail "missing candidate") pure $ Coordinated.candidate accepted
       evidence <- verifyOnly (verifyCandidate owned $ aggregate [sign aliceSk snapshot]) >>= either (fail . show) pure
       let confirm = Coordinated.confirmSnapshot evidence
-          settle = Coordinated.settleCommit (SimpleChainState 3) 1 7 deposited
+          settle = Coordinated.recordCommitFinalization (SimpleChainState 3) 1 7 deposited
           ending
             | settleFirst = [(settle, Nothing, "NoCommit", deposited), (confirm, Nothing, "NoCommit", deposited)]
             | otherwise = [(confirm, Just 7, "AwaitingCommitSettlement", mempty), (settle, Nothing, "NoCommit", deposited)]
@@ -62,7 +62,7 @@ spec = describe "commit ownership phases" $ do
       [ (Coordinated.adoptSnapshot evidence, Nothing, "AwaitingCommitSettlement", mempty)
       , (Coordinated.clearLocalState 1, Nothing, "AwaitingCommitSettlement", mempty)
       , (Coordinated.applyTransaction tx mempty (utxoRef 100), Nothing, "AwaitingCommitSettlement", utxoRef 100)
-      , (Coordinated.settleCommit (SimpleChainState 3) 1 7 deposited, Nothing, "NoCommit", deposited <> utxoRef 100)
+      , (Coordinated.recordCommitFinalization (SimpleChainState 3) 1 7 deposited, Nothing, "NoCommit", deposited <> utxoRef 100)
       ]
 
   it "retires a dropped claim only when the replacement snapshot is confirmed" $ do
@@ -82,17 +82,17 @@ spec = describe "commit ownership phases" $ do
 
   it "retires old commit authority on a newer decrement while preserving selection" $ do
     let before = open{coordinatedHeadState = open.coordinatedHeadState{currentDepositTxId = Just 8, confirmedSnapshot = ConfirmedSnapshot snapshot mempty}}
-    checkSteps before [(Coordinated.settleDecommit (SimpleChainState 3) 1 (utxoRef 9), Just 8, "CommitSelected", mempty)]
+    checkSteps before [(Coordinated.recordDecommitFinalization (SimpleChainState 3) 1 (utxoRef 9), Just 8, "CommitSelected", mempty)]
 
   it "preserves a newer selection on duplicate and older increment observations" $ do
     let before = open{coordinatedHeadState = open.coordinatedHeadState{currentDepositTxId = Just 7, confirmedSnapshot = ConfirmedSnapshot snapshot mempty, seenSnapshot = LastSeenSnapshot 1}}
         proposal = withAccumulators $ (testSnapshot 2 1 [] deposited){utxoToCommit = Just (utxoRef 8), depositTxId = Just 8}
     checkSteps
       before
-      [ (Coordinated.settleCommit (SimpleChainState 3) 1 7 deposited, Nothing, "NoCommit", deposited)
+      [ (Coordinated.recordCommitFinalization (SimpleChainState 3) 1 7 deposited, Nothing, "NoCommit", deposited)
       , (Coordinated.acceptSnapshot proposal mempty (Just 8), Just 8, "CommitSelected", deposited)
-      , (Coordinated.settleCommit (SimpleChainState 4) 1 7 deposited, Just 8, "CommitSelected", deposited)
-      , (Coordinated.settleCommit (SimpleChainState 2) 0 7 deposited, Just 8, "CommitSelected", deposited)
+      , (Coordinated.recordCommitFinalization (SimpleChainState 4) 1 7 deposited, Just 8, "CommitSelected", deposited)
+      , (Coordinated.recordCommitFinalization (SimpleChainState 2) 0 7 deposited, Just 8, "CommitSelected", deposited)
       ]
 
   it "does not force the transaction ledger to advance or inspect commit selection" $ do

@@ -17,8 +17,8 @@ import Hydra.HeadLogic.Machine.Coordinated.Snapshots.State (
 import Hydra.HeadLogic.Machine.Coordinated.Snapshots.State qualified as State
 import Hydra.HeadLogic.Machine.Coordinated.Types (
   Command (..),
-  LedgerUpdate (..),
   TransactionCommand (..),
+  TransactionUpdate (..),
  )
 import Hydra.HeadLogic.Outcome (StateChanged (..))
 import Hydra.Tx (HeadId, UTxOType)
@@ -63,17 +63,17 @@ replay headId parties initial deposited event = withInitialState initial $ \stat
     TransactionReceived tx ->
       Just $ live $ Transactions $ ReceiveTransaction tx
     TxInvalid{utxo, transaction = tx, validationError = err} ->
-      Just $ live $ Transactions $ ForgetTransaction utxo tx err
+      Just $ live $ Transactions $ MarkTransactionInvalid utxo tx err
     LocalStateCleared{snapshotNumber = number} ->
       Just $ live $ ClearLocalState number
     DepositActivated depositId chainTime deposit ->
       Just $ live $ ActivateDeposit depositId chainTime deposit
     DepositRecovered chainState observedHead depositId recovered ->
-      Just $ live $ RecoverDeposit chainState observedHead depositId recovered
+      Just $ live $ RecordDepositRecovery chainState observedHead depositId recovered
     CommitFinalized{chainState, newVersion, depositTxId} ->
-      Just $ live $ SettleCommit chainState newVersion depositTxId deposited
+      Just $ live $ RecordCommitFinalization chainState newVersion depositTxId deposited
     DecommitFinalized{chainState, newVersion, distributedUTxO} ->
-      Just $ live $ SettleDecommit chainState newVersion distributedUTxO
+      Just $ live $ RecordDecommitFinalization chainState newVersion distributedUTxO
     -- The registry owns recording and expiry. Expiry does not discard a signed
     -- claim: its increment may still land before recovery consumes the deposit.
     DepositRecorded{} -> Nothing

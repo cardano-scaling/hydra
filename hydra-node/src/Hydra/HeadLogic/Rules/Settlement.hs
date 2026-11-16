@@ -93,8 +93,8 @@ machine env pendingDeposits os@OpenState{parameters, coordinatedHeadState} newCh
   step :: State tx from -> Transition tx SettlementTopology (State tx) from
   step = \case
     Record -> continue Candidate $ Coordinated.stage (Coordinated.start os) $ case settlement of
-      Increment depositId -> Coordinated.settleCommit newChainState newVersion depositId (maybe mempty (.deposited) $ Map.lookup depositId pendingDeposits)
-      Decrement distributed -> Coordinated.settleDecommit newChainState newVersion distributed
+      Increment depositId -> Coordinated.recordCommitFinalization newChainState newVersion depositId (maybe mempty (.deposited) $ Map.lookup depositId pendingDeposits)
+      Decrement distributed -> Coordinated.recordDecommitFinalization newChainState newVersion distributed
     Candidate runtime -> case seenSnapshot of
       SeenSnapshot{snapshot}
         | snapshot.number == observedNumber
