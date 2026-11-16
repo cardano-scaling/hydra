@@ -9,7 +9,6 @@ import Hydra.Agda.OffChainReference qualified as Agda
 import Hydra.HeadLogic.Interpreter qualified as Interpreter
 import Hydra.HeadLogic.Rules.Network.ReqDec qualified as ReqDec
 import Hydra.HeadLogic.Trace qualified as Trace
-import Hydra.HeadLogic.Workflow qualified as Workflow
 import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Ledger.Simple (SimpleTx (..), simpleLedger)
 import Hydra.Network.Message (Message (..))

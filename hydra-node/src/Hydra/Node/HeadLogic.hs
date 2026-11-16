@@ -12,12 +12,12 @@ import Hydra.HeadLogic
 import Hydra.HeadLogic.Cardano (cardanoSnapshotLimits)
 import Hydra.HeadLogic.Interpreter qualified as Interpreter
 import Hydra.HeadLogic.Rules.Chain.Fanout qualified as ChainFanout
-import Hydra.HeadLogic.Rules.Client.Decommit qualified as Decommit
-import Hydra.HeadLogic.Rules.Fanout qualified as Fanout
-import Hydra.HeadLogic.Rules.Client.Recover qualified as Recover
 import Hydra.HeadLogic.Rules.Chain.Rollback qualified as Repost
-import Hydra.HeadLogic.Rules.Network.ReqDec qualified as ReqDec
 import Hydra.HeadLogic.Rules.Chain.Settlement qualified as Settlement
+import Hydra.HeadLogic.Rules.Client.Decommit qualified as Decommit
+import Hydra.HeadLogic.Rules.Client.Recover qualified as Recover
+import Hydra.HeadLogic.Rules.Fanout qualified as Fanout
+import Hydra.HeadLogic.Rules.Network.ReqDec qualified as ReqDec
 import Hydra.Ledger (Ledger)
 import Hydra.Node.Environment (Environment)
 import Hydra.Node.HeadLogic.Configuration

@@ -35,6 +35,9 @@ import Hydra.HeadLogic.Program (Program)
 import Hydra.HeadLogic.Rules.Client (openFinalizedDeposit)
 import Hydra.HeadLogic.Rules.Environment (RuleEnvironment)
 import Hydra.HeadLogic.Rules.Input qualified as Input
+import Hydra.HeadLogic.Rules.Network.AckSn qualified as AckSn
+import Hydra.HeadLogic.Rules.Network.ReqSn qualified as ReqSn
+import Hydra.HeadLogic.Rules.Network.ReqTx qualified as ReqTx
 import Hydra.HeadLogic.Rules.Transactions (applyTransactionsProgram, applyTransactionsWithoutCollision, checkTransactionOutputs)
 import Hydra.HeadLogic.Snapshot.Request (SettlingCommit (..), SnapshotRequest, buildSnapshotRequest, chainedSnapshotRequest, existingDeposit, isLeader, maxTxsPerSnapshot, nextActiveDepositId, nextSnapshotRequest, requestDecommitTx, requestDepositTxId, requestTxs, scopedDeposits, selectNextDeposit, settlingCommitAtPeriod)
 import Hydra.HeadLogic.Snapshot.Settlement (finalizedDepositTxId, retainFinalizedCommit, retainFinalizedDecommit, settledUTxO)
@@ -44,14 +47,11 @@ import Hydra.HeadLogic.State.Fanout (fanoutProgressToClosed)
 import Hydra.HeadLogic.State.Node qualified as Machine
 import Hydra.HeadLogic.Transaction.Outputs (absorbable, namesNoneOf)
 import Hydra.Node.State (ChainPointTime, NodeState (..), PendingDeposits)
-import Hydra.HeadLogic.Rules.Network.ReqTx qualified as ReqTx
-import Hydra.HeadLogic.Rules.Network.ReqSn qualified as ReqSn
-import Hydra.HeadLogic.Rules.Network.AckSn qualified as AckSn
+import Hydra.Prelude
 import Hydra.Tx (TxIdType)
 import Hydra.Tx.Crypto (Signature)
 import Hydra.Tx.Party (Party)
 import Hydra.Tx.Snapshot (Snapshot, SnapshotNumber, SnapshotVersion)
-import Hydra.Prelude
 
 updateProgram :: IsChainState tx => RuleEnvironment -> UTCTime -> NodeState tx -> Input tx -> Program tx ()
 updateProgram = Input.handle

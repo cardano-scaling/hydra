@@ -4,9 +4,9 @@
 -- These data projections refine the five-phase Crem owner with readiness.
 module Test.Hydra.HeadLogic.Projection.Lifecycle where
 
-import Hydra.Prelude
 import Hydra.HeadLogic.Fanout.Outputs (nullOutputs)
 import Hydra.HeadLogic.State qualified as Head
+import Hydra.Prelude
 import Hydra.Tx (IsTx)
 
 data Phase = Idle | Open | Closed | ReadyToFanout | PendingFanout | FanoutProgress

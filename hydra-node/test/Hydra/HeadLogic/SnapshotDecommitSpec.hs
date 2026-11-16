@@ -14,9 +14,9 @@ import Hydra.API.ClientInput qualified as Client
 import Hydra.Agda.OffChainReference qualified as Agda
 import Hydra.Chain (ChainEvent (Observation), OnChainTx (OnDecrementTx))
 import Hydra.HeadLogic.Error (LogicError (RequireFailed), RequirementFailure (InvalidMultisignature))
-import Hydra.HeadLogic.State.Coordinated qualified as Coordinated
 import Hydra.HeadLogic.Snapshot.Request (DecommitStatus (..), nextSnapshotRequest)
 import Hydra.HeadLogic.State (CoordinatedHeadState (..), HeadState (Open), OpenState (..), SeenSnapshot (SeenSnapshot))
+import Hydra.HeadLogic.State.Coordinated qualified as Coordinated
 import Hydra.Ledger.Simple (SimpleChainState (SimpleChainState), SimpleTx (..), simpleLedger)
 import Hydra.Network.Message (Message (..), NetworkEvent (ReceivedMessage))
 import Hydra.Node.HeadLogic qualified as Head
