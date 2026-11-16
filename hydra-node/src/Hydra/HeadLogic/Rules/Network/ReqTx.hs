@@ -32,10 +32,10 @@ import Hydra.HeadLogic.Rules.Transactions (
  )
 import Hydra.HeadLogic.Snapshot.Request (
   SettlingCommit (..),
-  chainedSnapshotRequest,
-  decommitStatus,
+  chainedRequest,
+  contextSettlingCommit,
+  currentRequestContext,
   isLeader,
-  settlingCommitAtPeriod,
  )
 import Hydra.HeadLogic.Snapshot.Settlement (
   matchesSnapshotDecommit,
@@ -45,12 +45,9 @@ import Hydra.HeadLogic.State (
     CoordinatedHeadState,
     allTxs,
     confirmedSnapshot,
-    currentDepositTxId,
-    decommitTx,
     localTxs,
     localUTxO,
-    seenSnapshot,
-    version
+    seenSnapshot
   ),
   OpenState (OpenState, coordinatedHeadState, parameters),
   SeenSnapshot (SeenSnapshot),
@@ -168,16 +165,7 @@ workflow Args{chainPointTime = ChainPointTime{currentSlot, currentChainTime}, ..
       when noSnapshot $ do
         leader <- decide "this party leads the next snapshot" (isLeader parameters env.party nextSn)
         when leader $ do
-          let nextRequest =
-                chainedSnapshotRequest
-                  env.snapshotLimits
-                  version
-                  previous
-                  (localTxs Seq.|> transaction)
-                  pendingDeposits
-                  currentDepositTxId
-                  (decommitStatus version previous decommitTx)
-                  settlingCommit
+          let nextRequest = chainedRequest env.snapshotLimits context
           case nextRequest of
             Nothing -> void $ decide "snapshot request has useful work" False
             Just request -> do
@@ -202,4 +190,5 @@ workflow Args{chainPointTime = ChainPointTime{currentSlot, currentChainTime}, ..
   CoordinatedHeadState{..} = coordinatedHeadState
   previous = getSnapshot confirmedSnapshot
   nextSn = previous.number + 1
-  settlingCommit = settlingCommitAtPeriod env.depositPeriod version currentChainTime pendingDeposits previous
+  context = currentRequestContext env.depositPeriod currentChainTime pendingDeposits coordinatedHeadState{localTxs = localTxs Seq.|> transaction}
+  settlingCommit = contextSettlingCommit context

@@ -4468,7 +4468,7 @@ spec =
           OnChainEffect{postChainTx = FinalPartialFanoutTx{}} -> True
           _ -> False
 
-      -- Such a selection is never recorded now ('fanoutStepStateChange' emits
+      -- Such a selection is never recorded now (the checked fanout plan emits
       -- 'HeadFanoutInitiated' for it instead), so the only way into that state is
       -- replaying one recorded before the guard existed. Replay normalises it to
       -- the mode the step it actually posts implies, so the re-posts above cannot
