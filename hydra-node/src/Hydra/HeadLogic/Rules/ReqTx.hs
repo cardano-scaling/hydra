@@ -138,7 +138,7 @@ machine env ChainPointTime{currentSlot, currentChainTime} st ttl pendingDeposits
       canRetry <- Program.decide "retry budget remains" (ttl > 0)
       if canRetry
         then Program.suspend $ WaitOnNotApplicableTx err
-        else void $ Coordinated.stage runtime $ Coordinated.forgetTransaction localUTxO tx err
+        else void $ Coordinated.stage runtime $ Coordinated.markTransactionInvalid localUTxO tx err
     Done -> finish Done
 
   namedByDepositsInPlay :: UTxOType tx

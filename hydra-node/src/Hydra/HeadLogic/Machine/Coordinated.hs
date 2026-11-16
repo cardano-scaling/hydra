@@ -20,11 +20,11 @@ module Hydra.HeadLogic.Machine.Coordinated (
   receiveTransaction,
   retainSnapshotDecommit,
   applyTransaction,
-  forgetTransaction,
+  markTransactionInvalid,
   adoptSnapshot,
   clearLocalState,
-  settleCommit,
-  settleDecommit,
+  recordCommitFinalization,
+  recordDecommitFinalization,
   replayEvent,
   components,
 ) where
@@ -141,8 +141,8 @@ retainSnapshotDecommit = Transactions . RetainSnapshotDecommit
 applyTransaction :: tx -> UTxOType tx -> UTxOType tx -> Command tx
 applyTransaction tx before after = Transactions $ ApplyValidatedTransaction tx before after
 
-forgetTransaction :: UTxOType tx -> tx -> ValidationError -> Command tx
-forgetTransaction utxo tx err = Transactions $ ForgetTransaction utxo tx err
+markTransactionInvalid :: UTxOType tx -> tx -> ValidationError -> Command tx
+markTransactionInvalid utxo tx err = Transactions $ MarkTransactionInvalid utxo tx err
 
 adoptSnapshot :: VerifiedSnapshot tx -> Command tx
 adoptSnapshot = AdoptSnapshot
@@ -150,11 +150,11 @@ adoptSnapshot = AdoptSnapshot
 clearLocalState :: SnapshotNumber -> Command tx
 clearLocalState = ClearLocalState
 
-settleCommit :: ChainStateType tx -> SnapshotVersion -> TxIdType tx -> UTxOType tx -> Command tx
-settleCommit = SettleCommit
+recordCommitFinalization :: ChainStateType tx -> SnapshotVersion -> TxIdType tx -> UTxOType tx -> Command tx
+recordCommitFinalization = RecordCommitFinalization
 
-settleDecommit :: ChainStateType tx -> SnapshotVersion -> UTxOType tx -> Command tx
-settleDecommit = SettleDecommit
+recordDecommitFinalization :: ChainStateType tx -> SnapshotVersion -> UTxOType tx -> Command tx
+recordDecommitFinalization = RecordDecommitFinalization
 
 reserveDecommit :: tx -> Command tx
 reserveDecommit = Transactions . ReserveDecommit

@@ -1798,6 +1798,20 @@ The snapshot component
 supplies the snapshot and retained transactions; only the transaction component
 chooses how to reconstruct its UTxO. No component receives a NodeState.
 
+`TransactionUpdate` directs changes to the transaction owner's registry, local
+ledger and reservations. `ReconcileConfirmedSnapshot` reconciles reservations
+and commit state after either confirmation or adoption. `TrySelectDeposit`
+checks whether a deposit fits before attempting selection; `ClearDepositSelection`
+clears only a matching selection. `MarkTransactionInvalid` reports invalidity
+and removes the transaction from the registry.
+
+`RecordCommitFinalization`, `RecordDecommitFinalization` and
+`RecordDepositRecovery` record observations already received from the chain.
+They preserve the existing persistence events. Settlement updates carry
+`VersionAdvanced` when the observed version exceeds the working version, and
+`VersionNotAdvanced` for equal or older observations. This distinction controls
+whether settled outputs are added and decommit reservations are released.
+
 Live confirmation requires an opaque result from successful multisignature
 verification of an owner-issued candidate handle. The handle binds the Head,
 version, number, canonical signing contents and ordered parties. Confirmation

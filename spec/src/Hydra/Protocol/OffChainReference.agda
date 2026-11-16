@@ -582,6 +582,10 @@ decommitReadyRef false (input ∷ rest) confirmed =
 
 -- Version and reservation projection of a decrement observation. Chain rollback
 -- preserves both; a repeated observation must not release a newer reservation.
+-- TransactionUpdate carries VersionAdvanced exactly when old < observed;
+-- equal and older observations carry VersionNotAdvanced. The finalization
+-- commands record chain observations, and this comparison controls version
+-- advancement and reservation release independently of snapshot adoption.
 settlementVersionRef : Nat → Nat → Nat
 settlementVersionRef old observed = if old < observed then observed else old
 

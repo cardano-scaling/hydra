@@ -16,7 +16,7 @@ import Hydra.API.ServerOutput (DecommitInvalidReason (DecommitTxInvalid))
 import Hydra.HeadLogic.Machine.Coordinated.Snapshots.State (SnapshotOutput (..))
 import Hydra.HeadLogic.Machine.Coordinated.Snapshots.State qualified as Snapshots
 import Hydra.HeadLogic.Machine.Coordinated.Topology (DecommitPhase (..), DecommitTopology)
-import Hydra.HeadLogic.Machine.Coordinated.Types (CommitUpdate (..), LedgerUpdate (..), SnapshotState (..), TransactionCommand (..))
+import Hydra.HeadLogic.Machine.Coordinated.Types (CommitUpdate (..), SnapshotState (..), TransactionCommand (..), TransactionUpdate (..), VersionChange (..))
 import Hydra.HeadLogic.Outcome (StateChanged (..))
 import Hydra.HeadLogic.State (SeenSnapshot (..))
 import Hydra.HeadLogic.State.Operations (absorbable, finalizedDepositTxId, matchesSnapshotDecommit, maxTxsPerSnapshot, settledUTxO, settlingDecommit)
@@ -64,14 +64,14 @@ machine headId snapshots0 initial initialDecommit = BaseMachineT (withStateInspe
 
   action :: forall from. State tx from -> SnapshotOutput tx -> ActionResult m DecommitTopology (State tx) from (Output tx)
   action state input = case state of
-    Available local -> case input.ledgerUpdate of
+    Available local -> case input.transactionUpdate of
       Transaction (ReserveDecommit tx) -> reserve local tx input
       ReplayDecommit tx -> reserve local tx input
       _ -> update local Nothing Available input
-    Pending local tx -> case input.ledgerUpdate of
+    Pending local tx -> case input.transactionUpdate of
       ReplayDecommit recorded -> replayReservation local recorded Pending input
       _ -> update local (Just tx) (`Pending` tx) input
-    Settling local tx -> case input.ledgerUpdate of
+    Settling local tx -> case input.transactionUpdate of
       ReplayDecommit recorded -> replayReservation local recorded (\next -> Settling next . Just) input
       _ -> update local tx (`Settling` tx) input
 
@@ -92,7 +92,7 @@ machine headId snapshots0 initial initialDecommit = BaseMachineT (withStateInspe
      in pureResult (Output input.snapshots next (Just tx) CommitUnchanged (input.events <> [DecommitRecorded headId tx]) input.refusal) (Pending next tx)
 
   update :: (AllowedTransition DecommitTopology from 'NoDecommit, AllowedTransition DecommitTopology from 'AwaitingDecommitSettlement) => TransactionState tx -> Maybe tx -> (TransactionState tx -> State tx from) -> SnapshotOutput tx -> ActionResult m DecommitTopology (State tx) from (Output tx)
-  update local reserved keep SnapshotOutput{snapshots = owned, ledgerUpdate, events, refusal} = case ledgerUpdate of
+  update local reserved keep SnapshotOutput{snapshots = owned, transactionUpdate, events, refusal} = case transactionUpdate of
     Unchanged -> unchanged local
     Rebase snapshot txs deposit ->
       let next =
@@ -102,7 +102,7 @@ machine headId snapshots0 initial initialDecommit = BaseMachineT (withStateInspe
               , allTxs = foldr (Map.delete . txId) local.allTxs snapshot.confirmed
               }
        in changeCommit (SetDepositSelection deposit) next
-    ConfirmTransactions -> case reserved of
+    ReconcileConfirmedSnapshot -> case reserved of
       Nothing
         | settling snapshots -> output confirmedLocal authorised RecomputeCommitPhase (Settling confirmedLocal authorised) events
         | otherwise -> changeCommit RecomputeCommitPhase confirmedLocal
@@ -122,21 +122,20 @@ machine headId snapshots0 initial initialDecommit = BaseMachineT (withStateInspe
          in if settling snapshots
               then output next authorised (SetDepositSelection Nothing) (Settling next authorised) events
               else output next Nothing (SetDepositSelection Nothing) (Available next) events
-    SelectDeposit depositId deposit
+    TrySelectDeposit depositId deposit
       | deposit.headId == headId
       , isNothing reserved
       , finalizedDepositTxId snapshots.finalizedCommit /= Just depositId
       , absorbable requestUTxO (toList $ Seq.take maxTxsPerSnapshot local.localTxs) deposit.deposited ->
           changeCommit (SelectDepositIfUnselected depositId) local
       | otherwise -> unchanged local
-    ReleaseDeposit depositId -> changeCommit (DeselectDeposit depositId) local
-    CommitSettled fresh depositId deposited ->
-      if fresh
-        then changeCommit (SetDepositSelection Nothing) local{localUTxO = local.localUTxO <> deposited}
-        else changeCommit (DeselectDeposit depositId) local
-    DecommitSettled fresh
-      | fresh -> output local Nothing RecomputeCommitPhase (Available local) events
-      | otherwise -> unchanged local
+    ClearDepositSelection depositId -> changeCommit (DeselectDeposit depositId) local
+    CommitSettled VersionAdvanced _ deposited ->
+      changeCommit (SetDepositSelection Nothing) local{localUTxO = local.localUTxO <> deposited}
+    CommitSettled VersionNotAdvanced depositId _ ->
+      changeCommit (DeselectDeposit depositId) local
+    DecommitSettled VersionAdvanced -> output local Nothing RecomputeCommitPhase (Available local) events
+    DecommitSettled VersionNotAdvanced -> unchanged local
     ReplayTransaction tx ->
       changed local{localUTxO = applyTxTo tx local.localUTxO, localTxs = local.localTxs Seq.|> tx} $ TransactionAppliedToLocalUTxO headId tx
     ReplayDecommit{} -> unchanged local
@@ -148,7 +147,7 @@ machine headId snapshots0 initial initialDecommit = BaseMachineT (withStateInspe
         | otherwise -> changed local{allTxs = Map.insert (txId tx) tx local.allTxs} $ TransactionReceived tx
       ApplyValidatedTransaction tx _ after ->
         changed local{localUTxO = after, localTxs = local.localTxs Seq.|> tx} $ TransactionAppliedToLocalUTxO headId tx
-      ForgetTransaction utxo tx err -> changed local{allTxs = Map.delete (txId tx) local.allTxs} $ TxInvalid headId utxo tx err
+      MarkTransactionInvalid utxo tx err -> changed local{allTxs = Map.delete (txId tx) local.allTxs} $ TxInvalid headId utxo tx err
       ReserveDecommit{} ->
         pureResult (Output owned local reserved CommitUnchanged [] (Just "a decommit is already pending or awaiting settlement")) (keep local)
    where

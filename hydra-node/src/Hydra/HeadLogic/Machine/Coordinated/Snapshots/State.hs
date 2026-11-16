@@ -13,7 +13,7 @@ import Data.Map.Strict qualified as Map
 import Hydra.Chain.ChainState (ChainSlot)
 import Hydra.HeadLogic.Machine.Coordinated.Candidate (Candidate (..))
 import Hydra.HeadLogic.Machine.Coordinated.Topology (SnapshotPhase (..))
-import Hydra.HeadLogic.Machine.Coordinated.Types (LedgerUpdate (..), SnapshotState)
+import Hydra.HeadLogic.Machine.Coordinated.Types (SnapshotState, TransactionUpdate (..))
 import Hydra.HeadLogic.Machine.Coordinated.Types qualified as Port
 import Hydra.HeadLogic.Outcome (StateChanged (..))
 import Hydra.HeadLogic.State (FinalizedSnapshot, SeenSnapshot (..), seenSnapshotNumber)
@@ -49,13 +49,13 @@ data State tx phase where
     Map Party (Signature (Snapshot tx)) ->
     State tx 'CollectingSignatures
 
-data Update tx phase = Update (State tx phase) (LedgerUpdate tx) [StateChanged tx]
+data Update tx phase = Update (State tx phase) (TransactionUpdate tx) [StateChanged tx]
 
 -- Carry the owner's state through composition. Its candidate, including lazy
 -- canonical bytes, is shared with the continuation rather than restored again.
 data SnapshotOutput tx = SnapshotOutput
   { snapshots :: InitialState (State tx)
-  , ledgerUpdate :: LedgerUpdate tx
+  , transactionUpdate :: TransactionUpdate tx
   , events :: [StateChanged tx]
   , refusal :: Maybe Text
   }
@@ -133,7 +133,7 @@ confirm headId (Collecting context candidate _) signatures =
   let snapshot = candidate.snapshot
    in Update
         (Idle (adopt context snapshot signatures) $ Just snapshot.number)
-        ConfirmTransactions
+        ReconcileConfirmedSnapshot
         [SnapshotConfirmed headId Nothing signatures]
 
 adoptSnapshot ::
@@ -146,7 +146,7 @@ adoptSnapshot ::
 adoptSnapshot headId state snapshot signatures =
   Update
     (Idle (adopt (contextOf state) snapshot signatures) $ Just snapshot.number)
-    ConfirmTransactions
+    ReconcileConfirmedSnapshot
     [SnapshotConfirmed headId (Just snapshot) signatures]
 
 clear ::
@@ -203,5 +203,5 @@ viewInitial :: InitialState (State tx) -> SnapshotState tx
 viewInitial initial = withInitialState initial $ \state _ -> view state
 
 retained :: Update tx phase -> SnapshotOutput tx
-retained (Update next ledgerUpdate events) =
-  SnapshotOutput{snapshots = InitialState next, ledgerUpdate, events, refusal = Nothing}
+retained (Update next transactionUpdate events) =
+  SnapshotOutput{snapshots = InitialState next, transactionUpdate, events, refusal = Nothing}
