@@ -1798,6 +1798,11 @@ The snapshot component
 supplies the snapshot and retained transactions; only the transaction component
 chooses how to reconstruct its UTxO. No component receives a NodeState.
 
+Transaction results carry forward the snapshot owner's events and refusal,
+appending transaction events as needed. Rejecting a live decommit reservation
+while one is pending or awaiting settlement keeps the transaction state,
+emits no events and supplies an explicit refusal.
+
 `TransactionUpdate` directs changes to the transaction owner's registry, local
 ledger and reservations. `TransactionsUnchanged` preserves transaction and commit
 state even when snapshot state changes. `RunTransactionCommand` executes a
