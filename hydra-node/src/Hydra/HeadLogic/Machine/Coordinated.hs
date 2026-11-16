@@ -60,10 +60,23 @@ import Hydra.Tx.Snapshot (Snapshot, SnapshotNumber, SnapshotVersion)
 -- Forcing that projection would repeat ledger work just to emit the next event.
 -- Recovery reads the projection without running live commands, so constructing
 -- the next live composition is also deferred until a command needs it.
-data Runtime tx = Runtime HeadId [VerificationKey HydraKey] ~(CoordinatedHeadState tx) (InitialState (State.State tx)) ~(StateMachineT Identity (Command tx) (Commits.Output tx))
+data Runtime tx = Runtime
+  { headId :: HeadId
+  , parties :: [VerificationKey HydraKey]
+  , coordinatedState :: ~(CoordinatedHeadState tx)
+  , snapshots :: InitialState (State.State tx)
+  , machine :: ~(StateMachineT Identity (Command tx) (Commits.Output tx))
+  }
 
 start :: IsChainState tx => OpenState tx -> Runtime tx
-start os = Runtime os.headId parties os.coordinatedHeadState snapshots (withoutRendering $ compose os.headId parties snapshots os.coordinatedHeadState)
+start os =
+  Runtime
+    { headId = os.headId
+    , parties
+    , coordinatedState = os.coordinatedHeadState
+    , snapshots
+    , machine = withoutRendering $ compose os.headId parties snapshots os.coordinatedHeadState
+    }
  where
   parties = vkey <$> os.parameters.parties
   snapshots = restoreSnapshots parties os
@@ -89,20 +102,20 @@ transactionState :: CoordinatedHeadState tx -> TransactionState tx
 transactionState chs = TransactionState chs.localUTxO chs.localTxs chs.allTxs
 
 currentState :: Runtime tx -> CoordinatedHeadState tx
-currentState (Runtime _ _ current _ _) = current
+currentState Runtime{coordinatedState} = coordinatedState
 
 -- | Obtain the owner's current candidate. Its constructor and cached bytes are
 -- inaccessible to rule callers; a restored candidate derives its bytes afresh.
 candidate :: Runtime tx -> Maybe (Candidate tx)
-candidate (Runtime headId _ _ snapshots _) = Snapshots.candidate headId snapshots
+candidate Runtime{headId, snapshots} = Snapshots.candidate headId snapshots
 
 step :: Runtime tx -> Command tx -> ([StateChanged tx], Runtime tx)
 step runtime command = fromRight ([], runtime) $ advance runtime command
 
 advance :: Runtime tx -> Command tx -> Either Text ([StateChanged tx], Runtime tx)
-advance (Runtime headId parties _ _ machine) command =
+advance runtime@Runtime{machine} command =
   let (output@Commits.Output{transactions = Output{snapshots, events, refusal}}, next) = runIdentity $ run machine command
-   in maybe (Right (events, Runtime headId parties (project output) snapshots next)) Left refusal
+   in maybe (Right (events, runtime{coordinatedState = project output, snapshots, machine = next})) Left refusal
 
 project :: Commits.Output tx -> CoordinatedHeadState tx
 project Commits.Output{transactions = Output{snapshots = owned, transactions, decommit}, currentDepositTxId} =
@@ -177,7 +190,7 @@ requestSnapshot = RequestSnapshot
 -- consumption; protocol admission and cryptography have already happened.
 -- Replay commands stay private: live rules cannot stage unverified evidence.
 replayEvent :: IsChainState tx => UTxOType tx -> StateChanged tx -> Runtime tx -> Runtime tx
-replayEvent deposited event runtime@(Runtime headId parties current snapshots _) =
+replayEvent deposited event runtime@Runtime{headId, parties, coordinatedState = current, snapshots} =
   case Replay.replay headId parties snapshots deposited event of
     Nothing -> runtime
     Just restored ->
@@ -187,4 +200,8 @@ replayEvent deposited event runtime@(Runtime headId parties current snapshots _)
           (output, _) = runIdentity $ run transactions restored
           updated = project output
           nextSnapshots = output.transactions.snapshots
-       in Runtime headId parties updated nextSnapshots (withoutRendering $ compose headId parties nextSnapshots updated)
+       in runtime
+            { coordinatedState = updated
+            , snapshots = nextSnapshots
+            , machine = withoutRendering $ compose headId parties nextSnapshots updated
+            }
