@@ -23,7 +23,8 @@
 -- The Haskell retry-window search and settlement/rollback sequences are separate
 -- integration checks. This reference has no scheduler, chain history or restart
 -- semantics; agreement with it does not establish progress or rollback safety.
--- Payload evaluation and Haskell strictness are outside this projection too.
+-- Payload evaluation, the coordinated runtime's record layout and Haskell field
+-- strictness are outside this projection too.
 module Hydra.Protocol.OffChainReference where
 
 open import Agda.Builtin.Bool

@@ -1864,6 +1864,11 @@ wait prefixes. A checkpoint in that list resets every component. Execution after
 each input still resumes from NodeState; no continuation is persisted. Tests
 compare batched application with event-by-event application and serialized replay, including checkpoints and foreign-head events.
 
+The coordinated runtime record names the Head identifier, ordered party keys,
+state projection, snapshot owner state and live machine. The projection and
+machine remain lazy: staging need not evaluate the ledger, and replay need not
+rebuild the live machine until another command needs it.
+
 The conversion preserves Complete, Wait and Reject semantics and event ordering,
 including duplicate partial-ack signature events. State and event encodings
 remain unchanged. Two decommit corrections accompany the implementation: the
