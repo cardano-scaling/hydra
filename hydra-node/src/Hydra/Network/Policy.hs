@@ -6,7 +6,7 @@ import Cardano.Binary (serialize')
 import Cardano.Crypto.Hash (Blake2b_256, hashToStringAsHex, hashWithSerialiser)
 import Cardano.Crypto.Util (SignableRepresentation (..))
 import Codec.CBOR.Encoding (Encoding)
-import Control.Concurrent.Class.MonadSTM (check, readTVarIO, writeTVar)
+import Control.Concurrent.Class.MonadSTM (check, writeTVar)
 import Control.Tracer (Tracer, traceWith)
 import Data.Map.Strict qualified as Map
 import Data.Secret (Secret)
@@ -42,9 +42,8 @@ data PolicyStore m = PolicyStore
   }
 
 data PolicyLog
-  = WaitingForPolicyAgreement PolicyFingerprint [Party]
-  | PolicyAgreementReached PolicyFingerprint
-  | PolicyAgreementTimedOut
+  = PolicyAgreementReached PolicyFingerprint
+  | PolicyAgreementPending
       { ourPolicy :: PolicyFingerprint
       , missingParties :: [Party]
       , mismatchedPolicies :: [(Party, PolicyFingerprint)]
@@ -75,7 +74,7 @@ policyFingerprint =
       Just (AllowOnlyPolicies policies) -> Just $ Set.toAscList policies
 
 withPolicyAgreement ::
-  (MonadAsync m, MonadTimer m, MonadDelay m, MonadLabelledSTM m) =>
+  (MonadAsync m, MonadDelay m, MonadLabelledSTM m) =>
   Tracer m PolicyLog ->
   Secret (SigningKey HydraKey) ->
   [Party] ->
@@ -87,11 +86,14 @@ withPolicyAgreement ::
 withPolicyAgreement _ _ _ Nothing _ _ action = action
 withPolicyAgreement tracer signingKey otherParties (Just fingerprint) session PolicyStore{publish, load} action = do
   observed <- newLabelledTVarIO "peer-policies" Map.empty
-  traceWith tracer $ WaitingForPolicyAgreement fingerprint (Set.toList expected)
-  let announce acknowledgements =
+  let initialStatus = (Set.toList expected, [])
+      statusLog = \case
+        ([], []) -> PolicyAgreementReached fingerprint
+        (missingParties, mismatchedPolicies) -> PolicyAgreementPending{ourPolicy = fingerprint, missingParties, mismatchedPolicies}
+      announce acknowledgements =
         let declaration = PolicyAnnouncement{session, fingerprint, acknowledgements}
          in publish $ Signed declaration (sign signingKey declaration) me
-      poll previous = do
+      poll previousAcknowledgements previousStatus = do
         declarations <- load
         let peers =
               Map.fromList
@@ -103,30 +105,25 @@ withPolicyAgreement tracer signingKey otherParties (Just fingerprint) session Po
             acknowledgements = Map.map (\PolicyAnnouncement{session = peerSession} -> peerSession) peers
             -- A saved declaration cannot acknowledge this startup's random session.
             fresh = Map.filter (\PolicyAnnouncement{acknowledgements = acks} -> Map.lookup me acks == Just session) peers
-        when (acknowledgements /= previous) $ announce acknowledgements
+            status =
+              ( Set.toList $ expected Set.\\ Map.keysSet fresh
+              , [(party, peerPolicy) | (party, PolicyAnnouncement{fingerprint = peerPolicy}) <- Map.toList fresh, peerPolicy /= fingerprint]
+              )
+        when (status /= previousStatus) $ traceWith tracer $ statusLog status
+        when (acknowledgements /= previousAcknowledgements) $ announce acknowledgements
         atomically $ writeTVar observed fresh
-        threadDelay 1
-        poll acknowledgements
+        threadDelay $ if status == ([], []) then 60 else 5
+        poll acknowledgements status
       awaitAgreement = do
-        result <- timeout 300 $ atomically $ do
+        atomically $ do
           peers <- readTVar observed
           check $ Map.keysSet peers == expected && all (\PolicyAnnouncement{fingerprint = peerPolicy} -> peerPolicy == fingerprint) peers
-        case result of
-          Just () -> traceWith tracer (PolicyAgreementReached fingerprint) >> action
-          Nothing -> do
-            peers <- readTVarIO observed
-            traceWith
-              tracer
-              PolicyAgreementTimedOut
-                { ourPolicy = fingerprint
-                , missingParties = Set.toList $ expected Set.\\ Map.keysSet peers
-                , mismatchedPolicies = [(party, peerPolicy) | (party, PolicyAnnouncement{fingerprint = peerPolicy}) <- Map.toList peers, peerPolicy /= fingerprint]
-                }
-            action
+        action
+  traceWith tracer $ statusLog initialStatus
   -- Keep responding after startup so a restarting peer can check us as well.
   either pure pure
     =<< raceLabelled
-      ("publish-policy", announce Map.empty >> poll Map.empty)
+      ("publish-policy", announce Map.empty >> poll Map.empty initialStatus)
       ("await-policy-agreement", awaitAgreement)
  where
   me = deriveParty signingKey

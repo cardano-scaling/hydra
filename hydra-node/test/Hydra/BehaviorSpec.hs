@@ -100,7 +100,7 @@ import Test.Util (
 
 spec :: Spec
 spec = parallel $ do
-  describe "policy agreement timeout" $ do
+  describe "policy agreement monitoring" $ do
     it "keeps processing chain events after five minutes without a responding peer" $
       failAfter 10 $
         shouldRunInSim $
@@ -119,15 +119,15 @@ spec = parallel $ do
               timeout 330 $
                 raceLabelled
                   ( "network"
-                  , -- Match the policy/network race in 'Hydra.Node.Network.withNetwork'.
-                    raceLabelled_
+                  , -- Match the worker scope in 'Hydra.Node.Network.withNetwork'.
+                    withAsyncLabelled
                       ("policy-agreement", withPolicyAgreement traceInIOSim aliceSk [bob] (Just policy) "alice-new" store $ atomically retry)
-                      ("node", runHydraNode $ configurePolicy node)
+                      (const $ runHydraNode $ configurePolicy node)
                   )
                   ( "chain-events"
                   , do
-                      beforeTimeout <- getCurrentTime
-                      handleChainEvent node $ Tick beforeTimeout 1
+                      initialTime <- getCurrentTime
+                      handleChainEvent node $ Tick initialTime 1
                       atomically $ readSlot >>= check . (== 1)
                       threadDelay 301
                       now <- getCurrentTime

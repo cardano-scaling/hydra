@@ -22,6 +22,7 @@ import Data.Aeson.KeyMap qualified as KeyMap
 import Data.Aeson.Lens (atKey, key, _String)
 import Data.Aeson.Types (Pair)
 import Data.ByteString (hGetContents)
+import Data.ByteString.Char8 qualified as BSC
 import Data.List qualified as List
 import Data.Map.Strict qualified as Map
 import Data.Secret (Secret, withSecret)
@@ -56,6 +57,7 @@ import System.Process.Typed (
   createPipe,
   getPid,
   getStderr,
+  getStdout,
   proc,
   setCloseFds,
   setEnv,
@@ -711,6 +713,19 @@ withPreparedHydraNode ::
   IO a
 withPreparedHydraNode = withPreparedHydraNodeWithQuery Nothing []
 
+-- | Run a node and trace its structured log messages as they are emitted.
+-- The complete log is also written to the usual log file.
+withPreparedHydraNodeWithLogs ::
+  HasCallStack =>
+  Tracer IO Aeson.Value ->
+  Tracer IO HydraNodeLog ->
+  FilePath ->
+  Int ->
+  RunOptions ->
+  (HydraClient -> IO a) ->
+  IO a
+withPreparedHydraNodeWithLogs logTracer = withPreparedHydraNodeWithQueryAndLogs Nothing [] (Just logTracer)
+
 -- | Like 'withPreparedHydraNode' but with extra environment entries for the
 -- hydra-node process (also inherited by its etcd child). Use this instead of
 -- a process-global 'setEnv', which would leak into every other concurrently
@@ -738,7 +753,20 @@ withPreparedHydraNodeWithQuery ::
   RunOptions ->
   (HydraClient -> IO a) ->
   IO a
-withPreparedHydraNodeWithQuery mQueryParams extraEnv tracer workDir hydraNodeId runOptions action =
+withPreparedHydraNodeWithQuery mQueryParams extraEnv = withPreparedHydraNodeWithQueryAndLogs mQueryParams extraEnv Nothing
+
+withPreparedHydraNodeWithQueryAndLogs ::
+  HasCallStack =>
+  Maybe String ->
+  [(String, String)] ->
+  Maybe (Tracer IO Aeson.Value) ->
+  Tracer IO HydraNodeLog ->
+  FilePath ->
+  Int ->
+  RunOptions ->
+  (HydraClient -> IO a) ->
+  IO a
+withPreparedHydraNodeWithQueryAndLogs mQueryParams extraEnv mLogTracer tracer workDir hydraNodeId runOptions action =
   Prelude.withLogFile logFilePath $ \logFileHandle -> do
     applyExtraEnv <-
       if null extraEnv
@@ -754,7 +782,7 @@ withPreparedHydraNodeWithQuery mQueryParams extraEnv tracer workDir hydraNodeId 
     let extraArgs = if null rtsFlags then [] else ["+RTS"] <> rtsFlags <> ["-RTS"]
     let cmd =
           proc "hydra-node" (toArgs runOptions <> extraArgs)
-            & setStdout (useHandleOpen logFileHandle)
+            & setStdout (maybe (Nothing <$ useHandleOpen logFileHandle) (const $ Just <$> createPipe) mLogTracer)
             & setStderr createPipe
             & setCloseFds True
             & applyExtraEnv
@@ -763,12 +791,28 @@ withPreparedHydraNodeWithQuery mQueryParams extraEnv tracer workDir hydraNodeId 
 
     withProcessTerm cmd $ \p -> do
       pid <- getPid p
-      -- NOTE: exit code thread gets cancelled if 'action' terminates first
-      raceLabelled
-        ("collect-check-process-exit-code", collectAndCheckExitCode p)
-        ("with-connection-to-node", withConnectionToNodeHost tracer hydraNodeId apiAddress monPort (mQueryParams <|> Just "/?history=yes") (\client -> action client{workDir = Just workDir, processId = pid}))
-        <&> either absurd id
+      let runNode =
+            -- NOTE: exit code thread gets cancelled if 'action' terminates first
+            raceLabelled
+              ("collect-check-process-exit-code", collectAndCheckExitCode p)
+              ("with-connection-to-node", withConnectionToNodeHost tracer hydraNodeId apiAddress monPort (mQueryParams <|> Just "/?history=yes") (\client -> action client{workDir = Just workDir, processId = pid}))
+              <&> either absurd id
+      case (mLogTracer, getStdout p) of
+        (Just logTracer, Just stdoutHandle) ->
+          withAsync (forwardLogs logTracer stdoutHandle logFileHandle) $ \logThread -> do
+            link logThread
+            runNode
+        _ -> runNode
  where
+  forwardLogs :: Tracer IO Aeson.Value -> Handle -> Handle -> IO ()
+  forwardLogs logTracer stdoutHandle logFileHandle = do
+    done <- hIsEOF stdoutHandle
+    unless done $ do
+      line <- BSC.hGetLine stdoutHandle
+      BSC.hPutStrLn logFileHandle line
+      forM_ (Aeson.decodeStrict' @Aeson.Value line >>= (\entry -> entry ^? key "message")) $ traceWith logTracer
+      forwardLogs logTracer stdoutHandle logFileHandle
+
   apiAddress =
     case runOptions of
       RunOptions{apiPort = p} ->
