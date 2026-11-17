@@ -219,6 +219,53 @@ spec =
                 `shouldBe` update aliceEnv (withValidation validation) now st (ClientInput $ NewTx candidate)
           isNothing (HeadLogic.prepareLocalPolicyContext ledger initial Nothing) `shouldBe` True
 
+        it "reuses the local policy context when admitting transactions with pending deposits" $ do
+          forM_ [Active, Expired] $ \status ->
+            forM_ [False, True] $ \snapshotInFlight -> do
+              let seed = utxoRefs [1, 2]
+                  snapshot = testSnapshot 1 0 [] seed
+                  chs =
+                    coordinatedHeadState
+                      { localUTxO = seed
+                      , confirmedSnapshot = ConfirmedSnapshot (testSnapshot 0 0 [] seed) mempty
+                      , seenSnapshot = if snapshotInFlight then mkSeenSnapshot snapshot mempty else NoSeenSnapshot
+                      }
+                  initial = inOpenState' threeParties chs
+                  -- A supplied cache must suffice for admission; constructing any
+                  -- additional UTxO summary here makes this regression fail.
+                  validation =
+                    allowAll
+                      { validateResultingUTxO = \utxo outgoing ->
+                          if utxo == utxoRef 100 && outgoing == mempty
+                            then Right ()
+                            else Prelude.error "unexpected full UTxO policy validation during admission"
+                      , incrementalValidation =
+                          Just $ IncrementalValidation (\_ _ -> Prelude.error "unexpected policy summary rebuild during admission") Nothing
+                      }
+                  policyLedger = withValidation validation
+                  cached = Just $ preparePolicyContext allowAll seed mempty
+                  env = if snapshotInFlight then aliceEnv else bobEnv
+                  transactions = [SimpleTx 10 (utxoRef 1) (utxoRef 3), SimpleTx 11 (utxoRef 3) (utxoRef 4)]
+              now <- nowFromSlot initial.chainPointTime.currentSlot
+              let deposit = Deposit testHeadId (utxoRef 100) (addUTCTime (-7200) now) (addUTCTime (if status == Expired then -1 else 7200) now) status
+                  st = initial{deposits = trackedFromPending $ Map.singleton 20 deposit}
+                  admit (current, cachedContext) transaction = do
+                    let outcome = update env (HeadLogic.withLocalPolicyContext policyLedger cachedContext) now current (receiveMessage $ ReqTx transaction)
+                    outcome `hasStateChangedSatisfying` \case
+                      TransactionAppliedToLocalUTxO{tx = applied} -> applied == transaction
+                      _ -> False
+                    outcome `hasNoEffectSatisfying` \case
+                      NetworkEffect ReqSn{} -> True
+                      _ -> False
+                    pure $ HeadLogic.aggregateStateWithPolicy policyLedger current cachedContext outcome
+              (final, _) <- foldM admit (st, cached) transactions
+              case final.headState of
+                Open OpenState{coordinatedHeadState = finalState} -> do
+                  finalState.localUTxO `shouldBe` utxoRefs [2, 4]
+                  finalState.localTxs `shouldBe` Seq.fromList transactions
+                _ -> failure "expected an open head"
+              final.pendingDeposits `shouldBe` st.pendingDeposits
+
         it "does not emit ReqTx when a client transaction violates the transaction policy" $ do
           let st = inOpenState threeParties
           now <- nowFromSlot st.chainPointTime.currentSlot
@@ -1007,6 +1054,24 @@ spec =
           outcome `hasEffect` expected
           outcome `hasNoEffectSatisfying` \case
             ClientEffect SnapshotRequestRejectedByPolicy{} -> True
+            _ -> False
+
+        it "includes a deposit when queued transactions free policy capacity" $ do
+          now <- getCurrentTime
+          let merge = SimpleTx 7 (utxoRefs [1, 2]) (utxoRef 3)
+              deposit = Deposit testHeadId (utxoRef 4) (addUTCTime (-7200) now) (addUTCTime 7200 now) Active
+              st = (stateWith $ utxoRefs [1, 2]){deposits = trackedFromPending $ Map.singleton 10 deposit}
+              policyLedger = bounded 2
+              proposed = update soloEnv policyLedger now st (receiveMessage $ ReqTx merge)
+              request = ReqSn 0 1 [txId merge] Nothing (Just 10)
+          proposed `hasEffect` NetworkEffect request
+          let signed = update soloEnv policyLedger now (aggregateState st proposed) (receiveMessage request)
+          signed `hasEffectSatisfying` \case
+            NetworkEffect AckSn{} -> True
+            _ -> False
+          signed `hasStateChangedSatisfying` \case
+            SnapshotRequested{requestedSnapshot} ->
+              requestedSnapshot.utxo == utxoRef 3 && requestedSnapshot.utxoToCommit == Just (utxoRef 4)
             _ -> False
 
         it "records and recovers a deposit whose own outputs violate the policy" $ do

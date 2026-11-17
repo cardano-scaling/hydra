@@ -2548,16 +2548,14 @@ checkDepositAdmission ledger depositTxId deposited = do
   checkUserDeposit ledger depositTxId
   checkUserUTxO ledger (deposited, mempty)
 
--- | Deposits allowed by the policy and belonging to this head. Finalized
--- deposits are handled separately by re-posting their increment.
+-- | Filter deposit IDs and their own outputs without scanning the Head UTxO.
+-- Combined limits are checked against the transactions selected for a request,
+-- which may free capacity. Finalized deposits are handled by re-posting their increment.
 scopedDeposits :: IsTx tx => Ledger tx -> OpenState tx -> PendingDeposits tx -> PendingDeposits tx
 scopedDeposits ledger OpenState{headId, coordinatedHeadState = chs} =
   maybe id Map.delete (finalizedDepositTxId chs.finalizedCommit)
-    . Map.filterWithKey (\depositTxId deposit -> isRight (checkUserDeposit ledger depositTxId >> checkCandidate deposit.deposited))
+    . Map.filterWithKey (\depositTxId deposit -> isRight (checkDepositAdmission ledger depositTxId deposit.deposited))
     . depositsForHead headId
- where
-  context = (\validation -> preparePolicyContext validation (nextRequestUTxO chs) mempty) <$> ledger.userValidation
-  checkCandidate deposited = for_ context $ \current -> (current.addPolicyUTxO deposited).policyResult
 
 -- | What the next request does with a commit the confirmed snapshot claims but
 -- whose increment has not landed. Leaders and followers decide it the same way.

@@ -219,16 +219,6 @@ localPolicyContextFor validation (utxo, outgoing) =
   fromMaybe (preparePolicyContext validation utxo outgoing) $
     validation.incrementalValidation >>= localPolicyContext
 
-validateUserTransactionWith ::
-  UserValidation tx ->
-  UTxOType tx ->
-  UTxOType tx ->
-  tx ->
-  Either PolicyViolation ()
-validateUserTransactionWith validation resultingUTxO decommitted tx = do
-  validation.validateTransaction tx
-  validation.validateResultingUTxO resultingUTxO decommitted
-
 cardanoUserValidation :: UserValidationRules -> UserValidation Tx
 cardanoUserValidation rules =
   UserValidation

@@ -31,7 +31,6 @@ import Hydra.Cardano.Api (
   hashScriptDataBytes,
   txMintValue,
   txMintValueToValue,
-  txOuts',
   unsafeHashableScriptData,
   pattern TxOut,
   pattern TxOutDatumHash,
@@ -59,7 +58,6 @@ import Hydra.UserValidationRules (
   checkPolicies,
   outputAssets,
   parsePolicyFile,
-  validateUserTransactionWith,
   validateUserUTxOWith,
  )
 import Test.Hydra.Prelude
@@ -242,34 +240,6 @@ spec = do
     prop "checkMaxDatumSize" prop_checkMaxDatumSize
     prop "checkAllowedScriptAddresses" prop_checkAllowedScriptAddresses
     prop "checkDeposit" prop_checkDeposit
-    prop "validateUserTransactionWith" prop_validateUserTransactionWith
-
-prop_validateUserTransactionWith :: Property
-prop_validateUserTransactionWith =
-  forAll genCase $ \(tx, utxo, rules) ->
-    tabulate "Policy rule" [policyCategory (policyRule rules)] $
-      tabulate "L2 minting rule" [show (l2MintingRule rules)] $
-        validateUserTransactionWith (cardanoUserValidation rules) utxo mempty tx
-          === expectedResult rules utxo tx
- where
-  genCase =
-    (,,) <$> genTxWithMint <*> genUTxO <*> arbitrary
-
-  policyCategory = \case
-    Nothing -> "policy restriction disabled"
-    Just ForbidAnyPolicy -> "forbid all policies"
-    Just (AllowOnlyPolicies _) -> "allow selected policies"
-
-  expectedResult rules utxo tx = do
-    case policyRule rules of
-      Nothing -> Right ()
-      Just ForbidAnyPolicy -> checkPolicies Set.empty tx
-      Just (AllowOnlyPolicies allowed) -> checkPolicies allowed tx
-    case l2MintingRule rules of
-      ForbidMinting -> checkPolicies Set.empty tx
-      AllowMinting -> Right ()
-    for_ (maxDatumSize rules) $ \limit -> traverse_ (checkMaxDatumSize limit) (txOuts' tx)
-    validateUserUTxOWith rules utxo mempty
 
 prop_checkMintedAssets :: Property
 prop_checkMintedAssets =
