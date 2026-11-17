@@ -101,6 +101,11 @@ class
   -- | Get only the outputs in given UTxO.
   outputsOfUTxO :: UTxOType tx -> [TxOutType tx]
 
+  -- | Number of outputs, including distinct references with equal contents.
+  -- Map-backed ledgers can use their stored size without traversing outputs.
+  utxoSize :: UTxOType tx -> Int
+  utxoSize = length . outputsOfUTxO
+
   -- | Return the left-hand side without the right-hand side.
   withoutUTxO :: UTxOType tx -> UTxOType tx -> UTxOType tx
 
@@ -109,6 +114,13 @@ class
   -- tx's outputs. Performs no ledger validation; the caller must ensure the
   -- tx is valid against the given UTxO.
   applyTxTo :: tx -> UTxOType tx -> UTxOType tx
+
+  -- | Exact consumed and produced outputs of a successfully applied transaction.
+  -- Return 'Nothing' when the ledger needs whole-state change discovery.
+  -- Callers must validate the transaction and reject output-reference collisions
+  -- before using this delta; it is not a substitute for ledger validation.
+  txUTxOChanges :: UTxOType tx -> tx -> Maybe (UTxOType tx, UTxOType tx)
+  txUTxOChanges _ _ = Nothing
 
   -- | Filter a UTxO set keeping only entries whose output value is in the given set.
   filterUTxOByOutputs :: UTxOType tx -> Set (TxOutType tx) -> UTxOType tx
@@ -222,9 +234,18 @@ instance IsTx Tx where
 
   outputsOfUTxO = UTxO.txOutputs
 
+  utxoSize = UTxO.size
+
   withoutUTxO = UTxO.difference
 
   applyTxTo tx utxo = (utxo `UTxO.difference` Api.resolveInputsUTxO utxo tx) <> Api.utxoFromTx tx
+
+  txUTxOChanges utxo tx =
+    case txBodyScriptValidity (getTxBody tx) of
+      -- Phase-2-invalid transactions consume collateral instead of ordinary
+      -- inputs. Retain whole-state change discovery for this ledger path.
+      TxScriptValidity ScriptInvalid -> Nothing
+      _ -> Just (Api.resolveInputsUTxO utxo tx, Api.utxoFromTx tx)
 
   filterUTxOByOutputs utxo outputs = UTxO.filter (`Set.member` outputs) utxo
 

@@ -19,6 +19,8 @@ import Hydra.Contract.CRS (checkMembershipPairing)
 import Hydra.Contract.Head qualified as Head
 import Hydra.Contract.KZGTrustedSetup (g1BuiltinPoints, g2BuiltinPoints)
 import Hydra.Tx.Accumulator (
+  accumulatorSize,
+  applyUTxOChanges,
   applyUTxODelta,
   build,
   buildFromUTxO,
@@ -72,6 +74,29 @@ spec = parallel $ do
                 fresh = buildFromUTxO @Tx nextU
              in (unHydraAccumulator delta === unHydraAccumulator fresh)
                   .&&. (getAccumulatorHash delta === getAccumulatorHash fresh)
+
+    prop "explicit UTxO changes preserve the map, size and commitment of a fresh build" $
+      forAll (resize 20 genUTxOWithSimplifiedAddresses) $ \base ->
+        forAll (sublistOf (UTxO.toList base)) $ \removedPairs ->
+          forAll (resize 10 genUTxOWithSimplifiedAddresses) $ \extra ->
+            let removed = UTxO.fromList removedPairs
+                retained = UTxO.difference base removed
+                added = UTxO.difference extra retained
+                fresh = buildFromUTxO @Tx (retained <> added)
+             in case applyUTxOChanges @Tx (buildFromUTxO @Tx base) removed added of
+                  Nothing -> counterexample "valid explicit delta rejected" False
+                  Just updated ->
+                    (unHydraAccumulator updated === unHydraAccumulator fresh)
+                      .&&. (accumulatorSize updated === UTxO.size (retained <> added))
+                      .&&. (getAccumulatorHash updated === getAccumulatorHash fresh)
+
+    prop "explicit UTxO changes reject excess removed multiplicity before adding outputs" $
+      forAll arbitrary $ \(txIn1, txIn2) ->
+        txIn1 /= txIn2 ==>
+          forAll (genTxOutAdaOnly =<< arbitrary) $ \out ->
+            let base = UTxO.fromList [(txIn1, out)]
+                removed = UTxO.fromList [(txIn1, out), (txIn2, out)]
+             in applyUTxOChanges @Tx (buildFromUTxO @Tx base) removed base === Nothing
 
     prop "applyUTxODelta decrements duplicated outputs correctly" $
       forAll arbitrary $ \(txIn1, txIn2) ->

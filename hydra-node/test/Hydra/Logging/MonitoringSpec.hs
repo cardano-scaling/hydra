@@ -25,7 +25,7 @@ import Hydra.API.HTTPServer (observeL1)
 import Hydra.API.ServerOutput (ClientMessage (RejectedInputBecauseBroadcastStalled))
 import Hydra.API.ServerOutput qualified as Output
 import Hydra.HeadLogic (Input (ClientInput))
-import Hydra.HeadLogic.Outcome (Effect (ClientEffect), Outcome (..), StateChanged (..))
+import Hydra.HeadLogic.Outcome (Effect (ClientEffect), Outcome (..), PrunedTransactions (..), StateChanged (..))
 import Hydra.HeadLogicSpec (inIdleState, inOpenState, receiveMessage, testSnapshot)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Logging.Messages (HydraLog (APIServer, Network, Node))
@@ -256,7 +256,7 @@ spec = do
             snapshot = testSnapshot 1 1 [tx] (utxoRefs [1])
         traceWith tracer (Node $ BeginInput alice 0 (receiveMessage (ReqTx tx)))
         threadDelay 0.1
-        traceWith tracer (Node $ LogicOutcome alice (Continue [SnapshotRequested snapshot mempty Nothing] mempty))
+        traceWith tracer (Node $ LogicOutcome alice (Continue [SnapshotRequested snapshot (PrunedTransactions mempty Nothing) Nothing] mempty))
         threadDelay 0.1
         -- The normal signing path confirms without a snapshot in the event
         traceWith tracer (Node $ LogicOutcome alice (Continue [SnapshotConfirmed testHeadId Nothing mempty] mempty))

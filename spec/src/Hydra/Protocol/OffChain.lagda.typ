@@ -195,6 +195,12 @@ These are alternative future fanouts, not a union of all three sets. Unions are
 by output reference, so equal output values at different references count twice.
 An absent incremental action contributes the empty set.
 
+The node obtains these cardinalities from the UTxO map's stored size, rather
+than enumerating its output values. Equal contents at distinct references still
+contribute separately. An accumulator likewise retains its element count,
+including multiplicities; exact transaction deltas update that count by the
+number of removed and added outputs.
+
 Optimistic transaction acceptance does not enforce this bound. The leader's
 $sans("requestable")(T,tx_alpha,tx_omega)$ selects the longest prefix of its
 bounded candidate list that avoids re-creating references held by the settled
@@ -405,6 +411,9 @@ DecommitFits st tx localAfter =
 -- Operational post-snapshot pruning. Keep a transaction only if it applies,
 -- avoids the carried commit's output references and fits both possible fanouts.
 -- Skipping a transaction leaves U unchanged and still considers later merges.
+-- The first component is the final local ledger, reused by live Haskell
+-- projections. Event replay reconstructs it from the retained transactions;
+-- the cached ledger is not part of the persisted representation.
 prunePending : UTxO → UTxO → UTxO → List Data → UTxO × List Data
 prunePending U C D [] = U , []
 prunePending U C D (tx ∷ txs) with applyTxs U (tx ∷ [])
@@ -585,6 +594,21 @@ $sans("fits")$ with that snapshot's pending commit/decommit. Pruned transactions
 leave the running ledger unchanged; subsequent transactions are still considered,
 so an independent merge can survive a capacity rejection. Ledger applicability
 alone is insufficient: a ledger-valid transaction can exceed fanout capacity.
+Both components of the pruning result can be retained during live processing:
+the local ledger need not be reconstructed by reapplying the retained sequence.
+Persisted events still contain only that sequence. A decoded event, or a
+projection at a later settlement version, reconstructs the ledger from the
+appropriate settled snapshot. Transactions without exact arithmetic deltas,
+including collateral-consuming transactions, retain the reconstruction path.
+
+When neither snapshot carries an incremental action and their versions agree,
+validated transaction application also supplies the accumulator's exact net
+change. Outputs created and spent within the batch cancel by reference; the
+remaining removed and added outputs update the previous commitment's element
+map with their multiplicities. Ledger validation and output-reference collision
+checks still precede this optimization. Settlement transitions and ledgers
+without exact transaction deltas use whole-set change discovery.
+
 The Agda `prunePending` function models this postprocessing; `reqSn-sign` tracks
 the round counter and the system's `signHonest` rule requires `SnapshotFits`. \
 \

@@ -8,14 +8,14 @@ import Test.Hydra.Tx.Gen ()
 
 import Cardano.Binary (decodeFull', serialize')
 import Cardano.Binary qualified as CB
-import Cardano.Ledger.Api (bodyTxL, certsTxBodyL, inputsTxBodyL, updateTxBodyL)
+import Cardano.Ledger.Api (IsPhase2Valid (..), bodyTxL, certsTxBodyL, inputsTxBodyL, isPhase2ValidTxL, updateTxBodyL)
 import Cardano.Ledger.Api qualified as Ledger
 import Cardano.Ledger.Core (TxLevel (..))
 import Control.Lens ((.~), (^.))
 import Data.Aeson qualified as Aeson
 import Data.ByteString.Base16 qualified as Base16
 import Hydra.Cardano.Api (Tx, fromLedgerTx, getTxId, toLedgerTx, pattern Tx)
-import Hydra.Tx.IsTx (txId)
+import Hydra.Tx.IsTx (txId, txUTxOChanges)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.QuickCheck (Property, counterexample, forAll, property, (.&&.), (===))
 
@@ -28,6 +28,10 @@ spec =
       prop "Same TxId as TxBody after JSON decoding" roundtripTxId'
       prop "Roundtrip to and from Ledger" roundtripLedger
       prop "Roundtrip CBOR encoding" $ roundtripCBOR @Tx
+      prop "uses change discovery for phase-2-invalid transactions" $ \(tx :: Tx) ->
+        let invalid :: Tx
+            invalid = fromLedgerTx $ toLedgerTx tx & isPhase2ValidTxL .~ Phase2Invalid
+         in txUTxOChanges mempty invalid === Nothing
       prop "JSON decode Babbage era transactions" $
         forAll genConwayCompatibleBabbageTx $ \tx ->
           case Aeson.eitherDecode $ Aeson.encode $ fromLedgerTx tx of

@@ -1,4 +1,5 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# OPTIONS_GHC -Wno-ambiguous-fields #-}
 {-# OPTIONS_GHC -Wno-unused-do-bind #-}
 
 module Hydra.HeadLogicSnapshotSpec where
@@ -6,9 +7,13 @@ module Hydra.HeadLogicSnapshotSpec where
 import Hydra.Prelude hiding (label)
 import Test.Hydra.Prelude
 
+import Cardano.Binary (decodeFull', serialize')
+import Data.Aeson qualified as Aeson
 import Data.List qualified as List
 import Data.Map.Strict qualified as Map
+import Data.Sequence qualified as Seq
 import Hydra.HeadLogic (CoordinatedHeadState (..), Effect (..), HeadState (..), OpenState (OpenState), Outcome, SeenSnapshot (..), coordinatedHeadState, isLeader, mkSeenSnapshot, update)
+import Hydra.HeadLogic qualified as HeadLogic
 import Hydra.HeadLogicSpec (StepState, getState, hasEffect, hasEffectSatisfying, hasNoEffectSatisfying, inOpenState, inOpenState', nowFromSlot, receiveMessage, receiveMessageFrom, runHeadLogic, step)
 import Hydra.Ledger.Simple (SimpleTx (..), simpleLedger)
 import Hydra.Network.Message (Message (..))
@@ -91,6 +96,45 @@ spec = do
                 , appliedAccumulator = error "signableBytes forced during WHNF"
                 }
         mkSeenSnapshot poisoned mempty `seq` pure @IO ()
+
+    describe "pruned local UTxO" $ do
+      it "retains replay behavior for ledgers without exact transaction deltas" $ do
+        let firstTx = aValidTx 1
+            invalid = SimpleTx 3 (utxoRef 99) (utxoRef 3)
+            dependent = SimpleTx 2 (utxoRef 1) (utxoRef 2)
+            txs = [firstTx, invalid, dependent]
+            initial = inOpenState' threeParties coordinatedHeadState{localTxs = Seq.fromList txs, allTxs = Map.fromList [(txId tx, tx) | tx <- txs]}
+        now <- nowFromSlot (currentSlot $ chainPointTime initial)
+        let outcome = update (envFor aliceSk) simpleLedger now initial $ receiveMessageFrom alice $ ReqSn 0 1 [] Nothing Nothing
+        case outcome of
+          HeadLogic.Continue{stateChanges = [event@HeadLogic.SnapshotRequested{newLocalTxs}]} -> do
+            HeadLogic.retainedTransactions newLocalTxs `shouldBe` Seq.fromList [firstTx, dependent]
+            HeadLogic.prunedUTxO newLocalTxs `shouldBe` Nothing
+            let live = HeadLogic.aggregateNodeState initial event
+            case Aeson.eitherDecode (Aeson.encode event) of
+              Left err -> expectationFailure err
+              Right decoded -> HeadLogic.aggregateNodeState initial decoded `shouldBe` live
+            case decodeFull' (serialize' event) of
+              Left err -> expectationFailure (show err)
+              Right decoded -> HeadLogic.aggregateNodeState initial decoded `shouldBe` live
+          other -> expectationFailure (show other)
+
+      it "does not replay retained transactions when a current-version cached ledger is available" $ do
+        let initial = inOpenState' threeParties coordinatedHeadState
+            event = HeadLogic.SnapshotRequested snapshot1 (HeadLogic.PrunedTransactions (Seq.singleton $ error "transaction reapplied") (Just mempty)) Nothing
+            projected = HeadLogic.aggregateNodeState initial event
+        case headState projected of
+          Open OpenState{coordinatedHeadState = next} -> localUTxO next `shouldBe` mempty
+          _ -> expectationFailure "expected open state"
+
+      it "reconstructs from the settled snapshot instead of using an older-version cache" $ do
+        let initial = inOpenState' threeParties coordinatedHeadState{version = 1}
+            snapshot = snapshot1{utxoToCommit = Just (utxoRef 7)}
+            event = HeadLogic.SnapshotRequested snapshot (HeadLogic.PrunedTransactions mempty (Just $ error "old-version cache used")) Nothing
+            projected = HeadLogic.aggregateNodeState initial event
+        case headState projected of
+          Open OpenState{coordinatedHeadState = next} -> localUTxO next `shouldBe` utxoRef 7
+          _ -> expectationFailure "expected open state"
 
     describe "On ReqTx" $ do
       prop "always emit ReqSn given head has 1 member" prop_singleMemberHeadAlwaysSnapshotOnReqTx

@@ -6,6 +6,18 @@ On application startup, the [`hydrate`](pathname:///haddocks/hydra-node/Hydra-No
 
 ## Default event source and sinks
 
+`SnapshotRequested` carries the retained pending transactions together with an
+in-memory cache of the local UTxO computed while pruning them. The live node
+and API projections reuse this result at the snapshot's version. The
+cache is omitted if a retained transaction lacks an exact arithmetic delta,
+including a phase-2-invalid Cardano transaction. The
+`PrunedTransactions` wrapper encodes exactly the original transaction sequence
+in both JSON and CBOR; its UTxO cache is neither persisted nor accepted from a
+decoded event. Replay reconstructs the local ledger using the retained
+transactions, as does a projection at a later settlement version. This avoids
+repeating the live UTxO traversal without increasing event size or changing the
+database format.
+
 The default event source and sink used by the `hydra-node` is `SQLiteBased`, which persists events in a SQLite database file named `hydra.db`. This file is located in the `hydra-node` persistence directory, which is specified by the `--persistence-dir` command line option.
 
 If a legacy `state` file from a previous file-based installation is found in the persistence directory on startup, its events are automatically migrated into `hydra.db` and the original file is renamed to `state.migrated`.
@@ -25,7 +37,7 @@ The database contains a single `events` table:
 
 Event payloads use a constructor-name-tagged CBOR format: the constructor name
 as a CBOR text string, followed by the constructor fields in declaration order.
-This applies uniformly to every hydra domain type, including newtypes and
+This applies to derived Hydra domain types, including newtypes and
 single-constructor records (e.g. a `HeadId` is encoded as the text
 `"UnsafeHeadId"` followed by the raw bytes). Most instances are derived
 generically via `genericToCBOR` / `genericFromCBOR` from
@@ -38,7 +50,9 @@ constructor requires a compatibility decoder or migration for stored values
 that use it; older software cannot decode newly added constructors.
 The few hand-written codecs (e.g. `Snapshot`, `Environment`) carry the same
 leading tag and only exist where a field is deliberately omitted from the
-encoding. Untagged leaves are limited to standard external formats:
+encoding. `PrunedTransactions` is a transparent wrapper: it preserves the
+existing sequence encoding of `SnapshotRequested.newLocalTxs` and adds no tag.
+Other untagged leaves use standard external formats:
 cardano-ledger encodings for `Tx`/`UTxO`, raw-bytes/text encodings for opaque
 cardano-api types (`TxId`, `PolicyId`, `Hash BlockHeader`, ...), scalar
 primitives, and `VerificationKey HydraKey` whose CBOR is the on-disk key file

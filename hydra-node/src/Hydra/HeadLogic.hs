@@ -52,6 +52,7 @@ import Hydra.HeadLogic.Input (Input (..), TTL)
 import Hydra.HeadLogic.Outcome (
   Effect (..),
   Outcome (..),
+  PrunedTransactions (..),
   StateChanged (..),
   WaitReason (..),
   cause,
@@ -370,7 +371,7 @@ onOpenNetworkReqSn env ledger pendingDeposits ChainPointTime{currentSlot, curren
               -- Spec: require 𝑈_𝛼 ∩ 𝑈_active = ∅ ∧ 𝑈_𝛼 ∩ outputs(Treq) = ∅
               --       require 𝑈_active ◦ Treq ≠ ⊥
               --       𝑈 ← 𝑈_active ◦ Treq
-              requireApplyTxs activeUTxO mUtxoToCommit requestedTxs $ \nextUTxO ->
+              requireApplyTxs activeUTxO mUtxoToCommit requestedTxs $ \(nextUTxO, txChanges) ->
                 -- The predecessor is confirmed at this point (see
                 -- requireReqSn and waitNoSnapshotInFlight), so its two
                 -- accumulators cover exactly its own two owed sets (see
@@ -378,11 +379,20 @@ onOpenNetworkReqSn env ledger pendingDeposits ChainPointTime{currentSlot, curren
                 -- the UTxO delta instead of re-serializing and re-hashing
                 -- every output.
                 let prevSnapshot = getSnapshot confirmedSnapshot
-                    accumulator =
-                      Accumulator.applyUTxODelta
-                        prevSnapshot.accumulator
-                        (combinedUTxO prevSnapshot.utxo Nothing prevSnapshot.utxoToDecommit)
-                        (combinedUTxO nextUTxO Nothing mUtxoToDecommit)
+                    accumulator
+                      | prevSnapshot.version == version
+                      , isNothing prevSnapshot.utxoToCommit
+                      , isNothing prevSnapshot.utxoToDecommit
+                      , isNothing mUtxoToCommit
+                      , isNothing mUtxoToDecommit
+                      , Just (removed, added) <- txChanges
+                      , Just updated <- Accumulator.applyUTxOChanges prevSnapshot.accumulator removed added =
+                          updated
+                      | otherwise =
+                          Accumulator.applyUTxODelta
+                            prevSnapshot.accumulator
+                            (combinedUTxO prevSnapshot.utxo Nothing prevSnapshot.utxoToDecommit)
+                            (combinedUTxO nextUTxO Nothing mUtxoToDecommit)
                     appliedAccumulator
                       -- Nothing pending: both accumulators are the same value,
                       -- share the thunk so the commitment is computed once.
@@ -424,8 +434,8 @@ onOpenNetworkReqSn env ledger pendingDeposits ChainPointTime{currentSlot, curren
                         --         T̂ ← T̂ ⋃ {tx}
                         --         L̂ ← L̂ ◦ tx
                         --
-                        -- NOTE: 'SnapshotRequested' rebuilds 'localUTxO' from
-                        -- 'nextUTxO', so every kept tx applies there.
+                        -- Share the ledger computed while pruning with live
+                        -- projections; persisted events keep only the txs.
                         let newLocalTxs = pruneTransactions nextUTxO mUtxoToCommit mUtxoToDecommit
                         newState
                           SnapshotRequested
@@ -573,7 +583,7 @@ onOpenNetworkReqSn env ledger pendingDeposits ChainPointTime{currentSlot, curren
   -- guarantees a confirmed snapshot never contains an unvalidated transaction.
   --
   -- A claimed deposit must also be 'absorbable' next to the requested txs.
-  requireApplyTxs :: UTxOType tx -> Maybe (UTxOType tx) -> [tx] -> (UTxOType tx -> Outcome tx) -> Outcome tx
+  requireApplyTxs :: UTxOType tx -> Maybe (UTxOType tx) -> [tx] -> ((UTxOType tx, Maybe (UTxOType tx, UTxOType tx)) -> Outcome tx) -> Outcome tx
   requireApplyTxs utxo mUtxoToCommit' requestedTxs cont
     | Just depositTxId <- mDepositTxId
     , Just deposited <- mUtxoToCommit'
@@ -581,7 +591,7 @@ onOpenNetworkReqSn env ledger pendingDeposits ChainPointTime{currentSlot, curren
         Error $ RequireFailed ReqSnDepositOutputsHeld{depositTxId}
     | otherwise =
         -- Spec: require outputs(Treq) ∩ 𝑈_active = ∅
-        case applyTransactionsWithoutCollision ledger currentSlot utxo requestedTxs of
+        case applyTransactionsWithChanges ledger currentSlot utxo requestedTxs of
           Left (tx, err) ->
             Error $ RequireFailed $ SnapshotDoesNotApply sn (txId tx) err
           Right u -> cont u
@@ -594,11 +604,14 @@ onOpenNetworkReqSn env ledger pendingDeposits ChainPointTime{currentSlot, curren
       Right () -> continue
 
   -- \| Filter 'localTxs' to those that still apply against the running UTxO
-  -- after each previous successful tx. The post-snapshot UTxO is not returned:
-  -- aggregate will recompute it.
-  pruneTransactions utxo0 mCommit mDecommit = go utxo0 localTxs
+  -- after each previous successful tx, retaining the resulting local ledger.
+  -- Cache it only when retained transactions have exact arithmetic deltas;
+  -- collateral-consuming transactions and unsupported ledgers retain replay.
+  pruneTransactions utxo0 mCommit mDecommit =
+    let (utxo, retained) = go utxo0 localTxs
+     in PrunedTransactions retained utxo
    where
-    go _ Seq.Empty = Seq.empty
+    go u Seq.Empty = (Just u, Seq.empty)
     go u (tx Seq.:<| rest) =
       -- XXX: We prune transactions on any error, while only some of them are
       -- actually expected.
@@ -609,7 +622,9 @@ onOpenNetworkReqSn env ledger pendingDeposits ChainPointTime{currentSlot, curren
         Right u'
           | namesNoneOf (utxoFromTx tx) (fold mCommit)
           , isRight (checkSnapshotUTxOSize u' mCommit mDecommit) ->
-              tx Seq.<| go u' rest
+              let !canCache = isJust $ txUTxOChanges u tx
+                  (finalUTxO, retained) = go u' rest
+               in (guard canCache *> finalUTxO, tx Seq.<| retained)
           | otherwise -> go u rest
   confSn = case confirmedSnapshot of
     InitialSnapshot{} -> 0
@@ -2112,7 +2127,7 @@ isSubMultisetOfBy key selected remaining
 -- arguments are the same tracked set, as in auto-drain after an observed chunk.
 sameOutputs :: IsTx tx => UTxOType tx -> UTxOType tx -> Bool
 sameOutputs a b =
-  a == b || (length (outputsOfUTxO a) == length (outputsOfUTxO b) && a `isSubMultisetOf` b)
+  a == b || (utxoSize a == utxoSize b && a `isSubMultisetOf` b)
 
 -- | Which on-chain head datum the next fanout step will be posted against:
 -- still @Closed@ (no partial fanout has landed yet) or already @FanoutProgress@.
@@ -2486,7 +2501,7 @@ checkSnapshotUTxOSize utxo mCommit mDecommit =
     | n > Accumulator.maxAccumulatorSize = Left AccumulatorTooLarge{utxoCount = n, maxAllowed = Accumulator.maxAccumulatorSize}
     | otherwise = Right ()
    where
-    n = length (outputsOfUTxO u)
+    n = utxoSize u
 
 -- | The deposit claimed by a retained finalized increment ('finalizedCommit'),
 -- if any. Such a deposit only resurfaces in 'pendingDeposits' when a rollback
@@ -2559,6 +2574,25 @@ applyTransactionsWithoutCollision Ledger{applyTransactions = apply} slot =
     if namesNoneOf (utxoFromTx tx) utxo
       then apply slot utxo [tx]
       else Left (tx, ValidationError "transaction creates an output the head already holds")
+
+-- | Validate a batch and retain only its net consumed and produced outputs.
+-- Cancelling intermediate outputs by reference avoids serializing them when
+-- updating the snapshot accumulator. Ledgers without exact deltas keep the
+-- whole-state fallback, without changing which transactions are accepted.
+applyTransactionsWithChanges :: IsTx tx => Ledger tx -> ChainSlot -> UTxOType tx -> [tx] -> Either (tx, ValidationError) (UTxOType tx, Maybe (UTxOType tx, UTxOType tx))
+applyTransactionsWithChanges ledger slot initial = foldlM apply (initial, Just (mempty, mempty))
+ where
+  apply (utxo, delta) tx = do
+    next <- applyTransactionsWithoutCollision ledger slot utxo [tx]
+    let !netChanges = do
+          (removed, added) <- delta
+          (consumed, produced) <- txUTxOChanges utxo tx
+          -- Force the small delta maps before advancing so their thunks do not
+          -- retain every intermediate full ledger in a long transaction batch.
+          let !removed' = removed <> (consumed `withoutUTxO` added)
+              !added' = (added `withoutUTxO` consumed) <> produced
+          pure (removed', added')
+    pure (next, netChanges)
 
 -- | The deposit blocked by a retained finalized increment of an open head, if
 -- any.
@@ -3294,12 +3328,15 @@ applyEvent st = \case
             { coordinatedHeadState =
                 coordinatedHeadState
                   { seenSnapshot = mkSeenSnapshot snapshot mempty
-                  , localTxs = newLocalTxs
-                  , -- NOTE: pure UTxO arithmetic. 'newLocalTxs' was pre-pruned
-                    -- by 'pruneTransactions' in 'onOpenNetworkReqSn' (so each tx
-                    -- is guaranteed to apply), making 'applyTxTo' safe to use
-                    -- without ledger validation.
-                    localUTxO = foldl' (flip applyTxTo) (settledUTxO version snapshot) newLocalTxs
+                  , localTxs = retainedTransactions newLocalTxs
+                  , -- Live events reuse pruning's result. Decoded events lack
+                    -- the cache and replay with pure UTxO arithmetic. A later
+                    -- settlement version also needs reconstruction because its
+                    -- base ledger can include the snapshot's pending commit.
+                    localUTxO =
+                      fromMaybe
+                        (foldl' (flip applyTxTo) (settledUTxO version snapshot) (retainedTransactions newLocalTxs))
+                        (guard (version == snapshot.version) *> prunedUTxO newLocalTxs)
                   , allTxs = foldr (Map.delete . txId) allTxs snapshot.confirmed
                   , currentDepositTxId = newCurrentDepositTxId
                   }

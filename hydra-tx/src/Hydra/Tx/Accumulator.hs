@@ -15,6 +15,7 @@ module Hydra.Tx.Accumulator (
   buildFromUTxO,
   buildFromSnapshotUTxOs,
   applyUTxODelta,
+  applyUTxOChanges,
   removeOutputs,
 
   -- * CRS (Common Reference String)
@@ -54,6 +55,9 @@ import Text.Show (Show (..))
 
 data HydraAccumulator = HydraAccumulator
   { unHydraAccumulator :: Accumulator
+  , _cachedSize :: Int
+  -- ^ Total occurrences, including equal elements. Exact deltas advance this
+  -- count without rescanning the retained element map.
   , _cachedCommitment :: ByteString
   -- ^ Lazy thunk: compressed G1 commitment. Forced at most once per value,
   -- shared by the hash below and by 'getAccumulatorCommitment' (datum
@@ -75,7 +79,10 @@ instance Eq HydraAccumulator where
   a == b = unHydraAccumulator a == unHydraAccumulator b
 
 mkHydraAccumulator :: Accumulator -> HydraAccumulator
-mkHydraAccumulator acc = HydraAccumulator acc cachedCommitment cachedHash
+mkHydraAccumulator acc = mkHydraAccumulatorWithSize (sum $ snd <$> Map.elems acc) acc
+
+mkHydraAccumulatorWithSize :: Int -> Accumulator -> HydraAccumulator
+mkHydraAccumulatorWithSize elementCount acc = HydraAccumulator acc elementCount cachedCommitment cachedHash
  where
   cachedCommitment = computeG1CommitmentBytes acc
   cachedHash = digest (Proxy @Blake2b_256) cachedCommitment
@@ -207,6 +214,25 @@ applyUTxODelta prevAcc prevUTxO nextUTxO
 
   addedEls = utxoToElement @tx <$> outputsOfUTxO @tx (nextUTxO `withoutUTxO` prevUTxO)
 
+-- | Apply an exact net delta supplied by validated transaction application.
+-- Outputs created and consumed within the same batch must be cancelled by
+-- reference before calling this function. Unlike 'applyUTxODelta', this does
+-- not discover changes or compare retained outputs in the full UTxO sets.
+-- Missing removed occurrences return 'Nothing' so the caller can rebuild.
+applyUTxOChanges :: forall tx. IsTx tx => HydraAccumulator -> UTxOType tx -> UTxOType tx -> Maybe HydraAccumulator
+applyUTxOChanges previous removed added
+  | Map.isSubmapOfBy (\needed (_, held) -> needed <= held) removedCounts prev =
+      Just $
+        mkHydraAccumulatorWithSize
+          (accumulatorSize previous - length removedEls + length addedEls)
+          (foldl' Accumulator.addElement (foldl' (flip Accumulator.removeElement) prev removedEls) addedEls)
+  | otherwise = Nothing
+ where
+  prev = unHydraAccumulator previous
+  removedEls = utxoToElement @tx <$> outputsOfUTxO @tx removed
+  addedEls = utxoToElement @tx <$> outputsOfUTxO @tx added
+  removedCounts = Map.fromListWith (+) [(el, 1 :: Int) | el <- removedEls]
+
 -- | Remove one occurrence of each given output from an accumulator.
 --
 -- Unlike 'applyUTxODelta' the outputs to remove are given directly, so the
@@ -256,7 +282,7 @@ getAccumulatorHash = _cachedHash
 
 -- | Number of UTxOs tracked by the accumulator.
 accumulatorSize :: HydraAccumulator -> Int
-accumulatorSize = sum . map snd . Map.elems . unHydraAccumulator
+accumulatorSize = _cachedSize
 
 -- | Maximum accumulator size, re-exported from 'KZGTrustedSetup' for convenience.
 maxAccumulatorSize :: Int

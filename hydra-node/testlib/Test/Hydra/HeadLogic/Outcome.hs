@@ -7,7 +7,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Hydra.Chain.ChainState (ChainPointType (..), ChainStateType (..), IsChainState)
-import Hydra.HeadLogic.Outcome (StateChanged (..))
+import Hydra.HeadLogic.Outcome (PrunedTransactions (..), StateChanged (..))
 import Hydra.Node.Environment (Environment (..), mkHeadParameters)
 import Test.Hydra.API.ServerOutput ()
 import Test.Hydra.Chain ()
@@ -17,6 +17,9 @@ import Test.Hydra.Node.State ()
 import Test.Hydra.Tx.Gen (ArbitraryIsTx)
 import Test.QuickCheck (oneof)
 import Test.QuickCheck.Arbitrary.ADT (ToADTArbitrary)
+
+instance ArbitraryIsTx tx => Arbitrary (PrunedTransactions tx) where
+  arbitrary = (`PrunedTransactions` Nothing) <$> arbitrary
 
 instance
   ( ArbitraryIsTx tx

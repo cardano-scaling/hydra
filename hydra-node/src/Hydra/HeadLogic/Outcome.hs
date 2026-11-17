@@ -31,6 +31,7 @@ import Hydra.Tx (
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Hydra.Tx.Crypto (MultiSignature, Signature)
 import Hydra.Tx.OnChainId (OnChainId)
+import Text.Show (Show (showsPrec))
 
 -- | Analogous to inputs, the pure head logic "core" can have effects emitted to
 -- the "shell" layers and we distinguish the same: effects onto the client, the
@@ -47,6 +48,33 @@ data Effect tx
 deriving stock instance IsChainState tx => Eq (Effect tx)
 deriving stock instance IsChainState tx => Show (Effect tx)
 deriving anyclass instance IsChainState tx => ToJSON (Effect tx)
+
+-- | Retained pending transactions and the local ledger computed while pruning.
+-- Only the transaction sequence is persisted, compared or shown. The derived
+-- UTxO is shared by live projections; replay reconstructs it from the sequence.
+data PrunedTransactions tx = PrunedTransactions
+  { retainedTransactions :: Seq tx
+  , prunedUTxO :: ~(Maybe (UTxOType tx))
+  }
+
+instance IsTx tx => Eq (PrunedTransactions tx) where
+  a == b = retainedTransactions a == retainedTransactions b
+
+instance IsTx tx => Show (PrunedTransactions tx) where
+  showsPrec precedence = showsPrec precedence . retainedTransactions
+
+instance IsTx tx => ToJSON (PrunedTransactions tx) where
+  toJSON = toJSON . retainedTransactions
+  toEncoding = toEncoding . retainedTransactions
+
+instance IsTx tx => FromJSON (PrunedTransactions tx) where
+  parseJSON value = (`PrunedTransactions` Nothing) <$> parseJSON value
+
+instance IsTx tx => ToCBOR (PrunedTransactions tx) where
+  toCBOR = toCBOR . retainedTransactions
+
+instance IsTx tx => FromCBOR (PrunedTransactions tx) where
+  fromCBOR = (`PrunedTransactions` Nothing) <$> fromCBOR
 
 -- | Head state changed event. These events represent all the internal state
 -- changes, get persisted and processed in an event sourcing manner.
@@ -80,7 +108,7 @@ data StateChanged tx
   | SnapshotRequestDecided {snapshotNumber :: SnapshotNumber}
   | SnapshotRequested
       { requestedSnapshot :: Snapshot tx
-      , newLocalTxs :: Seq tx
+      , newLocalTxs :: PrunedTransactions tx
       , newCurrentDepositTxId :: Maybe (TxIdType tx)
       }
   | PartySignedSnapshot {snapshotNumber :: SnapshotNumber, party :: Party, signature :: Signature (Snapshot tx)}

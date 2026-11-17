@@ -17,6 +17,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Binary (decodeFull', serialize')
 import Cardano.Ledger.Api (bodyTxL, inputsTxBodyL)
 import Cardano.Slotting.Time (SystemStart (SystemStart))
 import Control.Lens ((.~))
@@ -84,7 +85,7 @@ import Test.Hydra.Chain.Direct.State (ctxParticipants, genDecrementTxWithSnapsho
 import Test.Hydra.Chain.Direct.TimeHandle (safeZone)
 import Test.Hydra.HeadLogic.Input ()
 import Test.Hydra.HeadLogic.State ()
-import Test.Hydra.Ledger.Cardano (mkRangedTx)
+import Test.Hydra.Ledger.Cardano (genFixedSizeSequenceOfSimplePaymentTransactions, mkRangedTx)
 import Test.Hydra.Ledger.Cardano.Fixtures (eraHistoryWithHorizonAt, evaluateTx)
 import Test.Hydra.Ledger.Cardano.Fixtures qualified as LedgerFixture
 import Test.Hydra.Ledger.Simple (aValidTx, utxoRef, utxoRefs)
@@ -118,6 +119,63 @@ genFanoutMultisets = do
 spec :: Spec
 spec =
   parallel $ do
+    describe "snapshot UTxO traversals" $ do
+      prop "validated transaction deltas cancel intermediate outputs and match a full rebuild" $
+        forAll (choose (1, 12) >>= genFixedSizeSequenceOfSimplePaymentTransactions) $ \(initial, txs) ->
+          let ledger = cardanoLedger Fixture.defaultGlobals Fixture.defaultLedgerEnv
+           in case HeadLogic.applyTransactionsWithChanges ledger (ChainSlot 1) initial txs of
+                Right (next, Just (removed, added)) ->
+                  conjoin
+                    [ removed === UTxO.difference initial next
+                    , added === UTxO.difference next initial
+                    , (Accumulator.unHydraAccumulator <$> Accumulator.applyUTxOChanges @Tx (Accumulator.buildFromUTxO @Tx initial) removed added)
+                        === Just (Accumulator.unHydraAccumulator $ Accumulator.buildFromUTxO @Tx next)
+                    ]
+                result -> counterexample ("expected a validated exact delta: " <> show result) False
+
+      prop "UTxO size counts repeated contents under distinct references" $
+        forAll genFanoutMultisets $ \(_, _, selected, remaining) ->
+          conjoin [utxoSize selected === length (outputsOfUTxO selected), utxoSize remaining === length (outputsOfUTxO remaining)]
+
+      prop "Cardano snapshot pruning shares its final ledger and preserves replay" $
+        forAll (choose (2, 12) >>= genFixedSizeSequenceOfSimplePaymentTransactions) $ \(initial, txs) ->
+          let ledger = cardanoLedger Fixture.defaultGlobals Fixture.defaultLedgerEnv
+              parameters = HeadParameters defaultContestationPeriod defaultDepositPeriod [alice, bob, carol]
+              leader = fromMaybe (Prelude.error "missing snapshot leader") $ find (\party -> HeadLogic.isLeader parameters party 2) [alice, bob, carol]
+              open =
+                OpenState
+                  { parameters
+                  , coordinatedHeadState =
+                      CoordinatedHeadState
+                        { localUTxO = initial
+                        , localTxs = Seq.fromList txs
+                        , allTxs = Map.fromList [(txId tx, tx) | tx <- txs]
+                        , confirmedSnapshot = ConfirmedSnapshot (testSnapshot 1 0 [] initial) mempty
+                        , seenSnapshot = LastSeenSnapshot 1
+                        , currentDepositTxId = Nothing
+                        , decommitTx = Nothing
+                        , version = 0
+                        , finalizedCommit = Nothing
+                        , finalizedDecommit = Nothing
+                        }
+                  , chainState = Direct.initialChainState
+                  , headId = testHeadId
+                  , headSeed = testHeadSeed
+                  }
+              clock = ChainPointTime (ChainSlot 1) initialChainTime 0
+              outcome = HeadLogic.onOpenNetworkReqSn Fixture.testEnvironment ledger mempty clock open 5 leader 0 2 (txId <$> take 1 txs) Nothing Nothing
+           in case (outcome, applyTransactions ledger (ChainSlot 1) initial txs) of
+                (Continue{stateChanges = [event@SnapshotRequested{newLocalTxs, requestedSnapshot}]}, Right expected) ->
+                  conjoin
+                    [ HeadLogic.prunedUTxO newLocalTxs === Just expected
+                    , HeadLogic.retainedTransactions newLocalTxs === Seq.fromList (drop 1 txs)
+                    , Accumulator.getAccumulatorHash requestedSnapshot.accumulator === Accumulator.getAccumulatorHash (Accumulator.buildFromUTxO @Tx requestedSnapshot.utxo)
+                    , case decodeFull' (serialize' event) of
+                        Left err -> counterexample (show err) False
+                        Right decoded -> HeadLogic.applyEvent (Open open) decoded === HeadLogic.applyEvent (Open open) event
+                    ]
+                result -> counterexample ("expected a pruned snapshot: " <> show result) False
+
     describe "fanout output multisets" $ do
       prop "matches Agda and the previous removal algorithm with duplicates and renamed references" $
         withMaxSuccess 1000 $
@@ -857,7 +915,7 @@ spec =
             requests o `shouldBe` [([], Nothing)]
             -- Confirming the empty snapshot prunes it.
             o' `hasStateChangedSatisfying` \case
-              SnapshotRequested{newLocalTxs} -> toList newLocalTxs == [another]
+              SnapshotRequested{newLocalTxs} -> toList (HeadLogic.retainedTransactions newLocalTxs) == [another]
               _ -> False
 
           prop "signs snapshots that account for the pending commit exactly once" $

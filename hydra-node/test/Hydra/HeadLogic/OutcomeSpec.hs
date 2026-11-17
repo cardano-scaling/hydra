@@ -10,19 +10,32 @@ module Hydra.HeadLogic.OutcomeSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
+import Cardano.Binary (decodeFull', serialize')
+import Data.Aeson qualified as Aeson
+
 -- IsChainState Tx instance, needed to (de)serialize 'StateEvent'/'StateChanged' at 'Tx'.
 import Hydra.Chain.Direct.State ()
-import Hydra.HeadLogic (StateChanged)
+import Hydra.HeadLogic (PrunedTransactions (..), StateChanged)
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.Ledger.Cardano (Tx)
 import Test.Aeson.GenericSpecs (defaultSettings, roundtripAndGoldenADTSpecsWithSettings, roundtripAndGoldenSpecsWithSettings, sampleSize)
 import Test.Hydra.Chain.Direct.State ()
 import Test.Hydra.HeadLogic.Outcome ()
 import Test.Hydra.HeadLogic.StateEvent ()
+import Test.QuickCheck (conjoin, forAll, resize, (===))
 
 spec :: Spec
 spec =
   describe "persisted event format" $ do
+    prop "pruned transactions preserve sequence encodings and discard the live UTxO cache on decode" $
+      forAll (resize 5 arbitrary) $ \txs ->
+        let live = PrunedTransactions @Tx txs (Just $ error "cache serialized")
+         in conjoin
+              [ Aeson.encode live === Aeson.encode txs
+              , serialize' live === serialize' txs
+              , (prunedUTxO <$> (Aeson.eitherDecode (Aeson.encode live) :: Either String (PrunedTransactions Tx))) === Right Nothing
+              , (prunedUTxO <$> decodeFull' @(PrunedTransactions Tx) (serialize' live)) === Right Nothing
+              ]
     -- NOTE: Whenever one of these fails, make sure to record a **BREAKING**
     -- change of the persisted event format (older event logs may then fail to
     -- load). These guard the JSON of every persisted 'StateChanged' variant.
