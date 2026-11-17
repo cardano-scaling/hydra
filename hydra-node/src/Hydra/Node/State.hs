@@ -10,9 +10,9 @@ import Data.Map.Strict qualified as Map
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import GHC.Records (HasField (..))
 import Hydra.Chain.ChainState (ChainSlot (..), IsChainState (..), chainStateSlot)
-import Hydra.HeadLogic.Machine.Deposit qualified as DepositMachine
+import Hydra.HeadLogic.Deposit as Deposit (Deposit (..), DepositStatus (..), TrackedDeposit (..))
+import Hydra.HeadLogic.Deposit qualified as DepositEntry
 import Hydra.HeadLogic.State (HeadState (Idle), IdleState (..))
-import Hydra.Node.Deposit as Deposit (Deposit (..), DepositStatus (..), TrackedDeposit (..))
 import Hydra.Tx (
   HeadId,
   IsTx (..),
@@ -45,7 +45,7 @@ recordDeposit :: IsTx tx => ChainSlot -> TxIdType tx -> Deposit tx -> NodeState 
 recordDeposit slot depositTxId deposit nodeState =
   nodeState
     { deposits =
-        Map.alter (DepositMachine.transition $ DepositMachine.Observe slot deposit) depositTxId $
+        Map.alter (DepositEntry.record slot deposit) depositTxId $
           pruneConsumedDeposits slot (deposits nodeState)
     }
 
@@ -57,7 +57,7 @@ consumeDeposit :: IsTx tx => ChainSlot -> TxIdType tx -> NodeState tx -> NodeSta
 consumeDeposit slot depositTxId nodeState =
   nodeState
     { deposits =
-        Map.alter (DepositMachine.transition $ DepositMachine.Consume slot) depositTxId $
+        Map.alter (DepositEntry.consume slot) depositTxId $
           pruneConsumedDeposits slot (deposits nodeState)
     }
 
@@ -65,7 +65,7 @@ consumeDeposit slot depositTxId nodeState =
 -- 'TrackedDeposit'.
 rollbackDeposits :: ChainSlot -> NodeState tx -> NodeState tx
 rollbackDeposits slot nodeState =
-  nodeState{deposits = Map.mapMaybe (DepositMachine.transition (DepositMachine.Rollback slot) . Just) (deposits nodeState)}
+  nodeState{deposits = Map.mapMaybe (DepositEntry.rollback slot . Just) (deposits nodeState)}
 
 -- | Drop consumed deposits beyond 'depositRetentionHorizon': no rollback can
 -- resurface them anymore, so retaining them would only grow persisted state

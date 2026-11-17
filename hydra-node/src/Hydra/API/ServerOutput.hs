@@ -589,6 +589,7 @@ instance FromCBOR NetworkInfo where
 -- | Get latest confirmed snapshot UTxO from 'HeadState'.
 getSnapshotUtxo :: IsTx tx => HeadState tx -> Maybe (UTxOType tx)
 getSnapshotUtxo = \case
+  HeadState.Finalized{} -> Nothing
   HeadState.Idle{} ->
     Nothing
   HeadState.Open OpenState{coordinatedHeadState} ->
@@ -604,6 +605,7 @@ getSnapshotUtxo = \case
 -- | Get latest seen snapshot from 'HeadState'.
 getSeenSnapshot :: IsTx tx => HeadState tx -> HeadState.SeenSnapshot tx
 getSeenSnapshot = \case
+  HeadState.Finalized{} -> NoSeenSnapshot
   HeadState.Idle{} ->
     NoSeenSnapshot
   HeadState.Open OpenState{coordinatedHeadState} ->
@@ -618,6 +620,7 @@ getSeenSnapshot = \case
 -- | Get latest confirmed snapshot from 'HeadState'.
 getConfirmedSnapshot :: HeadState tx -> Maybe (HeadState.ConfirmedSnapshot tx)
 getConfirmedSnapshot = \case
+  HeadState.Finalized{} -> Nothing
   HeadState.Idle{} ->
     Nothing
   HeadState.Open OpenState{coordinatedHeadState} ->

@@ -13,10 +13,10 @@ import Crem.StateMachine qualified as Crem
 import Data.List qualified as List
 import Data.Sequence qualified as Seq
 import Hydra.Agda.OffChainReference qualified as Agda
-import Hydra.HeadLogic.Machine.Coordinated qualified as Coordinated
 import Hydra.HeadLogic.Program (Instruction (VerifySnapshot), Program, foldProgram)
-import Hydra.HeadLogic.Rules.SnapshotVerification (VerifiedSnapshot, verifyCandidate, verifySignedSnapshot)
+import Hydra.HeadLogic.Snapshot.Verification (VerifiedSnapshot, verifyCandidate, verifySignedSnapshot)
 import Hydra.HeadLogic.State (CoordinatedHeadState (..), HeadState (Open), OpenState (..), SeenSnapshot (LastSeenSnapshot))
+import Hydra.HeadLogic.State.Coordinated qualified as Coordinated
 import Hydra.HeadLogicSpec (inOpenState, testSnapshot, withAccumulators)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..))
 import Hydra.Node.State (NodeState (headState))

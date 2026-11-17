@@ -93,7 +93,7 @@ smokeTimingSpec = describe "mkSmokeTiming" $ do
     min maxGraceTime (CP.toNominalDiffTime contestationPeriod)
       `shouldBe` maxGraceTime
  where
-  -- Mirrors 'Hydra.HeadLogic.Rules.Deposits.determineNextDepositStatus' against the bounds
+  -- Mirrors 'Hydra.HeadLogic.Rules.Chain.Deposits.determineNextDepositStatus' against the bounds
   -- 'Hydra.Chain.Direct.Handlers.draftDepositTx' and
   -- 'Hydra.API.HTTPServer.handleDraftCommitUtxo' put on a deposit.
   activeWindow Timing{depositPeriod, depositActivation} =

@@ -5,25 +5,35 @@
 
 -- | All input admission goes through this workflow, including development tools.
 -- Size checks precede any operation that could echo an unsafe client input.
-module Hydra.HeadLogic.Rules.Input (Phase (..), InputTopology, machine) where
+module Hydra.HeadLogic.Rules.Input (Stage (..), InputTopology, handle, workflow) where
 
-import Crem.Topology (
-  Topology (Topology),
- )
+import Crem.Topology (Topology (Topology))
 import Hydra.API.ClientInput (validateClientInputWith)
-import Hydra.API.ServerOutput qualified as ServerOutput
+import Hydra.API.ServerOutput qualified as ServerOutput (
+  ClientMessage (RejectedInputBecauseUnsynced),
+ )
 import Hydra.Chain.ChainState (IsChainState)
-import Hydra.HeadLogic.Error (LogicError (..), SideLoadRequirementFailure (..))
+import Hydra.HeadLogic.Error (
+  LogicError (..),
+  SideLoadRequirementFailure (..),
+ )
 import Hydra.HeadLogic.Input (Input (..))
 import Hydra.HeadLogic.Outcome (Effect (..), WaitReason (..))
-import Hydra.HeadLogic.Program qualified as Program
+import Hydra.HeadLogic.Program (Program)
+import Hydra.HeadLogic.Program qualified as Program (
+  decide,
+  emit,
+  reject,
+  suspend,
+ )
 import Hydra.HeadLogic.Rules.Chain (handleChainInput)
 import Hydra.HeadLogic.Rules.Client (handleClientInput)
 import Hydra.HeadLogic.Rules.Environment (RuleEnvironment (..))
 import Hydra.HeadLogic.Rules.Network (handleNetworkInput)
 import Hydra.HeadLogic.State (
   ClosedState,
-  HeadState (Closed, FanoutProgress, Idle, Open),
+  FinalizedState,
+  HeadState (Closed, FanoutProgress, Finalized, Idle, Open),
   IdleState,
   OpenState,
   PartialFanoutState,
@@ -33,27 +43,36 @@ import Hydra.HeadLogic.Workflow (
   Workflow,
   continue,
   finish,
+ )
+import Hydra.HeadLogic.Workflow qualified as Workflow (
+  run,
   workflow,
  )
-import Hydra.Node.State (ChainPointTime (..), NodeState (..), SyncedStatus (..), syncedStatus)
-import Hydra.Prelude hiding (State, state)
+import Hydra.Node.State (
+  ChainPointTime (..),
+  NodeState (..),
+  SyncedStatus (..),
+  syncedStatus,
+ )
+import Hydra.Prelude hiding (State, handle, state)
 import Hydra.Tx.Accumulator (AccumulatorTooLarge (..))
 
-data Phase = CheckInputSize | CheckSynchronisation | HandleIdle | HandleOpen | HandleClosed | HandleFanout | Finished
+data Stage = CheckInputSize | CheckSynchronisation | HandleIdle | HandleOpen | HandleClosed | HandleFanout | HandleFinalized | Finished
 
 type InputTopology =
   'Topology
     '[ '( 'CheckInputSize, '[ 'CheckSynchronisation])
-     , '( 'CheckSynchronisation, '[ 'HandleIdle, 'HandleOpen, 'HandleClosed, 'HandleFanout, 'Finished])
+     , '( 'CheckSynchronisation, '[ 'HandleIdle, 'HandleOpen, 'HandleClosed, 'HandleFanout, 'HandleFinalized, 'Finished])
      , '( 'HandleIdle, '[ 'Finished])
      , '( 'HandleOpen, '[ 'Finished])
      , '( 'HandleClosed, '[ 'Finished])
      , '( 'HandleFanout, '[ 'Finished])
+     , '( 'HandleFinalized, '[ 'Finished])
      ]
-deriving stock instance Eq Phase
-deriving stock instance Show Phase
-deriving stock instance Enum Phase
-deriving stock instance Bounded Phase
+deriving stock instance Eq Stage
+deriving stock instance Show Stage
+deriving stock instance Enum Stage
+deriving stock instance Bounded Stage
 
 data State tx phase where
   CheckSize :: State tx 'CheckInputSize
@@ -62,9 +81,10 @@ data State tx phase where
   InOpen :: OpenState tx -> State tx 'HandleOpen
   InClosed :: ClosedState tx -> State tx 'HandleClosed
   InFanout :: PartialFanoutState tx -> State tx 'HandleFanout
+  InFinalized :: FinalizedState tx -> State tx 'HandleFinalized
   Done :: State tx 'Finished
 
-statePhase :: State tx phase -> Phase
+statePhase :: State tx phase -> Stage
 statePhase = \case
   CheckSize -> CheckInputSize
   CheckSync -> CheckSynchronisation
@@ -72,10 +92,11 @@ statePhase = \case
   InOpen{} -> HandleOpen
   InClosed{} -> HandleClosed
   InFanout{} -> HandleFanout
+  InFinalized{} -> HandleFinalized
   Done -> Finished
 
-machine :: forall tx. IsChainState tx => RuleEnvironment -> UTCTime -> NodeState tx -> Input tx -> Workflow tx InputTopology
-machine env now nodeState input = workflow (show . statePhase) CheckSize step
+workflow :: forall tx. IsChainState tx => RuleEnvironment -> UTCTime -> NodeState tx -> Input tx -> Workflow tx InputTopology
+workflow env now nodeState input = Workflow.workflow (show . statePhase) CheckSize step
  where
   step :: State tx from -> Transition tx InputTopology (State tx) from
   step = \case
@@ -98,13 +119,15 @@ machine env now nodeState input = workflow (show . statePhase) CheckSize step
         Open st -> continue (const $ InOpen st) admitted
         Closed st -> continue (const $ InClosed st) admitted
         FanoutProgress st -> continue (const $ InFanout st) admitted
+        Finalized st -> continue (const $ InFinalized st) admitted
     InIdle st -> continue (const Done) $ dispatch (Idle st)
     InOpen st -> continue (const Done) $ dispatch (Open st)
     InClosed st -> continue (const Done) $ dispatch (Closed st)
     InFanout st -> continue (const Done) $ dispatch (FanoutProgress st)
+    InFinalized st -> continue (const Done) $ dispatch (Finalized st)
     Done -> finish Done
 
-  admitted :: Program.Program tx ()
+  admitted :: Program tx ()
   admitted = void $ Program.decide "input is admitted while at this sync status" True
   dispatch st = case input of
     ChainInput{} -> handleChainInput env now nodeState.pendingDeposits st input syncStatus
@@ -112,3 +135,7 @@ machine env now nodeState input = workflow (show . statePhase) CheckSize step
     NetworkInput{} -> handleNetworkInput env chainTime nodeState.pendingDeposits st input
   syncStatus = syncedStatus nodeState
   chainTime = nodeState.chainPointTime
+
+-- | Handle one input through the inspectable workflow.
+handle :: forall tx. IsChainState tx => RuleEnvironment -> UTCTime -> NodeState tx -> Input tx -> Program tx ()
+handle env now nodeState input = Workflow.run $ workflow env now nodeState input

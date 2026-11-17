@@ -139,6 +139,7 @@ prepareRegistry backend = do
               Head.Closed Head.ClosedState{confirmedSnapshot} -> (Just $ getSnapshot confirmedSnapshot, Nothing)
               Head.FanoutProgress Head.PartialFanoutState{confirmedSnapshot} -> (Just $ getSnapshot confirmedSnapshot, Nothing)
               Head.Idle{} -> (Nothing, Nothing)
+              Head.Finalized{} -> (Nothing, Nothing)
         MVar.modifyMVar_ accounting $ \state ->
           pure $
             (Accounting.clearPending state)

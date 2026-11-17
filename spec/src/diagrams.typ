@@ -33,13 +33,13 @@
 // the arrow. Both presentation-only (check-refs.sh checks from/rule/to).
 #let head-fsm-transitions = (
   (from: "Open", rule: "increment", to: "Open", label: stIncrement, bend: 130deg,
-   primed: (4, 5), redeemer: $xi, s, txOutRef_(sans("increment")), delta^(\#)$),
+   primed: (4, 5), redeemer: $xi, s, txOutRef_(sans("increment")), hat(eta)^(\#), delta^(\#)$),
   (from: "Open", rule: "decrement", to: "Open", label: stDecrement, bend: -130deg,
-   primed: (4, 5), redeemer: $xi, s, m, kappa^(\#)$),
+   primed: (4, 5), redeemer: $xi, s, m, hat(eta)^(\#), kappa^(\#)$),
   (from: "Open", rule: "close", to: "Closed", label: stClose, bend: 0deg,
-   primed: (4, 5, 6), redeemer: $sans("CloseType")$),
+   primed: (5, 6), redeemer: $sans("CloseType")$),
   (from: "Closed", rule: "contest", to: "Closed", label: stContest, bend: 130deg,
-   primed: (4, 5, 6, 7, 8), redeemer: $sans("ContestType")$),
+   primed: (5, 6, 7, 8), redeemer: $sans("ContestType")$),
   (from: "Closed", rule: "fanout", to: "Final", label: stFanout, bend: 25deg,
    primed: (), redeemer: $m, pi, sans("crsRef")$),
   (from: "Closed", rule: "partialFanoutStart", to: "FanoutProgress", label: [], bend: 40deg,

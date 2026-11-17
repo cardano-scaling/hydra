@@ -2,7 +2,11 @@
 module Hydra.HeadLogic.Interpreter where
 
 import Hydra.Chain.ChainState (ChainSlot)
-import Hydra.HeadLogic.Outcome (Effect, Outcome (..), StateChanged)
+import Hydra.HeadLogic.Outcome (
+  Effect,
+  Outcome (..),
+  StateChanged,
+ )
 import Hydra.HeadLogic.Program (
   Instruction (..),
   Program (Program),
@@ -15,7 +19,14 @@ import Hydra.HeadLogic.Trace (
 import Hydra.Ledger (Ledger (..), ValidationError)
 import Hydra.Prelude hiding (keys, label, trace)
 import Hydra.Tx (UTxOType)
-import Hydra.Tx.Crypto (HydraKey, MultiSignature, Signature, VerificationKey, Verified, verifyMultiSignatureBytes)
+import Hydra.Tx.Crypto (
+  HydraKey,
+  MultiSignature,
+  Signature,
+  VerificationKey,
+  Verified,
+  verifyMultiSignatureBytes,
+ )
 import Hydra.Tx.Snapshot (Snapshot)
 
 data SnapshotSigner tx = SnapshotSigner

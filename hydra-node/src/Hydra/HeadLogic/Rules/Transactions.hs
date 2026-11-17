@@ -2,13 +2,20 @@
 -- snapshot pruning. These programs run inside the surrounding workflow phase.
 module Hydra.HeadLogic.Rules.Transactions where
 
-import Data.Sequence qualified as Seq
+import Data.Sequence qualified as Seq (
+  Seq (Empty, (:<|)),
+  empty,
+  (<|),
+ )
 import Hydra.Chain.ChainState (ChainSlot)
 import Hydra.HeadLogic.Limits (SnapshotLimits)
 import Hydra.HeadLogic.Program (Program)
-import Hydra.HeadLogic.Program qualified as Program
-import Hydra.HeadLogic.Rules.SnapshotCapacity (checkSnapshotCapacity)
-import Hydra.HeadLogic.State.Operations (namesNoneOf)
+import Hydra.HeadLogic.Program qualified as Program (
+  applyTransaction,
+  decide,
+ )
+import Hydra.HeadLogic.Snapshot.Capacity (checkSnapshotCapacity)
+import Hydra.HeadLogic.Transaction.Outputs (namesNoneOf)
 import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Prelude
 import Hydra.Tx (IsTx, UTxOType, utxoFromTx)

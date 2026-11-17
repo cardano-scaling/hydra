@@ -22,7 +22,13 @@ import Hydra.HeadLogic.Outcome (Effect, StateChanged, WaitReason)
 import Hydra.Ledger (ValidationError)
 import Hydra.Prelude hiding (keys, label)
 import Hydra.Tx (UTxOType)
-import Hydra.Tx.Crypto (HydraKey, MultiSignature, Signature, VerificationKey, Verified)
+import Hydra.Tx.Crypto (
+  HydraKey,
+  MultiSignature,
+  Signature,
+  VerificationKey,
+  Verified,
+ )
 import Hydra.Tx.Snapshot (Snapshot)
 
 -- | Church encoding of the operational free monad. Composition does not allocate

@@ -59,7 +59,7 @@ import Hydra.Chain.ChainState (ChainSlot (..), IsChainState)
 import Hydra.Chain.Direct.State (ChainStateAt (..), HasKnownUTxO (getKnownUTxO), HydraContext (..))
 import Hydra.Chain.Direct.State qualified as Direct
 import Hydra.Chain.Direct.TimeHandle (TimeHandle, mkTimeHandle, slotToUTCTime)
-import Hydra.HeadLogic.Rules.SnapshotRequest (DecommitStatus (..))
+import Hydra.HeadLogic.Snapshot.Request (DecommitStatus (..))
 import Hydra.HeadLogic.State (IdleState (..), SeenSnapshot (..), getHeadParameters, mkSeenSnapshot)
 import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano (cardanoLedger, mkSimpleTx)
@@ -71,7 +71,7 @@ import Hydra.Network (Connectivity)
 import Hydra.Network.Message (Message (..), NetworkEvent (..))
 import Hydra.Node (mkNetworkInput)
 import Hydra.Node.Environment (Environment (..))
-import Hydra.Node.HeadLogic (ClosedState (..), CoordinatedHeadState (..), Effect (..), FanoutMode (..), HeadState (..), Input (..), LogicError (..), OpenState (..), Outcome (..), PartialFanoutState (..), RequirementFailure (..), SettlingCommit (..), SideLoadRequirementFailure (..), SnapshotRequest, StateChanged (..), TTL, WaitReason (..), absorbable, aggregateState, applyTransactionsWithoutCollision, cause, chainedSnapshotRequest, existingDeposit, maxTxsPerSnapshot, namesNoneOf, newState, nextSnapshotRequest, noop, requestDecommitTx, requestDepositTxId, requestTxs, settlingCommitAt, update)
+import Hydra.Node.HeadLogic (ClosedState (..), CoordinatedHeadState (..), Effect (..), FanoutMode (..), HeadState (..), Input (..), LogicError (..), OnChainFanoutDatum (..), OpenState (..), Outcome (..), PartialFanoutState (..), RequirementFailure (..), SettlingCommit (..), SideLoadRequirementFailure (..), SnapshotRequest, StateChanged (..), TTL, WaitReason (..), absorbable, aggregateState, applyTransactionsWithoutCollision, cause, chainedSnapshotRequest, existingDeposit, maxTxsPerSnapshot, namesNoneOf, newState, nextSnapshotRequest, noop, requestDecommitTx, requestDepositTxId, requestTxs, settlingCommitAt, update)
 import Hydra.Node.State (ChainPointTime (..), Deposit (..), DepositStatus (Active, Expired, Inactive), NodeState (..), SyncedStatus (..), initNodeState, initialChainTime, trackedFromPending)
 import Hydra.Node.UnsyncedPeriod (UnsyncedPeriod (..), unsyncedPeriodToNominalDiffTime)
 import Hydra.Options (defaultContestationPeriod, defaultDepositActivation, defaultDepositPeriod, defaultUnsyncedPeriod)
@@ -787,6 +787,21 @@ spec =
                       , error = ValidationError "transaction creates an output the head already holds"
                       }
                 )
+
+          it "rejects a ReqSn recreating an output consumed earlier in the same snapshot" $ do
+            let u0 = utxoRefs [1, 42]
+                consuming = SimpleTx 100 (utxoRef 42) (utxoRef 43)
+                recreating = SimpleTx 101 (utxoRef 1) (utxoRef 42)
+                st0 =
+                  inOpenState' threeParties $
+                    coordinatedHeadState
+                      { localUTxO = u0
+                      , allTxs = Map.fromList [(txId tx, tx) | tx <- [consuming, recreating]]
+                      , confirmedSnapshot = ConfirmedSnapshot (testSnapshot 0 0 [] u0) mempty
+                      }
+            now <- nowFromSlot st0.chainPointTime.currentSlot
+            update bobEnv ledger now st0 (receiveMessage $ ReqSn 0 1 [txId consuming, txId recreating] Nothing Nothing)
+              `shouldBe` Error (RequireFailed $ SnapshotDoesNotApply 1 (txId recreating) (ValidationError "transaction creates an output the head already holds"))
 
           it "defers a tx creating an output a pending deposit names" $ do
             now <- getCurrentTime
@@ -1516,7 +1531,7 @@ spec =
             NodeInSync{headState = Open _} -> pure ()
             other -> fail $ "expected Open state, got: " <> show other
 
-        it "HeadFannedOut from another head does not transition Closed to Idle during replay" $ do
+        it "HeadFannedOut from another head does not finalize Closed during replay" $ do
           otherHeadId :: HeadId <- generate arbitrary
           let s0 = inClosedState threeParties
               fanoutEvent =
@@ -3507,20 +3522,25 @@ spec =
             other -> expectationFailure $ "Expected ReqSnDepositBlockedByFinalizedCommit, got: " <> show other
 
         it "does not park the settling deposit in currentDepositTxId when it re-activates" $ do
-          -- Rolling back to before the deposit's activation makes the next tick
-          -- re-emit 'DepositActivated' for it; it must not be queued as the
-          -- next commit — only re-posting the increment settles it.
+          -- Erase and re-observe the deposit transaction. Rolling back only the
+          -- increment retains Active status and does not exercise reactivation.
           now <- getCurrentTime
           s0 <- afterCommitFinalized now
           s1 <- runHeadLogic soloAliceEnv ledger s0 $ do
-            step (rollbackTo 1 now)
-            step . ChainInput $
-              Tick
-                { chainTime = addUTCTime (2 + toNominalDiffTime soloAliceEnv.depositActivation) now
-                , chainPoint = 2
-                }
+            step (rollbackTo 0 now)
+            step (observeTxAtSlot 1 (mkDepositObserved now))
             getState
-          case headState s1 of
+          let tick =
+                ChainInput
+                  Tick
+                    { chainTime = addUTCTime (2 + toNominalDiffTime soloAliceEnv.depositActivation) now
+                    , chainPoint = 2
+                    }
+              outcome = update soloAliceEnv ledger now s1 tick
+          outcome `hasStateChangedSatisfying` \case
+            DepositActivated{depositTxId} -> depositTxId == depositTxId'
+            _ -> False
+          case headState (aggregateState s1 outcome) of
             Open OpenState{coordinatedHeadState = CoordinatedHeadState{currentDepositTxId}} ->
               currentDepositTxId `shouldBe` Nothing
             other -> expectationFailure $ "Expected Open state, got: " <> show other
@@ -4267,6 +4287,9 @@ spec =
                               , version
                               , remainingOutputs = mempty
                               , distributedOutputs = priorDistributed
+                              , fanoutDatum = DatumFanoutProgress
+                              , readyToFanoutSent = True
+                              , unconfirmedSnapshot = Nothing
                               , mode = AutoDrain
                               }
                       }
@@ -4499,17 +4522,25 @@ spec =
           FanoutProgress PartialFanoutState{mode = DistributingSelection sel} -> sel `shouldBe` selection
           other -> failure $ "Expected FanoutProgress DistributingSelection, got: " <> show other
 
-      it "selective fanout that drains the whole remaining set finalizes instead of wedging" $ do
-        -- Regression: a 'DistributingSelection' step whose observed distribution
-        -- empties 'remaining' must still emit the burning FinalPartialFanoutTx —
-        -- not stop at AwaitingSelection and wedge the head.
-        let remaining = Set.fromList [SimpleTxOut 1, SimpleTxOut 2]
-            st = inFanoutProgressWith threeParties remaining (DistributingSelection remaining)
-        now <- nowFromSlot st.chainPointTime.currentSlot
-        let outcome = update bobEnv ledger now st (observeTx OnPartialFanoutTx{headId = testHeadId, distributedOutputs = remaining})
-        outcome `hasEffectSatisfying` \case
-          OnChainEffect{postChainTx = FinalPartialFanoutTx{}} -> True
-          _ -> False
+      forM_ [AutoDrain, DistributingSelection (utxoRefs [1, 2]), AwaitingSelection] $ \mode ->
+        it ("does not post an empty final batch when the local remainder is exhausted: " <> show mode) $ do
+          -- A valid intermediate batch leaves a nonempty on-chain remainder.
+          -- Exhausting our local view signals missing outputs, not finalization.
+          let remaining = utxoRefs [1, 2]
+              st = inFanoutProgressWith threeParties remaining mode
+          now <- nowFromSlot st.chainPointTime.currentSlot
+          let outcome = update bobEnv ledger now st (observeTx OnPartialFanoutTx{headId = testHeadId, distributedOutputs = remaining})
+              after = aggregateState st outcome
+          outcome `hasStateChangedSatisfying` \case
+            HeadPartialFannedOut{remainingOutputs} -> null remainingOutputs
+            _ -> False
+          outcome `hasNoEffectSatisfying` \case
+            OnChainEffect{} -> True
+            _ -> False
+          update bobEnv ledger now after (ChainInput $ Rollback now (SimpleChainState 0))
+            `hasNoEffectSatisfying` \case
+              OnChainEffect{} -> True
+              _ -> False
 
       it "client PartialFanout from Closed selects a subset and enters FanoutProgress" $ do
         let fullUTxO = Set.fromList [SimpleTxOut 1, SimpleTxOut 2, SimpleTxOut 3]
@@ -4603,7 +4634,7 @@ spec =
           ClientEffect{clientMessage = PostTxOnChainFailed{}} -> True
           _ -> False
         case headState (aggregateState st1 failed) of
-          Closed ClosedState{readyToFanoutSent} -> readyToFanoutSent `shouldBe` True
+          Closed{} -> aggregateState st1 failed `shouldBe` st
           other -> failure $ "Expected Closed after revert, got: " <> show other
 
       it "reverts to Closed when a selective PartialFanout tx fails to post before anything landed" $ do
@@ -6310,6 +6341,9 @@ inFanoutProgressDistributed parties remaining distributed mode =
         , version = 0
         , remainingOutputs = remaining
         , distributedOutputs = distributed
+        , readyToFanoutSent = True
+        , unconfirmedSnapshot = Nothing
+        , fanoutDatum = if Set.null distributed then DatumClosed else DatumFanoutProgress
         , mode
         }
  where

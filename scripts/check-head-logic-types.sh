@@ -38,3 +38,11 @@ reject() {
 reject SnapshotRestart 'No instance for' 'AllowedTransition' 'CollectingSignatures' 'RequestSent'
 reject DecommitReplacement 'No instance for' 'AllowedTransition' 'AwaitingDecommitSettlement' 'DecommitPending'
 reject CertificateAsCandidate 'VerifiedCandidate' 'VerifiedSnapshot' "Couldn't match type"
+
+reject ClosedReopens 'No instance for' 'AllowedTransition' 'Closed' 'Open'
+reject PartialFanoutReopens 'No instance for' 'AllowedTransition' 'PartialFanout' 'Open'
+reject PartialFanoutReverts 'No instance for' 'AllowedTransition' 'PartialFanout' 'Closed'
+reject ClosedReturnsToIdle 'No instance for' 'AllowedTransition' 'Closed' 'Idle'
+reject PartialFanoutReturnsToIdle 'No instance for' 'AllowedTransition' 'PartialFanout' 'Idle'
+reject FinalizedReopens 'No instance for' 'AllowedTransition' 'Finalized' 'Open'
+reject FinalizedReturnsToIdle 'No instance for' 'AllowedTransition' 'Finalized' 'Idle'

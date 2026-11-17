@@ -129,6 +129,9 @@ data InitObservation = InitObservation
 data NotAnInitReason
   = NoHeadOutput
   | NotAHeadDatum
+  | InvalidInitialVersion
+  | InvalidInitialAccumulator
+  | InvalidInitialHeadValue
   | InvalidPartyInDatum
   | InvalidContestationPeriodInDatum Text
   | InvalidDepositPeriodInDatum Text
@@ -145,6 +148,9 @@ data NotAnInitReason
 -- increment/decrement.
 isMalformedInit :: NotAnInitReason -> Bool
 isMalformedInit = \case
+  InvalidInitialVersion -> True
+  InvalidInitialAccumulator -> True
+  InvalidInitialHeadValue -> True
   InvalidPartyInDatum -> True
   InvalidContestationPeriodInDatum{} -> True
   InvalidDepositPeriodInDatum{} -> True
@@ -164,11 +170,11 @@ observeInitTx tx = do
     findFirst matchHeadOutput (txOuts' tx) ?> NoHeadOutput
 
   -- check that we have a proper head
-  (pid, onChainContestationPeriod, onChainDepositPeriod, onChainParties, seedTxIn) <- case headState of
-    Head.Open Head.OpenDatum{headSeed, headId, parties, contestationPeriod, depositPeriod} -> do
+  (pid, datum, seedTxIn) <- case headState of
+    Head.Open datum@Head.OpenDatum{headSeed, headId} -> do
       pid <- fromPlutusCurrencySymbol headId ?> NotAHeadPolicy
       seedTxIn <- fromPlutusTxOutRef headSeed ?> NotAHeadDatum
-      pure (pid, contestationPeriod, depositPeriod, parties, seedTxIn)
+      pure (pid, datum, seedTxIn)
     _ -> Left NotAHeadDatum
 
   -- Check minted value to distinguish from increment/decrement
@@ -189,6 +195,16 @@ observeInitTx tx = do
   -- failure means a malformed init rather than "not an init" (cf.
   -- 'isMalformedInit'). The minting policy constrains none of these datum
   -- fields, in particular neither period is checked for sign on-chain.
+  let Head.OpenDatum{parties = onChainParties, contestationPeriod = onChainContestationPeriod, depositPeriod = onChainDepositPeriod, version, accumulatorHash, headAdaOverhead} = datum
+      initialAccumulator = toBuiltin $ Accumulator.getAccumulatorHash $ Accumulator.buildFromUTxO @Tx mempty
+      headTokens = fromList [(asset, q) | (asset@(AssetId policy _), q) <- toList mintedValue, policy == pid]
+  unless (version == 0) $ Left InvalidInitialVersion
+  unless (accumulatorHash == initialAccumulator) $ Left InvalidInitialAccumulator
+  -- The initial snapshot is empty. Only the minted Head tokens and the datum's
+  -- ADA overhead belong in its output; Close preserves both version and overhead.
+  unless (txOutValue headOut == headTokens <> lovelaceToValue (Coin headAdaOverhead)) $
+    Left InvalidInitialHeadValue
+
   parties <-
     traverse partyFromChain onChainParties ?> InvalidPartyInDatum
 

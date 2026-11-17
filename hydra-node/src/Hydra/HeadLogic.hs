@@ -1,119 +1,53 @@
 {-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE OverloadedRecordDot #-}
 {-# OPTIONS_GHC -Wno-ambiguous-fields #-}
 
 -- | Pure input programs and retained-event aggregation. Runtime entry points
 -- and Cardano configuration live in Hydra.Node.HeadLogic.
 module Hydra.HeadLogic (
   module Hydra.HeadLogic,
+  aggregateChainStateHistory,
   module Hydra.HeadLogic.Input,
   module Hydra.HeadLogic.Error,
   module Hydra.HeadLogic.State,
-  module Hydra.HeadLogic.State.Operations,
+  module Hydra.HeadLogic.Snapshot.Settlement,
+  module Hydra.HeadLogic.State.Fanout,
+  module Hydra.HeadLogic.Fanout.Outputs,
+  module Hydra.HeadLogic.Transaction.Outputs,
   module Hydra.HeadLogic.Outcome,
   module Hydra.HeadLogic.Rules.Environment,
-  module Hydra.HeadLogic.Rules.SnapshotRequest,
+  module Hydra.HeadLogic.Snapshot.Request,
   module Hydra.HeadLogic.Rules.Transactions,
-  module Hydra.HeadLogic.Rules.Fanout.Selection,
+  module Hydra.HeadLogic.Fanout.Selection,
   openFinalizedDeposit,
 ) where
 
-import Hydra.Chain (ChainStateHistory, initHistory, pushNewState, rollbackHistory, setLastKnown)
-import Hydra.Chain.ChainState (IsChainState (..), chainStateSlot)
+import Hydra.Chain.ChainState (IsChainState (..))
 import Hydra.HeadLogic.Error (
   LogicError (..),
   RequirementFailure (..),
   SideLoadRequirementFailure (..),
  )
+import Hydra.HeadLogic.Fanout.Outputs (isSubMultisetOf, nullOutputs, removeDistributedOutputs, sameOutputs)
+import Hydra.HeadLogic.Fanout.Selection (NextFanoutStep (..), computeFullFanoutUTxO, currentFanoutStep, effectiveCommitDecommit, fanoutUTxOFromSnapshot, matchesFanoutStep, mkFullFanoutTx, nextFanoutStep, recordedSelectionMode)
 import Hydra.HeadLogic.Input (Input (..), TTL)
-import Hydra.HeadLogic.Machine qualified as Machine
-import Hydra.HeadLogic.Outcome (
-  Effect (..),
-  Outcome (..),
-  StateChanged (..),
-  WaitReason (..),
-  cause,
-  newState,
-  noop,
- )
+import Hydra.HeadLogic.Outcome (Effect (..), Outcome (..), StateChanged (..), WaitReason (..), cause, eventHeadId, newState, noop)
 import Hydra.HeadLogic.Program (Program)
 import Hydra.HeadLogic.Rules.Client (openFinalizedDeposit)
 import Hydra.HeadLogic.Rules.Environment (RuleEnvironment)
-import Hydra.HeadLogic.Rules.Fanout.Selection (
-  NextFanoutStep (..),
-  OnChainFanoutDatum (..),
-  computeFullFanoutUTxO,
-  currentFanoutStep,
-  effectiveCommitDecommit,
-  fanoutUTxOFromSnapshot,
-  matchesFanoutStep,
-  mkFullFanoutTx,
-  nextFanoutStep,
-  onChainFanoutDatum,
- )
 import Hydra.HeadLogic.Rules.Input qualified as Input
-import Hydra.HeadLogic.Rules.SnapshotRequest (
-  SettlingCommit (..),
-  SnapshotRequest,
-  buildSnapshotRequest,
-  chainedSnapshotRequest,
-  existingDeposit,
-  isLeader,
-  nextActiveDepositId,
-  nextSnapshotRequest,
-  requestDecommitTx,
-  requestDepositTxId,
-  requestTxs,
-  scopedDeposits,
-  selectNextDeposit,
-  settlingCommitAtPeriod,
- )
 import Hydra.HeadLogic.Rules.Transactions (applyTransactionsProgram, applyTransactionsWithoutCollision, checkTransactionOutputs)
-import Hydra.HeadLogic.State (
-  ClosedState (..),
-  CoordinatedHeadState (..),
-  FanoutMode (..),
-  FinalizedSnapshot (..),
-  HeadState (..),
-  IdleState (..),
-  OpenState (..),
-  PartialFanoutState (..),
-  SeenSnapshot (..),
-  closedStateCBORTag,
-  closedStateCBORTagV1,
-  coordinatedHeadStateCBORTag,
-  coordinatedHeadStateCBORTagV1,
-  getChainState,
-  getHeadParameters,
-  getOpenStateConfirmedSnapshot,
-  isCollectingAcks,
-  mkSeenSnapshot,
-  seenSnapshotNumber,
-  snapshotInFlight,
- )
-import Hydra.HeadLogic.State.Operations (
-  absorbable,
-  eventHeadId,
-  fanoutProgressToClosed,
-  finalizedDepositTxId,
-  headIdOf,
-  isSubMultisetOf,
-  maxTxsPerSnapshot,
-  namesNoneOf,
-  nullOutputs,
-  recordedSelectionMode,
-  removeDistributedOutputs,
-  retainFinalizedCommit,
-  retainFinalizedDecommit,
-  sameOutputs,
-  settledUTxO,
- )
-import Hydra.HeadLogic.Workflow qualified as Workflow
+import Hydra.HeadLogic.Snapshot.Request (SettlingCommit (..), SnapshotRequest, buildSnapshotRequest, chainedSnapshotRequest, existingDeposit, isLeader, maxTxsPerSnapshot, nextActiveDepositId, nextSnapshotRequest, requestDecommitTx, requestDepositTxId, requestTxs, scopedDeposits, selectNextDeposit, settlingCommitAtPeriod)
+import Hydra.HeadLogic.Snapshot.Settlement (finalizedDepositTxId, retainFinalizedCommit, retainFinalizedDecommit, settledUTxO)
+import Hydra.HeadLogic.State (ClosedState (..), CoordinatedHeadState (..), FanoutMode (..), FinalizedSnapshot (..), FinalizedState (..), HeadState (..), IdleState (..), OnChainFanoutDatum (..), OpenState (..), PartialFanoutState (..), SeenSnapshot (..), closedStateCBORTag, closedStateCBORTagV1, coordinatedHeadStateCBORTag, coordinatedHeadStateCBORTagV1, getChainState, getHeadParameters, getOpenStateConfirmedSnapshot, headIdOf, isCollectingAcks, mkSeenSnapshot, seenSnapshotNumber, snapshotInFlight)
+import Hydra.HeadLogic.State.ChainHistory (aggregateChainStateHistory)
+import Hydra.HeadLogic.State.Fanout (fanoutProgressToClosed)
+import Hydra.HeadLogic.State.Node qualified as Machine
+import Hydra.HeadLogic.Transaction.Outputs (absorbable, namesNoneOf)
 import Hydra.Node.State (NodeState (..))
 import Hydra.Prelude
 
 updateProgram :: IsChainState tx => RuleEnvironment -> UTCTime -> NodeState tx -> Input tx -> Program tx ()
-updateProgram env now st input = Workflow.run $ Input.machine env now st input
+updateProgram = Input.handle
 
 aggregateNodeState :: IsChainState tx => NodeState tx -> StateChanged tx -> NodeState tx
 aggregateNodeState = Machine.apply
@@ -131,48 +65,3 @@ aggregateState s outcome =
     Error{} -> []
     Wait{stateChanges} -> stateChanges
     Continue{stateChanges} -> stateChanges
-
-aggregateChainStateHistory :: IsChainState tx => ChainStateHistory tx -> StateChanged tx -> ChainStateHistory tx
-aggregateChainStateHistory history = \case
-  NetworkConnected -> history
-  NetworkDisconnected -> history
-  NetworkVersionMismatch{} -> history
-  NetworkClusterIDMismatch{} -> history
-  NetworkBroadcastStalled{} -> history
-  NetworkBroadcastResumed -> history
-  PeerConnected{} -> history
-  PeerDisconnected{} -> history
-  HeadOpened{chainState} -> pushNewState chainState history
-  TransactionAppliedToLocalUTxO{} -> history
-  SnapshotRequestDecided{} -> history
-  SnapshotRequested{} -> history
-  TransactionReceived{} -> history
-  PartySignedSnapshot{} -> history
-  SnapshotConfirmed{} -> history
-  DepositRecorded{chainState} -> pushNewState chainState history
-  DepositActivated{} -> history
-  DepositExpired{} -> history
-  DepositRecovered{chainState} -> pushNewState chainState history
-  CommitFinalized{chainState} -> pushNewState chainState history
-  DecommitRecorded{} -> history
-  DecommitFinalized{chainState} -> pushNewState chainState history
-  HeadClosed{chainState} -> pushNewState chainState history
-  HeadContested{chainState} -> pushNewState chainState history
-  HeadIsReadyToFanout{} -> history
-  HeadFannedOut{chainState} -> pushNewState chainState history
-  HeadPartialFannedOut{chainState} -> pushNewState chainState history
-  HeadFanoutInitiated{} -> history
-  HeadPartialFanoutSelected{} -> history
-  HeadFanoutReverted{} -> history
-  ChainRolledBack{chainState} -> rollbackHistory (chainStateSlot chainState) history
-  TickObserved{chainPoint} -> setLastKnown chainPoint history
-  CommitApproved{} -> history
-  DecommitApproved{} -> history
-  DecommitInvalid{} -> history
-  IgnoredHeadInitializing{} -> history
-  TxInvalid{} -> history
-  LocalStateCleared{} -> history
-  -- FIXME: This makes chain sync starting after rollbacks past the chain state impossible
-  Checkpoint nodeState -> initHistory $ getChainState nodeState.headState
-  NodeUnsynced{} -> history
-  NodeSynced{} -> history

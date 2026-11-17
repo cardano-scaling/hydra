@@ -10,6 +10,7 @@ module Hydra.Node.HeadLogic (
 import Hydra.Chain.ChainState (IsChainState (..))
 import Hydra.HeadLogic
 import Hydra.HeadLogic.Interpreter qualified as Interpreter
+import Hydra.HeadLogic.Rules.Chain.Fanout qualified as ChainFanout
 import Hydra.HeadLogic.Rules.Fanout qualified as Fanout
 import Hydra.Ledger (Ledger)
 import Hydra.Node.Environment (Environment)
@@ -34,7 +35,7 @@ onClosedChainPartialFanoutTx ::
   Outcome tx
 onClosedChainPartialFanoutTx config st cs utxo =
   Interpreter.runProgram config $
-    Fanout.onClosedChainPartialFanoutTx st cs utxo
+    ChainFanout.onClosedChainPartialFanoutTx st cs utxo
 
 repostFanoutStep :: IsTx tx => Interpreter.InterpreterConfig tx -> PartialFanoutState tx -> Outcome tx
 repostFanoutStep config st =
