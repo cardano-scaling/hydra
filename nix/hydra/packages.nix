@@ -180,6 +180,7 @@
             nativePkgs.hydra-node.components.benchmarks.tx-cost
             nativePkgs.hydra-node.components.benchmarks.micro
             nativePkgs.hydra-node.components.benchmarks.snapshot
+            nativePkgs.hydra-node.components.benchmarks.fanout
           ];
         };
         hydra-cluster-bench = pkgs.mkShellNoCC {

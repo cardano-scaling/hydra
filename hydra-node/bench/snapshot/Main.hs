@@ -43,7 +43,8 @@ import Test.Hydra.Ledger.Cardano (genFixedSizeSequenceOfSimplePaymentTransaction
 import Test.Hydra.Node.Fixture (defaultGlobals, defaultLedgerEnv, testEnvironment)
 import Test.Hydra.Tx.Fixture (alice, aliceSk, bob, carol, cperiod, dperiod, testHeadId, testHeadSeed)
 import Test.Hydra.Tx.Gen (genUTxOAdaOnlyOfSize)
-import Test.QuickCheck (generate)
+import Test.QuickCheck.Gen (Gen, unGen)
+import Test.QuickCheck.Random (mkQCGen)
 
 main :: IO ()
 main = do
@@ -58,9 +59,9 @@ main = do
 
 benchCell :: Int -> Int -> IO Benchmark
 benchCell n m = do
-  (seedUTxO, txs) <- generate $ genFixedSizeSequenceOfSimplePaymentTransactions m
-  background <- generate $ genUTxOAdaOnlyOfSize (max 0 (n - UTxO.size seedUTxO))
-  let utxo = seedUTxO <> background
+  let (seedUTxO, txs) = generateWith (100000 + m) $ genFixedSizeSequenceOfSimplePaymentTransactions m
+      background = generateWith (200000 + n) $ genUTxOAdaOnlyOfSize (max 0 (n - UTxO.size seedUTxO))
+      utxo = seedUTxO <> background
       acc0 = buildFromUTxO @Tx utxo
       snap0 =
         Snapshot
@@ -146,6 +147,9 @@ benchCell n m = do
   applyOrCrash utxo txs =
     either (\(tx, err) -> error $ "tx does not apply: " <> show (txId tx) <> ": " <> show err) UTxO.size $
       applyTransactions ledger (ChainSlot 1) utxo txs
+
+generateWith :: Int -> Gen a -> a
+generateWith seed gen = unGen gen (mkQCGen seed) 30
 
 -- | Extract the AckSn signature from the outcome of processing a ReqSn.
 -- 'Signature' is a newtype over the Ed25519 signature, so forcing it to WHNF

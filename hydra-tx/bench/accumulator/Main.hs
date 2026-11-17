@@ -40,7 +40,8 @@ import Hydra.Tx.Accumulator (
 import Hydra.Tx.IsTx (IsTx (..))
 import Test.Hydra.Tx.Fixture (fanoutChunkSize)
 import Test.Hydra.Tx.Gen (genUTxOAdaOnlyOfSize)
-import Test.QuickCheck (generate)
+import Test.QuickCheck.Gen (Gen, unGen)
+import Test.QuickCheck.Random (mkQCGen)
 
 --- TODO: Get this benchmark to be ran as part of the GitHub "benchmark"
 -- comment thing
@@ -56,8 +57,8 @@ main = do
   putTextLn $ "Generating UTxO sets: " <> show sizes
 
   fixtures <- forM sizes $ \n -> do
-    utxo <- generate $ genUTxOAdaOnlyOfSize n
-    let acc = buildFromUTxO @Tx utxo
+    let utxo = generateWith (100000 + n) $ genUTxOAdaOnlyOfSize n
+        acc = buildFromUTxO @Tx utxo
         crs = crsG1Points (n + 1)
         subset = generateSubset utxo fanoutChunkSize
     -- Deep-force the accumulator map (but not the memoized hash) and the CRS
@@ -69,14 +70,14 @@ main = do
   -- Force both sets before timing so the delta includes the cost of checking
   -- retained outputs, but not fixture construction or a commitment.
   deltaFixtures <- forM fixtures $ \(n, utxo, acc, _, _) -> do
-    replacement <- generate $ genUTxOAdaOnlyOfSize 1
-    let !next = forceUTxO $ UTxO.difference utxo (UTxO.fromList (take 1 (UTxO.toList utxo))) <> replacement
+    let replacement = generateWith (200000 + n) $ genUTxOAdaOnlyOfSize 1
+        !next = forceUTxO $ UTxO.difference utxo (UTxO.fromList (take 1 (UTxO.toList utxo))) <> replacement
     pure (n, utxo, acc, next)
 
   -- Fixed-size fixtures for element conversion and low-level proof benches
-  utxo10 <- generate $ genUTxOAdaOnlyOfSize 10
-  utxo100 <- generate $ genUTxOAdaOnlyOfSize 100
-  let elements10 = outputsOfUTxO @Tx utxo10
+  let utxo10 = generateWith 300010 $ genUTxOAdaOnlyOfSize 10
+      utxo100 = generateWith 300100 $ genUTxOAdaOnlyOfSize 100
+      elements10 = outputsOfUTxO @Tx utxo10
       elements100 = outputsOfUTxO @Tx utxo100
       serialized10 = utxoToElement @Tx <$> elements10
       serialized100 = utxoToElement @Tx <$> elements100
@@ -197,3 +198,6 @@ partialFanoutCycle fullUtxo subsetUtxo =
   let accumulator = buildFromUTxO @Tx fullUtxo
       crs = crsG1Points (UTxO.size fullUtxo + 1)
    in unsafeProof $ createMembershipProofFromUTxO @Tx subsetUtxo accumulator crs
+
+generateWith :: Int -> Gen a -> a
+generateWith seed gen = unGen gen (mkQCGen seed) 30
