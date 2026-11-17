@@ -78,6 +78,8 @@ _: {
       };
 
       raw = {
+        head-state-viewer = { };
+
         hydra-agda = { };
 
         hydra-plutus-extras = { };

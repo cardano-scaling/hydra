@@ -32,6 +32,7 @@ _: {
     # derived from `hsPkgs`, so that project.nix can consume it without a
     # `_module.args` cycle.
     _module.args.testSuitePackageNames = [
+      "head-state-viewer"
       "hydra-agda"
       "hydra-chain-observer"
       "hydra-cluster"
