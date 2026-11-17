@@ -71,6 +71,8 @@ When `AckSn` confirms a snapshot, increment and decrement effects use the open
 head's identity and parameters together with the verified snapshot and signatures.
 Any chained snapshot request uses the coordinated state after confirmation.
 
+The [Head logic machines](./head-logic-machines.md) page renders the Crem topologies and compositions directly from the source during each documentation build.
+
 ### Hydra smart contracts
 
 This component represents all the Hydra smart contracts needed for the Hydra Head protocol operation. The head, minting, and CRS contracts use PlutusTx; the deposit validator uses Aiken. The implementation uses a KZG accumulator for UTxO commitments and fanout proofs, with native support in `rust-accumulator`.

@@ -4,6 +4,10 @@
 const lightCodeTheme = require("prism-react-renderer/themes/github");
 const darkCodeTheme = require("prism-react-renderer/themes/dracula");
 const docsMetadataJson = require("./static/docs-metadata.json");
+const { execFileSync } = require("node:child_process");
+
+const sourceRevision = process.env.HYDRA_SOURCE_REVISION ||
+  execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8", cwd: __dirname }).trim();
 
 const SITE_URL = "https://hydra.family";
 const BASE_URL = "/head-protocol/";
@@ -80,6 +84,9 @@ const config = {
           editLocalizedFiles: true,
           sidebarPath: require.resolve("./sidebars.js"),
           sidebarCollapsible: false,
+          beforeDefaultRemarkPlugins: [
+            [require("./scripts/remark-head-logic-sources"), { revision: sourceRevision }],
+          ],
         },
         blog: {
           path: "adr",
