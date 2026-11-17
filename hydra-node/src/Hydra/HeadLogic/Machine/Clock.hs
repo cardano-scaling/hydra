@@ -1,6 +1,5 @@
 {-# LANGUAGE OverloadedRecordDot #-}
 
--- | Own the node's synchronization status and observed chain clock.
 module Hydra.HeadLogic.Machine.Clock (machine) where
 
 import Hydra.Prelude

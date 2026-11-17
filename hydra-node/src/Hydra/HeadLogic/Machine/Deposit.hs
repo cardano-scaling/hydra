@@ -1,10 +1,16 @@
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE UndecidableInstances #-}
 
--- | One deposit's recorded lifecycle, including consumption and restoration.
 module Hydra.HeadLogic.Machine.Deposit (Phase (..), DepositTopology, Change (..), machine, transition) where
 
-import Crem.BaseMachine (ActionResult, BaseMachineT (..), InitialState (..), pureResult, runBaseMachineT, withStateInspector)
+import Crem.BaseMachine (
+  ActionResult,
+  BaseMachineT (..),
+  InitialState (..),
+  pureResult,
+  runBaseMachineT,
+  withStateInspector,
+ )
 import Crem.StateInspection (describeOnly)
 import Crem.Topology (
   AllowedTransition,

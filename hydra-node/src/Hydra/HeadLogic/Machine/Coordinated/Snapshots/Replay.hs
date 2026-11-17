@@ -11,7 +11,7 @@ import Hydra.HeadLogic.Machine.Coordinated.Snapshots.State (
   State (..),
   Update (Update),
   contextOf,
-  retained,
+  mkSnapshotOutput,
   withContext,
  )
 import Hydra.HeadLogic.Machine.Coordinated.Snapshots.State qualified as State
@@ -24,9 +24,10 @@ import Hydra.HeadLogic.Outcome (StateChanged (..))
 import Hydra.Tx (HeadId, UTxOType)
 import Hydra.Tx.Crypto (HydraKey, VerificationKey)
 
--- | Restore retained facts in the snapshot and transaction owners. 'Nothing'
--- leaves these owners unchanged; the registry, lifecycle and clock still replay
--- their events. The supplied deposit value precedes registry consumption.
+-- | Decide how to treat events upon replay.
+--
+-- Either, we do nothing (Nothing), construct a new SnapshotOutput directly
+-- (`mkSnapshotOutput`) or evaluate the snapshot machine with some input (`live`).
 replay ::
   forall tx.
   IsChainState tx =>
@@ -41,25 +42,25 @@ replay headId parties initial deposited event = withInitialState initial $ \stat
   importEvent :: State tx phase -> Maybe (SnapshotOutput tx)
   importEvent state = case event of
     SnapshotRequestDecided number ->
-      Just $ retained $ State.request state number
+      Just $ mkSnapshotOutput $ State.request state number
     SnapshotRequested snapshot txs deposit ->
-      Just $ retained $ State.accept parties state snapshot txs deposit
+      Just $ mkSnapshotOutput $ State.accept parties state snapshot txs deposit
     PartySignedSnapshot number party signature -> case state of
-      Collecting{} -> Just $ retained $ State.recordSignature state number party signature
+      Collecting{} -> Just $ mkSnapshotOutput $ State.recordSignature state number party signature
       Idle{} -> Nothing
       Requested{} -> Nothing
     SnapshotConfirmed{snapshot = Nothing, signatures} -> case state of
-      Collecting{} -> Just $ retained $ State.confirm headId state signatures
+      Collecting{} -> Just $ mkSnapshotOutput $ State.confirm headId state signatures
       Idle{} -> Nothing
       Requested{} -> Nothing
     SnapshotConfirmed{snapshot = Just snapshot, signatures} ->
-      Just $ retained $ State.adoptSnapshot headId state snapshot signatures
+      Just $ mkSnapshotOutput $ State.adoptSnapshot headId state snapshot signatures
     TransactionAppliedToLocalUTxO{tx} ->
-      Just $ retained $ Update state (ReplayTransactionApplication tx) []
+      Just $ mkSnapshotOutput $ Update state (ReplayTransactionApplication tx) []
     DecommitRecorded{decommitTx = tx} ->
-      Just $ retained $ Update state (ReplayPendingDecommit tx) []
+      Just $ mkSnapshotOutput $ Update state (ReplayPendingDecommit tx) []
     ChainRolledBack{chainState} ->
-      Just $ retained $ Update (withContext (contextOf state){State.chainSlot = chainStateSlot chainState} state) TransactionsUnchanged []
+      Just $ mkSnapshotOutput $ Update (withContext (contextOf state){State.chainSlot = chainStateSlot chainState} state) TransactionsUnchanged []
     TransactionReceived tx ->
       Just $ live $ Transactions $ ReceiveTransaction tx
     TxInvalid{utxo, transaction = tx, validationError = err} ->
@@ -110,6 +111,5 @@ replay headId parties initial deposited event = withInitialState initial $ \stat
     -- Machine.step restores every owner directly from the checkpoint.
     Checkpoint{} -> Nothing
 
-  -- Reuse commands whose storage updates also apply to retained events. This
-  -- runs a pure state machine; replay does not publish the resulting events.
+  -- Run the command through the normal Snapshots machine.
   live command = fst $ runIdentity $ run (Executable $ Snapshots.machine headId parties initial) command
