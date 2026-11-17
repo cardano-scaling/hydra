@@ -38,6 +38,10 @@ module Hydra.Agda.OffChainReference (
   snapshotCapacityRef,
   decommitCapacityRef,
   pendingTxFitsRef,
+
+  -- * fanout output multisets
+  fanoutSubsetRef,
+  fanoutSameOutputsRef,
 ) where
 
 import MAlonzo.Code.Hydra.Protocol.OffChainReference (HsDepositStatus (..), HsPendingCommit (..))
@@ -151,3 +155,11 @@ decommitCapacityRef = M.hsDecommitCapacityRef
 -- | Ledger applicability, held-output disjointness and both fanout counts.
 pendingTxFitsRef :: Bool -> Bool -> Integer -> Integer -> Bool
 pendingTxFitsRef = M.hsPendingTxFitsRef
+
+-- | Requested and remaining output contents, with repeated identities retained.
+fanoutSubsetRef :: [Integer] -> [Integer] -> Bool
+fanoutSubsetRef = M.hsFanoutSubsetRef
+
+-- | Equality by output content and multiplicity, independent of references.
+fanoutSameOutputsRef :: [Integer] -> [Integer] -> Bool
+fanoutSameOutputsRef = M.hsFanoutSameOutputsRef

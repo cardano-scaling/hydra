@@ -274,3 +274,41 @@ d_pendingTxFitsRef_176 v0 v1 v2 v3
       (coe
          d__'38''38'__34 (coe v1)
          (coe d_snapshotCapacityRef_162 (coe v2) (coe v3)))
+-- Hydra.Protocol.OffChainReference.removeOutputRef
+d_removeOutputRef_186 :: Integer -> [Integer] -> [Integer]
+d_removeOutputRef_186 v0 v1
+  = case coe v1 of
+      [] -> coe v1
+      (:) v2 v3
+        -> coe
+             du_if_then_else__16 (coe eqInt (coe v0) (coe v2)) (coe v3)
+             (coe
+                MAlonzo.Code.Agda.Builtin.List.C__'8759'__22 (coe v2)
+                (coe d_removeOutputRef_186 (coe v0) (coe v3)))
+      _ -> MAlonzo.RTE.mazUnreachableError
+-- Hydra.Protocol.OffChainReference.fanoutSubsetRef
+hsFanoutSubsetRef ::
+  MAlonzo.Code.Agda.Builtin.List.T_List_10 () Integer ->
+  MAlonzo.Code.Agda.Builtin.List.T_List_10 () Integer -> Bool
+hsFanoutSubsetRef = coe d_fanoutSubsetRef_194
+d_fanoutSubsetRef_194 :: [Integer] -> [Integer] -> Bool
+d_fanoutSubsetRef_194 v0 v1
+  = case coe v0 of
+      [] -> coe MAlonzo.Code.Agda.Builtin.Bool.C_true_10
+      (:) v2 v3
+        -> coe
+             d__'38''38'__34 (coe d_elem'7495'_56 (coe v2) (coe v1))
+             (coe
+                d_fanoutSubsetRef_194 (coe v3)
+                (coe d_removeOutputRef_186 (coe v2) (coe v1)))
+      _ -> MAlonzo.RTE.mazUnreachableError
+-- Hydra.Protocol.OffChainReference.fanoutSameOutputsRef
+hsFanoutSameOutputsRef ::
+  MAlonzo.Code.Agda.Builtin.List.T_List_10 () Integer ->
+  MAlonzo.Code.Agda.Builtin.List.T_List_10 () Integer -> Bool
+hsFanoutSameOutputsRef = coe d_fanoutSameOutputsRef_202
+d_fanoutSameOutputsRef_202 :: [Integer] -> [Integer] -> Bool
+d_fanoutSameOutputsRef_202 v0 v1
+  = coe
+      d__'38''38'__34 (coe d_fanoutSubsetRef_194 (coe v0) (coe v1))
+      (coe d_fanoutSubsetRef_194 (coe v1) (coe v0))

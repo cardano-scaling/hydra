@@ -921,6 +921,22 @@ one step; if they still do not fit, another binary search determines the next ba
 $mtxFinalPartialFanout$ is used for the last batch when all remaining UTxOs fit in a single
 transaction, burning all head tokens and transitioning to $stFinal$.
 
+A client's fanout selection is compared with the remaining outputs as a multiset
+of output contents, independently of their output references. For every output
+content, its multiplicity in the selection must not exceed its multiplicity in
+the remaining set. Equality of selections requires equal multiplicities for all
+contents. The empty multiset is contained in every set, but a client request to
+distribute an empty selection is rejected separately.
+
+The executable Agda decisions `fanoutSubsetRef` and `fanoutSameOutputsRef` in
+`OffChainReference.agda` consume one matching occurrence at a time. The node
+implements the same decisions with a map indexed by cached accumulator-element
+keys. Each bucket retains full output contents and their multiplicities, so
+equal keys alone do not establish equal outputs. Counts decrease while
+traversing the remaining outputs; an empty map finishes the check. Small
+selections use direct equality to avoid key construction. Neither algorithm
+changes which output references are removed after observing a distributed batch.
+
 == Machine-checked handler invariants <sec:offchain-theorems>
 
 Two `require` disciplines of @fig:off-chain-prot — commit/decommit

@@ -237,3 +237,24 @@ pendingTxFitsRef applicable outputsDisjoint withDecommit withCommit =
 {-# COMPILE GHC snapshotCapacityRef    as hsSnapshotCapacityRef    #-}
 {-# COMPILE GHC decommitCapacityRef    as hsDecommitCapacityRef    #-}
 {-# COMPILE GHC pendingTxFitsRef       as hsPendingTxFitsRef       #-}
+
+-- Fanout compares output content, independent of output references. Each list
+-- entry encodes one output's content; equal contents share a Nat identifier.
+-- Consume one occurrence at a time so duplicates cannot satisfy more than one
+-- requested output. This reference deliberately uses lists rather than the
+-- implementation's ordered count map.
+removeOutputRef : Nat → List Nat → List Nat
+removeOutputRef _ [] = []
+removeOutputRef x (y ∷ ys) =
+  if x == y then ys else (y ∷ removeOutputRef x ys)
+
+fanoutSubsetRef : List Nat → List Nat → Bool
+fanoutSubsetRef [] _ = true
+fanoutSubsetRef (x ∷ xs) ys =
+  elemᵇ x ys && fanoutSubsetRef xs (removeOutputRef x ys)
+
+fanoutSameOutputsRef : List Nat → List Nat → Bool
+fanoutSameOutputsRef xs ys = fanoutSubsetRef xs ys && fanoutSubsetRef ys xs
+
+{-# COMPILE GHC fanoutSubsetRef      as hsFanoutSubsetRef      #-}
+{-# COMPILE GHC fanoutSameOutputsRef as hsFanoutSameOutputsRef #-}

@@ -23,6 +23,7 @@ module Hydra.HeadLogic (
 import Hydra.Prelude
 
 import Data.List (elemIndex, minimumBy)
+import Data.List qualified as List
 import Data.Map.Strict qualified as Map
 import Data.Sequence qualified as Seq
 import Data.Set ((\\))
@@ -2062,17 +2063,53 @@ nullOutputs = null . outputsOfUTxO
 -- mirrors how partial fanout tracks distributed UTxO by content rather than by
 -- 'TxIn', so a user-provided selection is validated against what is actually
 -- still in the head.
+-- Cache accumulator-element keys instead of repeatedly invoking the output's
+-- potentially expensive 'Ord' instance. Equal keys still require equal contents.
 isSubMultisetOf :: IsTx tx => UTxOType tx -> UTxOType tx -> Bool
 isSubMultisetOf sub sup =
-  length (outputsOfUTxO (removeDistributedOutputs (outputsOfUTxO sub) sup))
-    == length (outputsOfUTxO sup)
-    - length (outputsOfUTxO sub)
+  isSubMultisetOfBy utxoToElement (outputsOfUTxO sub) (outputsOfUTxO sup)
+
+-- | Count requested occurrences by a cached key, retaining exact equality inside
+-- each bucket. Equal values must have equal keys; distinct values may collide.
+-- Small selections use equality directly to avoid serializing the remaining set.
+isSubMultisetOfBy :: forall key out. (Ord key, Eq out) => (out -> key) -> [out] -> [out] -> Bool
+isSubMultisetOfBy key selected remaining
+  | null (drop 256 selected) = consumeSmall selected remaining
+  | otherwise = consume (foldl' add Map.empty selected) remaining
+ where
+  consumeSmall :: [out] -> [out] -> Bool
+  consumeSmall [] _ = True
+  consumeSmall _ [] = False
+  consumeSmall needed (out : rest) = consumeSmall (List.delete out needed) rest
+
+  add :: Map key [(out, Int)] -> out -> Map key [(out, Int)]
+  add needed out = Map.alter (Just . increment out . fromMaybe []) (key out) needed
+
+  increment :: out -> [(out, Int)] -> [(out, Int)]
+  increment out [] = [(out, 1)]
+  increment out ((other, n) : rest)
+    | out == other = (other, n + 1) : rest
+    | otherwise = (other, n) : increment out rest
+
+  consume :: Map key [(out, Int)] -> [out] -> Bool
+  consume needed _ | Map.null needed = True
+  consume _ [] = False
+  consume needed (out : rest) = consume (Map.update (keepBucket . decrement out) (key out) needed) rest
+
+  decrement :: out -> [(out, Int)] -> [(out, Int)]
+  decrement _ [] = []
+  decrement out ((other, n) : rest)
+    | out /= other = (other, n) : decrement out rest
+    | n == 1 = rest
+    | otherwise = (other, n - 1) : rest
+
+  keepBucket :: [a] -> Maybe [a]
+  keepBucket [] = Nothing
+  keepBucket xs = Just xs
 
 -- | Whether two UTxO sets have the same outputs (by content, as a multiset).
--- The @a == b@ short-circuit avoids the O(n²) multiset comparison in the common
--- case where both arguments are the same tracked set (e.g. the auto-drain
--- @sameOutputs remaining remaining@ check on every observed chunk), which is
--- exactly the large-UTxO heads partial fanout targets.
+-- The @a == b@ short-circuit avoids constructing output counts when both
+-- arguments are the same tracked set, as in auto-drain after an observed chunk.
 sameOutputs :: IsTx tx => UTxOType tx -> UTxOType tx -> Bool
 sameOutputs a b =
   a == b || (length (outputsOfUTxO a) == length (outputsOfUTxO b) && a `isSubMultisetOf` b)

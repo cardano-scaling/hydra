@@ -183,6 +183,17 @@ node:
 - stores the commitment of the _remaining_ accumulator in the continuing head
   output's `FanoutProgressDatum`
 
+Selection validation compares output contents and their multiplicities, not
+input references. Renaming references does not change a selection; requesting
+two identical outputs requires two remaining occurrences. The node counts the
+requested outputs and scans the remaining set until every requested occurrence
+is found. Larger selections use cached accumulator-element keys, with exact
+output comparisons inside each bucket so key collisions cannot admit a different
+output. With bounded bucket sizes, indexing takes `O((n + k) log(k + 1))` work
+and `O(k)` space for `k` selected and `n` remaining outputs, plus key construction.
+Colliding distinct contents can increase comparison work. Selections of at most
+256 outputs use direct equality to avoid constructing keys for the remaining set.
+
 The next step proves its subset against that remaining commitment, and so on.
 Every step, partial or final, is only valid after the contestation deadline has
 passed.

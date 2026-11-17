@@ -30,6 +30,7 @@ import Data.Sequence qualified as Seq
 import Data.Set qualified as Set
 import Hydra.API.ClientInput (ClientInput (Close, Decommit, Fanout, PartialFanout, Recover, SideLoadSnapshot))
 import Hydra.API.ServerOutput (ClientMessage (..), DecommitInvalidReason (..))
+import Hydra.Agda.OffChainReference qualified as Agda
 import Hydra.Cardano.Api (ChainPoint (..), SlotNo (..), Tx, TxIn (..), TxIx (..), forceUTxO, fromLedgerTx, getTxBody, getTxWitnesses, makeSignedTransaction, mkVkAddress, toLedgerTx, txOutValue, unSlotNo, pattern TxValidityUpperBound)
 import Hydra.Cardano.Api.Gen (genTxIn)
 import Hydra.Chain (
@@ -43,6 +44,7 @@ import Hydra.Chain.Direct.State (ChainStateAt (..), HasKnownUTxO (getKnownUTxO),
 import Hydra.Chain.Direct.State qualified as Direct
 import Hydra.Chain.Direct.TimeHandle (TimeHandle, mkTimeHandle, slotToUTCTime)
 import Hydra.HeadLogic (ClosedState (..), CoordinatedHeadState (..), Effect (..), FanoutMode (..), HeadState (..), Input (..), LogicError (..), OpenState (..), Outcome (..), PartialFanoutState (..), RequirementFailure (..), SettlingCommit (..), SideLoadRequirementFailure (..), SnapshotRequest (..), StateChanged (..), TTL, WaitReason (..), absorbable, aggregateState, applyTransactionsWithoutCollision, cause, chainedSnapshotRequest, existingDeposit, maxTxsPerSnapshot, namesNoneOf, newState, nextSnapshotRequest, noop, settlingCommitAt, update)
+import Hydra.HeadLogic qualified as HeadLogic
 import Hydra.HeadLogic.State (IdleState (..), SeenSnapshot (..), getHeadParameters, mkSeenSnapshot)
 import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Ledger.Cardano (cardanoLedger, mkSimpleTx)
@@ -91,16 +93,73 @@ import Test.Hydra.Node.Environment ()
 import Test.Hydra.Node.Fixture qualified as Fixture
 import Test.Hydra.Node.State ()
 import Test.Hydra.Tx.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, deriveOnChainId, fanoutChunkSize, fanoutOutputThreshold, testHeadId, testHeadSeed)
-import Test.Hydra.Tx.Gen (genKeyPair, genOutputFor, genTxOutAdaOnly, genValidityBoundsFromContestationPeriod)
-import Test.QuickCheck (Property, choose, counterexample, elements, forAll, forAllShrink, oneof, shuffle, sublistOf, suchThat, (.&&.), (===), (==>))
+import Test.Hydra.Tx.Gen (genKeyPair, genOutputFor, genTxOut, genTxOutAdaOnly, genTxOutWithReferenceScript, genValidityBoundsFromContestationPeriod)
+import Test.QuickCheck (Property, choose, conjoin, counterexample, elements, forAll, forAllShrink, listOf, oneof, resize, shuffle, sublistOf, suchThat, vectorOf, withMaxSuccess, (.&&.), (===), (==>))
 import Test.QuickCheck.Gen (generate)
 import Test.QuickCheck.Hedgehog (hedgehog)
 import Test.QuickCheck.Monadic (assert, monadicIO, monitor, pick, run)
 import Test.Util (utxoNoThunks)
 
+-- Small palettes exercise duplicate multiplicities; references may coincide
+-- even when their output contents differ. Both sides of the small-selection
+-- cutoff include valid selections, missing outputs and duplicate multiplicities.
+genFanoutMultisets :: Gen ([Integer], [Integer], UTxOType Tx, UTxOType Tx)
+genFanoutMultisets = do
+  palette <- resize 5 (vectorOf 5 (oneof [genTxOut, genTxOutWithReferenceScript])) `suchThat` ((== 5) . Set.size . Set.fromList)
+  txid <- arbitrary
+  offset <- elements [0, 1000]
+  remainingIds <- oneof [resize 30 $ listOf (choose (0, 3)), vectorOf 300 (choose (0, 3))]
+  selectedIds <- shuffle =<< oneof [sublistOf remainingIds, pure remainingIds, vectorOf (length remainingIds + 1) (choose (0, 4))]
+  let make :: Int -> [Integer] -> UTxOType Tx
+      make start ids =
+        UTxO.fromList [(TxIn txid (TxIx $ fromIntegral i), palette List.!! fromIntegral outputId) | (i, outputId) <- zip [start ..] ids]
+  pure (selectedIds, remainingIds, make offset selectedIds, make 0 remainingIds)
+
 spec :: Spec
 spec =
   parallel $ do
+    describe "fanout output multisets" $ do
+      prop "matches Agda and the previous removal algorithm with duplicates and renamed references" $
+        withMaxSuccess 1000 $
+          forAll genFanoutMultisets $ \(selectedIds, remainingIds, selection, remaining) ->
+            conjoin
+              [ counterexample "Agda membership" $
+                  HeadLogic.isSubMultisetOf selection remaining === Agda.fanoutSubsetRef selectedIds remainingIds
+              , counterexample "previous membership" $
+                  HeadLogic.isSubMultisetOf selection remaining
+                    === ( length (outputsOfUTxO (HeadLogic.removeDistributedOutputs (outputsOfUTxO selection) remaining))
+                            == length (outputsOfUTxO remaining)
+                            - length (outputsOfUTxO selection)
+                        )
+              , counterexample "Agda equality" $
+                  HeadLogic.sameOutputs selection remaining === Agda.fanoutSameOutputsRef selectedIds remainingIds
+              , counterexample "all index keys collide" $
+                  HeadLogic.isSubMultisetOfBy (const ()) selectedIds remainingIds === Agda.fanoutSubsetRef selectedIds remainingIds
+              , counterexample "equality after permuting contents among references" $
+                  HeadLogic.sameOutputs
+                    (UTxO.fromList $ zip (fst <$> UTxO.toList remaining) (reverse $ outputsOfUTxO remaining))
+                    remaining
+                    === True
+              ]
+
+      prop "preserves empty sets and exact duplicate multiplicities independently of references" $
+        forAll ((,) <$> genTxIn <*> (genTxOutAdaOnly =<< arbitrary)) $ \(TxIn txid _, out) ->
+          let copies :: Int -> Int -> UTxOType Tx
+              copies offset n = UTxO.fromList [(TxIn txid (TxIx $ fromIntegral i), out) | i <- take n [offset ..]]
+              remaining = copies 0 2
+           in conjoin
+                [ counterexample "empty selection" $ HeadLogic.isSubMultisetOf mempty remaining === True
+                , counterexample "empty remaining" $ HeadLogic.isSubMultisetOf remaining mempty === False
+                , counterexample "both empty" $ HeadLogic.sameOutputs (mempty :: UTxOType Tx) mempty === True
+                , counterexample "one of two copies" $ HeadLogic.isSubMultisetOf (copies 10 1) remaining === True
+                , counterexample "both copies renamed" $ HeadLogic.sameOutputs (copies 10 2) remaining === True
+                , counterexample "too many copies" $ HeadLogic.isSubMultisetOf (copies 10 3) remaining === False
+                , counterexample "different multiplicities" $ HeadLogic.sameOutputs (copies 10 1) remaining === False
+                , counterexample "small-selection boundary" $ HeadLogic.isSubMultisetOf (copies 1000 256) (copies 0 256) === True
+                , counterexample "indexed-selection boundary" $ HeadLogic.isSubMultisetOf (copies 1000 257) (copies 0 257) === True
+                , counterexample "indexed excess multiplicity" $ HeadLogic.isSubMultisetOf (copies 1000 257) (copies 0 256) === False
+                ]
+
     let threeParties = [alice, bob, carol]
         bobEnv =
           Environment
