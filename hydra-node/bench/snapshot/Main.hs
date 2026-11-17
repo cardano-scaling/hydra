@@ -27,6 +27,7 @@ import Hydra.HeadLogic (
   Outcome (Continue, effects),
   SeenSnapshot (LastSeenSnapshot),
   aggregateState,
+  checkSnapshotUTxOSize,
   isLeader,
   update,
  )
@@ -54,12 +55,13 @@ main = do
   maxN <- fromMaybe 1000 . (>>= readMaybe) <$> lookupEnv "BENCH_MAX_UTXO"
   let utxoSizes = filter (<= maxN) [10, 100, 1000, 4095, 8191, 16383, maxAccumulatorSize]
       txCounts = [1, 10, 100]
-  benches <- forM [(n, m) | n <- utxoSizes, m <- txCounts] $ uncurry benchCell
+  benches <- forM [(n, m, pending) | n <- utxoSizes, m <- txCounts, pending <- if m == 1 then [0, 100, 1000] else [0]] $ \(n, m, pending) -> benchCell n m pending
   defaultMain benches
 
-benchCell :: Int -> Int -> IO Benchmark
-benchCell n m = do
-  let (seedUTxO, txs) = generateWith (100000 + m) $ genFixedSizeSequenceOfSimplePaymentTransactions m
+benchCell :: Int -> Int -> Int -> IO Benchmark
+benchCell n m pending = do
+  let (seedUTxO, localTransactions) = generateWith (100000 + m) $ genFixedSizeSequenceOfSimplePaymentTransactions (m + pending)
+      txs = take m localTransactions
       background = generateWith (200000 + n) $ genUTxOAdaOnlyOfSize (max 0 (n - UTxO.size seedUTxO))
       utxo = seedUTxO <> background
       acc0 = buildFromUTxO @Tx utxo
@@ -85,8 +87,8 @@ benchCell n m = do
                   , coordinatedHeadState =
                       CoordinatedHeadState
                         { localUTxO = utxo
-                        , allTxs = Map.fromList [(txId tx, tx) | tx <- txs]
-                        , localTxs = Seq.fromList txs
+                        , allTxs = Map.fromList [(txId tx, tx) | tx <- localTransactions]
+                        , localTxs = Seq.fromList localTransactions
                         , confirmedSnapshot = ConfirmedSnapshot{snapshot = snap0, signatures = mempty}
                         , seenSnapshot = LastSeenSnapshot 1
                         , currentDepositTxId = Nothing
@@ -111,9 +113,11 @@ benchCell n m = do
   -- Pre-force the confirmed snapshot's commitment so only the requested
   -- snapshot's accumulator work is measured.
   let !_ = getAccumulatorHash acc0
+      !_ = applyOrCrash utxo localTransactions
+      !_ = ackSignature $ update testEnvironment ledger now st reqSn
   pure $
     bgroup
-      ("reqsn/utxo-" <> show n <> "/txs-" <> show m)
+      ("reqsn/utxo-" <> show n <> "/txs-" <> show m <> if pending == 0 then "" else "/backlog-" <> show pending)
       ( [ bench "full-update" $ whnf (ackSignature . update testEnvironment ledger now st) reqSn
         , -- update plus the state aggregation the node loop (and, today, the
           -- API server again) performs on its outcome; WHNF of the resulting
@@ -129,8 +133,9 @@ benchCell n m = do
             [ [ bench "accumulator-only" $
                   whnf (getAccumulatorHash . buildFromUTxO @Tx) utxo
               , bench "sign-only" $ whnf (sign aliceSk) snap0
+              , bench "capacity-check" $ whnf (\u -> checkSnapshotUTxOSize @Tx u Nothing Nothing) utxo
               ]
-            | m == 1
+            | m == 1 && pending == 0
             ]
       )
  where

@@ -59,6 +59,12 @@ and equality results are forced to `Bool`; accumulator benchmarks force the
 cryptographic result and avoid timing a memoized commitment. Preserve these
 forcing boundaries when editing the benchmarks.
 
+The snapshot suite also keeps 100 or 1,000 transactions pending after a
+one-transaction snapshot. Compare its `update-and-aggregate` cells to measure
+pruning and reconstruction of the local UTxO, and `capacity-check` to isolate
+the output-count guard. The transaction sequences use the same fixed seeds on
+both revisions and are validated before timing.
+
 Compare each named cell across revisions, including its uncertainty, and plot
 cost against input size when assessing complexity. A fanout optimization should
 also pass the existing partial-fanout tests: matching outputs by content and
