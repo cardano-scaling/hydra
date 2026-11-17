@@ -25,7 +25,7 @@ import Hydra.HeadLogic.Machine.Coordinated.Snapshots.State (
   State (..),
   Update (..),
   contextOf,
-  retained,
+  mkSnapshotOutput,
   statePhase,
   view,
   withContext,
@@ -198,7 +198,7 @@ machine headId parties initial =
     AllowedTransition SnapshotTopology from to =>
     Update tx to ->
     ActionResult m SnapshotTopology (State tx) from (SnapshotOutput tx)
-  transition update@(Update updated _ _) = pureResult (retained update) updated
+  transition update@(Update updated _ _) = pureResult (mkSnapshotOutput update) updated
 
   output ::
     AllowedTransition SnapshotTopology from to =>

@@ -51,7 +51,7 @@ data State tx phase where
 
 data Update tx phase = Update (State tx phase) (TransactionUpdate tx) [StateChanged tx]
 
--- Carry the owner's state through composition. Its candidate, including lazy
+-- | Carry the owner's state through composition. Its candidate, including lazy
 -- canonical bytes, is shared with the continuation rather than restored again.
 data SnapshotOutput tx = SnapshotOutput
   { snapshots :: InitialState (State tx)
@@ -66,7 +66,11 @@ statePhase = \case
   Requested{} -> RequestSent
   Collecting{} -> CollectingSignatures
 
-restore :: IsTx tx => [VerificationKey HydraKey] -> SnapshotState tx -> InitialState (State tx)
+restore ::
+  IsTx tx =>
+  [VerificationKey HydraKey] ->
+  SnapshotState tx ->
+  InitialState (State tx)
 restore parties Port.SnapshotState{version, chainSlot, confirmed, seen, finalizedCommit, finalizedDecommit} =
   let context = Context{version, chainSlot, confirmed, finalizedCommit, finalizedDecommit}
    in case seen of
@@ -79,7 +83,6 @@ restore parties Port.SnapshotState{version, chainSlot, confirmed, seen, finalize
         SeenSnapshot{snapshot, signatories} ->
           InitialState $ Collecting context (issue parties snapshot) signatories
 
--- Never authorise a candidate using a caller-supplied signing-byte cache.
 issue ::
   IsTx tx =>
   [VerificationKey HydraKey] ->
@@ -164,7 +167,12 @@ clear headId state number =
         ResetTransactionState
         [LocalStateCleared headId number]
 
-adopt :: IsTx tx => Context tx -> Snapshot tx -> MultiSignature (Snapshot tx) -> Context tx
+adopt ::
+  IsTx tx =>
+  Context tx ->
+  Snapshot tx ->
+  MultiSignature (Snapshot tx) ->
+  Context tx
 adopt context snapshot signatures =
   context
     { confirmed = signed
@@ -202,6 +210,6 @@ view state = Port.SnapshotState{version, chainSlot, confirmed, seen, finalizedCo
 viewInitial :: InitialState (State tx) -> SnapshotState tx
 viewInitial initial = withInitialState initial $ \state _ -> view state
 
-retained :: Update tx phase -> SnapshotOutput tx
-retained (Update next transactionUpdate events) =
+mkSnapshotOutput :: Update tx phase -> SnapshotOutput tx
+mkSnapshotOutput (Update next transactionUpdate events) =
   SnapshotOutput{snapshots = InitialState next, transactionUpdate, events, refusal = Nothing}

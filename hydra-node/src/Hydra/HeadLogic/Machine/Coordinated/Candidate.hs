@@ -1,7 +1,5 @@
 {-# LANGUAGE OverloadedRecordDot #-}
 
--- | Internal candidate identity. Only the snapshot owner issues handles; public
--- callers receive the abstract type through Coordinated.
 module Hydra.HeadLogic.Machine.Coordinated.Candidate (Candidate (..), sameCandidate) where
 
 import Hydra.Prelude
