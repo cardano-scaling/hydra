@@ -17,6 +17,11 @@ module Hydra.Agda.OffChainReference (
   HsCommitPhase (..),
   commitPhaseRef,
 
+  -- * head lifecycle
+  HsLifecyclePhase (..),
+  HsLifecycleEvent (..),
+  lifecyclePhaseRef,
+
   -- * reqSn signing eligibility
   signEligibleRef,
 
@@ -44,7 +49,7 @@ module Hydra.Agda.OffChainReference (
   pendingTxFitsRef,
 ) where
 
-import MAlonzo.Code.Hydra.Protocol.OffChainReference (HsCommitPhase (..), HsDepositStatus (..), HsPendingCommit (..))
+import MAlonzo.Code.Hydra.Protocol.OffChainReference (HsCommitPhase (..), HsDepositStatus (..), HsLifecycleEvent (..), HsLifecyclePhase (..), HsPendingCommit (..))
 import MAlonzo.Code.Hydra.Protocol.OffChainReference qualified as M
 
 -- | Extracted decidable deposit-status decision of the §6 @tick@ handler: given a deposit's
@@ -63,6 +68,10 @@ depositStatusRef = M.hsDepositStatusRef
 -- presence. Eligibility to carry or drop the deposit is a separate decision.
 commitPhaseRef :: Bool -> Integer -> Integer -> Bool -> HsCommitPhase
 commitPhaseRef = M.hsCommitPhaseRef
+
+-- | Retained lifecycle phase and observed event.
+lifecyclePhaseRef :: HsLifecyclePhase -> HsLifecycleEvent -> HsLifecyclePhase
+lifecyclePhaseRef = M.hsLifecyclePhaseRef
 
 -- | Extracted decidable reqSn signing-eligibility check (the §6 @require v = v̂ ∧ s = ŝ + 1 ∧
 -- leader(s) = j@): given the requested version @v@, the party's seen version @v̂@, the requested

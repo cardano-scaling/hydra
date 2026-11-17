@@ -4,7 +4,7 @@ module SnapshotRestart where
 
 import Crem.BaseMachine (ActionResult (ChooseTransition), Transition (Transition))
 import Data.Functor.Identity (Identity)
-import Hydra.HeadLogic.Machine.Coordinated.Topology (SnapshotPhase (..), SnapshotTopology)
+import Hydra.HeadLogic.State.Coordinated.Snapshots.Topology (SnapshotPhase (..), SnapshotTopology)
 
 data At phase = At
 

@@ -4,7 +4,7 @@ module DecommitReplacement where
 
 import Crem.BaseMachine (ActionResult (ChooseTransition), Transition (Transition))
 import Data.Functor.Identity (Identity)
-import Hydra.HeadLogic.Machine.Coordinated.Topology (DecommitPhase (..), DecommitTopology)
+import Hydra.HeadLogic.State.Coordinated (DecommitPhase (..), DecommitTopology)
 
 data At phase = At
 

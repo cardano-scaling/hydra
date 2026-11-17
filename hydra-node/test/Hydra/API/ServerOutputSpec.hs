@@ -8,9 +8,11 @@ import Data.Aeson (Value)
 import Data.Aeson.Lens (key, values, _Array)
 import Hydra.API.ServerOutput (ClientMessage, Greetings (..), ServerOutput, TimedServerOutput)
 import Hydra.Chain.Direct.State ()
-import Hydra.JSONSchema (prop_specIsComplete, prop_validateJSONSchema)
+import Hydra.HeadLogic.State (HeadState (Finalized))
+import Hydra.JSONSchema (prop_specIsComplete, prop_validateJSONSchema, validateJSON, withJsonSpecifications)
 import Hydra.Ledger.Cardano (Tx)
 import Hydra.Utils (readJsonFileThrow)
+import System.FilePath ((</>))
 import Test.Aeson.GenericSpecs (
   Settings (..),
   defaultSettings,
@@ -25,6 +27,11 @@ spec :: Spec
 spec = parallel $ do
   roundtripAndGoldenADTSpecsWithSettings defaultSettings{sampleSize = 1} $ Proxy @(MinimumSized (ServerOutput Tx))
   roundtripAndGoldenADTSpecsWithSettings defaultSettings{sampleSize = 1} $ Proxy @(MinimumSized (Greetings Tx))
+
+  it "represents a finalized Head in the API state schema" $ do
+    let completed = Finalized (generateWith arbitrary 42) :: HeadState Tx
+    withJsonSpecifications $ \dir ->
+      validateJSON (dir </> "api.json") (key "components" . key "schemas" . key "HeadState") (toJSON completed)
 
   -- NOTE: Kupo and maybe other downstream projects use this file as a test vector.
   it "golden SnapshotConfirmed is good" $ do

@@ -25,6 +25,9 @@
 -- semantics; agreement with it does not establish progress or rollback safety.
 -- Payload evaluation, the coordinated runtime's record layout and Haskell field
 -- strictness are outside this projection too.
+-- Haskell input handlers live in Rules, state evolution in State, and shared
+-- protocol operations in domain modules. Module placement does not change the
+-- decisions or retained-event projections defined here.
 module Hydra.Protocol.OffChainReference where
 
 open import Agda.Builtin.Bool
@@ -374,37 +377,33 @@ reqTxKnownOutcomeRef false applicable ttl inFlight m sn party = reqTxOutcomeRef 
 -- Activation and recovery can change the selected deposit independently of
 -- its tracked status. Only fresh settlement makes deposited outputs spendable;
 -- payload reconstruction and repeated-settlement idempotence are Haskell checks.
+-- One Head has a terminal lifecycle. Readiness and pending local fanout
+-- requests are independent data within Closed, not protocol phases. A node
+-- starts a separate Idle machine when it accepts initialization of another Head.
 data LifecyclePhaseᶜ : Set where
-  idleHeadᶜ openHeadᶜ closedHeadᶜ readyHeadᶜ pendingFanoutᶜ fanoutProgressᶜ : LifecyclePhaseᶜ
-{-# FOREIGN GHC data HsLifecyclePhase = IdleHead | OpenHead | ClosedHead | ReadyHead | PendingFanout | FanoutProgress deriving (Eq, Show, Enum, Bounded) #-}
-{-# COMPILE GHC LifecyclePhaseᶜ = data HsLifecyclePhase (IdleHead | OpenHead | ClosedHead | ReadyHead | PendingFanout | FanoutProgress) #-}
+  idleHeadᶜ openHeadᶜ closedHeadᶜ fanoutProgressᶜ finalizedHeadᶜ : LifecyclePhaseᶜ
+{-# FOREIGN GHC data HsLifecyclePhase = IdleHead | OpenHead | ClosedHead | FanoutProgress | FinalizedHead deriving (Eq, Show, Enum, Bounded) #-}
+{-# COMPILE GHC LifecyclePhaseᶜ = data HsLifecyclePhase (IdleHead | OpenHead | ClosedHead | FanoutProgress | FinalizedHead) #-}
 
 data LifecycleEventᶜ : Set where
-  openedᶜ closedᶜ readyᶜ fanoutStartedᶜ partialObservedᶜ fanoutRevertedᶜ fannedOutᶜ unchangedᶜ : LifecycleEventᶜ
-{-# FOREIGN GHC data HsLifecycleEvent = Opened | Closed | Ready | FanoutStarted | PartialObserved | FanoutReverted | FannedOut | Unchanged deriving (Eq, Show, Enum, Bounded) #-}
-{-# COMPILE GHC LifecycleEventᶜ = data HsLifecycleEvent (Opened | Closed | Ready | FanoutStarted | PartialObserved | FanoutReverted | FannedOut | Unchanged) #-}
+  openedᶜ closedᶜ contestedᶜ readyᶜ fanoutStartedᶜ partialObservedᶜ fanoutRevertedᶜ fannedOutᶜ unchangedᶜ : LifecycleEventᶜ
+{-# FOREIGN GHC data HsLifecycleEvent = Opened | Closed | Contested | Ready | FanoutStarted | PartialObserved | FanoutReverted | FannedOut | Unchanged deriving (Eq, Show, Enum, Bounded) #-}
+{-# COMPILE GHC LifecycleEventᶜ = data HsLifecycleEvent (Opened | Closed | Contested | Ready | FanoutStarted | PartialObserved | FanoutReverted | FannedOut | Unchanged) #-}
 
--- distributed means the accumulated outputs after this observation are nonempty.
-lifecyclePhaseRef : LifecyclePhaseᶜ → LifecycleEventᶜ → Bool → LifecyclePhaseᶜ
-lifecyclePhaseRef _ openedᶜ _ = openHeadᶜ
-lifecyclePhaseRef openHeadᶜ closedᶜ _ = closedHeadᶜ
-lifecyclePhaseRef closedHeadᶜ readyᶜ _ = readyHeadᶜ
-lifecyclePhaseRef closedHeadᶜ fanoutStartedᶜ _ = pendingFanoutᶜ
-lifecyclePhaseRef readyHeadᶜ fanoutStartedᶜ _ = pendingFanoutᶜ
-lifecyclePhaseRef closedHeadᶜ partialObservedᶜ distributed = if distributed then fanoutProgressᶜ else pendingFanoutᶜ
-lifecyclePhaseRef readyHeadᶜ partialObservedᶜ distributed = if distributed then fanoutProgressᶜ else pendingFanoutᶜ
-lifecyclePhaseRef pendingFanoutᶜ partialObservedᶜ distributed = if distributed then fanoutProgressᶜ else pendingFanoutᶜ
-lifecyclePhaseRef fanoutProgressᶜ partialObservedᶜ distributed = if distributed then fanoutProgressᶜ else pendingFanoutᶜ
-lifecyclePhaseRef pendingFanoutᶜ fanoutRevertedᶜ _ = readyHeadᶜ
-lifecyclePhaseRef fanoutProgressᶜ fanoutRevertedᶜ _ = readyHeadᶜ
-lifecyclePhaseRef closedHeadᶜ fannedOutᶜ _ = idleHeadᶜ
-lifecyclePhaseRef readyHeadᶜ fannedOutᶜ _ = idleHeadᶜ
-lifecyclePhaseRef pendingFanoutᶜ fannedOutᶜ _ = idleHeadᶜ
-lifecyclePhaseRef fanoutProgressᶜ fannedOutᶜ _ = idleHeadᶜ
-lifecyclePhaseRef phase _ _ = phase
+-- An observed partial fanout advances the phase even when none of its outputs
+-- match the local snapshot. Output matching is separate bookkeeping.
+lifecyclePhaseRef : LifecyclePhaseᶜ → LifecycleEventᶜ → LifecyclePhaseᶜ
+lifecyclePhaseRef idleHeadᶜ openedᶜ = openHeadᶜ
+lifecyclePhaseRef openHeadᶜ closedᶜ = closedHeadᶜ
+lifecyclePhaseRef closedHeadᶜ contestedᶜ = closedHeadᶜ
+lifecyclePhaseRef closedHeadᶜ partialObservedᶜ = fanoutProgressᶜ
+lifecyclePhaseRef closedHeadᶜ fannedOutᶜ = finalizedHeadᶜ
+lifecyclePhaseRef fanoutProgressᶜ fannedOutᶜ = finalizedHeadᶜ
+lifecyclePhaseRef phase _ = phase
 
 -- Coordination is absent outside Open. A request can replace an in-flight
 -- snapshot in raw replay; protocol guards normally prevent that replacement.
+-- headOpened denotes an opening accepted by the lifecycle projection above.
 -- Without a collecting candidate, acknowledgements and confirmations without
 -- an explicit snapshot leave the coordinated owner unchanged.
 data CoordinationPhaseᶜ : Set where
@@ -418,7 +417,7 @@ data CoordinationEventᶜ : Set where
 {-# COMPILE GHC CoordinationEventᶜ = data HsCoordinationEvent (HeadOpened | HeadClosed | RequestDecided | SnapshotRequested | SnapshotConfirmed | LocalCleared | SettlementObserved | OtherEvent) #-}
 
 coordinationPhaseRef : CoordinationPhaseᶜ → CoordinationEventᶜ → Bool → Bool → Bool → CoordinationPhaseᶜ
-coordinationPhaseRef _ headOpenedᶜ _ _ _ = noRequestSeenᶜ
+coordinationPhaseRef outsideHeadᶜ headOpenedᶜ _ _ _ = noRequestSeenᶜ
 coordinationPhaseRef _ headClosedᶜ _ _ _ = outsideHeadᶜ
 coordinationPhaseRef outsideHeadᶜ _ _ _ _ = outsideHeadᶜ
 coordinationPhaseRef _ requestDecidedᶜ _ _ _ = requestSentᶜ
@@ -432,6 +431,7 @@ coordinationPhaseRef phase _ _ _ _ = phase
 
 -- The tracked deposit has a status and a separate consuming observation. A
 -- rollback restores the stored status; it does not recompute it from time.
+-- These are projections of independent fields, not vertices of a Crem graph.
 data TrackedPhaseᶜ : Set where
   missingDepositᶜ inactiveDepositᶜ activeDepositᶜ expiredDepositᶜ consumedDepositᶜ : TrackedPhaseᶜ
 {-# FOREIGN GHC data HsTrackedPhase = MissingDeposit | InactiveDeposit | ActiveDeposit | ExpiredDeposit | ConsumedDeposit deriving (Eq, Show, Enum, Bounded) #-}
@@ -549,9 +549,11 @@ repostFinalizedRef : Bool → Nat → Nat → Bool
 repostFinalizedRef pending rolledBack observed = pending || (rolledBack < observed)
 
 -- Remaining set empty; mode auto=0, selection=1, awaiting=2.
--- Action: wait=0, post remainder=1, post selection=2. Empty always burns tokens.
+-- Action: wait=0, post remainder=1, post selection=2. Both partial-fanout
+-- validators require a nonempty batch. An empty local remainder after an
+-- intermediate observation signals an incomplete view; never post an empty final.
 fanoutContinuationRef : Bool → Nat → Nat
-fanoutContinuationRef true _ = 1
+fanoutContinuationRef true _ = 0
 fanoutContinuationRef false 0 = 1
 fanoutContinuationRef false 1 = 2
 fanoutContinuationRef false _ = 0
@@ -904,17 +906,9 @@ commitPhaseRef selected version signedVersion claimsCommit =
   if (version == signedVersion) && claimsCommit then awaitingCommitSettlementᶜ
   else if selected then selectedCommitᶜ else noCommitᶜ
 
--- Unlike a decommit, an outstanding commit can be dropped. Replacing its
--- certificate can leave another selected deposit, so every phase pair is legal;
--- the request guards, not missing topology edges, enforce when this may happen.
-data CommitTransitionᶜ : CommitPhaseᶜ → CommitPhaseᶜ → Set where
-  unchangedᶜ : ∀ {phase} → CommitTransitionᶜ phase phase
-  selectᶜ : CommitTransitionᶜ noCommitᶜ selectedCommitᶜ
-  releaseᶜ : CommitTransitionᶜ selectedCommitᶜ noCommitᶜ
-  confirmᶜ : CommitTransitionᶜ selectedCommitᶜ awaitingCommitSettlementᶜ
-  adoptᶜ : CommitTransitionᶜ noCommitᶜ awaitingCommitSettlementᶜ
-  retireᶜ : CommitTransitionᶜ awaitingCommitSettlementᶜ noCommitᶜ
-  retireSelectedᶜ : CommitTransitionᶜ awaitingCommitSettlementᶜ selectedCommitᶜ
+-- Every commit phase pair is reachable. Haskell keeps this projection in an
+-- ordinary reducer within a single Crem state; there is no restrictive graph.
+-- Snapshot and decommit owners retain constraints on starting new live work.
 
 adoption-without-selection-awaits : commitPhaseRef false 0 0 true ≡ awaitingCommitSettlementᶜ
 adoption-without-selection-awaits = refl
@@ -926,3 +920,43 @@ retirement-preserves-selection : commitPhaseRef true 1 0 true ≡ selectedCommit
 retirement-preserves-selection = refl
 
 {-# COMPILE GHC commitPhaseRef as hsCommitPhaseRef #-}
+
+-- Eligibility changes do not undo consumption. A rollback before consumption
+-- restores the stored eligibility, including expiry, while keeping the record.
+consumed-expiry-stays-consumed :
+  trackedDepositPhaseRef consumedDepositᶜ 1 expiredᶜ false false ≡ consumedDepositᶜ
+consumed-expiry-stays-consumed = refl
+
+rollback-restores-expired :
+  trackedDepositPhaseRef consumedDepositᶜ 3 expiredᶜ false true ≡ expiredDepositᶜ
+rollback-restores-expired = refl
+
+contest-preserves-closed : lifecyclePhaseRef closedHeadᶜ contestedᶜ ≡ closedHeadᶜ
+contest-preserves-closed = refl
+
+closed-does-not-reopen : lifecyclePhaseRef closedHeadᶜ openedᶜ ≡ closedHeadᶜ
+closed-does-not-reopen = refl
+
+partial-does-not-reopen : lifecyclePhaseRef fanoutProgressᶜ openedᶜ ≡ fanoutProgressᶜ
+partial-does-not-reopen = refl
+
+pending-remains-closed : lifecyclePhaseRef closedHeadᶜ fanoutStartedᶜ ≡ closedHeadᶜ
+pending-remains-closed = refl
+
+cancellation-preserves-closed : lifecyclePhaseRef closedHeadᶜ fanoutRevertedᶜ ≡ closedHeadᶜ
+cancellation-preserves-closed = refl
+
+partial-cannot-cancel : lifecyclePhaseRef fanoutProgressᶜ fanoutRevertedᶜ ≡ fanoutProgressᶜ
+partial-cannot-cancel = refl
+
+observer-enters-partial : lifecyclePhaseRef closedHeadᶜ partialObservedᶜ ≡ fanoutProgressᶜ
+observer-enters-partial = refl
+
+full-fanout-finalizes : lifecyclePhaseRef closedHeadᶜ fannedOutᶜ ≡ finalizedHeadᶜ
+full-fanout-finalizes = refl
+
+partial-fanout-finalizes : lifecyclePhaseRef fanoutProgressᶜ fannedOutᶜ ≡ finalizedHeadᶜ
+partial-fanout-finalizes = refl
+
+finalized-is-terminal : ∀ event → lifecyclePhaseRef finalizedHeadᶜ event ≡ finalizedHeadᶜ
+finalized-is-terminal event = refl

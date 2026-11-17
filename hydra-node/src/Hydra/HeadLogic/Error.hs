@@ -3,11 +3,10 @@
 -- | Error types used in the Hydra.HeadLogic module.
 module Hydra.HeadLogic.Error where
 
-import Hydra.Prelude
-
 import Hydra.HeadLogic.Input (Input)
 import Hydra.HeadLogic.State (HeadState)
 import Hydra.Ledger (ValidationError)
+import Hydra.Prelude
 import Hydra.Tx (
   HeadId,
   IsTx (TxIdType, UTxOType),

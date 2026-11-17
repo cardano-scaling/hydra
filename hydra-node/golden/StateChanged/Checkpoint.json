@@ -136,6 +136,7 @@
                                 }
                             }
                         },
+                        "fanoutDatum": "DatumFanoutProgress",
                         "headId": "00000001010001010000000101000000",
                         "headSeed": "01010000010000000001000001010001",
                         "mode": {
@@ -146,6 +147,7 @@
                             "depositPeriod": 7587,
                             "parties": []
                         },
+                        "readyToFanoutSent": true,
                         "remainingOutputs": {
                             "0000000000010001010101000000010000000101000101000000000001010100#38": {
                                 "address": "addr_test1zpv50r2gfa3l2y3tw8j0tjx6umykreyvgxd4lz86efh4h8autemq2hcht6nenfyfrr3z2573gmc2r2pw3fyjjeweel0sdlvnmc",
@@ -162,6 +164,7 @@
                                 }
                             }
                         },
+                        "unconfirmedSnapshot": null,
                         "version": 0
                     },
                     "tag": "FanoutProgress"

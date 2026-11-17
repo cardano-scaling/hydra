@@ -255,6 +255,8 @@ wsApp env party tracer chain history callback nodeStateP networkInfoP queryBroad
   getHeadStatus :: HeadState tx -> HeadStatus
   getHeadStatus = \case
     HeadState.Idle{} -> Idle
+    -- The node is available for a new Head; its completed Head stays terminal.
+    HeadState.Finalized{} -> Idle
     HeadState.Open{} -> Open
     HeadState.Closed ClosedState{readyToFanoutSent}
       | readyToFanoutSent -> FanoutPossible
@@ -264,6 +266,7 @@ wsApp env party tracer chain history callback nodeStateP networkInfoP queryBroad
   getHeadId :: HeadState tx -> Maybe HeadId
   getHeadId = \case
     HeadState.Idle{} -> Nothing
+    HeadState.Finalized{} -> Nothing
     HeadState.Open OpenState{headId} -> Just headId
     HeadState.Closed ClosedState{headId} -> Just headId
     HeadState.FanoutProgress PartialFanoutState{headId} -> Just headId

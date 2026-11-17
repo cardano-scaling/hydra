@@ -11,10 +11,10 @@ import Control.Monad (foldM)
 import Crem.Inspect (Component (RightComponent), inspectStates)
 import Data.List qualified as List
 import Data.Map.Strict qualified as Map
-import Hydra.HeadLogic.Machine qualified as Machine
-import Hydra.HeadLogic.Machine.Coordinated qualified as Coordinated
 import Hydra.HeadLogic.Outcome (StateChanged (..))
 import Hydra.HeadLogic.State (CoordinatedHeadState (..), FinalizedSnapshot (..), HeadState (..), OpenState (..), SeenSnapshot (..))
+import Hydra.HeadLogic.State.Coordinated qualified as Coordinated
+import Hydra.HeadLogic.State.Node qualified as Machine
 import Hydra.HeadLogicSpec (inOpenState, testSnapshot, withAccumulators)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..))
 import Hydra.Node.State (Deposit (..), DepositStatus (..), NodeState (..), TrackedDeposit (..), initialChainTime)

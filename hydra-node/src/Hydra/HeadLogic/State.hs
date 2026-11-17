@@ -4,13 +4,12 @@
 
 module Hydra.HeadLogic.State where
 
+import Cardano.Binary (Decoder)
+import Data.Aeson (object, withObject, (.!=), (.:), (.:?), (.=))
+import Data.Map.Strict qualified as Map (Map)
+import Hydra.Chain.ChainState (ChainSlot, IsChainState (..))
 import Hydra.HeadLogic.Cardano (snapshotSigningBytes)
 import Hydra.Prelude
-
-import Cardano.Binary (Decoder)
-import Data.Aeson (object, withObject, (.:), (.=))
-import Data.Map.Strict qualified as Map
-import Hydra.Chain.ChainState (ChainSlot, IsChainState (..))
 import Hydra.Tx (
   HeadId,
   HeadParameters,
@@ -37,16 +36,16 @@ import Hydra.Tx.Snapshot (
 -- only this internal chain state gets replaced with the "rolled back to"
 -- version.
 --
--- TODO: chainState would actually not be needed in the HeadState anymore as we
--- do not persist the 'HeadState' and not access it in the HeadLogic either.
+-- Checkpoints persist this state, including a completed Head's identity.
 data HeadState tx
   = Idle (IdleState tx)
   | Open (OpenState tx)
   | Closed (ClosedState tx)
-  | -- | A closed head whose UTxO is being fanned out across multiple
-    -- transactions (on-chain in the @FanoutProgress@ state). Reached from
-    -- 'Closed' once the first partial fanout is observed.
+  | -- | Fanout driver bookkeeping, including the observed on-chain datum.
     FanoutProgress (PartialFanoutState tx)
+  | -- | A completed Head. The node can host a different Head afterwards,
+    -- but this Head's lifecycle is terminal, including after checkpoint recovery.
+    Finalized (FinalizedState tx)
   deriving stock (Generic)
 
 deriving stock instance (IsTx tx, Eq (ChainStateType tx)) => Eq (HeadState tx)
@@ -67,6 +66,7 @@ getChainState = \case
   Open OpenState{chainState} -> chainState
   Closed ClosedState{chainState} -> chainState
   FanoutProgress PartialFanoutState{chainState} -> chainState
+  Finalized FinalizedState{chainState} -> chainState
 
 -- | Get the head parameters in any 'HeadState'.
 getHeadParameters :: HeadState tx -> Maybe HeadParameters
@@ -75,6 +75,7 @@ getHeadParameters = \case
   Open OpenState{parameters} -> Just parameters
   Closed ClosedState{parameters} -> Just parameters
   FanoutProgress PartialFanoutState{parameters} -> Just parameters
+  Finalized{} -> Nothing
 
 -- | Get the head parameters in any 'HeadState'.
 getOpenStateConfirmedSnapshot :: HeadState tx -> Maybe (ConfirmedSnapshot tx)
@@ -83,6 +84,7 @@ getOpenStateConfirmedSnapshot = \case
   Open OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}} -> Just confirmedSnapshot
   Closed ClosedState{} -> Nothing
   FanoutProgress PartialFanoutState{} -> Nothing
+  Finalized{} -> Nothing
 
 -- ** Idle
 
@@ -100,6 +102,34 @@ instance IsChainState tx => ToCBOR (IdleState tx) where
 
 instance IsChainState tx => FromCBOR (IdleState tx) where
   fromCBOR = genericFromCBOR
+
+-- | Terminal identity and chain position of a completed Head. Existing Idle
+-- checkpoints still decode as Idle: older writers discarded this identity.
+data FinalizedState tx = FinalizedState
+  { headId :: HeadId
+  , chainState :: ChainStateType tx
+  }
+  deriving stock (Generic)
+
+deriving stock instance Eq (ChainStateType tx) => Eq (FinalizedState tx)
+deriving stock instance Show (ChainStateType tx) => Show (FinalizedState tx)
+deriving anyclass instance ToJSON (ChainStateType tx) => ToJSON (FinalizedState tx)
+deriving anyclass instance FromJSON (ChainStateType tx) => FromJSON (FinalizedState tx)
+
+instance IsChainState tx => ToCBOR (FinalizedState tx) where
+  toCBOR = genericToCBOR
+
+instance IsChainState tx => FromCBOR (FinalizedState tx) where
+  fromCBOR = genericFromCBOR
+
+-- | Opening creates a new Head. A completed identity cannot be reused.
+canOpenHead :: HeadState tx -> HeadId -> Bool
+canOpenHead st newHeadId = case st of
+  Idle{} -> True
+  Finalized FinalizedState{headId} -> newHeadId /= headId
+  Open{} -> False
+  Closed{} -> False
+  FanoutProgress{} -> False
 
 -- ** Open
 
@@ -356,7 +386,7 @@ data ClosedState tx = ClosedState
   , unconfirmedSnapshot :: Maybe (Snapshot tx)
   -- ^ The snapshot this node signed but had not seen confirmed when the head
   -- closed. A close or contest carrying its full multisignature confirms it,
-  -- see 'Hydra.HeadLogic.Rules.Close.onClosedChainContestTx'.
+  -- see 'Hydra.HeadLogic.Rules.Chain.Lifecycle.onClosedChainContestTx'.
   }
   deriving stock (Generic)
 
@@ -450,9 +480,19 @@ instance IsTx tx => ToCBOR (FanoutMode tx) where
 instance IsTx tx => FromCBOR (FanoutMode tx) where
   fromCBOR = genericFromCBOR
 
--- | A closed head whose UTxO is being distributed across multiple fanout
--- transactions (on-chain @FanoutProgress@). Holds the partial-fanout bookkeeping
--- that used to live in 'ClosedState'.
+-- | The observed on-chain datum, independent of which distributed outputs
+-- match the local snapshot. Only an observation advances this phase.
+data OnChainFanoutDatum = DatumClosed | DatumFanoutProgress
+  deriving stock (Eq, Show, Generic)
+  deriving anyclass (ToJSON, FromJSON)
+
+instance ToCBOR OnChainFanoutDatum where
+  toCBOR = genericToCBOR
+
+instance FromCBOR OnChainFanoutDatum where
+  fromCBOR = genericFromCBOR
+
+-- | Persisted bookkeeping for a pending request or observed partial fanout.
 data PartialFanoutState tx = PartialFanoutState
   { parameters :: HeadParameters
   , confirmedSnapshot :: ConfirmedSnapshot tx
@@ -464,23 +504,86 @@ data PartialFanoutState tx = PartialFanoutState
   , remainingOutputs :: UTxOType tx
   -- ^ UTxO still to be fanned out (tracked by content, via set difference).
   , distributedOutputs :: UTxOType tx
-  -- ^ Accumulates UTxO distributed so far; used to reconstruct the full set in
-  --   'HeadFannedOut' once the head is finalized.
+  -- ^ Accumulates distributed outputs matched against the local snapshot,
+  --   used in 'HeadFannedOut'. This can stay empty after a chain observation.
   , mode :: FanoutMode tx
   -- ^ Drives the chunk source for the next step (see 'FanoutMode').
+  , fanoutDatum :: OnChainFanoutDatum
+  -- ^ Determines the next transaction kind and whether a request can be cancelled.
+  , readyToFanoutSent :: Bool
+  -- ^ Retains the Closed notification state while a local request is pending.
+  , unconfirmedSnapshot :: Maybe (Snapshot tx)
+  -- ^ A pending request must still adopt a candidate from a later contest.
   }
   deriving stock (Generic)
 
 deriving stock instance (IsTx tx, Eq (ChainStateType tx)) => Eq (PartialFanoutState tx)
 deriving stock instance (IsTx tx, Show (ChainStateType tx)) => Show (PartialFanoutState tx)
 deriving anyclass instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (PartialFanoutState tx)
-deriving anyclass instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (PartialFanoutState tx)
+instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (PartialFanoutState tx) where
+  parseJSON = withObject "PartialFanoutState" $ \o -> do
+    parameters <- o .: "parameters"
+    confirmedSnapshot <- o .: "confirmedSnapshot"
+    contestationDeadline <- o .: "contestationDeadline"
+    chainState <- o .: "chainState"
+    headId <- o .: "headId"
+    headSeed <- o .: "headSeed"
+    version <- o .: "version"
+    remainingOutputs <- o .: "remainingOutputs"
+    distributedOutputs <- o .: "distributedOutputs"
+    mode <- o .: "mode"
+    fanoutDatum <- o .:? "fanoutDatum" .!= legacyFanoutDatum @tx distributedOutputs
+    readyToFanoutSent <- o .:? "readyToFanoutSent" .!= True
+    unconfirmedSnapshot <- o .:? "unconfirmedSnapshot"
+    pure PartialFanoutState{parameters, confirmedSnapshot, contestationDeadline, chainState, headId, headSeed, version, remainingOutputs, distributedOutputs, mode, fanoutDatum, readyToFanoutSent, unconfirmedSnapshot}
 
 instance IsChainState tx => ToCBOR (PartialFanoutState tx) where
-  toCBOR = genericToCBOR
+  toCBOR PartialFanoutState{parameters, confirmedSnapshot, contestationDeadline, chainState, headId, headSeed, version, remainingOutputs, distributedOutputs, mode, fanoutDatum, readyToFanoutSent, unconfirmedSnapshot} =
+    toCBOR ("PartialFanoutState3" :: Text)
+      <> toCBOR parameters
+      <> toCBOR confirmedSnapshot
+      <> toCBOR contestationDeadline
+      <> toCBOR chainState
+      <> toCBOR headId
+      <> toCBOR headSeed
+      <> toCBOR version
+      <> toCBOR remainingOutputs
+      <> toCBOR distributedOutputs
+      <> toCBOR mode
+      <> toCBOR fanoutDatum
+      <> toCBOR readyToFanoutSent
+      <> toCBOR unconfirmedSnapshot
 
 instance IsChainState tx => FromCBOR (PartialFanoutState tx) where
-  fromCBOR = genericFromCBOR
+  fromCBOR = do
+    tag <- fromCBOR @Text
+    unless (tag `elem` ["PartialFanoutState", "PartialFanoutState2", "PartialFanoutState3"]) $
+      fail $
+        show tag <> " is not a proper CBOR-encoded PartialFanoutState"
+    parameters <- fromCBOR
+    confirmedSnapshot <- fromCBOR
+    contestationDeadline <- fromCBOR
+    chainState <- fromCBOR
+    headId <- fromCBOR
+    headSeed <- fromCBOR
+    version <- fromCBOR
+    remainingOutputs <- fromCBOR
+    distributedOutputs <- fromCBOR
+    mode <- fromCBOR
+    fanoutDatum <- if tag /= "PartialFanoutState" then fromCBOR else pure $ legacyFanoutDatum @tx distributedOutputs
+    -- Older checkpoints lost the Closed candidate and assumed readiness.
+    -- Preserve that interpretation; event replay retains the original values.
+    readyToFanoutSent <- if tag == "PartialFanoutState3" then fromCBOR else pure True
+    unconfirmedSnapshot <- if tag == "PartialFanoutState3" then fromCBOR else pure Nothing
+    pure PartialFanoutState{parameters, confirmedSnapshot, contestationDeadline, chainState, headId, headSeed, version, remainingOutputs, distributedOutputs, mode, fanoutDatum, readyToFanoutSent, unconfirmedSnapshot}
+
+-- | Older checkpoints did not retain the datum. Preserve their interpretation;
+-- an observation with no locally matching outputs cannot be recovered from
+-- this layout alone. Replaying the observation retains the correct phase.
+legacyFanoutDatum :: forall tx. IsTx tx => UTxOType tx -> OnChainFanoutDatum
+legacyFanoutDatum distributed
+  | null (outputsOfUTxO @tx distributed) = DatumClosed
+  | otherwise = DatumFanoutProgress
 
 -- | A snapshot whose settlement transaction (the increment of its commit, or
 -- the decrement of its decommit) was observed on chain, retained when the
@@ -506,3 +609,12 @@ instance IsTx tx => ToCBOR (FinalizedSnapshot tx) where
 
 instance IsTx tx => FromCBOR (FinalizedSnapshot tx) where
   fromCBOR = genericFromCBOR
+
+-- | Extract the 'HeadId' from the current 'HeadState', if any.
+headIdOf :: HeadState tx -> Maybe HeadId
+headIdOf = \case
+  Idle _ -> Nothing
+  Open OpenState{headId} -> Just headId
+  Closed ClosedState{headId} -> Just headId
+  FanoutProgress PartialFanoutState{headId} -> Just headId
+  Finalized FinalizedState{headId} -> Just headId

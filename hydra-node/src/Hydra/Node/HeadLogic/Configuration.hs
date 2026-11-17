@@ -4,7 +4,7 @@ module Hydra.Node.HeadLogic.Configuration where
 import Hydra.HeadLogic.Cardano (cardanoSnapshotLimits)
 import Hydra.HeadLogic.Interpreter
 import Hydra.HeadLogic.Rules.Environment
-import Hydra.HeadLogic.Rules.SnapshotRequest (SettlingCommit, settlingCommitAtPeriod)
+import Hydra.HeadLogic.Snapshot.Request (SettlingCommit, settlingCommitAtPeriod)
 import Hydra.Ledger (Ledger)
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.Environment qualified as Node
