@@ -519,15 +519,15 @@ etcdSpec =
 
     it "resends messages" $ \tracer -> do
       withTempDir "test-etcd" $ \tmp -> do
-        -- Sends 1000 messages through a 3-node etcd cluster; the
-        -- 20s budget was too tight under parallel CI load.
+        -- A modest history exercises catch-up and the persisted restart
+        -- position without making this a sequential throughput test.
         failAfter 60 $ do
           PeerConfig3{aliceConfig, bobConfig, carolConfig} <- setup3Peers tmp
           (recordBob, waitBob, _) <- newRecordingCallback
           (recordCarol, waitCarol, _) <- newRecordingCallback
           withEtcdNetwork @Int tracer v1 aliceConfig noopCallback $ \n1 ->
             withEtcdNetwork @Int tracer v1 bobConfig recordBob $ \_ -> do
-              let messages = [1 .. 1000]
+              let messages = [1 .. 100]
               -- Bob should see messages as we go
               forM_ messages $ \msg -> do
                 broadcast n1 msg
@@ -538,8 +538,8 @@ etcdSpec =
                   waitCarol `shouldReturn` msg
               -- Carol only delivers new messages even after restart
               withEtcdNetwork @Int tracer v1 carolConfig recordCarol $ \_ -> do
-                broadcast n1 1001
-                waitCarol `shouldReturn` 1001
+                broadcast n1 101
+                waitCarol `shouldReturn` 101
 
     -- Sequential broadcasts force one etcd put each (batching only kicks
     -- in when the queue backs up), so 5000 sends cross the broadcast

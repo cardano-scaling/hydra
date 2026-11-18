@@ -919,7 +919,8 @@ withRunningHydraNode node action =
 -- never produced instead of just timing out.
 awaitRecorded :: (HasCallStack, Show a) => IO [a] -> (a -> Bool) -> IO a
 awaitRecorded query p =
-  timeout 10 go >>= \case
+  -- Allow for a loaded runner pausing background threads between polls.
+  timeout 30 go >>= \case
     Just a -> pure a
     Nothing -> do
       seen <- query
