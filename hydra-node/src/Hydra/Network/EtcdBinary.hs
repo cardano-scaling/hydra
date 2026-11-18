@@ -13,6 +13,8 @@ import Data.ByteString qualified as BS
 import System.IO (hClose)
 import System.Posix (OpenFileFlags (..), OpenMode (WriteOnly), closeFd, defaultFileFlags, fdToHandle, openFd, ownerExecuteMode, ownerReadMode, ownerWriteMode, setFileMode)
 #endif
+import Foreign.C.Error (Errno (Errno), eTXTBSY)
+import GHC.IO.Exception (ioe_errno)
 import Hydra.Network (WhichEtcd (..))
 import Hydra.Node.EmbedTH (embedExecutable)
 import System.Directory (createDirectoryIfMissing, renameFile)
@@ -45,14 +47,27 @@ installEtcd fp = do
  where
   tmp = fp <> ".tmp"
 
--- | Write without letting another process retain the writable file descriptor.
+-- | Retry starting an executable while an unrelated fork still holds the
+-- installer's writable descriptor. Close-on-exec releases that descriptor
+-- when the child executes, but not at fork. Retry only ETXTBSY, with at most
+-- one second of delays; other errors and cancellation propagate immediately.
+retryOnBusyExecutable :: IO a -> IO a
+retryOnBusyExecutable action = go (20 :: Int)
+ where
+  go remaining =
+    action `catch` \exception ->
+      if remaining > 0 && (Errno <$> ioe_errno exception) == Just eTXTBSY
+        then threadDelay 0.05 >> go (remaining - 1)
+        else throwIO exception
+
+-- | Write with the writable descriptor closed automatically on exec.
 writeBinaryFile :: FilePath -> ByteString -> IO ()
 #ifdef mingw32_HOST_OS
 writeBinaryFile = writeFileBS
 #else
 writeBinaryFile fp bytes =
-  -- Open with close-on-exec atomically. Otherwise an unrelated child can
-  -- inherit the write handle and prevent executing etcd (ETXTBSY) after close.
+  -- Open with close-on-exec atomically so an unrelated child cannot retain
+  -- the write handle after executing another program.
   bracket
     ( do
         fd <- openFd fp WriteOnly defaultFileFlags{creat = Just 0o600, trunc = True, cloexec = True}
