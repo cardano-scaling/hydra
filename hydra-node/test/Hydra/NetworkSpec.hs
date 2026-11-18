@@ -99,9 +99,11 @@ spec = do
         cancel worker
 
   it "stops a child when a blocked reader cancels its scope during startup" $
-    failAfter 10 $
-      replicateM_ 4 $
-        replicateConcurrently_ 8 $ do
+    replicateM_ 4 $
+      replicateConcurrently_ 8 $
+        -- Each stop can use the five-second grace period before termination.
+        -- Bound each scope, including startup, rather than the whole batch.
+        failAfter 10 $ do
           parent <- myThreadId
           let runChild = withProcessInterrupt (proc "sleep" ["30"]) $ \p _ ->
                 withAsyncLabelled
