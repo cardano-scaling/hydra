@@ -910,8 +910,11 @@ withProcessInterrupt config action =
                   terminateProcess (unsafeProcessHandle p)
                   void $ waitExitCode p
               )
-    withAsyncLabelled ("etcd-network", action p stop) $ \worker ->
-      wait worker `finally` stop
+    -- Install the stop handler before cancellation can enter withAsync's
+    -- cleanup, which waits for the action and its blocked readers.
+    mask $ \restore ->
+      withAsyncLabelled ("etcd-network", restore $ action p stop) $ \worker ->
+        restore (wait worker) `finally` stop
 
 -- * Tracing
 
