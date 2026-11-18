@@ -72,7 +72,7 @@ import Test.QuickCheck.Monadic (monadicIO, monitor, pick, run)
 
 spec :: Spec
 spec =
-  do
+  beforeAll_ prepareSnapshotEncoding $ do
     it "should fail on port in use" $ do
       showLogsOnFailure "ServerSpec" $ \tracer -> failAfter 5 $
         -- The first server serves a socket bound since allocation, so nothing
@@ -1092,3 +1092,9 @@ genSmallStateEventForApi :: Gen (StateEvent SimpleTx)
 genSmallStateEventForApi =
   (resize 1 arbitrary >>= genStateEvent)
     `suchThat` (isJust . mkTimedServerOutputFromStateEvent Nothing)
+
+-- | Initialize the shared trusted setup before the transport deadlines start.
+-- Even an empty snapshot needs it when its accumulator hash is first encoded.
+prepareSnapshotEncoding :: IO ()
+prepareSnapshotEncoding =
+  void $ evaluate $ force $ Accumulator.getAccumulatorHash (Accumulator.build [])
