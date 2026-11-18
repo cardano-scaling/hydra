@@ -751,6 +751,7 @@
                         }
                     ]
                 },
+                "readyToFanoutSent": true,
                 "remainingOutputs": {
                     "0401040004060804060701060308060402060300000602000807060802010008#60": {
                         "address": "addr_test1xz7z96xwqs9grfulvqnatxwtj0fkqcamjy7pqv7h8v3ghvvmwt4zkxsd4ee8eqfga3qcrpyn5gmyyurqt033fv8w0m9sv72nlr",
@@ -1092,6 +1093,7 @@
                         }
                     }
                 },
+                "unconfirmedSnapshot": null,
                 "version": 4
             },
             "tag": "FanoutProgress"
