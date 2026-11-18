@@ -23,7 +23,7 @@ import Data.Yaml qualified as Yaml
 import GHC.IsList (toList)
 import Hydra.Cardano.Api (AddressInEra, PolicyId, Tx, TxId, TxOut, UTxO, toLedgerAddr, txOuts', pattern TxOut)
 import Hydra.Prelude hiding (Key, toList)
-import Hydra.Tx (IsTx (TxIdType, UTxOType), applyTxTo)
+import Hydra.Tx (IsTx (TxIdType, UTxOType))
 
 -- | Loading and parsing of user policy
 loadUserValidationRules :: FilePath -> IO UserValidationRules
@@ -178,56 +178,55 @@ data UserValidationRules = UserValidationRules
 -- | Abstract handle around utxo and tx types
 data UserValidation tx = UserValidation
   { validateTransaction :: tx -> Either PolicyViolation ()
-  , validateResultingUTxO :: UTxOType tx -> UTxOType tx -> Either PolicyViolation ()
-  -- ^ Active outputs (including reserved deposits), then outgoing decommit outputs.
   , validateDeposit :: TxIdType tx -> Either PolicyViolation ()
-  , incrementalValidation :: Maybe (IncrementalValidation tx)
+  , utxoValidation :: UTxOValidation tx
   }
 
--- | A policy view and its derived validation result. Candidate updates are
--- immutable: rejecting one leaves the original context available for reuse.
+-- | A policy result and functions for checking the next change to the UTxO.
+--
+-- Each update returns a new context. The caller reads 'policyResult' and
+-- decides whether to continue from that context or keep the previous one.
+--
+-- This interface does not expose the UTxO or guarantee incremental checking.
+-- Cardano's implementation reuses a summary of previously checked outputs,
+-- updating only the contributions of outputs that change. This avoids
+-- checking unchanged outputs again.
+--
+-- A failed result does not prevent further updates: a later transaction may
+-- remove the violation. Transaction rules and ledger validity are checked
+-- separately.
 data PolicyContext tx = PolicyContext
   { policyResult :: Either PolicyViolation ()
+  -- ^ Whether the outputs being checked pass the policy checks.
   , applyPolicyTx :: tx -> PolicyContext tx
+  -- ^ Return a new context after spending the transaction's inputs and adding its outputs.
   , addPolicyUTxO :: UTxOType tx -> PolicyContext tx
+  -- ^ Return a new context that also includes these incoming outputs.
   }
 
-data IncrementalValidation tx = IncrementalValidation
+-- | Every policy supplies a way to create a context for checking outputs.
+-- The node can reuse a context for its current outputs instead of creating
+-- one for every transaction.
+data UTxOValidation tx = UTxOValidation
   { preparePolicyUTxO :: UTxOType tx -> UTxOType tx -> PolicyContext tx
+  -- ^ Create a context from active outputs (including reserved deposits), then
+  -- outgoing decommit outputs.
   , localPolicyContext :: Maybe (PolicyContext tx)
+  -- ^ Nothing means the node has not supplied a cached context yet.
   }
 
 -- | Build a context even when its starting state violates policy: a subsequent
 -- transaction can remove the offending outputs. Validation checks each result.
-preparePolicyContext :: IsTx tx => UserValidation tx -> UTxOType tx -> UTxOType tx -> PolicyContext tx
-preparePolicyContext validation utxo outgoing =
-  case validation.incrementalValidation of
-    Just incremental -> incremental.preparePolicyUTxO utxo outgoing
-    Nothing -> go utxo
- where
-  go current =
-    PolicyContext
-      { policyResult = validation.validateResultingUTxO current outgoing
-      , applyPolicyTx = \tx -> go (applyTxTo tx current)
-      , addPolicyUTxO = \incoming -> go (current <> incoming)
-      }
+preparePolicyContext :: UserValidation tx -> UTxOType tx -> UTxOType tx -> PolicyContext tx
+preparePolicyContext validation = validation.utxoValidation.preparePolicyUTxO
 
 -- | The node supplies the context for its current local policy view. Pure
 -- callers without a runtime cache construct the same view on demand.
-localPolicyContextFor :: IsTx tx => UserValidation tx -> (UTxOType tx, UTxOType tx) -> PolicyContext tx
+localPolicyContextFor :: UserValidation tx -> (UTxOType tx, UTxOType tx) -> PolicyContext tx
 localPolicyContextFor validation (utxo, outgoing) =
-  fromMaybe (preparePolicyContext validation utxo outgoing) $
-    validation.incrementalValidation >>= localPolicyContext
-
-cardanoUserValidation :: UserValidationRules -> UserValidation Tx
-cardanoUserValidation rules =
-  UserValidation
-    { validateTransaction = preValidateUserTransactionWith rules
-    , validateResultingUTxO = validateUserUTxOWith rules
-    , validateDeposit = \depositTxId ->
-        for_ rules.allowedDeposits $ \allowed -> checkDeposit allowed depositTxId
-    , incrementalValidation = Nothing
-    }
+  fromMaybe
+    (preparePolicyContext validation utxo outgoing)
+    validation.utxoValidation.localPolicyContext
 
 preValidateUserTransactionWith ::
   UserValidationRules -> Tx -> Either PolicyViolation ()
@@ -243,7 +242,8 @@ preValidateUserTransactionWith rules tx = do
   for_ rules.maxDatumSize $ \limit -> traverse_ (checkMaxDatumSize limit) (txOuts' tx)
 
 -- | Bound active outputs and reserved deposits by count. Other rules also check
--- outgoing decommit outputs until settlement.
+-- outgoing decommit outputs until settlement. This full scan is the reference
+-- used by tests to check the incremental implementation.
 validateUserUTxOWith :: UserValidationRules -> UTxO -> UTxO -> Either PolicyViolation ()
 validateUserUTxOWith rules utxo decommitted = do
   for_ rules.maxUTxOCount $ \limit -> checkMaxUTxOCount limit utxo

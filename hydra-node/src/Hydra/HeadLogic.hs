@@ -110,7 +110,7 @@ import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Party (Party (vkey))
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, SnapshotVersion, getSnapshot)
-import Hydra.UserValidationRules (IncrementalValidation (..), PolicyContext (..), PolicyViolation, UserValidation (..), localPolicyContextFor, preparePolicyContext)
+import Hydra.UserValidationRules (PolicyContext (..), PolicyViolation, UTxOValidation (..), UserValidation (..), localPolicyContextFor, preparePolicyContext)
 
 -- * The Coordinated Head protocol
 
@@ -2723,7 +2723,7 @@ checkUserTransaction ledger tx =
 
 -- | Check each transaction result, or the initial UTxO for an empty list.
 -- The pair separates active outputs and reserved deposits from outgoing outputs.
-checkUserTransactions :: IsTx tx => Ledger tx -> (UTxOType tx, UTxOType tx) -> [tx] -> Either (Maybe tx, PolicyViolation) ()
+checkUserTransactions :: Ledger tx -> (UTxOType tx, UTxOType tx) -> [tx] -> Either (Maybe tx, PolicyViolation) ()
 checkUserTransactions ledger (utxo, decommitted) txs =
   for_ ledger.userValidation $ \validation -> do
     let initial = preparePolicyContext validation utxo decommitted
@@ -2740,11 +2740,14 @@ checkUserTransactions ledger (utxo, decommitted) txs =
 checkLocalUserUTxO :: IsTx tx => Ledger tx -> CoordinatedHeadState tx -> tx -> Either PolicyViolation ()
 checkLocalUserUTxO ledger chs tx =
   for_ ledger.userValidation $ \validation ->
-    ((localPolicyContextFor validation $ localPolicyUTxO chs).applyPolicyTx tx).policyResult
+    let current = localPolicyContextFor validation $ localPolicyUTxO chs
+        candidate = current.applyPolicyTx tx
+     in candidate.policyResult
 
 checkUserUTxO :: Ledger tx -> (UTxOType tx, UTxOType tx) -> Either PolicyViolation ()
 checkUserUTxO ledger (utxo, decommitted) =
-  for_ ledger.userValidation $ \validation -> validation.validateResultingUTxO utxo decommitted
+  for_ ledger.userValidation $ \validation ->
+    (preparePolicyContext validation utxo decommitted).policyResult
 
 -- | Reserve incoming deposits, but exclude outgoing outputs from the count limit.
 -- Other UTxO policies still check the outgoing outputs until settlement.
@@ -3167,7 +3170,6 @@ handleClientInput env ledger ChainPointTime{currentSlot} pendingDeposits st ev =
 prepareLocalPolicyContext :: IsTx tx => Ledger tx -> NodeState tx -> Maybe (PolicyContext tx) -> Maybe (PolicyContext tx)
 prepareLocalPolicyContext ledger nodeState cached = do
   validation <- ledger.userValidation
-  _ <- validation.incrementalValidation
   pure $ fromMaybe (uncurry (preparePolicyContext validation) view) cached
  where
   view = case headState nodeState of
@@ -3176,11 +3178,12 @@ prepareLocalPolicyContext ledger nodeState cached = do
 
 withLocalPolicyContext :: Ledger tx -> Maybe (PolicyContext tx) -> Ledger tx
 withLocalPolicyContext ledger context =
-  ledger
-    { userValidation =
-        (\validation -> validation{incrementalValidation = (\incremental -> incremental{localPolicyContext = context}) <$> validation.incrementalValidation})
-          <$> ledger.userValidation
-    }
+  ledger{userValidation = attachContext <$> ledger.userValidation}
+ where
+  attachContext validation =
+    validation
+      { utxoValidation = validation.utxoValidation{localPolicyContext = context}
+      }
 
 -- | Advance source state and its derived context together. Ordinary accepted
 -- transactions update only affected outputs. Replacements and settlement
@@ -3200,19 +3203,25 @@ aggregateStateWithPolicy ledger initial context outcome =
         (nodeState, cached)
     | otherwise =
         let next = aggregateNodeState nodeState change
-            nextContext = case change of
-              TransactionAppliedToLocalUTxO{tx}
-                | Open OpenState{coordinatedHeadState} <- headState nodeState
-                , isNothing coordinatedHeadState.decommitTx
-                , let snapshot = case coordinatedHeadState.seenSnapshot of
-                        SeenSnapshot{snapshot = seen} -> seen
-                        _ -> getSnapshot coordinatedHeadState.confirmedSnapshot
-                , coordinatedHeadState.version /= snapshot.version || isNothing snapshot.utxoToCommit ->
-                    (\current -> current.applyPolicyTx tx) <$> cached
-              _
-                | unchangedPolicyView change -> cached
-                | otherwise -> prepareLocalPolicyContext ledger next Nothing
+            nextContext
+              | TransactionAppliedToLocalUTxO{tx} <- change
+              , canAdvancePolicyContext nodeState =
+                  (\current -> current.applyPolicyTx tx) <$> cached
+              | unchangedPolicyView change = cached
+              | otherwise = prepareLocalPolicyContext ledger next Nothing
          in (next, nextContext)
+
+  -- A local transaction advances the cached view directly only when no queued
+  -- decommit or reserved incoming deposit changes how its outputs are counted.
+  canAdvancePolicyContext :: IsTx tx => NodeState tx -> Bool
+  canAdvancePolicyContext nodeState = case headState nodeState of
+    Open OpenState{coordinatedHeadState = chs} ->
+      let snapshot = case chs.seenSnapshot of
+            SeenSnapshot{snapshot = seen} -> seen
+            _ -> getSnapshot chs.confirmedSnapshot
+       in isNothing chs.decommitTx
+            && (chs.version /= snapshot.version || isNothing snapshot.utxoToCommit)
+    _ -> False
 
   unchangedPolicyView :: StateChanged tx -> Bool
   unchangedPolicyView = \case

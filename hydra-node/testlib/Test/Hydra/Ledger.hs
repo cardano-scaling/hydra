@@ -9,8 +9,8 @@ import Test.Hydra.Prelude
 
 import Hydra.Chain.ChainState (ChainSlot (..))
 import Hydra.Ledger (Ledger (..), ValidationError (..))
-import Hydra.Tx.IsTx (UTxOType)
-import Hydra.UserValidationRules (PolicyViolation)
+import Hydra.Tx.IsTx (IsTx, UTxOType, applyTxTo)
+import Hydra.UserValidationRules (PolicyContext (..), PolicyViolation, UTxOValidation (..))
 import Test.Hydra.Tx.Gen ()
 import Test.QuickCheck.Instances.Natural ()
 import Test.QuickCheck.Instances.Text ()
@@ -20,6 +20,22 @@ instance Arbitrary ValidationError where
 
 instance Arbitrary PolicyViolation where
   arbitrary = genericArbitrary
+
+-- | Build test contexts by checking the complete UTxO after each update.
+-- Fixtures supply only their rule; no optimized summary is needed.
+utxoValidationWith :: IsTx tx => (UTxOType tx -> UTxOType tx -> Either PolicyViolation ()) -> UTxOValidation tx
+utxoValidationWith check =
+  UTxOValidation
+    { preparePolicyUTxO = contextFor
+    , localPolicyContext = Nothing
+    }
+ where
+  contextFor active outgoing =
+    PolicyContext
+      { policyResult = check active outgoing
+      , applyPolicyTx = \tx -> contextFor (applyTxTo tx active) outgoing
+      , addPolicyUTxO = \incoming -> contextFor (active <> incoming) outgoing
+      }
 
 -- | Get the next chain slot. Use this instead of giving 'Enum' or 'Num'
 -- instances to 'ChainSlot'.

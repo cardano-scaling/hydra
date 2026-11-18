@@ -108,7 +108,7 @@ library
     Hydra.Node.UnsyncedPeriod
     Hydra.Node.Util
     Hydra.Options
-    Hydra.UserValidation.Incremental
+    Hydra.UserValidation.IncrementalValidation
     Hydra.UserValidationRules
     Hydra.Utils
 

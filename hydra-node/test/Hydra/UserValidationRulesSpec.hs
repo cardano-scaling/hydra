@@ -13,6 +13,7 @@ import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Credential qualified as Ledger
 import Data.Aeson.Types (object, parseEither, (.=))
 import Data.ByteString qualified as BS
+import Data.Map.Lazy qualified as LazyMap
 import Data.Map.Strict qualified as Map
 import Data.Set qualified as Set
 import Data.Yaml qualified as Yaml
@@ -42,7 +43,7 @@ import Hydra.Cardano.Api qualified as Api
 import Hydra.Ledger.Cardano.Builder (addTxInsSpending, unsafeBuildTransaction)
 import Hydra.Prelude hiding (toList)
 import Hydra.Tx (applyTxTo)
-import Hydra.UserValidation.Incremental (prepareCardanoPolicyContext)
+import Hydra.UserValidation.IncrementalValidation (cardanoUserValidation, prepareCardanoPolicyContext)
 import Hydra.UserValidationRules (
   MintingOnL2Rule (..),
   PolicyContext (..),
@@ -50,7 +51,6 @@ import Hydra.UserValidationRules (
   PolicyViolation (..),
   UserValidation (..),
   UserValidationRules (..),
-  cardanoUserValidation,
   checkAllowedScriptAddresses,
   checkDeposit,
   checkMaxDatumSize,
@@ -58,6 +58,7 @@ import Hydra.UserValidationRules (
   checkPolicies,
   outputAssets,
   parsePolicyFile,
+  preparePolicyContext,
   validateUserUTxOWith,
  )
 import Test.Hydra.Prelude
@@ -81,6 +82,7 @@ import Test.QuickCheck (
   tabulate,
   (===),
  )
+import Prelude qualified
 
 instance Arbitrary PolicyRule where
   arbitrary = genericArbitrary
@@ -123,7 +125,7 @@ spec = do
 
   describe "complete UTxO policy" $ do
     let unrestricted = UserValidationRules Nothing AllowMinting Nothing Nothing Nothing Nothing Nothing
-        check rules utxo = validateResultingUTxO (cardanoUserValidation rules) utxo mempty
+        check rules utxo = (preparePolicyContext (cardanoUserValidation rules) utxo mempty).policyResult
         outputs :: [Api.Value] -> IO Api.UTxO
         outputs values = do
           TxOut address _ _ _ <- generate (genTxOut :: Gen (TxOut Api.CtxUTxO))
@@ -170,14 +172,20 @@ spec = do
       -- An invalid candidate does not alter the context it was derived from.
       initial.policyResult `shouldBe` Left (MaxOutputValueAssetsExceeded 1 0)
 
+    it "rejects excess outputs before inspecting them for other policy rules" $ do
+      input <- generate arbitrary
+      let rules = unrestricted{maxUTxOCount = Just 0, maxDatumSize = Just 0}
+          utxo = UTxO.UTxO $ LazyMap.singleton input (Prelude.error "unexpected output inspection")
+      check rules utxo `shouldBe` Left (MaxUTxOCountExceeded 1 0)
+
     it "excludes outgoing outputs only from the UTxO count" $ do
       policy <- generate arbitrary
       outgoing <- outputs [assetValue $ AssetId policy (Api.UnsafeAssetName "one"), assetValue $ AssetId policy (Api.UnsafeAssetName "two")]
       let rules = unrestricted{maxUTxOCount = Just 0}
-      validateResultingUTxO (cardanoUserValidation rules) mempty outgoing `shouldBe` Right ()
-      validateResultingUTxO (cardanoUserValidation rules{maxOutputValueAssets = Just 1}) mempty outgoing
+      (preparePolicyContext (cardanoUserValidation rules) mempty outgoing).policyResult `shouldBe` Right ()
+      (preparePolicyContext (cardanoUserValidation rules{maxOutputValueAssets = Just 1}) mempty outgoing).policyResult
         `shouldBe` Left (MaxOutputValueAssetsExceeded 2 1)
-      validateResultingUTxO (cardanoUserValidation rules{policyRule = Just $ AllowOnlyPolicies mempty}) mempty outgoing
+      (preparePolicyContext (cardanoUserValidation rules{policyRule = Just $ AllowOnlyPolicies mempty}) mempty outgoing).policyResult
         `shouldBe` Left (PolicyAssetsViolation (Set.singleton policy) mempty)
 
     it "checks datums on outputs already held in the UTxO" $ do
@@ -226,7 +234,7 @@ spec = do
                in conjoin
                     [ counterexample ("rules: " <> show rules <> "; prefix: " <> show prefix) $
                       policyContext.policyResult === validateUserUTxOWith rules utxo outgoing
-                    | (prefix, (utxo, policyContext)) <- zip [0 :: Int ..] $ scanl advance (initial, prepareCardanoPolicyContext rules initial outgoing) updates
+                    | (prefix, (utxo, policyContext)) <- zip [0 :: Int ..] $ scanl advance (initial, preparePolicyContext (cardanoUserValidation rules) initial outgoing) updates
                     ]
          in conjoin $ check <$> policies
 

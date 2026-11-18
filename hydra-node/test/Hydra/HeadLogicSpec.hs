@@ -81,7 +81,7 @@ import Hydra.Tx.Increment (IncrementObservation (..), observeIncrementTx)
 import Hydra.Tx.IsTx (IsTx (..))
 import Hydra.Tx.Party (Party (..), deriveParty)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, SnapshotVersion, getSnapshot)
-import Hydra.UserValidationRules (IncrementalValidation (..), PolicyContext (..), PolicyViolation (..), UserValidation (..), checkPolicies, parsePolicyFile, preparePolicyContext)
+import Hydra.UserValidationRules (PolicyContext (..), PolicyViolation (..), UTxOValidation (..), UserValidation (..), checkPolicies, parsePolicyFile, preparePolicyContext)
 import Test.Gen.Cardano.Api.Typed (genBlockHeaderHash)
 import Test.Hydra.API.ClientInput ()
 import Test.Hydra.Chain ()
@@ -89,6 +89,7 @@ import Test.Hydra.Chain.Direct.State (ctxParticipants, genDecrementTxWithSnapsho
 import Test.Hydra.Chain.Direct.TimeHandle (safeZone)
 import Test.Hydra.HeadLogic.Input ()
 import Test.Hydra.HeadLogic.State ()
+import Test.Hydra.Ledger (utxoValidationWith)
 import Test.Hydra.Ledger.Cardano (mkRangedTx)
 import Test.Hydra.Ledger.Cardano.Fixtures (eraHistoryWithHorizonAt, evaluateTx)
 import Test.Hydra.Ledger.Cardano.Fixtures qualified as LedgerFixture
@@ -157,12 +158,17 @@ spec =
         let violation = PolicyMintingViolation mempty mempty
             policyError = PolicyValidationError violation
             allowAll :: UserValidation SimpleTx
-            allowAll = UserValidation (const $ Right ()) (\_ _ -> Right ()) (const $ Right ()) Nothing
+            allowAll =
+              UserValidation
+                { validateTransaction = const $ Right ()
+                , validateDeposit = const $ Right ()
+                , utxoValidation = utxoValidationWith $ \_ _ -> Right ()
+                }
             rejectTransactions = allowAll{validateTransaction = const $ Left violation}
             limitUTxO = limitOutputs 1
             limitOutputs limit =
               allowAll
-                { validateResultingUTxO = \utxo _ ->
+                { utxoValidation = utxoValidationWith $ \utxo _ ->
                     let count = fromIntegral $ Set.size utxo
                      in if count <= limit then Right () else Left $ MaxUTxOCountExceeded count limit
                 }
@@ -176,8 +182,7 @@ spec =
 
         prop "advances the runtime policy view consistently with source events" $ \chs candidate probeTx ->
           let validation = limitOutputs 3
-              incremental = validation{incrementalValidation = Just $ IncrementalValidation (preparePolicyContext validation) Nothing}
-              policyLedger = withValidation incremental
+              policyLedger = withValidation validation
               initial = inOpenState' threeParties chs
               cached = HeadLogic.prepareLocalPolicyContext policyLedger initial Nothing
               (next, advanced) = HeadLogic.aggregateStateWithPolicy policyLedger initial cached $ newState TransactionAppliedToLocalUTxO{headId = testHeadId, tx = candidate}
@@ -188,8 +193,7 @@ spec =
 
         it "keeps runtime policy context equivalent to recovered state across local and snapshot changes" $ do
           let validation = limitOutputs 3
-              incremental = validation{incrementalValidation = Just $ IncrementalValidation (preparePolicyContext validation) Nothing}
-              policyLedger = withValidation incremental
+              policyLedger = withValidation validation
               seed = utxoRefs [1, 2]
               grow = SimpleTx 10 (utxoRef 1) (utxoRefs [3, 4])
               decommit = SimpleTx 11 (utxoRef 2) (utxoRef 5)
@@ -232,15 +236,18 @@ spec =
                       }
                   initial = inOpenState' threeParties chs
                   -- A supplied cache must suffice for admission; constructing any
-                  -- additional UTxO summary here makes this regression fail.
+                  -- Head UTxO summary here makes this regression fail. The
+                  -- deposit's own outputs are checked separately.
                   validation =
                     allowAll
-                      { validateResultingUTxO = \utxo outgoing ->
-                          if utxo == utxoRef 100 && outgoing == mempty
-                            then Right ()
-                            else Prelude.error "unexpected full UTxO policy validation during admission"
-                      , incrementalValidation =
-                          Just $ IncrementalValidation (\_ _ -> Prelude.error "unexpected policy summary rebuild during admission") Nothing
+                      { utxoValidation =
+                          UTxOValidation
+                            { preparePolicyUTxO = \utxo outgoing ->
+                                if utxo == utxoRef 100 && outgoing == mempty
+                                  then preparePolicyContext allowAll utxo outgoing
+                                  else Prelude.error "unexpected Head policy summary rebuild during admission"
+                            , localPolicyContext = Nothing
+                            }
                       }
                   policyLedger = withValidation validation
                   cached = Just $ preparePolicyContext allowAll seed mempty
@@ -863,7 +870,18 @@ spec =
 
       describe "complete snapshot policy" $ do
         let soloEnv = aliceEnv{otherParties = [], participants = [deriveOnChainId alice]}
-            bounded limit = ledger{userValidation = Just $ UserValidation (const $ Right ()) (\u _ -> let n = fromIntegral $ Set.size u in if n <= limit then Right () else Left $ MaxUTxOCountExceeded n limit) (const $ Right ()) Nothing}
+            bounded limit =
+              ledger
+                { userValidation =
+                    Just $
+                      UserValidation
+                        { validateTransaction = const $ Right ()
+                        , validateDeposit = const $ Right ()
+                        , utxoValidation = utxoValidationWith $ \utxo _ ->
+                            let count = fromIntegral $ Set.size utxo
+                             in if count <= limit then Right () else Left $ MaxUTxOCountExceeded count limit
+                        }
+                }
             rejects :: Outcome SimpleTx -> IO ()
             rejects outcome = do
               outcome `hasNoStateChangedSatisfying` \case
@@ -1096,9 +1114,8 @@ spec =
                     Just $
                       UserValidation
                         { validateTransaction = const $ Right ()
-                        , validateResultingUTxO = \_ _ -> Right ()
                         , validateDeposit = \depositId -> if depositId `elem` allowed then Right () else Left violation
-                        , incrementalValidation = Nothing
+                        , utxoValidation = utxoValidationWith $ \_ _ -> Right ()
                         }
                 }
             deposit now n =

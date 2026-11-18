@@ -64,6 +64,7 @@ import Hydra.UserValidationRules (PolicyViolation (..), UserValidation (..))
 import System.FilePath ((</>))
 import Test.Hydra.HeadLogic.Outcome (genStateChanged)
 import Test.Hydra.HeadLogic.StateEvent (genStateEvent)
+import Test.Hydra.Ledger (utxoValidationWith)
 import Test.Hydra.Ledger.Simple (aValidTx, utxoRefs)
 import Test.Hydra.Node.Fixture (testEnvironment)
 import Test.Hydra.Node.State ()
@@ -294,7 +295,16 @@ spec = parallel $ do
           now <- getCurrentTime
           violation <- DepositNotAllowed <$> generate arbitrary
           let env = testEnvironment{configuredPolicy = Just policy}
-              policyLedger = simpleLedger{userValidation = Just $ UserValidation (const $ Right ()) (\_ _ -> Right ()) (const $ Left violation) Nothing}
+              policyLedger =
+                simpleLedger
+                  { userValidation =
+                      Just $
+                        UserValidation
+                          { validateTransaction = const $ Right ()
+                          , validateDeposit = const $ Left violation
+                          , utxoValidation = utxoValidationWith $ \_ _ -> Right ()
+                          }
+                  }
               initial = foldl' Head.aggregateNodeState (initNodeState 0) boundEvents
               deposited = utxoRefs [42]
               deadline = addUTCTime 7200 now
