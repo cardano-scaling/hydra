@@ -23,7 +23,9 @@ import Control.Concurrent.Class.MonadSTM (
   writeTBQueue,
   writeTQueue,
  )
-import Control.Monad.Class.MonadAsync (AsyncCancelled (..), cancel, wait)
+import Control.Exception qualified as Exception
+import Control.Monad.Class.MonadAsync (AsyncCancelled (..), cancel, replicateConcurrently_, wait)
+import Control.Monad.Class.MonadFork (throwTo)
 import Control.Tracer.JSON (Envelope (message), showLogsOnFailure, traceInTVar)
 import Data.Aeson (Result (..), fromJSON, object, (.=))
 import Data.Bits (testBit)
@@ -95,6 +97,28 @@ spec = do
       withAsyncLabelled ("child-scope", runChild) $ \worker -> do
         atomically $ takeTMVar reading
         cancel worker
+
+  it "stops a child when a blocked reader cancels its scope during startup" $
+    failAfter 10 $
+      replicateM_ 4 $
+        replicateConcurrently_ 8 $ do
+          parent <- myThreadId
+          let runChild = withProcessInterrupt (proc "sleep" ["30"]) $ \p _ ->
+                withAsyncLabelled
+                  ( "cancelling-child-reader"
+                  , -- Cancel directly from the reader to race with installation
+                    -- of the parent's stop handler.
+                    uninterruptibleMask_ $ do
+                      throwTo parent AsyncCancelled
+                      void $ waitExitCode p
+                  )
+                  $ \_ -> atomically retry
+          runChild `shouldThrow` (== AsyncCancelled)
+
+  it "preserves the caller's masking state in the process action" $ do
+    let runChild = withProcessInterrupt (proc "sleep" ["30"]) $ \_ _ -> Exception.getMaskingState
+    runChild `shouldReturn` Exception.Unmasked
+    mask_ runChild `shouldReturn` Exception.MaskedInterruptible
 
   it "preserves cancellation when RPC cleanup throws a retryable error" $ do
     started <- newEmptyTMVarIO
