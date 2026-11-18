@@ -12,6 +12,7 @@ import Hydra.Prelude hiding (head, init, last)
 import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Ledger.Compactible (toCompact)
 import Data.Map.Strict qualified as Map
 import Data.Maybe (fromJust)
 import Hydra.Cardano.Api (
@@ -35,6 +36,7 @@ import Hydra.Cardano.Api (
   negateValue,
   selectLovelace,
   toCtxUTxOTxOut,
+  toLedgerValue,
   txOutScriptData,
   txOuts',
  )
@@ -751,8 +753,13 @@ genClosedStateForFanoutWithComplexUTxO ::
 genClosedStateForFanoutWithComplexUTxO numParties = do
   ctx <- genHydraContextFor numParties
   let n = 11
-  u0 <- genUTxOSized n
   (_, stOpen@OpenState{headId}) <- genStOpen ctx
+  let headValue = UTxO.totalValue (getKnownUTxO stOpen)
+  -- The snapshot's values must fit together in one on-chain head output.
+  -- Individually valid token quantities can overflow when summed.
+  u0 <-
+    genUTxOSized n `suchThat` \utxo ->
+      isJust $ toCompact $ toLedgerValue (headValue <> UTxO.totalValue utxo)
   let version = 0
   confirmed <- genConfirmedSnapshot headId version 1 u0 Nothing Nothing Nothing (ctxHydraSigningKeys ctx)
   cctx <- pickChainContext ctx
