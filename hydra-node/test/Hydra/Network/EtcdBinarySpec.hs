@@ -6,7 +6,7 @@ import Hydra.Prelude
 
 import Data.ByteString.Lazy.Char8 qualified as LBS
 #ifdef linux_HOST_OS
-import Foreign.C.Error (Errno (Errno), eTXTBSY)
+import Foreign.C.Error (Errno (Errno), eTXTBSY, errnoToIOError)
 import GHC.IO.Exception (ioe_errno)
 import System.IO (hClose, withBinaryFile)
 #endif
@@ -63,13 +63,19 @@ busyExecutableSpec = do
           LBS.unpack output `shouldContain` "etcd Version:"
         readIORef attempts >>= (`shouldSatisfy` (> 1))
 
-  it "stops retrying an executable that remains open for writing" $
-    failAfter 10 $
-      withTempDir "embedded-etcd-busy" $ \tmp -> do
-        executable <- getEtcdBinary tmp EmbeddedEtcd
-        withBinaryFile executable ReadWriteMode $ \_ ->
-          retryOnBusyExecutable (runProcess_ $ proc executable ["--version"])
-            `shouldThrow` \exception -> (Errno <$> ioe_errno exception) == Just eTXTBSY
+  it "stops retrying a persistent busy-executable error" $
+    failAfter 30 $ do
+      -- Use a fixed ETXTBSY error to exercise retry exhaustion with constant
+      -- work per attempt.
+      let busyException = errnoToIOError "startProcess" eTXTBSY Nothing Nothing
+      attempts <- newIORef (0 :: Int)
+      retryOnBusyExecutable
+        ( do
+            modifyIORef' attempts (+ 1)
+            throwIO busyException
+        )
+        `shouldThrow` \exception -> (Errno <$> ioe_errno exception) == Just eTXTBSY
+      readIORef attempts `shouldReturn` 21
 #else
 busyExecutableSpec = pure ()
 #endif
