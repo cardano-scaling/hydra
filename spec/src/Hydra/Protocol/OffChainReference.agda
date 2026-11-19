@@ -342,6 +342,8 @@ isCollecting _ = false
 
 -- Partial collection retains the existing event order. Invalid final
 -- verification discards this input's tentative signature, not earlier inputs.
+-- `verifies` projects the Haskell primitive's Right () to true; both
+-- VerificationError cases project to false. Error details do not affect this transition.
 ackSnOutcomeRef : SnapshotPhaseᶜ → Nat → Nat → List Nat → Nat → Nat → Bool → Bool → Nat → SnapshotOutcomeᶜ
 ackSnOutcomeRef phase seen sn signers sender m verifies useful localParty =
   if not ((sn == seen) || (sn == suc seen)) then snapshotRejectedᶜ invalidNumberᶜ

@@ -1,6 +1,15 @@
--- | Evidence for live confirmation. Only the successful primitive reply creates
--- this value; replay has a separate trusted path for already retained events.
-module Hydra.HeadLogic.Snapshot.Verification (VerifiedSnapshot, VerifiedCandidate, verifiedSnapshot, verifiedSignatures, verifiedFor, verifiedCandidate, candidateEvidence, verifyCandidate, verifySeenSnapshot, verifySignedSnapshot) where
+module Hydra.HeadLogic.Snapshot.Verification (
+  VerifiedSnapshot,
+  VerifiedCandidate,
+  verifiedSnapshot,
+  verifiedSignatures,
+  verifiedFor,
+  verifiedCandidate,
+  candidateEvidence,
+  verifyCandidate,
+  verifySeenSnapshot,
+  verifySignedSnapshot,
+) where
 
 import Hydra.HeadLogic.Cardano (snapshotSigningBytes)
 import Hydra.HeadLogic.Error (
@@ -22,15 +31,13 @@ import Hydra.Tx (HeadId, IsTx)
 import Hydra.Tx.Crypto (
   HydraKey,
   MultiSignature,
+  VerificationError (..),
   VerificationKey,
-  Verified (..),
  )
 import Hydra.Tx.Snapshot (Snapshot (Snapshot, headId))
 
 data VerifiedSnapshot tx = VerifiedSnapshot (Snapshot tx) (MultiSignature (Snapshot tx)) [VerificationKey HydraKey]
 
--- A generally valid certificate is insufficient to confirm the current round.
--- Confirmation also carries the handle issued by that round's owner.
 data VerifiedCandidate tx = VerifiedCandidate (Candidate tx) (VerifiedSnapshot tx)
 
 verifiedCandidate :: VerifiedCandidate tx -> Candidate tx
@@ -45,34 +52,56 @@ verifiedSnapshot (VerifiedSnapshot snapshot _ _) = snapshot
 verifiedSignatures :: VerifiedSnapshot tx -> MultiSignature (Snapshot tx)
 verifiedSignatures (VerifiedSnapshot _ signatures _) = signatures
 
--- | Verification authorises one Head and its ordered parties, not just bytes.
-verifiedFor :: HeadId -> [VerificationKey HydraKey] -> VerifiedSnapshot tx -> Bool
+verifiedFor ::
+  HeadId ->
+  [VerificationKey HydraKey] ->
+  VerifiedSnapshot tx ->
+  Bool
 verifiedFor expectedHead expectedKeys (VerifiedSnapshot Snapshot{headId} _ verifiedKeys) =
   headId == expectedHead && verifiedKeys == expectedKeys
 
-verifySignedSnapshot :: IsTx tx => [VerificationKey HydraKey] -> Snapshot tx -> MultiSignature (Snapshot tx) -> Program tx (Either Verified (VerifiedSnapshot tx))
+verifySignedSnapshot ::
+  IsTx tx =>
+  [VerificationKey HydraKey] ->
+  Snapshot tx ->
+  MultiSignature (Snapshot tx) ->
+  Program tx (Either VerificationError (VerifiedSnapshot tx))
 verifySignedSnapshot vkeys snapshot = verify vkeys snapshot (snapshotSigningBytes snapshot)
 
-verify :: [VerificationKey HydraKey] -> Snapshot tx -> ByteString -> MultiSignature (Snapshot tx) -> Program tx (Either Verified (VerifiedSnapshot tx))
+verify ::
+  [VerificationKey HydraKey] ->
+  Snapshot tx ->
+  ByteString ->
+  MultiSignature (Snapshot tx) ->
+  Program tx (Either VerificationError (VerifiedSnapshot tx))
 verify vkeys snapshot bytes signatures = do
   result <- Program.verifySnapshot vkeys signatures bytes
-  pure $ case result of
-    Verified -> Right $ VerifiedSnapshot snapshot signatures vkeys
-    failure -> Left failure
+  pure $ VerifiedSnapshot snapshot signatures vkeys <$ result
 
-verifyCandidate :: Candidate tx -> MultiSignature (Snapshot tx) -> Program tx (Either (LogicError tx) (VerifiedCandidate tx))
+verifyCandidate ::
+  Candidate tx ->
+  MultiSignature (Snapshot tx) ->
+  Program tx (Either (LogicError tx) (VerifiedCandidate tx))
 verifyCandidate candidate@Candidate{snapshot, parties, representation} signatures = do
   result <- verify parties snapshot representation signatures
   pure $ VerifiedCandidate candidate <$> first (verificationError parties signatures) result
 
--- | Chain adoption verifies snapshot contents without issuing a live handle.
-verifySeenSnapshot :: IsTx tx => [VerificationKey HydraKey] -> SeenSnapshot tx -> MultiSignature (Snapshot tx) -> Program tx (Either (LogicError tx) (VerifiedSnapshot tx))
+verifySeenSnapshot ::
+  IsTx tx =>
+  [VerificationKey HydraKey] ->
+  SeenSnapshot tx ->
+  MultiSignature (Snapshot tx) ->
+  Program tx (Either (LogicError tx) (VerifiedSnapshot tx))
 verifySeenSnapshot parties seen signatures = case seen of
   SeenSnapshot{snapshot} -> first (verificationError parties signatures) <$> verifySignedSnapshot parties snapshot signatures
   _ -> Program.suspend WaitOnSeenSnapshot
 
-verificationError :: [VerificationKey HydraKey] -> MultiSignature (Snapshot tx) -> Verified -> LogicError tx
+verificationError ::
+  [VerificationKey HydraKey] ->
+  MultiSignature (Snapshot tx) ->
+  VerificationError ->
+  LogicError tx
 verificationError parties signatures failure =
   RequireFailed $ InvalidMultisignature (show signatures) $ case failure of
-    FailedKeys failures -> failures
-    _ -> parties
+    InvalidSignatures failures -> toList failures
+    SignatureCountMismatch -> parties

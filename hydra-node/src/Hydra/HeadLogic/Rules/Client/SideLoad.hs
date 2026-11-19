@@ -33,7 +33,7 @@ import Hydra.HeadLogic.State.Coordinated qualified as Coordinated (
   start,
  )
 import Hydra.Prelude
-import Hydra.Tx.Crypto (Verified (..))
+import Hydra.Tx.Crypto (VerificationError (..))
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.Party (Party (vkey))
 import Hydra.Tx.Snapshot (
@@ -84,9 +84,9 @@ onOpenClientSideLoadSnapshot os@OpenState{parameters, coordinatedHeadState} requ
 
       verified <- lift $ verifySignedSnapshot vkeys snapshot signatures
       case verified of
-        Left (FailedKeys failures) ->
-          throwE SideLoadInvalidMultisignature{multisig = show signatures, vkeys = failures}
-        Left _ ->
+        Left (InvalidSignatures failures) ->
+          throwE SideLoadInvalidMultisignature{multisig = show signatures, vkeys = toList failures}
+        Left SignatureCountMismatch ->
           throwE SideLoadInvalidMultisignature{multisig = show signatures, vkeys}
         Right evidence -> lift $ do
           adopted <- Staging.stage runtime $ Coordinated.adoptSnapshot evidence
