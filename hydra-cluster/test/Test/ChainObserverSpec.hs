@@ -125,13 +125,16 @@ writeCurrentScriptHashes dir = do
 
 -- | Starts a 'hydra-chain-observer' on some Cardano network, recognizing
 -- script hashes from the given file on top of the released versions.
+-- Waits until the observer chooses its starting point before running the action.
 withChainObserver :: DirectOptions -> FilePath -> (ChainObserverHandle -> IO ()) -> IO ()
 withChainObserver directOpts scriptHashesFile action =
-  withCreateProcess process{std_out = CreatePipe} $ \_in (Just out) _err _ph ->
-    action
-      ChainObserverHandle
-        { awaitNext = awaitNext out
-        }
+  withCreateProcess process{std_out = CreatePipe} $ \_in (Just out) _err _ph -> do
+    let observer = ChainObserverHandle{awaitNext = awaitNext out}
+    -- The observer starts at the current tip. Transactions submitted before it
+    -- chooses that tip can be missed, even though its process is already running.
+    awaitMatch observer 5 $ \v ->
+      guard $ v ^? key "message" . key "tag" == Just "StartObservingFrom"
+    action observer
  where
   awaitNext :: Handle -> IO Aeson.Value
   awaitNext out = do
