@@ -15,6 +15,7 @@ import Hydra.Prelude
 
 handleOutOfSync ::
   IsChainState tx =>
+  -- | Environment context to get the unsynced period
   RuleEnvironment ->
   -- | Current system time
   UTCTime ->
@@ -22,6 +23,7 @@ handleOutOfSync ::
   ChainPointType tx ->
   -- | Latest Chain point time representation observed
   UTCTime ->
+  -- | Current sync status
   SyncedStatus ->
   Program tx ()
 handleOutOfSync RuleEnvironment{unsyncedPeriod} now chainPoint chainTime syncStatus =
