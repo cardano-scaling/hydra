@@ -10,6 +10,8 @@ changes.
 
 ## [UNRELEASED]
 
+- Internal wallet outputs bellow min ADA are now rejected on tx construction.
+
 - **BREAKING** Switched to a new trusted CRS which bumps the maximum UTxO in the snapshot
   from 4,095 to 32,767! [#2932](https://github.com/cardano-scaling/hydra/pull/2932)
 
