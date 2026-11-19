@@ -971,3 +971,20 @@ reqDec-empty-outputs-do-not-wait = refl
 reqDec-expired-ledger-failure-is-invalid :
   reqDecOutcomeRef false false false true 0 false 3 1 1 ≡ decInvalidLedgerᶜ
 reqDec-expired-ledger-failure-is-invalid = refl
+
+-- Tick emits activation and expiry, but no deactivation event. When time moves
+-- backwards into the inactive interval, request selection uses the retained
+-- status, exactly as event replay does.
+effectiveDepositStatusRef : DepositStatusᶜ → DepositStatusᶜ → DepositStatusᶜ
+effectiveDepositStatusRef retained inactiveᶜ = retained
+effectiveDepositStatusRef _ activeᶜ = activeᶜ
+effectiveDepositStatusRef _ expiredᶜ = expiredᶜ
+{-# COMPILE GHC effectiveDepositStatusRef as hsEffectiveDepositStatusRef #-}
+
+tick-does-not-erase-retained-activation :
+  effectiveDepositStatusRef activeᶜ inactiveᶜ ≡ activeᶜ
+tick-does-not-erase-retained-activation = refl
+
+tick-does-not-erase-retained-expiry :
+  effectiveDepositStatusRef expiredᶜ inactiveᶜ ≡ expiredᶜ
+tick-does-not-erase-retained-expiry = refl

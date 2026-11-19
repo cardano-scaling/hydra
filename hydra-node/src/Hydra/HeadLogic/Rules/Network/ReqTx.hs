@@ -29,10 +29,10 @@ import Hydra.HeadLogic.Rules.Transactions (
  )
 import Hydra.HeadLogic.Snapshot.Request (
   SettlingCommit (..),
-  chainedSnapshotRequest,
-  decommitStatus,
+  chainedRequest,
+  contextSettlingCommit,
+  currentRequestContext,
   isLeader,
-  settlingCommitAtPeriod,
  )
 import Hydra.HeadLogic.Snapshot.Settlement (
   matchesSnapshotDecommit,
@@ -42,12 +42,9 @@ import Hydra.HeadLogic.State (
     CoordinatedHeadState,
     allTxs,
     confirmedSnapshot,
-    currentDepositTxId,
-    decommitTx,
     localTxs,
     localUTxO,
-    seenSnapshot,
-    version
+    seenSnapshot
   ),
   OpenState (OpenState, coordinatedHeadState, parameters),
   SeenSnapshot (SeenSnapshot),
@@ -151,7 +148,7 @@ workflow env ChainPointTime{currentSlot, currentChainTime} st ttl pendingDeposit
       when noSnapshot $ do
         leader <- Program.decide "this party leads the next snapshot" (isLeader parameters env.party nextSn)
         when leader $
-          case chainedSnapshotRequest env.snapshotLimits version previous (localTxs Seq.|> tx) pendingDeposits currentDepositTxId (decommitStatus version previous decommitTx) settlingCommit of
+          case chainedRequest env.snapshotLimits context of
             Nothing -> void $ Program.decide "snapshot request has useful work" False
             Just request -> do
               void $ Program.decide "snapshot request has useful work" True
@@ -172,10 +169,11 @@ workflow env ChainPointTime{currentSlot, currentChainTime} st ttl pendingDeposit
         Just (ContinueCommit (_, Deposit{deposited})) -> deposited
         _ -> mempty
   OpenState{coordinatedHeadState, parameters} = st
-  CoordinatedHeadState{localTxs, localUTxO, allTxs, confirmedSnapshot, seenSnapshot, decommitTx, version, currentDepositTxId} = coordinatedHeadState
+  CoordinatedHeadState{localTxs, localUTxO, allTxs, confirmedSnapshot, seenSnapshot} = coordinatedHeadState
   previous = getSnapshot confirmedSnapshot
   nextSn = previous.number + 1
-  settlingCommit = settlingCommitAtPeriod env.depositPeriod version currentChainTime pendingDeposits previous
+  context = currentRequestContext env.depositPeriod currentChainTime pendingDeposits coordinatedHeadState{localTxs = localTxs Seq.|> tx}
+  settlingCommit = contextSettlingCommit context
 
 -- | Handle one input through the inspectable workflow.
 handle :: forall tx. IsChainState tx => RuleEnvironment -> ChainPointTime -> OpenState tx -> TTL -> PendingDeposits tx -> tx -> Program tx ()

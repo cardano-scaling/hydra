@@ -3,14 +3,13 @@
 
 module Hydra.HeadLogic.Rules.Fanout where
 
-import Hydra.Chain (PostChainTx (..))
 import Hydra.HeadLogic.Fanout.Selection (
   NextFanoutStep (..),
   currentFanoutStep,
-  mkFullFanoutTx,
+  fanoutTransaction,
  )
-import Hydra.HeadLogic.Outcome (Effect (..), StateChanged (..))
-import Hydra.HeadLogic.Program (Program, change, emit)
+import Hydra.HeadLogic.Outcome (Effect (..))
+import Hydra.HeadLogic.Program (Program, emit)
 import Hydra.HeadLogic.State (
   PartialFanoutState (
     PartialFanoutState,
@@ -21,68 +20,14 @@ import Hydra.HeadLogic.State (
   ),
  )
 import Hydra.Prelude
-import Hydra.Tx (HeadId, HeadSeed, IsTx (UTxOType))
+import Hydra.Tx (HeadSeed, IsTx)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot, SnapshotVersion)
 
--- | The state change that goes with a fanout step, for the callers that own the
--- head state: taking the driver role, or recording the selection being
--- distributed. Decided here once rather than in each handler.
---
--- The selection comes from the step rather than the caller, so a step can only
--- ever be recorded against the set it actually distributes.
-fanoutStepStateChange ::
-  HeadId ->
-  NextFanoutStep tx ->
-  -- | The head's full remaining set
-  UTxOType tx ->
-  Program tx ()
-fanoutStepStateChange headId step remainingOutputs =
-  case step of
-    -- The selection is not distributed as one: it becomes a full fanout, and this
-    -- node drives the rest of it.
-    FullFanoutStep -> change HeadFanoutInitiated{headId, remainingOutputs}
-    -- 'FinalStep' posts a transaction and nothing else, so the selection has to
-    -- be recorded for it too: a rollback or restart before that transaction
-    -- lands otherwise leaves the driver with no selection to resume from.
-    FinalStep{stepDistribute} -> recordSelection stepDistribute
-    PartialStep{stepDistribute} -> recordSelection stepDistribute
- where
-  recordSelection selection = change HeadPartialFanoutSelected{headId, remainingOutputs, selection}
-
-emitFanoutStep ::
-  IsTx tx =>
-  -- | The step to emit, from 'nextFanoutStep'.
-  NextFanoutStep tx ->
-  ConfirmedSnapshot tx ->
-  SnapshotVersion ->
-  HeadSeed ->
-  UTCTime ->
-  Program tx ()
+-- | Post the step derived from the retained or observed fanout state. Client
+-- decisions use a checked FanoutPlan before recording their intent.
+emitFanoutStep :: IsTx tx => NextFanoutStep tx -> ConfirmedSnapshot tx -> SnapshotVersion -> HeadSeed -> UTCTime -> Program tx ()
 emitFanoutStep step confirmedSnapshot version headSeed contestationDeadline =
-  case step of
-    FinalStep{stepDistribute} ->
-      emit
-        OnChainEffect
-          { postChainTx =
-              FinalPartialFanoutTx
-                { utxoToDistribute = stepDistribute
-                , headSeed
-                , contestationDeadline
-                }
-          }
-    FullFanoutStep ->
-      emit OnChainEffect{postChainTx = mkFullFanoutTx confirmedSnapshot version headSeed contestationDeadline}
-    PartialStep{stepDistribute, stepProof} ->
-      emit
-        OnChainEffect
-          { postChainTx =
-              PartialFanoutTx
-                { utxoToDistribute = stepDistribute
-                , utxoForProof = stepProof
-                , headSeed
-                , contestationDeadline
-                }
-          }
+  emit $ OnChainEffect $ fanoutTransaction step confirmedSnapshot version headSeed contestationDeadline
 
 -- | Re-post the next fanout step after a chain rollback while in
 -- 'FanoutProgress', so the fanout resumes instead of stalling with the

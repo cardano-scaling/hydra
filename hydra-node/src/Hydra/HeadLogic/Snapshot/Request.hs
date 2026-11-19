@@ -4,6 +4,13 @@
 -- | Shared snapshot and deposit selection for leaders and followers.
 module Hydra.HeadLogic.Snapshot.Request (
   SnapshotRequest,
+  RequestContext,
+  currentRequestContext,
+  settledRequestContext,
+  contextDecommit,
+  contextSettlingCommit,
+  buildRequest,
+  chainedRequest,
   maxTxsPerSnapshot,
   requestNumber,
   requestTxs,
@@ -36,7 +43,7 @@ import Hydra.HeadLogic.Snapshot.Settlement (
   settledUTxO,
  )
 import Hydra.HeadLogic.State (
-  CoordinatedHeadState (finalizedCommit),
+  CoordinatedHeadState (..),
   OpenState (OpenState, coordinatedHeadState, headId),
  )
 import Hydra.HeadLogic.Transaction.Outputs (
@@ -50,7 +57,7 @@ import Hydra.Node.State (
   PendingDeposits,
   depositsForHead,
  )
-import Hydra.Prelude
+import Hydra.Prelude hiding (state)
 import Hydra.Tx (
   HeadId,
   IsTx (..),
@@ -66,6 +73,7 @@ import Hydra.Tx.Snapshot (
   Snapshot (..),
   SnapshotNumber,
   SnapshotVersion,
+  getSnapshot,
  )
 
 isLeader :: HeadParameters -> Party -> SnapshotNumber -> Bool
@@ -166,6 +174,44 @@ pendingDecommit = \case
   ReadyToDecommit tx -> Just tx
   CarryDecommit tx -> Just tx
 
+-- | Inputs for one selection decision. The caller still decides when to request
+-- a round, whether empty work is useful, and whether to retain a request marker.
+data RequestContext tx = RequestContext
+  { contextVersion :: SnapshotVersion
+  , contextSnapshot :: Snapshot tx
+  , contextTransactions :: ~(Seq tx)
+  , contextDeposits :: ~(PendingDeposits tx)
+  , contextSelectedDeposit :: Maybe (TxIdType tx)
+  , contextDecommit :: ~(DecommitStatus tx)
+  , contextSettlingCommit :: ~(Maybe (SettlingCommit tx))
+  }
+
+currentRequestContext :: IsTx tx => DepositPeriod -> UTCTime -> PendingDeposits tx -> CoordinatedHeadState tx -> RequestContext tx
+currentRequestContext period now deposits state =
+  (settledRequestContext state.version previous deposits state)
+    { contextSettlingCommit = settlingCommitAtPeriod period state.version now deposits previous
+    }
+ where
+  previous = getSnapshot state.confirmedSnapshot
+
+-- | Settlement supplies the observed version and the snapshot chosen after
+-- possible adoption. Its next request cannot carry the just-settled commit.
+settledRequestContext :: IsTx tx => SnapshotVersion -> Snapshot tx -> PendingDeposits tx -> CoordinatedHeadState tx -> RequestContext tx
+settledRequestContext version previous deposits state =
+  RequestContext version previous state.localTxs deposits state.currentDepositTxId (decommitStatus version previous state.decommitTx) Nothing
+
+buildRequest :: IsTx tx => SnapshotLimits -> RequestContext tx -> Maybe (SnapshotRequest tx, Bool)
+buildRequest limits RequestContext{contextVersion, contextSnapshot, contextTransactions, contextDeposits, contextSelectedDeposit, contextDecommit, contextSettlingCommit} =
+  buildSnapshotRequest limits contextVersion contextSnapshot contextTransactions contextDeposits contextSelectedDeposit contextDecommit contextSettlingCommit
+
+chainedRequest :: IsTx tx => SnapshotLimits -> RequestContext tx -> Maybe (SnapshotRequest tx)
+chainedRequest limits context = usefulRequest $ buildRequest limits context
+
+usefulRequest :: Maybe (SnapshotRequest tx, Bool) -> Maybe (SnapshotRequest tx)
+usefulRequest built = do
+  (request, useful) <- built
+  request <$ guard useful
+
 -- | Construct a proposal, including an empty round when requested by the caller
 -- (for example, to drop an expired settling commit). Both fanout alternatives
 -- must fit before a request can leave the selector.
@@ -196,9 +242,8 @@ chainedSnapshotRequest ::
   DecommitStatus tx ->
   Maybe (SettlingCommit tx) ->
   Maybe (SnapshotRequest tx)
-chainedSnapshotRequest limits version previous txs deposits selected decommit settling = do
-  (request, useful) <- buildSnapshotRequest limits version previous txs deposits selected decommit settling
-  request <$ guard useful
+chainedSnapshotRequest limits version previous txs deposits selected decommit settling =
+  usefulRequest $ buildSnapshotRequest limits version previous txs deposits selected decommit settling
 
 -- | Select the longest admissible prefix within the transaction cap. A later
 -- merge cannot make an overflowing prefix requestable. An empty request prunes

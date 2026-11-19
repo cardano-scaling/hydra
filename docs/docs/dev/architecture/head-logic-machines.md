@@ -7,7 +7,7 @@ This page is generated during the documentation build from the Haskell machine s
 
 Arrows show permitted transitions, not conditions under which a transition runs. Named self-loops show protocol operations such as increment, decrement, contest and further partial fanout. Primitive diagrams label the meanings of selected edges; the composition renderer shows the same allowed edges without operation labels. Crem also permits staying in the same state everywhere; unlabelled identity edges are omitted. Program guards, ledger checks, early waits and rejections occur inside actions and are not additional arrows. A one-state graph owns mutable data without restricting it to protocol phases.
 
-Workflow stages last for one input. State owners survive across retained events and are reconstructed from persisted data. Deposit recovery and other small handlers compose Program operations directly and have no separate Crem graph.
+Workflow stages last for one input. A validation workflow returns a typed result to its caller; these input-local results are not persisted state. State owners survive across retained events and are reconstructed from persisted data. Deposit recovery and other small handlers compose Program operations directly and have no separate Crem graph.
 
 The composition arrows below carry outputs between owners; they are not protocol transitions. The head owner delegates open-state events to the coordinated composition.
 
@@ -126,7 +126,7 @@ s6 --> s7
 
 Check duplicates, outputs and deposits before selecting a snapshot or deciding whether to retry.
 
-Machine: [`Hydra.HeadLogic.Rules.Network.ReqTx.workflow`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Network/ReqTx.hs#L120). Topology: [`Hydra.HeadLogic.Rules.Network.ReqTx.ReqTxTopology`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Network/ReqTx.hs#L89).
+Machine: [`Hydra.HeadLogic.Rules.Network.ReqTx.workflow`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Network/ReqTx.hs#L117). Topology: [`Hydra.HeadLogic.Rules.Network.ReqTx.ReqTxTopology`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Network/ReqTx.hs#L86).
 
 ```mermaid
 stateDiagram-v2
@@ -151,7 +151,7 @@ s4 --> s5
 
 Check competing incremental work and transaction validity before recording a pending decommit.
 
-Machine: [`Hydra.HeadLogic.Rules.Network.ReqDec.workflow`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Network/ReqDec.hs#L99). Topology: [`Hydra.HeadLogic.Rules.Network.ReqDec.ReqDecTopology`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Network/ReqDec.hs#L74).
+Machine: [`Hydra.HeadLogic.Rules.Network.ReqDec.workflow`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Network/ReqDec.hs#L96). Topology: [`Hydra.HeadLogic.Rules.Network.ReqDec.ReqDecTopology`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Network/ReqDec.hs#L71).
 
 ```mermaid
 stateDiagram-v2
@@ -213,7 +213,7 @@ s2 --> s3
 
 Collect a signature for the owned candidate; a complete certificate permits confirmation and continuation.
 
-Machine: [`Hydra.HeadLogic.Rules.Network.AckSn.workflow`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Network/AckSn.hs#L152). Topology: [`Hydra.HeadLogic.Rules.Network.AckSn.AckTopology`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Network/AckSn.hs#L121).
+Machine: [`Hydra.HeadLogic.Rules.Network.AckSn.workflow`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Network/AckSn.hs#L154). Topology: [`Hydra.HeadLogic.Rules.Network.AckSn.AckTopology`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Network/AckSn.hs#L117).
 
 ```mermaid
 stateDiagram-v2
@@ -221,15 +221,19 @@ state "CheckNumber" as s0
 state "FindSnapshot" as s1
 state "CollectSignature" as s2
 state "CheckComplete" as s3
-state "ConfirmAndContinue" as s4
-state "Finished" as s5
+state "ConfirmSnapshot" as s4
+state "PublishIncrementalEffects" as s5
+state "RequestNext" as s6
+state "Finished" as s7
 s0 --> s1
 s1 --> s2
-s1 --> s5
+s1 --> s7
 s2 --> s3
 s3 --> s4
-s3 --> s5
+s3 --> s7
 s4 --> s5
+s5 --> s6
+s6 --> s7
 
 ```
 
@@ -275,11 +279,73 @@ s1 --> s2
 
 ```
 
+## Client fanout
+
+Validate a selection, retain its matching intent and post the planned transaction. Chain continuations and reposts do not create new intent.
+
+Machine: [`Hydra.HeadLogic.Rules.Client.Fanout.workflow`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Client/Fanout.hs#L48). Topology: [`Hydra.HeadLogic.Rules.Client.Fanout.FanoutTopology`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Client/Fanout.hs#L23).
+
+```mermaid
+stateDiagram-v2
+state "ValidateSelection" as s0
+state "RecordIntent" as s1
+state "PostStep" as s2
+state "Finished" as s3
+s0 --> s1
+s0 --> s3
+s1 --> s2
+s2 --> s3
+
+```
+
+## Side-load a snapshot
+
+Check compatibility, verify a signed snapshot, adopt and clear local work. Refusals notify the client.
+
+Machine: [`Hydra.HeadLogic.Rules.Client.SideLoad.workflow`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Client/SideLoad.hs#L86). Topology: [`Hydra.HeadLogic.Rules.Client.SideLoad.SideLoadTopology`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Client/SideLoad.hs#L55).
+
+```mermaid
+stateDiagram-v2
+state "CheckCompatibility" as s0
+state "VerifyCertificate" as s1
+state "AdoptSnapshot" as s2
+state "ClearLocalState" as s3
+state "ReportRefusal" as s4
+state "Finished" as s5
+s0 --> s1
+s0 --> s3
+s0 --> s4
+s1 --> s2
+s1 --> s4
+s2 --> s3
+s3 --> s5
+s4 --> s5
+
+```
+
+## Observe close or contest
+
+Attempt adoption, record the observed chain fact even when verification fails, then consider contesting with a newer certificate.
+
+Machine: [`Hydra.HeadLogic.Rules.Chain.Lifecycle.workflow`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Chain/Lifecycle.hs#L174). Topology: [`Hydra.HeadLogic.Rules.Chain.Lifecycle.ObservationTopology`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Chain/Lifecycle.hs#L146).
+
+```mermaid
+stateDiagram-v2
+state "AdoptCandidate" as s0
+state "RecordObservation" as s1
+state "ContestNewer" as s2
+state "Finished" as s3
+s0 --> s1
+s1 --> s2
+s2 --> s3
+
+```
+
 ## Observe incremental settlement
 
 Record the chain observation, reconcile a matching candidate and consider requesting the next snapshot.
 
-Machine: [`Hydra.HeadLogic.Rules.Chain.Settlement.workflow`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Chain/Settlement.hs#L104). Topology: [`Hydra.HeadLogic.Rules.Chain.Settlement.SettlementTopology`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Chain/Settlement.hs#L78).
+Machine: [`Hydra.HeadLogic.Rules.Chain.Settlement.workflow`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Chain/Settlement.hs#L102). Topology: [`Hydra.HeadLogic.Rules.Chain.Settlement.SettlementTopology`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Chain/Settlement.hs#L76).
 
 ```mermaid
 stateDiagram-v2
