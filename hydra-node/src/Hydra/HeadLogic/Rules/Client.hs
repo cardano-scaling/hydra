@@ -87,9 +87,6 @@ handleClientInput env ChainPointTime{currentSlot} pendingDeposits st ev = case (
     onClosedClientFanout closedState
   (Closed closedState, ClientInput PartialFanout{utxoToFanout}) ->
     onClosedClientPartialFanout closedState utxoToFanout
-  -- PartialFanout: once a partial fanout has started, only further
-  -- 'PartialFanout' commands are accepted (a plain 'Fanout' falls through to the
-  -- general 'CommandFailed' below).
   (FanoutProgress partialFanoutState, ClientInput PartialFanout{utxoToFanout}) ->
     onPartialFanoutClientPartialFanout partialFanoutState utxoToFanout
   -- Node-level
@@ -103,7 +100,8 @@ handleClientInput env ChainPointTime{currentSlot} pendingDeposits st ev = case (
 
 openFinalizedDeposit :: IsTx tx => HeadState tx -> Maybe (TxIdType tx)
 openFinalizedDeposit = \case
-  Open OpenState{coordinatedHeadState = CoordinatedHeadState{finalizedCommit}} -> finalizedDepositTxId finalizedCommit
+  Open OpenState{coordinatedHeadState = CoordinatedHeadState{finalizedCommit}} ->
+    finalizedDepositTxId finalizedCommit
   _ -> Nothing
 
 onOpenClientNewTx :: tx -> Program tx ()
