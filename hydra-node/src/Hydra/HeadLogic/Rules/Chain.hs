@@ -70,7 +70,6 @@ import Hydra.HeadLogic.Rules.Chain.Settlement (
  )
 import Hydra.HeadLogic.Rules.Chain.Tick (handleTick)
 import Hydra.HeadLogic.Rules.Environment (RuleEnvironment)
-import Hydra.HeadLogic.Snapshot.Request (scopedDeposits)
 import Hydra.HeadLogic.State (
   ClosedState (ClosedState, headId),
   HeadState (..),
@@ -79,7 +78,7 @@ import Hydra.HeadLogic.State (
   canOpenHead,
  )
 import Hydra.HeadLogic.State.Fanout (getClosedState)
-import Hydra.Node.State (PendingDeposits, SyncedStatus)
+import Hydra.Node.State (PendingDeposits, SyncedStatus, depositsForHeadWithoutFinalizedCommit)
 import Hydra.Prelude
 
 handleChainInput ::
@@ -112,12 +111,12 @@ handleChainInput env now pendingDeposits st ev syncStatus = case (st, ev) of
           reject NotOurHead{ourHeadId, otherHeadId = headId}
   (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnIncrementTx{headId, newVersion, depositTxId, snapshotNumber, signatures}, newChainState})
     | ourHeadId == headId ->
-        handleSettlement env (scopedDeposits openState pendingDeposits) openState newChainState newVersion (Increment depositTxId) snapshotNumber signatures
+        handleSettlement env (depositsForHeadWithoutFinalizedCommit openState pendingDeposits) openState newChainState newVersion (Increment depositTxId) snapshotNumber signatures
     | otherwise ->
         reject NotOurHead{ourHeadId, otherHeadId = headId}
   (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDecrementTx{headId, newVersion, distributedUTxO, snapshotNumber, signatures}, newChainState})
     | ourHeadId == headId ->
-        handleSettlement env (scopedDeposits openState pendingDeposits) openState newChainState newVersion (Decrement distributedUTxO) snapshotNumber signatures
+        handleSettlement env (depositsForHeadWithoutFinalizedCommit openState pendingDeposits) openState newChainState newVersion (Decrement distributedUTxO) snapshotNumber signatures
     | otherwise ->
         reject NotOurHead{ourHeadId, otherHeadId = headId}
   -- Closed

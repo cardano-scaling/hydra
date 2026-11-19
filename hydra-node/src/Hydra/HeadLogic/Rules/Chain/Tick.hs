@@ -14,7 +14,6 @@ import Hydra.HeadLogic.Rules.Chain.Synchronisation (
   handleOutOfSync,
  )
 import Hydra.HeadLogic.Rules.Environment (RuleEnvironment)
-import Hydra.HeadLogic.Snapshot.Request (scopedDeposits)
 import Hydra.HeadLogic.State (
   ClosedState (
     ClosedState,
@@ -25,7 +24,7 @@ import Hydra.HeadLogic.State (
   HeadState (Open),
  )
 import Hydra.HeadLogic.State.Fanout (getClosedState)
-import Hydra.Node.State (PendingDeposits, SyncedStatus)
+import Hydra.Node.State (PendingDeposits, SyncedStatus, depositsForHeadWithoutFinalizedCommit)
 import Hydra.Prelude
 
 -- | Record chain progress, update node-wide status, then handle any work due
@@ -55,7 +54,7 @@ handleTick env now pendingDeposits headState chainTime chainPoint syncStatus = d
     -- Snapshot selection uses only this Head's deposits. The arguments still
     -- describe the state before this tick: 'change' records events, so
     -- 'onOpenChainTick' computes deposit eligibility at 'chainTime' itself.
-    Open open -> onOpenChainTick env chainTime (scopedDeposits open pendingDeposits) open
+    Open open -> onOpenChainTick env chainTime (depositsForHeadWithoutFinalizedCommit open pendingDeposits) open
     -- A pending local fanout still counts as Closed until observed on chain.
     _ -> forM_ (getClosedState headState) notifyReadyToFanout
  where
