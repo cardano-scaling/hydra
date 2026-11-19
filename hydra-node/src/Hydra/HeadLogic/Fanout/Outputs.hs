@@ -13,22 +13,23 @@ import Hydra.Tx (
   ),
  )
 
+-- | Remove the given outputs from the given UTxO.
 removeDistributedOutputs :: IsTx tx => [TxOutType tx] -> UTxOType tx -> UTxOType tx
-removeDistributedOutputs = flip (foldl' (flip removeOneOutputFromUTxO))
+removeDistributedOutputs = flip . foldl' . flip $ removeOneOutputFromUTxO
 
 -- | Whether a UTxO has no outputs.
 nullOutputs :: IsTx tx => UTxOType tx -> Bool
 nullOutputs = null . outputsOfUTxO
 
--- | Whether the outputs of @sub@ are a sub-multiset (by content) of @sup@. This
+-- | Whether the outputs of @a@ are a sub-multiset (by content) of @b@. This
 -- mirrors how partial fanout tracks distributed UTxO by content rather than by
 -- 'TxIn', so a user-provided selection is validated against what is actually
 -- still in the head.
 isSubMultisetOf :: IsTx tx => UTxOType tx -> UTxOType tx -> Bool
-isSubMultisetOf sub sup =
-  length (outputsOfUTxO (removeDistributedOutputs (outputsOfUTxO sub) sup))
-    == length (outputsOfUTxO sup)
-    - length (outputsOfUTxO sub)
+isSubMultisetOf a b =
+  length (outputsOfUTxO (removeDistributedOutputs (outputsOfUTxO a) b))
+    == length (outputsOfUTxO b)
+    - length (outputsOfUTxO a)
 
 -- | Whether two UTxO sets have the same outputs (by content, as a multiset).
 -- The @a == b@ short-circuit avoids the O(n²) multiset comparison in the common

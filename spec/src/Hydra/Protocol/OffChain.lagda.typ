@@ -965,6 +965,8 @@ data _observes_↝_ : LocalState → ChainEvent → LocalState → Set where
     → LocalState.deposits st ≡ before ++ ((txα , D) ∷ after)
     → st observes (recoverTx txα) ↝ record st { deposits = before ++ after }
 
+  -- t is observed chain time; wall-clock sync detection is outside this relation.
+  -- This arm updates deposit statuses; snapshot requests are separate effects.
   tick-update : ∀ {st t}
     → st observes (tick t)
         ↝ record st
@@ -1769,6 +1771,12 @@ reconstruction. Shared deposit, snapshot, transaction and fanout modules supply
 the data and operations needed by both. State owners do not import input rules.
 The public `Hydra.HeadLogic` module exposes the input and aggregation entry
 points; chain-history aggregation belongs to `State.ChainHistory`.
+
+A chain tick records the observed chain point, updates node sync status and
+refreshes tracked deposit statuses before Head-specific work. Wall-clock time
+only measures sync lag; deposit and contestation deadlines use observed chain
+time. Deposit tracking includes previous Heads whose deposits remain
+recoverable, while snapshot selection considers only the current Head.
 
 The Haskell implementation applies retained `StateChanged` events through
 three sequential owners: tracked deposits, head lifecycle, and the node clock.
