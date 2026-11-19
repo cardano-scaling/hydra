@@ -1,7 +1,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 -- | Client admission for a decommit. Receiving ReqDec reserves its inputs later.
-module Hydra.HeadLogic.Rules.Client.Decommit (Stage (..), DecommitTopology, handle, workflow) where
+module Hydra.HeadLogic.Rules.Client.Decommit (Stage (..), DecommitTopology, handleDecommit, workflow) where
 
 import Crem.Topology (Topology (Topology))
 import Hydra.API.ServerOutput (DecommitInvalidReason (..))
@@ -35,7 +35,7 @@ import Hydra.HeadLogic.Workflow qualified as Workflow (
  )
 import Hydra.Ledger (ValidationError (..))
 import Hydra.Network.Message (Message (..))
-import Hydra.Prelude hiding (State, handle, state)
+import Hydra.Prelude hiding (State, state)
 import Hydra.Tx (HeadId, IsTx, UTxOType, txId, utxoFromTx)
 import Hydra.Tx.Snapshot (getSnapshot)
 
@@ -106,5 +106,5 @@ workflow limits headId currentSlot CoordinatedHeadState{decommitTx = pending, lo
   invalid reason = Program.change DecommitInvalid{headId, decommitTx, decommitInvalidReason = reason}
 
 -- | Handle one input through the inspectable workflow.
-handle :: forall tx. IsTx tx => SnapshotLimits -> HeadId -> ChainSlot -> CoordinatedHeadState tx -> tx -> Program tx ()
-handle limits headId currentSlot coordinatedState decommitTx = Workflow.run $ workflow limits headId currentSlot coordinatedState decommitTx
+handleDecommit :: forall tx. IsTx tx => SnapshotLimits -> HeadId -> ChainSlot -> CoordinatedHeadState tx -> tx -> Program tx ()
+handleDecommit limits headId currentSlot coordinatedState decommitTx = Workflow.run $ workflow limits headId currentSlot coordinatedState decommitTx

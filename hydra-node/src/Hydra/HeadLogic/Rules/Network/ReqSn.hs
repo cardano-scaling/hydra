@@ -4,7 +4,7 @@
 
 -- | Validate a snapshot request, sign it and prune local transactions. A phase
 -- carries only the values established by the preceding program action.
-module Hydra.HeadLogic.Rules.Network.ReqSn (Stage (..), ReqSnTopology, handle, workflow) where
+module Hydra.HeadLogic.Rules.Network.ReqSn (Stage (..), ReqSnTopology, handleReqSn, workflow) where
 
 import Crem.Topology (Topology (Topology))
 import Data.Map.Strict qualified as Map (keysSet, lookup)
@@ -85,7 +85,7 @@ import Hydra.Node.State (
   DepositStatus (..),
   PendingDeposits,
  )
-import Hydra.Prelude hiding (State, handle, state)
+import Hydra.Prelude hiding (State, state)
 import Hydra.Tx (
   TxIdType,
   UTxOType,
@@ -263,5 +263,5 @@ workflow env pendingDeposits ChainPointTime{currentSlot, currentChainTime} st tt
   OpenState{parameters, coordinatedHeadState, headId} = st
 
 -- | Handle one input through the inspectable workflow.
-handle :: forall tx. IsChainState tx => RuleEnvironment -> PendingDeposits tx -> ChainPointTime -> OpenState tx -> TTL -> Party -> SnapshotVersion -> SnapshotNumber -> [TxIdType tx] -> Maybe tx -> Maybe (TxIdType tx) -> Program tx ()
-handle env pendingDeposits chainPoint st ttl otherParty sv sn requestedTxIds mDecommitTx mDepositTxId = Workflow.run $ workflow env pendingDeposits chainPoint st ttl otherParty sv sn requestedTxIds mDecommitTx mDepositTxId
+handleReqSn :: forall tx. IsChainState tx => RuleEnvironment -> PendingDeposits tx -> ChainPointTime -> OpenState tx -> TTL -> Party -> SnapshotVersion -> SnapshotNumber -> [TxIdType tx] -> Maybe tx -> Maybe (TxIdType tx) -> Program tx ()
+handleReqSn env pendingDeposits chainPoint st ttl otherParty sv sn requestedTxIds mDecommitTx mDepositTxId = Workflow.run $ workflow env pendingDeposits chainPoint st ttl otherParty sv sn requestedTxIds mDecommitTx mDepositTxId

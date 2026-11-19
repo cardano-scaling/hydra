@@ -5,7 +5,7 @@
 
 -- | Observe increment/decrement, adopt a matching signed round, then request work
 -- at the new version. Finalization precedes adoption, even when verification fails.
-module Hydra.HeadLogic.Rules.Chain.Settlement (Stage (..), SettlementTopology, Settlement (..), handle, workflow, maybeRequestSnapshotAfterVersionBump) where
+module Hydra.HeadLogic.Rules.Chain.Settlement (Stage (..), SettlementTopology, Settlement (..), handleSettlement, workflow, maybeRequestSnapshotAfterVersionBump) where
 
 import Crem.Topology (Topology (Topology))
 import Data.Map.Strict qualified as Map (delete, lookup)
@@ -61,7 +61,7 @@ import Hydra.HeadLogic.Workflow qualified as Workflow (
   workflow,
  )
 import Hydra.Node.State (Deposit (deposited), PendingDeposits)
-import Hydra.Prelude hiding (State, handle, state)
+import Hydra.Prelude hiding (State, state)
 import Hydra.Tx (IsTx, TxIdType, UTxOType)
 import Hydra.Tx.Crypto (MultiSignature)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
@@ -160,5 +160,5 @@ maybeRequestSnapshotAfterVersionBump runtime parameters party nextSn request ver
         sendSnapshot runtime proposal
 
 -- | Handle one input through the inspectable workflow.
-handle :: forall tx. IsChainState tx => RuleEnvironment -> PendingDeposits tx -> OpenState tx -> ChainStateType tx -> SnapshotVersion -> Settlement tx -> SnapshotNumber -> MultiSignature (Snapshot tx) -> Program tx ()
-handle env pendingDeposits os newChainState newVersion settlement observedNumber signatures = Workflow.run $ workflow env pendingDeposits os newChainState newVersion settlement observedNumber signatures
+handleSettlement :: forall tx. IsChainState tx => RuleEnvironment -> PendingDeposits tx -> OpenState tx -> ChainStateType tx -> SnapshotVersion -> Settlement tx -> SnapshotNumber -> MultiSignature (Snapshot tx) -> Program tx ()
+handleSettlement env pendingDeposits os newChainState newVersion settlement observedNumber signatures = Workflow.run $ workflow env pendingDeposits os newChainState newVersion settlement observedNumber signatures

@@ -194,8 +194,8 @@ onOpenChainTick env chainTime pendingDeposits st
   OpenState{coordinatedHeadState, parameters} = st
 
 -- | Record deposit and recovery observations independently of snapshot selection.
-handleObservation :: IsChainState tx => PendingDeposits tx -> HeadState tx -> Input tx -> Program tx ()
-handleObservation pendingDeposits st ev = case (st, ev) of
+handleDepositObservation :: IsChainState tx => PendingDeposits tx -> HeadState tx -> Input tx -> Program tx ()
+handleDepositObservation pendingDeposits st ev = case (st, ev) of
   -- Node-level: deposit/recover observations scoped to our head
   ( Open OpenState{headId = ourHeadId, headSeed, parameters, coordinatedHeadState = CoordinatedHeadState{finalizedCommit}}
     , ChainInput Observation{observedTx = OnDepositTx{headId, depositTxId, deposited, created, deadline}, newChainState}

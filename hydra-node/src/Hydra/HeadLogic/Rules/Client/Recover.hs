@@ -15,7 +15,7 @@ import Hydra.HeadLogic.Program (
   reject,
  )
 import Hydra.Node.State (Deposit (..), PendingDeposits)
-import Hydra.Prelude hiding (State, handle, state)
+import Hydra.Prelude hiding (State, state)
 import Hydra.Tx (IsTx, TxIdType)
 
 -- | Request a recovery unless a retained finalized increment claims the

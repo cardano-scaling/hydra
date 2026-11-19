@@ -4,7 +4,7 @@
 
 -- | Receive a decommit request. Deposit selection takes precedence over a
 -- pending decommit, and ledger applicability takes precedence over empty outputs.
-module Hydra.HeadLogic.Rules.Network.ReqDec (Stage (..), ReqDecTopology, handle, workflow) where
+module Hydra.HeadLogic.Rules.Network.ReqDec (Stage (..), ReqDecTopology, handleReqDec, workflow) where
 
 import Crem.Topology (Topology (Topology))
 import Data.Map.Strict qualified as Map (lookup)
@@ -74,7 +74,7 @@ import Hydra.Node.State (
   Deposit (..),
   PendingDeposits,
  )
-import Hydra.Prelude hiding (State, handle, state)
+import Hydra.Prelude hiding (State, state)
 import Hydra.Tx (UTxOType, txId, utxoFromTx)
 import Hydra.Tx.Snapshot (Snapshot (..), getSnapshot)
 
@@ -176,5 +176,5 @@ workflow env ttl ChainPointTime{currentSlot, currentChainTime} pendingDeposits o
   OpenState{headId, parameters, coordinatedHeadState} = openState
 
 -- | Handle one input through the inspectable workflow.
-handle :: forall tx. IsChainState tx => RuleEnvironment -> TTL -> ChainPointTime -> PendingDeposits tx -> OpenState tx -> tx -> Program tx ()
-handle env ttl chainPoint pendingDeposits openState decommitTx = Workflow.run $ workflow env ttl chainPoint pendingDeposits openState decommitTx
+handleReqDec :: forall tx. IsChainState tx => RuleEnvironment -> TTL -> ChainPointTime -> PendingDeposits tx -> OpenState tx -> tx -> Program tx ()
+handleReqDec env ttl chainPoint pendingDeposits openState decommitTx = Workflow.run $ workflow env ttl chainPoint pendingDeposits openState decommitTx

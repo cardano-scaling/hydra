@@ -34,7 +34,7 @@ import Hydra.HeadLogic.Outcome (Effect (..), Outcome (..), StateChanged (..), Wa
 import Hydra.HeadLogic.Program (Program)
 import Hydra.HeadLogic.Rules.Client (openFinalizedDeposit)
 import Hydra.HeadLogic.Rules.Environment (RuleEnvironment)
-import Hydra.HeadLogic.Rules.Input qualified as Input
+import Hydra.HeadLogic.Rules.Input (handleInput)
 import Hydra.HeadLogic.Rules.Transactions (applyTransactionsProgram, applyTransactionsWithoutCollision, checkTransactionOutputs)
 import Hydra.HeadLogic.Snapshot.Request (SettlingCommit (..), SnapshotRequest, buildSnapshotRequest, chainedSnapshotRequest, existingDeposit, isLeader, maxTxsPerSnapshot, nextActiveDepositId, nextSnapshotRequest, requestDecommitTx, requestDepositTxId, requestTxs, scopedDeposits, selectNextDeposit, settlingCommitAtPeriod)
 import Hydra.HeadLogic.Snapshot.Settlement (finalizedDepositTxId, retainFinalizedCommit, retainFinalizedDecommit, settledUTxO)
@@ -47,7 +47,7 @@ import Hydra.Node.State (NodeState (..))
 import Hydra.Prelude
 
 updateProgram :: IsChainState tx => RuleEnvironment -> UTCTime -> NodeState tx -> Input tx -> Program tx ()
-updateProgram = Input.handle
+updateProgram = handleInput
 
 aggregateNodeState :: IsChainState tx => NodeState tx -> StateChanged tx -> NodeState tx
 aggregateNodeState = Machine.apply

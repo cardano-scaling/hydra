@@ -876,7 +876,7 @@ data _handles_↝_ : LocalState → Message → LocalState → Set where
     → st handles (ackSn s σ) ↝ record st { confirmed = snap }
 
   -- on (reqSn, v, s, …): the honest snapshot-leader's request triggers a party to sign (§6.4
-  -- onOpenNetworkReqSn). The `require` guards captured here: v ≡ v̂ (version matches) and s ≡ s̄+1
+  -- `Rules.Network.ReqSn.handleReqSn`). The `require` guards captured here: v ≡ v̂ (version matches) and s ≡ s̄+1
   -- (the requested number is one above the party's CONFIRMED snapshot - combined with the §7
   -- `signHonest` no-in-flight precondition ŝ = s̄, this is the node's `requireReqSn` s = ŝ+1 /
   -- `waitNoSnapshotInFlight`). Signing advances the last-seen number ŝ ← s, the local mutation that
@@ -1771,6 +1771,8 @@ reconstruction. Shared deposit, snapshot, transaction and fanout modules supply
 the data and operations needed by both. State owners do not import input rules.
 The public `Hydra.HeadLogic` module exposes the input and aggregation entry
 points; chain-history aggregation belongs to `State.ChainHistory`.
+The input entry point delegates to `handleInput`; rule handlers name the input
+they process, such as `handleReqSn`, `handleAckSn` and `handleSettlement`.
 
 A chain tick records the observed chain point, updates node sync status and
 refreshes tracked deposit statuses before Head-specific work. Wall-clock time

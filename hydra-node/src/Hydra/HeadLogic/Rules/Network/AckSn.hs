@@ -5,7 +5,7 @@
 
 -- | Collect signatures and confirm a snapshot. Confirmation requires a payload constructed
 -- by the successful verification branch; its effects remain an ordinary program.
-module Hydra.HeadLogic.Rules.Network.AckSn (Stage (..), AckTopology, handle, workflow) where
+module Hydra.HeadLogic.Rules.Network.AckSn (Stage (..), AckTopology, handleAckSn, workflow) where
 
 import Crem.Topology (Topology (Topology))
 import Data.Map.Strict qualified as Map (
@@ -105,7 +105,7 @@ import Hydra.Node.State (
   Deposit (..),
   PendingDeposits,
  )
-import Hydra.Prelude hiding (State, handle, round, state)
+import Hydra.Prelude hiding (State, round, state)
 import Hydra.Tx (txId)
 import Hydra.Tx.Crypto (Signature)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
@@ -216,5 +216,5 @@ workflow env ChainPointTime{currentChainTime} pendingDeposits openState otherPar
   requireCandidate = maybe (Program.reject $ AssertionFailed "snapshot owner has no current candidate") pure . Coordinated.candidate
 
 -- | Handle one input through the inspectable workflow.
-handle :: forall tx. IsChainState tx => RuleEnvironment -> ChainPointTime -> PendingDeposits tx -> OpenState tx -> Party -> Signature (Snapshot tx) -> SnapshotNumber -> Program tx ()
-handle env chainPoint pendingDeposits openState otherParty signature sn = Workflow.run $ workflow env chainPoint pendingDeposits openState otherParty signature sn
+handleAckSn :: forall tx. IsChainState tx => RuleEnvironment -> ChainPointTime -> PendingDeposits tx -> OpenState tx -> Party -> Signature (Snapshot tx) -> SnapshotNumber -> Program tx ()
+handleAckSn env chainPoint pendingDeposits openState otherParty signature sn = Workflow.run $ workflow env chainPoint pendingDeposits openState otherParty signature sn
