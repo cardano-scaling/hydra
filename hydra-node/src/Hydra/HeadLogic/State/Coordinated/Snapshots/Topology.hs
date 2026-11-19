@@ -46,3 +46,13 @@ deriving stock instance Show SnapshotPhase
 deriving stock instance Enum SnapshotPhase
 deriving stock instance Bounded SnapshotPhase
 deriving via AllVertices SnapshotPhase instance RenderableVertices SnapshotPhase
+
+-- | These edges include administrative recovery, which can discard a candidate.
+transitionLabels :: [((SnapshotPhase, SnapshotPhase), String)]
+transitionLabels =
+  [ ((AwaitingRequest, RequestSent), "Request")
+  , ((AwaitingRequest, CollectingSignatures), "Accept candidate")
+  , ((RequestSent, CollectingSignatures), "Accept candidate")
+  , ((RequestSent, AwaitingRequest), "Settlement / adoption / administrative reset")
+  , ((CollectingSignatures, AwaitingRequest), "Confirmation / adoption / administrative reset")
+  ]

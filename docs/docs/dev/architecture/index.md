@@ -47,6 +47,8 @@ The Hydra node maintains an internal wallet using the Cardano signing key provid
 
 This component is at the core of the Hydra node, implementing the protocol's _state machine_. It is structured around the concepts of `Input`s and `Effect`s. `Input`s from the outside world are interpreted against the current state, potentially resulting in internal `Event`s, which are aggregated into an updated state. This can then produce `Effect`s, leading to 'side effects' on the outside world. The state available to the _head logic_ consists of the head's content (eg, current ledger, pending transactions) _and_ the data from layer 1 needed to observe and trigger on-chain transitions.
 
+The [Head logic machines](./head-logic-machines.md) page renders the Crem topologies and compositions directly from the source during each documentation build.
+
 ### Hydra smart contracts
 
 This component represents all the Hydra smart contracts needed for the Hydra Head protocol operation. The head, minting, and CRS contracts use PlutusTx; the deposit validator uses Aiken. The implementation uses a KZG accumulator for UTxO commitments and fanout proofs, with native support in `rust-accumulator`.

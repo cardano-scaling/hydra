@@ -16,7 +16,9 @@
         pkgs.buildYarnPackage {
           src = lib.cleanSource "${self}/docs";
           yarnBuildMore = "set -a; source yarn.env; set +a; yarn build";
-          # Diagrams are checked-in SVGs and need no renderer during the build.
+          # yarn also generates the Crem page from the compiled topology types.
+          HYDRA_HEAD_LOGIC_DIAGRAMS = "${self'.packages.head-logic-diagrams}/bin/head-logic-diagrams";
+          HYDRA_SOURCE_REVISION = if (self ? rev) then self.rev else lib.removeSuffix "-dirty" self.sourceInfo.dirtyRev;
           nativeBuildInputs = [ gitWrapper ];
           # Inject the spec PDF and haddocks before yarn build runs.
           # These cannot be part of `src` directly because they are derivation
