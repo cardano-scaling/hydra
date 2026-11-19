@@ -107,7 +107,17 @@ import Test.Hydra.Tx.Gen (
   genVerificationKey,
  )
 import Test.Hydra.Tx.Utils (splitUTxO)
-import Test.QuickCheck (choose, chooseEnum, discard, elements, oneof, scale, suchThat, vector)
+import Test.QuickCheck (
+  choose,
+  chooseEnum,
+  discard,
+  elements,
+  oneof,
+  scale,
+  shuffle,
+  suchThat,
+  vector,
+ )
 
 instance Arbitrary ChainStateAt where
   arbitrary = genericArbitrary
@@ -407,10 +417,17 @@ genDecrementTx numParties =
 -- encoded in the transaction.
 genDecrementTxWithSnapshot :: Int -> Gen (HydraContext, ChainContext, UTxO, OpenState, UTxO, Tx, ConfirmedSnapshot Tx)
 genDecrementTxWithSnapshot numParties = do
-  (ctx, stOpen@OpenState{seedTxIn, headId}, _, utxo, txIncrement, incrementSnapshot) <- genIncrementTxWithSnapshot (genDepositTx numParties)
+  (ctx, stOpen@OpenState{seedTxIn, headId}, _, utxo, txIncrement, incrementSnapshot) <-
+    genIncrementTxWithSnapshot $
+      genDepositTxWith
+        ((genUTxOAdaOnlyOfSize =<< choose (2, 5)) `suchThat` ((>= 2) . UTxO.size))
+        numParties
   let IncrementObservation{newVersion, deposited} = fromJust $ observeIncrementTx (ctxNetworkId ctx) utxo txIncrement
-  let (confirmedUtxo, toDecommit) = splitUTxO (getSnapshot incrementSnapshot).utxo
-      liveAfterIncrement = confirmedUtxo <> deposited
+  let decommitCandidates = (getSnapshot incrementSnapshot).utxo <> deposited
+  nToDecommit <- choose (2, UTxO.size decommitCandidates)
+  (toDecommitEntries, liveEntries) <- splitAt nToDecommit <$> shuffle (UTxO.toList decommitCandidates)
+  let toDecommit = UTxO.fromList toDecommitEntries
+      liveAfterIncrement = UTxO.fromList liveEntries
   cctx <- pickChainContext ctx
   snapshot <- genConfirmedSnapshot headId newVersion 1 liveAfterIncrement Nothing Nothing (Just toDecommit) (ctxHydraSigningKeys ctx)
   let utxoSpendable = utxoFromTx txIncrement
