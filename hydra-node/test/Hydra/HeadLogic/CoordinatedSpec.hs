@@ -7,6 +7,7 @@ import Hydra.HeadLogic.Cardano (cardanoSnapshotLimits)
 import Hydra.HeadLogic.Rules.Coordinated qualified as Staging
 import Hydra.Prelude
 import Test.Hydra.HeadLogic.Interpreter (testInterpreterConfig)
+import Test.Hydra.HeadLogic.Validated (checkedDecommit, checkedSnapshot, checkedTransactionWith)
 import Test.Hydra.Prelude (Spec, describe, it, shouldBe, shouldSatisfy)
 
 import Cardano.Binary (decodeFull', serialize')
@@ -25,6 +26,7 @@ import Hydra.HeadLogic.Snapshot.Request (DecommitStatus (..), chainedSnapshotReq
 import Hydra.HeadLogic.Snapshot.Verification (candidateEvidence, verifyCandidate)
 import Hydra.HeadLogic.State (CoordinatedHeadState (..), OpenState (..), SeenSnapshot (SeenSnapshot), mkSeenSnapshot)
 import Hydra.HeadLogic.State.Coordinated qualified as Coordinated
+import Hydra.Ledger (Ledger (..))
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), simpleLedger)
 import Hydra.Network.Message (Message (ReqDec), NetworkEvent (ReceivedMessage))
 import Hydra.Node.HeadLogic (aggregateNodeState)
@@ -46,8 +48,8 @@ spec :: Spec
 spec = describe "coordinated state owners" $ do
   it "inspects retained owner phases without rebuilding the local UTxO" $ do
     let initial = Crem.withoutRendering $ Coordinated.components open
-        (_, applied) = runIdentity $ Crem.run initial $ Coordinated.applyTransaction Scenario.transactionOne (error "inspection demands before UTxO") (error "inspection demands after UTxO")
-        (_, collecting) = runIdentity $ Crem.run applied $ Coordinated.acceptSnapshot candidate (Seq.singleton $ error "inspection rebuilds transactions") Nothing
+        (_, applied) = runIdentity $ Crem.run initial $ Coordinated.applyTransaction (checkedTransactionWith (Ledger $ \_ _ _ -> Right $ error "inspection demands after UTxO") (utxoRef 1) Scenario.transactionOne)
+        (_, collecting) = runIdentity $ Crem.run applied $ Coordinated.acceptSnapshot (checkedSnapshot candidate) (Seq.singleton $ error "inspection rebuilds transactions")
     inspectStates applied `shouldBe` [([LeftComponent, LeftComponent], Just "AwaitingRequest"), ([LeftComponent, RightComponent], Just "NoDecommit"), ([RightComponent], Just "NoCommit")]
     inspectStates collecting `shouldBe` [([LeftComponent, LeftComponent], Just "CollectingSignatures"), ([LeftComponent, RightComponent], Just "NoDecommit"), ([RightComponent], Just "NoCommit")]
     checks <- checkStates [] collecting
@@ -102,7 +104,7 @@ spec = describe "coordinated state owners" $ do
     void $ foldlM check (Scenario.initialNode, Coordinated.start open) events
 
   it "does not reconstruct the local UTxO merely to stage a snapshot event" $ do
-    let command = Coordinated.acceptSnapshot candidate (Seq.singleton $ error "staging reconstructs the local UTxO") Nothing
+    let command = Coordinated.acceptSnapshot (checkedSnapshot candidate) (Seq.singleton $ error "staging reconstructs the local UTxO")
     case Interpreter.runProgram (testInterpreterConfig simpleLedger) (void $ Staging.stage (Coordinated.start open) command) of
       Continue events [] -> length events `shouldBe` 1
       _ -> fail "snapshot staging does not complete"
@@ -111,7 +113,7 @@ spec = describe "coordinated state owners" $ do
     request <- maybe (fail "no request") pure $ nextSnapshotRequest cardanoSnapshotLimits 0 Scenario.initialSnapshot mempty mempty Nothing NoDecommit Nothing
     let program :: Program.Program SimpleTx ()
         program = do
-          next <- Staging.stage (Coordinated.start open) $ Coordinated.applyTransaction Scenario.transactionOne (error "before demanded") (error "after demanded")
+          next <- Staging.stage (Coordinated.start open) $ Coordinated.applyTransaction (checkedTransactionWith (Ledger $ \_ _ _ -> Right $ error "after demanded") (utxoRef 1) Scenario.transactionOne)
           void $ Staging.stage next $ Coordinated.requestSnapshot request
     Interpreter.runProgram (testInterpreterConfig simpleLedger) program
       `shouldBe` Continue [TransactionAppliedToLocalUTxO testHeadId Scenario.transactionOne, SnapshotRequestDecided 1] []
@@ -242,7 +244,7 @@ spec = describe "coordinated state owners" $ do
         authorised = candidate{utxoToDecommit = Just (utxoRef 10)}
         before = open{coordinatedHeadState = open.coordinatedHeadState{confirmedSnapshot = ConfirmedSnapshot authorised mempty, localUTxO = utxoRef 2}}
         runtime = Coordinated.start before
-        command = Coordinated.recordDecommit (SimpleTx 11 (utxoRef 2) (utxoRef 11))
+        command = Coordinated.recordDecommit (checkedDecommit (utxoRef 2) (SimpleTx 11 (utxoRef 2) (utxoRef 11)))
         stage :: Coordinated.Runtime SimpleTx -> Outcome SimpleTx
         stage target = Interpreter.runProgram (testInterpreterConfig simpleLedger) (void $ Staging.stage target command)
     stage runtime `shouldSatisfy` \case Error AssertionFailed{} -> True; _ -> False

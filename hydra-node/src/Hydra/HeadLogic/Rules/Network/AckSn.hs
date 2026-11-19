@@ -149,11 +149,11 @@ statePhase = \case
   Confirm{} -> ConfirmAndContinue
   Done -> Finished
 
-workflow :: forall tx. IsChainState tx => RuleEnvironment -> ChainPointTime -> PendingDeposits tx -> OpenState tx -> Party -> Signature (Snapshot tx) -> SnapshotNumber -> Workflow tx AckTopology
+workflow :: forall tx. IsChainState tx => RuleEnvironment -> ChainPointTime -> PendingDeposits tx -> OpenState tx -> Party -> Signature (Snapshot tx) -> SnapshotNumber -> Workflow tx AckTopology ()
 workflow env ChainPointTime{currentChainTime} pendingDeposits openState otherParty signature sn =
   Workflow.workflow (show . statePhase) NumberCheck step
  where
-  step :: State tx from -> Transition tx AckTopology (State tx) from
+  step :: State tx from -> Transition tx AckTopology (State tx) from ()
   step = \case
     NumberCheck -> continue (const Find) $ do
       valid <- Program.decide "acknowledgement number is admissible" (sn `elem` [seenSn, seenSn + 1])
@@ -207,7 +207,7 @@ workflow env ChainPointTime{currentChainTime} pendingDeposits openState otherPar
       case chainedSnapshotRequest env.snapshotLimits current.version snapshot current.localTxs pendingDeposits current.currentDepositTxId (decommitStatus current.version snapshot current.decommitTx) (settlingCommitAtPeriod env.depositPeriod current.version currentChainTime pendingDeposits snapshot) of
         Just request | isLeader parameters env.party nextSn -> sendSnapshot confirmedRuntime request
         _ -> pure ()
-    Done -> finish Done
+    Done -> finish Done ()
 
   OpenState{parameters = parameters@HeadParameters{parties}, coordinatedHeadState, headId, headSeed} = openState
   CoordinatedHeadState{seenSnapshot} = coordinatedHeadState

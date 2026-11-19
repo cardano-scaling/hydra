@@ -4,6 +4,7 @@
 module Hydra.HeadLogic.CommitPhaseSpec (spec) where
 
 import Hydra.Prelude
+import Test.Hydra.HeadLogic.Validated (checkedSnapshot, checkedTransaction)
 import Test.Hydra.Prelude (Expectation, Spec, describe, it, shouldBe)
 
 import Cardano.Binary (decodeFull', serialize')
@@ -37,7 +38,7 @@ spec = describe "commit ownership phases" $ do
 
   forM_ [False, True] $ \settleFirst ->
     it (if settleFirst then "retires authority when settlement precedes confirmation" else "confirms selection and retires authority on settlement") $ do
-      let accept = Coordinated.acceptSnapshot snapshot mempty (Just 7)
+      let accept = Coordinated.acceptSnapshot (checkedSnapshot snapshot) mempty
           (_, accepted) = Coordinated.step (Coordinated.start open) accept
       owned <- maybe (fail "missing candidate") pure $ Coordinated.candidate accepted
       evidence <- verifyOnly (verifyCandidate owned $ aggregate [sign aliceSk snapshot]) >>= either (fail . show) pure
@@ -50,7 +51,7 @@ spec = describe "commit ownership phases" $ do
       checkSteps open $
         [(accept, Just 7, "CommitSelected", mempty)]
           <> ending
-          <> [ (Coordinated.applyTransaction spend deposited (utxoRef 100), Nothing, "NoCommit", utxoRef 100)
+          <> [ (Coordinated.applyTransaction (checkedTransaction deposited spend), Nothing, "NoCommit", utxoRef 100)
              , (settle, Nothing, "NoCommit", utxoRef 100)
              ]
 
@@ -61,7 +62,7 @@ spec = describe "commit ownership phases" $ do
       open
       [ (Coordinated.adoptSnapshot evidence, Nothing, "AwaitingCommitSettlement", mempty)
       , (Coordinated.clearLocalState 1, Nothing, "AwaitingCommitSettlement", mempty)
-      , (Coordinated.applyTransaction tx mempty (utxoRef 100), Nothing, "AwaitingCommitSettlement", utxoRef 100)
+      , (Coordinated.applyTransaction (checkedTransaction mempty tx), Nothing, "AwaitingCommitSettlement", utxoRef 100)
       , (Coordinated.recordCommitFinalization (SimpleChainState 3) 1 7 deposited, Nothing, "NoCommit", deposited <> utxoRef 100)
       ]
 
@@ -71,7 +72,7 @@ spec = describe "commit ownership phases" $ do
     evidence <- verified replacement
     checkSteps
       before
-      [ (Coordinated.acceptSnapshot replacement mempty Nothing, Nothing, "AwaitingCommitSettlement", mempty)
+      [ (Coordinated.acceptSnapshot (checkedSnapshot replacement) mempty, Nothing, "AwaitingCommitSettlement", mempty)
       , (Coordinated.adoptSnapshot evidence, Nothing, "NoCommit", mempty)
       ]
 
@@ -90,13 +91,13 @@ spec = describe "commit ownership phases" $ do
     checkSteps
       before
       [ (Coordinated.recordCommitFinalization (SimpleChainState 3) 1 7 deposited, Nothing, "NoCommit", deposited)
-      , (Coordinated.acceptSnapshot proposal mempty (Just 8), Just 8, "CommitSelected", deposited)
+      , (Coordinated.acceptSnapshot (checkedSnapshot proposal) mempty, Just 8, "CommitSelected", deposited)
       , (Coordinated.recordCommitFinalization (SimpleChainState 4) 1 7 deposited, Just 8, "CommitSelected", deposited)
       , (Coordinated.recordCommitFinalization (SimpleChainState 2) 0 7 deposited, Just 8, "CommitSelected", deposited)
       ]
 
   it "does not force the transaction ledger to advance or inspect commit selection" $ do
-    let (_, next) = runIdentity $ Crem.run (Coordinated.components open) $ Coordinated.acceptSnapshot snapshot (Seq.singleton $ error "commit phase demands transactions") (Just 7)
+    let (_, next) = runIdentity $ Crem.run (Coordinated.components open) $ Coordinated.acceptSnapshot (checkedSnapshot snapshot) (Seq.singleton $ error "commit phase demands transactions")
     commitPhase next `shouldBe` Just "CommitSelected"
 
 -- Compare the live continuation, retained events and checkpoint reconstruction

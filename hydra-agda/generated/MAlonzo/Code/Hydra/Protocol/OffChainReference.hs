@@ -1899,3 +1899,12 @@ d_finalized'45'is'45'terminal_912 ::
   T_LifecycleEvent'7580'_332 ->
   MAlonzo.Code.Agda.Builtin.Equality.T__'8801'__12
 d_finalized'45'is'45'terminal_912 = erased
+-- Hydra.Protocol.OffChainReference.reqDec-empty-outputs-do-not-wait
+d_reqDec'45'empty'45'outputs'45'do'45'not'45'wait_916 ::
+  MAlonzo.Code.Agda.Builtin.Equality.T__'8801'__12
+d_reqDec'45'empty'45'outputs'45'do'45'not'45'wait_916 = erased
+-- Hydra.Protocol.OffChainReference.reqDec-expired-ledger-failure-is-invalid
+d_reqDec'45'expired'45'ledger'45'failure'45'is'45'invalid_918 ::
+  MAlonzo.Code.Agda.Builtin.Equality.T__'8801'__12
+d_reqDec'45'expired'45'ledger'45'failure'45'is'45'invalid_918
+  = erased

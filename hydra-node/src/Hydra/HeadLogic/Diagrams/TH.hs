@@ -83,7 +83,7 @@ resultType = \case
 
 topologyOf :: Type -> Q Type
 topologyOf = \case
-  AppT (AppT (ConT name) _) topology | name == ''Workflow -> pure topology
+  AppT (AppT (AppT (ConT name) _) topology) _ | name == ''Workflow -> pure topology
   AppT (AppT (AppT (AppT (ConT name) _) topology) _) _ | name == ''BaseMachineT -> pure topology
   unexpected -> fail $ "Expected a concrete Crem machine, got " <> pprint unexpected
 

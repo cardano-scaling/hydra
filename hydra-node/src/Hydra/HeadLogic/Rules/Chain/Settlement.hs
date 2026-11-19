@@ -101,11 +101,11 @@ statePhase = \case
   Request{} -> RequestNext
   Done -> Finished
 
-workflow :: forall tx. IsChainState tx => RuleEnvironment -> PendingDeposits tx -> OpenState tx -> ChainStateType tx -> SnapshotVersion -> Settlement tx -> SnapshotNumber -> MultiSignature (Snapshot tx) -> Workflow tx SettlementTopology
+workflow :: forall tx. IsChainState tx => RuleEnvironment -> PendingDeposits tx -> OpenState tx -> ChainStateType tx -> SnapshotVersion -> Settlement tx -> SnapshotNumber -> MultiSignature (Snapshot tx) -> Workflow tx SettlementTopology ()
 workflow env pendingDeposits os@OpenState{parameters, coordinatedHeadState} newChainState newVersion settlement observedNumber signatures =
   Workflow.workflow (show . statePhase) Record step
  where
-  step :: State tx from -> Transition tx SettlementTopology (State tx) from
+  step :: State tx from -> Transition tx SettlementTopology (State tx) from ()
   step = \case
     Record -> continue Candidate $ Staging.stage (Coordinated.start os) $ case settlement of
       Increment depositId -> Coordinated.recordCommitFinalization newChainState newVersion depositId (maybe mempty (.deposited) $ Map.lookup depositId pendingDeposits)
@@ -129,7 +129,7 @@ workflow env pendingDeposits os@OpenState{parameters, coordinatedHeadState} newC
     Request runtime snapshot seen ->
       continue (const Done) $
         maybeRequestSnapshotAfterVersionBump runtime parameters env.party (snapshot.number + 1) (requestOn runtime snapshot) version newVersion seen
-    Done -> finish Done
+    Done -> finish Done ()
 
   matchesSettlement :: Snapshot tx -> Bool
   matchesSettlement snapshot = case settlement of
