@@ -15,6 +15,9 @@
 -- no-double-sign and all-signed guards
 -- (`notAlreadySignedRef`/`allSignedRef`), the close/contest eligibility gate
 -- (`contestEligibleRef`), and round-robin leader selection (`leaderRef`).
+-- Interpreter configuration supplies transaction application, signing and verification
+-- as functions. Their availability is not a protocol guard; these reference decisions
+-- depend on the supplied protocol inputs and primitive results.
 module Hydra.Protocol.OffChainReference where
 
 open import Agda.Builtin.Bool
