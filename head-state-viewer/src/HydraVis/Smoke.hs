@@ -7,11 +7,11 @@ module HydraVis.Smoke (runSmoke) where
 import Hydra.Prelude
 
 import Data.ByteString.Lazy.Char8 qualified as BSL
-import Hydra.HeadLogic (aggregateState, update)
 import Hydra.HeadLogic.Input (Input)
 import Hydra.HeadLogic.Outcome (Outcome)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Node.Environment (Environment (party))
+import Hydra.Node.HeadLogic (aggregateState, update)
 import Hydra.Node.State (NodeState)
 import HydraVis.Sample (
   sampleEnvironment,

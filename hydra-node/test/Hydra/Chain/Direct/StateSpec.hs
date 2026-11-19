@@ -66,9 +66,9 @@ import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens qualified as HeadTokens
 import Hydra.Data.ContestationPeriod qualified as OnChainContestationPeriod
 import Hydra.Data.DepositPeriod qualified as OnChainDepositPeriod
-import Hydra.HeadLogic qualified as HL
 import Hydra.Ledger.Cardano.Evaluate (renderEvaluationReport)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
+import Hydra.Node.HeadLogic qualified as HL
 import Hydra.Tx (ConfirmedSnapshot (..), HeadId, Snapshot (..), SnapshotVersion, confirmedSignatures, getSnapshot, hasPendingAction, registryUTxO, txInToHeadSeed)
 import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Close (isClosableAt)
