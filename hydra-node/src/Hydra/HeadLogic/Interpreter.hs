@@ -23,8 +23,8 @@ import Hydra.Tx.Crypto (
   HydraKey,
   MultiSignature,
   Signature,
+  VerificationError,
   VerificationKey,
-  Verified,
   verifyMultiSignatureBytes,
  )
 import Hydra.Tx.Snapshot (Snapshot)
@@ -48,7 +48,7 @@ data InterpreterConfig tx = InterpreterConfig
       [VerificationKey HydraKey] ->
       MultiSignature (Snapshot tx) ->
       ByteString ->
-      Verified
+      Either VerificationError ()
   }
 
 mkInterpreterConfig :: Ledger tx -> SnapshotSigner tx -> InterpreterConfig tx

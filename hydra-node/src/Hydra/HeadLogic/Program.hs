@@ -26,8 +26,8 @@ import Hydra.Tx.Crypto (
   HydraKey,
   MultiSignature,
   Signature,
+  VerificationError,
   VerificationKey,
-  Verified,
  )
 import Hydra.Tx.Snapshot (Snapshot)
 
@@ -55,7 +55,7 @@ data Instruction tx a where
     [VerificationKey HydraKey] ->
     MultiSignature (Snapshot tx) ->
     ByteString ->
-    Instruction tx Verified
+    Instruction tx (Either VerificationError ())
   Change ::
     StateChanged tx ->
     Instruction tx ()
@@ -120,7 +120,7 @@ verifySnapshot ::
   [VerificationKey HydraKey] ->
   MultiSignature (Snapshot tx) ->
   ByteString ->
-  Program tx Verified
+  Program tx (Either VerificationError ())
 verifySnapshot keys signatures bytes = instruction $ VerifySnapshot keys signatures bytes
 
 suspend :: WaitReason tx -> Program tx a

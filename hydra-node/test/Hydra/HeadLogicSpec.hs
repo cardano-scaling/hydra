@@ -5126,6 +5126,20 @@ spec =
               vkeys == [vkey alice, vkey bob, vkey carol]
             _ -> False
 
+        it "reject side load confirmed snapshot reporting only the invalid signatures" $ do
+          let snapshot2 = testSnapshot 2 0 [tx2] (utxoRef 3)
+              multisig2 = aggregate [sign aliceSk snapshot2, sign bobSk snapshot1, sign carolSk snapshot2]
+              requested = SideLoadSnapshot $ ConfirmedSnapshot snapshot2 multisig2
+          now <- nowFromSlot startingState.chainPointTime.currentSlot
+          let outcome = update bobEnv ledger now startingState (ClientInput requested)
+          outcome
+            `hasEffect` ClientEffect
+              SideLoadSnapshotRejected
+                { clientInput = requested
+                , requirementFailure = SideLoadInvalidMultisignature{multisig = show multisig2, vkeys = [vkey bob]}
+                }
+          aggregateState startingState outcome `shouldBe` startingState
+
         it "reject side load confirmed snapshot because wrong snapshot version" $ do
           getConfirmedSnapshot startingState `shouldBe` Just snapshot1
 

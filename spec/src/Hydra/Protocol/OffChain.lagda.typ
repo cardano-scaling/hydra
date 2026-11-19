@@ -1631,6 +1631,13 @@ Completion commits the ordered changes and releases effects; waiting retains
 only the ordered change prefix; rejection discards both buffers. In particular,
 a failed multisignature check discards the preceding tentative signature record.
 
+The Haskell verification primitive returns `Either VerificationError ()`:
+`Right ()` corresponds to a successful $msVfy$ check. Failure distinguishes a
+signature-count mismatch from a non-empty list of keys whose signatures fail,
+in verification order. Snapshot verification replaces success with evidence
+binding the snapshot, signatures and ordered parties. Both error cases remain
+verification failures in the protocol; the distinction supplies diagnostics.
+
 Each input starts a fresh workflow; its stage is not persisted or resumed on
 retry. The workflow exposes instructions to the existing primitive interpreter
 and terminal semantics. Independent Agda projections check the bounded outcomes;
