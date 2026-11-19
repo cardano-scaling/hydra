@@ -24,8 +24,8 @@ import Hydra.HeadLogic.Rules.Client.Fanout (
   onClosedClientPartialFanout,
   onPartialFanoutClientPartialFanout,
  )
-import Hydra.HeadLogic.Rules.Client.Recover qualified as Recover (
-  handle,
+import Hydra.HeadLogic.Rules.Client.Recover (
+  handleRecover,
  )
 import Hydra.HeadLogic.Rules.Client.SideLoad (
   onOpenClientSideLoadSnapshot,
@@ -96,7 +96,7 @@ handleClientInput env ChainPointTime{currentSlot} pendingDeposits st ev = case (
     onPartialFanoutClientPartialFanout partialFanoutState utxoToFanout
   -- Node-level
   (_, ClientInput Recover{recoverTxId}) -> do
-    Recover.handle currentSlot pendingDeposits (openFinalizedDeposit st) recoverTxId
+    handleRecover currentSlot pendingDeposits (openFinalizedDeposit st) recoverTxId
   -- General
   (_, ClientInput{clientInput}) ->
     emit . ClientEffect $ ServerOutput.CommandFailed clientInput st
