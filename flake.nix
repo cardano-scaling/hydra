@@ -7,6 +7,10 @@
     selfci.url = "git+https://radicle.dpc.pw/z2tDzYbAXxTQEKTGFVwiJPajkbeDU.git";
     aiken.url = "github:aiken-lang/aiken/v1.1.24";
     cardano-node.url = "github:intersectmbo/cardano-node/11.1.3";
+    crem = {
+      url = "github:cardano-scaling/crem";
+      flake = false;
+    };
     flake-parts.url = "github:hercules-ci/flake-parts";
     haskellNix.url = "github:input-output-hk/haskell.nix";
     hydra-coding-standards.url = "github:cardano-scaling/hydra-coding-standards/0.8.0";
