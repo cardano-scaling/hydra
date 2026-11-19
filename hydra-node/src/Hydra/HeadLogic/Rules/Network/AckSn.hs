@@ -187,8 +187,6 @@ workflow env ChainPointTime{currentChainTime} pendingDeposits openState otherPar
                   Left err -> Program.reject err
         else continue (const Done) $ do
           void $ Program.decide "all parties have signed" False
-          owned <- requireCandidate runtime
-          void $ Staging.stage runtime $ Coordinated.recordSignature owned otherParty signature
     Confirm signed runtime -> continue (Publish signed) $ Staging.stage runtime $ Coordinated.confirmSnapshot signed
     Publish signed confirmedRuntime -> continue (const $ Request snapshot confirmedRuntime) $ do
       let signatures = verifiedSignatures $ candidateEvidence signed

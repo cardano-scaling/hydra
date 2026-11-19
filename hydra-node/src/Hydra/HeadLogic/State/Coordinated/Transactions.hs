@@ -224,7 +224,12 @@ machine headId snapshots0 initial initialDecommit =
       CommitSettled VersionNotAdvanced depositId _ ->
         changeCommit (DeselectDeposit depositId) local
       DecommitSettled VersionAdvanced ->
-        output owned refusal local Nothing RecomputeCommitPhase (Available local) events
+        let next = case reserved of
+              Nothing -> local
+              -- Settlement can precede confirmation of a different decommit.
+              -- Release against the latest base, preserving ordinary transactions.
+              Just _ -> local{localUTxO = foldl' (flip applyTxTo) requestUTxO local.localTxs}
+         in output owned refusal next Nothing RecomputeCommitPhase (Available next) events
       DecommitSettled VersionNotAdvanced -> unchanged local
       ReplayTransactionApplication tx ->
         changed local{localUTxO = applyTxTo tx local.localUTxO, localTxs = local.localTxs Seq.|> tx} $ TransactionAppliedToLocalUTxO headId tx
