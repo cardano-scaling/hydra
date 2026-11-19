@@ -12,7 +12,13 @@ import GHC.Records (HasField (..))
 import Hydra.Chain.ChainState (ChainSlot (..), IsChainState (..), chainStateSlot)
 import Hydra.HeadLogic.Deposit as Deposit (Deposit (..), DepositStatus (..), TrackedDeposit (..))
 import Hydra.HeadLogic.Deposit qualified as DepositEntry
-import Hydra.HeadLogic.State (HeadState (Idle), IdleState (..))
+import Hydra.HeadLogic.Snapshot.Settlement (finalizedDepositTxId)
+import Hydra.HeadLogic.State (
+  CoordinatedHeadState (CoordinatedHeadState, finalizedCommit),
+  HeadState (Idle),
+  IdleState (..),
+  OpenState (OpenState, coordinatedHeadState, headId),
+ )
 import Hydra.Tx (
   HeadId,
   IsTx (..),
@@ -38,6 +44,19 @@ pendingDeposits =
 -- representation.
 instance view ~ PendingDeposits tx => HasField "pendingDeposits" (NodeState tx) view where
   getField = pendingDeposits
+
+-- | Keep pending deposits belonging to this Head, including any restored by
+-- rollback. Inactive and expired deposits remain in the view.
+depositsForHead :: HeadId -> PendingDeposits tx -> PendingDeposits tx
+depositsForHead targetHeadId =
+  Map.filter (\Deposit{headId} -> headId == targetHeadId)
+
+-- | 'depositsForHead', excluding the deposit claimed by the retained finalized
+-- increment. Rollback can restore that deposit, but new snapshots must not
+-- claim it again. Activation, expiry and capacity checks happen separately.
+depositsForHeadWithoutFinalizedCommit :: IsTx tx => OpenState tx -> PendingDeposits tx -> PendingDeposits tx
+depositsForHeadWithoutFinalizedCommit OpenState{headId, coordinatedHeadState = CoordinatedHeadState{finalizedCommit}} =
+  maybe id Map.delete (finalizedDepositTxId finalizedCommit) . depositsForHead headId
 
 -- | Record a newly observed deposit at the given slot. Re-recording an id (its
 -- deposit transaction re-landed after a rollback) starts a fresh lifecycle.
@@ -226,7 +245,3 @@ instance FromCBOR SyncedStatus where
 syncedStatus :: NodeState tx -> SyncedStatus
 syncedStatus NodeInSync{} = InSync
 syncedStatus NodeCatchingUp{} = CatchingUp
-
-depositsForHead :: HeadId -> PendingDeposits tx -> PendingDeposits tx
-depositsForHead targetHeadId =
-  Map.filter (\Deposit{headId} -> headId == targetHeadId)

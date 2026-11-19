@@ -21,23 +21,17 @@ module Hydra.HeadLogic.Snapshot.Request (
   nextSnapshotRequest,
   chainedSnapshotRequest,
   buildSnapshotRequest,
-  scopedDeposits,
   settlingCommitAtPeriod,
 ) where
 
 import Data.List (elemIndex, minimumBy)
-import Data.Map.Strict qualified as Map (delete, lookup, toList)
+import Data.Map.Strict qualified as Map (lookup, toList)
 import Data.Sequence qualified as Seq (take)
 import Hydra.HeadLogic.Limits (SnapshotLimits)
 import Hydra.HeadLogic.Snapshot.Capacity (checkSnapshotCapacity)
 import Hydra.HeadLogic.Snapshot.Settlement (
-  finalizedDepositTxId,
   matchesSnapshotDecommit,
   settledUTxO,
- )
-import Hydra.HeadLogic.State (
-  CoordinatedHeadState (finalizedCommit),
-  OpenState (OpenState, coordinatedHeadState, headId),
  )
 import Hydra.HeadLogic.Transaction.Outputs (
   absorbable,
@@ -48,7 +42,6 @@ import Hydra.Node.State (
   Deposit (..),
   DepositStatus (..),
   PendingDeposits,
-  depositsForHead,
  )
 import Hydra.Prelude
 import Hydra.Tx (
@@ -295,13 +288,6 @@ requestMatches headId version previous request =
           || isNothing previous.utxoToDecommit
           || (isNothing request.selectedDeposit && maybe False (matchesSnapshotDecommit previous) request.selectedDecommit)
        )
-
--- | The deposits the handlers of an open head may act on: scoped to the head,
--- excluding the deposit claimed by the retained finalized increment (see
--- 'finalizedDepositTxId').
-scopedDeposits :: IsTx tx => OpenState tx -> PendingDeposits tx -> PendingDeposits tx
-scopedDeposits OpenState{headId, coordinatedHeadState} =
-  maybe id Map.delete (finalizedDepositTxId coordinatedHeadState.finalizedCommit) . depositsForHead headId
 
 -- | What the next request does with a commit the confirmed snapshot claims but
 -- whose increment has not landed. Leaders and followers decide it the same way.

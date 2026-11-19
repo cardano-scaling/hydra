@@ -952,6 +952,8 @@ SettlesSeen st s ξ snap =
   × (Snapshot.txs snap ≡ LocalState.pending st)
   × (msVfy (HeadParameters.aggregateKey (LocalState.params st)) (signedMessage snap) ξ ≡ true)
 
+-- The Haskell pending-deposit views scope the registry to one Head; excluding a retained
+-- finalized increment from snapshot selection does not delete its registry entry.
 -- Observing a chain event updates a party's deposit registry 𝒟 (and, for `tick`, every entry's
 -- status). `recover` removes a WITNESSED occurrence, so no decidable Data-equality is assumed.
 -- Mirrors the figure's deposit / recover / tick handlers; the leader re-trigger `multicast` effect is
@@ -1779,6 +1781,13 @@ refreshes tracked deposit statuses before Head-specific work. Wall-clock time
 only measures sync lag; deposit and contestation deadlines use observed chain
 time. Deposit tracking includes previous Heads whose deposits remain
 recoverable, while snapshot selection considers only the current Head.
+
+`Node.State` defines both pending-deposit views together: `depositsForHead`
+filters by Head identity, while `depositsForHeadWithoutFinalizedCommit` also
+excludes the deposit claimed by the retained finalized increment. Both retain
+inactive and expired deposits; eligibility checks happen later. Rollback and
+snapshot-request validation use the full view for the Head. The request validator
+checks the finalized-increment exclusion explicitly before looking up a deposit.
 
 The Haskell implementation applies retained `StateChanged` events through
 three sequential owners: tracked deposits, head lifecycle, and the node clock.
