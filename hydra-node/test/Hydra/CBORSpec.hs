@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# OPTIONS_GHC -Wno-ambiguous-fields #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 -- | Tests for the 'ToCBOR' / 'FromCBOR' codecs of hydra-node types.
@@ -26,6 +28,8 @@ import Test.Hydra.Prelude
 
 import Cardano.Binary (decodeFull', serialize')
 import Codec.CBOR.Write (toStrictByteString)
+import Data.Aeson qualified as Aeson
+import Data.Aeson.KeyMap qualified as KeyMap
 import Data.ByteString qualified as BS
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.HTTPServer (
@@ -57,7 +61,7 @@ import Hydra.Chain.ChainState (ChainSlot)
 import Hydra.Chain.Direct.State (ChainStateAt)
 import Hydra.HeadLogic.Error (RequirementFailure, SideLoadRequirementFailure)
 import Hydra.HeadLogic.Outcome (StateChanged)
-import Hydra.HeadLogic.State (ClosedState (..), CoordinatedHeadState (..), FanoutMode, HeadState, SeenSnapshot, closedStateCBORTag, closedStateCBORTagV1, coordinatedHeadStateCBORTag, coordinatedHeadStateCBORTagV1)
+import Hydra.HeadLogic.State (ClosedState (..), CoordinatedHeadState (..), FanoutMode, FinalizedState, HeadState (Finalized), OnChainFanoutDatum (..), PartialFanoutState (..), SeenSnapshot, closedStateCBORTag, closedStateCBORTagV1, coordinatedHeadStateCBORTag, coordinatedHeadStateCBORTagV1)
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.Ledger (ValidationError)
 import Hydra.Ledger.Cardano (Tx)
@@ -269,7 +273,54 @@ spec = parallel $ do
                 <> toCBOR headId
                 <> toCBOR headSeed
                 <> toCBOR version
-      decodeFull' legacy `shouldBe` Right closedState{unconfirmedSnapshot = Nothing}
+      decodeFull' legacy `shouldBe` Right (closedState{unconfirmedSnapshot = Nothing} :: ClosedState Tx)
+
+  describe "PartialFanoutState layouts" $ do
+    let progress = (generateWith (resize 3 arbitrary) 42 :: PartialFanoutState Tx){readyToFanoutSent = True, unconfirmedSnapshot = Nothing}
+        legacy :: PartialFanoutState Tx -> BS.ByteString
+        legacy PartialFanoutState{parameters, confirmedSnapshot, contestationDeadline, chainState, headId, headSeed, version, remainingOutputs, distributedOutputs, mode} =
+          toStrictByteString $
+            toCBOR ("PartialFanoutState" :: Text)
+              <> toCBOR parameters
+              <> toCBOR confirmedSnapshot
+              <> toCBOR contestationDeadline
+              <> toCBOR chainState
+              <> toCBOR headId
+              <> toCBOR headSeed
+              <> toCBOR version
+              <> toCBOR remainingOutputs
+              <> toCBOR distributedOutputs
+              <> toCBOR mode
+    it "writes the observed datum and retained Closed fields under a new layout tag" $
+      serialize' progress `shouldSatisfy` BS.isPrefixOf (serialize' ("PartialFanoutState3" :: Text))
+    it "decodes a legacy pending request as Closed" $ do
+      let pendingFanout = progress{distributedOutputs = mempty, fanoutDatum = DatumClosed}
+      decodeFull' (legacy pendingFanout) `shouldBe` Right pendingFanout
+    it "decodes the datum-only layout with the old Closed defaults" $ do
+      let bytes =
+            toStrictByteString $
+              toCBOR ("PartialFanoutState2" :: Text)
+                <> toCBOR progress.parameters
+                <> toCBOR progress.confirmedSnapshot
+                <> toCBOR progress.contestationDeadline
+                <> toCBOR progress.chainState
+                <> toCBOR progress.headId
+                <> toCBOR progress.headSeed
+                <> toCBOR progress.version
+                <> toCBOR progress.remainingOutputs
+                <> toCBOR progress.distributedOutputs
+                <> toCBOR progress.mode
+                <> toCBOR progress.fanoutDatum
+      decodeFull' bytes `shouldBe` Right progress
+    it "roundtrips observed progress with no locally matching outputs" $ do
+      let observed = progress{distributedOutputs = mempty, fanoutDatum = DatumFanoutProgress}
+      decodeFull' (serialize' observed) `shouldBe` Right observed
+      Aeson.fromJSON (toJSON observed) `shouldBe` Aeson.Success observed
+    it "decodes legacy JSON without a datum as the old pending state" $ do
+      let pendingFanout = progress{distributedOutputs = mempty, fanoutDatum = DatumClosed}
+      case toJSON pendingFanout of
+        Aeson.Object fields -> Aeson.fromJSON (Aeson.Object $ KeyMap.delete "unconfirmedSnapshot" $ KeyMap.delete "readyToFanoutSent" $ KeyMap.delete "fanoutDatum" fields) `shouldBe` Aeson.Success pendingFanout
+        _ -> fail "expected a fanout state object"
 
   -- 'NodeState' gained deposit lifecycle tracking between two released
   -- layouts, same situation as 'Snapshot' above. The legacy layout carries a
@@ -344,7 +395,7 @@ spec = parallel $ do
     roundtripCBOR $ Proxy @(StateEvent Tx)
     -- Locks the on-disk format of hydra.db events: one sample per
     -- 'StateChanged' constructor, stored as raw CBOR.
-    goldenCBOR "StateEvent Tx" "golden/StateEvent.cbor" genGoldenStateEvents
+    migratedFanoutGolden "StateEvent Tx" ["golden/StateEvent.cbor", "golden/StateEvent-v2.cbor"] "golden/StateEvent-v3.cbor" genGoldenStateEvents
 
   -- One golden per CBOR-encoded type, one sample per constructor. Locks the
   -- byte-level formats of the hydra.db event payloads and the API/network
@@ -366,10 +417,12 @@ spec = parallel $ do
     goldenCBOR "OnChainTx Tx" "golden/OnChainTx.cbor" (genGoldenSamples @(OnChainTx Tx))
     goldenCBOR "PostTxError Tx" "golden/PostTxError.cbor" (genGoldenSamples @(PostTxError Tx))
     goldenCBOR "ChainEvent Tx" "golden/ChainEvent.cbor" (genGoldenSamples @(ChainEvent Tx))
-    goldenCBOR "HeadState Tx" "golden/HeadState.cbor" (genGoldenSamples @(HeadState Tx))
+    migratedFanoutGolden "HeadState Tx" ["golden/HeadState.cbor", "golden/HeadState-v2.cbor"] "golden/HeadState-v3.cbor" (genGoldenSamples @(HeadState Tx))
+    -- Pin the terminal tag separately; legacy fixtures above remain migration inputs.
+    goldenCBOR "Finalized HeadState Tx" "golden/FinalizedHeadState.cbor" (map Finalized <$> genGoldenSample @(FinalizedState Tx))
     goldenCBOR "SeenSnapshot Tx" "golden/SeenSnapshot.cbor" (genGoldenSamples @(SeenSnapshot Tx))
     goldenCBOR "FanoutMode Tx" "golden/FanoutMode.cbor" (genGoldenSamples @(FanoutMode Tx))
-    goldenCBOR "NodeState Tx" "golden/NodeState.cbor" (genGoldenSamples @(NodeState Tx))
+    migratedFanoutGolden "NodeState Tx" ["golden/NodeState.cbor", "golden/NodeState-v2.cbor"] "golden/NodeState-v3.cbor" (genGoldenSamples @(NodeState Tx))
     goldenCBOR "SyncedStatus" "golden/SyncedStatus.cbor" (genGoldenSamples @SyncedStatus)
     goldenCBOR "StallReason" "golden/StallReason.cbor" (genGoldenSamples @StallReason)
     goldenCBOR "DepositStatus" "golden/DepositStatus.cbor" (genGoldenSamples @DepositStatus)
@@ -432,3 +485,14 @@ genGoldenStateEvents = do
   ADTArbitrary{adtCAPs} <- resize 5 $ toADTArbitrary (Proxy @(StateChanged Tx))
   forM (zip [0 ..] adtCAPs) $ \(i, ConstructorArbitraryPair{capArbitrary}) ->
     StateEvent i capArbitrary <$> arbitrary
+
+-- The original fixtures remain migration inputs. The new fixtures pin the
+-- versioned fanout layout, including the independently retained datum.
+migratedFanoutGolden :: forall a. (ToCBOR a, FromCBOR a, Eq a, Show a) => String -> [FilePath] -> FilePath -> Gen [a] -> Spec
+migratedFanoutGolden name legacyPaths currentPath gen = do
+  forM_ legacyPaths $ \legacyPath ->
+    it ("migrates legacy fanout checkpoint: " <> name <> " from " <> legacyPath) $ do
+      bytes <- readFileBS legacyPath
+      samples <- either (fail . show) pure $ decodeFull' @[a] bytes
+      decodeFull' (serialize' samples) `shouldBe` Right samples
+  goldenCBOR name currentPath gen

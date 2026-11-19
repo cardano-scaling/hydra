@@ -226,8 +226,8 @@ held back for one block so the observation usually gets there first:
 - it built and submitted the transaction, and observed the step before the
   rejection came back: the client is told the post failed, and the node carries
   on draining from the observation
-- it still has not observed the step: the client is told, and since nothing has
-  been distributed the head reverts to `Closed`
+- it still has not observed the step: the client is told, and before any partial distribution has
+  been observed the node clears its pending request and retains `Closed`
 
 After such a revert, observing the earlier step puts the head back into
 `FanoutProgress`, this time with the node waiting for a selection rather than
@@ -238,12 +238,20 @@ drain it from there; a plain `Fanout` is refused, since the head is in
 A selection that is empty, or that is not contained in what is left, is refused
 with a `CommandFailed` and changes nothing.
 
-Fanout is also sticky: either command moves the head into `FanoutProgress` right
-away, before anything lands on chain, and from then on the plain `Fanout` is
-refused with a `CommandFailed`, so the head has to be drained with further
-`PartialFanout` commands. The one way back is the initiating transaction failing
-to post before anything has been distributed, in which case the node reverts the
-head to `Closed` rather than wedging it.
+The node stores both pending requests and observed progress in `FanoutProgress`.
+The `fanoutDatum` field distinguishes them: `DatumClosed` means only local work
+is pending; `DatumFanoutProgress` means a partial distribution was observed on
+chain. The protocol lifecycle stays Closed until that observation. The node
+refuses plain `Fanout` while either driver is active, so further manual work
+uses `PartialFanout`. A failed initiating post can clear pending local work;
+it cannot undo an observed distribution.
+
+The datum is independent of `distributedOutputs`, which records only outputs
+matched against the local snapshot. A valid observed distribution can match none
+when the snapshot closed on-chain differs from the local one. It still enters
+PartialFanout, and subsequent transaction selection must spend that datum.
+This does not reconstruct the correct remainder from a mismatching snapshot or
+provide recovery from divergent-chain fanout after a rollback.
 
 ## Caveats
 

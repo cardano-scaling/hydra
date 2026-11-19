@@ -66,6 +66,7 @@ import Hydra.Contract.HeadState qualified as Head
 import Hydra.Contract.HeadTokens qualified as HeadTokens
 import Hydra.Data.ContestationPeriod qualified as OnChainContestationPeriod
 import Hydra.Data.DepositPeriod qualified as OnChainDepositPeriod
+import Hydra.Ledger.Cardano (cardanoLedger)
 import Hydra.Ledger.Cardano.Evaluate (renderEvaluationReport)
 import Hydra.Ledger.Cardano.Time (slotNoFromUTCTime)
 import Hydra.Node.HeadLogic qualified as HL
@@ -135,7 +136,9 @@ import Test.Hydra.Chain.Direct.State (
   unsafePartialFanout,
  )
 import Test.Hydra.Chain.Direct.State qualified as Transition
+import Test.Hydra.HeadLogic.Interpreter (testInterpreterConfig)
 import Test.Hydra.Ledger.Cardano.Fixtures (evaluateTx, evaluateTx', maxCpu, maxMem, maxTxSize, pparamsWithMainnetValueLimit)
+import Test.Hydra.Node.Fixture (defaultGlobals, defaultLedgerEnv)
 import Test.Hydra.Tx.Fixture (defaultPParams, slotLength, systemStart, testNetworkId)
 import Test.Hydra.Tx.Gen (genConfirmedSnapshot, genOutputFor, genPointInTimeBefore, genTxOutAdaOnly, genUTxOAdaOnlyOfSize, genUTxOWithUniquePolicyTokensOfSize, genValidityBoundsFromContestationPeriod, propTransactionEvaluates)
 import Test.Hydra.Tx.Mutation (
@@ -513,7 +516,8 @@ spec = parallel $ do
                           , version = 0
                           , unconfirmedSnapshot = Nothing
                           }
-                      outcome = HL.onClosedChainPartialFanoutTx hlClosedState initialChainState distributedOutputs
+                      config = testInterpreterConfig $ cardanoLedger defaultGlobals defaultLedgerEnv
+                      outcome = HL.onClosedChainPartialFanoutTx config hlClosedState initialChainState distributedOutputs
                       expectedRemaining = UTxO.fromList . drop chunkSize . UTxO.toList $ u0WithDups
                       -- A node observing a partial fanout it didn't initiate is a
                       -- passive observer: it records the remaining set (by content)

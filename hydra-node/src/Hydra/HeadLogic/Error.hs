@@ -3,11 +3,10 @@
 -- | Error types used in the Hydra.HeadLogic module.
 module Hydra.HeadLogic.Error where
 
-import Hydra.Prelude
-
 import Hydra.HeadLogic.Input (Input)
 import Hydra.HeadLogic.State (HeadState)
 import Hydra.Ledger (ValidationError)
+import Hydra.Prelude
 import Hydra.Tx (
   HeadId,
   IsTx (TxIdType, UTxOType),
@@ -115,7 +114,7 @@ data SideLoadRequirementFailure tx
     -- SECURITY: unlike its siblings, this one is raised at the client API
     -- boundary rather than by the head logic, and it has to be: forcing an
     -- over-capacity accumulator calls 'error' (see
-    -- 'Hydra.Tx.Accumulator.checkAccumulatorSize'), and by the time the head
+    -- 'Hydra.HeadLogic.Cardano.checkCommitmentCapacity'), and by the time the head
     -- logic sees an input the node has already traced it, which forces it. See
     -- 'Hydra.API.ClientInput.validateClientInput'.
     --
