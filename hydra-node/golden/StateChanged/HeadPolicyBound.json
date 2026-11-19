@@ -1,0 +1,10 @@
+{
+    "samples": [
+        {
+            "headId": "00000000000000010101010000000001",
+            "policyFingerprint": "2048f58a897988cda365bdac1c3b07c219dca246249692308046c1068d2d486e",
+            "tag": "HeadPolicyBound"
+        }
+    ],
+    "seed": 1497571076
+}

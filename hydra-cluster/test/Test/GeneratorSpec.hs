@@ -78,7 +78,7 @@ prop_plateauHoldsTarget =
 
 apply :: Globals -> LedgerEnv LedgerEra -> UTxO -> Tx -> UTxO
 apply globals ledgerEnv utxo tx =
-  case applyTransactions (cardanoLedger globals ledgerEnv) (ChainSlot 0) utxo [tx] of
+  case applyTransactions (cardanoLedger Nothing globals ledgerEnv) (ChainSlot 0) utxo [tx] of
     Left err -> error $ "invalid generated data set" <> show err
     Right finalUTxO -> finalUTxO
 

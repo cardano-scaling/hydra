@@ -35,6 +35,7 @@ import Hydra.Node.State (NodeState (..))
 import Hydra.Tx (CommitBlueprintTx (..), ConfirmedSnapshot, IsTx (..), Snapshot (..), UTxOType)
 import Hydra.Tx.Accumulator (AccumulatorTooLarge (..))
 import Hydra.Tx.DepositPeriod (toNominalDiffTime)
+import Hydra.UserValidationRules (PolicyViolation)
 import Network.HTTP.Types (ResponseHeaders, Status, hAccept, hContentType, status200, status202, status400, status404, status500, status503)
 import Network.Wai (Application, Request (pathInfo, requestMethod), Response, consumeRequestBodyStrict, rawPathInfo, requestHeaders, responseLBS)
 
@@ -178,6 +179,8 @@ data SubmitL2TxResponse
     SubmitTxConfirmed Integer
   | -- | Transaction was rejected due to validation errors
     SubmitTxInvalidResponse Text
+  | -- | Transaction was rejected by a configured user policy.
+    SubmitTxPolicyInvalidResponse PolicyViolation
   | -- | Transaction was rejected due to node out of sync
     SubmitTxRejectedResponse Text
   | -- | Transaction was accepted but not yet confirmed
@@ -196,6 +199,8 @@ instance ToJSON SubmitL2TxResponse where
         [ "tag" .= Aeson.String "SubmitTxInvalid"
         , "validationError" .= validationError
         ]
+    SubmitTxPolicyInvalidResponse violation ->
+      object ["tag" .= Aeson.String "SubmitTxPolicyInvalid", "policyViolation" .= violation]
     SubmitTxRejectedResponse reason ->
       object
         [ "tag" .= Aeson.String "SubmitTxRejected"
@@ -209,9 +214,10 @@ instance FromJSON SubmitL2TxResponse where
     case tag :: Text of
       "SubmitTxConfirmed" -> SubmitTxConfirmed <$> o .: "snapshotNumber"
       "SubmitTxInvalid" -> SubmitTxInvalidResponse <$> o .: "validationError"
+      "SubmitTxPolicyInvalid" -> SubmitTxPolicyInvalidResponse <$> o .: "policyViolation"
       "SubmitTxRejected" -> SubmitTxRejectedResponse <$> o .: "reason"
       "SubmitTxSubmitted" -> pure SubmitTxSubmitted
-      _ -> fail "Expected tag to be SubmitTxConfirmed, SubmitTxInvalid, SubmitTxRejected, or SubmitTxSubmitted"
+      _ -> fail "Expected tag to be SubmitTxConfirmed, SubmitTxInvalid, SubmitTxPolicyInvalid, SubmitTxRejected, or SubmitTxSubmitted"
 
 -- NOTE: Tags are kept consistent with the JSON encoding above.
 instance ToCBOR SubmitL2TxResponse where
@@ -220,6 +226,8 @@ instance ToCBOR SubmitL2TxResponse where
       toCBOR ("SubmitTxConfirmed" :: Text) <> toCBOR snapshotNumber
     SubmitTxInvalidResponse validationError ->
       toCBOR ("SubmitTxInvalid" :: Text) <> toCBOR validationError
+    SubmitTxPolicyInvalidResponse violation ->
+      toCBOR ("SubmitTxPolicyInvalid" :: Text) <> toCBOR violation
     SubmitTxRejectedResponse reason ->
       toCBOR ("SubmitTxRejected" :: Text) <> toCBOR reason
     SubmitTxSubmitted ->
@@ -230,6 +238,7 @@ instance FromCBOR SubmitL2TxResponse where
     fromCBOR >>= \case
       ("SubmitTxConfirmed" :: Text) -> SubmitTxConfirmed <$> fromCBOR
       "SubmitTxInvalid" -> SubmitTxInvalidResponse <$> fromCBOR
+      "SubmitTxPolicyInvalid" -> SubmitTxPolicyInvalidResponse <$> fromCBOR
       "SubmitTxRejected" -> SubmitTxRejectedResponse <$> fromCBOR
       "SubmitTxSubmitted" -> pure SubmitTxSubmitted
       tag -> fail $ show tag <> " is not a proper CBOR-encoded SubmitL2TxResponse"
@@ -678,6 +687,8 @@ handleSubmitL2Tx putClientInput apiTransactionTimeout responseChannel reqEnc res
           pure $ respondApi respEnc status200 (SubmitTxConfirmed snapshotNumber)
         Just (SubmitTxInvalidResponse validationError) ->
           pure $ respondApi respEnc status400 (SubmitTxInvalidResponse validationError)
+        Just response@SubmitTxPolicyInvalidResponse{} ->
+          pure $ respondApi respEnc status400 response
         Just (SubmitTxRejectedResponse reason) ->
           pure $ respondApi respEnc status503 (SubmitTxRejectedResponse reason)
         Just SubmitTxSubmitted ->
@@ -710,9 +721,11 @@ handleSubmitL2Tx putClientInput apiTransactionTimeout responseChannel reqEnc res
           TxValid{transactionId}
             | transactionId == txid ->
                 pure SubmitTxSubmitted
-          TxInvalid{transaction, validationError = ValidationError reason}
+          TxInvalid{transaction, validationError}
             | txId transaction == txid ->
-                pure $ SubmitTxInvalidResponse reason
+                pure $ case validationError of
+                  ValidationError reason -> SubmitTxInvalidResponse reason
+                  PolicyValidationError violation -> SubmitTxPolicyInvalidResponse violation
           SnapshotConfirmed{snapshot} ->
             -- Check if the transaction is in the confirmed snapshot
             if txid `elem` map txId (confirmed snapshot)

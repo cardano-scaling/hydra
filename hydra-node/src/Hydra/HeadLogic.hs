@@ -110,6 +110,7 @@ import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Party (Party (vkey))
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, SnapshotVersion, getSnapshot)
+import Hydra.UserValidationRules (PolicyContext (..), PolicyViolation, UTxOValidation (..), UserValidation (..), localPolicyContextFor, preparePolicyContext)
 
 -- * The Coordinated Head protocol
 
@@ -172,6 +173,16 @@ onIdleChainInitTx env newChainState headId headSeed headParameters participants
           , headSeed
           , parties
           }
+        <> maybe
+          noop
+          ( \fingerprint ->
+              newState
+                HeadPolicyBound
+                  { headId
+                  , policyFingerprint = fingerprint
+                  }
+          )
+          configuredPolicy
   | otherwise =
       newState
         IgnoredHeadInitializing
@@ -193,6 +204,7 @@ onIdleChainInitTx env newChainState headId headSeed headParameters participants
     , contestationPeriod = configuredContestationPeriod
     , depositPeriod = configuredDepositPeriod
     , participants = configuredParticipants
+    , configuredPolicy
     } = env
 
 -- ** Off-chain protocol
@@ -201,11 +213,19 @@ onIdleChainInitTx env newChainState headId headSeed headParameters participants
 --
 -- __Transition__: 'OpenState' → 'OpenState'
 onOpenClientNewTx ::
+  IsTx tx =>
+  Ledger tx ->
+  OpenState tx ->
   -- | The transaction to be submitted to the head.
   tx ->
   Outcome tx
-onOpenClientNewTx tx =
-  cause . NetworkEffect $ ReqTx tx
+onOpenClientNewTx ledger OpenState{headId, coordinatedHeadState} tx =
+  case checkUserTransaction ledger tx >> checkLocalUserUTxO ledger coordinatedHeadState tx of
+    Left violation ->
+      newState TxInvalid{headId, utxo = localUTxO, transaction = tx, validationError = PolicyValidationError violation}
+    Right () -> cause . NetworkEffect $ ReqTx tx
+ where
+  localUTxO = coordinatedHeadState.localUTxO
 
 -- | Process a transaction request ('ReqTx') from a party.
 --
@@ -228,28 +248,33 @@ onOpenNetworkReqTx ::
   tx ->
   Outcome tx
 onOpenNetworkReqTx env ledger ChainPointTime{currentSlot, currentChainTime} st ttl pendingDeposits tx =
-  -- Keep track of transactions by-id
-  (newState TransactionReceived{tx} <>) $
-    -- Spec: wait L̂ ◦ tx ≠ ⊥
-    waitApplyTx $
-      -- Spec: T̂ ← T̂ ⋃ {tx}
-      --       L̂  ← L̂ ◦ tx
-      newState TransactionAppliedToLocalUTxO{headId, tx}
-        -- Spec: if ŝ = ̅S.s ∧ leader(̅S.s + 1) = i
-        --         multicast (reqSn, v, ̅S.s + 1, T̂ , 𝑈𝛼, txω )
-        & maybeRequestSnapshot (confirmedSn + 1)
+  case checkUserTransaction ledger tx of
+    Left violation -> invalid $ PolicyValidationError violation
+    Right () ->
+      -- Keep track of transactions by-id
+      (newState TransactionReceived{tx} <>) $
+        -- Spec: wait L̂ ◦ tx ≠ ⊥
+        waitApplyTx $
+          -- Spec: T̂ ← T̂ ⋃ {tx}
+          --       L̂  ← L̂ ◦ tx
+          newState TransactionAppliedToLocalUTxO{headId, tx}
+            -- Spec: if ŝ = ̅S.s ∧ leader(̅S.s + 1) = i
+            --         multicast (reqSn, v, ̅S.s + 1, T̂ , 𝑈𝛼, txω )
+            & maybeRequestSnapshot (confirmedSn + 1)
  where
   waitApplyTx cont =
-    case applyTransactionsWithoutCollision ledger currentSlot localUTxO [tx] of
-      Right _
-        -- Refuse a tx creating an output that a claimable or settling deposit
-        -- names: it would collide with that deposit once absorbed, and no node
-        -- signs a snapshot carrying both. Expired deposits are never claimed, so
-        -- they do not count.
-        | not (namesNoneOf (utxoFromTx tx) namedByDepositsInPlay) ->
-            notApplicable (ValidationError "transaction creates an output a pending deposit names")
-        | otherwise -> cont
-      Left (_, err) -> notApplicable err
+    case checkLocalUserUTxO ledger coordinatedHeadState tx of
+      Left violation -> notApplicable $ PolicyValidationError violation
+      Right () ->
+        case applyTransactionsWithoutCollision ledger currentSlot localUTxO [tx] of
+          Right _
+            -- Refuse a tx creating an output that a claimable or settling deposit
+            -- names: it would collide with that deposit once absorbed, and no node
+            -- signs a snapshot carrying both. Expired deposits are never claimed, so
+            -- they do not count.
+            | namesNoneOf (utxoFromTx tx) namedByDepositsInPlay -> cont
+            | otherwise -> notApplicable (ValidationError "transaction creates an output a pending deposit names")
+          Left (_, err) -> notApplicable err
    where
     namedByDepositsInPlay :: UTxOType tx
     namedByDepositsInPlay =
@@ -272,7 +297,9 @@ onOpenNetworkReqTx env ledger ChainPointTime{currentSlot, currentChainTime} st t
           -- because of network latency when receiving tx1. The leader,
           -- however, saw both as valid and requests a snapshot including
           -- both. This is a valid request and it could make the head stuck.
-          newState TxInvalid{headId, utxo = localUTxO, transaction = tx, validationError = err}
+          invalid err
+
+  invalid err = newState TxInvalid{headId, utxo = localUTxO, transaction = tx, validationError = err}
 
   maybeRequestSnapshot nextSn outcome
     | snapshotInFlight seenSnapshot || not (isLeader parameters party nextSn) = outcome
@@ -280,14 +307,15 @@ onOpenNetworkReqTx env ledger ChainPointTime{currentSlot, currentChainTime} st t
    where
     -- Build against the same UTxO the followers use, checking capacity before
     -- persisting a request. Other parties and in-flight rounds skip this work.
-    requestSnapshot = case chainedSnapshotRequest confirmedUTxO localTxs' pendingDeposits currentDepositTxId decommitTx settlingCommit of
-      Just SnapshotRequest{requestTxs, requestDecommitTx, requestDepositTxId} ->
-        outcome
-          -- XXX: This state update has no equivalence in the
-          -- spec. Do we really need to store that we have
-          -- requested a snapshot? If yes, should update spec.
-          <> newState SnapshotRequestDecided{snapshotNumber = nextSn}
-          <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> requestTxs) requestDecommitTx requestDepositTxId)
+    requestSnapshot = case chainedSnapshotRequest ledger confirmedUTxO localTxs' pendingDeposits currentDepositTxId decommitTx settlingCommit of
+      Just request@SnapshotRequest{requestTxs, requestDecommitTx, requestDepositTxId} ->
+        (outcome <>) $
+          withSnapshotRequestPolicy ledger headId nextSn version (getSnapshot confirmedSnapshot) pendingDeposits request $
+            -- XXX: This state update has no equivalence in the
+            -- spec. Do we really need to store that we have
+            -- requested a snapshot? If yes, should update spec.
+            newState SnapshotRequestDecided{snapshotNumber = nextSn}
+              <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> requestTxs) requestDecommitTx requestDepositTxId)
       _ -> outcome
 
   Environment{party} = env
@@ -369,7 +397,7 @@ onOpenNetworkReqSn env ledger pendingDeposits ChainPointTime{currentSlot, curren
               -- Spec: require 𝑈_𝛼 ∩ 𝑈_active = ∅ ∧ 𝑈_𝛼 ∩ outputs(Treq) = ∅
               --       require 𝑈_active ◦ Treq ≠ ⊥
               --       𝑈 ← 𝑈_active ◦ Treq
-              requireApplyTxs activeUTxO mUtxoToCommit requestedTxs $ \nextUTxO ->
+              requireApplyTxs activeUTxO mUtxoToCommit mUtxoToDecommit requestedTxs $ \nextUTxO ->
                 -- The predecessor is confirmed at this point (see
                 -- requireReqSn and waitNoSnapshotInFlight), so its two
                 -- accumulators cover exactly its own two owed sets (see
@@ -425,13 +453,17 @@ onOpenNetworkReqSn env ledger pendingDeposits ChainPointTime{currentSlot, curren
                         --
                         -- NOTE: 'SnapshotRequested' rebuilds 'localUTxO' from
                         -- 'nextUTxO', so every kept tx applies there.
-                        let newLocalTxs = pruneTransactions nextUTxO mUtxoToCommit mUtxoToDecommit
+                        let (newLocalTxs, pruned) = pruneTransactions nextUTxO mUtxoToCommit mUtxoToDecommit
                         newState
                           SnapshotRequested
                             { requestedSnapshot = nextSnapshot
                             , newLocalTxs
                             , newCurrentDepositTxId = mDepositTxId
                             }
+                          <> causes
+                            [ ClientEffect ServerOutput.TxPrunedByPolicy{headId, snapshotNumber = sn, prunedTransactionId = txId tx, policyViolation}
+                            | (tx, policyViolation) <- pruned
+                            ]
  where
   requireReqSn continue
     | sn /= seenSn + 1 =
@@ -481,6 +513,9 @@ onOpenNetworkReqSn env ledger pendingDeposits ChainPointTime{currentSlot, curren
         -- second snapshot claiming the same deposit, see #2741.
         | finalizedDepositTxId finalizedCommit == Just depositTxId ->
             Error $ RequireFailed ReqSnDepositBlockedByFinalizedCommit{depositTxId}
+      Just depositTxId
+        | Left policyViolation <- checkUserDeposit ledger depositTxId ->
+            rejectSnapshotPolicy headId sn (Just depositTxId) Nothing policyViolation
       Just depositTxId ->
         case Map.lookup depositTxId pendingDeposits of
           Nothing
@@ -542,6 +577,9 @@ onOpenNetworkReqSn env ledger pendingDeposits ChainPointTime{currentSlot, curren
       Just decommitTx
         | utxoFromTx decommitTx == mempty ->
             Error $ RequireFailed ReqSnDecommitNoOutputs{decommitTxId = txId decommitTx}
+      Just decommitTx
+        | Left violation <- checkUserTransaction ledger decommitTx ->
+            rejectSnapshotPolicy headId sn mDepositTxId (Just $ txId decommitTx) violation
       Just decommitTx ->
         -- Spec:
         -- require 𝑣 = 𝑣 ̂ ∧ 𝑠 = 𝑠 ̂ + 1 ∧ leader(𝑠) = 𝑗
@@ -572,18 +610,19 @@ onOpenNetworkReqSn env ledger pendingDeposits ChainPointTime{currentSlot, curren
   -- guarantees a confirmed snapshot never contains an unvalidated transaction.
   --
   -- A claimed deposit must also be 'absorbable' next to the requested txs.
-  requireApplyTxs :: UTxOType tx -> Maybe (UTxOType tx) -> [tx] -> (UTxOType tx -> Outcome tx) -> Outcome tx
-  requireApplyTxs utxo mUtxoToCommit' requestedTxs cont
+  requireApplyTxs :: UTxOType tx -> Maybe (UTxOType tx) -> Maybe (UTxOType tx) -> [tx] -> (UTxOType tx -> Outcome tx) -> Outcome tx
+  requireApplyTxs utxo mUtxoToCommit' mUtxoToDecommit' requestedTxs cont
     | Just depositTxId <- mDepositTxId
     , Just deposited <- mUtxoToCommit'
     , not (absorbable utxo requestedTxs deposited) =
         Error $ RequireFailed ReqSnDepositOutputsHeld{depositTxId}
     | otherwise =
-        -- Spec: require outputs(Treq) ∩ 𝑈_active = ∅
-        case applyTransactionsWithoutCollision ledger currentSlot utxo requestedTxs of
-          Left (tx, err) ->
-            Error $ RequireFailed $ SnapshotDoesNotApply sn (txId tx) err
-          Right u -> cont u
+        withSnapshotPolicy ledger headId sn mDepositTxId (utxo <> fold mUtxoToCommit', fold mUtxoToDecommit') requestedTxs $
+          -- Spec: require outputs(Treq) ∩ 𝑈_active = ∅
+          case applyTransactionsWithoutCollision ledger currentSlot utxo requestedTxs of
+            Left (tx, err) ->
+              Error $ RequireFailed $ SnapshotDoesNotApply sn (txId tx) err
+            Right u -> cont u
 
   requireValidAccumulatorSize :: Accumulator.HydraAccumulator -> Outcome tx -> Outcome tx
   requireValidAccumulatorSize accumulator continue =
@@ -592,24 +631,28 @@ onOpenNetworkReqSn env ledger pendingDeposits ChainPointTime{currentSlot, curren
         Error $ RequireFailed ReqSnUTxOSetTooLarge{utxoCount, maxAllowed}
       Right () -> continue
 
-  -- \| Filter 'localTxs' to those that still apply against the running UTxO
-  -- after each previous successful tx. The post-snapshot UTxO is not returned:
-  -- aggregate will recompute it.
-  pruneTransactions utxo0 mCommit mDecommit = go utxo0 localTxs
+  -- \| Keep transactions that still apply and satisfy the resulting UTxO policy.
+  -- A rejected transaction leaves the running UTxO unchanged so independent
+  -- transactions can still proceed. Keep 'allTxs' for resolving future requests.
+  pruneTransactions utxo0 mCommit mDecommit = go utxo0 initialContext localTxs
    where
-    go _ Seq.Empty = Seq.empty
-    go u (tx Seq.:<| rest) =
+    initialContext = (\validation -> preparePolicyContext validation (utxo0 <> fold mCommit) (fold mDecommit)) <$> ledger.userValidation
+    go _ _ Seq.Empty = (Seq.empty, [])
+    go u context (tx Seq.:<| rest) =
       -- XXX: We prune transactions on any error, while only some of them are
       -- actually expected.
       -- For example: `OutsideValidityIntervalUTxO` ledger errors are expected
       -- here when a tx becomes invalid.
       case applyTransactionsWithoutCollision ledger currentSlot u [tx] of
-        Left _ -> go u rest
+        Left _ -> go u context rest
         Right u'
           | namesNoneOf (utxoFromTx tx) (fold mCommit)
           , isRight (checkSnapshotUTxOSize u' mCommit mDecommit) ->
-              tx Seq.<| go u' rest
-          | otherwise -> go u rest
+              let nextContext = (\current -> current.applyPolicyTx tx) <$> context
+               in case traverse_ policyResult nextContext of
+                    Right () -> first (tx Seq.<|) $ go u' nextContext rest
+                    Left violation -> second ((tx, violation) :) $ go u context rest
+          | otherwise -> go u context rest
   confSn = case confirmedSnapshot of
     InitialSnapshot{} -> 0
     ConfirmedSnapshot{snapshot = Snapshot{number}} -> number
@@ -652,6 +695,7 @@ onOpenNetworkReqSn env ledger pendingDeposits ChainPointTime{currentSlot, curren
 onOpenNetworkAckSn ::
   IsTx tx =>
   Environment ->
+  Ledger tx ->
   ChainPointTime ->
   PendingDeposits tx ->
   OpenState tx ->
@@ -662,7 +706,7 @@ onOpenNetworkAckSn ::
   -- | Snapshot number of this AckSn.
   SnapshotNumber ->
   Outcome tx
-onOpenNetworkAckSn env@Environment{party} ChainPointTime{currentChainTime} pendingDeposits openState otherParty snapshotSignature sn =
+onOpenNetworkAckSn env@Environment{party} ledger ChainPointTime{currentChainTime} pendingDeposits openState otherParty snapshotSignature sn =
   -- Spec: require s ∈ {ŝ, ŝ + 1}
   requireValidAckSn $ do
     -- Spec: wait ŝ = s
@@ -743,12 +787,13 @@ onOpenNetworkAckSn env@Environment{party} ChainPointTime{currentChainTime} pendi
   maybeRequestNextSnapshot previous outcome =
     -- Checked against the snapshot just confirmed: the followers check the
     -- request against that snapshot too.
-    case chainedSnapshotRequest (settledUTxO version previous) localTxs pendingDeposits currentDepositTxId decommitTx (settlingCommitAt env version currentChainTime pendingDeposits previous) of
-      Just SnapshotRequest{requestTxs, requestDecommitTx, requestDepositTxId}
+    case chainedSnapshotRequest ledger (settledUTxO version previous) localTxs pendingDeposits currentDepositTxId decommitTx (settlingCommitAt env version currentChainTime pendingDeposits previous) of
+      Just request@SnapshotRequest{requestTxs, requestDecommitTx, requestDepositTxId}
         | isLeader parameters party nextSn ->
-            outcome
-              <> newState SnapshotRequestDecided{snapshotNumber = nextSn}
-              <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> requestTxs) requestDecommitTx requestDepositTxId)
+            (outcome <>) $
+              withSnapshotRequestPolicy ledger headId nextSn version previous pendingDeposits request $
+                newState SnapshotRequestDecided{snapshotNumber = nextSn}
+                  <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> requestTxs) requestDecommitTx requestDepositTxId)
       _ -> outcome
    where
     nextSn = previous.number + 1
@@ -892,8 +937,9 @@ onOpenClientDecommit headId ledger currentSlot coordinatedHeadState decommitTx =
       Nothing -> continue
 
   checkValidDecommitTx cont =
-    case applyTransactions ledger currentSlot localUTxO [decommitTx] of
-      Left (_, err) ->
+    case first PolicyValidationError (checkUserTransaction ledger decommitTx)
+      >> first snd (applyTransactions ledger currentSlot localUTxO [decommitTx]) of
+      Left err ->
         newState
           DecommitInvalid
             { headId
@@ -904,7 +950,11 @@ onOpenClientDecommit headId ledger currentSlot coordinatedHeadState decommitTx =
                   , validationError = err
                   }
             }
-      Right _ -> cont
+      Right _ ->
+        case checkUserUTxO ledger (decommitPolicyUTxO coordinatedHeadState decommitTx) of
+          Left violation ->
+            newState DecommitInvalid{headId, decommitTx, decommitInvalidReason = DecommitTxInvalid{localUTxO, validationError = PolicyValidationError violation}}
+          Right () -> cont
 
   confirmedUTxO = settledUTxO version (getSnapshot confirmedSnapshot)
 
@@ -932,15 +982,19 @@ onOpenNetworkReqDec ::
   tx ->
   Outcome tx
 onOpenNetworkReqDec env ledger ttl ChainPointTime{currentSlot, currentChainTime} pendingDeposits openState decommitTx =
-  -- Spec: wait 𝑈𝛼 = ∅ ^ txω =⊥ ∧ L̂ ◦ tx ≠ ⊥
-  waitOnApplicableDecommit $
-    requireDecommitOutputs headId localUTxO confirmedUTxO decommitTx $
-      -- Spec: L̂ ← L̂ ◦ tx \ outputs(tx)
-      -- Spec: txω ← tx
-      newState DecommitRecorded{headId, decommitTx}
-        -- Spec: if ŝ = ̅S.s ∧ leader(̅S.s + 1) = i
-        --         multicast (reqSn, v, ̅S.s + 1, T̂ , 𝑈𝛼, txω )
-        <> maybeRequestSnapshot
+  case checkUserTransaction ledger decommitTx of
+    Left violation ->
+      newState DecommitInvalid{headId, decommitTx, decommitInvalidReason = DecommitTxInvalid{localUTxO, validationError = PolicyValidationError violation}}
+    Right () ->
+      -- Spec: wait 𝑈𝛼 = ∅ ^ txω =⊥ ∧ L̂ ◦ tx ≠ ⊥
+      waitOnApplicableDecommit $
+        requireDecommitOutputs headId localUTxO confirmedUTxO decommitTx $
+          -- Spec: L̂ ← L̂ ◦ tx \ outputs(tx)
+          -- Spec: txω ← tx
+          newState DecommitRecorded{headId, decommitTx}
+            -- Spec: if ŝ = ̅S.s ∧ leader(̅S.s + 1) = i
+            --         multicast (reqSn, v, ̅S.s + 1, T̂ , 𝑈𝛼, txω )
+            <> maybeRequestSnapshot
  where
   -- Spec: wait 𝑈𝛼 = ∅. A pending commit (deposit) must settle before a
   -- decommit can be recorded, otherwise a later snapshot would carry both (see
@@ -968,7 +1022,11 @@ onOpenNetworkReqDec env ledger ttl ChainPointTime{currentSlot, currentChainTime}
         case mExistingDecommitTx of
           Nothing ->
             case applyTransactions currentSlot localUTxO [decommitTx] of
-              Right _ -> cont
+              Right _ ->
+                case checkUserUTxO ledger (decommitPolicyUTxO coordinatedHeadState decommitTx) of
+                  Left violation ->
+                    newState DecommitInvalid{headId, decommitTx, decommitInvalidReason = DecommitTxInvalid{localUTxO, validationError = PolicyValidationError violation}}
+                  Right () -> cont
               Left (_, validationError)
                 | ttl > 0 ->
                     wait $
@@ -999,11 +1057,13 @@ onOpenNetworkReqDec env ledger ttl ChainPointTime{currentSlot, currentChainTime}
   -- May carry a settling commit instead of the decommit.
   maybeRequestSnapshot =
     if not (snapshotInFlight seenSnapshot) && isLeader parameters party nextSn
-      then cause (NetworkEffect (ReqSn version nextSn (txId <$> requestTxs) requestDecommitTx requestDepositTxId))
+      then
+        withSnapshotRequestPolicy ledger headId nextSn version (getSnapshot confirmedSnapshot) pendingDeposits request $
+          cause (NetworkEffect (ReqSn version nextSn (txId <$> requestTxs) requestDecommitTx requestDepositTxId))
       else noop
 
-  SnapshotRequest{requestTxs, requestDecommitTx, requestDepositTxId} =
-    nextSnapshotRequest confirmedUTxO localTxs pendingDeposits currentDepositTxId (Just decommitTx) (settlingCommitAt env version currentChainTime pendingDeposits (getSnapshot confirmedSnapshot))
+  request@SnapshotRequest{requestTxs, requestDecommitTx, requestDepositTxId} =
+    nextSnapshotRequest ledger confirmedUTxO localTxs pendingDeposits currentDepositTxId (Just decommitTx) (settlingCommitAt env version currentChainTime pendingDeposits (getSnapshot confirmedSnapshot))
 
   Environment{party} = env
 
@@ -1082,20 +1142,20 @@ onChainTick env pendingDeposits chainTime =
 --
 -- This is primarily used to track deposits and either drop them or request
 -- snapshots for inclusion.
-onOpenChainTick :: forall tx. IsTx tx => Environment -> UTCTime -> PendingDeposits tx -> OpenState tx -> Outcome tx
-onOpenChainTick env chainTime pendingDeposits st
+onOpenChainTick :: forall tx. IsTx tx => Environment -> Ledger tx -> UTCTime -> PendingDeposits tx -> OpenState tx -> Outcome tx
+onOpenChainTick env ledger chainTime pendingDeposits st
   | snapshotInFlight seenSnapshot || not (isLeader parameters party nextSn) = noop
   | otherwise =
       let settling = settlingCommitAt env version chainTime deposits confirmed
-          built = nextSnapshotRequest (settledUTxO version (getSnapshot confirmedSnapshot)) localTxs deposits currentDepositTxId decommitTx settling
+          built = nextSnapshotRequest ledger (settledUTxO version (getSnapshot confirmedSnapshot)) localTxs deposits currentDepositTxId decommitTx settling
        in case (settling, built) of
             -- The commit is still settling; requests carrying txs continue it.
             (Just (ContinueCommit _), _) -> noop
             -- The commit can no longer land: drop it so other deposits can be claimed.
-            (Just DropCommit, SnapshotRequest{requestTxs, requestDecommitTx, requestDepositTxId}) -> request requestTxs requestDecommitTx requestDepositTxId
+            (Just DropCommit, _) -> request built
             -- Spec: wait txω = ⊥ ∧ Uα = ∅.
-            (Nothing, SnapshotRequest{requestTxs, requestDecommitTx, requestDepositTxId = Just depositTxId})
-              | isNothing decommitTx -> request requestTxs requestDecommitTx (Just depositTxId)
+            (Nothing, SnapshotRequest{requestDepositTxId = Just _})
+              | isNothing decommitTx -> request built
             _ -> noop
  where
   nextDeposits = determineNextDepositStatus env pendingDeposits chainTime
@@ -1108,10 +1168,10 @@ onOpenChainTick env chainTime pendingDeposits st
   -- deposits are ignored, because an empty increment cannot be posted.
   deposits = Map.filter (\Deposit{deposited} -> deposited /= mempty) (newActive <> newExpired <> pendingDeposits)
 
-  request :: [tx] -> Maybe tx -> Maybe (TxIdType tx) -> Outcome tx
-  request txs mDecommitTx mDepositTxId =
-    newState SnapshotRequestDecided{snapshotNumber = nextSn}
-      <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> txs) mDecommitTx mDepositTxId)
+  request built@SnapshotRequest{requestTxs, requestDecommitTx, requestDepositTxId} =
+    withSnapshotRequestPolicy ledger headId nextSn version confirmed deposits built $
+      newState SnapshotRequestDecided{snapshotNumber = nextSn}
+        <> cause (NetworkEffect $ ReqSn version nextSn (txId <$> requestTxs) requestDecommitTx requestDepositTxId)
 
   confirmed@Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
 
@@ -1128,7 +1188,7 @@ onOpenChainTick env chainTime pendingDeposits st
     , currentDepositTxId
     } = coordinatedHeadState
 
-  OpenState{coordinatedHeadState, parameters} = st
+  OpenState{headId, coordinatedHeadState, parameters} = st
 
 -- | If this node is the snapshot leader and there are pending local transactions,
 -- request the next snapshot with the bumped version after a commit or decommit
@@ -1155,6 +1215,10 @@ onOpenChainTick env chainTime pendingDeposits st
 -- finalisation passes the next queued deposit if one is pending.
 maybeRequestSnapshotAfterVersionBump ::
   IsTx tx =>
+  Ledger tx ->
+  PendingDeposits tx ->
+  HeadId ->
+  Snapshot tx ->
   HeadParameters ->
   Party ->
   SnapshotNumber ->
@@ -1165,12 +1229,13 @@ maybeRequestSnapshotAfterVersionBump ::
   SnapshotVersion ->
   SeenSnapshot tx ->
   Outcome tx
-maybeRequestSnapshotAfterVersionBump parameters party nextSn mRequest version newVersion seenSnapshot =
+maybeRequestSnapshotAfterVersionBump ledger pendingDeposits headId snapshot parameters party nextSn mRequest version newVersion seenSnapshot =
   case mRequest of
-    Just SnapshotRequest{requestTxs, requestDepositTxId}
+    Just request@SnapshotRequest{requestTxs, requestDepositTxId}
       | isLeader parameters party nextSn && newVersion > version && not (isCollectingAcks seenSnapshot) ->
-          newState SnapshotRequestDecided{snapshotNumber = nextSn}
-            <> cause (NetworkEffect $ ReqSn newVersion nextSn (txId <$> requestTxs) Nothing requestDepositTxId)
+          withSnapshotRequestPolicy ledger headId nextSn newVersion snapshot pendingDeposits request{requestDecommitTx = Nothing} $
+            newState SnapshotRequestDecided{snapshotNumber = nextSn}
+              <> cause (NetworkEffect $ ReqSn newVersion nextSn (txId <$> requestTxs) Nothing requestDepositTxId)
     _ -> noop
 
 -- | Observe a increment transaction. If the outputs match the ones of the
@@ -1184,6 +1249,7 @@ maybeRequestSnapshotAfterVersionBump parameters party nextSn mRequest version ne
 onOpenChainIncrementTx ::
   IsTx tx =>
   Environment ->
+  Ledger tx ->
   PendingDeposits tx ->
   OpenState tx ->
   ChainStateType tx ->
@@ -1194,7 +1260,7 @@ onOpenChainIncrementTx ::
   SnapshotNumber ->
   MultiSignature (Snapshot tx) ->
   Outcome tx
-onOpenChainIncrementTx env pendingDeposits openState newChainState newVersion depositTxId observedSnapshotNumber observedSignatures =
+onOpenChainIncrementTx env ledger pendingDeposits openState newChainState newVersion depositTxId observedSnapshotNumber observedSignatures =
   newState CommitFinalized{chainState = newChainState, headId, newVersion, depositTxId}
     <> adoptObservedSnapshotOrRequestNext
  where
@@ -1209,9 +1275,9 @@ onOpenChainIncrementTx env pendingDeposits openState newChainState newVersion de
         , seenDepositTxId == Just depositTxId
         , Verified <- verifyMultiSignatureBytes vkeys observedSignatures signableBytes ->
             newState SnapshotConfirmed{headId, snapshot = Just snapshot, signatures = observedSignatures}
-              <> maybeRequestSnapshotAfterVersionBump parameters party (seenSnNumber + 1) (requestOn snapshot) version newVersion (LastSeenSnapshot seenSnNumber)
+              <> maybeRequestSnapshotAfterVersionBump ledger pendingDeposits headId snapshot parameters party (seenSnNumber + 1) (requestOn snapshot) version newVersion (LastSeenSnapshot seenSnNumber)
       _ ->
-        maybeRequestSnapshotAfterVersionBump parameters party nextSn (requestOn (getSnapshot confirmedSnapshot)) version newVersion seenSnapshot
+        maybeRequestSnapshotAfterVersionBump ledger pendingDeposits headId (getSnapshot confirmedSnapshot) parameters party nextSn (requestOn (getSnapshot confirmedSnapshot)) version newVersion seenSnapshot
 
   OpenState{headId, parameters, coordinatedHeadState} = openState
 
@@ -1221,7 +1287,7 @@ onOpenChainIncrementTx env pendingDeposits openState newChainState newVersion de
   -- one, if any), as followers check it. The deposit just settled, so it is
   -- excluded.
   requestOn snapshot =
-    chainedSnapshotRequest (settledUTxO newVersion snapshot) localTxs (Map.delete depositTxId pendingDeposits) Nothing decommitTx Nothing
+    chainedSnapshotRequest ledger (settledUTxO newVersion snapshot) localTxs (Map.delete depositTxId pendingDeposits) Nothing decommitTx Nothing
 
   HeadParameters{parties} = parameters
 
@@ -1244,6 +1310,7 @@ onOpenChainIncrementTx env pendingDeposits openState newChainState newVersion de
 onOpenChainDecrementTx ::
   IsTx tx =>
   Environment ->
+  Ledger tx ->
   PendingDeposits tx ->
   OpenState tx ->
   ChainStateType tx ->
@@ -1256,7 +1323,7 @@ onOpenChainDecrementTx ::
   -- | Multisignature carried by the decrement redeemer
   MultiSignature (Snapshot tx) ->
   Outcome tx
-onOpenChainDecrementTx env pendingDeposits openState newChainState newVersion distributedUTxO observedSnapshotNumber observedSignatures =
+onOpenChainDecrementTx env ledger pendingDeposits openState newChainState newVersion distributedUTxO observedSnapshotNumber observedSignatures =
   newState
     DecommitFinalized
       { chainState = newChainState
@@ -1276,9 +1343,9 @@ onOpenChainDecrementTx env pendingDeposits openState newChainState newVersion di
         , isJust seenDecommit
         , Verified <- verifyMultiSignatureBytes vkeys observedSignatures signableBytes ->
             newState SnapshotConfirmed{headId, snapshot = Just snapshot, signatures = observedSignatures}
-              <> maybeRequestSnapshotAfterVersionBump parameters party (seenSnNumber + 1) (requestOn snapshot) version newVersion (LastSeenSnapshot seenSnNumber)
+              <> maybeRequestSnapshotAfterVersionBump ledger pendingDeposits headId snapshot parameters party (seenSnNumber + 1) (requestOn snapshot) version newVersion (LastSeenSnapshot seenSnNumber)
       _ ->
-        maybeRequestSnapshotAfterVersionBump parameters party nextSn (requestOn (getSnapshot confirmedSnapshot)) version newVersion seenSnapshot
+        maybeRequestSnapshotAfterVersionBump ledger pendingDeposits headId (getSnapshot confirmedSnapshot) parameters party nextSn (requestOn (getSnapshot confirmedSnapshot)) version newVersion seenSnapshot
 
   OpenState{headId, parameters, coordinatedHeadState} = openState
 
@@ -1288,7 +1355,7 @@ onOpenChainDecrementTx env pendingDeposits openState newChainState newVersion di
   -- one, if any), as followers check it. No commit is settling next to a
   -- decommit.
   requestOn snapshot =
-    chainedSnapshotRequest (settledUTxO newVersion snapshot) localTxs pendingDeposits currentDepositTxId decommitTx Nothing
+    chainedSnapshotRequest ledger (settledUTxO newVersion snapshot) localTxs pendingDeposits currentDepositTxId decommitTx Nothing
 
   HeadParameters{parties} = parameters
 
@@ -2333,6 +2400,7 @@ data SnapshotRequest tx = SnapshotRequest
 -- with it are held back.
 nextSnapshotRequest ::
   IsTx tx =>
+  Ledger tx ->
   -- | The UTxO 'onOpenNetworkReqSn' applies the request's transactions to.
   UTxOType tx ->
   -- | Pending local transactions.
@@ -2344,8 +2412,8 @@ nextSnapshotRequest ::
   -- | The commit the confirmed snapshot is settling, see 'settlingCommitAt'
   Maybe (SettlingCommit tx) ->
   SnapshotRequest tx
-nextSnapshotRequest utxo localTxs pendingDeposits currentDepositTxId mDecommitTx mSettlingCommit =
-  fst (buildSnapshotRequest utxo localTxs pendingDeposits currentDepositTxId mDecommitTx mSettlingCommit)
+nextSnapshotRequest ledger utxo localTxs pendingDeposits currentDepositTxId mDecommitTx mSettlingCommit =
+  fst (buildSnapshotRequest ledger utxo localTxs pendingDeposits currentDepositTxId mDecommitTx mSettlingCommit)
 
 -- | 'nextSnapshotRequest', if worth sending right away: it carries a tx or a
 -- new deposit, or it prunes a pending tx no node accepts. A request carrying
@@ -2353,6 +2421,7 @@ nextSnapshotRequest utxo localTxs pendingDeposits currentDepositTxId mDecommitTx
 -- forever at the same version.
 chainedSnapshotRequest ::
   IsTx tx =>
+  Ledger tx ->
   UTxOType tx ->
   Seq tx ->
   PendingDeposits tx ->
@@ -2360,15 +2429,16 @@ chainedSnapshotRequest ::
   Maybe tx ->
   Maybe (SettlingCommit tx) ->
   Maybe (SnapshotRequest tx)
-chainedSnapshotRequest utxo localTxs pendingDeposits currentDepositTxId mDecommitTx mSettlingCommit =
+chainedSnapshotRequest ledger utxo localTxs pendingDeposits currentDepositTxId mDecommitTx mSettlingCommit =
   request <$ guard worthChaining
  where
-  (request, worthChaining) = buildSnapshotRequest utxo localTxs pendingDeposits currentDepositTxId mDecommitTx mSettlingCommit
+  (request, worthChaining) = buildSnapshotRequest ledger utxo localTxs pendingDeposits currentDepositTxId mDecommitTx mSettlingCommit
 
 -- | The request and whether it is worth chaining, see 'chainedSnapshotRequest'.
 buildSnapshotRequest ::
   forall tx.
   IsTx tx =>
+  Ledger tx ->
   UTxOType tx ->
   Seq tx ->
   PendingDeposits tx ->
@@ -2376,29 +2446,36 @@ buildSnapshotRequest ::
   Maybe tx ->
   Maybe (SettlingCommit tx) ->
   (SnapshotRequest tx, Bool)
-buildSnapshotRequest utxo localTxs pendingDeposits currentDepositTxId mDecommitTx mSettlingCommit =
+buildSnapshotRequest ledger utxo localTxs pendingDeposits currentDepositTxId mDecommitTx mSettlingCommit =
   case mSettlingCommit of
     Just (ContinueCommit (depositTxId, Deposit{deposited})) ->
-      let requestTxs = requestable (Just deposited) Nothing
+      let (requestTxs, _) = requestable (Just deposited) Nothing
        in (SnapshotRequest{requestTxs, requestDecommitTx = Nothing, requestDepositTxId = Just depositTxId}, hasPendingTransactions)
     Just DropCommit -> withoutDeposit
     Nothing ->
       case selectNextDeposit canAbsorb pendingDeposits currentDepositTxId mDecommitTx of
-        Just depositTxId -> (SnapshotRequest{requestTxs = requestable Nothing Nothing, requestDecommitTx = Nothing, requestDepositTxId = Just depositTxId}, True)
+        Just depositTxId -> (SnapshotRequest{requestTxs = ordinaryTxs, requestDecommitTx = Nothing, requestDepositTxId = Just depositTxId}, True)
         Nothing -> withoutDeposit
  where
   withoutDeposit :: (SnapshotRequest tx, Bool)
   withoutDeposit =
-    let requestTxs = requestable Nothing mDecommitTx
+    let (requestTxs, _) = requestable Nothing mDecommitTx
      in (SnapshotRequest{requestTxs, requestDecommitTx = mDecommitTx, requestDepositTxId = Nothing}, hasPendingTransactions)
 
   -- A new deposit must fit alongside the actual request. Defer it rather
-  -- than blocking ordinary transactions; a settling commit is always carried.
+  -- than blocking valid ordinary transactions. Policy checks include every
+  -- requested transaction result; a settling commit is always carried.
   canAbsorb deposited =
     absorbable utxo candidates deposited
       && isRight (checkSnapshotUTxOSize requestedUTxO (Just deposited) Nothing)
+      && ( ordinaryRequestInvalid
+            || isRight (checkUserTransactions ledger (utxo <> deposited, mempty) ordinaryTxs)
+         )
 
-  requestedUTxO = foldl' (flip applyTxTo) utxo (requestable Nothing Nothing)
+  -- If the transactions already violate policy, retain the final request
+  -- validation so it reports the rejection instead of silently deferring work.
+  ordinaryRequestInvalid = isLeft (checkUserTransactions ledger (utxo, mempty) ordinaryTxs)
+  (ordinaryTxs, requestedUTxO) = requestable Nothing Nothing
 
   -- With pending transactions, the selected request either carries a prefix
   -- or prunes its first blocked transaction in that request's commit/decommit
@@ -2409,7 +2486,7 @@ buildSnapshotRequest utxo localTxs pendingDeposits currentDepositTxId mDecommitT
   -- The pending txs up to the first one creating an output the ledger or the
   -- carried commit holds, or exceeding capacity. Check every prefix: a later
   -- merge might fall outside maxTxsPerSnapshot or arrive only after ReqSn.
-  requestable :: Maybe (UTxOType tx) -> Maybe tx -> [tx]
+  requestable :: Maybe (UTxOType tx) -> Maybe tx -> ([tx], UTxOType tx)
   requestable mCommit mDecommit = go activeUTxO candidates
    where
     held = utxo <> fold mCommit
@@ -2417,13 +2494,13 @@ buildSnapshotRequest utxo localTxs pendingDeposits currentDepositTxId mDecommitT
     activeUTxO = case mDecommit of
       Just tx -> applyTxTo tx utxo `withoutUTxO` utxoFromTx tx
       Nothing -> utxo
-    go _ [] = []
+    go u [] = ([], u)
     go u (tx : rest)
       | namesNoneOf (utxoFromTx tx) held
       , let next = applyTxTo tx u
       , isRight (checkSnapshotUTxOSize next mCommit mDecommitUTxO) =
-          tx : go next rest
-      | otherwise = []
+          first (tx :) $ go next rest
+      | otherwise = ([], u)
 
   -- The first 'maxTxsPerSnapshot' pending txs: a snapshot request lists at
   -- most that many.
@@ -2449,7 +2526,7 @@ checkSnapshotUTxOSize utxo mCommit mDecommit =
     | n > Accumulator.maxAccumulatorSize = Left AccumulatorTooLarge{utxoCount = n, maxAllowed = Accumulator.maxAccumulatorSize}
     | otherwise = Right ()
    where
-    n = length (outputsOfUTxO u)
+    n = utxoSize u
 
 -- | The deposit claimed by a retained finalized increment ('finalizedCommit'),
 -- if any. Such a deposit only resurfaces in 'pendingDeposits' when a rollback
@@ -2462,12 +2539,23 @@ finalizedDepositTxId finalizedCommit = do
   FinalizedSnapshot{snapshot} <- finalizedCommit
   (getSnapshot snapshot).depositTxId
 
--- | The deposits the handlers of an open head may act on: scoped to the head,
--- excluding the deposit claimed by the retained finalized increment (see
--- 'finalizedDepositTxId').
-scopedDeposits :: IsTx tx => OpenState tx -> PendingDeposits tx -> PendingDeposits tx
-scopedDeposits OpenState{headId, coordinatedHeadState} =
-  maybe id Map.delete (finalizedDepositTxId coordinatedHeadState.finalizedCommit) . depositsForHead headId
+checkUserDeposit :: Ledger tx -> TxIdType tx -> Either PolicyViolation ()
+checkUserDeposit ledger depositTxId =
+  for_ ledger.userValidation $ \validation -> validation.validateDeposit depositTxId
+
+checkDepositAdmission :: IsTx tx => Ledger tx -> TxIdType tx -> UTxOType tx -> Either PolicyViolation ()
+checkDepositAdmission ledger depositTxId deposited = do
+  checkUserDeposit ledger depositTxId
+  checkUserUTxO ledger (deposited, mempty)
+
+-- | Filter deposit IDs and their own outputs without scanning the Head UTxO.
+-- Combined limits are checked against the transactions selected for a request,
+-- which may free capacity. Finalized deposits are handled by re-posting their increment.
+scopedDeposits :: IsTx tx => Ledger tx -> OpenState tx -> PendingDeposits tx -> PendingDeposits tx
+scopedDeposits ledger OpenState{headId, coordinatedHeadState = chs} =
+  maybe id Map.delete (finalizedDepositTxId chs.finalizedCommit)
+    . Map.filterWithKey (\depositTxId deposit -> isRight (checkDepositAdmission ledger depositTxId deposit.deposited))
+    . depositsForHead headId
 
 -- | What the next request does with a commit the confirmed snapshot claims but
 -- whose increment has not landed. Leaders and followers decide it the same way.
@@ -2623,12 +2711,110 @@ update env ledger now nodeState ev
   | ClientInput clientInput <- ev
   , Left AccumulatorTooLarge{utxoCount, maxAllowed} <- validateClientInput clientInput =
       Error . SideLoadSnapshotFailed $ SideLoadUTxOSetTooLarge{utxoCount, maxAllowed}
+  | otherwise = case nodeState of
+      NodeCatchingUp{headState, chainPointTime} ->
+        updateCatchingUpHead env ledger now chainPointTime nodeState.pendingDeposits headState ev (syncedStatus nodeState)
+      NodeInSync{headState, chainPointTime} ->
+        updateInSyncHead env ledger now chainPointTime nodeState.pendingDeposits headState ev (syncedStatus nodeState)
+
+checkUserTransaction :: Ledger tx -> tx -> Either PolicyViolation ()
+checkUserTransaction ledger tx =
+  for_ ledger.userValidation $ \validation -> validation.validateTransaction tx
+
+-- | Check each transaction result, or the initial UTxO for an empty list.
+-- The pair separates active outputs and reserved deposits from outgoing outputs.
+checkUserTransactions :: Ledger tx -> (UTxOType tx, UTxOType tx) -> [tx] -> Either (Maybe tx, PolicyViolation) ()
+checkUserTransactions ledger (utxo, decommitted) txs =
+  for_ ledger.userValidation $ \validation -> do
+    let initial = preparePolicyContext validation utxo decommitted
+    case txs of
+      [] -> first (Nothing,) initial.policyResult
+      _ -> do
+        let check current tx = do
+              first (Just tx,) $ validation.validateTransaction tx
+              let resulting = current.applyPolicyTx tx
+              first (Just tx,) resulting.policyResult
+              pure resulting
+        void $ foldlM check initial txs
+
+checkLocalUserUTxO :: IsTx tx => Ledger tx -> CoordinatedHeadState tx -> tx -> Either PolicyViolation ()
+checkLocalUserUTxO ledger chs tx =
+  for_ ledger.userValidation $ \validation ->
+    let current = localPolicyContextFor validation $ localPolicyUTxO chs
+        candidate = current.applyPolicyTx tx
+     in candidate.policyResult
+
+checkUserUTxO :: Ledger tx -> (UTxOType tx, UTxOType tx) -> Either PolicyViolation ()
+checkUserUTxO ledger (utxo, decommitted) =
+  for_ ledger.userValidation $ \validation ->
+    (preparePolicyContext validation utxo decommitted).policyResult
+
+-- | Reserve incoming deposits, but exclude outgoing outputs from the count limit.
+-- Other UTxO policies still check the outgoing outputs until settlement.
+localPolicyUTxO :: IsTx tx => CoordinatedHeadState tx -> (UTxOType tx, UTxOType tx)
+localPolicyUTxO chs =
+  (active <> incoming, outgoing)
+ where
+  snapshot = case chs.seenSnapshot of
+    SeenSnapshot{snapshot = seen} -> seen
+    _ -> getSnapshot chs.confirmedSnapshot
+  incoming
+    | chs.version == snapshot.version = fold snapshot.utxoToCommit
+    | otherwise = mempty
+  -- A signed decommit takes precedence over a locally queued one.
+  (active, outgoing)
+    | chs.version == snapshot.version, Just withdrawn <- snapshot.utxoToDecommit = (chs.localUTxO, withdrawn)
+    | Just tx <- chs.decommitTx = (applyTxTo tx chs.localUTxO `withoutUTxO` utxoFromTx tx, utxoFromTx tx)
+    | otherwise = (chs.localUTxO, mempty)
+
+-- | Apply a decommit before admission without making its outputs spendable.
+decommitPolicyUTxO :: IsTx tx => CoordinatedHeadState tx -> tx -> (UTxOType tx, UTxOType tx)
+decommitPolicyUTxO chs tx =
+  (applyTxTo tx active `withoutUTxO` utxoFromTx tx, outgoing <> utxoFromTx tx)
+ where
+  (active, outgoing) = localPolicyUTxO chs
+
+-- | A new decommit spends its inputs first. Its outputs are checked separately.
+snapshotRequestUTxO :: IsTx tx => SnapshotVersion -> Snapshot tx -> Maybe tx -> (UTxOType tx, UTxOType tx)
+snapshotRequestUTxO version snapshot decommit =
+  case decommit of
+    Just tx
+      | version /= snapshot.version || isNothing snapshot.utxoToDecommit ->
+          (applyTxTo tx utxo `withoutUTxO` utxoFromTx tx, utxoFromTx tx)
+      | otherwise -> (utxo, fold snapshot.utxoToDecommit)
+    _ -> (utxo, mempty)
+ where
+  utxo = settledUTxO version snapshot
+
+requestedDepositUTxO :: IsTx tx => PendingDeposits tx -> Maybe (TxIdType tx) -> UTxOType tx
+requestedDepositUTxO deposits depositId = foldMap (.deposited) (depositId >>= (`Map.lookup` deposits))
+
+-- | Resolve and check the complete candidate before broadcasting it.
+withSnapshotRequestPolicy :: IsTx tx => Ledger tx -> HeadId -> SnapshotNumber -> SnapshotVersion -> Snapshot tx -> PendingDeposits tx -> SnapshotRequest tx -> Outcome tx -> Outcome tx
+withSnapshotRequestPolicy ledger headId sn version snapshot deposits SnapshotRequest{requestTxs, requestDecommitTx, requestDepositTxId} continue
+  | Just tx <- requestDecommitTx
+  , Left violation <- checkUserTransaction ledger tx =
+      rejectSnapshotPolicy headId sn requestDepositTxId (Just $ txId tx) violation
+  | Just depositId <- requestDepositTxId
+  , Left violation <- checkUserDeposit ledger depositId =
+      rejectSnapshotPolicy headId sn requestDepositTxId Nothing violation
   | otherwise =
-      case nodeState of
-        NodeCatchingUp{headState, chainPointTime} ->
-          updateCatchingUpHead env ledger now chainPointTime nodeState.pendingDeposits headState ev (syncedStatus nodeState)
-        NodeInSync{headState, chainPointTime} ->
-          updateInSyncHead env ledger now chainPointTime nodeState.pendingDeposits headState ev (syncedStatus nodeState)
+      withSnapshotPolicy ledger headId sn requestDepositTxId candidateUTxO requestTxs continue
+ where
+  candidateUTxO =
+    first (<> requestedDepositUTxO deposits requestDepositTxId) $
+      snapshotRequestUTxO version snapshot requestDecommitTx
+
+-- | Refuse to request or sign a snapshot that violates the policy.
+withSnapshotPolicy :: IsTx tx => Ledger tx -> HeadId -> SnapshotNumber -> Maybe (TxIdType tx) -> (UTxOType tx, UTxOType tx) -> [tx] -> Outcome tx -> Outcome tx
+withSnapshotPolicy ledger headId snapshotNumber depositTxId utxo txs continue =
+  case checkUserTransactions ledger utxo txs of
+    Left (tx, policyViolation) -> rejectSnapshotPolicy headId snapshotNumber depositTxId (txId <$> tx) policyViolation
+    Right () -> continue
+
+rejectSnapshotPolicy :: HeadId -> SnapshotNumber -> Maybe (TxIdType tx) -> Maybe (TxIdType tx) -> PolicyViolation -> Outcome tx
+rejectSnapshotPolicy headId snapshotNumber depositTxId transactionId policyViolation =
+  cause $ ClientEffect ServerOutput.SnapshotRequestRejectedByPolicy{headId, snapshotNumber, depositTxId, transactionId, policyViolation}
 
 updateCatchingUpHead ::
   IsChainState tx =>
@@ -2697,7 +2883,7 @@ handleChainInput ::
   Input tx ->
   SyncedStatus ->
   Outcome tx
-handleChainInput env _ledger now _chainPointTime pendingDeposits st ev syncStatus = case (st, ev) of
+handleChainInput env ledger now _chainPointTime pendingDeposits st ev syncStatus = case (st, ev) of
   (Idle _, ChainInput Observation{observedTx = OnInitTx{headId, headSeed, headParameters, participants}, newChainState}) ->
     onIdleChainInitTx env newChainState headId headSeed headParameters participants
   -- Open
@@ -2715,16 +2901,16 @@ handleChainInput env _ledger now _chainPointTime pendingDeposits st ev syncStatu
     newState TickObserved{chainPoint, chainTime}
       <> handleOutOfSync env now chainPoint chainTime syncStatus
       <> onChainTick env pendingDeposits chainTime
-      <> onOpenChainTick env chainTime (scopedDeposits openState pendingDeposits) openState
+      <> onOpenChainTick env ledger chainTime (scopedDeposits ledger openState pendingDeposits) openState
   (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnIncrementTx{headId, newVersion, depositTxId, snapshotNumber, signatures}, newChainState})
     | ourHeadId == headId ->
-        onOpenChainIncrementTx env (scopedDeposits openState pendingDeposits) openState newChainState newVersion depositTxId snapshotNumber signatures
+        onOpenChainIncrementTx env ledger (scopedDeposits ledger openState pendingDeposits) openState newChainState newVersion depositTxId snapshotNumber signatures
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
   (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDecrementTx{headId, newVersion, distributedUTxO, snapshotNumber, signatures}, newChainState})
     -- TODO: What happens if observed decrement tx get's rolled back?
     | ourHeadId == headId ->
-        onOpenChainDecrementTx env (scopedDeposits openState pendingDeposits) openState newChainState newVersion distributedUTxO snapshotNumber signatures
+        onOpenChainDecrementTx env ledger (scopedDeposits ledger openState pendingDeposits) openState newChainState newVersion distributedUTxO snapshotNumber signatures
     | otherwise ->
         Error NotOurHead{ourHeadId, otherHeadId = headId}
   -- Closed
@@ -2775,7 +2961,8 @@ handleChainInput env _ledger now _chainPointTime pendingDeposits st ev syncStatu
             -- now that the deposit is on chain again, see #2741.
             <> case finalizedCommit of
               Just FinalizedSnapshot{snapshot}
-                | finalizedDepositTxId finalizedCommit == Just depositTxId ->
+                | finalizedDepositTxId finalizedCommit == Just depositTxId
+                , isRight (checkDepositAdmission ledger depositTxId deposited) ->
                     cause
                       OnChainEffect
                         { postChainTx =
@@ -2796,7 +2983,7 @@ handleChainInput env _ledger now _chainPointTime pendingDeposits st ev syncStatu
     | otherwise ->
         Continue [] []
   -- Mirror the 'Closed' case while mid-fanout: a deposit observed during a
-  -- (partial) fanout must still be recorded so it remains recoverable via
+  -- (partial) fanout is recorded regardless of policy, so it remains recoverable via
   -- 'Recover'. Without this the input falls through to 'Error' and is dropped.
   (FanoutProgress PartialFanoutState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDepositTx{headId, depositTxId, deposited, created, deadline}, newChainState})
     | ourHeadId == headId ->
@@ -2896,16 +3083,16 @@ handleNetworkInput env ledger chainPointTime pendingDeposits st ev = case (st, e
     onConnectionEvent env.configuredPeers conn
   -- Open
   (Open openState, NetworkInput ttl (ReceivedMessage{msg = ReqTx tx})) ->
-    onOpenNetworkReqTx env ledger chainPointTime openState ttl (scopedDeposits openState pendingDeposits) tx
+    onOpenNetworkReqTx env ledger chainPointTime openState ttl (scopedDeposits ledger openState pendingDeposits) tx
   -- NOTE: 'ReqSn' gets the unfiltered (per-head) deposits: it distinguishes a
   -- requested deposit that is blocked by a finalized increment (hard error)
   -- from one that is simply not known locally (wait).
   (Open openState@OpenState{headId = ourHeadId}, NetworkInput ttl (ReceivedMessage{sender, msg = ReqSn sv sn txIds decommitTx depositTxId})) ->
     onOpenNetworkReqSn env ledger (depositsForHead ourHeadId pendingDeposits) chainPointTime openState ttl sender sv sn txIds decommitTx depositTxId
   (Open openState, NetworkInput _ (ReceivedMessage{sender, msg = AckSn snapshotSignature sn})) ->
-    onOpenNetworkAckSn env chainPointTime (scopedDeposits openState pendingDeposits) openState sender snapshotSignature sn
+    onOpenNetworkAckSn env ledger chainPointTime (scopedDeposits ledger openState pendingDeposits) openState sender snapshotSignature sn
   (Open openState, NetworkInput ttl (ReceivedMessage{msg = ReqDec{transaction}})) ->
-    onOpenNetworkReqDec env ledger ttl chainPointTime (scopedDeposits openState pendingDeposits) openState transaction
+    onOpenNetworkReqDec env ledger ttl chainPointTime (scopedDeposits ledger openState pendingDeposits) openState transaction
   _ ->
     Error $ UnhandledInput ev st
 
@@ -2948,8 +3135,8 @@ handleClientInput env ledger ChainPointTime{currentSlot} pendingDeposits st ev =
     onOpenClientClose openState
   (Open openState, ClientInput SafeClose) ->
     onOpenClientClose openState
-  (Open{}, ClientInput (NewTx tx)) ->
-    onOpenClientNewTx tx
+  (Open openState, ClientInput (NewTx tx)) ->
+    onOpenClientNewTx ledger openState tx
   (Open openState@OpenState{headId = ourHeadId}, ClientInput (SideLoadSnapshot confirmedSnapshot)) ->
     let Snapshot{headId = otherHeadId} = getSnapshot confirmedSnapshot
      in if ourHeadId == otherHeadId
@@ -2978,6 +3165,89 @@ handleClientInput env ledger ChainPointTime{currentSlot} pendingDeposits st ev =
 
 -- * NodeState aggregate
 
+-- | Runtime-only context for the current local policy view. It is rebuilt from
+-- recovered state on first use and is never part of an event or checkpoint.
+prepareLocalPolicyContext :: IsTx tx => Ledger tx -> NodeState tx -> Maybe (PolicyContext tx) -> Maybe (PolicyContext tx)
+prepareLocalPolicyContext ledger nodeState cached = do
+  validation <- ledger.userValidation
+  pure $ fromMaybe (uncurry (preparePolicyContext validation) view) cached
+ where
+  view = case headState nodeState of
+    Open OpenState{coordinatedHeadState} -> localPolicyUTxO coordinatedHeadState
+    _ -> (mempty, mempty)
+
+withLocalPolicyContext :: Ledger tx -> Maybe (PolicyContext tx) -> Ledger tx
+withLocalPolicyContext ledger context =
+  ledger{userValidation = attachContext <$> ledger.userValidation}
+ where
+  attachContext validation =
+    validation
+      { utxoValidation = validation.utxoValidation{localPolicyContext = context}
+      }
+
+-- | Advance source state and its derived context together. Ordinary accepted
+-- transactions update only affected outputs. Replacements and settlement
+-- transitions rebuild from the resulting state; unknown events also rebuild.
+aggregateStateWithPolicy :: IsChainState tx => Ledger tx -> NodeState tx -> Maybe (PolicyContext tx) -> Outcome tx -> (NodeState tx, Maybe (PolicyContext tx))
+aggregateStateWithPolicy _ initial Nothing outcome = (aggregateState initial outcome, Nothing)
+aggregateStateWithPolicy ledger initial context outcome =
+  foldl' apply (initial, context) $ case outcome of
+    Continue{stateChanges} -> stateChanges
+    Wait{stateChanges} -> stateChanges
+    Error{} -> []
+ where
+  apply (nodeState, cached) change
+    | Just sid <- headIdOf (headState nodeState)
+    , Just eid <- eventHeadId change
+    , sid /= eid =
+        (nodeState, cached)
+    | otherwise =
+        let next = aggregateNodeState nodeState change
+            nextContext
+              | TransactionAppliedToLocalUTxO{tx} <- change
+              , canAdvancePolicyContext nodeState =
+                  (\current -> current.applyPolicyTx tx) <$> cached
+              | unchangedPolicyView change = cached
+              | otherwise = prepareLocalPolicyContext ledger next Nothing
+         in (next, nextContext)
+
+  -- A local transaction advances the cached view directly only when no queued
+  -- decommit or reserved incoming deposit changes how its outputs are counted.
+  canAdvancePolicyContext :: IsTx tx => NodeState tx -> Bool
+  canAdvancePolicyContext nodeState = case headState nodeState of
+    Open OpenState{coordinatedHeadState = chs} ->
+      let snapshot = case chs.seenSnapshot of
+            SeenSnapshot{snapshot = seen} -> seen
+            _ -> getSnapshot chs.confirmedSnapshot
+       in isNothing chs.decommitTx
+            && (chs.version /= snapshot.version || isNothing snapshot.utxoToCommit)
+    _ -> False
+
+  unchangedPolicyView :: StateChanged tx -> Bool
+  unchangedPolicyView = \case
+    TransactionReceived{} -> True
+    PartySignedSnapshot{} -> True
+    DepositRecorded{} -> True
+    DepositActivated{} -> True
+    DepositExpired{} -> True
+    TickObserved{} -> True
+    ChainRolledBack{} -> True
+    NodeSynced{} -> True
+    NodeUnsynced{} -> True
+    HeadPolicyBound{} -> True
+    HeadIsReadyToFanout{} -> True
+    IgnoredHeadInitializing{} -> True
+    TxInvalid{} -> True
+    NetworkConnected -> True
+    NetworkDisconnected -> True
+    NetworkVersionMismatch{} -> True
+    NetworkClusterIDMismatch{} -> True
+    NetworkBroadcastStalled{} -> True
+    NetworkBroadcastResumed -> True
+    PeerConnected{} -> True
+    PeerDisconnected{} -> True
+    _ -> False
+
 -- | Reflect 'StateChanged' events onto the 'NodeState' aggregateNodeState.
 -- Events carrying a 'HeadId' that does not match the current state are silently
 -- ignored, preventing cross-head state contamination during event replay.
@@ -2994,7 +3264,11 @@ aggregateNodeState nodeState sc =
               nodeState
                 { headState = st
                 , chainPointTime = chainPointTimeState{currentSlot = chainStateSlot chainState}
+                , headPolicies = Nothing
                 }
+            HeadFannedOut{}
+              | Idle{} <- st ->
+                  nodeState{headState = st, headPolicies = Nothing}
             DepositRecorded{chainState, headId, depositTxId, deposited, created, deadline} ->
               recordDeposit (chainStateSlot chainState) depositTxId Deposit{headId, deposited, created, deadline, status = Inactive} $
                 nodeState{headState = st}
@@ -3077,14 +3351,21 @@ aggregateNodeState nodeState sc =
               rollbackDeposits (chainStateSlot chainState) $
                 nodeState{headState = st, chainPointTime = chainPointTimeState{currentSlot = chainStateSlot chainState}}
             NodeUnsynced{chainSlot, chainTime, drift} ->
-              NodeCatchingUp{headState = st, deposits = deposits nodeState, chainPointTime = ChainPointTime chainSlot chainTime drift}
+              NodeCatchingUp{headState = st, deposits = deposits nodeState, chainPointTime = ChainPointTime chainSlot chainTime drift, headPolicies = headPolicies nodeState}
             NodeSynced{chainSlot, chainTime, drift} ->
-              NodeInSync{headState = st, deposits = deposits nodeState, chainPointTime = ChainPointTime chainSlot chainTime drift}
+              NodeInSync{headState = st, deposits = deposits nodeState, chainPointTime = ChainPointTime chainSlot chainTime drift, headPolicies = headPolicies nodeState}
             -- Restore the full snapshot: a checkpoint carries the aggregated
             -- 'pendingDeposits' and 'chainPointTime' (and synced constructor),
             -- which the default arm below would otherwise drop on replay.
             Checkpoint checkpointedNodeState ->
-              checkpointedNodeState
+              case headState checkpointedNodeState of
+                -- Older checkpoints can retain the binding after fanout.
+                Idle{} -> checkpointedNodeState{headPolicies = Nothing}
+                _ -> checkpointedNodeState
+            HeadPolicyBound{headId, policyFingerprint} ->
+              nodeState
+                { headPolicies = Just (headId, policyFingerprint)
+                }
             _ ->
               nodeState{headState = st}
 
@@ -3158,6 +3439,7 @@ eventHeadId = \case
   Checkpoint{} -> Nothing
   NodeUnsynced{} -> Nothing
   NodeSynced{} -> Nothing
+  HeadPolicyBound{headId} -> Just headId
 
 -- | Extract the 'HeadId' from the current 'HeadState', if any.
 headIdOf :: HeadState tx -> Maybe HeadId
@@ -3558,6 +3840,7 @@ applyEvent st = \case
   Checkpoint nodeState -> headState nodeState
   NodeSynced{} -> st
   NodeUnsynced{} -> st
+  HeadPolicyBound{} -> st
 
 aggregateState ::
   IsChainState tx =>
@@ -3617,3 +3900,4 @@ aggregateChainStateHistory history = \case
   Checkpoint nodeState -> initHistory $ getChainState nodeState.headState
   NodeUnsynced{} -> history
   NodeSynced{} -> history
+  HeadPolicyBound{} -> history

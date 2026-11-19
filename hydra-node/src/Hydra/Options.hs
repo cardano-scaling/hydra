@@ -211,6 +211,7 @@ data RunOptions = RunOptions
   , ledgerConfig :: LedgerConfig
   , whichEtcd :: WhichEtcd
   , apiTransactionTimeout :: ApiTransactionTimeout
+  , policy :: Maybe FilePath
   }
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
@@ -244,6 +245,7 @@ defaultRunOptions =
     , ledgerConfig = defaultLedgerConfig
     , whichEtcd = EmbeddedEtcd
     , apiTransactionTimeout = 300
+    , policy = Nothing
     }
  where
   localhost = IPv4 $ toIPv4 [127, 0, 0, 1]
@@ -276,6 +278,7 @@ instance Semigroup RunOptions where
       , ledgerConfig = base.ledgerConfig <> cli.ledgerConfig
       , whichEtcd = o defaultRunOptions.whichEtcd base.whichEtcd cli.whichEtcd
       , apiTransactionTimeout = o defaultRunOptions.apiTransactionTimeout base.apiTransactionTimeout cli.apiTransactionTimeout
+      , policy = o defaultRunOptions.policy base.policy cli.policy
       }
    where
     o :: Eq a => a -> a -> a -> a
@@ -410,6 +413,18 @@ runOptionsParser =
       -- parser.  The value is stripped from argv before this parser runs (see
       -- Main.hs), so this is purely for documentation purposes.
       <* optional configFileParser
+    <*> policyFileParser
+
+policyFileParser :: Parser (Maybe FilePath)
+policyFileParser =
+  option
+    (optional str)
+    ( long "policy"
+        <> metavar "FILE"
+        <> value Nothing
+        <> showDefault
+        <> help "User policy file for extra validation of L2 transactions and deposits."
+    )
 
 configFileParser :: Parser FilePath
 configFileParser =
@@ -1120,6 +1135,7 @@ toArgs
     , ledgerConfig
     , whichEtcd
     , apiTransactionTimeout
+    , policy
     } =
     isVerbose verbosity
       <> ["--node-id", unpack nId]
@@ -1139,6 +1155,7 @@ toArgs
       <> argsChainConfig chainConfig
       <> argsLedgerConfig
       <> ["--api-transaction-timeout", show apiTransactionTimeout]
+      <> maybe [] (\file -> ["--policy", file]) policy
    where
     (NodeId nId) = nodeId
 

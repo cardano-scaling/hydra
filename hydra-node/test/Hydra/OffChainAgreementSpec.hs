@@ -144,6 +144,7 @@ aliceEnv =
     , unsyncedPeriod = defaultUnsyncedPeriod
     , participants = deriveOnChainId <$> threeParties
     , configuredPeers = ""
+    , configuredPolicy = Nothing
     }
 
 -- 'update' ignores the wall clock on the NetworkInput path; any fixed time works.

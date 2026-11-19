@@ -101,13 +101,15 @@ class
   -- | Get only the outputs in given UTxO.
   outputsOfUTxO :: UTxOType tx -> [TxOutType tx]
 
+  -- | Number of outputs, using the underlying collection's cached size.
+  utxoSize :: UTxOType tx -> Int
+
   -- | Return the left-hand side without the right-hand side.
   withoutUTxO :: UTxOType tx -> UTxOType tx -> UTxOType tx
 
-  -- | Apply a transaction to a UTxO via pure UTxO arithmetic, returning the
-  -- post-tx UTxO. Removes the tx's inputs from the given UTxO and adds the
-  -- tx's outputs. Performs no ledger validation; the caller must ensure the
-  -- tx is valid against the given UTxO.
+  -- | Remove the transaction's inputs from the UTxO and add its outputs.
+  -- This does not check whether the transaction is valid. Use the result for
+  -- policy checks, but validate the transaction before updating ledger state.
   applyTxTo :: tx -> UTxOType tx -> UTxOType tx
 
   -- | Filter a UTxO set keeping only entries whose output value is in the given set.
@@ -221,6 +223,8 @@ instance IsTx Tx where
   utxoFromTx = Api.utxoFromTx
 
   outputsOfUTxO = UTxO.txOutputs
+
+  utxoSize = Map.size . UTxO.unUTxO
 
   withoutUTxO = UTxO.difference
 

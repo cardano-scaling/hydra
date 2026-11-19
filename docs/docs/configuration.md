@@ -591,3 +591,42 @@ export RAYON_NUM_THREADS=2
 
 This trades some per-snapshot signing latency on large UTxO sets for less
 scheduler interference; with small UTxO sets the effect is negligible.
+
+### Head policy
+
+Without a policy file, the node starts normally and does not exchange policy announcements or check other nodes' policies. With a policy file, the node polls for agreement with all configured parties every five seconds while continuing to process chain, client, and network inputs. There is no agreement timeout. It logs `PolicyAgreementPending` with missing acknowledgements or mismatched policies, and `PolicyAgreementReached` when every party agrees. These logs appear initially and when the agreement status changes, rather than on every poll. After agreement, polling slows to once per minute, while acknowledgements continue so peers that start or restart later can check agreement. Detecting a restarted peer or a policy mismatch can therefore take up to a minute. If a poll finds missing acknowledgements or mismatched policies, polling returns to every five seconds until agreement is restored. A party without a policy file does not participate in this agreement. Even an empty policy file (`head-policy: {}`) enables the agreement check.
+
+When a Head opens with a policy, the node persists its fingerprint together with the Head ID. Restarting a bound Head requires a policy with the same fingerprint. An unbound Head can restart with or without a policy; supplying one on restart does not create a binding. Older persisted state without policy information is loaded as unbound, so the node cannot enforce a policy requirement from that history.
+
+Introducing a stricter policy when restarting an unbound Head can leave previously accepted transactions queued but unable to enter a snapshot, stalling snapshot progress until manual recovery, such as restarting with the previous configuration or side-loading a confirmed snapshot; closing and fanout remain available.
+
+The binding remains in place while the Head is closed or partially fanned out. Completing fanout clears it, so the idle node can restart with any policy or without one and recover pending deposits. When loading older checkpoints, the node also clears stale bindings from idle Heads.
+
+Use `--policy policy.yaml` to configure additional admission rules. Every participant must use the same policy. For example:
+
+```yaml
+head-policy:
+  allowed-assets: []
+  l2-minting: forbidden
+  max-utxo-count: 100
+  max-output-value-assets: 0
+  max-datum-bytes: 256
+  allowed-script-addresses: []
+  deposits: []
+```
+
+Omitted fields impose no restriction. An empty `allowed-assets` list permits only ADA. Otherwise, it lists allowed policy IDs; all asset names under those policies are allowed. `l2-minting: forbidden` rejects both minting and burning in ordinary L2 transactions and decommit transactions. `deposits` accepts a list of allowed deposit transaction IDs. An empty list rejects all deposits. Setting `deposits: null` or omitting the field allows all deposit IDs; other configured policy checks still apply.
+
+`max-utxo-count` limits spendable outputs and reserves room for the incoming deposit claimed by a snapshot. Outgoing decommit outputs do not count: splitting a withdrawn input into several outputs does not consume room for transactions inside the Head. `max-output-value-assets` limits the number of **distinct non-ADA assets across the complete Head UTxO**, not the number in each output. An asset is identified by its policy ID and asset name. Holding the same asset in several outputs counts once.
+
+The complete UTxO includes active outputs, the deposit claimed by the snapshot, and decommit outputs still owed. These settlement outputs remain subject to the asset, datum, and script-address rules but cannot be spent by ordinary transactions. Only incoming settlement outputs count toward `max-utxo-count`. Other pending deposits do not count until selected. After settlement, outputs count only where they remain in the active ledger.
+
+Asset allowlists, datum-size limits, and script-address rules apply to every output in this set. `max-datum-bytes` bounds serialized inline or supplemental datum bytes per output. A datum hash has no datum bytes to check. `allowed-script-addresses` restricts script payment addresses; it does not restrict key payment addresses.
+
+Policy checks maintain an in-memory summary of the current UTxO: asset occurrence counts and any datum or script-address violations. A one-off check, such as deposit admission, builds a context for the outputs being checked and reads its policy result. Repeated checks reuse a context: updating its summary removes the old contributions of changed outputs and adds their new contributions, reusing those of unchanged outputs. Snapshot validation and pruning build a context for their starting UTxO and update it for each candidate. Rejected candidates leave the previous context unchanged. The node advances its cached context directly for local transactions when no queued decommit or reserved incoming deposit changes the policy view. Events that leave the view unchanged retain the cache; other events rebuild it from the resulting state. The context is also rebuilt after restart. This derived state is not persisted and does not replace ledger validation. Without a configured policy, these contexts are not constructed.
+
+The node checks transaction rules before admitting an ordinary transaction or decommit. Before broadcasting or recording a decommit, it also checks the resulting UTxO policy with withdrawal outputs excluded from the count; rejection leaves the spendable inputs and pending-decommit state unchanged. Ordinary transaction admission also checks the resulting complete UTxO. Definitive transaction-rule failures are rejected immediately; failures that depend on the current UTxO may be retried. Every ordinary transaction in a snapshot must leave a valid complete UTxO, and the decommit transaction must also pass its transaction rules before signing. It also checks snapshots with no ordinary transactions. Deposits observed for the current Head are always recorded and persisted for recovery, even when their ID or outputs violate the policy. Policy checks determine whether a deposit can enter a snapshot; they do not prevent recovery. A deposit that fits on its own but exceeds the combined limits stays pending; the leader skips it until it fits. When choosing a new deposit, the leader includes the queued transactions selected for the next snapshot and checks the policy after each one, so an optional deposit does not block an otherwise valid transaction request. Followers check the combined limits before signing.
+
+When a snapshot is accepted, the node rebases its pending transactions on that snapshot's UTxO. It rechecks the resulting UTxO policy after each retained transaction. A transaction that no longer fits is removed from local proposals, and clients receive `TxPrunedByPolicy` with `prunedTransactionId`, `snapshotNumber`, and `policyViolation`. A prior `TxValid` does not guarantee confirmation: clients should wait for `SnapshotConfirmed` before treating a transaction as final. Pruning continues with the unchanged UTxO after a rejection, so later independent transactions can still proceed. The node retains the transaction data to resolve future snapshot requests; the notification does not mean the transaction is invalid in every possible snapshot context.
+
+A policy failure suppresses the whole outgoing snapshot request or the follower's signature. Clients receive `SnapshotRequestRejectedByPolicy` with the snapshot number, violation, and transaction or deposit ID when available. Closing and fanout remain available. The hard accumulator capacity still includes outgoing decommit outputs and is independent of `max-utxo-count`. These configurable bounds do not by themselves guarantee that every permitted output can be spent or that every fanout fits all L1 transaction limits.

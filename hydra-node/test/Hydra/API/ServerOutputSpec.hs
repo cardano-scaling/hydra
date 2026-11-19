@@ -4,12 +4,14 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Control.Lens (toListOf, (^.))
-import Data.Aeson (Value)
+import Data.Aeson (Value, eitherDecode, encode, object, (.=))
 import Data.Aeson.Lens (key, values, _Array)
 import Hydra.API.ServerOutput (ClientMessage, Greetings (..), ServerOutput, TimedServerOutput)
 import Hydra.Chain.Direct.State ()
 import Hydra.JSONSchema (prop_specIsComplete, prop_validateJSONSchema)
+import Hydra.Ledger (ValidationError (..))
 import Hydra.Ledger.Cardano (Tx)
+import Hydra.UserValidationRules (PolicyViolation (..))
 import Hydra.Utils (readJsonFileThrow)
 import Test.Aeson.GenericSpecs (
   Settings (..),
@@ -23,6 +25,18 @@ import Test.QuickCheck (conjoin, withMaxSuccess)
 
 spec :: Spec
 spec = parallel $ do
+  it "preserves legacy ledger-error JSON" $ do
+    let legacy = object ["reason" .= ("ledger failure" :: Text)]
+    encode (ValidationError "ledger failure") `shouldBe` encode legacy
+    eitherDecode (encode legacy) `shouldBe` Right (ValidationError "ledger failure")
+
+  it "roundtrips structured policy errors" $ do
+    let violation = MaxUTxOCountExceeded 2 1
+        err = PolicyValidationError violation
+        expected = object ["tag" .= ("PolicyValidationError" :: Text), "policyViolation" .= violation]
+    encode err `shouldBe` encode expected
+    eitherDecode (encode err) `shouldBe` Right err
+
   roundtripAndGoldenADTSpecsWithSettings defaultSettings{sampleSize = 1} $ Proxy @(MinimumSized (ServerOutput Tx))
   roundtripAndGoldenADTSpecsWithSettings defaultSettings{sampleSize = 1} $ Proxy @(MinimumSized (Greetings Tx))
 

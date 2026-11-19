@@ -242,7 +242,7 @@ roundtripPParams pparams = do
 applyTransactionsEquivalence :: Property
 applyTransactionsEquivalence =
   forAllBlind genSequenceOfSimplePaymentTransactions $ \(utxo, txs) ->
-    let ledger = cardanoLedger defaultGlobals defaultLedgerEnv
+    let ledger = cardanoLedger Nothing defaultGlobals defaultLedgerEnv
         slot = ChainSlot 0
         viaLedger = applyTransactions ledger slot utxo txs
         viaApplyTxTo = foldl' (flip applyTxTo) utxo txs
@@ -261,7 +261,7 @@ rejectsReusedOutputName =
       conjoin
         [ -- An entry already sitting under the name of the first output of 'tx'.
         let occupied = utxo <> UTxO.singleton (TxIn (getTxId (getTxBody tx)) (TxIx 0)) occupant
-         in case applyTransactions (cardanoLedger defaultGlobals defaultLedgerEnv) (ChainSlot 0) occupied [tx] of
+         in case applyTransactions (cardanoLedger Nothing defaultGlobals defaultLedgerEnv) (ChainSlot 0) occupied [tx] of
               Left (rejected, _) -> rejected === tx
               Right _ ->
                 property False
@@ -276,10 +276,13 @@ rejectsUnwitnessedTransaction :: Property
 rejectsUnwitnessedTransaction =
   forAllBlind (genFixedSizeSequenceOfSimplePaymentTransactions 1) $ \(utxo, txs) ->
     let unwitnessed = [makeSignedTransaction [] (getTxBody tx) | tx <- txs]
-     in case applyTransactions (cardanoLedger defaultGlobals defaultLedgerEnv) (ChainSlot 0) utxo unwitnessed of
+     in case applyTransactions (cardanoLedger Nothing defaultGlobals defaultLedgerEnv) (ChainSlot 0) utxo unwitnessed of
           Left (_, ValidationError{reason}) ->
             property ("MissingVKeyWitnessesUTXOW" `isInfixOf` reason)
               & counterexample ("rejected for another reason: " <> unpack reason)
+          Left (_, PolicyValidationError violation) ->
+            property False
+              & counterexample ("unexpected policy rejection: " <> show violation)
           Right _ ->
             property False
               & counterexample "an unwitnessed transaction was accepted"
@@ -287,7 +290,7 @@ rejectsUnwitnessedTransaction =
 appliesValidTransaction :: Property
 appliesValidTransaction =
   forAllBlind genSequenceOfSimplePaymentTransactions $ \(utxo, txs) ->
-    let result = applyTransactions (cardanoLedger defaultGlobals defaultLedgerEnv) (ChainSlot 0) utxo txs
+    let result = applyTransactions (cardanoLedger Nothing defaultGlobals defaultLedgerEnv) (ChainSlot 0) utxo txs
      in case result of
           Right _ -> property True
           Left (tx, err) ->
@@ -301,7 +304,7 @@ appliesValidTransactionFromJSON :: Property
 appliesValidTransactionFromJSON =
   forAllBlind genSequenceOfSimplePaymentTransactions $ \(utxo, txs) ->
     let encoded = encode txs
-        result = eitherDecode encoded >>= first show . applyTransactions (cardanoLedger defaultGlobals defaultLedgerEnv) (ChainSlot 0) utxo
+        result = eitherDecode encoded >>= first show . applyTransactions (cardanoLedger Nothing defaultGlobals defaultLedgerEnv) (ChainSlot 0) utxo
      in isRight result
           & counterexample ("Result: " <> show result)
           & counterexample ("All txs: " <> unpack (decodeUtf8With lenientDecode $ prettyPrintJSON txs))
@@ -387,7 +390,7 @@ prop_applyTransactionsThunkFree =
     -- Force the input first: with an empty transaction list the input is
     -- returned unchanged, so the guarantee is compositional, like for
     -- adjustUTxO.
-    case applyTransactions (cardanoLedger defaultGlobals defaultLedgerEnv) (ChainSlot 0) (forceUTxO utxo) txs of
+    case applyTransactions (cardanoLedger Nothing defaultGlobals defaultLedgerEnv) (ChainSlot 0) (forceUTxO utxo) txs of
       Left (_tx, err) -> property False & counterexample ("tx did not apply: " <> show err)
       Right utxo' -> utxoIsThunkFree utxo'
 

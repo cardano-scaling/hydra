@@ -11,12 +11,13 @@ import CardanoClient (
   waitForUTxO,
  )
 import CardanoNode (EndToEndLog (..), runBackend, withBackend, withCardanoNodeDevnet, withHydraScriptsAndBackendRunning)
+import Control.Concurrent.Class.MonadSTM (check)
 import Control.Lens ((^..), (^?))
-import Control.Tracer.JSON (Tracer, showLogsOnFailure)
+import Control.Tracer.JSON (Envelope (message), Tracer, showLogsOnFailure, traceInTVar)
 import Data.Aeson (Result (..), Value (Null, String), fromJSON, object, (.=))
 import Data.Aeson qualified as Aeson
 import Data.Aeson.Lens (AsJSON (_JSON), key, values, _JSON)
-import Data.Aeson.Types (parseMaybe)
+import Data.Aeson.Types (parseEither, parseMaybe)
 import Data.ByteString qualified as BS
 import Data.List qualified as List
 import Data.Map.Strict qualified as Map
@@ -87,9 +88,12 @@ import Hydra.Cluster.SecurityScenarios (
  )
 import Hydra.Cluster.Util (chainConfigFor, depositTimeout, keysFor, mkTestTiming, modifyConfig, onChainObservationBudget)
 import Hydra.Ledger.Cardano (mkSimpleTx)
+import Hydra.Network.Policy (PolicyFingerprint, PolicyLog (..), policyFingerprint)
+import Hydra.Node.Network qualified as Network
 import Hydra.Options
 import Hydra.Tx.IsTx (txId)
-import HydraNode (allocateHydraNodePortsFor, getSnapshotUTxO, input, output, prepareHydraNode, requestCommitTx, send, waitFor, waitForAllMatch, waitForNodesConnected, waitForNodesSynced, waitMatch, withHydraCluster, withHydraNode, withPreparedHydraNode, withSoloHydraNode, withUnsyncedSoloHydraNode)
+import Hydra.UserValidationRules (parsePolicyFile)
+import HydraNode (HydraClient, allocateHydraNodePortsFor, getSnapshotUTxO, input, output, prepareHydraNode, requestCommitTx, send, waitFor, waitForAllMatch, waitForNodesConnected, waitForNodesSynced, waitForSnapshotUTxO, waitMatch, withHydraCluster, withHydraNode, withHydraNodes, withPreparedHydraNode, withPreparedHydraNodeWithLogs, withSoloHydraNode, withUnsyncedSoloHydraNode)
 import System.Directory (doesDirectoryExist, listDirectory, removeDirectoryRecursive)
 import System.FilePath ((</>))
 import Test.Hydra.Cluster.Utils (chainPointToSlot)
@@ -220,20 +224,157 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
         let blockTime = 5
         nodePorts <- allocateHydraNodePortsFor [1, 2]
         -- Start two hydra-nodes in offline mode and submit a transaction from alice to bob
-        withHydraNode tr blockTime offlineConfig tmpDir 1 aliceSk [bobVk] nodePorts $ \aliceNode -> do
-          withHydraNode tr blockTime offlineConfig tmpDir 2 bobSk [aliceVk] nodePorts $ \bobNode -> do
-            waitForNodesConnected tr 20 $ aliceNode :| [bobNode]
-            let Just (aliceSeedTxIn, aliceSeedTxOut) = UTxO.find (isVkTxOut aliceCardanoVk) initialUTxO
-            let Right aliceToBob =
-                  mkSimpleTx
-                    (aliceSeedTxIn, aliceSeedTxOut)
-                    (mkVkAddress testNetworkId bobCardanoVk, txOutValue aliceSeedTxOut)
-                    aliceCardanoSk
-            send aliceNode $ input "NewTx" ["transaction" .= aliceToBob]
-            waitMatch 10 bobNode $ \v -> do
-              guard $ v ^? key "tag" == Just "SnapshotConfirmed"
+        withHydraNodes
+          [ withHydraNode tr blockTime offlineConfig tmpDir 1 aliceSk [bobVk] nodePorts
+          , withHydraNode tr blockTime offlineConfig tmpDir 2 bobSk [aliceVk] nodePorts
+          ]
+          $ \case
+            [aliceNode, bobNode] -> do
+              waitForNodesConnected tr 20 $ aliceNode :| [bobNode]
+              waitForSnapshotUTxO 20 aliceNode initialUTxO
+              let Just (aliceSeedTxIn, aliceSeedTxOut) = UTxO.find (isVkTxOut aliceCardanoVk) initialUTxO
+              let Right aliceToBob =
+                    mkSimpleTx
+                      (aliceSeedTxIn, aliceSeedTxOut)
+                      (mkVkAddress testNetworkId bobCardanoVk, txOutValue aliceSeedTxOut)
+                      aliceCardanoSk
+              send aliceNode $ input "NewTx" ["transaction" .= aliceToBob]
+              waitMatch 10 bobNode $ \v -> do
+                guard $ v ^? key "tag" == Just "SnapshotConfirmed"
+                guard $ v ^? key "snapshot" . key "confirmed" == Just (toJSON [aliceToBob])
+            _ -> failure "expected two connected nodes"
+
+    it "policy monitoring keeps processing transactions regardless of agreement" $ \tracer ->
+      forM_ [False, True] $ \matching ->
+        withClusterTempDir $ \tmpDir -> do
+          (aliceCardanoVk, aliceCardanoSk) <- keysFor Alice
+          (bobCardanoVk, bobCardanoSk) <- keysFor Bob
+          initialUTxO <- generate $ genOneUTxOFor aliceCardanoVk
+          Aeson.encodeFile (tmpDir </> "utxo.json") initialUTxO
+          let offlineConfig =
+                Offline
+                  OfflineChainConfig
+                    { offlineHeadSeed = "policy-monitoring"
+                    , initialUTxOFile = tmpDir </> "utxo.json"
+                    , ledgerGenesisFile = Nothing
+                    }
+              tr = contramap FromHydraNode tracer
+              confirmOnBoth :: [HydraClient] -> HydraClient -> Tx -> IO ()
+              confirmOnBoth nodes sender tx = do
+                send sender $ input "NewTx" ["transaction" .= tx]
+                waitForAllMatch 20 nodes $ \value -> do
+                  guard $ value ^? key "tag" == Just "SnapshotConfirmed"
+                  guard $ value ^? key "snapshot" . key "confirmed" == Just (toJSON [tx])
+          (alicePolicyFile, alicePolicy) <- writeHeadPolicy (tmpDir </> "alice-policy.json") 10
+          (bobPolicyFile, bobPolicy) <- writeHeadPolicy (tmpDir </> "bob-policy.json") (if matching then 10 else 20)
+          nodePorts <- allocateHydraNodePortsFor [1, 2]
+          aliceOptions <- prepareHydraNode offlineConfig tmpDir 1 aliceSk [bobVk] nodePorts id
+          bobOptions <- prepareHydraNode offlineConfig tmpDir 2 bobSk [aliceVk] nodePorts id
+          aliceLogs <- newLabelledTVarIO "alice-logs" []
+          bobLogs <- newLabelledTVarIO "bob-logs" []
+          withHydraNodes
+            [ withPreparedHydraNodeWithLogs (traceInTVar aliceLogs "Alice") tr tmpDir 1 aliceOptions{policy = Just alicePolicyFile}
+            , withPreparedHydraNodeWithLogs (traceInTVar bobLogs "Bob") tr tmpDir 2 bobOptions{policy = Just bobPolicyFile}
+            ]
+            $ \case
+              nodes@[aliceNode, bobNode] -> do
+                waitForNodesConnected tr 20 $ aliceNode :| [bobNode]
+                let expectedAlice =
+                      Network.PolicyAgreement $
+                        if matching then PolicyAgreementReached alicePolicy else PolicyAgreementPending alicePolicy [] [(bob, bobPolicy)]
+                    expectedBob =
+                      Network.PolicyAgreement $
+                        if matching then PolicyAgreementReached bobPolicy else PolicyAgreementPending bobPolicy [] [(alice, alicePolicy)]
+                failAfter 30 $ atomically $ do
+                  aliceEntries <- readTVar aliceLogs
+                  bobEntries <- readTVar bobLogs
+                  check $ any (\entry -> message entry ^? key "network" == Just (toJSON expectedAlice)) aliceEntries
+                  check $ any (\entry -> message entry ^? key "network" == Just (toJSON expectedBob)) bobEntries
+                forM_ nodes $ \node -> waitForSnapshotUTxO 20 node initialUTxO
+                -- Both policies permit these transfers even when their fingerprints differ.
+                let Just (seedTxIn, seedTxOut) = UTxO.find (isVkTxOut aliceCardanoVk) initialUTxO
+                    Right aliceToBob =
+                      mkSimpleTx
+                        (seedTxIn, seedTxOut)
+                        (mkVkAddress testNetworkId bobCardanoVk, txOutValue seedTxOut)
+                        aliceCardanoSk
+                confirmOnBoth nodes aliceNode aliceToBob
+                let bobTxOut = toCtxUTxOTxOut $ List.head (txOuts' aliceToBob)
+                    Right bobToAlice =
+                      mkSimpleTx
+                        (mkTxIn aliceToBob 0, bobTxOut)
+                        (mkVkAddress testNetworkId aliceCardanoVk, txOutValue bobTxOut)
+                        bobCardanoSk
+                confirmOnBoth nodes bobNode bobToAlice
+              _ -> failure "expected two policy-configured nodes"
 
   describe "Cardano devnet" $ do
+    it "policy monitoring keeps processing the chain through fanout regardless of agreement" $ \tracer ->
+      forM_ [False, True] $ \matching ->
+        failAfter 180 $
+          withClusterTempDir $ \tmpDir ->
+            withCardanoNodeDevnet (contramap FromCardanoNode tracer) tmpDir $ \blockTime directOpts -> do
+              let opts = Direct directOpts
+                  timing = mkTestTiming blockTime
+                  hydraTracer = contramap FromHydraNode tracer
+                  observationBudget = max 20 $ onChainObservationBudget blockTime
+              hydraScriptsTxId <- publishHydraScriptsAs opts Faucet
+              refuelIfNeeded tracer opts Alice 100_000_000
+              refuelIfNeeded tracer opts Bob 100_000_000
+              aliceChainConfig <- chainConfigFor Alice tmpDir opts hydraScriptsTxId [Bob] timing
+              bobChainConfig <- chainConfigFor Bob tmpDir opts hydraScriptsTxId [Alice] timing
+              (alicePolicyFile, alicePolicy) <- writeHeadPolicy (tmpDir </> "alice-policy.json") 10
+              (bobPolicyFile, bobPolicy) <- writeHeadPolicy (tmpDir </> "bob-policy.json") (if matching then 10 else 20)
+              nodePorts <- allocateHydraNodePortsFor [1, 2]
+              aliceOptions <- prepareHydraNode aliceChainConfig tmpDir 1 aliceSk [bobVk] nodePorts id
+              bobOptions <- prepareHydraNode bobChainConfig tmpDir 2 bobSk [aliceVk] nodePorts id
+              aliceLogs <- newLabelledTVarIO "alice-logs" []
+              bobLogs <- newLabelledTVarIO "bob-logs" []
+              withHydraNodes
+                [ withPreparedHydraNodeWithLogs (traceInTVar aliceLogs "Alice") hydraTracer tmpDir 1 aliceOptions{policy = Just alicePolicyFile}
+                , withPreparedHydraNodeWithLogs (traceInTVar bobLogs "Bob") hydraTracer tmpDir 2 bobOptions{policy = Just bobPolicyFile}
+                ]
+                $ \case
+                  nodes@[aliceNode, bobNode] -> do
+                    waitForNodesConnected hydraTracer 20 $ aliceNode :| [bobNode]
+                    void $ waitForNodesSynced observationBudget nodes
+                    let expectedAlice =
+                          Network.PolicyAgreement $
+                            if matching then PolicyAgreementReached alicePolicy else PolicyAgreementPending alicePolicy [] [(bob, bobPolicy)]
+                        expectedBob =
+                          Network.PolicyAgreement $
+                            if matching then PolicyAgreementReached bobPolicy else PolicyAgreementPending bobPolicy [] [(alice, alicePolicy)]
+                    failAfter 30 $ atomically $ do
+                      aliceEntries <- readTVar aliceLogs
+                      bobEntries <- readTVar bobLogs
+                      check $ any (\entry -> message entry ^? key "network" == Just (toJSON expectedAlice)) aliceEntries
+                      check $ any (\entry -> message entry ^? key "network" == Just (toJSON expectedBob)) bobEntries
+                    send aliceNode $ input "Init" []
+                    headId <- waitForAllMatch observationBudget nodes $ headIsOpenWith (Set.fromList [alice, bob])
+
+                    (walletVk, walletSk) <- generate genKeyPair
+                    deposited <- seedFromFaucet opts walletVk (lovelaceToValue 10_000_000) (contramap FromFaucet tracer)
+                    depositTx <- requestCommitTx aliceNode deposited <&> signTx walletSk
+                    runBackend opts $ submitTransaction depositTx
+                    waitFor hydraTracer (depositTimeout timing) nodes $
+                      output "CommitFinalized" ["headId" .= headId, "depositTxId" .= txId depositTx]
+                    forM_ nodes $ \node -> waitForSnapshotUTxO observationBudget node deposited
+                    runBackend opts (queryUTxOByTxIn $ fst <$> UTxO.toList deposited) `shouldReturn` mempty
+
+                    send bobNode $ input "Close" []
+                    deadline <- waitForAllMatch observationBudget nodes $ \value -> do
+                      guard $ value ^? key "tag" == Just "HeadIsClosed"
+                      guard $ value ^? key "headId" == Just (toJSON headId)
+                      guard $ value ^? key "snapshotNumber" == Just (toJSON (1 :: Int))
+                      value ^? key "contestationDeadline" . _JSON
+                    remainingTime <- diffUTCTime deadline <$> getCurrentTime
+                    waitFor hydraTracer (max 0 remainingTime + observationBudget) nodes $
+                      output "ReadyToFanout" ["headId" .= headId]
+                    send aliceNode $ input "Fanout" []
+                    waitForAllMatch observationBudget nodes $ headIsFinalizedWith headId deposited
+                    failAfter observationBudget $ waitForUTxO opts deposited
+                  _ -> failure "expected two policy-configured nodes"
+
     describe "single party hydra head" $ do
       it "full head life-cycle" $ \tracer ->
         withClusterTempDir $ \tmpDir ->
@@ -534,6 +675,13 @@ spec = around (showLogsOnFailure "EndToEndSpec") $ do
             logfile <- readFileBS logFilePath
             BS.length logfile `shouldSatisfy` (> 0)
             logfile `shouldSatisfy` BS.isInfixOf "NodeOptions"
+
+writeHeadPolicy :: FilePath -> Int -> IO (FilePath, PolicyFingerprint)
+writeHeadPolicy path limit = do
+  let value = object ["head-policy" .= object ["max-utxo-count" .= limit]]
+  Aeson.encodeFile path value
+  rules <- either failure pure $ parseEither parsePolicyFile value
+  pure (path, policyFingerprint rules)
 
 timedTx :: FilePath -> Tracer IO EndToEndLog -> ChainBackendOptions -> [TxId] -> IO ()
 timedTx tmpDir tracer opts hydraScriptsTxId = do

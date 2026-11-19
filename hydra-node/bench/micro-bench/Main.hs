@@ -191,4 +191,4 @@ benchApplyTxs :: (UTxO, Tx) -> Either (Tx, ValidationError) UTxO
 benchApplyTxs (utxo, tx) = applyTransactions defaultLedger (ChainSlot 1) utxo [tx]
 
 defaultLedger :: Ledger Tx
-defaultLedger = cardanoLedger defaultGlobals defaultLedgerEnv
+defaultLedger = cardanoLedger Nothing defaultGlobals defaultLedgerEnv

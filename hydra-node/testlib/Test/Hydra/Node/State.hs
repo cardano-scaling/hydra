@@ -8,6 +8,7 @@ import Test.Hydra.Prelude
 import Hydra.Chain.ChainState (IsChainState (..))
 import Hydra.Node.State (ChainPointTime, Deposit, DepositStatus, NodeState, SyncedStatus, TrackedDeposit)
 import Test.Hydra.HeadLogic.State ()
+import Test.Hydra.Network.Policy ()
 import Test.Hydra.Tx.Gen (ArbitraryIsTx)
 import Test.QuickCheck (recursivelyShrink)
 

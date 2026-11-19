@@ -7,6 +7,7 @@ module Test.Hydra.API.HTTPServer where
 import Hydra.API.HTTPServer (DraftCommitTxRequest (..), DraftCommitTxResponse (..), OperationTimedOut (..), SideLoadSnapshotRequest (..), SubmitL2TxRequest (..), SubmitL2TxResponse, SubmitTxRequest (..), TransactionSubmitted)
 import Hydra.Prelude
 import Hydra.Tx (IsTx (..), UTxOType)
+import Test.Hydra.Ledger ()
 import Test.Hydra.Prelude
 import Test.Hydra.Tx.Gen ()
 

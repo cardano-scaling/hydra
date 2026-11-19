@@ -44,14 +44,19 @@ import Data.Set qualified as Set
 import Hydra.Chain.ChainState (ChainSlot (..))
 import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Tx (IsTx (..))
+import Hydra.UserValidation.IncrementalValidation (cardanoUserValidation)
+import Hydra.UserValidationRules (UserValidation, UserValidationRules)
 
 -- * Ledger
 
 -- | Use the cardano-ledger as an in-hydra 'Ledger'.
-cardanoLedger :: Ledger.Globals -> Ledger.LedgerEnv LedgerEra -> Ledger Tx
-cardanoLedger globals ledgerEnv =
-  Ledger{applyTransactions}
+cardanoLedger :: Maybe UserValidationRules -> Ledger.Globals -> Ledger.LedgerEnv LedgerEra -> Ledger Tx
+cardanoLedger userRules globals ledgerEnv =
+  Ledger{applyTransactions, userValidation}
  where
+  userValidation :: Maybe (UserValidation Tx)
+  userValidation = cardanoUserValidation <$> userRules
+
   -- NOTE(SN): See full note on 'applyTx' why we only have a single transaction
   -- application here.
   applyTransactions slot = go

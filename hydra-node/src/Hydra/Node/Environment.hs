@@ -2,8 +2,10 @@ module Hydra.Node.Environment where
 
 import Hydra.Prelude hiding (show)
 
-import Data.Aeson (object, withObject, (.:), (.=))
+import Cardano.Binary (Decoder)
+import Data.Aeson (object, withObject, (.:), (.:?), (.=))
 import Data.Secret (Secret)
+import Hydra.Network.Policy (PolicyFingerprint)
 import Hydra.Node.UnsyncedPeriod (UnsyncedPeriod)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
 import Hydra.Tx.Crypto (HydraKey, SigningKey, generateSigningKey)
@@ -32,6 +34,7 @@ data Environment = Environment
   -- Beyond this period the node will refuse to process new transactions and signing snapshots.
   , configuredPeers :: Text
   -- ^ Configured peers for the network layer, used for comparison on etcd errors.
+  , configuredPolicy :: Maybe PolicyFingerprint
   }
   deriving stock (Generic, Eq)
 
@@ -39,7 +42,7 @@ data Environment = Environment
 -- 'signingKey' field, which is a 'TypeError'. The hand-rolled instance
 -- below simply omits it.
 instance Show Environment where
-  show Environment{party, otherParties, participants, contestationPeriod, depositPeriod, depositActivation, unsyncedPeriod, configuredPeers} =
+  show Environment{party, otherParties, participants, contestationPeriod, depositPeriod, depositActivation, unsyncedPeriod, configuredPeers, configuredPolicy} =
     "Environment {party = "
       <> show party
       <> ", signingKey = <Secret>, otherParties = "
@@ -56,13 +59,15 @@ instance Show Environment where
       <> show unsyncedPeriod
       <> ", configuredPeers = "
       <> show configuredPeers
+      <> ", configuredPolicy = "
+      <> show configuredPolicy
       <> "}"
 
 -- | 'ToJSON' deliberately omits 'signingKey' from the serialised output:
 -- the WebSocket API sends 'Environment' to clients as part of 'Greetings',
 -- and the signing key must never appear on the wire.
 instance ToJSON Environment where
-  toJSON Environment{party, otherParties, participants, contestationPeriod, depositPeriod, depositActivation, unsyncedPeriod, configuredPeers} =
+  toJSON Environment{party, otherParties, participants, contestationPeriod, depositPeriod, depositActivation, unsyncedPeriod, configuredPeers, configuredPolicy} =
     object
       [ "party" .= party
       , "otherParties" .= otherParties
@@ -72,6 +77,7 @@ instance ToJSON Environment where
       , "depositActivation" .= depositActivation
       , "unsyncedPeriod" .= unsyncedPeriod
       , "configuredPeers" .= configuredPeers
+      , "configuredPolicy" .= configuredPolicy
       ]
 
 -- | 'FromJSON' is provided only so that types embedding 'Environment'
@@ -92,13 +98,15 @@ instance FromJSON Environment where
       <*> o .: "depositActivation"
       <*> o .: "unsyncedPeriod"
       <*> o .: "configuredPeers"
+      <*> o .:? "configuredPolicy"
 
 -- | Like the JSON instance above, 'ToCBOR' deliberately omits 'signingKey'
 -- (CBOR-encoding a 'Secret' is a compile-time error by design). This is why
--- the codec stays hand-written; the leading tag matches the generic format.
+-- the codec stays hand-written. The versioned tag distinguishes layouts
+-- with and without 'configuredPolicy'.
 instance ToCBOR Environment where
-  toCBOR Environment{party, otherParties, participants, contestationPeriod, depositPeriod, depositActivation, unsyncedPeriod, configuredPeers} =
-    toCBOR ("Environment" :: Text)
+  toCBOR Environment{party, otherParties, participants, contestationPeriod, depositPeriod, depositActivation, unsyncedPeriod, configuredPeers, configuredPolicy} =
+    toCBOR ("Environment2" :: Text)
       <> toCBOR party
       <> toCBOR otherParties
       <> toCBOR participants
@@ -107,34 +115,41 @@ instance ToCBOR Environment where
       <> toCBOR depositActivation
       <> toCBOR unsyncedPeriod
       <> toCBOR configuredPeers
+      <> toCBOR configuredPolicy
 
 -- | Like the JSON instance above, the decoded signing key is
 -- 'placeholderSigningKey', NOT the real key.
 instance FromCBOR Environment where
   fromCBOR =
     fromCBOR >>= \case
-      ("Environment" :: Text) -> do
-        party <- fromCBOR
-        otherParties <- fromCBOR
-        participants <- fromCBOR
-        contestationPeriod <- fromCBOR
-        depositPeriod <- fromCBOR
-        depositActivation <- fromCBOR
-        unsyncedPeriod <- fromCBOR
-        configuredPeers <- fromCBOR
-        pure
-          Environment
-            { party
-            , signingKey = placeholderSigningKey
-            , otherParties
-            , participants
-            , contestationPeriod
-            , depositPeriod
-            , depositActivation
-            , unsyncedPeriod
-            , configuredPeers
-            }
+      ("Environment" :: Text) -> decode (pure Nothing)
+      "Environment2" -> decode fromCBOR
       tag -> fail $ show tag <> " is not a proper CBOR-encoded Environment"
+   where
+    decode :: Decoder s (Maybe PolicyFingerprint) -> Decoder s Environment
+    decode decodePolicy = do
+      party <- fromCBOR
+      otherParties <- fromCBOR
+      participants <- fromCBOR
+      contestationPeriod <- fromCBOR
+      depositPeriod <- fromCBOR
+      depositActivation <- fromCBOR
+      unsyncedPeriod <- fromCBOR
+      configuredPeers <- fromCBOR
+      configuredPolicy <- decodePolicy
+      pure
+        Environment
+          { party
+          , signingKey = placeholderSigningKey
+          , otherParties
+          , participants
+          , contestationPeriod
+          , depositPeriod
+          , depositActivation
+          , unsyncedPeriod
+          , configuredPeers
+          , configuredPolicy
+          }
 
 -- | Sentinel signing key used when an 'Environment' has to be
 -- reconstructed without access to the real one (e.g. JSON roundtrip

@@ -38,7 +38,6 @@ import Hydra.HeadLogic (
   TTL,
   aggregateChainStateHistory,
   aggregateNodeState,
-  aggregateState,
  )
 import Hydra.HeadLogic qualified as HeadLogic
 import Hydra.HeadLogic.Outcome (StateChanged (..), WaitReason (..))
@@ -49,6 +48,7 @@ import Hydra.Network (Host (..), Network (..), NetworkCallback (..))
 import Hydra.Network qualified as Network
 import Hydra.Network.Authenticate (Authenticated (..))
 import Hydra.Network.Message (Message (..), NetworkEvent (..))
+import Hydra.Network.Policy (PolicyFingerprint)
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.InputQueue (InputQueue (..), Queued (..), createInputQueue)
 import Hydra.Node.Outbox (Outbox (..), StallBounds (..), newOutbox)
@@ -58,14 +58,15 @@ import Hydra.Node.Stats (NodeStats, nodeStats)
 import Hydra.Node.UnsyncedPeriod (UnsyncedPeriod (..))
 import Hydra.Node.Util (readFileTextEnvelopeThrow, readSigningKey, readVerificationKey)
 import Hydra.Options (CardanoChainConfig (..), ChainConfig (..), RunOptions (..), defaultContestationPeriod, defaultDepositActivation, defaultDepositPeriod)
-import Hydra.Tx (HeadParameters (..), Party (..), deriveParty)
+import Hydra.Tx (HeadId, HeadParameters (..), Party (..), deriveParty)
 import Hydra.Tx.Utils (verificationKeyToOnChainId)
+import Hydra.UserValidationRules (PolicyContext)
 
 -- * Environment Handling
 
 -- | Initialize the 'Environment' from command line options.
-initEnvironment :: RunOptions -> IO Environment
-initEnvironment options = do
+initEnvironment :: RunOptions -> Maybe PolicyFingerprint -> IO Environment
+initEnvironment options policy = do
   -- Wrap the raw key as soon as it leaves disk: every in-process holder
   -- after this point sees only a 'Secret'.
   sk <- mkSecret <$> readFileTextEnvelopeThrow hydraSigningKey
@@ -82,6 +83,7 @@ initEnvironment options = do
       , depositActivation
       , unsyncedPeriod
       , configuredPeers
+      , configuredPolicy = policy
       }
  where
   -- XXX: This is mostly a cardano-specific initialization step of loading
@@ -166,6 +168,38 @@ checkHeadState tracer env headState = do
 
   Environment{contestationPeriod = configuredCp, depositPeriod = configuredDp, otherParties, party} = env
 
+-- * User Policy handling
+
+--
+data PolicyBindingException
+  = PolicyHeadMismatch HeadId (Maybe HeadId)
+  | HeadPolicyMismatch
+      HeadId
+      PolicyFingerprint
+      (Maybe PolicyFingerprint)
+  deriving stock (Show)
+
+instance Exception PolicyBindingException
+
+checkHeadPolicy :: MonadThrow m => Environment -> NodeState tx -> m ()
+checkHeadPolicy env nodeState =
+  case headPolicies nodeState of
+    Nothing ->
+      pure ()
+    Just (boundHeadId, expectedPolicy) -> do
+      let recoveredHeadId = HeadLogic.headIdOf (headState nodeState)
+
+      unless (recoveredHeadId == Just boundHeadId) $
+        throwIO $
+          PolicyHeadMismatch boundHeadId recoveredHeadId
+
+      unless (configuredPolicy env == Just expectedPolicy) $
+        throwIO $
+          HeadPolicyMismatch
+            boundHeadId
+            expectedPolicy
+            (configuredPolicy env)
+
 -- * Create and run a hydra node
 
 -- | A draft version of the 'HydraNode' that holds state, but is not yet
@@ -214,6 +248,7 @@ hydrate tracer env ledger initialChainState EventStore{eventSource, eventSink} e
   -- Check whether the loaded state matches our configuration (env)
   -- XXX: re-stream events just for this?
   checkHeadState tracer env (headState nodeState)
+  checkHeadPolicy env nodeState
   -- (Re-)submit events to sinks; de-duplication is handled by the sinks
   unless (null eventSinks) $ do
     traceWith tracer ReplayingState
@@ -611,9 +646,11 @@ processNextInput ::
   UTCTime ->
   STM m (Outcome tx)
 processNextInput HydraNode{nodeStateHandler, ledger, env} e now =
-  modifyNodeState $ \s ->
-    let outcome = HeadLogic.update env ledger now s e
-     in (outcome, aggregateState s outcome)
+  modifyNodeState $ \s cached ->
+    let context = HeadLogic.prepareLocalPolicyContext ledger s cached
+        outcome = HeadLogic.update env (HeadLogic.withLocalPolicyContext ledger context) now s e
+        (next, nextContext) = HeadLogic.aggregateStateWithPolicy ledger s context outcome
+     in (outcome, next, nextContext)
  where
   NodeStateHandler{modifyNodeState} = nodeStateHandler
 
@@ -688,7 +725,7 @@ processEffects node tracer inputId effects = do
 
 -- | Handle to access and modify the state in the Hydra Node.
 data NodeStateHandler tx m = NodeStateHandler
-  { modifyNodeState :: forall a. (NodeState tx -> (a, NodeState tx)) -> STM m a
+  { modifyNodeState :: forall a. (NodeState tx -> Maybe (PolicyContext tx) -> (a, NodeState tx, Maybe (PolicyContext tx))) -> STM m a
   , queryNodeState :: STM m (NodeState tx)
   , getNextEventId :: STM m EventId
   }
@@ -702,11 +739,13 @@ createNodeStateHandler ::
   m (NodeStateHandler tx m)
 createNodeStateHandler lastSeenEventId initialState = do
   nextEventIdV <- newLabelledTVarIO "next-event-id" $ maybe 0 (+ 1) lastSeenEventId
-  ns <- newLabelledTVarIO "node-state" initialState
+  ns <- newLabelledTVarIO "node-state" (initialState, Nothing)
   pure
     NodeStateHandler
-      { modifyNodeState = stateTVar ns
-      , queryNodeState = readTVar ns
+      { modifyNodeState = \f -> stateTVar ns $ \(nodeState, context) ->
+          let (result, next, nextContext) = f nodeState context
+           in (result, (next, nextContext))
+      , queryNodeState = fst <$> readTVar ns
       , getNextEventId = do
           eventId <- readTVar nextEventIdV
           writeTVar nextEventIdV $ eventId + 1

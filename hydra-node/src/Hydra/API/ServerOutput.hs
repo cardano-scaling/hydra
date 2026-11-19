@@ -33,6 +33,7 @@ import Hydra.Tx.IsTx (IsTx (..))
 import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Snapshot (Snapshot (..))
 import Hydra.Tx.Snapshot qualified as HeadState
+import Hydra.UserValidationRules (PolicyViolation)
 
 -- | The type of messages sent to clients by the 'Hydra.API.Server'.
 --
@@ -109,6 +110,23 @@ data ClientMessage tx
     -- client.
     RejectedInputBecauseBroadcastStalled {clientInput :: ClientInput tx, pendingBroadcasts :: Natural, stallReason :: StallReason}
   | SideLoadSnapshotRejected {clientInput :: ClientInput tx, requirementFailure :: SideLoadRequirementFailure tx}
+  | -- | The node refuses to broadcast or sign a snapshot that violates its policy.
+    SnapshotRequestRejectedByPolicy
+      { headId :: HeadId
+      , snapshotNumber :: SnapshotNumber
+      , transactionId :: Maybe (TxIdType tx)
+      , depositTxId :: Maybe (TxIdType tx)
+      , policyViolation :: PolicyViolation
+      }
+  | -- | A pending transaction no longer satisfies the resulting UTxO policy
+    -- after rebasing on this snapshot. It is removed from local proposals but
+    -- remains available to resolve future snapshot requests.
+    TxPrunedByPolicy
+      { headId :: HeadId
+      , snapshotNumber :: SnapshotNumber
+      , prunedTransactionId :: TxIdType tx
+      , policyViolation :: PolicyViolation
+      }
   deriving stock (Eq, Show, Generic)
 
 instance IsChainState tx => ToJSON (ClientMessage tx) where
@@ -140,6 +158,8 @@ decodeClientMessageBody = \case
   "RejectedInputBecauseUnsynced" -> RejectedInputBecauseUnsynced <$> fromCBOR <*> fromCBOR
   "RejectedInputBecauseBroadcastStalled" -> RejectedInputBecauseBroadcastStalled <$> fromCBOR <*> fromCBOR <*> fromCBOR
   "SideLoadSnapshotRejected" -> SideLoadSnapshotRejected <$> fromCBOR <*> fromCBOR
+  "SnapshotRequestRejectedByPolicy" -> SnapshotRequestRejectedByPolicy <$> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR
+  "TxPrunedByPolicy" -> TxPrunedByPolicy <$> fromCBOR <*> fromCBOR <*> fromCBOR <*> fromCBOR
   tag -> fail $ show tag <> " is not a proper CBOR-encoded ClientMessage"
 
 -- | A friendly welcome message which tells a client something about the

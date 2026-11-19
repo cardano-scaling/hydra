@@ -3,34 +3,151 @@
         {
             "checkpoint": {
                 "chainPointTime": {
-                    "currentChainTime": "1864-05-09T00:08:20.77689024025Z",
-                    "currentSlot": 1,
-                    "drift": 1
+                    "currentChainTime": "1864-05-08T22:31:32.119984012373Z",
+                    "currentSlot": 0,
+                    "drift": -1
                 },
                 "deposits": {},
+                "headPolicies": [
+                    "01000001000101010101010100010000",
+                    "cbb6f682a21c2a6e78bf68460e31da0adbb90faea2e7cd140e52914e39f468af"
+                ],
                 "headState": {
                     "contents": {
                         "chainState": {
                             "recordedAt": null,
                             "spendableUTxO": {
-                                "0000010100000001000001000100000101010000000001000000010001000001#56": {
-                                    "address": "addr_test1xzd8xs2rzvjl3md7w56tz0a3ehq2qalkse07vt6sz5wnerzx34vlmdyqgcxgutcqqa7uy554l9qeyu5s0gfhxkumaxvqggdu63",
+                                "0000010100000101010001010101000000000100000100000101010001000001#68": {
+                                    "address": "addr_test1yqhf7kvpnaq5flyfjjnd9uda6th6vgmdvqrqzra0qsmua079epuf3lp8x4l5kr4f95cl2d9zx2hk34e3pweayy6sdgvqyxgdmt",
                                     "datum": null,
-                                    "datumhash": "b94393279376e39d741e7cf10da132702925d9bc2b7d954313b518d205cf0b50",
+                                    "datumhash": null,
                                     "inlineDatum": null,
                                     "inlineDatumRaw": null,
                                     "referenceScript": null,
                                     "value": {
-                                        "153d16ee26311ad5dffc3fe3210630488856a7c428a8ca317ab5e734": {
-                                            "1255973cd479b20f2689f3cf98": 8076105316789957079
-                                        },
-                                        "lovelace": 1357650
+                                        "lovelace": 45000000000000000
                                     }
                                 }
                             }
-                        }
+                        },
+                        "confirmedSnapshot": {
+                            "signatures": {
+                                "multiSignature": [
+                                    "5de70b6e3cf3ced02343144b14f5cbe642d4485229693b7db4c27655977c23da7c1c61de9e34eecd668cf46b5cfd95b4f1d9fcea260f826c2e8575779fa1b10c"
+                                ]
+                            },
+                            "snapshot": {
+                                "accumulator": "b260aa8b912c4f1270531cfa15ae93efdb8f4178295307711e0bed6f11af2f55",
+                                "appliedAccumulator": "e95f67405f8d0c790752b3f9d7f0bd0029b1827deb33b35933f117d804215d95",
+                                "confirmed": [],
+                                "depositTxId": null,
+                                "headId": "01010100010001010101010001000000",
+                                "number": 1,
+                                "utxo": {
+                                    "0101010101010100010001010101010000000100000000000001010100010100#20": {
+                                        "address": "addr_test1qzycj43ay0cyz7kzf0y6tfcjy3d30skfg2hvmxh7vfnz467lsec4rcfmz8cjrgp63h2j59nnsntpmcl6zdyegv55dw6sx4ut67",
+                                        "datum": null,
+                                        "datumhash": "e6142ce7ac12707258389299931e77d883a854630f6da2d250ea3b917243cd08",
+                                        "inlineDatum": null,
+                                        "inlineDatumRaw": null,
+                                        "referenceScript": null,
+                                        "value": {
+                                            "967321de07a519119454505f10acc9790cfa9d0f10fbcfc6e07773c4": {
+                                                "1c9437a9": 1
+                                            },
+                                            "lovelace": 1284380
+                                        }
+                                    }
+                                },
+                                "utxoToCommit": null,
+                                "utxoToDecommit": {
+                                    "0001000101000101000100000000010100000001000001010100000101010101#98": {
+                                        "address": "addr_test1zz8ctt3lrgkvj052ns3z03ecanqyw9g30slqpxrcnd9qf4yullgnycgfjqdy3fspmusr7qewmwevfa35nfz0sed6eraq7aj2an",
+                                        "datum": null,
+                                        "datumhash": null,
+                                        "inlineDatum": null,
+                                        "inlineDatumRaw": null,
+                                        "referenceScript": null,
+                                        "value": {
+                                            "467f58932b54910584a0e8ea25a225e06a14530b2e96e938c53a3f22": {
+                                                "31": 5143129938166217052
+                                            },
+                                            "lovelace": 1159390
+                                        }
+                                    }
+                                },
+                                "version": 0
+                            },
+                            "tag": "ConfirmedSnapshot"
+                        },
+                        "contestationDeadline": "1864-05-10T07:18:54.174424365115Z",
+                        "headId": "01010000010101000101010101010101",
+                        "headSeed": "00000100010100000000010101000101",
+                        "parameters": {
+                            "contestationPeriod": 86400,
+                            "depositPeriod": 70794,
+                            "parties": []
+                        },
+                        "readyToFanoutSent": false,
+                        "unconfirmedSnapshot": {
+                            "accumulator": "96645156bfd88bf5fcd2178b4bebeac6538fe5de72280b969162835c5824a998",
+                            "appliedAccumulator": "befc3b67928b5930a121778a469bbc59401fc1ca13735c315d239d02816c8e49",
+                            "confirmed": [],
+                            "depositTxId": "0001000100010001000000000000010101010001010101000000010001000001",
+                            "headId": "01010000010101000100000100000100",
+                            "number": 1,
+                            "utxo": {
+                                "0100010100010101010001010101010001010101000100000001010000010001#60": {
+                                    "address": "addr_test1zrsqwqp0ntumr4y68mpfh06nsgmz8a4rvk7pr8pwkm2au2fyx9nsnwtv8kjnzjjkjyalfyfwq6wakkz7f7gk4csuhg6qz3pxll",
+                                    "datum": null,
+                                    "datumhash": "75c0d728b6cffd8f3f3854950a4093612d2fb50764963007c1c5ac4a592994eb",
+                                    "inlineDatum": null,
+                                    "inlineDatumRaw": null,
+                                    "referenceScript": null,
+                                    "value": {
+                                        "c0ad228faff713d5cf5d5a072a022fd586604bb47d7c897b03b4c31f": {
+                                            "37": 1
+                                        },
+                                        "lovelace": 1271450
+                                    }
+                                }
+                            },
+                            "utxoToCommit": {
+                                "0001010101000001010001000000000100000100010101010001010101010001#78": {
+                                    "address": "addr_test1vztj34vpc7yrsh6fw83ta4jg3hazpjpged66rg8e8kh56xq97a6j7",
+                                    "datum": null,
+                                    "datumhash": null,
+                                    "inlineDatum": null,
+                                    "inlineDatumRaw": null,
+                                    "referenceScript": null,
+                                    "value": {
+                                        "lovelace": 849070
+                                    }
+                                }
+                            },
+                            "utxoToDecommit": {
+                                "0100010101010101010001000001010100010100000101000101000001000101#26": {
+                                    "address": "addr_test1qpulhe4tg3jxgwk42dxmap46hrd5ec4d9gzk3fuuu2vswurcak9fefyl9wcpm5383ysr4ew0g7jl77v5xs62vpg34k0qpwhntv",
+                                    "datum": null,
+                                    "inlineDatum": {
+                                        "int": -5
+                                    },
+                                    "inlineDatumRaw": "24",
+                                    "inlineDatumhash": "f63498b4ae65be466e4a71878971b9c524458996450b0ff8262cddf3f0d99229",
+                                    "referenceScript": null,
+                                    "value": {
+                                        "b0c53e2bf180858da4b64eb5598c5615bba7d723d2b604a83b7f9165": {
+                                            "ff": 1
+                                        },
+                                        "lovelace": 1163700
+                                    }
+                                }
+                            },
+                            "version": 1
+                        },
+                        "version": 1
                     },
-                    "tag": "Idle"
+                    "tag": "Closed"
                 },
                 "tag": "NodeInSync"
             },

@@ -5,6 +5,7 @@
             "currentSlot": 0,
             "env": {
                 "configuredPeers": "`",
+                "configuredPolicy": null,
                 "contestationPeriod": 31536000,
                 "depositActivation": 82132,
                 "depositPeriod": 21417,
