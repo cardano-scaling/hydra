@@ -14,6 +14,7 @@ import Control.Concurrent qualified as Concurrent
 import Control.Concurrent.Class.MonadSTM (putTMVar, takeTMVar)
 import Control.Exception qualified as Exception
 import Control.Monad.Class.MonadAsync (ExceptionInLinkedThread (..), cancel, waitCatch)
+import Control.Retry (limitRetries, retrying)
 import Control.Tracer (emit)
 import Control.Tracer.JSON (Tracer (..), nullTracer, traceWith)
 import GHC.Conc (BlockReason (BlockedOnException), ThreadStatus (..), threadStatus)
@@ -252,8 +253,8 @@ spec = do
 
   it "reports an occupied monitoring port before starting the action" $
     failAfter 3 $
-      bracket Warp.openFreePort (Socket.close . snd) $ \(p, _) ->
-        withMonitoring (Just $ fromIntegral p) nullTracer (\(_ :: Tracer IO (HydraLog SimpleTx)) -> failure "monitoring unexpectedly started")
+      withOccupiedMonitoringPort $ \p ->
+        withMonitoring (Just p) nullTracer (\(_ :: Tracer IO (HydraLog SimpleTx)) -> failure "monitoring unexpectedly started")
           `shouldThrow` \(ExceptionInLinkedThread _ exception) ->
             maybe False isAlreadyInUseError (Exception.fromException exception)
 
@@ -363,6 +364,29 @@ withTestMonitoring :: (Int -> Tracer IO (HydraLog SimpleTx) -> IO a) -> IO a
 withTestMonitoring action =
   bracket Warp.openFreePort (Socket.close . snd) $ \(p, socket) ->
     withMonitoringOnSocket "unknown" socket nullTracer (action p)
+
+-- | Occupy both wildcard addresses: Warp can fall back from IPv4 to IPv6,
+-- and a loopback listener does not exclude a wildcard listener on macOS.
+withOccupiedMonitoringPort :: (Socket.PortNumber -> IO a) -> IO a
+withOccupiedMonitoringPort action =
+  bracket acquire release $ \(ipv4, _) -> Socket.socketPort ipv4 >>= action
+ where
+  -- Port 0 is allocated for one family at a time. Retry only acquisition if
+  -- that port is already occupied in the other family.
+  acquire = do
+    result <- retrying (limitRetries 3) (const $ pure . either isAlreadyInUseError (const False)) (const $ try reserve)
+    either throwIO pure result
+  reserve =
+    bracketOnError (Socket.socket Socket.AF_INET Socket.Stream Socket.defaultProtocol) Socket.close $ \ipv4 -> do
+      Socket.bind ipv4 (Socket.SockAddrInet 0 0)
+      Socket.listen ipv4 1
+      p <- Socket.socketPort ipv4
+      bracketOnError (Socket.socket Socket.AF_INET6 Socket.Stream Socket.defaultProtocol) Socket.close $ \ipv6 -> do
+        Socket.setSocketOption ipv6 Socket.IPv6Only 1
+        Socket.bind ipv6 (Socket.SockAddrInet6 p 0 (0, 0, 0, 0) 0)
+        Socket.listen ipv6 1
+        pure (ipv4, ipv6)
+  release (ipv4, ipv6) = Socket.close ipv6 `finally` Socket.close ipv4
 
 -- | The metrics 'withMonitoring' always registers.
 protocolMetrics :: [Text]
