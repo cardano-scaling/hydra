@@ -50,9 +50,7 @@ import Hydra.HeadLogic.Error (LogicError (..))
 import Hydra.HeadLogic.Input (Input (..))
 import Hydra.HeadLogic.Outcome (Effect (ClientEffect))
 import Hydra.HeadLogic.Program (Program, emit, reject)
-import Hydra.HeadLogic.Rules.Chain.Deposits qualified as Deposits (
-  handleObservation,
- )
+import Hydra.HeadLogic.Rules.Chain.Deposits (handleDepositObservation)
 import Hydra.HeadLogic.Rules.Chain.Fanout (
   onClosedChainFanoutTx,
   onClosedChainPartialFanoutTx,
@@ -66,9 +64,9 @@ import Hydra.HeadLogic.Rules.Chain.Lifecycle (
   onOpenChainCloseTx,
  )
 import Hydra.HeadLogic.Rules.Chain.Rollback (handleRollback)
-import Hydra.HeadLogic.Rules.Chain.Settlement qualified as Settlement (
+import Hydra.HeadLogic.Rules.Chain.Settlement (
   Settlement (Decrement, Increment),
-  handle,
+  handleSettlement,
  )
 import Hydra.HeadLogic.Rules.Chain.Tick (handleTick)
 import Hydra.HeadLogic.Rules.Environment (RuleEnvironment)
@@ -114,12 +112,12 @@ handleChainInput env now pendingDeposits st ev syncStatus = case (st, ev) of
           reject NotOurHead{ourHeadId, otherHeadId = headId}
   (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnIncrementTx{headId, newVersion, depositTxId, snapshotNumber, signatures}, newChainState})
     | ourHeadId == headId ->
-        Settlement.handle env (scopedDeposits openState pendingDeposits) openState newChainState newVersion (Settlement.Increment depositTxId) snapshotNumber signatures
+        handleSettlement env (scopedDeposits openState pendingDeposits) openState newChainState newVersion (Increment depositTxId) snapshotNumber signatures
     | otherwise ->
         reject NotOurHead{ourHeadId, otherHeadId = headId}
   (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDecrementTx{headId, newVersion, distributedUTxO, snapshotNumber, signatures}, newChainState})
     | ourHeadId == headId ->
-        Settlement.handle env (scopedDeposits openState pendingDeposits) openState newChainState newVersion (Settlement.Decrement distributedUTxO) snapshotNumber signatures
+        handleSettlement env (scopedDeposits openState pendingDeposits) openState newChainState newVersion (Decrement distributedUTxO) snapshotNumber signatures
     | otherwise ->
         reject NotOurHead{ourHeadId, otherHeadId = headId}
   -- Closed
@@ -149,9 +147,9 @@ handleChainInput env now pendingDeposits st ev syncStatus = case (st, ev) of
     | otherwise ->
         reject NotOurHead{ourHeadId, otherHeadId = headId}
   (_, ChainInput Observation{observedTx = OnDepositTx{}}) ->
-    Deposits.handleObservation pendingDeposits st ev
+    handleDepositObservation pendingDeposits st ev
   (_, ChainInput Observation{observedTx = OnRecoverTx{}}) ->
-    Deposits.handleObservation pendingDeposits st ev
+    handleDepositObservation pendingDeposits st ev
   (_, ChainInput PostTxError{postTxError = StalePartialFanoutTx}) ->
     -- The chain advanced past this step before we could post it (another node
     -- was faster). The chain observation loop already emitted the correct next

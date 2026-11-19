@@ -16,9 +16,7 @@ import Hydra.HeadLogic.Outcome (
   Effect (ClientEffect, NetworkEffect, OnChainEffect, postChainTx),
  )
 import Hydra.HeadLogic.Program (Program, emit, reject)
-import Hydra.HeadLogic.Rules.Client.Decommit qualified as Decommit (
-  handle,
- )
+import Hydra.HeadLogic.Rules.Client.Decommit (handleDecommit)
 import Hydra.HeadLogic.Rules.Client.Fanout (
   onClosedClientFanout,
   onClosedClientPartialFanout,
@@ -83,7 +81,7 @@ handleClientInput env ChainPointTime{currentSlot} pendingDeposits st ev = case (
           then onOpenClientSideLoadSnapshot openState confirmedSnapshot
           else reject NotOurHead{ourHeadId, otherHeadId}
   (Open OpenState{headId, coordinatedHeadState}, ClientInput Decommit{decommitTx}) -> do
-    Decommit.handle env.snapshotLimits headId currentSlot coordinatedHeadState decommitTx
+    handleDecommit env.snapshotLimits headId currentSlot coordinatedHeadState decommitTx
   -- Closed
   (Closed closedState, ClientInput Fanout) ->
     onClosedClientFanout closedState

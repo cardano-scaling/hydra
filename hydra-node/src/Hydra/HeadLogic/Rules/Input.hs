@@ -5,7 +5,7 @@
 
 -- | All input admission goes through this workflow, including development tools.
 -- Size checks precede any operation that could echo an unsafe client input.
-module Hydra.HeadLogic.Rules.Input (Stage (..), InputTopology, handle, workflow) where
+module Hydra.HeadLogic.Rules.Input (Stage (..), InputTopology, handleInput, workflow) where
 
 import Crem.Topology (Topology (Topology))
 import Hydra.API.ClientInput (validateClientInputWith)
@@ -54,7 +54,7 @@ import Hydra.Node.State (
   SyncedStatus (..),
   syncedStatus,
  )
-import Hydra.Prelude hiding (State, handle, state)
+import Hydra.Prelude hiding (State, state)
 import Hydra.Tx.Accumulator (AccumulatorTooLarge (..))
 
 data Stage = CheckInputSize | CheckSynchronisation | HandleIdle | HandleOpen | HandleClosed | HandleFanout | HandleFinalized | Finished
@@ -137,5 +137,5 @@ workflow env now nodeState input = Workflow.workflow (show . statePhase) CheckSi
   chainTime = nodeState.chainPointTime
 
 -- | Handle one input through the inspectable workflow.
-handle :: forall tx. IsChainState tx => RuleEnvironment -> UTCTime -> NodeState tx -> Input tx -> Program tx ()
-handle env now nodeState input = Workflow.run $ workflow env now nodeState input
+handleInput :: forall tx. IsChainState tx => RuleEnvironment -> UTCTime -> NodeState tx -> Input tx -> Program tx ()
+handleInput env now nodeState input = Workflow.run $ workflow env now nodeState input

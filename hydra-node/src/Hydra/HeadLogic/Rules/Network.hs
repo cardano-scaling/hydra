@@ -12,18 +12,10 @@ import Hydra.HeadLogic.Program (Program, change, reject)
 import Hydra.HeadLogic.Rules.Environment (
   RuleEnvironment (configuredPeers),
  )
-import Hydra.HeadLogic.Rules.Network.AckSn qualified as AckSn (
-  handle,
- )
-import Hydra.HeadLogic.Rules.Network.ReqDec qualified as ReqDec (
-  handle,
- )
-import Hydra.HeadLogic.Rules.Network.ReqSn qualified as ReqSn (
-  handle,
- )
-import Hydra.HeadLogic.Rules.Network.ReqTx qualified as ReqTx (
-  handle,
- )
+import Hydra.HeadLogic.Rules.Network.AckSn (handleAckSn)
+import Hydra.HeadLogic.Rules.Network.ReqDec (handleReqDec)
+import Hydra.HeadLogic.Rules.Network.ReqSn (handleReqSn)
+import Hydra.HeadLogic.Rules.Network.ReqTx (handleReqTx)
 import Hydra.HeadLogic.Snapshot.Request (scopedDeposits)
 import Hydra.HeadLogic.State (
   HeadState (Open),
@@ -54,16 +46,16 @@ handleNetworkInput env chainPointTime pendingDeposits st ev = case (st, ev) of
     onConnectionEvent env.configuredPeers conn
   -- Open
   (Open openState, NetworkInput ttl (ReceivedMessage{msg = ReqTx tx})) ->
-    ReqTx.handle env chainPointTime openState ttl (scopedDeposits openState pendingDeposits) tx
+    handleReqTx env chainPointTime openState ttl (scopedDeposits openState pendingDeposits) tx
   -- NOTE: 'ReqSn' gets the unfiltered (per-head) deposits: it distinguishes a
   -- requested deposit that is blocked by a finalized increment (hard error)
   -- from one that is simply not known locally (wait).
   (Open openState@OpenState{headId = ourHeadId}, NetworkInput ttl (ReceivedMessage{sender, msg = ReqSn sv sn txIds decommitTx depositTxId})) ->
-    ReqSn.handle env (depositsForHead ourHeadId pendingDeposits) chainPointTime openState ttl sender sv sn txIds decommitTx depositTxId
+    handleReqSn env (depositsForHead ourHeadId pendingDeposits) chainPointTime openState ttl sender sv sn txIds decommitTx depositTxId
   (Open openState, NetworkInput _ (ReceivedMessage{sender, msg = AckSn snapshotSignature sn})) ->
-    AckSn.handle env chainPointTime (scopedDeposits openState pendingDeposits) openState sender snapshotSignature sn
+    handleAckSn env chainPointTime (scopedDeposits openState pendingDeposits) openState sender snapshotSignature sn
   (Open openState, NetworkInput ttl (ReceivedMessage{msg = ReqDec{transaction}})) ->
-    ReqDec.handle env ttl chainPointTime (scopedDeposits openState pendingDeposits) openState transaction
+    handleReqDec env ttl chainPointTime (scopedDeposits openState pendingDeposits) openState transaction
   _ ->
     reject $ UnhandledInput ev st
 

@@ -5,7 +5,7 @@
 
 -- | Receive and apply a transaction. Programs inside a transition keep related
 -- guards and effects together; crem constrains transitions between phases.
-module Hydra.HeadLogic.Rules.Network.ReqTx (Stage (..), ReqTxTopology, handle, workflow) where
+module Hydra.HeadLogic.Rules.Network.ReqTx (Stage (..), ReqTxTopology, handleReqTx, workflow) where
 
 import Crem.Topology (Topology (Topology))
 import Data.Map.Strict qualified as Map (filter, lookup, member)
@@ -80,7 +80,7 @@ import Hydra.Node.State (
   DepositStatus (..),
   PendingDeposits,
  )
-import Hydra.Prelude hiding (State, handle, state)
+import Hydra.Prelude hiding (State, state)
 import Hydra.Tx (UTxOType, txId, utxoFromTx)
 import Hydra.Tx.Snapshot (Snapshot (..), getSnapshot)
 
@@ -181,5 +181,5 @@ workflow env ChainPointTime{currentSlot, currentChainTime} st ttl pendingDeposit
   settlingCommit = settlingCommitAtPeriod env.depositPeriod version currentChainTime pendingDeposits previous
 
 -- | Handle one input through the inspectable workflow.
-handle :: forall tx. IsChainState tx => RuleEnvironment -> ChainPointTime -> OpenState tx -> TTL -> PendingDeposits tx -> tx -> Program tx ()
-handle env chainPoint st ttl pendingDeposits tx = Workflow.run $ workflow env chainPoint st ttl pendingDeposits tx
+handleReqTx :: forall tx. IsChainState tx => RuleEnvironment -> ChainPointTime -> OpenState tx -> TTL -> PendingDeposits tx -> tx -> Program tx ()
+handleReqTx env chainPoint st ttl pendingDeposits tx = Workflow.run $ workflow env chainPoint st ttl pendingDeposits tx
