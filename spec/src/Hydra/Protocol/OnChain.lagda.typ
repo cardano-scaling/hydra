@@ -594,14 +594,13 @@ value but the initiator's own, since it opens with $eta = accUTxO(emptyset)$ and
 later. A non-positive $Tcontest$ can therefore only strand the initiator's own output - indeed a
 negative one strands it for good, since `hasBoundedValidity` ($t_"hi" - t_"lo" <= Tcontest$,
 @sec:close-tx) is then unsatisfiable and the head can never be closed. $muHead$ is not made more
-expensive to restate a condition the members already enforce. Note, though, that the agreement
-check covers only the parties, the two periods and the participant set: `version` and the head's
-ADA overhead are unconstrained on chain AND unchecked at observation, while `mustNotChangeVersion`
-and `mustPreserveHeadAdaOverhead` enforce both by equality from `Open` onwards. An $mtxInit$ that
-misstates either is joined and then unclosable in the same way, which is a gap this section records
-rather than closes. The initial `accumulatorHash` is unconstrained too but carries no such
-consequence: no validator check reads it, as `mustBindAccumulatorCommitment` binds the produced
-datum to the redeemer's signed hash rather than to the opening datum's field.
+expensive to restate a condition the members already enforce.
+
+- Init observation checks configured parties, periods and participants, plus version zero and the empty-UTxO accumulator hash.
+- Require the Head output's value to equal its minted Head tokens plus the datum's ADA overhead.
+- Report malformed Init transactions and do not join them, even when the minting policy accepts them.
+- Version and ADA-overhead preservation checks rely on Init validation.
+- Later accumulator checks bind the produced hash to the signed redeemer.
 
 The conditions are conjoined in the `InitValid` bundle with its dispatching `initValid` predicate (typechecked, not rendered).
 
@@ -986,10 +985,10 @@ a party to remove a UTxO from an already open head and consists of:
 - one or more decommit outputs $o_2 dots.h o_(m+1)$ with values $val_2 dots.h val_(m+1)$.
 
 The state-machine validator $nuHead$ is spent with
-$redeemerHead = (sans("decrement"), xi, s, m, kappa^(\#))$, where $xi$ is a multi-signature of
+$redeemerHead = (sans("decrement"), xi, s, m, hat(eta)^(\#), kappa^(\#))$, where $xi$ is a multi-signature of
 the decrement snapshot which authorizes removal of some UTxO, $s$ is the
-used snapshot number, $m$ is the number of outputs to distribute and
-$kappa^(\#)$ is the hash of the snapshot's commit output set. The
+used snapshot number, $m$ is the number of outputs to distribute,
+$hat(eta)^(\#)$ is the hash of its applied accumulator, and $kappa^(\#)$ is the hash of the snapshot's commit output set. The
 validator checks:
 + State is advanced from $datumHead tilde stOpen$ to
   $datumHead' tilde stOpen$, parameters $cid, hydraKeys, nop, Tcontest$ stay
@@ -1549,7 +1548,7 @@ partialFanoutValid : Context → HeadDatum → HeadDatum → ℕ → OutputRef �
 partialFanoutValid = PartialFanoutValid
 ```
 
-#figure(partialFanoutTx-diagram, caption: [$mtxPartialFanout$ transaction spending the $stFanoutProgress$ head output, distributing outputs $o_1 dots.h o_m$, and producing a new $stFanoutProgress$ head output with updated accumulator $eta'$.]) <fig:partialFanoutTx>
+#figure(partialFanoutTx-diagram, caption: [$mtxPartialFanout$ transaction starting from the $stClosed$ head output, distributing outputs $o_1 dots.h o_m$, and producing a new $stFanoutProgress$ head output with updated accumulator $eta'$.]) <fig:partialFanoutTx>
 
 === Final Partial Fan-Out Transaction <sec:final-partial-fanout-tx>
 

@@ -1,7 +1,7 @@
 module Hydra.Tx.IsTxSpec where
 
 import Hydra.Prelude
-import Test.Hydra.Prelude
+import Test.Hydra.Prelude (Arbitrary (arbitrary), Gen, ReasonablySized, Spec, describe, parallel, prop)
 
 -- NOTE: Arbitrary UTxO and Tx instances
 import Test.Hydra.Tx.Gen ()
@@ -14,16 +14,19 @@ import Cardano.Ledger.Core (TxLevel (..))
 import Control.Lens ((.~), (^.))
 import Data.Aeson qualified as Aeson
 import Data.ByteString.Base16 qualified as Base16
-import Hydra.Cardano.Api (Tx, fromLedgerTx, getTxId, toLedgerTx, pattern Tx)
-import Hydra.Tx.IsTx (txId)
+import Data.Map.Strict qualified as Map
+import Data.Set qualified as Set
+import Hydra.Cardano.Api (CtxUTxO, Tx, TxId, TxIn (..), TxIx (..), TxOut, UTxO, fromLedgerTx, getTxId, toLedgerTx, toLedgerTxIn, pattern Tx, pattern UTxO)
+import Hydra.Tx.IsTx (txId, txInputsAvailable, withoutTxInputs)
 import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
-import Test.QuickCheck (Property, counterexample, forAll, property, (.&&.), (===))
+import Test.QuickCheck (Property, conjoin, counterexample, forAll, property, (.&&.), (===))
 
 spec :: Spec
 spec =
   parallel $ do
     describe "Tx" $ do
       roundtripAndGoldenSpecs (Proxy @(ReasonablySized Tx))
+      prop "requires spending, reference and collateral inputs without consuming references" requiredInputs
       prop "Same TxId before/after JSON encoding" roundtripTxId
       prop "Same TxId as TxBody after JSON decoding" roundtripTxId'
       prop "Roundtrip to and from Ledger" roundtripLedger
@@ -91,3 +94,24 @@ roundtripCBOR a =
       decoded = CB.decodeFull $ fromStrict encoded
    in decoded == Right a
         & counterexample ("encoded: " <> show encoded <> ". decode: " <> show decoded)
+
+-- This checks UTxO references, independently of script and witness validity.
+requiredInputs :: Tx -> TxId -> TxOut CtxUTxO -> Property
+requiredInputs original tid output =
+  let spending = TxIn tid (TxIx 0)
+      reference = TxIn tid (TxIx 1)
+      collateral = TxIn tid (TxIx 2)
+      unrelated = TxIn tid (TxIx 3)
+      tx =
+        fromLedgerTx $
+          toLedgerTx original
+            & bodyTxL . inputsTxBodyL .~ Set.singleton (toLedgerTxIn spending)
+            & bodyTxL . Ledger.referenceInputsTxBodyL .~ Set.singleton (toLedgerTxIn reference)
+            & bodyTxL . Ledger.collateralInputsTxBodyL .~ Set.singleton (toLedgerTxIn collateral)
+      entries = Map.fromList [(ref, output) | ref <- [spending, reference, collateral, unrelated]]
+   in conjoin $
+        [ txInputsAvailable tx (UTxO entries) === True
+        , withoutTxInputs tx (UTxO entries) === (UTxO (Map.delete spending entries) :: UTxO)
+        , withoutTxInputs tx mempty === mempty
+        ]
+          <> [txInputsAvailable tx (UTxO $ Map.delete missing entries) === False | missing <- [spending, reference, collateral]]

@@ -47,12 +47,13 @@ DEFS = {
     # -- protocol objects ---------------------------------------------------
     "\U0001D702": (  # 𝜂 eta
         "η — the accumulator commitment to the head's UTxO set (KZG). "
-        "η# = hash(η) is the hash bound into the snapshot signature; η′ is "
-        "the produced state's commitment; ηΔ the pending-delta commitment."
+        "η# = hash(η); ηS is the snapshot accumulator, ηA (also η̂) the "
+        "applied accumulator after incremental settlement, and η′ the "
+        "produced state's commitment. Both accumulator hashes are signed."
     ),
     "\U0001D709": (  # 𝜉 xi
         "ξ — the snapshot multisignature: an aggregate signature by all n "
-        "parties over cid ‖ v ‖ s ‖ η# ‖ δ# ‖ κ#."
+        "parties over cid ‖ v ‖ s ‖ ηS# ‖ ηA# ‖ δ# ‖ κ#."
     ),
     "\U0001D6FF": (  # 𝛿 delta
         "δ# — hash of the snapshot's decommit output set "
@@ -133,10 +134,6 @@ DEFS = {
     "\U0001D49E": (  # 𝒞 script C
         "𝒞 — the contester set of a closed head: key hashes of parties "
         "that contested; grows by exactly one per contest."
-    ),
-    "Δ": (
-        "Δ — the pending increment/decrement delta: ηΔ is the accumulator "
-        "commitment of the pending UTxOs a Used close/contest combines in."
     ),
     # -- operators ----------------------------------------------------------
     "∘": (

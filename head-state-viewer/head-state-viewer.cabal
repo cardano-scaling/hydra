@@ -86,3 +86,21 @@ executable head-state-viewer
     , optparse-applicative
 
   ghc-options:    -threaded -rtsopts -with-rtsopts=-N4
+
+test-suite tests
+  import:         project-config
+  type:           exitcode-stdio-1.0
+  main-is:        Main.hs
+  hs-source-dirs: test
+  build-depends:
+    , head-state-viewer
+    , hydra-node
+    , hydra-prelude
+    , hydra-test-utils
+    , hydra-tx
+    , hydra-tx:testlib
+    , lucid
+    , miso
+    , tagsoup
+    , tasty-hunit
+    , text

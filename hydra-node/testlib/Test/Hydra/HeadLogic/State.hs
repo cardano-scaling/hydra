@@ -12,8 +12,10 @@ import Hydra.HeadLogic.State (
   CoordinatedHeadState (..),
   FanoutMode (..),
   FinalizedSnapshot (..),
+  FinalizedState (..),
   HeadState (..),
   IdleState (..),
+  OnChainFanoutDatum (..),
   OpenState (..),
   PartialFanoutState (..),
   SeenSnapshot (..),
@@ -26,6 +28,9 @@ instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (HeadSta
   arbitrary = genericArbitrary
 
 instance Arbitrary (ChainStateType tx) => Arbitrary (IdleState tx) where
+  arbitrary = genericArbitrary
+
+instance Arbitrary (ChainStateType tx) => Arbitrary (FinalizedState tx) where
   arbitrary = genericArbitrary
 
 instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (OpenState tx) where
@@ -69,4 +74,7 @@ instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (Partial
   arbitrary = genericArbitrary
 
 instance ArbitraryIsTx tx => Arbitrary (FinalizedSnapshot tx) where
+  arbitrary = genericArbitrary
+
+instance Arbitrary OnChainFanoutDatum where
   arbitrary = genericArbitrary
