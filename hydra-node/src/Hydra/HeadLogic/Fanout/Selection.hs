@@ -45,8 +45,6 @@ data NextFanoutStep tx
     -- against the set the head's current datum commits to.
     PartialStep {stepDistribute :: UTxOType tx, stepProof :: UTxOType tx}
 
--- | Decide the next fanout step. The multiset comparison here is the only one
--- needed: callers pass the result on rather than re-deriving it.
 nextFanoutStep ::
   IsTx tx =>
   ConfirmedSnapshot tx ->
