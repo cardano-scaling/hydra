@@ -1,4 +1,5 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module Hydra.HeadLogic.Rules.Environment where
 
@@ -25,5 +26,5 @@ data RuleEnvironment = RuleEnvironment
   }
 
 headParametersFor :: RuleEnvironment -> HeadParameters
-headParametersFor RuleEnvironment{party, otherParties, contestationPeriod, depositPeriod} =
-  HeadParameters{parties = party : otherParties, contestationPeriod, depositPeriod}
+headParametersFor RuleEnvironment{..} =
+  HeadParameters{parties = party : otherParties, ..}

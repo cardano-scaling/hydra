@@ -1,5 +1,6 @@
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-ambiguous-fields #-}
@@ -233,11 +234,7 @@ machine initial = BaseMachineT (withStateInspector (describeOnly (show . statePh
       OpenHead $
         startOpen
           Head.OpenState
-            { headId
-            , headSeed
-            , parameters
-            , chainState
-            , coordinatedHeadState =
+            { coordinatedHeadState =
                 Head.CoordinatedHeadState
                   { localUTxO = mempty
                   , allTxs = mempty
@@ -250,6 +247,7 @@ machine initial = BaseMachineT (withStateInspector (describeOnly (show . statePh
                   , finalizedCommit = Nothing
                   , finalizedDecommit = Nothing
                   }
+            , ..
             }
 
   output :: AllowedTransition LifecycleTopology from to => DepositOutput tx -> State tx to -> ActionResult m LifecycleTopology (State tx) from (HeadOutput tx)
@@ -282,7 +280,7 @@ startOpen os = OpenContext os.parameters os.chainState os.headId os.headSeed (Co
 
 viewOpen :: OpenContext tx -> Head.OpenState tx
 viewOpen (OpenContext parameters chainState headId headSeed runtime) =
-  Head.OpenState{parameters, chainState, headId, headSeed, coordinatedHeadState = Coordinated.currentState runtime}
+  Head.OpenState{coordinatedHeadState = Coordinated.currentState runtime, ..}
 
 stepOpen :: IsChainState tx => OpenContext tx -> DepositOutput tx -> OpenContext tx
 stepOpen (OpenContext parameters chainState headId headSeed runtime) input =

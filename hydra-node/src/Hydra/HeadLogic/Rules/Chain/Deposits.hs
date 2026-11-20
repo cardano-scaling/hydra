@@ -1,5 +1,6 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# OPTIONS_GHC -Wno-ambiguous-fields #-}
 
 module Hydra.HeadLogic.Rules.Chain.Deposits where
@@ -182,14 +183,7 @@ onOpenChainTick env chainTime pendingDeposits st
 
   RuleEnvironment{party} = env
 
-  CoordinatedHeadState
-    { localTxs
-    , confirmedSnapshot
-    , seenSnapshot
-    , version
-    , decommitTx
-    , currentDepositTxId
-    } = coordinatedHeadState
+  CoordinatedHeadState{..} = coordinatedHeadState
 
   OpenState{coordinatedHeadState, parameters} = st
 
@@ -198,10 +192,10 @@ handleDepositObservation :: IsChainState tx => PendingDeposits tx -> HeadState t
 handleDepositObservation pendingDeposits st ev = case (st, ev) of
   -- Node-level: deposit/recover observations scoped to our head
   ( Open OpenState{headId = ourHeadId, headSeed, parameters, coordinatedHeadState = CoordinatedHeadState{finalizedCommit}}
-    , ChainInput Observation{observedTx = OnDepositTx{headId, depositTxId, deposited, created, deadline}, newChainState}
+    , ChainInput Observation{observedTx = OnDepositTx{..}, newChainState}
     )
       | ourHeadId == headId ->
-          change DepositRecorded{chainState = newChainState, headId, depositTxId, deposited, created, deadline}
+          change DepositRecorded{chainState = newChainState, ..}
             -- The finalized deposit observed *again* means a rollback erased
             -- both the deposit and its finalized increment, and the deposit tx
             -- just re-landed on the new chain. The increment re-post issued at
@@ -227,17 +221,17 @@ handleDepositObservation pendingDeposits st ev = case (st, ev) of
               _ -> pure ()
       | otherwise ->
           pure ()
-  (Closed ClosedState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDepositTx{headId, depositTxId, deposited, created, deadline}, newChainState})
+  (Closed ClosedState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDepositTx{..}, newChainState})
     | ourHeadId == headId ->
-        change DepositRecorded{chainState = newChainState, headId, depositTxId, deposited, created, deadline}
+        change DepositRecorded{chainState = newChainState, ..}
     | otherwise ->
         pure ()
   -- Mirror the 'Closed' case while mid-fanout: a deposit observed during a
   -- (partial) fanout must still be recorded so it remains recoverable via
   -- 'Recover'. Without this the input falls through to 'Error' and is dropped.
-  (FanoutProgress PartialFanoutState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDepositTx{headId, depositTxId, deposited, created, deadline}, newChainState})
+  (FanoutProgress PartialFanoutState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDepositTx{..}, newChainState})
     | ourHeadId == headId ->
-        change DepositRecorded{chainState = newChainState, headId, depositTxId, deposited, created, deadline}
+        change DepositRecorded{chainState = newChainState, ..}
     | otherwise ->
         pure ()
   (Idle _, ChainInput Observation{observedTx = OnDepositTx{}}) ->

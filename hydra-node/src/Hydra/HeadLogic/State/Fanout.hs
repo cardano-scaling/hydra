@@ -1,4 +1,5 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# OPTIONS_GHC -Wno-ambiguous-fields #-}
 
 module Hydra.HeadLogic.State.Fanout where
@@ -15,24 +16,10 @@ import Hydra.Prelude
 import Hydra.Tx (UTxOType)
 
 closedToPartialFanout :: ClosedState tx -> ChainStateType tx -> UTxOType tx -> UTxOType tx -> FanoutMode tx -> OnChainFanoutDatum -> PartialFanoutState tx
-closedToPartialFanout closedState chainState remaining distributed mode fanoutDatum =
-  PartialFanoutState
-    { parameters
-    , confirmedSnapshot
-    , contestationDeadline
-    , chainState
-    , headId
-    , headSeed
-    , version
-    , remainingOutputs = remaining
-    , distributedOutputs = distributed
-    , mode
-    , fanoutDatum
-    , readyToFanoutSent
-    , unconfirmedSnapshot
-    }
+closedToPartialFanout closedState newChainState remainingOutputs distributedOutputs mode fanoutDatum =
+  PartialFanoutState{chainState = newChainState, ..}
  where
-  ClosedState{parameters, confirmedSnapshot, contestationDeadline, headId, headSeed, version, readyToFanoutSent, unconfirmedSnapshot} = closedState
+  ClosedState{..} = closedState
 
 -- | Rebuild the 'ClosedState' from a 'PartialFanoutState' when clearing a
 -- local fanout request (see 'HeadFanoutReverted'). The Head stays Closed.
@@ -41,19 +28,9 @@ closedToPartialFanout closedState chainState remaining distributed mode fanoutDa
 -- including after a checkpoint or a failed early request.
 fanoutProgressToClosed :: PartialFanoutState tx -> ClosedState tx
 fanoutProgressToClosed pfs =
-  ClosedState
-    { parameters
-    , confirmedSnapshot
-    , contestationDeadline
-    , readyToFanoutSent
-    , chainState
-    , headId
-    , headSeed
-    , version
-    , unconfirmedSnapshot
-    }
+  ClosedState{..}
  where
-  PartialFanoutState{parameters, confirmedSnapshot, contestationDeadline, chainState, headId, headSeed, version, readyToFanoutSent, unconfirmedSnapshot} = pfs
+  PartialFanoutState{..} = pfs
 
 -- | Local fanout intent does not stop the on-chain Head being Closed.
 getClosedState :: HeadState tx -> Maybe (ClosedState tx)

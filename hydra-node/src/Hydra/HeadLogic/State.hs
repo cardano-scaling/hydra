@@ -77,8 +77,8 @@ getHeadParameters = \case
 getOpenStateConfirmedSnapshot :: HeadState tx -> Maybe (ConfirmedSnapshot tx)
 getOpenStateConfirmedSnapshot = \case
   Idle _ -> Nothing
-  Open OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}}
-    -> Just confirmedSnapshot
+  Open OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}} ->
+    Just confirmedSnapshot
   Closed ClosedState{} -> Nothing
   FanoutProgress PartialFanoutState{} -> Nothing
   Finalized{} -> Nothing

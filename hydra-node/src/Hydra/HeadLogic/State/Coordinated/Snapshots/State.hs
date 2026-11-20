@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# OPTIONS_GHC -Wno-ambiguous-fields #-}
 
 -- | This module organises the state transitions in snapshots and defines the
@@ -104,8 +105,8 @@ restore ::
   [VerificationKey HydraKey] ->
   SnapshotState tx ->
   InitialState (State tx)
-restore parties Port.SnapshotState{version, chainSlot, confirmed, seen, finalizedCommit, finalizedDecommit} =
-  let context = Context{version, chainSlot, confirmed, finalizedCommit, finalizedDecommit}
+restore parties Port.SnapshotState{..} =
+  let context = Context{..}
    in case seen of
         NoSeenSnapshot ->
           InitialState $ Idle context Nothing
@@ -229,9 +230,9 @@ withContext context = \case
   Collecting _ candidate signatures -> Collecting context candidate signatures
 
 view :: State tx phase -> SnapshotState tx
-view state = Port.SnapshotState{version, chainSlot, confirmed, seen, finalizedCommit, finalizedDecommit}
+view state = Port.SnapshotState{..}
  where
-  Context{version, chainSlot, confirmed, finalizedCommit, finalizedDecommit} = contextOf state
+  Context{..} = contextOf state
   seen = case state of
     Idle _ number ->
       maybe NoSeenSnapshot LastSeenSnapshot number
@@ -245,4 +246,4 @@ viewInitial initial = withInitialState initial $ \state _ -> view state
 
 mkSnapshotOutput :: Update tx phase -> SnapshotOutput tx
 mkSnapshotOutput (Update next transactionUpdate events) =
-  SnapshotOutput{snapshots = InitialState next, transactionUpdate, events, refusal = Nothing}
+  SnapshotOutput{snapshots = InitialState next, refusal = Nothing, ..}
