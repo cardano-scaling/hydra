@@ -298,6 +298,7 @@ recoverHeadState :: UTCTime -> HeadState -> NodeState Tx -> HeadState
 recoverHeadState now current nodeState =
   case nodeState.headState of
     State.Idle State.IdleState{} -> current
+    State.Finalized{} -> current
     State.Open
       State.OpenState
         { parameters

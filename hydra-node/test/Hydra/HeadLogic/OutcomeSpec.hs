@@ -12,9 +12,9 @@ import Test.Hydra.Prelude
 
 -- IsChainState Tx instance, needed to (de)serialize 'StateEvent'/'StateChanged' at 'Tx'.
 import Hydra.Chain.Direct.State ()
+import Hydra.HeadLogic (StateChanged)
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.Ledger.Cardano (Tx)
-import Hydra.Node.HeadLogic (StateChanged)
 import Test.Aeson.GenericSpecs (defaultSettings, roundtripAndGoldenADTSpecsWithSettings, roundtripAndGoldenSpecsWithSettings, sampleSize)
 import Test.Hydra.Chain.Direct.State ()
 import Test.Hydra.HeadLogic.Outcome ()

@@ -24,12 +24,9 @@ import Miso.Svg.Attribute qualified as SvgA
 import Miso.Svg.Element qualified as Svg
 
 -- | Macro states visible in the diagram, matching the spec's main-chain
--- diagram: Idle / Open / Closed / fanoutProgress / Final. fanoutProgress is
--- a synthetic node (no distinct 'HeadState' constructor backs it; we
--- classify a NodeState as 'SFanoutProgress' when we know a partial fanout is
--- in flight). Final is also synthetic: the implementation reverts the head
--- to Idle on 'HeadFannedOut', but the spec models the destination of
--- @fanout@ / @finalPartialFanout@ as a separate terminal node.
+-- diagram: Idle / Open / Closed / fanoutProgress / Final. A pending local
+-- fanout request remains Closed until a partial fanout is observed on chain.
+-- Final corresponds to the terminal 'HS.Finalized' state.
 data StateKind = SIdle | SOpen | SClosed | SFanoutProgress | SFinal
   deriving stock (Eq, Show)
 
@@ -38,13 +35,14 @@ stateKindOf n = case headState n of
   HS.Idle{} -> SIdle
   HS.Open{} -> SOpen
   HS.Closed{} -> SClosed
-  HS.FanoutProgress{} -> SFanoutProgress
+  HS.FanoutProgress HS.PartialFanoutState{HS.fanoutDatum} -> case fanoutDatum of
+    HS.DatumClosed -> SClosed
+    HS.DatumFanoutProgress -> SFanoutProgress
+  HS.Finalized{} -> SFinal
 
 -- | Counts of transitions and within-state events accumulated by walking the
--- history in order. We do not have access to the truly-initial 'NodeState'
--- here, so the very first event is treated as a self-loop on whatever state
--- it lands in (real Hydra logs start in 'Idle' and stay there for the first
--- few catch-up events, so this is rarely visible).
+-- history in order, starting from the model's initial state. Checkpoints
+-- restore the current state without counting a protocol transition.
 data TransitionCounts = TransitionCounts
   { idleToOpen :: Int
   -- ^ \"init\" in spec terminology.
@@ -77,25 +75,15 @@ data TransitionCounts = TransitionCounts
 emptyCounts :: TransitionCounts
 emptyCounts = TransitionCounts 0 0 0 0 0 0 0 0 0 0 0 0
 
--- | Walking state for 'countTransitions'. Tracks whether the head is
--- currently mid-partial-fanout so we can classify the subsequent
--- 'HeadFannedOut' as a fresh fanout vs. the closing step of a partial chain.
+-- | The previous protocol state determines whether an observed fanout starts,
+-- continues or completes a partial fanout sequence, including after recovery.
 data WalkState = WalkState
   { wsPrevKind :: StateKind
-  , wsInPartial :: Bool
   , wsCounts :: TransitionCounts
   }
 
--- | Walk the history and return the full 'WalkState' (counts plus the
--- final 'wsInPartial' flag), so the view can read that flag to decide
--- whether the current macro state is 'SFanoutProgress' rather than 'SClosed'.
-walkHistory :: Vector (HistoryStep tx) -> WalkState
-walkHistory steps = case V.toList steps of
-  [] -> WalkState SIdle False emptyCounts
-  (s0 : rest) ->
-    let kind0 = stateKindOf (stateAfter s0)
-        ws0 = bump (WalkState kind0 False emptyCounts) kind0 s0
-     in foldl' stepFold ws0 rest
+walkHistory :: NodeState tx -> Vector (HistoryStep tx) -> WalkState
+walkHistory initialState = foldl' stepFold (WalkState (stateKindOf initialState) emptyCounts)
  where
   stepFold :: WalkState -> HistoryStep tx -> WalkState
   stepFold ws s = bump ws (stateKindOf (stateAfter s)) s
@@ -103,9 +91,10 @@ walkHistory steps = case V.toList steps of
   bump :: WalkState -> StateKind -> HistoryStep tx -> WalkState
   bump ws curr step =
     let prev = wsPrevKind ws
-        inPartial = wsInPartial ws
+        inPartial = prev == SFanoutProgress
         c = wsCounts ws
      in case stateChanged (event step) of
+          Checkpoint{} -> ws{wsPrevKind = curr}
           CommitFinalized{} ->
             ws{wsPrevKind = curr, wsCounts = c{openIncrement = openIncrement c + 1}}
           DecommitFinalized{} ->
@@ -117,21 +106,24 @@ walkHistory steps = case V.toList steps of
                   if inPartial
                     then c{fanoutProgressSelf = fanoutProgressSelf c + 1}
                     else c{closedToFanoutProgress = closedToFanoutProgress c + 1}
-             in ws{wsPrevKind = curr, wsInPartial = True, wsCounts = c'}
+             in ws{wsPrevKind = curr, wsCounts = c'}
           HeadFannedOut{} ->
             let c' =
                   if inPartial
                     then c{fanoutProgressToFinal = fanoutProgressToFinal c + 1}
                     else c{closedToFinal = closedToFinal c + 1}
-             in ws{wsPrevKind = curr, wsInPartial = False, wsCounts = c'}
+             in ws{wsPrevKind = curr, wsCounts = c'}
           _ ->
             let c' = case (prev, curr) of
                   (SIdle, SIdle) -> c{idleSelf = idleSelf c + 1}
                   (SOpen, SOpen) -> c{openSelf = openSelf c + 1}
-                  -- Closed self-loops are not rendered, so they are counted
-                  -- nowhere rather than falling through to 'unexpected'.
+                  -- Non-protocol events leave these states unchanged.
                   (SClosed, SClosed) -> c
+                  (SFanoutProgress, SFanoutProgress) -> c
+                  (SFinal, SFinal) -> c
                   (SIdle, SOpen) -> c{idleToOpen = idleToOpen c + 1}
+                  -- A node can initialize a different Head after finalization.
+                  (SFinal, SOpen) -> c{idleToOpen = idleToOpen c + 1}
                   (SOpen, SClosed) -> c{openToClosed = openToClosed c + 1}
                   _ -> c{unexpected = unexpected c + 1}
              in ws{wsPrevKind = curr, wsCounts = c'}
@@ -139,22 +131,16 @@ walkHistory steps = case V.toList steps of
 viewFlow :: Model tx -> View (Action tx)
 viewFlow m =
   let visible = V.take (cursor m + 1) (visibleHistory m)
-      ws = walkHistory visible
+      ws = walkHistory (initial m) visible
       counts = wsCounts ws
       -- Walking-state /before/ the cursor's own event: used to decide which
       -- partial-fanout bucket the cursor's event lands in (and therefore
       -- which arrow to highlight).
-      priorInPartial = wsInPartial (walkHistory (V.take (cursor m) (visibleHistory m)))
+      priorInPartial = wsPrevKind (walkHistory (initial m) (V.take (cursor m) (visibleHistory m))) == SFanoutProgress
       active = activeEdgeFor (currentStep m) priorInPartial
       isE e = active == Just e
       currentNode :: Maybe StateKind
-      currentNode = case currentStep m of
-        Nothing -> Nothing
-        Just step ->
-          Just $
-            if wsInPartial ws
-              then SFanoutProgress
-              else stateKindOf (stateAfter step)
+      currentNode = stateKindOf . stateAfter <$> currentStep m
       is k = currentNode == Just k
    in div_
         [styleInline_ panelStyle]
@@ -213,7 +199,7 @@ data ActiveEdge
   deriving stock (Eq, Show)
 
 -- | Decide which edge the event at the cursor is taking. The @priorInPartial@
--- argument is the walking-state's @wsInPartial@ flag BEFORE this event, used
+-- argument describes the observed protocol state BEFORE this event, used
 -- to distinguish the first partial fanout (Closed -> fanoutProgress) from
 -- subsequent partials (fanoutProgress self-loop), and similarly fresh fanout
 -- (Closed -> Final) from the closing step of a partial sequence

@@ -144,6 +144,7 @@ nodeSummary steps t = case stepAt steps t of
   headInfo :: HS.HeadState tx -> (Text, Text, Text, Text, Text)
   headInfo = \case
     HS.Idle _ -> ("-", "-", "-", "-", "-")
+    HS.Finalized{} -> ("-", "-", "-", "finalized", "-")
     HS.Open HS.OpenState{HS.coordinatedHeadState = chs} ->
       let HS.CoordinatedHeadState{HS.seenSnapshot = ss, HS.confirmedSnapshot = cs} = chs
           snap = getSnapshot @tx cs

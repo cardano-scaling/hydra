@@ -1,6 +1,8 @@
--- | Persisted deposit data. Machine continuations are reconstructed from these
--- fields and never form part of the JSON or CBOR representation.
-module Hydra.Node.Deposit where
+{-# LANGUAGE OverloadedRecordDot #-}
+
+-- | Deposit eligibility and chain observations. Consumption retains the deposit
+-- and its status until pruning, so rollback can restore the same value.
+module Hydra.HeadLogic.Deposit where
 
 import Hydra.Chain.ChainState (ChainSlot)
 import Hydra.Prelude
@@ -66,3 +68,25 @@ instance IsTx tx => ToCBOR (TrackedDeposit tx) where
 
 instance IsTx tx => FromCBOR (TrackedDeposit tx) where
   fromCBOR = genericFromCBOR
+
+-- | Record an observation, replacing a previous lifecycle for this identifier.
+record :: ChainSlot -> Deposit tx -> Maybe (TrackedDeposit tx) -> Maybe (TrackedDeposit tx)
+record recordedAt deposit _ = Just TrackedDeposit{deposit, recordedAt, consumedAt = Nothing}
+
+-- | Restore the payload of an activation or expiry event. Its chain observation
+-- slots remain unchanged, including consumption. Unknown deposits stay absent.
+update :: Deposit tx -> Maybe (TrackedDeposit tx) -> Maybe (TrackedDeposit tx)
+update deposit = fmap $ \tracked -> tracked{deposit}
+
+-- | Record the latest increment or recovery observation. Re-observation refreshes
+-- its slot so a later rollback can undo that consumption too.
+consume :: ChainSlot -> Maybe (TrackedDeposit tx) -> Maybe (TrackedDeposit tx)
+consume slot = fmap $ \tracked -> tracked{consumedAt = Just slot}
+
+-- | Rewind chain observations, retaining the deposit's stored eligibility.
+rollback :: ChainSlot -> Maybe (TrackedDeposit tx) -> Maybe (TrackedDeposit tx)
+rollback slot = (>>= rewind)
+ where
+  rewind tracked
+    | tracked.recordedAt > slot = Nothing
+    | otherwise = Just tracked{consumedAt = mfilter (<= slot) tracked.consumedAt}

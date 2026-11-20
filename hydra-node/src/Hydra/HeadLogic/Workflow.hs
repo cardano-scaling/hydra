@@ -1,10 +1,17 @@
 -- | A workflow consists of a Crem machine running a Program.
 module Hydra.HeadLogic.Workflow where
 
-import Crem.BaseMachine (ActionResult (..), BaseMachineT (..), InitialState (InspectableState))
-import Crem.BaseMachine qualified as Base
+import Crem.BaseMachine (
+  ActionResult (..),
+  BaseMachineT (..),
+  InitialState (InspectableState),
+ )
+import Crem.BaseMachine qualified as Base (Transition (..))
 import Crem.StateInspection (describeOnly)
-import Crem.StateMachine qualified as Crem
+import Crem.StateMachine qualified as Crem (
+  StateMachineT (Executable),
+  run,
+ )
 import Crem.Topology (AllowedTransition, Topology)
 import Hydra.HeadLogic.Program (Program)
 import Hydra.Prelude hiding (state)

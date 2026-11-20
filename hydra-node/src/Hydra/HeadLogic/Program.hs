@@ -22,7 +22,13 @@ import Hydra.HeadLogic.Outcome (Effect, StateChanged, WaitReason)
 import Hydra.Ledger (ValidationError)
 import Hydra.Prelude hiding (keys, label)
 import Hydra.Tx (UTxOType)
-import Hydra.Tx.Crypto (HydraKey, MultiSignature, Signature, VerificationKey, Verified)
+import Hydra.Tx.Crypto (
+  HydraKey,
+  MultiSignature,
+  Signature,
+  VerificationError,
+  VerificationKey,
+ )
 import Hydra.Tx.Snapshot (Snapshot)
 
 -- | Church encoding of the operational free monad. Composition does not allocate
@@ -49,7 +55,7 @@ data Instruction tx a where
     [VerificationKey HydraKey] ->
     MultiSignature (Snapshot tx) ->
     ByteString ->
-    Instruction tx Verified
+    Instruction tx (Either VerificationError ())
   Change ::
     StateChanged tx ->
     Instruction tx ()
@@ -114,7 +120,7 @@ verifySnapshot ::
   [VerificationKey HydraKey] ->
   MultiSignature (Snapshot tx) ->
   ByteString ->
-  Program tx Verified
+  Program tx (Either VerificationError ())
 verifySnapshot keys signatures bytes = instruction $ VerifySnapshot keys signatures bytes
 
 suspend :: WaitReason tx -> Program tx a

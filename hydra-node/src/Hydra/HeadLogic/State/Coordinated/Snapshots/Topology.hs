@@ -1,0 +1,47 @@
+{-# LANGUAGE DerivingVia #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE UndecidableInstances #-}
+
+module Hydra.HeadLogic.State.Coordinated.Snapshots.Topology where
+
+import Crem.Render.RenderableVertices (
+  AllVertices (..),
+  RenderableVertices,
+ )
+import Crem.Topology (
+  STopology (STopology),
+  Topology (Topology),
+  TopologySym0,
+ )
+import Data.Singletons.Base.TH (
+  NilSym0,
+  SList (SCons, SNil),
+  STuple2 (STuple2),
+  Tuple2Sym0,
+  singletons,
+  type (:@#@$),
+ )
+import Hydra.Prelude
+
+$( singletons
+    [d|
+      data SnapshotPhase
+        = AwaitingRequest
+        | RequestSent
+        | CollectingSignatures
+
+      snapshotTopology :: Topology SnapshotPhase
+      snapshotTopology =
+        Topology
+          [ (AwaitingRequest, [RequestSent, CollectingSignatures])
+          , (RequestSent, [AwaitingRequest, CollectingSignatures])
+          , (CollectingSignatures, [AwaitingRequest])
+          ]
+      |]
+ )
+
+deriving stock instance Eq SnapshotPhase
+deriving stock instance Show SnapshotPhase
+deriving stock instance Enum SnapshotPhase
+deriving stock instance Bounded SnapshotPhase
+deriving via AllVertices SnapshotPhase instance RenderableVertices SnapshotPhase

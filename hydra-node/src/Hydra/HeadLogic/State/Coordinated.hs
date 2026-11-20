@@ -1,0 +1,255 @@
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# OPTIONS_GHC -Wno-ambiguous-fields #-}
+
+module Hydra.HeadLogic.State.Coordinated (
+  Runtime,
+  DecommitPhase (..),
+  DecommitTopology,
+  Command,
+  Candidate,
+  candidate,
+  start,
+  step,
+  currentState,
+  advance,
+  recordDecommit,
+  acceptSnapshot,
+  recordSignature,
+  confirmSnapshot,
+  requestSnapshot,
+  receiveTransaction,
+  retainSnapshotDecommit,
+  applyTransaction,
+  markTransactionInvalid,
+  adoptSnapshot,
+  clearLocalState,
+  recordCommitFinalization,
+  recordDecommitFinalization,
+  replayEvent,
+  components,
+) where
+
+import Crem.BaseMachine (InitialState)
+import Crem.StateMachine (
+  StateMachineT (..),
+  run,
+  withoutRendering,
+ )
+import Hydra.Chain.ChainState (
+  IsChainState (ChainStateType),
+  chainStateSlot,
+ )
+import Hydra.HeadLogic.Outcome (StateChanged (..))
+import Hydra.HeadLogic.Snapshot.Candidate (Candidate)
+import Hydra.HeadLogic.Snapshot.Request (SnapshotRequest)
+import Hydra.HeadLogic.Snapshot.Verification (
+  VerifiedCandidate,
+  VerifiedSnapshot,
+ )
+import Hydra.HeadLogic.State (
+  CoordinatedHeadState (..),
+  OpenState (..),
+ )
+import Hydra.HeadLogic.State.Coordinated.Commits qualified as Commits (
+  Output (..),
+  machine,
+ )
+import Hydra.HeadLogic.State.Coordinated.Replay qualified as Replay (
+  replay,
+ )
+import Hydra.HeadLogic.State.Coordinated.Snapshots qualified as Snapshots (
+  candidate,
+  machine,
+ )
+import Hydra.HeadLogic.State.Coordinated.Snapshots.State qualified as State (
+  State,
+  restore,
+  viewInitial,
+ )
+import Hydra.HeadLogic.State.Coordinated.Transactions (
+  DecommitPhase (..),
+  DecommitTopology,
+  Output (..),
+  TransactionState (..),
+ )
+import Hydra.HeadLogic.State.Coordinated.Transactions qualified as Transactions (
+  machine,
+ )
+import Hydra.HeadLogic.State.Coordinated.Types (
+  Command (..),
+  LocalTransactionCommand (..),
+  SnapshotState (..),
+ )
+import Hydra.Ledger (ValidationError)
+import Hydra.Prelude
+import Hydra.Tx (HeadId, TxIdType, UTxOType)
+import Hydra.Tx.Crypto (HydraKey, Signature, VerificationKey)
+import Hydra.Tx.HeadParameters (HeadParameters (parties))
+import Hydra.Tx.Party (Party (vkey))
+import Hydra.Tx.Snapshot (
+  Snapshot,
+  SnapshotNumber,
+  SnapshotVersion,
+ )
+
+data Runtime tx = Runtime
+  { headId :: HeadId
+  , parties :: [VerificationKey HydraKey]
+  , coordinatedState :: ~(CoordinatedHeadState tx)
+  , snapshots :: InitialState (State.State tx)
+  , machine :: ~(StateMachineT Identity (Command tx) (Commits.Output tx))
+  }
+
+start :: IsChainState tx => OpenState tx -> Runtime tx
+start os =
+  Runtime
+    { headId = os.headId
+    , parties
+    , coordinatedState = os.coordinatedHeadState
+    , snapshots
+    , machine = withoutRendering $ compose os.headId parties snapshots os.coordinatedHeadState
+    }
+ where
+  parties = vkey <$> os.parameters.parties
+  snapshots = restoreSnapshots parties os
+
+components ::
+  IsChainState tx =>
+  OpenState tx ->
+  StateMachineT Identity (Command tx) (Commits.Output tx)
+components os = compose os.headId parties (restoreSnapshots parties os) os.coordinatedHeadState
+ where
+  parties = vkey <$> os.parameters.parties
+
+compose ::
+  IsChainState tx =>
+  HeadId ->
+  [VerificationKey HydraKey] ->
+  InitialState (State.State tx) ->
+  CoordinatedHeadState tx ->
+  StateMachineT Identity (Command tx) (Commits.Output tx)
+compose headId parties snapshots chs =
+  Basic (Snapshots.machine headId parties snapshots)
+    `Sequential` Basic (Transactions.machine headId (State.viewInitial snapshots) (transactionState chs) chs.decommitTx)
+    `Sequential` Basic (Commits.machine (State.viewInitial snapshots) chs.currentDepositTxId)
+
+restoreSnapshots ::
+  IsChainState tx =>
+  [VerificationKey HydraKey] ->
+  OpenState tx ->
+  InitialState (State.State tx)
+restoreSnapshots parties os =
+  State.restore parties $
+    SnapshotState
+      chs.version
+      (chainStateSlot os.chainState)
+      chs.confirmedSnapshot
+      chs.seenSnapshot
+      chs.finalizedCommit
+      chs.finalizedDecommit
+ where
+  chs = os.coordinatedHeadState
+
+transactionState :: CoordinatedHeadState tx -> TransactionState tx
+transactionState chs = TransactionState chs.localUTxO chs.localTxs chs.allTxs
+
+currentState :: Runtime tx -> CoordinatedHeadState tx
+currentState Runtime{coordinatedState} = coordinatedState
+
+candidate :: Runtime tx -> Maybe (Candidate tx)
+candidate Runtime{headId, snapshots} = Snapshots.candidate headId snapshots
+
+step :: Runtime tx -> Command tx -> ([StateChanged tx], Runtime tx)
+step runtime command = fromRight ([], runtime) $ advance runtime command
+
+advance :: Runtime tx -> Command tx -> Either Text ([StateChanged tx], Runtime tx)
+advance runtime@Runtime{machine} command =
+  let (output@Commits.Output{transactions = Output{snapshots, events, refusal}}, next) = runIdentity $ run machine command
+   in maybe (Right (events, runtime{coordinatedState = project output, snapshots, machine = next})) Left refusal
+
+project :: Commits.Output tx -> CoordinatedHeadState tx
+project Commits.Output{transactions = Output{snapshots = owned, transactions, decommit}, currentDepositTxId} =
+  CoordinatedHeadState
+    { version = snapshots.version
+    , confirmedSnapshot = snapshots.confirmed
+    , seenSnapshot = snapshots.seen
+    , finalizedCommit = snapshots.finalizedCommit
+    , finalizedDecommit = snapshots.finalizedDecommit
+    , localUTxO = transactions.localUTxO
+    , localTxs = transactions.localTxs
+    , allTxs = transactions.allTxs
+    , currentDepositTxId
+    , decommitTx = decommit
+    }
+ where
+  snapshots = State.viewInitial owned
+
+receiveTransaction :: tx -> Command tx
+receiveTransaction = Transactions . ReceiveTransaction
+
+retainSnapshotDecommit :: tx -> Command tx
+retainSnapshotDecommit = Transactions . RetainSnapshotDecommit
+
+applyTransaction :: tx -> UTxOType tx -> UTxOType tx -> Command tx
+applyTransaction tx before after = Transactions $ ApplyValidatedTransaction tx before after
+
+markTransactionInvalid :: UTxOType tx -> tx -> ValidationError -> Command tx
+markTransactionInvalid utxo tx err = Transactions $ MarkTransactionInvalid utxo tx err
+
+adoptSnapshot :: VerifiedSnapshot tx -> Command tx
+adoptSnapshot = AdoptSnapshot
+
+clearLocalState :: SnapshotNumber -> Command tx
+clearLocalState = ClearLocalState
+
+recordCommitFinalization ::
+  ChainStateType tx ->
+  SnapshotVersion ->
+  TxIdType tx ->
+  UTxOType tx ->
+  Command tx
+recordCommitFinalization = RecordCommitFinalization
+
+recordDecommitFinalization ::
+  ChainStateType tx ->
+  SnapshotVersion ->
+  UTxOType tx ->
+  Command tx
+recordDecommitFinalization = RecordDecommitFinalization
+
+recordDecommit :: tx -> Command tx
+recordDecommit = Transactions . RecordPending
+
+acceptSnapshot :: Snapshot tx -> Seq tx -> Maybe (TxIdType tx) -> Command tx
+acceptSnapshot = AcceptSnapshot
+
+recordSignature :: Candidate tx -> Party -> Signature (Snapshot tx) -> Command tx
+recordSignature = RecordSignature
+
+confirmSnapshot :: VerifiedCandidate tx -> Command tx
+confirmSnapshot = ConfirmSnapshot
+
+requestSnapshot :: SnapshotRequest tx -> Command tx
+requestSnapshot = RequestSnapshot
+
+replayEvent ::
+  IsChainState tx =>
+  UTxOType tx ->
+  StateChanged tx ->
+  Runtime tx ->
+  Runtime tx
+replayEvent deposited event runtime@Runtime{headId, parties, coordinatedState = current, snapshots} =
+  case Replay.replay headId parties snapshots deposited event of
+    Nothing -> runtime
+    Just restored ->
+      let transactions =
+            Executable (Transactions.machine headId (State.viewInitial snapshots) (transactionState current) current.decommitTx)
+              `Sequential` Executable (Commits.machine (State.viewInitial snapshots) current.currentDepositTxId)
+          (output, _) = runIdentity $ run transactions restored
+          updated = project output
+          nextSnapshots = output.transactions.snapshots
+       in runtime
+            { coordinatedState = updated
+            , snapshots = nextSnapshots
+            , machine = withoutRendering $ compose headId parties nextSnapshots updated
+            }

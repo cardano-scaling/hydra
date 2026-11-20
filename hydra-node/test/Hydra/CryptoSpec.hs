@@ -21,8 +21,8 @@ import Test.Aeson.GenericSpecs (roundtripAndGoldenSpecs)
 import Test.Hydra.Tx.Gen ()
 import Test.QuickCheck (
   classify,
+  conjoin,
   counterexample,
-  elements,
   forAll,
   shuffle,
   sublistOf,
@@ -101,7 +101,7 @@ specMultiSignature =
         let sigs = map (`sign` msg) sks
             msig = aggregate sigs
             vks = map getVerificationKey sks
-         in verifyMultiSignature vks msig msg === Verified
+         in verifyMultiSignature vks msig msg === Right ()
 
     prop "aggregateInOrder/verifyMultiSignature roundtrip" $ \(msg :: ByteString) ->
       forAll arbitrary $ \(sks :: [Secret (SigningKey HydraKey)]) ->
@@ -109,28 +109,32 @@ specMultiSignature =
          in forAll (shuffle $ Map.keys sigs) $ \shuffled ->
               not (null shuffled) ==>
                 verifyMultiSignature (map vkey shuffled) (aggregateInOrder sigs shuffled) msg
-                  === Verified
+                  === Right ()
 
-    prop "verifyMultiSignature fails when signature is missing" $ \(msg :: ByteString) dummySig ->
-      forAll arbitrary $ \(sks :: [Secret (SigningKey HydraKey)]) ->
-        (length sks > 2) ==>
-          forAll (elements sks) $
-            \missingKeySig ->
-              let sigs = (\sk -> if sk /= missingKeySig then sign sk msg else dummySig) <$> sks
-                  vks = map getVerificationKey sks
-               in verifyMultiSignature vks (aggregate sigs) msg
-                    =/= Verified
+    prop "reports all invalid signatures in verification key order" $ \(msg :: ByteString) validKey (invalidKeys :: NonEmpty (Secret (SigningKey HydraKey))) ->
+      let failures = getVerificationKey <$> invalidKeys
+          vks = getVerificationKey validKey : toList failures
+          sigs = sign validKey msg : map (`sign` (msg <> "\NUL")) (toList invalidKeys)
+       in verifyMultiSignature vks (aggregate sigs) msg
+            === Left (InvalidSignatures failures)
 
-    prop "does not validate multisig if less keys given" $ \(msg :: ByteString) -> do
+    prop "reports a signature count mismatch for missing or extra signatures" $ \(msg :: ByteString) -> do
       forAll arbitrary $ \(sks :: [Secret (SigningKey HydraKey)]) ->
         forAll (sublistOf sks) $ \prefix ->
           (length prefix < length sks) ==>
             let sigs = aggregate $ map (`sign` msg) (toList sks)
                 vks = map getVerificationKey prefix
-             in verifyMultiSignature vks sigs msg
-                  =/= Verified
+                fewerSigs = aggregate $ map (`sign` msg) prefix
+             in conjoin
+                  [ verifyMultiSignature vks sigs msg === Left SignatureCountMismatch
+                  , verifyMultiSignature (map getVerificationKey sks) fewerSigs msg === Left SignatureCountMismatch
+                  ]
                   & classify (null prefix) "empty"
                   & counterexample ("Verification keys (prefix): " <> show vks)
                   & counterexample ("Signature: " <> show sigs)
+
+    it "accepts an empty multisignature for an empty key list" $
+      verifyMultiSignature [] (aggregate []) ("contents" :: ByteString) `shouldBe` Right ()
+
     prop "roundtrip from/to plutus signatures" $ \(ms :: MultiSignature (Snapshot Tx)) -> do
       fromPlutusSignatures (toPlutusSignatures ms) == Just ms

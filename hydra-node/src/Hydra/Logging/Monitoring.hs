@@ -26,6 +26,7 @@ import Hydra.API.ClientInput qualified as Client
 import Hydra.API.ServerOutput qualified as Output
 import Hydra.Cardano.Api (ChainPoint (..), SlotNo (..))
 import Hydra.Chain.Direct.Handlers qualified as ChainLog
+import Hydra.HeadLogic (Input (..))
 import Hydra.HeadLogic.Outcome (Effect (ClientEffect), Outcome (..), StateChanged (..), WaitReason (..))
 import Hydra.HeadLogic.State qualified as Head
 import Hydra.Logging.Messages (HydraLog (..))
@@ -36,7 +37,6 @@ import Hydra.Network (PortNumber, StallReason (..))
 import Hydra.Network.Etcd qualified as Etcd
 import Hydra.Network.Message (Message (ReqTx), NetworkEvent (..))
 import Hydra.Node (HydraNodeLog (..))
-import Hydra.Node.HeadLogic (Input (..))
 import Hydra.Node.Network qualified as Network
 import Hydra.Node.State qualified as NodeState
 import Hydra.Node.Stats qualified as Stats
@@ -139,6 +139,7 @@ prepareRegistry backend = do
               Head.Closed Head.ClosedState{confirmedSnapshot} -> (Just $ getSnapshot confirmedSnapshot, Nothing)
               Head.FanoutProgress Head.PartialFanoutState{confirmedSnapshot} -> (Just $ getSnapshot confirmedSnapshot, Nothing)
               Head.Idle{} -> (Nothing, Nothing)
+              Head.Finalized{} -> (Nothing, Nothing)
         MVar.modifyMVar_ accounting $ \state ->
           pure $
             (Accounting.clearPending state)

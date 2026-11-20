@@ -10,8 +10,15 @@ import Data.Map.Strict qualified as Map
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import GHC.Records (HasField (..))
 import Hydra.Chain.ChainState (ChainSlot (..), IsChainState (..), chainStateSlot)
-import Hydra.HeadLogic.State (HeadState (Idle), IdleState (..))
-import Hydra.Node.Deposit as Deposit (Deposit (..), DepositStatus (..), TrackedDeposit (..))
+import Hydra.HeadLogic.Deposit as Deposit (Deposit (..), DepositStatus (..), TrackedDeposit (..))
+import Hydra.HeadLogic.Deposit qualified as DepositEntry
+import Hydra.HeadLogic.Snapshot.Settlement (finalizedDepositTxId)
+import Hydra.HeadLogic.State (
+  CoordinatedHeadState (CoordinatedHeadState, finalizedCommit),
+  HeadState (Idle),
+  IdleState (..),
+  OpenState (OpenState, coordinatedHeadState, headId),
+ )
 import Hydra.Tx (
   HeadId,
   IsTx (..),
@@ -38,21 +45,28 @@ pendingDeposits =
 instance view ~ PendingDeposits tx => HasField "pendingDeposits" (NodeState tx) view where
   getField = pendingDeposits
 
+-- | Keep pending deposits belonging to this Head, including any restored by
+-- rollback. Inactive and expired deposits remain in the view.
+depositsForHead :: HeadId -> PendingDeposits tx -> PendingDeposits tx
+depositsForHead targetHeadId =
+  Map.filter (\Deposit{headId} -> headId == targetHeadId)
+
+-- | 'depositsForHead', excluding the deposit claimed by the retained finalized
+-- increment. Rollback can restore that deposit, but new snapshots must not
+-- claim it again. Activation, expiry and capacity checks happen separately.
+depositsForHeadWithoutFinalizedCommit :: IsTx tx => OpenState tx -> PendingDeposits tx -> PendingDeposits tx
+depositsForHeadWithoutFinalizedCommit OpenState{headId, coordinatedHeadState = CoordinatedHeadState{finalizedCommit}} =
+  maybe id Map.delete (finalizedDepositTxId finalizedCommit) . depositsForHead headId
+
 -- | Record a newly observed deposit at the given slot. Re-recording an id (its
 -- deposit transaction re-landed after a rollback) starts a fresh lifecycle.
 recordDeposit :: IsTx tx => ChainSlot -> TxIdType tx -> Deposit tx -> NodeState tx -> NodeState tx
 recordDeposit slot depositTxId deposit nodeState =
   nodeState
     { deposits =
-        Map.insert depositTxId TrackedDeposit{deposit, recordedAt = slot, consumedAt = Nothing} $
+        Map.alter (DepositEntry.record slot deposit) depositTxId $
           pruneConsumedDeposits slot (deposits nodeState)
     }
-
--- | Update a tracked deposit (e.g. on status changes); its lifecycle slots are
--- unaffected. Unknown ids are ignored.
-updateDeposit :: IsTx tx => TxIdType tx -> Deposit tx -> NodeState tx -> NodeState tx
-updateDeposit depositTxId deposit nodeState =
-  nodeState{deposits = Map.adjust (\tracked -> tracked{deposit}) depositTxId (deposits nodeState)}
 
 -- | Mark a deposit consumed at the given slot: its increment or recover was
 -- observed on chain. Re-consuming (the consuming transaction re-landed after a
@@ -62,7 +76,7 @@ consumeDeposit :: IsTx tx => ChainSlot -> TxIdType tx -> NodeState tx -> NodeSta
 consumeDeposit slot depositTxId nodeState =
   nodeState
     { deposits =
-        Map.adjust (\tracked -> tracked{consumedAt = Just slot}) depositTxId $
+        Map.alter (DepositEntry.consume slot) depositTxId $
           pruneConsumedDeposits slot (deposits nodeState)
     }
 
@@ -70,11 +84,7 @@ consumeDeposit slot depositTxId nodeState =
 -- 'TrackedDeposit'.
 rollbackDeposits :: ChainSlot -> NodeState tx -> NodeState tx
 rollbackDeposits slot nodeState =
-  nodeState{deposits = Map.mapMaybe rollbackOne (deposits nodeState)}
- where
-  rollbackOne tracked@TrackedDeposit{recordedAt, consumedAt}
-    | recordedAt > slot = Nothing
-    | otherwise = Just tracked{consumedAt = mfilter (<= slot) consumedAt}
+  nodeState{deposits = Map.mapMaybe (DepositEntry.rollback slot . Just) (deposits nodeState)}
 
 -- | Drop consumed deposits beyond 'depositRetentionHorizon': no rollback can
 -- resurface them anymore, so retaining them would only grow persisted state
@@ -235,7 +245,3 @@ instance FromCBOR SyncedStatus where
 syncedStatus :: NodeState tx -> SyncedStatus
 syncedStatus NodeInSync{} = InSync
 syncedStatus NodeCatchingUp{} = CatchingUp
-
-depositsForHead :: HeadId -> PendingDeposits tx -> PendingDeposits tx
-depositsForHead targetHeadId =
-  Map.filter (\Deposit{headId} -> headId == targetHeadId)
