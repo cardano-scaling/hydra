@@ -1780,6 +1780,11 @@ reconstruction. Shared deposit, snapshot, transaction and fanout modules supply
 the data and operations needed by both. State owners do not import input rules.
 The public `Hydra.HeadLogic` module exposes the input and aggregation entry
 points; chain-history aggregation belongs to `State.ChainHistory`.
+`State.Types` collects the shared machine commands, updates and output records;
+persisted Head state remains in `Hydra.HeadLogic.State`. `State.Head` contains
+the open-head context, and `State.Coordinated.Transactions` defines its decommit
+topology beside the transaction machine. `Rules.Coordinated` stages coordinated
+changes and broadcasts snapshot requests.
 The input entry point delegates to `handleInput`; rule handlers name the input
 they process, such as `handleReqSn`, `handleAckSn` and `handleSettlement`.
 

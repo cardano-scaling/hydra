@@ -14,7 +14,7 @@ import Hydra.Chain.ChainState (
   chainStateSlot,
  )
 import Hydra.HeadLogic.Outcome (StateChanged (..))
-import Hydra.HeadLogic.State.Outputs (HeadOutput (..))
+import Hydra.HeadLogic.State.Types (HeadOutput (..))
 import Hydra.Node.State (ChainPointTime (..), NodeState (..))
 import Hydra.Prelude
 

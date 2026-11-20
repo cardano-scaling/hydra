@@ -76,17 +76,17 @@ import Hydra.HeadLogic.State qualified as Head (
   ),
   SeenSnapshot (NoSeenSnapshot, SeenSnapshot, snapshot),
  )
+import Hydra.HeadLogic.State.Coordinated qualified as Coordinated (
+  Runtime,
+  currentState,
+  replayEvent,
+  start,
+ )
 import Hydra.HeadLogic.State.Fanout (
   closedToPartialFanout,
   fanoutProgressToClosed,
  )
-import Hydra.HeadLogic.State.Open qualified as Open (
-  OpenHead,
-  start,
-  step,
-  view,
- )
-import Hydra.HeadLogic.State.Outputs (
+import Hydra.HeadLogic.State.Types (
   DepositOutput (..),
   HeadOutput (..),
  )
@@ -135,7 +135,7 @@ transitionLabels =
 -- the snapshot/transaction composition, not a second mutable copy of its fields.
 data State tx phase where
   IdleHead :: Head.IdleState tx -> State tx 'Idle
-  OpenHead :: Open.OpenHead tx -> State tx 'Open
+  OpenHead :: OpenContext tx -> State tx 'Open
   ClosedHead :: Head.ClosedState tx -> State tx 'Closed
   -- The on-chain Head remains Closed until a distribution is observed.
   PendingFanoutHead :: Head.PartialFanoutState tx -> State tx 'Closed
@@ -162,7 +162,7 @@ machine initial = BaseMachineT (withStateInspector (describeOnly (show . statePh
       _ -> output input state
     OpenHead runtime -> case input.event of
       HeadClosed{chainState, contestationDeadline} ->
-        let os = Open.view runtime
+        let os = viewOpen runtime
             chs = os.coordinatedHeadState
          in output input $
               ClosedHead
@@ -179,7 +179,7 @@ machine initial = BaseMachineT (withStateInspector (describeOnly (show . statePh
                       Head.SeenSnapshot{snapshot} -> Just snapshot
                       _ -> Nothing
                   }
-      _ -> output input $ OpenHead $ Open.step runtime input
+      _ -> output input $ OpenHead $ stepOpen runtime input
     ClosedHead st -> closed st input
     PendingFanoutHead st -> case input.event of
       HeadFanoutReverted{} -> output input $ ClosedHead $ fanoutProgressToClosed st
@@ -231,7 +231,7 @@ machine initial = BaseMachineT (withStateInspector (describeOnly (show . statePh
   opened input headId headSeed parameters chainState =
     output input $
       OpenHead $
-        Open.start
+        startOpen
           Head.OpenState
             { headId
             , headSeed
@@ -258,7 +258,7 @@ machine initial = BaseMachineT (withStateInspector (describeOnly (show . statePh
 restore :: IsChainState tx => Head.HeadState tx -> InitialState (State tx)
 restore = \case
   Head.Idle st -> InitialState $ IdleHead st
-  Head.Open os -> InitialState $ OpenHead $ Open.start os
+  Head.Open os -> InitialState $ OpenHead $ startOpen os
   Head.Closed st -> InitialState $ ClosedHead st
   Head.FanoutProgress st
     | st.fanoutDatum == Head.DatumClosed -> InitialState $ PendingFanoutHead st
@@ -268,8 +268,28 @@ restore = \case
 view :: State tx phase -> Head.HeadState tx
 view = \case
   IdleHead st -> Head.Idle st
-  OpenHead runtime -> Head.Open $ Open.view runtime
+  OpenHead runtime -> Head.Open $ viewOpen runtime
   ClosedHead st -> Head.Closed st
   PendingFanoutHead st -> Head.FanoutProgress st
   PartialFanoutHead st -> Head.FanoutProgress st
   FinalizedHead st -> Head.Finalized st
+
+-- | Open-head context around the composed snapshot, transaction and commit owners.
+data OpenContext tx = OpenContext HeadParameters (ChainStateType tx) HeadId HeadSeed (Coordinated.Runtime tx)
+
+startOpen :: IsChainState tx => Head.OpenState tx -> OpenContext tx
+startOpen os = OpenContext os.parameters os.chainState os.headId os.headSeed (Coordinated.start os)
+
+viewOpen :: OpenContext tx -> Head.OpenState tx
+viewOpen (OpenContext parameters chainState headId headSeed runtime) =
+  Head.OpenState{parameters, chainState, headId, headSeed, coordinatedHeadState = Coordinated.currentState runtime}
+
+stepOpen :: IsChainState tx => OpenContext tx -> DepositOutput tx -> OpenContext tx
+stepOpen (OpenContext parameters chainState headId headSeed runtime) input =
+  let next = Coordinated.replayEvent input.settledDeposit input.event runtime
+      chainState' = case input.event of
+        CommitFinalized{chainState = observed} -> observed
+        DecommitFinalized{chainState = observed} -> observed
+        ChainRolledBack{chainState = observed} -> observed
+        _ -> chainState
+   in OpenContext parameters chainState' headId headSeed next

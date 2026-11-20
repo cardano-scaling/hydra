@@ -75,7 +75,7 @@ import Hydra.HeadLogic.State.Coordinated.Transactions (
 import Hydra.HeadLogic.State.Coordinated.Transactions qualified as Transactions (
   machine,
  )
-import Hydra.HeadLogic.State.Coordinated.Types (
+import Hydra.HeadLogic.State.Types (
   Command (..),
   LocalTransactionCommand (..),
   SnapshotState (..),

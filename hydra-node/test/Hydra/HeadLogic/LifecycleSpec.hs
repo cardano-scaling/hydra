@@ -19,7 +19,7 @@ import Hydra.HeadLogic.Outcome (Effect (OnChainEffect), Outcome (Continue), Stat
 import Hydra.HeadLogic.State (ClosedState (..), FanoutMode (..), FinalizedState (..), HeadState (..), OnChainFanoutDatum (..), OpenState (..), PartialFanoutState (..), headIdOf)
 import Hydra.HeadLogic.State.Head qualified as Head
 import Hydra.HeadLogic.State.Node qualified as Machine
-import Hydra.HeadLogic.State.Outputs (DepositOutput (..), HeadOutput (..))
+import Hydra.HeadLogic.State.Types (DepositOutput (..), HeadOutput (..))
 import Hydra.HeadLogicSpec (inClosedState', inIdleState, inOpenState, observeTx, testSnapshot)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx, simpleLedger)
 import Hydra.Node.Environment (Environment (..))

@@ -20,7 +20,7 @@ import Hydra.HeadLogic.Deposit qualified as Deposit (
   update,
  )
 import Hydra.HeadLogic.Outcome (StateChanged (..))
-import Hydra.HeadLogic.State.Outputs (DepositOutput (..))
+import Hydra.HeadLogic.State.Types (DepositOutput (..))
 import Hydra.Node.State (
   Deposit (..),
   DepositStatus (Inactive),

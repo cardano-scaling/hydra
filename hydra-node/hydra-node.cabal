@@ -107,7 +107,6 @@ library
     Hydra.HeadLogic.Rules.Network.ReqDec
     Hydra.HeadLogic.Rules.Network.ReqSn
     Hydra.HeadLogic.Rules.Network.ReqTx
-    Hydra.HeadLogic.Rules.SendSnapshot
     Hydra.HeadLogic.Rules.Transactions
     Hydra.HeadLogic.Snapshot.Capacity
     Hydra.HeadLogic.Snapshot.Request
@@ -122,8 +121,7 @@ library
     Hydra.HeadLogic.State.Fanout
     Hydra.HeadLogic.State.Head
     Hydra.HeadLogic.State.Node
-    Hydra.HeadLogic.State.Open
-    Hydra.HeadLogic.State.Outputs
+    Hydra.HeadLogic.State.Types
     Hydra.HeadLogic.StateEvent
     Hydra.HeadLogic.Trace
     Hydra.HeadLogic.Transaction.Outputs
@@ -167,8 +165,6 @@ library
     Hydra.HeadLogic.State.Coordinated.Snapshots
     Hydra.HeadLogic.State.Coordinated.Snapshots.State
     Hydra.HeadLogic.State.Coordinated.Transactions
-    Hydra.HeadLogic.State.Coordinated.Transactions.Topology
-    Hydra.HeadLogic.State.Coordinated.Types
     Paths_hydra_node
 
   build-depends:

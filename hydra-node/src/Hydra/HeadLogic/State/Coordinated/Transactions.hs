@@ -1,8 +1,19 @@
+{-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-ambiguous-fields #-}
 
-module Hydra.HeadLogic.State.Coordinated.Transactions (TransactionState (..), Output (..), DecommitPhase (..), DecommitTopology, machine)
-where
+module Hydra.HeadLogic.State.Coordinated.Transactions (
+  TransactionState (..),
+  Output (..),
+  DecommitPhase (..),
+  DecommitTopology,
+  NoDecommitSym0,
+  DecommitPendingSym0,
+  AwaitingDecommitSettlementSym0,
+  machine,
+) where
 
 import Crem.BaseMachine (
   ActionResult,
@@ -11,8 +22,9 @@ import Crem.BaseMachine (
   pureResult,
   withStateInspector,
  )
+import Crem.Render.RenderableVertices (AllVertices (..), RenderableVertices)
 import Crem.StateInspection (describeOnly)
-import Crem.Topology (AllowedTransition)
+import Crem.Topology (AllowedTransition, Topology (Topology))
 import Data.Map.Strict qualified as Map (
   delete,
   elems,
@@ -20,6 +32,7 @@ import Data.Map.Strict qualified as Map (
   lookup,
  )
 import Data.Sequence qualified as Seq (take, (|>))
+import Data.Singletons.Base.TH (genSingletons)
 import Hydra.API.ServerOutput (
   DecommitInvalidReason (DecommitTxInvalid),
  )
@@ -40,8 +53,7 @@ import Hydra.HeadLogic.State.Coordinated.Snapshots.State qualified as Snapshots 
   State,
   viewInitial,
  )
-import Hydra.HeadLogic.State.Coordinated.Transactions.Topology (DecommitPhase (..), DecommitTopology)
-import Hydra.HeadLogic.State.Coordinated.Types (
+import Hydra.HeadLogic.State.Types (
   CommitUpdate (..),
   LocalTransactionCommand (..),
   SnapshotState (..),
@@ -57,6 +69,24 @@ import Hydra.Tx.Snapshot (
   Snapshot (..),
   getSnapshot,
  )
+
+-- | An approved decommit must settle before a new pending one can replace it.
+data DecommitPhase = NoDecommit | DecommitPending | AwaitingDecommitSettlement
+
+$(genSingletons [''DecommitPhase])
+
+type DecommitTopology =
+  'Topology
+    '[ '( 'NoDecommit, '[ 'DecommitPending, 'AwaitingDecommitSettlement])
+     , '( 'DecommitPending, '[ 'NoDecommit, 'AwaitingDecommitSettlement])
+     , '( 'AwaitingDecommitSettlement, '[ 'NoDecommit])
+     ]
+
+deriving stock instance Eq DecommitPhase
+deriving stock instance Show DecommitPhase
+deriving stock instance Enum DecommitPhase
+deriving stock instance Bounded DecommitPhase
+deriving via AllVertices DecommitPhase instance RenderableVertices DecommitPhase
 
 data TransactionState tx = TransactionState
   { localUTxO :: UTxOType tx

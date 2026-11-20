@@ -1,18 +1,30 @@
-module Hydra.HeadLogic.State.Coordinated.Types where
+-- | Shared commands, updates and outputs used to compose the state machines.
+module Hydra.HeadLogic.State.Types (
+  DepositOutput (..),
+  HeadOutput (..),
+  Command (..),
+  LocalTransactionCommand (..),
+  TransactionUpdate (..),
+  VersionChange (..),
+  CommitUpdate (..),
+  SnapshotState (..),
+) where
 
 import Hydra.Chain.ChainState (
   ChainSlot,
   IsChainState (ChainStateType),
  )
 import Hydra.HeadLogic.Deposit (Deposit)
+import Hydra.HeadLogic.Outcome (StateChanged)
 import Hydra.HeadLogic.Snapshot.Candidate (Candidate)
 import Hydra.HeadLogic.Snapshot.Request (SnapshotRequest)
 import Hydra.HeadLogic.Snapshot.Verification (
   VerifiedCandidate,
   VerifiedSnapshot,
  )
-import Hydra.HeadLogic.State (FinalizedSnapshot, SeenSnapshot)
+import Hydra.HeadLogic.State (FinalizedSnapshot, HeadState, SeenSnapshot)
 import Hydra.Ledger (ValidationError)
+import Hydra.Node.State (TrackedDeposits)
 import Hydra.Prelude
 import Hydra.Tx (HeadId, TxIdType, UTxOType)
 import Hydra.Tx.Crypto (Signature)
@@ -23,6 +35,18 @@ import Hydra.Tx.Snapshot (
   SnapshotNumber,
   SnapshotVersion,
  )
+
+data DepositOutput tx = DepositOutput
+  { event :: StateChanged tx
+  , deposits :: TrackedDeposits tx
+  , settledDeposit :: ~(UTxOType tx)
+  }
+
+data HeadOutput tx = HeadOutput
+  { event :: StateChanged tx
+  , deposits :: TrackedDeposits tx
+  , headState :: HeadState tx
+  }
 
 -- | All the things that can occur in relation to a snapshot.
 data Command tx

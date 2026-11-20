@@ -12,13 +12,13 @@ import Data.Map.Strict qualified as Map (delete, lookup)
 import Hydra.Chain.ChainState (IsChainState (..))
 import Hydra.HeadLogic.Program (Program)
 import Hydra.HeadLogic.Program qualified as Program (decide)
+import Hydra.HeadLogic.Rules.Coordinated (sendSnapshot)
 import Hydra.HeadLogic.Rules.Coordinated qualified as Staging (
   stage,
  )
 import Hydra.HeadLogic.Rules.Environment (
   RuleEnvironment (party, snapshotLimits),
  )
-import Hydra.HeadLogic.Rules.SendSnapshot (sendSnapshot)
 import Hydra.HeadLogic.Snapshot.Request (
   SnapshotRequest,
   chainedSnapshotRequest,
