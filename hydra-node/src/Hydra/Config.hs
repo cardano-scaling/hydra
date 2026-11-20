@@ -305,7 +305,7 @@ parseCardanoChainConfig peerCardanoVKs o = do
 -- rather than trying to join it.
 requirePositiveContestationPeriod :: ContestationPeriod -> Parser ContestationPeriod
 requirePositiveContestationPeriod cp
-  | toInteger cp > 0 = pure cp
+  | cp >= 1 = pure cp
   | otherwise = fail $ "contestation-period must be > 0, but is " <> show cp
 
 -- | A configured deposit period may be zero, which is also what a sub-second one
