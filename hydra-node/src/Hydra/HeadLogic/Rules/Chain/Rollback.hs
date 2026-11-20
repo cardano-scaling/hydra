@@ -137,7 +137,16 @@ maybeRepostDecrementTx headSeed headId parameters mDecommitTx confirmedSnapshot 
 
 -- | Chain rollback preserves L2 state and reposts work selected from the retained
 -- state. It does not reconstruct fanout progress on a divergent chain.
-handleRollback :: IsChainState tx => RuleEnvironment -> UTCTime -> PendingDeposits tx -> HeadState tx -> ChainStateType tx -> UTCTime -> SyncedStatus -> Program tx ()
+handleRollback ::
+  IsChainState tx =>
+  RuleEnvironment ->
+  UTCTime ->
+  PendingDeposits tx ->
+  HeadState tx ->
+  ChainStateType tx ->
+  UTCTime ->
+  SyncedStatus ->
+  Program tx ()
 handleRollback env now pendingDeposits st rolledBackChainState chainTime syncStatus = do
   change ChainRolledBack{chainState = rolledBackChainState}
   handleOutOfSync env now (chainStatePoint rolledBackChainState) chainTime syncStatus
