@@ -1,8 +1,6 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# OPTIONS_GHC -Wno-ambiguous-fields #-}
 
--- | Pure input programs and retained-event aggregation. Runtime entry points
--- and Cardano configuration live in Hydra.Node.HeadLogic.
 module Hydra.HeadLogic (
   module Hydra.HeadLogic,
   aggregateChainStateHistory,
@@ -27,18 +25,86 @@ import Hydra.HeadLogic.Error (
   RequirementFailure (..),
   SideLoadRequirementFailure (..),
  )
-import Hydra.HeadLogic.Fanout.Outputs (isSubMultisetOf, nullOutputs, removeDistributedOutputs, sameOutputs)
-import Hydra.HeadLogic.Fanout.Selection (NextFanoutStep (..), computeFullFanoutUTxO, currentFanoutStep, effectiveCommitDecommit, fanoutUTxOFromSnapshot, matchesFanoutStep, mkFullFanoutTx, nextFanoutStep, recordedSelectionMode)
+import Hydra.HeadLogic.Fanout.Outputs (
+  isSubMultisetOf,
+  nullOutputs,
+  removeDistributedOutputs,
+  sameOutputs,
+ )
+import Hydra.HeadLogic.Fanout.Selection (
+  NextFanoutStep (..),
+  computeFullFanoutUTxO,
+  currentFanoutStep,
+  effectiveCommitDecommit,
+  fanoutUTxOFromSnapshot,
+  matchesFanoutStep,
+  mkFullFanoutTx,
+  nextFanoutStep,
+  recordedSelectionMode,
+ )
 import Hydra.HeadLogic.Input (Input (..), TTL)
-import Hydra.HeadLogic.Outcome (Effect (..), Outcome (..), StateChanged (..), WaitReason (..), cause, eventHeadId, newState, noop)
+import Hydra.HeadLogic.Outcome (
+  Effect (..),
+  Outcome (..),
+  StateChanged (..),
+  WaitReason (..),
+  cause,
+  eventHeadId,
+  newState,
+  noop,
+ )
 import Hydra.HeadLogic.Program (Program)
 import Hydra.HeadLogic.Rules.Client (openFinalizedDeposit)
 import Hydra.HeadLogic.Rules.Environment (RuleEnvironment)
 import Hydra.HeadLogic.Rules.Input (handleInput)
-import Hydra.HeadLogic.Rules.Transactions (applyTransactionsProgram, applyTransactionsWithoutCollision, checkTransactionOutputs)
-import Hydra.HeadLogic.Snapshot.Request (SettlingCommit (..), SnapshotRequest, buildSnapshotRequest, chainedSnapshotRequest, existingDeposit, isLeader, maxTxsPerSnapshot, nextActiveDepositId, nextSnapshotRequest, requestDecommitTx, requestDepositTxId, requestTxs, selectNextDeposit, settlingCommitAtPeriod)
-import Hydra.HeadLogic.Snapshot.Settlement (finalizedDepositTxId, retainFinalizedCommit, retainFinalizedDecommit, settledUTxO)
-import Hydra.HeadLogic.State (ClosedState (..), CoordinatedHeadState (..), FanoutMode (..), FinalizedSnapshot (..), FinalizedState (..), HeadState (..), IdleState (..), OnChainFanoutDatum (..), OpenState (..), PartialFanoutState (..), SeenSnapshot (..), getChainState, getHeadParameters, getOpenStateConfirmedSnapshot, headIdOf, isCollectingAcks, mkSeenSnapshot, seenSnapshotNumber, snapshotInFlight)
+import Hydra.HeadLogic.Rules.Transactions (
+  applyTransactionsProgram,
+  applyTransactionsWithoutCollision,
+  checkTransactionOutputs,
+ )
+import Hydra.HeadLogic.Snapshot.Request (
+  SettlingCommit (..),
+  SnapshotRequest,
+  buildSnapshotRequest,
+  chainedSnapshotRequest,
+  existingDeposit,
+  isLeader,
+  maxTxsPerSnapshot,
+  nextActiveDepositId,
+  nextSnapshotRequest,
+  requestDecommitTx,
+  requestDepositTxId,
+  requestTxs,
+  selectNextDeposit,
+  settlingCommitAtPeriod,
+ )
+import Hydra.HeadLogic.Snapshot.Settlement (
+  finalizedDepositTxId,
+  retainFinalizedCommit,
+  retainFinalizedDecommit,
+  settledUTxO,
+ )
+import Hydra.HeadLogic.State (
+  ClosedState (..),
+  CoordinatedHeadState (..),
+  FanoutMode (..),
+  FinalizedSnapshot (..),
+  FinalizedState (..),
+  HeadState (..),
+  IdleState (..),
+  OnChainFanoutDatum (..),
+  OpenState (..),
+  PartialFanoutState (..),
+  SeenSnapshot (..),
+  getChainState,
+  getHeadParameters,
+  getOpenStateConfirmedSnapshot,
+  headIdOf,
+  isCollectingAcks,
+  mkSeenSnapshot,
+  seenSnapshotNumber,
+  snapshotInFlight,
+ )
 import Hydra.HeadLogic.State.ChainHistory (aggregateChainStateHistory)
 import Hydra.HeadLogic.State.Fanout (fanoutProgressToClosed)
 import Hydra.HeadLogic.State.Node qualified as Machine
@@ -46,7 +112,13 @@ import Hydra.HeadLogic.Transaction.Outputs (absorbable, namesNoneOf)
 import Hydra.Node.State (NodeState (..))
 import Hydra.Prelude
 
-updateProgram :: IsChainState tx => RuleEnvironment -> UTCTime -> NodeState tx -> Input tx -> Program tx ()
+updateProgram ::
+  IsChainState tx =>
+  RuleEnvironment ->
+  UTCTime ->
+  NodeState tx ->
+  Input tx ->
+  Program tx ()
 updateProgram = handleInput
 
 aggregateNodeState :: IsChainState tx => NodeState tx -> StateChanged tx -> NodeState tx
