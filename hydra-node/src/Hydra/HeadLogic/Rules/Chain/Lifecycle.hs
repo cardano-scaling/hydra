@@ -65,8 +65,6 @@ import Hydra.Tx.Snapshot (
  )
 
 -- | Observe an init transaction and initialize parameters in an 'OpenState'.
---
--- __Transition__: 'IdleState' → 'OpenState'
 onIdleChainInitTx ::
   RuleEnvironment ->
   -- | New chain state.
@@ -113,9 +111,23 @@ onIdleChainInitTx env newChainState headId headSeed headParameters participants
     , participants = configuredParticipants
     } = env
 
-onOpenChainCloseTx :: IsChainState tx => OpenState tx -> ChainStateType tx -> SnapshotNumber -> UTCTime -> MultiSignature (Snapshot tx) -> Program tx ()
+onOpenChainCloseTx ::
+  IsChainState tx =>
+  OpenState tx ->
+  ChainStateType tx ->
+  SnapshotNumber ->
+  UTCTime ->
+  MultiSignature (Snapshot tx) ->
+  Program tx ()
 onOpenChainCloseTx os@OpenState{headId, parameters, coordinatedHeadState} newChainState closedNumber contestationDeadline signatures = do
-  void $ adoptSnapshot parameters.parties closedNumber signatures candidate (void . Staging.stage (Coordinated.start os) . Coordinated.adoptSnapshot)
+  void $
+    adoptSnapshot
+      parameters.parties
+      closedNumber
+      signatures
+      candidate
+      (void . Staging.stage (Coordinated.start os) . Coordinated.adoptSnapshot)
+
   change HeadClosed{headId, snapshotNumber = closedNumber, chainState = newChainState, contestationDeadline}
   -- Compare the confirmed snapshot from before adoption, as the existing rule does.
   postNewerSnapshot headId parameters version confirmedSnapshot closedNumber
@@ -125,14 +137,28 @@ onOpenChainCloseTx os@OpenState{headId, parameters, coordinatedHeadState} newCha
     seen@SeenSnapshot{} -> Just seen
     _ -> Nothing
 
-onClosedChainContestTx :: IsTx tx => ClosedState tx -> ChainStateType tx -> SnapshotNumber -> UTCTime -> MultiSignature (Snapshot tx) -> Program tx ()
+onClosedChainContestTx ::
+  IsTx tx =>
+  ClosedState tx ->
+  ChainStateType tx ->
+  SnapshotNumber ->
+  UTCTime ->
+  MultiSignature (Snapshot tx) ->
+  Program tx ()
 onClosedChainContestTx ClosedState{headId, parameters, confirmedSnapshot, version, unconfirmedSnapshot} newChainState snapshotNumber contestationDeadline signatures = do
   adopted <- adoptSnapshot parameters.parties snapshotNumber signatures ((`mkSeenSnapshot` mempty) <$> unconfirmedSnapshot) $ \evidence ->
     change SnapshotConfirmed{headId, snapshot = Just $ verifiedSnapshot evidence, signatures}
   change HeadContested{headId, chainState = newChainState, contestationDeadline, snapshotNumber}
   unless adopted $ postNewerSnapshot headId parameters version confirmedSnapshot snapshotNumber
 
-adoptSnapshot :: IsTx tx => [Party] -> SnapshotNumber -> MultiSignature (Snapshot tx) -> Maybe (SeenSnapshot tx) -> (VerifiedSnapshot tx -> Program tx ()) -> Program tx Bool
+adoptSnapshot ::
+  IsTx tx =>
+  [Party] ->
+  SnapshotNumber ->
+  MultiSignature (Snapshot tx) ->
+  Maybe (SeenSnapshot tx) ->
+  (VerifiedSnapshot tx -> Program tx ()) ->
+  Program tx Bool
 adoptSnapshot parties observedNumber signatures candidate retain = case candidate of
   Just seen@SeenSnapshot{snapshot} | snapshot.number == observedNumber -> do
     void $ decide "chain observation matches the unconfirmed snapshot number" True
@@ -142,7 +168,14 @@ adoptSnapshot parties observedNumber signatures candidate retain = case candidat
     pure valid
   _ -> decide "chain observation matches the unconfirmed snapshot number" False
 
-postNewerSnapshot :: IsTx tx => HeadId -> HeadParameters -> SnapshotVersion -> ConfirmedSnapshot tx -> SnapshotNumber -> Program tx ()
+postNewerSnapshot ::
+  IsTx tx =>
+  HeadId ->
+  HeadParameters ->
+  SnapshotVersion ->
+  ConfirmedSnapshot tx ->
+  SnapshotNumber ->
+  Program tx ()
 postNewerSnapshot headId headParameters openVersion confirmedSnapshot observedNumber = do
   newer <- decide "confirmed snapshot is newer than the on-chain snapshot" ((getSnapshot confirmedSnapshot).number > observedNumber)
   when newer $ emit $ OnChainEffect ContestTx{headId, headParameters, openVersion, contestingSnapshot = confirmedSnapshot}
