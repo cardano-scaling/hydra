@@ -38,7 +38,7 @@ import Hydra.HeadLogic.Rules.Input (handleInput)
 import Hydra.HeadLogic.Rules.Transactions (applyTransactionsProgram, applyTransactionsWithoutCollision, checkTransactionOutputs)
 import Hydra.HeadLogic.Snapshot.Request (SettlingCommit (..), SnapshotRequest, buildSnapshotRequest, chainedSnapshotRequest, existingDeposit, isLeader, maxTxsPerSnapshot, nextActiveDepositId, nextSnapshotRequest, requestDecommitTx, requestDepositTxId, requestTxs, selectNextDeposit, settlingCommitAtPeriod)
 import Hydra.HeadLogic.Snapshot.Settlement (finalizedDepositTxId, retainFinalizedCommit, retainFinalizedDecommit, settledUTxO)
-import Hydra.HeadLogic.State (ClosedState (..), CoordinatedHeadState (..), FanoutMode (..), FinalizedSnapshot (..), FinalizedState (..), HeadState (..), IdleState (..), OnChainFanoutDatum (..), OpenState (..), PartialFanoutState (..), SeenSnapshot (..), closedStateCBORTag, closedStateCBORTagV1, coordinatedHeadStateCBORTag, coordinatedHeadStateCBORTagV1, getChainState, getHeadParameters, getOpenStateConfirmedSnapshot, headIdOf, isCollectingAcks, mkSeenSnapshot, seenSnapshotNumber, snapshotInFlight)
+import Hydra.HeadLogic.State (ClosedState (..), CoordinatedHeadState (..), FanoutMode (..), FinalizedSnapshot (..), FinalizedState (..), HeadState (..), IdleState (..), OnChainFanoutDatum (..), OpenState (..), PartialFanoutState (..), SeenSnapshot (..), getChainState, getHeadParameters, getOpenStateConfirmedSnapshot, headIdOf, isCollectingAcks, mkSeenSnapshot, seenSnapshotNumber, snapshotInFlight)
 import Hydra.HeadLogic.State.ChainHistory (aggregateChainStateHistory)
 import Hydra.HeadLogic.State.Fanout (fanoutProgressToClosed)
 import Hydra.HeadLogic.State.Node qualified as Machine

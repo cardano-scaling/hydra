@@ -25,6 +25,8 @@
 -- semantics; agreement with it does not establish progress or rollback safety.
 -- Payload evaluation, the coordinated runtime's record layout and Haskell field
 -- strictness are outside this projection too.
+-- Haskell serialization tests cover the current checkpoint layouts. Historical
+-- checkpoint compatibility is unsupported and is not modeled by this reference.
 -- Haskell input handlers live in Rules, state evolution in State, and shared
 -- protocol operations in domain modules. State.Types holds shared machine
 -- commands, updates and outputs; Rules.Coordinated stages updates and broadcasts

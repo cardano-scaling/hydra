@@ -4,8 +4,7 @@
 
 module Hydra.HeadLogic.State where
 
-import Cardano.Binary (Decoder)
-import Data.Aeson (object, withObject, (.!=), (.:), (.:?), (.=))
+import Data.Aeson (object, withObject, (.:), (.=))
 import Data.Map.Strict qualified as Map (Map)
 import Hydra.Chain.ChainState (ChainSlot, IsChainState (..))
 import Hydra.HeadLogic.Cardano (snapshotSigningBytes)
@@ -103,8 +102,7 @@ instance IsChainState tx => ToCBOR (IdleState tx) where
 instance IsChainState tx => FromCBOR (IdleState tx) where
   fromCBOR = genericFromCBOR
 
--- | Terminal identity and chain position of a completed Head. Existing Idle
--- checkpoints still decode as Idle: older writers discarded this identity.
+-- | Terminal identity and chain position of a completed Head.
 data FinalizedState tx = FinalizedState
   { headId :: HeadId
   , chainState :: ChainStateType tx
@@ -191,58 +189,11 @@ deriving stock instance IsTx tx => Show (CoordinatedHeadState tx)
 deriving anyclass instance IsTx tx => ToJSON (CoordinatedHeadState tx)
 deriving anyclass instance IsTx tx => FromJSON (CoordinatedHeadState tx)
 
--- | Tag of the current on-disk\/wire layout, which carries 'finalizedCommit'
--- and 'finalizedDecommit'. The fields are a bare concatenation with no length
--- prefix, so a layout change is only decodable when the tag distinguishes it:
--- 'coordinatedHeadStateCBORTagV1' names the layout written before those fields
--- existed and is still accepted, letting a node replay an event log from an
--- earlier version.
-coordinatedHeadStateCBORTag :: Text
-coordinatedHeadStateCBORTag = "CoordinatedHeadState2"
-
--- | Tag of the layout without 'finalizedCommit'\/'finalizedDecommit'. Decoded,
--- never written.
-coordinatedHeadStateCBORTagV1 :: Text
-coordinatedHeadStateCBORTagV1 = "CoordinatedHeadState"
-
 instance IsTx tx => ToCBOR (CoordinatedHeadState tx) where
-  toCBOR CoordinatedHeadState{localUTxO, localTxs, allTxs, confirmedSnapshot, seenSnapshot, currentDepositTxId, decommitTx, version, finalizedCommit, finalizedDecommit} =
-    toCBOR coordinatedHeadStateCBORTag
-      <> toCBOR localUTxO
-      <> toCBOR localTxs
-      <> toCBOR allTxs
-      <> toCBOR confirmedSnapshot
-      <> toCBOR seenSnapshot
-      <> toCBOR currentDepositTxId
-      <> toCBOR decommitTx
-      <> toCBOR version
-      <> toCBOR finalizedCommit
-      <> toCBOR finalizedDecommit
+  toCBOR = genericToCBOR
 
 instance IsTx tx => FromCBOR (CoordinatedHeadState tx) where
-  fromCBOR =
-    fromCBOR >>= \case
-      (tag :: Text)
-        | tag == coordinatedHeadStateCBORTag -> decode True
-        | tag == coordinatedHeadStateCBORTagV1 -> decode False
-        | otherwise -> fail $ show tag <> " is not a proper CBOR-encoded CoordinatedHeadState"
-   where
-    decode :: Bool -> Decoder s (CoordinatedHeadState tx)
-    decode hasFinalized = do
-      localUTxO <- fromCBOR
-      localTxs <- fromCBOR
-      allTxs <- fromCBOR
-      confirmedSnapshot <- fromCBOR
-      seenSnapshot <- fromCBOR
-      currentDepositTxId <- fromCBOR
-      decommitTx <- fromCBOR
-      version <- fromCBOR
-      -- A state from before these fields existed retains no finalized
-      -- commit/decommit: rollback re-posting is unavailable for increments and
-      -- decrements finalized before the upgrade, like it was at the time.
-      finalizedCommit <- if hasFinalized then fromCBOR else pure Nothing
-      finalizedDecommit <- if hasFinalized then fromCBOR else pure Nothing
-      pure CoordinatedHeadState{localUTxO, localTxs, allTxs, confirmedSnapshot, seenSnapshot, currentDepositTxId, decommitTx, version, finalizedCommit, finalizedDecommit}
+  fromCBOR = genericFromCBOR
 
 -- | Data structure to help in tracking whether we have seen or requested a
 -- ReqSn already and if seen, the signatures we collected already.
@@ -395,53 +346,11 @@ deriving stock instance (IsTx tx, Show (ChainStateType tx)) => Show (ClosedState
 deriving anyclass instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (ClosedState tx)
 deriving anyclass instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (ClosedState tx)
 
--- | Tag of the current on-disk\/wire layout, which carries
--- 'unconfirmedSnapshot'. Like 'coordinatedHeadStateCBORTag', the fields are a
--- bare concatenation, so 'closedStateCBORTagV1' names the layout written before
--- that field existed and is still accepted.
-closedStateCBORTag :: Text
-closedStateCBORTag = "ClosedState2"
-
--- | Tag of the layout without 'unconfirmedSnapshot', as written by the generic
--- encoding. Decoded, never written.
-closedStateCBORTagV1 :: Text
-closedStateCBORTagV1 = "ClosedState"
-
 instance IsChainState tx => ToCBOR (ClosedState tx) where
-  toCBOR ClosedState{parameters, confirmedSnapshot, contestationDeadline, readyToFanoutSent, chainState, headId, headSeed, version, unconfirmedSnapshot} =
-    toCBOR closedStateCBORTag
-      <> toCBOR parameters
-      <> toCBOR confirmedSnapshot
-      <> toCBOR contestationDeadline
-      <> toCBOR readyToFanoutSent
-      <> toCBOR chainState
-      <> toCBOR headId
-      <> toCBOR headSeed
-      <> toCBOR version
-      <> toCBOR unconfirmedSnapshot
+  toCBOR = genericToCBOR
 
 instance IsChainState tx => FromCBOR (ClosedState tx) where
-  fromCBOR =
-    fromCBOR >>= \case
-      (tag :: Text)
-        | tag == closedStateCBORTag -> decode True
-        | tag == closedStateCBORTagV1 -> decode False
-        | otherwise -> fail $ show tag <> " is not a proper CBOR-encoded ClosedState"
-   where
-    decode :: Bool -> Decoder s (ClosedState tx)
-    decode hasUnconfirmed = do
-      parameters <- fromCBOR
-      confirmedSnapshot <- fromCBOR
-      contestationDeadline <- fromCBOR
-      readyToFanoutSent <- fromCBOR
-      chainState <- fromCBOR
-      headId <- fromCBOR
-      headSeed <- fromCBOR
-      version <- fromCBOR
-      -- A state from before this field existed has no unconfirmed snapshot to
-      -- adopt, like it was at the time.
-      unconfirmedSnapshot <- if hasUnconfirmed then fromCBOR else pure Nothing
-      pure ClosedState{parameters, confirmedSnapshot, contestationDeadline, readyToFanoutSent, chainState, headId, headSeed, version, unconfirmedSnapshot}
+  fromCBOR = genericFromCBOR
 
 -- ** PartialFanout
 
@@ -520,70 +429,13 @@ data PartialFanoutState tx = PartialFanoutState
 deriving stock instance (IsTx tx, Eq (ChainStateType tx)) => Eq (PartialFanoutState tx)
 deriving stock instance (IsTx tx, Show (ChainStateType tx)) => Show (PartialFanoutState tx)
 deriving anyclass instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (PartialFanoutState tx)
-instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (PartialFanoutState tx) where
-  parseJSON = withObject "PartialFanoutState" $ \o -> do
-    parameters <- o .: "parameters"
-    confirmedSnapshot <- o .: "confirmedSnapshot"
-    contestationDeadline <- o .: "contestationDeadline"
-    chainState <- o .: "chainState"
-    headId <- o .: "headId"
-    headSeed <- o .: "headSeed"
-    version <- o .: "version"
-    remainingOutputs <- o .: "remainingOutputs"
-    distributedOutputs <- o .: "distributedOutputs"
-    mode <- o .: "mode"
-    fanoutDatum <- o .:? "fanoutDatum" .!= legacyFanoutDatum @tx distributedOutputs
-    readyToFanoutSent <- o .:? "readyToFanoutSent" .!= True
-    unconfirmedSnapshot <- o .:? "unconfirmedSnapshot"
-    pure PartialFanoutState{parameters, confirmedSnapshot, contestationDeadline, chainState, headId, headSeed, version, remainingOutputs, distributedOutputs, mode, fanoutDatum, readyToFanoutSent, unconfirmedSnapshot}
+deriving anyclass instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (PartialFanoutState tx)
 
 instance IsChainState tx => ToCBOR (PartialFanoutState tx) where
-  toCBOR PartialFanoutState{parameters, confirmedSnapshot, contestationDeadline, chainState, headId, headSeed, version, remainingOutputs, distributedOutputs, mode, fanoutDatum, readyToFanoutSent, unconfirmedSnapshot} =
-    toCBOR ("PartialFanoutState3" :: Text)
-      <> toCBOR parameters
-      <> toCBOR confirmedSnapshot
-      <> toCBOR contestationDeadline
-      <> toCBOR chainState
-      <> toCBOR headId
-      <> toCBOR headSeed
-      <> toCBOR version
-      <> toCBOR remainingOutputs
-      <> toCBOR distributedOutputs
-      <> toCBOR mode
-      <> toCBOR fanoutDatum
-      <> toCBOR readyToFanoutSent
-      <> toCBOR unconfirmedSnapshot
+  toCBOR = genericToCBOR
 
 instance IsChainState tx => FromCBOR (PartialFanoutState tx) where
-  fromCBOR = do
-    tag <- fromCBOR @Text
-    unless (tag `elem` ["PartialFanoutState", "PartialFanoutState2", "PartialFanoutState3"]) $
-      fail $
-        show tag <> " is not a proper CBOR-encoded PartialFanoutState"
-    parameters <- fromCBOR
-    confirmedSnapshot <- fromCBOR
-    contestationDeadline <- fromCBOR
-    chainState <- fromCBOR
-    headId <- fromCBOR
-    headSeed <- fromCBOR
-    version <- fromCBOR
-    remainingOutputs <- fromCBOR
-    distributedOutputs <- fromCBOR
-    mode <- fromCBOR
-    fanoutDatum <- if tag /= "PartialFanoutState" then fromCBOR else pure $ legacyFanoutDatum @tx distributedOutputs
-    -- Older checkpoints lost the Closed candidate and assumed readiness.
-    -- Preserve that interpretation; event replay retains the original values.
-    readyToFanoutSent <- if tag == "PartialFanoutState3" then fromCBOR else pure True
-    unconfirmedSnapshot <- if tag == "PartialFanoutState3" then fromCBOR else pure Nothing
-    pure PartialFanoutState{parameters, confirmedSnapshot, contestationDeadline, chainState, headId, headSeed, version, remainingOutputs, distributedOutputs, mode, fanoutDatum, readyToFanoutSent, unconfirmedSnapshot}
-
--- | Older checkpoints did not retain the datum. Preserve their interpretation;
--- an observation with no locally matching outputs cannot be recovered from
--- this layout alone. Replaying the observation retains the correct phase.
-legacyFanoutDatum :: forall tx. IsTx tx => UTxOType tx -> OnChainFanoutDatum
-legacyFanoutDatum distributed
-  | null (outputsOfUTxO @tx distributed) = DatumClosed
-  | otherwise = DatumFanoutProgress
+  fromCBOR = genericFromCBOR
 
 -- | A snapshot whose settlement transaction (the increment of its commit, or
 -- the decrement of its decommit) was observed on chain, retained when the

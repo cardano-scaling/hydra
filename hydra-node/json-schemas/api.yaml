@@ -3950,6 +3950,9 @@ components:
         - remainingOutputs
         - distributedOutputs
         - mode
+        - fanoutDatum
+        - readyToFanoutSent
+        - unconfirmedSnapshot
       properties:
         parameters:
           $ref: "api.yaml#/components/schemas/HeadParameters"
@@ -3984,7 +3987,6 @@ components:
           enum: ["DatumClosed", "DatumFanoutProgress"]
           description: >-
             Observed on-chain datum, independent of locally matched distributed outputs.
-            Missing only in legacy checkpoints, which infer it from distributedOutputs.
 
     FanoutMode:
       oneOf:
