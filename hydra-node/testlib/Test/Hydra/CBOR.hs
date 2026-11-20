@@ -42,18 +42,6 @@ roundtripCBOR p = do
       withMaxSuccess 20 $
         prop_canRoundtripCBOREncoding @a
 
--- | Golden test locking a persisted CBOR format. The golden file holds the
--- raw CBOR of a list of samples. When the file is missing it is created from
--- the given generator with a fixed seed — commit the result. On every other
--- run the stored bytes must decode successfully and re-encode to the exact
--- same bytes.
---
--- This catches codec changes that would break decoding of already persisted
--- data (e.g. hydra.db events) — including symmetric encoder+decoder drift
--- (say, reordering the fields on both sides) that roundtrip properties
--- cannot see. If this fails, the change breaks existing databases and needs
--- a schema migration; only delete and regenerate the golden file alongside
--- one.
 -- | One sample per constructor of @a@, in declaration order, enumerated
 -- generically by 'ToADTArbitrary': coverage of every constructor holds by
 -- construction and new constructors are included automatically. Samples are
@@ -71,6 +59,18 @@ genGoldenSamples = do
 genGoldenSample :: Arbitrary a => Gen [a]
 genGoldenSample = (: []) <$> resize 5 arbitrary
 
+-- | Golden test locking a persisted CBOR format. The golden file holds the
+-- raw CBOR of a list of samples. When the file is missing it is created from
+-- the given generator with a fixed seed — commit the result. On every other
+-- run the stored bytes must decode successfully and re-encode to the exact
+-- same bytes.
+--
+-- This catches codec changes that would break decoding of already persisted
+-- data (e.g. hydra.db events) — including symmetric encoder+decoder drift
+-- (say, reordering the fields on both sides) that roundtrip properties
+-- cannot see. If this fails, the change breaks existing databases. Regenerate
+-- the golden file only with a migration or a documented breaking release that
+-- requires fresh persistence.
 goldenCBOR ::
   forall a.
   (ToCBOR a, FromCBOR a) =>

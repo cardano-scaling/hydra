@@ -784,9 +784,9 @@ the transaction body hash. If settlement already advanced the version, remove
 the retained payload without reviving the decommit.
 
 A request at the same version must carry the authorised decommit and no deposit.
-If an older checkpoint has the certificate but lacks its transaction, request
+If the node has the certificate but lacks its transaction, request
 selection waits for settlement; it cannot emit a request that omits the decommit
-or retain a marker for that request. The persistence encoding is unchanged:
+or retain a marker for that request.
 `TransactionReceived` retains the accepted payload before `SnapshotRequested`,
 and `SnapshotConfirmed` transfers it to the decommit slot.
 
@@ -1850,21 +1850,18 @@ The API's Idle status describes node availability after finalization.
 
 The `FanoutProgress` checkpoint persists the observed on-chain datum separately
 from matched output bookkeeping. An observed partial fanout enters PartialFanout
-even if none of its distributed outputs occurs in the local snapshot. New CBOR
-checkpoints use `PartialFanoutState3`, also retaining the Closed candidate and
-readiness flag; older layouts and JSON without the datum
-remain readable with their previous interpretation (nonempty matched outputs
-mean PartialFanout, otherwise pending Closed). Those older checkpoints cannot
-recover an observation that matched no local outputs; replaying its retained
-event does recover the correct phase. Existing Idle checkpoints likewise cannot
-recover a completed identity that their writer discarded.
+even if none of its distributed outputs occurs in the local snapshot. Checkpoints
+also retain the Closed candidate and readiness flag. Coordinated, Closed,
+partial-fanout and node state use their current generic CBOR record layouts.
+This is a breaking persistence change: earlier checkpoint layouts are unsupported
+and no migration is supplied. The cached signing bytes of a seen snapshot remain
+excluded from serialization and are reconstructed from the snapshot.
 The on-chain validator requires each partial fanout to distribute at least one
 output. ReadyToFanout records that a notification was sent, and contestation can
 extend the deadline without resetting it. Cancelling pending fanout restores
-the original flag and candidate. Layouts predating these fields preserve their
-old defaults (readiness sent, no candidate); replay from the preceding Closed
-state recovers them. Rollback updates chain state and tracked deposit history; it does not
-rewind lifecycle phases, off-chain transactions or snapshot versions.
+the original flag and candidate. Rollback updates chain state and tracked deposit
+history; it does not rewind lifecycle phases, off-chain transactions or snapshot
+versions.
 
 An open head separately tracks a selected deposit and a pending decommit. Raw
 persisted events can represent both, so the replay machine includes that state;

@@ -246,6 +246,10 @@ refuses plain `Fanout` while either driver is active, so further manual work
 uses `PartialFanout`. A failed initiating post can clear pending local work;
 it cannot undo an observed distribution.
 
+Checkpoints persist the current `PartialFanoutState` record, including its datum,
+readiness notification flag, and candidate snapshot. Earlier checkpoint layouts
+are unsupported; see the [checkpoint format change](./event-sourcing.md#schema).
+
 The datum is independent of `distributedOutputs`, which records only outputs
 matched against the local snapshot. A valid observed distribution can match none
 when the snapshot closed on-chain differs from the local one. It still enters

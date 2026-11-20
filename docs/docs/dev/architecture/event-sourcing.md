@@ -19,7 +19,7 @@ broadcast snapshot requests through `Hydra.HeadLogic.Rules.Coordinated`.
 
 The default event source and sink used by the `hydra-node` is `SQLiteBased`, which persists events in a SQLite database file named `hydra.db`. This file is located in the `hydra-node` persistence directory, which is specified by the `--persistence-dir` command line option.
 
-If a legacy `state` file from a previous file-based installation is found in the persistence directory on startup, its events are automatically migrated into `hydra.db` and the original file is renamed to `state.migrated`.
+If a legacy `state` file from a previous file-based installation is found in the persistence directory on startup, its events are migrated into `hydra.db` if the current version can decode them, and the original file is renamed to `state.migrated`. This storage migration does not provide compatibility with unsupported checkpoint layouts.
 
 As explained in the consequences of [ADR29](/adr/29), the API server of the `hydra-node` is also an event sink, which means that all events are sent to the API server and may be further submitted as [`ServerOutput`](pathname:///haddocks/hydra-node/Hydra-API-ServerOutput.html#t:ServerOutput) to clients of the API server. See [`mkTimedServerOutputFromStateEvent`](pathname:///haddocks/hydra-node/Hydra-API-Server.html#v:mkTimedServerOutputFromStateEvent) for which events are mapped to server outputs.
 
@@ -43,7 +43,7 @@ generically via `genericToCBOR` / `genericFromCBOR` from
 `Codec.CBOR.Generic.Tagged` (cborg-generic-tagged, re-exported by
 `Hydra.Prelude`), which makes the data type declaration itself the on-disk
 format: changing the order or types of an existing constructor's fields is a
-breaking change that requires a schema migration, while adding or
+breaking change that requires a migration or fresh persistence, while adding or
 reordering constructors preserves the tags of existing constructors. Removing a
 constructor requires a compatibility decoder or migration for stored values
 that use it; older software cannot decode newly added constructors.
@@ -55,6 +55,13 @@ cardano-api types (`TxId`, `PolicyId`, `Hash BlockHeader`, ...), scalar
 primitives, and `VerificationKey HydraKey` whose CBOR is the on-disk key file
 format and must not change. The golden tests in `Hydra.CBORSpec` lock the
 concrete bytes per constructor and fail on any accidental format change.
+
+The HeadLogic refactor introduces a breaking checkpoint-format change. Head and
+node state use their current record layouts, with no migration from earlier
+layouts. Finalize active Heads and recover outstanding deposits using the version
+that wrote their state before upgrading, then use a fresh persistence directory.
+CBOR API clients must update their decoders for Head and node state, including
+messages containing them.
 
 The following connection pragmas are set on every open:
 

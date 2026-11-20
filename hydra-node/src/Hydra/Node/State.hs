@@ -4,8 +4,6 @@ module Hydra.Node.State (module Hydra.Node.State, module Deposit) where
 
 import Hydra.Prelude
 
-import Cardano.Binary (Decoder)
-import Data.Aeson (withObject, (.:))
 import Data.Map.Strict qualified as Map
 import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import GHC.Records (HasField (..))
@@ -28,9 +26,8 @@ type PendingDeposits tx = Map (TxIdType tx) (Deposit tx)
 
 type TrackedDeposits tx = Map (TxIdType tx) (TrackedDeposit tx)
 
--- | Track the given deposits with a fresh lifecycle (recorded at slot 0,
--- unconsumed). Used to lift state serialized before lifecycle tracking
--- existed, reproducing the old (rollback unaware) behavior for those deposits.
+-- | Track the given deposits with a fresh lifecycle: recorded at slot 0
+-- and unconsumed.
 trackedFromPending :: PendingDeposits tx -> TrackedDeposits tx
 trackedFromPending = fmap (\deposit -> TrackedDeposit{deposit, recordedAt = ChainSlot 0, consumedAt = Nothing})
 
@@ -152,66 +149,13 @@ data NodeState tx
 deriving stock instance (IsTx tx, Eq (ChainStateType tx)) => Eq (NodeState tx)
 deriving stock instance (IsTx tx, Show (ChainStateType tx)) => Show (NodeState tx)
 deriving anyclass instance (IsTx tx, ToJSON (ChainStateType tx)) => ToJSON (NodeState tx)
-
--- | Manual instance: lifecycle-tracked 'deposits' replaced the plain pending
--- deposit map after 'NodeState' shipped. A checkpoint persisted by an older
--- version carries a "pendingDeposits" key instead, which is lifted via
--- 'trackedFromPending'.
-instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (NodeState tx) where
-  parseJSON = withObject "NodeState" $ \o -> do
-    tag :: Text <- o .: "tag"
-    headState <- o .: "headState"
-    deposits <- o .: "deposits" <|> (trackedFromPending <$> o .: "pendingDeposits")
-    chainPointTime <- o .: "chainPointTime"
-    case tag of
-      "NodeInSync" -> pure NodeInSync{headState, deposits, chainPointTime}
-      "NodeCatchingUp" -> pure NodeCatchingUp{headState, deposits, chainPointTime}
-      _ -> fail $ "unknown NodeState tag: " <> show tag
-
--- | Tags of the current on-disk\/wire layout, which tracks deposit lifecycles
--- ('TrackedDeposits'). The fields are a bare concatenation with no length
--- prefix, so a layout change is only decodable when the tag distinguishes it:
--- the V1 tags name the layout with a plain pending deposit map written before
--- lifecycle tracking existed and are still accepted, lifted via
--- 'trackedFromPending' like the 'FromJSON' instance above.
-nodeInSyncCBORTag, nodeCatchingUpCBORTag :: Text
-nodeInSyncCBORTag = "NodeInSync2"
-nodeCatchingUpCBORTag = "NodeCatchingUp2"
-
--- | Tags of the layout without deposit lifecycles. Decoded, never written.
-nodeInSyncCBORTagV1, nodeCatchingUpCBORTagV1 :: Text
-nodeInSyncCBORTagV1 = "NodeInSync"
-nodeCatchingUpCBORTagV1 = "NodeCatchingUp"
+deriving anyclass instance (IsTx tx, FromJSON (ChainStateType tx)) => FromJSON (NodeState tx)
 
 instance IsChainState tx => ToCBOR (NodeState tx) where
-  toCBOR nodeState =
-    toCBOR tag
-      <> toCBOR (headState nodeState)
-      <> toCBOR (deposits nodeState)
-      <> toCBOR (chainPointTime nodeState)
-   where
-    tag = case nodeState of
-      NodeInSync{} -> nodeInSyncCBORTag
-      NodeCatchingUp{} -> nodeCatchingUpCBORTag
+  toCBOR = genericToCBOR
 
 instance IsChainState tx => FromCBOR (NodeState tx) where
-  fromCBOR =
-    fromCBOR >>= \case
-      (tag :: Text)
-        | tag == nodeInSyncCBORTag -> decode NodeInSync fromCBOR
-        | tag == nodeCatchingUpCBORTag -> decode NodeCatchingUp fromCBOR
-        | tag == nodeInSyncCBORTagV1 -> decode NodeInSync (trackedFromPending <$> fromCBOR)
-        | tag == nodeCatchingUpCBORTagV1 -> decode NodeCatchingUp (trackedFromPending <$> fromCBOR)
-        | otherwise -> fail $ show tag <> " is not a proper CBOR-encoded NodeState"
-   where
-    decode ::
-      (HeadState tx -> TrackedDeposits tx -> ChainPointTime -> NodeState tx) ->
-      Decoder s (TrackedDeposits tx) ->
-      Decoder s (NodeState tx)
-    decode mkNodeState decodeDeposits = do
-      headState <- fromCBOR
-      deposits <- decodeDeposits
-      mkNodeState headState deposits <$> fromCBOR
+  fromCBOR = genericFromCBOR
 
 initNodeState :: IsChainState tx => ChainStateType tx -> NodeState tx
 initNodeState chainState =
