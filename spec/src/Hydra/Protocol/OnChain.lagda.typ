@@ -594,16 +594,13 @@ value but the initiator's own, since it opens with $eta = accUTxO(emptyset)$ and
 later. A non-positive $Tcontest$ can therefore only strand the initiator's own output - indeed a
 negative one strands it for good, since `hasBoundedValidity` ($t_"hi" - t_"lo" <= Tcontest$,
 @sec:close-tx) is then unsatisfiable and the head can never be closed. $muHead$ is not made more
-expensive to restate a condition the members already enforce. Note, though, that the agreement
-check covers the parties, the two periods and the participant set. Observation also checks
-that the initial version is zero, the accumulator hash commits to the empty UTxO, and the
-head output contains exactly its minted head tokens plus the datum's ADA overhead. These
-checks establish the initial empty Head described by `initValid` before any node joins it.
-They reject malformed initial datums even though the minting policy accepts them;
-`mustNotChangeVersion` and `mustPreserveHeadAdaOverhead` subsequently preserve those fields
-by equality. The observation reports a malformed Init and produces no Head initialization.
-The accumulator's initial hash is checked for agreement with the initial model even though
-later validators bind the produced hash to the signed redeemer rather than the opening hash.
+expensive to restate a condition the members already enforce.
+
+- Init observation checks configured parties, periods and participants, plus version zero and the empty-UTxO accumulator hash.
+- Require the Head output's value to equal its minted Head tokens plus the datum's ADA overhead.
+- Report malformed Init transactions and do not join them, even when the minting policy accepts them.
+- Version and ADA-overhead preservation checks rely on Init validation.
+- Later accumulator checks bind the produced hash to the signed redeemer.
 
 The conditions are conjoined in the `InitValid` bundle with its dispatching `initValid` predicate (typechecked, not rendered).
 

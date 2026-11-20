@@ -259,11 +259,8 @@ _own_ confirmed snapshot, and since signing advances $hats$, the invariant
 `signNumBound` bounds every prior signature strictly below the new number, so
 at-most-one-signature-per-number (`sigDedup`) is proved rather than assumed.
 
-Administrative side-loading in the node can discard an in-flight candidate and
-reset its seen number. That recovery operation is absent from this transition
-system; `sigDedup` therefore does not justify resuming ordinary signing after
-an arbitrary administrative reset. The theorem covers the protocol handlers
-and observations modelled here, not that escape hatch.
+- Administrative side-loading can discard a candidate and reset the seen number; this transition system excludes that operation.
+- `sigDedup` does not justify resuming signing after an arbitrary administrative reset.
 
 The other three guards are _premises_ of the `signHonest` constructor -
 assumptions about honest behaviour, not derived from the off-chain handlers:
