@@ -1,4 +1,5 @@
--- | Supply the current Cardano configuration at the runtime boundary.
+{-# LANGUAGE RecordWildCards #-}
+
 module Hydra.Node.HeadLogic.Configuration where
 
 import Hydra.HeadLogic.Cardano (cardanoSnapshotLimits)
@@ -14,13 +15,27 @@ import Hydra.Tx (IsTx)
 import Hydra.Tx.Crypto (getVerificationKey, sign)
 import Hydra.Tx.Snapshot (Snapshot, SnapshotVersion)
 
-ruleEnvironment :: Environment -> RuleEnvironment
-ruleEnvironment Node.Environment{party, otherParties, participants, contestationPeriod, depositPeriod, depositActivation, unsyncedPeriod, configuredPeers} =
-  RuleEnvironment{snapshotLimits = cardanoSnapshotLimits, party, otherParties, participants, contestationPeriod, depositPeriod, depositActivation, unsyncedPeriod, configuredPeers}
+ruleEnvironment ::
+  Environment ->
+  RuleEnvironment
+ruleEnvironment Node.Environment{..} =
+  let snapshotLimits = cardanoSnapshotLimits
+   in RuleEnvironment{..}
 
-interpreterConfig :: IsTx tx => Environment -> Ledger tx -> InterpreterConfig tx
+interpreterConfig ::
+  IsTx tx =>
+  Environment ->
+  Ledger tx ->
+  InterpreterConfig tx
 interpreterConfig Environment{signingKey} ledger =
   mkInterpreterConfig ledger $ SnapshotSigner (sign signingKey) (getVerificationKey signingKey)
 
-settlingCommitAt :: IsTx tx => Environment -> SnapshotVersion -> UTCTime -> PendingDeposits tx -> Snapshot tx -> Maybe (SettlingCommit tx)
+settlingCommitAt ::
+  IsTx tx =>
+  Environment ->
+  SnapshotVersion ->
+  UTCTime ->
+  PendingDeposits tx ->
+  Snapshot tx ->
+  Maybe (SettlingCommit tx)
 settlingCommitAt Environment{depositPeriod} = settlingCommitAtPeriod depositPeriod

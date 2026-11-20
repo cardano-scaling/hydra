@@ -1,4 +1,5 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# OPTIONS_GHC -Wno-ambiguous-fields #-}
 
 module Hydra.HeadLogic.Rules.Client.Fanout where
@@ -59,7 +60,7 @@ onClosedClientFanout closedState =
  where
   fullUTxO = computeFullFanoutUTxO closedState
 
-  ClosedState{headId, confirmedSnapshot, version, headSeed, contestationDeadline} = closedState
+  ClosedState{..} = closedState
 
 onClosedClientPartialFanout ::
   IsTx tx =>
@@ -80,7 +81,7 @@ onClosedClientPartialFanout closedState selection
   step = nextFanoutStep confirmedSnapshot version selection fullUTxO DatumClosed
 
   fullUTxO = computeFullFanoutUTxO closedState
-  ClosedState{headId, confirmedSnapshot, version, headSeed, contestationDeadline} = closedState
+  ClosedState{..} = closedState
 
 -- | Client request to continue a selective partial fanout. Validates the
 -- selection against the current 'remainingOutputs' and emits whichever step
@@ -106,4 +107,4 @@ onPartialFanoutClientPartialFanout pfs selection
   -- A pending request still spends @Closed@, as does its rollback re-post.
   step = nextFanoutStep confirmedSnapshot version selection remainingOutputs fanoutDatum
 
-  PartialFanoutState{headId, confirmedSnapshot, version, headSeed, contestationDeadline, remainingOutputs, fanoutDatum} = pfs
+  PartialFanoutState{..} = pfs

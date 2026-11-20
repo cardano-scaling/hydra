@@ -1,5 +1,6 @@
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-ambiguous-fields #-}
@@ -194,7 +195,7 @@ machine headId snapshots0 initial initialDecommit =
     [StateChanged tx] ->
     ActionResult m DecommitTopology (State tx) from (Output tx)
   output snapshots refusal transactions decommit commitUpdate next events =
-    pureResult Output{snapshots, transactions, decommit, commitUpdate, events, refusal} next
+    pureResult Output{..} next
 
   update ::
     ( AllowedTransition DecommitTopology from 'NoDecommit

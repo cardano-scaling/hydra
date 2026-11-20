@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# OPTIONS_GHC -Wno-ambiguous-fields #-}
 
 module Hydra.HeadLogic.State.Coordinated (
@@ -141,17 +142,18 @@ restoreSnapshots ::
 restoreSnapshots parties os =
   State.restore parties $
     SnapshotState
-      chs.version
-      (chainStateSlot os.chainState)
-      chs.confirmedSnapshot
-      chs.seenSnapshot
-      chs.finalizedCommit
-      chs.finalizedDecommit
+      { chainSlot = chainStateSlot os.chainState
+      , confirmed = confirmedSnapshot
+      , seen = seenSnapshot
+      , ..
+      }
  where
-  chs = os.coordinatedHeadState
+  CoordinatedHeadState{..} = os.coordinatedHeadState
 
 transactionState :: CoordinatedHeadState tx -> TransactionState tx
-transactionState chs = TransactionState chs.localUTxO chs.localTxs chs.allTxs
+transactionState chs = TransactionState{..}
+ where
+  CoordinatedHeadState{..} = chs
 
 currentState :: Runtime tx -> CoordinatedHeadState tx
 currentState Runtime{coordinatedState} = coordinatedState
@@ -170,19 +172,14 @@ advance runtime@Runtime{machine} command =
 project :: Commits.Output tx -> CoordinatedHeadState tx
 project Commits.Output{transactions = Output{snapshots = owned, transactions, decommit}, currentDepositTxId} =
   CoordinatedHeadState
-    { version = snapshots.version
-    , confirmedSnapshot = snapshots.confirmed
-    , seenSnapshot = snapshots.seen
-    , finalizedCommit = snapshots.finalizedCommit
-    , finalizedDecommit = snapshots.finalizedDecommit
-    , localUTxO = transactions.localUTxO
-    , localTxs = transactions.localTxs
-    , allTxs = transactions.allTxs
-    , currentDepositTxId
+    { confirmedSnapshot = confirmed
+    , seenSnapshot = seen
     , decommitTx = decommit
+    , ..
     }
  where
-  snapshots = State.viewInitial owned
+  SnapshotState{..} = State.viewInitial owned
+  TransactionState{..} = transactions
 
 receiveTransaction :: tx -> Command tx
 receiveTransaction = Transactions . ReceiveTransaction

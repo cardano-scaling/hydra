@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE RecordWildCards #-}
 
 -- | Own the tracked deposit map. Entry updates retain chain observation slots; the
 -- output carries a consumed deposit's value to the open head for settlement.
@@ -42,9 +43,9 @@ machine initial = BaseMachineT (InspectableState (describeOnly $ const "TrackedD
           pure tracked.deposit
         _ -> mempty
       updated = case event of
-        DepositRecorded{chainState, headId, depositTxId, deposited, created, deadline} ->
+        DepositRecorded{..} ->
           let slot = chainStateSlot chainState
-           in Map.alter (Deposit.record slot Deposit{headId, deposited, created, deadline, status = Inactive}) depositTxId $ pruneConsumedDeposits slot deposits
+           in Map.alter (Deposit.record slot Deposit{status = Inactive, ..}) depositTxId $ pruneConsumedDeposits slot deposits
         DepositActivated{depositTxId, deposit} -> Map.alter (Deposit.update deposit) depositTxId deposits
         DepositExpired{depositTxId, deposit} -> Map.alter (Deposit.update deposit) depositTxId deposits
         DepositRecovered{chainState, depositTxId} -> consume (chainStateSlot chainState) depositTxId
