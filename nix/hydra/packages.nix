@@ -129,6 +129,7 @@
         '';
 
         inherit (nativePkgs.hydra-node.components.benchmarks) tx-cost;
+        inherit (nativePkgs.hydra-node.components.exes) head-logic-diagrams;
 
         hydra-tui =
           embedRevision
