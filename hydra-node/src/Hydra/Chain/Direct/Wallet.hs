@@ -32,6 +32,7 @@ import Cardano.Ledger.Api (
   ensureMinCoinTxOut,
   evalTxExUnits,
   feeTxBodyL,
+  getMinCoinTxOut,
   inputsTxBodyL,
   outputsTxBodyL,
   rdmrsTxWitsL,
@@ -360,19 +361,23 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx = do
 
   mkChange :: Ledger.TxOut era -> [Ledger.TxOut era] -> [Ledger.TxOut era] -> Coin -> Either ChangeError (Ledger.TxOut era)
   mkChange feeTxOut resolvedInputs otherOutputs fee
-    -- FIXME: The delta between in and out must be greater than the min utxo value!
     | totalIn <= totalOut =
-        Left $
-          ChangeError
-            { inputBalance = totalIn
-            , outputBalance = totalOut
-            }
+        insufficientFunds
+    | changeOut < getMinCoinTxOut pparams changeOutput =
+        insufficientFunds
     | otherwise =
-        Right $ feeTxOut & coinTxOutL .~ changeOut
+        Right changeOutput
    where
     totalOut = foldMap (view coinTxOutL) otherOutputs <> fee
     totalIn = foldMap (view coinTxOutL) resolvedInputs
     changeOut = totalIn <> invert totalOut
+    changeOutput = feeTxOut & coinTxOutL .~ changeOut
+    insufficientFunds =
+      Left $
+        ChangeError
+          { inputBalance = totalIn
+          , outputBalance = totalOut
+          }
 
   -- Apply estimated execution units to redeemers. This replaces the existing
   -- execution units with the estimated costs.
