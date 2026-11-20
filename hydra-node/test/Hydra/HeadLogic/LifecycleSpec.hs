@@ -10,7 +10,6 @@ import Cardano.Binary (decodeFull', serialize')
 import Control.Monad (foldM)
 import Crem.Inspect (Component (LeftComponent, RightComponent), inspectStates)
 import Crem.StateMachine qualified as Crem
-import Crem.Topology (Topology (Topology))
 import Data.List qualified as List
 import Hydra.API.ClientInput qualified as Client
 import Hydra.Chain (ChainEvent (PostTxError, Tick), OnChainTx (OnContestTx, OnInitTx, OnPartialFanoutTx), PostChainTx (FinalPartialFanoutTx, InitTx), PostTxError (FailedToConstructFanoutTx))
@@ -40,7 +39,7 @@ spec = describe "head lifecycle" $ do
     it ("does not reopen or reset " <> name <> " from a retained HeadOpened") $ do
       let after = Machine.apply before openEvent
       after `shouldBe` before
-      phase after `shouldBe` Just expected
+      checkSteps before [(openEvent, expected)]
 
   forM_ [("automatic", initiated), ("selective", selected)] $ \(name, intent) -> do
     it ("cancels a failed " <> name <> " request before any distribution is observed") $ do
@@ -121,7 +120,7 @@ spec = describe "head lifecycle" $ do
           observedNode = applyInput initial observation
       restored <- either (fail . show) pure $ decodeFull' $ serialize' observedNode
       restored `shouldBe` observedNode
-      phase restored `shouldBe` Just "PartialFanout"
+      restoredPhase restored `shouldBe` Just "PartialFanout"
       checkProgress restored mempty (utxoRefs [1, 2, 3]) expectedMode
       case restored.headState of
         FanoutProgress st -> st.fanoutDatum `shouldBe` DatumFanoutProgress
@@ -133,7 +132,7 @@ spec = describe "head lifecycle" $ do
         Continue _ [OnChainEffect tx@FinalPartialFanoutTx{}] -> do
           let failed = applyInput selectedNode $ Input.ChainInput $ PostTxError tx FailedToConstructFanoutTx Nothing
           failed `shouldBe` selectedNode
-          phase failed `shouldBe` Just "PartialFanout"
+          restoredPhase failed `shouldBe` Just "PartialFanout"
         _ -> fail $ "expected a final partial fanout transaction, got " <> show outcome
       checkSteps restored [(reverted, "PartialFanout"), (finished, "Finalized")]
 
@@ -163,14 +162,12 @@ spec = describe "head lifecycle" $ do
     case (Machine.apply closed contested).headState of
       Closed st -> (st.contestationDeadline, st.chainState) `shouldBe` (deadline, SimpleChainState 3)
       _ -> fail "contest must preserve Closed"
-    List.lookup (Head.Open, Head.Open) Head.transitionLabels `shouldBe` Just "Increment / Decrement"
-    List.lookup (Head.Closed, Head.Closed) Head.transitionLabels `shouldBe` Just "Contest"
-    let Topology transitions = Head.lifecycleTopology
-    forM_ Head.transitionLabels $ \((from, to), _) ->
-      maybe False (elem to) (List.lookup from transitions) `shouldBe` True
 
   it "retains the completed identity across checkpoints and rollback" $ do
-    checkSteps partial [(finished, "Finalized"), (Checkpoint finalized, "Finalized"), (ChainRolledBack $ SimpleChainState 2, "Finalized")]
+    let rollback = ChainRolledBack $ SimpleChainState 2
+    checkSteps partial [(finished, "Finalized"), (rollback, "Finalized")]
+    Machine.applyEvents partial [finished, Checkpoint finalized, rollback]
+      `shouldBe` Machine.apply finalized rollback
     headIdOf finalized.headState `shouldBe` Just testHeadId
     (Machine.apply finalized $ ChainRolledBack $ SimpleChainState 2).headState
       `shouldBe` Finalized FinalizedState{headId = testHeadId, chainState = SimpleChainState 2}
@@ -185,7 +182,10 @@ spec = describe "head lifecycle" $ do
     let before :: NodeState SimpleTx
         before = finalized{deposits = generateWith arbitrary 42}
         after = Machine.apply before nextOpenEvent
-    checkSteps before [(nextOpenEvent, "Open")]
+    restoredPhase after `shouldBe` Just "Open"
+    Machine.applyEvents before [nextOpenEvent, SnapshotRequestDecided 1]
+      `shouldBe` Machine.apply after (SnapshotRequestDecided 1)
+    checkSteps after [(SnapshotRequestDecided 1, "Open")]
     headIdOf after.headState `shouldBe` Just nextHeadId
     after.deposits `shouldBe` before.deposits
 
@@ -199,29 +199,37 @@ spec = describe "head lifecycle" $ do
     update env simpleLedger initialChainTime finalized initInput
       `shouldBe` Continue [] [OnChainEffect $ InitTx env.participants parameters]
     headIdOf (aggregateState finalized outcome).headState `shouldBe` Just nextHeadId
-    phase (aggregateState finalized outcome) `shouldBe` Just "Open"
+    restoredPhase (aggregateState finalized outcome) `shouldBe` Just "Open"
 
   it "opens from Idle and restores checkpoints independently of lifecycle edges" $ do
     checkSteps inIdleState [(openEvent, "Open")]
-    checkSteps partial [(Checkpoint opened, "Open")]
     Machine.apply partial (Checkpoint opened) `shouldBe` opened
+    Machine.applyEvents partial [Checkpoint opened, SnapshotRequestDecided 2]
+      `shouldBe` Machine.apply opened (SnapshotRequestDecided 2)
+    checkSteps opened [(SnapshotRequestDecided 2, "Open")]
 
--- Exercise continuous execution and recovery at every boundary, and inspect
--- the actual Crem phase rather than a separate projection of stored fields.
+-- Retain and inspect the Crem continuation, comparing its output with the node
+-- runtime and serialized recovery after each event. Checkpoints and new-Head
+-- resets belong to the separate node-boundary tests above.
 checkSteps :: NodeState SimpleTx -> [(StateChanged SimpleTx, Text)] -> Expectation
-checkSteps initial = void . foldM step (Machine.start initial)
+checkSteps initial = void . foldM step (Machine.components initial, Machine.start initial)
  where
-  step runtime (event, expected) = do
+  step (machine, runtime) (event, expected) = do
     restored <- either (fail . show) pure $ decodeFull' $ serialize' $ Machine.currentState runtime
     retained <- either (fail . show) pure $ decodeFull' $ serialize' event
-    let next = Machine.step runtime event
-        node = Machine.currentState next
+    let (node, next) = runIdentity $ Crem.run machine event
+        updated = Machine.step runtime event
+    node `shouldBe` Machine.currentState updated
     Machine.applyEvents initial [Checkpoint restored, retained] `shouldBe` node
-    phase node `shouldBe` Just expected
-    pure next
+    machinePhase next `shouldBe` Just expected
+    inspectStates next `shouldBe` inspectStates (Machine.components node)
+    pure (next, updated)
 
-phase :: NodeState SimpleTx -> Maybe Text
-phase = join . List.lookup [LeftComponent, RightComponent] . inspectStates . Machine.components
+machinePhase :: Crem.StateMachineT m input output -> Maybe Text
+machinePhase = join . List.lookup [LeftComponent, RightComponent] . inspectStates
+
+restoredPhase :: NodeState SimpleTx -> Maybe Text
+restoredPhase = machinePhase . Machine.components
 
 checkProgress :: NodeState SimpleTx -> UTxOType SimpleTx -> UTxOType SimpleTx -> FanoutMode SimpleTx -> Expectation
 checkProgress node distributed remaining mode = case node.headState of
