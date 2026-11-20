@@ -1,43 +1,93 @@
 name: "Publish Docs"
+run-name: Publish Docs (${{ github.event.release.tag_name || inputs.version || 'unstable' }})
 
 on:
   workflow_dispatch:
-  # NOTE: The `workflow_run` event only fires for runs on the repository's
-  # default branch (master). The `branches` filter can only narrow that set, it
-  # cannot make the event fire for `release`, so it can publish the unstable
-  # docs but never the stable ones. We therefore publish the stable docs on
-  # push to the `release` branch instead.
-  push:
-    branches: ["release"]
+    inputs:
+      version:
+        description: 'Published stable release tag to retry (for example, 2.4.2)'
+        required: true
+        type: string
+  release:
+    types: [published]
+  # The receiving workflow must exist on master. Pin the build to the
+  # successful upstream run's commit, rather than checking out a moving branch.
   workflow_run:
     workflows: ["CI"]
     branches: ["master"]
     types:
       - completed
 
+permissions:
+  contents: read
+
 jobs:
-  publishing:
-    name: Publish Documentation
-    if: github.event_name == 'workflow_run' || github.ref_name == 'master' || github.ref_name == 'release'
+  source:
+    name: Select documentation version
+    if: >-
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_repository.full_name == github.repository &&
+       (github.event.workflow_run.event == 'push' || github.event.workflow_run.event == 'workflow_dispatch')) ||
+      (github.event_name == 'release' && !github.event.release.prerelease) ||
+      github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.source.outputs.version }}
+      sha: ${{ steps.source.outputs.sha }}
+    steps:
+    - name: Resolve exact source commit
+      id: source
+      env:
+        GH_TOKEN: ${{ github.token }}
+        GH_REPO: ${{ github.repository }}
+        EVENT_NAME: ${{ github.event_name }}
+        CI_SHA: ${{ github.event.workflow_run.head_sha }}
+        RELEASE_TAG: ${{ github.event.release.tag_name }}
+        REQUESTED_VERSION: ${{ inputs.version }}
+      run: |
+        if [[ "$EVENT_NAME" == workflow_run ]]; then
+          echo "version=unstable" >> "$GITHUB_OUTPUT"
+          echo "sha=$CI_SHA" >> "$GITHUB_OUTPUT"
+          echo "Building unstable docs from successful CI commit \`$CI_SHA\`." >> "$GITHUB_STEP_SUMMARY"
+          exit 0
+        fi
+
+        version=${RELEASE_TAG:-$REQUESTED_VERSION}
+        if [[ ! $version =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+          echo "::error::Expected a stable release tag such as 2.4.2"
+          exit 1
+        fi
+        published=$(gh api "repos/$GH_REPO/releases/tags/$version" \
+          --jq 'select(.draft == false and .prerelease == false) | .tag_name')
+        if [[ "$published" != "$version" ]]; then
+          echo "::error::$version must be a published stable GitHub release"
+          exit 1
+        fi
+        latest=$(gh api "repos/$GH_REPO/releases/latest" --jq .tag_name)
+        if [[ "$version" != "$latest" ]]; then
+          echo "Skipping $version: the current stable release is $latest." >> "$GITHUB_STEP_SUMMARY"
+          exit 0
+        fi
+        sha=$(gh api "repos/$GH_REPO/commits/refs/tags/$version" --jq .sha)
+        echo "version=$version" >> "$GITHUB_OUTPUT"
+        echo "sha=$sha" >> "$GITHUB_OUTPUT"
+        echo "Building docs for \`$version\` from tagged commit \`$sha\`." >> "$GITHUB_STEP_SUMMARY"
+
+  build:
+    name: Build Documentation
+    needs: source
+    if: needs.source.outputs.sha != ''
     runs-on: ubuntu-latest
     env:
-      BRANCH: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || github.ref_name }}
-    permissions:
-      contents: write
+      DOCS_VERSION: ${{ needs.source.outputs.version }}
+      SOURCE_SHA: ${{ needs.source.outputs.sha }}
     steps:
 
     - name: 📥 Checkout repository
       uses: actions/checkout@v4
       with:
-        ref: ${{ env.BRANCH }}
+        ref: ${{ env.SOURCE_SHA }}
         fetch-depth: 0
-
-    - name: Get latest stable version tag
-      if: env.BRANCH == 'release'
-      id: get_version
-      run: |
-        latest_tag=$(git describe --tags --abbrev=0)
-        echo "version=${latest_tag#v}" >> $GITHUB_OUTPUT
 
     - name: ❄ Setup Nix/Cachix
       uses: ./.github/actions/nix-cachix-setup
@@ -45,23 +95,20 @@ jobs:
         authToken: '${{ secrets.CACHIX_CARDANO_SCALING_AUTH_TOKEN }}'
 
     - name: Build documentation and compute benchmarks
-      env:
-        DOCS_VERSION: ${{ env.BRANCH == 'master' && 'unstable' || steps.get_version.outputs.version }}
       run: |
 
         # Release
         DERIVATION=docs
         OUT_PATH=
 
-        [[ ${{ env.BRANCH }} = "master" ]] && \
+        [[ "$DOCS_VERSION" = unstable ]] && \
           DERIVATION=docs-unstable && \
           OUT_PATH=/unstable
 
         # This is used by the yarn build to determine the version to write up
         # the top, and otherwise determine if it's the unstable version or
-        # not.
-        # We need to use this specific scheme because
-        echo "export DOCS_VERSION=${DOCS_VERSION}" > docs/yarn.env
+        # not. yarn.env is a tracked input to the Nix derivation.
+        echo "export DOCS_VERSION=$DOCS_VERSION" > docs/yarn.env
 
         # transaction-cost is generated by the docs build itself (see
         # nix/hydra/docs.nix preBuild), so it is not generated here.
@@ -70,6 +117,15 @@ jobs:
         export out=/tmp/public/head-protocol${OUT_PATH}
         mkdir -p $out
         cp result/build/* $out -r
+
+        # Confirm the built site's visible version before writing its provenance.
+        # This markup is set explicitly in docs/docusaurus.config.js.
+        if ! grep -Fq "<span class=\"navbar-version\">$DOCS_VERSION</span>" "$out/index.html"; then
+          echo "::error::Built docs do not display version $DOCS_VERSION"
+          exit 1
+        fi
+        jq -n --arg version "$DOCS_VERSION" --arg commit "$SOURCE_SHA" \
+          '{version: $version, commit: $commit}' > "$out/deployment.json"
 
         sudo chmod -R 777 /tmp/public
 
@@ -113,7 +169,7 @@ jobs:
 
         rm -rf /tmp/public/head-protocol/monthly
 
-        # Note: This runs on pushes to either branch, but it doesn't matter as
+        # Note: This runs for either docs target, but it doesn't matter as
         # it doesn't hurt to write these files twice.
 
         redirect /tmp/public/head-protocol/monthly/index.html https://cardano-scaling.github.io/website/monthly
@@ -127,12 +183,95 @@ jobs:
         # once grew it past the 10GB Pages limit, breaking every deployment.
         find /tmp/public -type d \( -name etcd -o -name db -o -name logs \) -prune -exec rm -rf {} +
 
+    - name: Upload documentation for deployment
+      uses: actions/upload-artifact@v4
+      with:
+        name: documentation
+        path: /tmp/public
+        include-hidden-files: true
+        if-no-files-found: error
+        overwrite: true
+        retention-days: 7
+
+  deploy:
+    name: Deploy and Verify Documentation
+    needs: [source, build]
+    runs-on: ubuntu-latest
+    # Both targets write to gh-pages. Queue every deployment, including stable
+    # releases, instead of replacing an existing pending job with a newer one.
+    concurrency:
+      group: publish-docs-deploy
+      queue: max
+      cancel-in-progress: false
+    permissions:
+      contents: write
+    env:
+      DOCS_VERSION: ${{ needs.source.outputs.version }}
+      SOURCE_SHA: ${{ needs.source.outputs.sha }}
+    steps:
+    - name: 📥 Checkout repository
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ env.SOURCE_SHA }}
+
+    - name: Download built documentation
+      uses: actions/download-artifact@v4
+      with:
+        name: documentation
+        path: /tmp/public
+
+    - name: Check this version is still current
+      id: current
+      env:
+        GH_TOKEN: ${{ github.token }}
+        GH_REPO: ${{ github.repository }}
+      run: |
+        # A newer release or commit may have arrived during the build.
+        if [[ "$DOCS_VERSION" == unstable ]]; then
+          current=$(gh api "repos/$GH_REPO/commits/master" --jq .sha)
+          expected=$SOURCE_SHA
+        else
+          current=$(gh api "repos/$GH_REPO/releases/latest" --jq .tag_name)
+          expected=$DOCS_VERSION
+        fi
+        if [[ "$current" == "$expected" ]]; then
+          echo "publish=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "Skipping superseded docs for $DOCS_VERSION ($SOURCE_SHA)." >> "$GITHUB_STEP_SUMMARY"
+        fi
+
     - name: 🚢 Publish Documentation
+      if: steps.current.outputs.publish == 'true'
       uses: JamesIves/github-pages-deploy-action@v4
       with:
         token: ${{ secrets.GITHUB_TOKEN || github.token }}
         folder: /tmp/public
+        force: false
         # Note: This is crucial! We _never_ remove files that we have
         # previously uploaded. This might be surprising if we expect something
         # we previously uploaded to be _removed_!
         clean: false
+
+    - name: Verify deployed version and commit
+      if: steps.current.outputs.publish == 'true'
+      timeout-minutes: 10
+      run: |
+        base=https://hydra.family/head-protocol
+        if [[ "$DOCS_VERSION" == unstable ]]; then
+          base=$base/unstable
+        fi
+        for attempt in {1..30}; do
+          url="$base/deployment.json?run=$GITHUB_RUN_ID-$attempt"
+          if actual=$(curl --fail --silent --show-error --max-time 10 \
+              --header 'Cache-Control: no-cache' "$url") && \
+              jq -e --arg version "$DOCS_VERSION" --arg commit "$SOURCE_SHA" \
+                '.version == $version and .commit == $commit' <<< "$actual" >/dev/null; then
+            printf 'Published and verified [%s](%s/docs) from `%s`.\n' \
+              "$DOCS_VERSION" "$base" "$SOURCE_SHA" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          echo "Waiting for $base to report $DOCS_VERSION ($SOURCE_SHA)."
+          sleep 10
+        done
+        echo "::error::Deployment at $base did not report $DOCS_VERSION ($SOURCE_SHA)"
+        exit 1
