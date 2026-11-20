@@ -112,13 +112,14 @@ determineNextDepositStatus env pendingDeposits chainTime =
 
   RuleEnvironment{depositPeriod, depositActivation} = env
 
--- | Process the chain (and time) advancing in any head state.
---
--- __Transition__: 'AnyState' → 'AnyState'
---
--- This is primarily used to track deposits status changes.
-onChainTick :: IsTx tx => RuleEnvironment -> PendingDeposits tx -> UTCTime -> Program tx ()
-onChainTick env pendingDeposits chainTime =
+-- | Either activate or expire deposits that meet those criteria.
+updateDepositStates ::
+  IsTx tx =>
+  RuleEnvironment ->
+  PendingDeposits tx ->
+  UTCTime ->
+  Program tx ()
+updateDepositStates env pendingDeposits chainTime =
   mkDepositActivated newActive *> mkDepositExpired newExpired
  where
   -- XXX: This is a bit messy
@@ -142,14 +143,11 @@ onChainTick env pendingDeposits chainTime =
   mkDepositExpired m = forM_ (Map.toAscList m) $ \(depositTxId, deposit) ->
     change DepositExpired{depositTxId, chainTime, deposit}
 
--- | Process the chain (and time) advancing in an open head.
---
--- __Transition__: 'OpenState' → 'OpenState'
---
--- This is primarily used to track deposits and either drop them or request
--- snapshots for inclusion.
-onOpenChainTick :: forall tx. IsChainState tx => RuleEnvironment -> UTCTime -> PendingDeposits tx -> OpenState tx -> Program tx ()
-onOpenChainTick env chainTime pendingDeposits st
+-- | Track deposits and either drop them or request snapshots for inclusion.
+maybeRequestDepositSnapshot
+  :: forall tx. IsChainState tx
+  => RuleEnvironment -> UTCTime -> PendingDeposits tx -> OpenState tx -> Program tx ()
+maybeRequestDepositSnapshot env chainTime pendingDeposits st
   | snapshotInFlight seenSnapshot || not (isLeader parameters party nextSn) = pure ()
   | otherwise =
       let settling = settlingCommitAtPeriod env.depositPeriod version chainTime deposits confirmed
