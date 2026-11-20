@@ -40,11 +40,8 @@ data HeadState tx
   = Idle (IdleState tx)
   | Open (OpenState tx)
   | Closed (ClosedState tx)
-  | -- | Fanout driver bookkeeping, including the observed on-chain datum.
-    FanoutProgress (PartialFanoutState tx)
-  | -- | A completed Head. The node can host a different Head afterwards,
-    -- but this Head's lifecycle is terminal, including after checkpoint recovery.
-    Finalized (FinalizedState tx)
+  | FanoutProgress (PartialFanoutState tx)
+  | Finalized (FinalizedState tx)
   deriving stock (Generic)
 
 deriving stock instance (IsTx tx, Eq (ChainStateType tx)) => Eq (HeadState tx)
@@ -80,7 +77,8 @@ getHeadParameters = \case
 getOpenStateConfirmedSnapshot :: HeadState tx -> Maybe (ConfirmedSnapshot tx)
 getOpenStateConfirmedSnapshot = \case
   Idle _ -> Nothing
-  Open OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}} -> Just confirmedSnapshot
+  Open OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot}}
+    -> Just confirmedSnapshot
   Closed ClosedState{} -> Nothing
   FanoutProgress PartialFanoutState{} -> Nothing
   Finalized{} -> Nothing
