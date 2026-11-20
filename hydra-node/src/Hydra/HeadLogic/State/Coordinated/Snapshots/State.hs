@@ -25,11 +25,11 @@ import Hydra.HeadLogic.State (
 import Hydra.HeadLogic.State.Coordinated.Snapshots.Topology (
   SnapshotPhase (..),
  )
-import Hydra.HeadLogic.State.Coordinated.Types (
+import Hydra.HeadLogic.State.Types (
   SnapshotState,
   TransactionUpdate (..),
  )
-import Hydra.HeadLogic.State.Coordinated.Types qualified as Port (
+import Hydra.HeadLogic.State.Types qualified as Port (
   SnapshotState (
     SnapshotState,
     chainSlot,

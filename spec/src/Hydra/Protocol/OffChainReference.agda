@@ -26,7 +26,10 @@
 -- Payload evaluation, the coordinated runtime's record layout and Haskell field
 -- strictness are outside this projection too.
 -- Haskell input handlers live in Rules, state evolution in State, and shared
--- protocol operations in domain modules. Module placement does not change the
+-- protocol operations in domain modules. State.Types holds shared machine
+-- commands, updates and outputs; Rules.Coordinated stages updates and broadcasts
+-- snapshot requests. The decommit topology lives beside its transaction machine
+-- in State.Coordinated.Transactions. Module placement does not change the
 -- decisions or retained-event projections defined here.
 module Hydra.Protocol.OffChainReference where
 

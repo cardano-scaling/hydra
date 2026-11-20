@@ -19,11 +19,11 @@ import Hydra.HeadLogic.Program qualified as Program (
   decide,
   suspend,
  )
+import Hydra.HeadLogic.Rules.Coordinated (sendSnapshot)
 import Hydra.HeadLogic.Rules.Coordinated qualified as Staging (
   stage,
  )
 import Hydra.HeadLogic.Rules.Environment (RuleEnvironment (..))
-import Hydra.HeadLogic.Rules.SendSnapshot (sendSnapshot)
 import Hydra.HeadLogic.Rules.Transactions (
   checkTransactionOutputs,
  )

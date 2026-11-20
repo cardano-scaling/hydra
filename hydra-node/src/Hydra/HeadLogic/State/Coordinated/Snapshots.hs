@@ -60,7 +60,7 @@ import Hydra.HeadLogic.State.Coordinated.Snapshots.Topology (
   SnapshotPhase (..),
   SnapshotTopology,
  )
-import Hydra.HeadLogic.State.Coordinated.Types (
+import Hydra.HeadLogic.State.Types (
   Command (..),
   SnapshotState (seen),
   TransactionUpdate (..),

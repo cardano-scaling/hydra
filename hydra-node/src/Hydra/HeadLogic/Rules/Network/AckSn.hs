@@ -37,11 +37,11 @@ import Hydra.HeadLogic.Program qualified as Program (
   reject,
   suspend,
  )
+import Hydra.HeadLogic.Rules.Coordinated (sendSnapshot)
 import Hydra.HeadLogic.Rules.Coordinated qualified as Staging (
   stage,
  )
 import Hydra.HeadLogic.Rules.Environment (RuleEnvironment (..))
-import Hydra.HeadLogic.Rules.SendSnapshot (sendSnapshot)
 import Hydra.HeadLogic.Snapshot.Request (
   chainedSnapshotRequest,
   decommitStatus,

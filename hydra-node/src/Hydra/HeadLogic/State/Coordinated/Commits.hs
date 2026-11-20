@@ -17,7 +17,7 @@ import Hydra.HeadLogic.State.Coordinated.Snapshots.State qualified as Snapshots 
 import Hydra.HeadLogic.State.Coordinated.Transactions qualified as Transactions (
   Output (commitUpdate, snapshots),
  )
-import Hydra.HeadLogic.State.Coordinated.Types (
+import Hydra.HeadLogic.State.Types (
   CommitUpdate (..),
   SnapshotState (..),
  )

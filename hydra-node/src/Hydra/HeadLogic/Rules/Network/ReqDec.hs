@@ -19,13 +19,13 @@ import Hydra.HeadLogic.Program qualified as Program (
   decide,
   suspend,
  )
+import Hydra.HeadLogic.Rules.Coordinated (broadcastSnapshot)
 import Hydra.HeadLogic.Rules.Coordinated qualified as Staging (
   stage,
  )
 import Hydra.HeadLogic.Rules.Environment (
   RuleEnvironment (depositPeriod, party, snapshotLimits),
  )
-import Hydra.HeadLogic.Rules.SendSnapshot (broadcastSnapshot)
 import Hydra.HeadLogic.Snapshot.Capacity (checkDecommitCapacity)
 import Hydra.HeadLogic.Snapshot.Request (
   buildSnapshotRequest,

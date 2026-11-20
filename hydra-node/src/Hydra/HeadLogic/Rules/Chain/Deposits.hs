@@ -37,6 +37,7 @@ import Hydra.HeadLogic.Error (LogicError (..))
 import Hydra.HeadLogic.Input (Input (..))
 import Hydra.HeadLogic.Outcome (Effect (..), StateChanged (..))
 import Hydra.HeadLogic.Program (Program, change, emit, reject)
+import Hydra.HeadLogic.Rules.Coordinated (sendSnapshot)
 import Hydra.HeadLogic.Rules.Environment (
   RuleEnvironment (
     RuleEnvironment,
@@ -46,7 +47,6 @@ import Hydra.HeadLogic.Rules.Environment (
     snapshotLimits
   ),
  )
-import Hydra.HeadLogic.Rules.SendSnapshot (sendSnapshot)
 import Hydra.HeadLogic.Snapshot.Request (
   DecommitStatus (ReadyToDecommit),
   SettlingCommit (ContinueCommit, DropCommit),

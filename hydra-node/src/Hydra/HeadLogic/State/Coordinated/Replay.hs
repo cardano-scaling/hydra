@@ -23,7 +23,7 @@ import Hydra.HeadLogic.State.Coordinated.Snapshots.State qualified as State (
   recordSignature,
   request,
  )
-import Hydra.HeadLogic.State.Coordinated.Types (
+import Hydra.HeadLogic.State.Types (
   Command (..),
   LocalTransactionCommand (..),
   TransactionUpdate (..),
