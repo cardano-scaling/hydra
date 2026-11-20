@@ -2,7 +2,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE UndecidableInstances #-}
 
--- | The live snapshot owner cannot restart a round while collecting signatures.
 module Hydra.HeadLogic.State.Coordinated.Snapshots.Topology where
 
 import Crem.Render.RenderableVertices (
