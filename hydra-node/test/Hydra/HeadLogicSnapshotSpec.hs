@@ -1,4 +1,5 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE OverloadedRecordDot #-}
 {-# OPTIONS_GHC -Wno-ambiguous-fields #-}
 {-# OPTIONS_GHC -Wno-unused-do-bind #-}
 
@@ -9,15 +10,16 @@ import Test.Hydra.Prelude (Arbitrary (arbitrary), Spec, describe, expectationFai
 
 import Data.List qualified as List
 import Data.Map.Strict qualified as Map
-import Hydra.HeadLogicSpec (StepState, getState, hasEffect, hasEffectSatisfying, hasNoEffectSatisfying, inOpenState, inOpenState', nowFromSlot, receiveMessage, receiveMessageFrom, runHeadLogic, step)
-import Hydra.Ledger.Simple (SimpleTx (..), simpleLedger)
+import Data.Set qualified as Set
+import Hydra.HeadLogicSpec (StepState, getState, hasEffect, hasEffectSatisfying, hasNoEffectSatisfying, inOpenState, inOpenState', nowFromSlot, receiveMessage, receiveMessageFrom, runHeadLogic, step, withAccumulators)
+import Hydra.Ledger.Simple (SimpleTx (..), SimpleTxOut (unSimpleTxOut), simpleLedger)
 import Hydra.Network.Message (Message (..))
 import Hydra.Node.Environment (Environment (..))
-import Hydra.Node.HeadLogic (CoordinatedHeadState (..), Effect (..), HeadState (..), OpenState (OpenState), Outcome, SeenSnapshot (..), coordinatedHeadState, isLeader, mkSeenSnapshot, update)
-import Hydra.Node.State (ChainPointTime (..), NodeState (..))
+import Hydra.Node.HeadLogic (CoordinatedHeadState (..), Effect (..), HeadState (..), OpenState (OpenState), Outcome (Continue), SeenSnapshot (..), aggregateState, coordinatedHeadState, isLeader, mkSeenSnapshot, update)
+import Hydra.Node.State (ChainPointTime (..), NodeState (..), initialChainTime)
 import Hydra.Options (defaultContestationPeriod, defaultDepositActivation, defaultDepositPeriod, defaultUnsyncedPeriod)
 import Hydra.Tx.Accumulator qualified as Accumulator
-import Hydra.Tx.Crypto (sign)
+import Hydra.Tx.Crypto (aggregate, sign)
 import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.IsTx (IsTx (..), UTxOType, txId)
 import Hydra.Tx.Party (Party, deriveParty)
@@ -33,8 +35,7 @@ import Test.Hydra.Tx.Fixture (
   deriveOnChainId,
   testHeadId,
  )
-import Test.QuickCheck (Property, counterexample, forAll, oneof, suchThat, (==>))
-import Test.QuickCheck.Monadic (monadicIO, pick, run)
+import Test.QuickCheck (Property, conjoin, counterexample, forAll, (===), (==>))
 
 spec :: Spec
 spec = do
@@ -94,7 +95,7 @@ spec = do
         mkSeenSnapshot poisoned mempty `seq` pure @IO ()
 
     describe "On ReqTx" $ do
-      prop "emits ReqSn in a single-member Head without an unsettled decommit" prop_singleMemberHeadAlwaysSnapshotOnReqTx
+      prop "requests snapshots in a single-member Head according to decommit settlement" prop_singleMemberHeadSnapshotOnReqTx
 
       it "sends ReqSn when leader and no snapshot in flight" $ do
         let tx = aValidTx 1
@@ -202,60 +203,68 @@ spec = do
             actualSnapshot `shouldBe` RequestedSnapshot{lastSeen = 1, requested = 2}
           other -> expectationFailure $ "Expected to be in open state: " <> show other
 
-prop_singleMemberHeadAlwaysSnapshotOnReqTx :: ConfirmedSnapshot SimpleTx -> Property
-prop_singleMemberHeadAlwaysSnapshotOnReqTx original = monadicIO $ do
-  -- No unsettled decommit needs carrying; the Head and snapshot share identity.
-  let sn = case original of
-        InitialSnapshot{} -> InitialSnapshot testHeadId
-        ConfirmedSnapshot snapshot signatures -> ConfirmedSnapshot snapshot{headId = testHeadId, utxoToDecommit = Nothing} signatures
-  (seenSnapshot, version) <-
-    pick $
-      oneof
-        [ pure (NoSeenSnapshot, 0)
-        , do
-            n <- arbitrary
-            let v = fromInteger (toInteger n)
-            pure (LastSeenSnapshot n, v)
-        ]
-  -- Pick a tx creating a fresh output: re-creating a held one is refused.
-  let Snapshot{utxo = snapshotUTxO, utxoToCommit} = getSnapshot sn
-      held = snapshotUTxO <> fromMaybe mempty utxoToCommit
-  tx <- pick $ aValidTx <$> arbitrary `suchThat` (\n -> utxoRef n `withoutUTxO` held == utxoRef n)
-  let
-    aliceEnv =
-      let party = alice
-       in Environment
-            { party
-            , signingKey = aliceSk
-            , otherParties = []
-            , contestationPeriod = defaultContestationPeriod
-            , depositPeriod = defaultDepositPeriod
-            , depositActivation = defaultDepositActivation
-            , unsyncedPeriod = defaultUnsyncedPeriod
-            , participants = [deriveOnChainId party]
-            , configuredPeers = ""
+prop_singleMemberHeadSnapshotOnReqTx :: SnapshotNumber -> SnapshotVersion -> UTxOType SimpleTx -> Property
+prop_singleMemberHeadSnapshotOnReqTx offset version utxo =
+  conjoin
+    [ check "initial snapshot" (InitialSnapshot testHeadId) 0 Nothing [ReqSn 0 1 [txId tx] Nothing Nothing]
+    , check "no decommit" (signed snapshot) version Nothing [ReqSn version (number + 1) [txId tx] Nothing Nothing]
+    , check "carried decommit" (signed decommitSnapshot) version (Just decommit) [ReqSn version (number + 1) [txId tx] (Just decommit) Nothing]
+    , check "settled decommit" (signed decommitSnapshot) (version + 1) Nothing [ReqSn (version + 1) (number + 1) [txId tx] Nothing Nothing]
+    , check "missing decommit payload" (signed decommitSnapshot) version Nothing []
+    ]
+ where
+  -- Every case has matching Head identity, signing contents and local ledger.
+  -- Fresh output names keep collisions independent of settlement eligibility.
+  fresh = maybe 0 ((+ 1) . unSimpleTxOut) (Set.lookupMax utxo)
+  decommit = SimpleTx fresh (utxoRef fresh) (utxoRef $ fresh + 1)
+  tx = aValidTx (fresh + 2)
+  number = fromIntegral version + offset + 1
+  snapshot = testSnapshot number version [] utxo
+  decommitSnapshot = withAccumulators snapshot{utxoToDecommit = Just $ utxoFromTx decommit}
+  signed :: Snapshot SimpleTx -> ConfirmedSnapshot SimpleTx
+  signed value = ConfirmedSnapshot value (aggregate [sign aliceSk value])
+  aliceEnv =
+    Environment
+      { party = alice
+      , signingKey = aliceSk
+      , otherParties = []
+      , contestationPeriod = defaultContestationPeriod
+      , depositPeriod = defaultDepositPeriod
+      , depositActivation = defaultDepositActivation
+      , unsyncedPeriod = defaultUnsyncedPeriod
+      , participants = [deriveOnChainId alice]
+      , configuredPeers = ""
+      }
+
+  check name sn headVersion reservation expected =
+    let seen = case sn of
+          InitialSnapshot{} -> NoSeenSnapshot
+          ConfirmedSnapshot value _ -> LastSeenSnapshot value.number
+        st =
+          CoordinatedHeadState
+            { localUTxO = (getSnapshot sn).utxo
+            , allTxs = mempty
+            , localTxs = mempty
+            , confirmedSnapshot = sn
+            , seenSnapshot = seen
+            , currentDepositTxId = Nothing
+            , decommitTx = reservation
+            , version = headVersion
+            , finalizedCommit = Nothing
+            , finalizedDecommit = Nothing
             }
-    st =
-      CoordinatedHeadState
-        { localUTxO = mempty
-        , allTxs = mempty
-        , localTxs = mempty
-        , confirmedSnapshot = sn
-        , seenSnapshot
-        , currentDepositTxId = Nothing
-        , decommitTx = Nothing
-        , version
-        , finalizedCommit = Nothing
-        , finalizedDecommit = Nothing
-        }
-    s0 = inOpenState' [alice] st
-  now <- run $ nowFromSlot (currentSlot . chainPointTime $ s0)
-  let outcome = update aliceEnv simpleLedger now s0 $ receiveMessage $ ReqTx tx
-      Snapshot{number = confirmedSn} = getSnapshot sn
-      nextSn = confirmedSn + 1
-  pure $
-    outcome `hasEffect` NetworkEffect (ReqSn version nextSn [txId tx] Nothing Nothing)
-      & counterexample (show outcome)
+        before = inOpenState' [alice] st
+        outcome = update aliceEnv simpleLedger initialChainTime before $ receiveMessage $ ReqTx tx
+     in counterexample (name <> ": " <> show outcome) $ case (outcome, headState $ aggregateState before outcome) of
+          (Continue _ effects, Open OpenState{coordinatedHeadState = after}) ->
+            conjoin
+              [ [request | NetworkEffect request@ReqSn{} <- effects] === expected
+              , after.localTxs === pure tx
+              , after.seenSnapshot === case expected of
+                  [] -> seen
+                  _ -> RequestedSnapshot{lastSeen = (getSnapshot sn).number, requested = (getSnapshot sn).number + 1}
+              ]
+          _ -> counterexample "the valid transaction must be accepted" False
 
 prop_thereIsAlwaysALeader :: Property
 prop_thereIsAlwaysALeader =
