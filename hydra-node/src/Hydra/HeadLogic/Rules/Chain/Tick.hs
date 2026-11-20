@@ -7,8 +7,8 @@ import Hydra.Chain.ChainState (IsChainState (..))
 import Hydra.HeadLogic.Outcome (StateChanged (..))
 import Hydra.HeadLogic.Program (Program, change, decide)
 import Hydra.HeadLogic.Rules.Chain.Deposits (
-  onChainTick,
-  onOpenChainTick,
+  updateDepositStates,
+  maybeRequestDepositSnapshot,
  )
 import Hydra.HeadLogic.Rules.Chain.Synchronisation (
   handleOutOfSync,
@@ -49,12 +49,17 @@ handleTick env now pendingDeposits headState chainTime chainPoint syncStatus = d
   change TickObserved{chainPoint, chainTime}
   handleOutOfSync env now chainPoint chainTime syncStatus
   -- Deposits remain recoverable after their Head closes, so update all of them.
-  onChainTick env pendingDeposits chainTime
+  updateDepositStates env pendingDeposits chainTime
   case headState of
     -- Snapshot selection uses only this Head's deposits. The arguments still
     -- describe the state before this tick: 'change' records events, so
     -- 'onOpenChainTick' computes deposit eligibility at 'chainTime' itself.
-    Open open -> onOpenChainTick env chainTime (depositsForHeadWithoutFinalizedCommit open pendingDeposits) open
+    Open open ->
+      maybeRequestDepositSnapshot
+        env
+        chainTime
+        (depositsForHeadWithoutFinalizedCommit open pendingDeposits)
+        open
     -- A pending local fanout still counts as Closed until observed on chain.
     _ -> forM_ (getClosedState headState) notifyReadyToFanout
  where
