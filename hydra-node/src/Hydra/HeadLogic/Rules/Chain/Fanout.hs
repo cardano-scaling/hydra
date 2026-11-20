@@ -56,8 +56,6 @@ import Hydra.Prelude
 import Hydra.Tx (IsTx (UTxOType, outputsOfUTxO, withoutUTxO))
 
 -- | Observe a (full or final) fanout transaction, finalizing the head.
---
--- __Transition__: 'ClosedState' → 'FinalizedState'
 onClosedChainFanoutTx ::
   ClosedState tx ->
   -- | New chain state
@@ -78,8 +76,6 @@ onClosedChainFanoutTx closedState newChainState fanoutUTxO =
 -- does __not__ auto-drive the rest: only the driver advances the fanout. This is
 -- what makes selective partial fanout work in a multi-party head — observers must
 -- not steamroll the remaining UTxO the driver deliberately left.
---
--- __Transition__: 'ClosedState' → 'PartialFanoutState'
 onClosedChainPartialFanoutTx ::
   IsTx tx =>
   ClosedState tx ->
@@ -107,8 +103,6 @@ onClosedChainPartialFanoutTx closedState newChainState observedDistributed =
 -- distributed sets and, depending on the current 'FanoutMode', either continues
 -- draining automatically (or within the active selection) or waits for the next
 -- 'PartialFanout' command.
---
--- __Transition__: 'PartialFanoutState' → 'PartialFanoutState'
 onPartialFanoutChainPartialFanoutTx ::
   IsTx tx =>
   PartialFanoutState tx ->
@@ -156,8 +150,6 @@ onPartialFanoutChainPartialFanoutTx pfs newChainState observedDistributed =
 
 -- | Observe the final fanout while in 'PartialFanout', finalizing the head with
 -- the accumulated distributed outputs plus this final batch.
---
--- __Transition__: 'PartialFanoutState' → 'FinalizedState'
 onPartialFanoutChainFanoutTx ::
   IsTx tx =>
   PartialFanoutState tx ->
