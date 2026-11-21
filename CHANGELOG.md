@@ -11,7 +11,9 @@ changes.
 ## [UNRELEASED]
 
 - Added optional Head policies to restrict transactions and deposits and limit the
-  complete Head UTxO. All participants must agree on the policy before startup completes.
+  complete Head UTxO. Participants must configure matching policies. With a policy
+  configured, the node monitors agreement in the background and logs missing
+  acknowledgments or policy mismatches without blocking startup or input processing.
   [#2933](https://github.com/cardano-scaling/hydra/pull/2933)
 
 - **BREAKING** Switched to a new trusted CRS which bumps the maximum UTxO in the snapshot
