@@ -527,8 +527,8 @@ depositStatusAt Tdep Tact t D =
 #dparagraph[$hpRS$.]#h(1em) Upon receiving request
 $(hpRS,v,s,underline(tx)_(sans("req")), tx_alpha, tx_omega)$#footnote[Snapshot
 requests with only transaction identifiers and output references are possible
-if all parties keep an index of previously seen transactions and their
-identifiers.] from party $party_j$, the receiving $party_i$ #kw("require")s that
+if parties retain the needed transaction bodies or the leader retransmits
+them alongside the identifiers.] from party $party_j$, the receiving $party_i$ #kw("require")s that
 only a deposit or decommit may be pending, that $s$ is the next snapshot number
 and that party $party_j$ is responsible for leading its creation. Party
 $party_i$ may have to #kw("wait") until the previous snapshot is confirmed
@@ -559,7 +559,23 @@ Furthermore, the protocol validates the snapshot request by:
   applicable to the active UTxO set
 + Require $sans("fits")(U,U_alpha,sans("outputs")(tx_omega))$ for the resulting
   active UTxO $U$, before computing an accumulator commitment or signing.
-Only then, $party_i$ increments their seen-snapshot counter $hats$, resets the
+
+The implementation releases transaction bodies removed from its optimistic
+pending list after processing a snapshot. While confirmation is pending, the
+leader periodically retransmits the existing snapshot-request header, its
+transaction bodies, the header again, and its acknowledgement. A follower
+waiting for missing bodies persists the requested identifiers and protects those
+bodies from local expiry until validation completes. The first header establishes
+that protection; the final header resumes validation even after restart or expiry
+of the original queued request. These retries use the existing message types.
+An identical request from the same leader for an already validated candidate may
+replay its acknowledgement; a changed header must not obtain another signature.
+Already known payloads do not trigger another optimistic acceptance or rejection.
+At most one retry batch is queued or in flight per node, independently of ordinary
+outbound traffic. Recovery assumes leaders implement retransmission; unchanged
+message encodings alone do not provide that behaviour in older implementations.
+
+Only after validation, $party_i$ increments their seen-snapshot counter $hats$, resets the
 signature accumulator $hatSigma$, and computes the UTxO set of the new local
 snapshot as
 $U <- U_(sans("active")) applytx underline(tx)_(sans("req"))$. Then,
@@ -935,9 +951,14 @@ model is a network-message handling or a chain observation (`_⟶ᴴ_`), and
 
 ```
 -- One off-chain step: handle a network message OR observe a chain event.
+-- Payload caches and the outbound queue are outside LocalState. Sending a
+-- retry, caching a requested body, or replaying an existing acknowledgement
+-- leaves the abstract ledger, counters and pending list unchanged. This
+-- stutter does not model fresh signing or claim network liveness/queue bounds.
 data _⟶ᴴ_ : LocalState → LocalState → Set where
   hstep : ∀ {st m st'} → st handles m  ↝ st' → st ⟶ᴴ st'
   ostep : ∀ {st e st'} → st observes e ↝ st' → st ⟶ᴴ st'
+  transport-replay : ∀ {st} → st ⟶ᴴ st
 
 data Reachableᴴ (init : LocalState) : LocalState → Set where
   base : Reachableᴴ init init
@@ -978,6 +999,7 @@ noBothInFlight-step (hstep (reqDec-pending p _ _ _)) _  = inj₁ p
 noBothInFlight-step (hstep (ackSn-collect _))     inv = inv
 noBothInFlight-step (hstep (ackSn-confirm _ _ _ _)) inv = inv
 noBothInFlight-step (hstep (reqSn-sign _ _))      inv = inv
+noBothInFlight-step transport-replay             inv = inv
 noBothInFlight-step (ostep deposit-add)           inv = inv
 noBothInFlight-step (ostep (recover-del _))       inv = inv
 noBothInFlight-step (ostep tick-update)           inv = inv
@@ -1030,6 +1052,7 @@ versionDiscipline-step (hstep (reqDec-pending _ _ _ _))  inv = inv
 versionDiscipline-step (hstep (ackSn-collect _))       inv = inv
 versionDiscipline-step (hstep (ackSn-confirm _ _ _ d)) _   = d
 versionDiscipline-step (hstep (reqSn-sign _ _))        inv = inv
+versionDiscipline-step transport-replay               inv = inv
 versionDiscipline-step (ostep deposit-add)             inv = inv
 versionDiscipline-step (ostep (recover-del _))         inv = inv
 versionDiscipline-step (ostep tick-update)             inv = inv

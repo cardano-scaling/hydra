@@ -17,6 +17,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Cardano.Api.UTxO qualified as UTxO
+import Cardano.Binary (decodeFull', serialize')
 import Cardano.Ledger.Api (bodyTxL, inputsTxBodyL)
 import Cardano.Slotting.Time (SystemStart (SystemStart))
 import Control.Lens ((.~))
@@ -282,6 +283,72 @@ spec =
             Open OpenState{coordinatedHeadState = CoordinatedHeadState{localUTxO, localTxs}} ->
               localUTxO == applyTxTo laterMerge fullUTxO && localTxs == Seq.singleton laterMerge
             _ -> False
+
+      describe "transaction payload recovery" $ do
+        it "releases conflicting payloads pruned by repeated snapshots" $ do
+          let st = inOpenState' [alice] coordinatedHeadState{localUTxO = utxoRef 1, confirmedSnapshot = ConfirmedSnapshot (testSnapshot 0 0 [] $ utxoRef 1) mempty}
+          states <- runHeadLogic aliceEnv{otherParties = []} ledger st $ forM [1 .. 20] $ \sn -> do
+            let input = fromIntegral sn
+                optimistic = SimpleTx (100 + input) (utxoRef input) (utxoRef $ 1000 + input)
+                selected = SimpleTx input (utxoRef input) (utxoRef $ input + 1)
+            step (receiveMessage $ ReqTx optimistic)
+            -- The selected transaction conflicts locally, but applies to the
+            -- confirmed ledger. Confirming it prunes the optimistic branch.
+            step (receiveMessage $ ReqTx selected)
+            step (receiveMessage $ ReqSn 0 sn [txId selected] Nothing Nothing)
+            step (receiveMessage $ AckSn (sign aliceSk $ testSnapshot sn 0 [selected] $ utxoRef $ input + 1) sn)
+            getState
+          forM_ (zip [1 ..] states) $ \(sn, observed) ->
+            headState observed `shouldSatisfy` \case
+              Open OpenState{coordinatedHeadState = CoordinatedHeadState{allTxs, localTxs, confirmedSnapshot}} ->
+                Map.null allTxs && null localTxs && (getSnapshot confirmedSnapshot).number == sn
+              _ -> False
+
+        it "recovers expired dependencies with existing messages after a delayed snapshot or restart" $ do
+          let parentTx = SimpleTx 1 (utxoRef 1) (utxoRef 2)
+              childTx = SimpleTx 2 (utxoRef 2) (utxoRef 3)
+              snapshot = testSnapshot 1 0 [parentTx, childTx] (utxoRef 3)
+              initial = inOpenState' threeParties coordinatedHeadState{localUTxO = utxoRef 1, confirmedSnapshot = ConfirmedSnapshot (testSnapshot 0 0 [] $ utxoRef 1) mempty}
+              header = ReqSn 0 1 [txId parentTx, txId childTx] Nothing Nothing
+              expired :: SimpleTx -> Input SimpleTx
+              expired tx = NetworkInput 0 $ ReceivedMessage{sender = alice, msg = ReqTx tx}
+          leader <- runHeadLogic aliceEnv ledger initial $ do
+            step (receiveMessage $ ReqTx parentTx)
+            step (receiveMessage $ ReqTx childTx)
+            step (receiveMessage header)
+            getState
+          follower <- runHeadLogic bobEnv ledger initial $ do
+            -- This body expires before its dependency and the request arrive.
+            step (expired childTx)
+            step (receiveMessage $ ReqTx parentTx)
+            getState
+          now <- nowFromSlot initial.chainPointTime.currentSlot
+          let unresolved = update bobEnv ledger now follower (receiveMessage header)
+              awaiting = aggregateState follower unresolved
+              tick = ChainInput Tick{chainPoint = 0, chainTime = now}
+              replay = update aliceEnv ledger now leader tick
+          unresolved `assertWait` WaitOnTxs [txId childTx]
+          decodeFull' (serialize' awaiting) `shouldBe` Right awaiting
+          fromJSON (toJSON awaiting) `shouldBe` Success awaiting
+          [batch | NetworkRetransmission batch <- effectsOf replay]
+            `shouldBe` [[header, ReqTx parentTx, ReqTx childTx, header, AckSn (sign aliceSk snapshot) 1]]
+          let catchingUpLeader = NodeCatchingUp{headState = leader.headState, deposits = leader.deposits, chainPointTime = leader.chainPointTime}
+          update aliceEnv ledger now catchingUpLeader tick `hasNoEffectSatisfying` \case
+            NetworkRetransmission{} -> True
+            _ -> False
+          (recovered, signed) <- runHeadLogic bobEnv ledger awaiting $ do
+            forM_ [header, ReqTx parentTx, ReqTx childTx] $ \msg -> step (receiveMessage msg)
+            step (expired childTx)
+            signed <- step (receiveMessage header)
+            recovered <- getState
+            pure (recovered, signed)
+          signed `hasEffect` NetworkEffect (AckSn (sign bobSk snapshot) 1)
+          update bobEnv ledger now recovered (receiveMessage header)
+            `hasEffect` NetworkRetransmission [AckSn (sign bobSk snapshot) 1]
+          forM_ [receiveMessageFrom carol header, receiveMessage header{transactionIds = []}] $ \input ->
+            update bobEnv ledger now recovered input
+              `shouldBe` Error (RequireFailed $ ReqSnNumberInvalid 1 1)
+          update bobEnv ledger now recovered (receiveMessage $ ReqTx childTx) `shouldBe` noop
 
       it "accepts a ReqSn with more transactions than maxTxsPerSnapshot" $ do
         -- The cap only limits what a leader puts into a ReqSn; followers must

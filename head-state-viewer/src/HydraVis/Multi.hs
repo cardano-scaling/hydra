@@ -5,8 +5,8 @@
 -- | Multi-party simulation. A 'MultiModel' wraps N single-party 'Model's
 -- keyed by 'Party'; the user picks one tab at a time and authors inputs
 -- against it. Whenever the focused party's outcome contains a
--- 'NetworkEffect' broadcast, we synthesise a 'NetworkInput' on every other
--- party so the message propagates through the simulated head.
+-- 'NetworkEffect' broadcast or 'NetworkRetransmission' batch, we synthesise
+-- a 'NetworkInput' for each message on every other party, preserving order.
 module HydraVis.Multi (
   MultiModel (..),
   MultiAction (..),
@@ -25,7 +25,7 @@ import Data.Vector qualified as V
 import Hydra.Chain.ChainState (IsChainState)
 import Hydra.HeadLogic qualified as HL
 import Hydra.HeadLogic.Input (Input (..))
-import Hydra.HeadLogic.Outcome (Effect (NetworkEffect), Outcome (Continue), StateChanged)
+import Hydra.HeadLogic.Outcome (Effect (..), Outcome (Continue), StateChanged)
 import Hydra.Ledger (Ledger)
 import Hydra.Network.Message (Message, NetworkEvent (..))
 import Hydra.Node.Environment (Environment (..))
@@ -164,9 +164,14 @@ outcomeBroadcasts pm = case ctx pm of
             outcome :: Outcome tx
             outcome = HL.update ctxEnvironment ctxLedger initialChainTime priorState input
          in case outcome of
-              Continue{effects} -> [msg | NetworkEffect{message = msg} <- effects]
+              Continue{effects} -> concatMap effectBroadcasts effects
               _ -> []
  where
+  effectBroadcasts = \case
+    NetworkEffect{message} -> [message]
+    NetworkRetransmission{messages} -> messages
+    _ -> []
+
   draftText :: Text
   draftText = MS.fromMisoString (inputDraft pm)
 

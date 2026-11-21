@@ -151,6 +151,7 @@ nodeSummary steps t = case stepAt steps t of
             HS.NoSeenSnapshot -> ("-", "0", "none")
             HS.LastSeenSnapshot{HS.lastSeen} -> (show lastSeen, "0", "last seen #" <> show lastSeen)
             HS.RequestedSnapshot{HS.requested} -> (show requested, "0", "ReqSn sent, awaiting acks")
+            HS.AwaitingSnapshotTransactions{HS.requested} -> (show requested, "0", "awaiting transaction payloads")
             HS.SeenSnapshot{HS.snapshot = s, HS.signatories} ->
               (show (number s), show (Map.size signatories), "in flight #" <> show (number s))
        in (show (number snap), reqN, sigs, seenPhase, balanceText (Snap.utxo snap))

@@ -47,6 +47,7 @@ instance ArbitraryIsTx tx => Arbitrary (SeenSnapshot tx) where
       , LastSeenSnapshot <$> arbitrary
       , RequestedSnapshot <$> arbitrary <*> arbitrary
       , mkSeenSnapshot <$> arbitrary <*> arbitrary
+      , AwaitingSnapshotTransactions <$> arbitrary <*> arbitrary <*> arbitrary
       ]
 
 instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (ClosedState tx) where
