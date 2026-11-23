@@ -229,6 +229,7 @@ prop_wellSuitedGenerators :: Property
 prop_reducesWhenNotOurs :: Property
 prop_seenInputsAreConsumed :: Property
 prop_setsMinUTxOValue :: Property
+prop_rejectsBelowMinUTxOChange :: Property
 prop_balanceTransaction :: Property
 hasLowFees :: PParams LedgerEra -> Tx TopTx LedgerEra -> Property
 isBalanced :: Map TxIn TxOut -> Tx TopTx LedgerEra -> Tx TopTx LedgerEra -> Property
