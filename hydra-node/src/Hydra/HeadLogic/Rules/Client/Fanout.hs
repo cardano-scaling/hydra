@@ -88,8 +88,6 @@ onClosedClientPartialFanout closedState selection
 -- 'nextFanoutStep' decides on, which is not always a recorded selection: one
 -- covering the whole remainder finalizes the head, or, if nothing has been
 -- distributed yet, becomes a full fanout that drains it automatically.
---
--- __Transition__: 'PartialFanoutState' → 'PartialFanoutState'
 onPartialFanoutClientPartialFanout ::
   IsTx tx =>
   PartialFanoutState tx ->
