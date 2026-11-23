@@ -11,6 +11,7 @@ import Hydra.Prelude hiding (STM, delete)
 import Cardano.Binary (serialize')
 import CardanoNode (HydraNodeLog (..), cliQueryProtocolParameters)
 import Control.Concurrent.Async (forConcurrently_, link, withAsync)
+import Control.Concurrent.Async qualified as Async
 import Control.Concurrent.Class.MonadSTM (modifyTVar', newEmptyTMVarIO, putTMVar, readTMVar, readTVarIO, retry)
 import Control.Exception (Handler (..), IOException, catches)
 import Control.Lens ((?~), (^?))
@@ -47,17 +48,20 @@ import Network.WebSockets (Connection, ConnectionException, HandshakeException, 
 import System.Directory (createDirectoryIfMissing)
 import System.Environment (getEnvironment)
 import System.FilePath (takeFileName, (<.>), (</>))
+import System.IO (hClose)
 import System.IO.Unsafe (unsafePerformIO)
 import System.Info (os)
 import System.Posix.Signals (sigCONT, sigSTOP, signalProcess)
 import System.Posix.Types (ProcessID)
 import System.Process (readProcess)
+import System.Process qualified as Process
 import System.Process.Typed (
   ExitCode (..),
+  Process,
+  ProcessConfig,
   createPipe,
   getPid,
   getStderr,
-  getStdout,
   proc,
   setCloseFds,
   setEnv,
@@ -714,7 +718,8 @@ withPreparedHydraNode ::
 withPreparedHydraNode = withPreparedHydraNodeWithQuery Nothing []
 
 -- | Run a node and trace its structured log messages as they are emitted.
--- The complete log is also written to the usual log file.
+-- Stdout is also written to the usual log file, including shutdown output.
+-- Log draining is bounded; a timeout fails an otherwise successful action.
 withPreparedHydraNodeWithLogs ::
   HasCallStack =>
   Tracer IO Aeson.Value ->
@@ -782,37 +787,24 @@ withPreparedHydraNodeWithQueryAndLogs mQueryParams extraEnv mLogTracer tracer wo
     let extraArgs = if null rtsFlags then [] else ["+RTS"] <> rtsFlags <> ["-RTS"]
     let cmd =
           proc "hydra-node" (toArgs runOptions <> extraArgs)
-            & setStdout (maybe (Nothing <$ useHandleOpen logFileHandle) (const $ Just <$> createPipe) mLogTracer)
+            & setStdout (useHandleOpen logFileHandle)
             & setStderr createPipe
             & setCloseFds True
             & applyExtraEnv
 
     traceWith tracer $ HydraNodeCommandSpec $ show cmd
 
-    withProcessTerm cmd $ \p -> do
+    let withNodeProcess = case mLogTracer of
+          Nothing -> withProcessTerm cmd
+          Just logTracer -> withProcessAndLogs logTracer logFileHandle cmd
+    withNodeProcess $ \p -> do
       pid <- getPid p
-      let runNode =
-            -- NOTE: exit code thread gets cancelled if 'action' terminates first
-            raceLabelled
-              ("collect-check-process-exit-code", collectAndCheckExitCode p)
-              ("with-connection-to-node", withConnectionToNodeHost tracer hydraNodeId apiAddress monPort (mQueryParams <|> Just "/?history=yes") (\client -> action client{workDir = Just workDir, processId = pid}))
-              <&> either absurd id
-      case (mLogTracer, getStdout p) of
-        (Just logTracer, Just stdoutHandle) ->
-          withAsync (forwardLogs logTracer stdoutHandle logFileHandle) $ \logThread -> do
-            link logThread
-            runNode
-        _ -> runNode
+      -- NOTE: exit code thread gets cancelled if 'action' terminates first
+      raceLabelled
+        ("collect-check-process-exit-code", collectAndCheckExitCode p)
+        ("with-connection-to-node", withConnectionToNodeHost tracer hydraNodeId apiAddress monPort (mQueryParams <|> Just "/?history=yes") (\client -> action client{workDir = Just workDir, processId = pid}))
+        <&> either absurd id
  where
-  forwardLogs :: Tracer IO Aeson.Value -> Handle -> Handle -> IO ()
-  forwardLogs logTracer stdoutHandle logFileHandle = do
-    done <- hIsEOF stdoutHandle
-    unless done $ do
-      line <- BSC.hGetLine stdoutHandle
-      BSC.hPutStrLn logFileHandle line
-      forM_ (Aeson.decodeStrict' @Aeson.Value line >>= (\entry -> entry ^? key "message")) $ traceWith logTracer
-      forwardLogs logTracer stdoutHandle logFileHandle
-
   apiAddress =
     case runOptions of
       RunOptions{apiPort = p} ->
@@ -834,6 +826,49 @@ withPreparedHydraNodeWithQueryAndLogs mQueryParams extraEnv mLogTracer tracer wo
             ]
 
   logFilePath = workDir </> "logs" </> "hydra-node-" <> show hydraNodeId <.> "log"
+
+-- | Forward logs through child termination, then drain stdout for up to two
+-- seconds. Preserve the original action exception if draining also fails.
+withProcessAndLogs ::
+  Tracer IO Aeson.Value ->
+  Handle ->
+  ProcessConfig stdin stdout stderr ->
+  (Process stdin () stderr -> IO a) ->
+  IO a
+withProcessAndLogs logTracer logFileHandle cmd action =
+  -- Own the pipe outside withProcessTerm: typed-process closes its managed
+  -- streams before terminating the child, which would discard shutdown logs.
+  bracket Process.createPipe closePipe $ \(stdoutHandle, writer) ->
+    Async.withAsync (forwardLogs stdoutHandle) $ \logThread ->
+      mask $ \restore -> do
+        result <- try @IO @SomeException $
+          restore $
+            withProcessTerm (setStdout (useHandleOpen writer) cmd) $ \p -> do
+              -- Only the child keeps the write end, so its exit can produce EOF.
+              hClose writer
+              Async.race
+                (Async.wait logThread >> atomically retry)
+                (action p)
+                <&> either absurd id
+        drained <- timeout 2 $ Async.waitCatch logThread
+        case result of
+          Left err -> throwIO err
+          Right value -> case drained of
+            Nothing -> fail "Timed out draining child stdout to the log file"
+            Just (Left err) -> throwIO err
+            Just (Right ()) -> pure value
+ where
+  closePipe :: (Handle, Handle) -> IO ()
+  closePipe (readHandle, writeHandle) = hClose readHandle `finally` hClose writeHandle
+
+  forwardLogs :: Handle -> IO ()
+  forwardLogs stdoutHandle = do
+    done <- hIsEOF stdoutHandle
+    unless done $ do
+      line <- BSC.hGetLine stdoutHandle
+      BSC.hPutStrLn logFileHandle line
+      forM_ (Aeson.decodeStrict' @Aeson.Value line >>= (\entry -> entry ^? key "message")) $ traceWith logTracer
+      forwardLogs stdoutHandle
 
 -- | Convenience: run a single hydra-node with no peers and freshly
 -- allocated dynamic ports. Equivalent to 'withHydraNode' with a singleton

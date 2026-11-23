@@ -8,6 +8,7 @@
 module Control.Tracer.JSON (
   -- * Tracer
   Tracer (..),
+  emit,
   natTracer,
   nullTracer,
   traceWith,

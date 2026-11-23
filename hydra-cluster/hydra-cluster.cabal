@@ -202,6 +202,7 @@ test-suite tests
     , tasty
     , text
     , time
+    , typed-process
     , unix
 
   build-tool-depends:
