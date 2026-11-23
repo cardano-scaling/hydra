@@ -1,11 +1,12 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-ambiguous-fields #-}
 
 -- | All input admission goes through this workflow, including development tools.
 -- Size checks precede any operation that could echo an unsafe client input.
-module Hydra.HeadLogic.Rules.Input (Stage (..), InputTopology, handleInput, workflow) where
+module Hydra.HeadLogic.Rules.Input (Stage (..), InputTopology, Args (..), workflow) where
 
 import Crem.Topology (Topology (Topology))
 import Hydra.API.ClientInput (validateClientInputWith)
@@ -45,7 +46,6 @@ import Hydra.HeadLogic.Workflow (
   finish,
  )
 import Hydra.HeadLogic.Workflow qualified as Workflow (
-  run,
   workflow,
  )
 import Hydra.Node.State (
@@ -95,8 +95,16 @@ statePhase = \case
   InFinalized{} -> HandleFinalized
   Done -> Finished
 
-workflow :: forall tx. IsChainState tx => RuleEnvironment -> UTCTime -> NodeState tx -> Input tx -> Workflow tx InputTopology
-workflow env now nodeState input = Workflow.workflow (show . statePhase) CheckSize step
+-- | Inputs for one workflow run, lazy like function arguments.
+data Args tx = Args
+  { env :: ~RuleEnvironment
+  , now :: ~UTCTime
+  , nodeState :: ~(NodeState tx)
+  , input :: ~(Input tx)
+  }
+
+workflow :: forall tx. IsChainState tx => Args tx -> Workflow tx InputTopology
+workflow Args{..} = Workflow.workflow (show . statePhase) CheckSize step
  where
   step :: State tx from -> Transition tx InputTopology (State tx) from
   step = \case
@@ -135,7 +143,3 @@ workflow env now nodeState input = Workflow.workflow (show . statePhase) CheckSi
     NetworkInput{} -> handleNetworkInput env chainTime nodeState.pendingDeposits st input
   syncStatus = syncedStatus nodeState
   chainTime = nodeState.chainPointTime
-
--- | Handle one input through the inspectable workflow.
-handleInput :: forall tx. IsChainState tx => RuleEnvironment -> UTCTime -> NodeState tx -> Input tx -> Program tx ()
-handleInput env now nodeState input = Workflow.run $ workflow env now nodeState input

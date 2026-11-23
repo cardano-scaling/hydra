@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE StrictData #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-ambiguous-fields #-}
@@ -6,7 +7,7 @@
 module Hydra.HeadLogic.Rules.Network.AckSn (
   Stage (..),
   AckTopology,
-  handleAckSn,
+  Args (..),
   workflow,
 ) where
 
@@ -99,7 +100,6 @@ import Hydra.HeadLogic.Workflow (
   next,
  )
 import Hydra.HeadLogic.Workflow qualified as Workflow (
-  run,
   workflow,
  )
 import Hydra.Node.State (
@@ -165,41 +165,42 @@ statePhase = \case
   Confirm{} -> ConfirmAndContinue
   Done -> Finished
 
-workflow ::
-  forall tx.
-  IsChainState tx =>
-  RuleEnvironment ->
-  ChainPointTime ->
-  PendingDeposits tx ->
-  OpenState tx ->
-  Party ->
-  Signature (Snapshot tx) ->
-  SnapshotNumber ->
-  Workflow tx AckTopology
-workflow env ChainPointTime{currentChainTime} pendingDeposits openState otherParty signature sn =
+-- | Inputs for one workflow run, lazy like function arguments.
+data Args tx = Args
+  { env :: ~RuleEnvironment
+  , chainPointTime :: ~ChainPointTime
+  , pendingDeposits :: ~(PendingDeposits tx)
+  , openState :: ~(OpenState tx)
+  , sender :: ~Party
+  , signed :: ~(Signature (Snapshot tx))
+  , snapshotNumber :: ~SnapshotNumber
+  }
+
+workflow :: forall tx. IsChainState tx => Args tx -> Workflow tx AckTopology
+workflow Args{chainPointTime = ChainPointTime{currentChainTime}, ..} =
   Workflow.workflow (show . statePhase) NumberCheck step
  where
   step :: State tx from -> Transition tx AckTopology (State tx) from
   step = \case
     NumberCheck -> continue (const Find) $ do
-      valid <- decide "acknowledgement number is admissible" (sn `elem` [seenSn, seenSn + 1])
-      unless valid $ reject $ RequireFailed AckSnNumberInvalid{requestedSn = sn, lastSeenSn = seenSn}
+      valid <- decide "acknowledgement number is admissible" (snapshotNumber `elem` [lastSeenSn, lastSeenSn + 1])
+      unless valid $ reject $ RequireFailed AckSnNumberInvalid{requestedSn = snapshotNumber, ..}
     Find -> case seenSnapshot of
-      LastSeenSnapshot{lastSeen} | sn <= lastSeen -> continue (const Done) $ pure ()
+      LastSeenSnapshot{lastSeen} | snapshotNumber <= lastSeen -> continue (const Done) $ pure ()
       SeenSnapshot{signatories}
-        | seenSn == sn ->
+        | lastSeenSn == snapshotNumber ->
             continue (const $ Collect signatories) $ pure ()
       _ -> continue (const Done) $ suspend WaitOnSeenSnapshot
-    Collect signatories -> continue (Collected (Map.insert otherParty signature signatories)) $ do
+    Collect signatories -> continue (Collected (Map.insert sender signed signatories)) $ do
       -- A retained invalid partial signature still blocks replacement. Recovery
       -- from that case is deferred; aggregate verification remains mandatory.
-      fresh <- decide "party has not signed this snapshot" (Map.notMember otherParty signatories)
+      fresh <- decide "party has not signed this snapshot" (Map.notMember sender signatories)
       unless fresh $
         reject $
-          RequireFailed SnapshotAlreadySigned{knownSignatures = Map.keys signatories, receivedSignature = otherParty}
+          RequireFailed SnapshotAlreadySigned{knownSignatures = Map.keys signatories, receivedSignature = sender}
       let runtime = Coordinated.start openState
       owned <- requireCandidate runtime
-      Staging.stage runtime $ Coordinated.recordSignature owned otherParty signature
+      Staging.stage runtime $ Coordinated.recordSignature owned sender signed
     Collected allSignatures runtime ->
       if Map.keysSet allSignatures == Set.fromList parties
         then
@@ -207,53 +208,49 @@ workflow env ChainPointTime{currentChainTime} pendingDeposits openState otherPar
            in choose $ do
                 void $ decide "all parties have signed" True
                 owned <- requireCandidate runtime
-                verified <- verifyCandidate owned signatures
-                case verified of
-                  Right signed -> pure $ next $ Confirm signed runtime
+                result <- verifyCandidate owned signatures
+                case result of
+                  Right verified -> pure $ next $ Confirm verified runtime
                   Left err -> reject err
         else continue (const Done) $ do
           void $ decide "all parties have signed" False
           owned <- requireCandidate runtime
-          void $ Staging.stage runtime $ Coordinated.recordSignature owned otherParty signature
-    Confirm signed runtime -> continue (const Done) $ do
-      confirmedRuntime <- Staging.stage runtime $ Coordinated.confirmSnapshot signed
-      let snapshot = verifiedSnapshot $ candidateEvidence signed
-          signatures = verifiedSignatures $ candidateEvidence signed
+          void $ Staging.stage runtime $ Coordinated.recordSignature owned sender signed
+    Confirm verified runtime -> continue (const Done) $ do
+      confirmedRuntime <- Staging.stage runtime $ Coordinated.confirmSnapshot verified
+      let snapshot = verifiedSnapshot $ candidateEvidence verified
+          signatures = verifiedSignatures $ candidateEvidence verified
           current = Coordinated.currentState confirmedRuntime
       case (snapshot.depositTxId, snapshot.utxoToCommit) of
         (Just depositTxId, Just _)
           | Just Deposit{deposited} <- Map.lookup depositTxId pendingDeposits -> do
-              change CommitApproved{headId, utxoToCommit = deposited}
-              emit OnChainEffect{postChainTx = IncrementTx{headSeed, headId, headParameters = parameters, incrementingSnapshot = ConfirmedSnapshot{snapshot, signatures}, depositTxId}}
+              change CommitApproved{utxoToCommit = deposited, ..}
+              emit OnChainEffect{postChainTx = IncrementTx{incrementingSnapshot = ConfirmedSnapshot{..}, ..}}
         _ -> pure ()
       case (current.decommitTx, snapshot.utxoToDecommit) of
         (Just tx, Just utxoToDecommit) -> do
-          change DecommitApproved{headId, decommitTxId = txId tx, utxoToDecommit}
-          emit OnChainEffect{postChainTx = DecrementTx{headSeed, headId, headParameters = parameters, decrementingSnapshot = ConfirmedSnapshot{snapshot, signatures}}}
+          change DecommitApproved{decommitTxId = txId tx, ..}
+          emit OnChainEffect{postChainTx = DecrementTx{decrementingSnapshot = ConfirmedSnapshot{..}, ..}}
         _ -> pure ()
       let nextSn = snapshot.number + 1
-      case chainedSnapshotRequest env.snapshotLimits current.version snapshot current.localTxs pendingDeposits current.currentDepositTxId (decommitStatus current.version snapshot current.decommitTx) (settlingCommitAtPeriod env.depositPeriod current.version currentChainTime pendingDeposits snapshot) of
-        Just request | isLeader parameters env.party nextSn -> sendSnapshot confirmedRuntime request
+          req =
+            chainedSnapshotRequest
+              env.snapshotLimits
+              current.version
+              snapshot
+              current.localTxs
+              pendingDeposits
+              current.currentDepositTxId
+              (decommitStatus current.version snapshot current.decommitTx)
+              (settlingCommitAtPeriod env.depositPeriod current.version currentChainTime pendingDeposits snapshot)
+      case req of
+        Just request | isLeader headParameters env.party nextSn -> sendSnapshot confirmedRuntime request
         _ -> pure ()
     Done -> finish Done
 
-  OpenState{parameters = parameters@HeadParameters{parties}, coordinatedHeadState, headId, headSeed} = openState
+  OpenState{parameters = headParameters@HeadParameters{parties}, ..} = openState
   CoordinatedHeadState{seenSnapshot} = coordinatedHeadState
-  seenSn = seenSnapshotNumber seenSnapshot
+  lastSeenSn = seenSnapshotNumber seenSnapshot
 
   requireCandidate :: Coordinated.Runtime tx -> Program tx (Coordinated.Candidate tx)
   requireCandidate = maybe (reject $ AssertionFailed "snapshot owner has no current candidate") pure . Coordinated.candidate
-
--- | Handle one input through the inspectable workflow.
-handleAckSn ::
-  forall tx.
-  IsChainState tx =>
-  RuleEnvironment ->
-  ChainPointTime ->
-  PendingDeposits tx ->
-  OpenState tx ->
-  Party ->
-  Signature (Snapshot tx) ->
-  SnapshotNumber ->
-  Program tx ()
-handleAckSn env chainPoint pendingDeposits openState otherParty signature sn = Workflow.run $ workflow env chainPoint pendingDeposits openState otherParty signature sn

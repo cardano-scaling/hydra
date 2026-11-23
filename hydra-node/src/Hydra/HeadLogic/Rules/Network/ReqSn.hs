@@ -1,10 +1,11 @@
 {-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-ambiguous-fields #-}
 
 -- | Validate a snapshot request, sign it and prune local transactions. A phase
 -- carries only the values established by the preceding program action.
-module Hydra.HeadLogic.Rules.Network.ReqSn (Stage (..), ReqSnTopology, handleReqSn, workflow) where
+module Hydra.HeadLogic.Rules.Network.ReqSn (Stage (..), ReqSnTopology, Args (..), workflow) where
 
 import Crem.Topology (Topology (Topology))
 import Data.Map.Strict qualified as Map (keysSet, lookup)
@@ -75,7 +76,6 @@ import Hydra.HeadLogic.Workflow (
   finish,
  )
 import Hydra.HeadLogic.Workflow qualified as Workflow (
-  run,
   workflow,
  )
 import Hydra.Network.Message (Message (..))
@@ -148,27 +148,42 @@ statePhase = \case
   Acknowledged{} -> PruneLocalTransactions
   Done -> Finished
 
-workflow :: forall tx. IsChainState tx => RuleEnvironment -> PendingDeposits tx -> ChainPointTime -> OpenState tx -> TTL -> Party -> SnapshotVersion -> SnapshotNumber -> [TxIdType tx] -> Maybe tx -> Maybe (TxIdType tx) -> Workflow tx ReqSnTopology
-workflow env pendingDeposits ChainPointTime{currentSlot, currentChainTime} st ttl otherParty sv sn requestedTxIds mDecommitTx mDepositTxId =
+-- | Inputs for one workflow run, lazy like function arguments.
+data Args tx = Args
+  { env :: ~RuleEnvironment
+  , pendingDeposits :: ~(PendingDeposits tx)
+  , chainPointTime :: ~ChainPointTime
+  , openState :: ~(OpenState tx)
+  , ttl :: ~TTL
+  , sender :: ~Party
+  , snapshotVersion :: ~SnapshotVersion
+  , snapshotNumber :: ~SnapshotNumber
+  , transactionIds :: ~[TxIdType tx]
+  , decommitTx :: ~(Maybe tx)
+  , depositTxId :: ~(Maybe (TxIdType tx))
+  }
+
+workflow :: forall tx. IsChainState tx => Args tx -> Workflow tx ReqSnTopology
+workflow Args{chainPointTime = ChainPointTime{currentSlot, currentChainTime}, decommitTx = mDecommitTx, depositTxId = mDepositTxId, ..} =
   Workflow.workflow (show . statePhase) Request step
  where
   step :: State tx from -> Transition tx ReqSnTopology (State tx) from
   step = \case
     Request -> continue (const Checked) $ do
-      validNumber <- Program.decide "request is the next snapshot" (sn == seenSn + 1)
-      unless validNumber $ Program.reject $ RequireFailed ReqSnNumberInvalid{requestedSn = sn, lastSeenSn = seenSn}
-      leader <- Program.decide "sender leads this snapshot" (isLeader parameters otherParty sn)
-      unless leader $ Program.reject $ RequireFailed ReqSnNotLeader{requestedSn = sn, leader = otherParty}
+      validNumber <- Program.decide "request is the next snapshot" (snapshotNumber == seenSn + 1)
+      unless validNumber $ Program.reject $ RequireFailed ReqSnNumberInvalid{requestedSn = snapshotNumber, lastSeenSn = seenSn}
+      leader <- Program.decide "sender leads this snapshot" (isLeader parameters sender snapshotNumber)
+      unless leader $ Program.reject $ RequireFailed ReqSnNotLeader{requestedSn = snapshotNumber, leader = sender}
       confirmed <- Program.decide "previous snapshot is confirmed" (confSn == seenSn)
       unless confirmed $ Program.suspend $ WaitOnSnapshotNumber seenSn
       -- A follower may still be waiting for the increment/decrement observation.
-      matches <- Program.decide "snapshot version matches" (version == sv)
-      unless matches $ Program.suspend $ WaitOnSnapshotVersion sv
+      matches <- Program.decide "snapshot version matches" (version == snapshotVersion)
+      unless matches $ Program.suspend $ WaitOnSnapshotVersion snapshotVersion
     Checked -> continue (uncurry DecommitResolved) resolveDecommit
     DecommitResolved active decommit -> continue (\commit -> DepositResolved active commit decommit) resolveDeposit
     DepositResolved active commit decommit -> continue (TransactionsResolved active commit decommit) $
-      case toList (fromList requestedTxIds \\ Map.keysSet allTxs) of
-        [] -> pure $ mapMaybe (`Map.lookup` allTxs) requestedTxIds
+      case toList (fromList transactionIds \\ Map.keysSet allTxs) of
+        [] -> pure $ mapMaybe (`Map.lookup` allTxs) transactionIds
         unseen -> Program.suspend $ WaitOnTxs unseen
     TransactionsResolved active commit decommit txs -> continue (\after -> TransactionsApplied after commit decommit txs) $ do
       case (mDepositTxId, commit) of
@@ -180,44 +195,44 @@ workflow env pendingDeposits ChainPointTime{currentSlot, currentChainTime} st tt
       -- Freshness is relative to the round's initial active set as well as
       -- the evolving ledger: spending a deposited reference cannot free its name.
       forM_ txs $ \tx -> case checkTransactionOutputs active tx of
-        Left err -> Program.reject $ RequireFailed $ SnapshotDoesNotApply sn (txId tx) err
+        Left err -> Program.reject $ RequireFailed $ SnapshotDoesNotApply snapshotNumber (txId tx) err
         Right () -> pure ()
       result <- applyTransactionsProgram currentSlot active txs
       case result of
-        Left (tx, err) -> Program.reject $ RequireFailed $ SnapshotDoesNotApply sn (txId tx) err
+        Left (tx, err) -> Program.reject $ RequireFailed $ SnapshotDoesNotApply snapshotNumber (txId tx) err
         Right after -> pure after
     TransactionsApplied after commit decommit txs -> continue Built $ do
       let (accumulator, appliedAccumulator) = advanceCommitments previous after commit decommit
       checkSize "unsettled fanout fits accumulator capacity" accumulator
       checkSize "settled fanout fits accumulator capacity" appliedAccumulator
-      pure Snapshot{headId, version, number = sn, confirmed = txs, utxo = after, utxoToCommit = commit, utxoToDecommit = decommit, depositTxId = mDepositTxId, accumulator, appliedAccumulator}
+      pure Snapshot{headId, version, number = snapshotNumber, confirmed = txs, utxo = after, utxoToCommit = commit, utxoToDecommit = decommit, depositTxId = mDepositTxId, accumulator, appliedAccumulator}
     Built snapshot -> continue (const $ Acknowledged snapshot) $ do
       signature <- Program.signSnapshot snapshot
-      Program.emit $ NetworkEffect $ AckSn signature sn
+      Program.emit $ NetworkEffect $ AckSn signature snapshotNumber
     Acknowledged snapshot -> continue (const Done) $ do
       -- The acknowledgement is buffered before pruning; SnapshotRequested then
       -- reconstructs localUTxO by applying the retained transactions in order.
       newLocalTxs <- pruneTransactions env.snapshotLimits currentSlot snapshot.utxoToCommit snapshot.utxoToDecommit snapshot.utxo localTxs
-      runtime <- maybe (pure $ Coordinated.start st) (Staging.stage (Coordinated.start st) . Coordinated.retainSnapshotDecommit) mDecommitTx
+      runtime <- maybe (pure $ Coordinated.start openState) (Staging.stage (Coordinated.start openState) . Coordinated.retainSnapshotDecommit) mDecommitTx
       void $ Staging.stage runtime $ Coordinated.acceptSnapshot snapshot newLocalTxs mDepositTxId
     Done -> finish Done
 
   resolveDecommit :: Program tx (UTxOType tx, Maybe (UTxOType tx))
   resolveDecommit = case mDecommitTx of
     Nothing
-      | sv == confVersion && isJust confUTxOToDecommit -> Program.reject $ RequireFailed ReqSnDecommitNotSettled
+      | snapshotVersion == confVersion && isJust confUTxOToDecommit -> Program.reject $ RequireFailed ReqSnDecommitNotSettled
       | otherwise -> pure (confirmedUTxO, Nothing)
     Just tx
       | Just depositTxId <- mDepositTxId -> Program.reject $ RequireFailed ReqSnBothCommitAndDecommit{depositTxId, decommitTxId = txId tx}
       | utxoFromTx tx == mempty -> Program.reject $ RequireFailed ReqSnDecommitNoOutputs{decommitTxId = txId tx}
-      | sv == confVersion && isJust confUTxOToDecommit ->
+      | snapshotVersion == confVersion && isJust confUTxOToDecommit ->
           if confUTxOToDecommit == Just (utxoFromTx tx)
             then pure (confirmedUTxO, confUTxOToDecommit)
             else Program.reject $ RequireFailed ReqSnDecommitNotSettled
       | otherwise -> do
           result <- Program.applyTransaction currentSlot confirmedUTxO tx
           case result of
-            Left err -> Program.reject $ RequireFailed $ SnapshotDoesNotApply sn (txId tx) err
+            Left err -> Program.reject $ RequireFailed $ SnapshotDoesNotApply snapshotNumber (txId tx) err
             Right after -> let outputs = utxoFromTx tx in pure (after `withoutUTxO` outputs, Just outputs)
 
   -- A deposit is carried separately: it becomes spendable only after increment.
@@ -236,7 +251,7 @@ workflow env pendingDeposits ChainPointTime{currentSlot, currentChainTime} st tt
             | status == Inactive -> Program.suspend WaitOnDepositActivation{depositTxId}
             -- Identity matters as well as content. An expired deposit remains
             -- admissible here while its already-signed increment can still land.
-            | sv == confVersion && isJust confUTxOToCommit ->
+            | snapshotVersion == confVersion && isJust confUTxOToCommit ->
                 if confUTxOToCommit == Just deposited && confDepositTxId == Just depositTxId
                   then pure confUTxOToCommit
                   else Program.reject $ RequireFailed ReqSnCommitNotSettled
@@ -260,8 +275,4 @@ workflow env pendingDeposits ChainPointTime{currentSlot, currentChainTime} st tt
   seenSn = seenSnapshotNumber seenSnapshot
   confirmedUTxO = settledUTxO version previous
   CoordinatedHeadState{confirmedSnapshot, seenSnapshot, allTxs, localTxs, version, finalizedCommit} = coordinatedHeadState
-  OpenState{parameters, coordinatedHeadState, headId} = st
-
--- | Handle one input through the inspectable workflow.
-handleReqSn :: forall tx. IsChainState tx => RuleEnvironment -> PendingDeposits tx -> ChainPointTime -> OpenState tx -> TTL -> Party -> SnapshotVersion -> SnapshotNumber -> [TxIdType tx] -> Maybe tx -> Maybe (TxIdType tx) -> Program tx ()
-handleReqSn env pendingDeposits chainPoint st ttl otherParty sv sn requestedTxIds mDecommitTx mDepositTxId = Workflow.run $ workflow env pendingDeposits chainPoint st ttl otherParty sv sn requestedTxIds mDecommitTx mDepositTxId
+  OpenState{parameters, coordinatedHeadState, headId} = openState

@@ -1,5 +1,6 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-ambiguous-fields #-}
 
@@ -7,7 +8,7 @@ module Hydra.HeadLogic.Rules.Chain.Settlement (
   Stage (..),
   SettlementTopology,
   Settlement (..),
-  handleSettlement,
+  Args (..),
   workflow,
   maybeRequestSnapshotAfterVersionBump,
 ) where
@@ -61,7 +62,6 @@ import Hydra.HeadLogic.Workflow (
   next,
  )
 import Hydra.HeadLogic.Workflow qualified as Workflow (
-  run,
   workflow,
  )
 import Hydra.Node.State (Deposit (deposited), PendingDeposits)
@@ -115,24 +115,25 @@ statePhase = \case
   Request{} -> RequestNext
   Done -> Finished
 
-workflow ::
-  forall tx.
-  IsChainState tx =>
-  RuleEnvironment ->
-  PendingDeposits tx ->
-  OpenState tx ->
-  ChainStateType tx ->
-  SnapshotVersion ->
-  Settlement tx ->
-  SnapshotNumber ->
-  MultiSignature (Snapshot tx) ->
-  Workflow tx SettlementTopology
-workflow env pendingDeposits os@OpenState{parameters, coordinatedHeadState} newChainState newVersion settlement observedNumber signatures =
+-- | Inputs for one workflow run, lazy like function arguments.
+data Args tx = Args
+  { env :: ~RuleEnvironment
+  , pendingDeposits :: ~(PendingDeposits tx)
+  , openState :: ~(OpenState tx)
+  , newChainState :: ~(ChainStateType tx)
+  , newVersion :: ~SnapshotVersion
+  , settlement :: ~(Settlement tx)
+  , snapshotNumber :: ~SnapshotNumber
+  , signatures :: ~(MultiSignature (Snapshot tx))
+  }
+
+workflow :: forall tx. IsChainState tx => Args tx -> Workflow tx SettlementTopology
+workflow Args{openState = openState@OpenState{parameters, coordinatedHeadState}, ..} =
   Workflow.workflow (show . statePhase) Record step
  where
   step :: State tx from -> Transition tx SettlementTopology (State tx) from
   step = \case
-    Record -> continue Candidate $ Staging.stage (Coordinated.start os) $ case settlement of
+    Record -> continue Candidate $ Staging.stage (Coordinated.start openState) $ case settlement of
       Increment depositId ->
         Coordinated.recordCommitFinalization
           newChainState
@@ -146,7 +147,7 @@ workflow env pendingDeposits os@OpenState{parameters, coordinatedHeadState} newC
           distributed
     Candidate runtime -> case seenSnapshot of
       SeenSnapshot{snapshot}
-        | snapshot.number == observedNumber
+        | snapshot.number == snapshotNumber
         , snapshot.version + 1 == newVersion
         , matchesSettlement snapshot -> choose $ do
             void $ decide "settlement matches the seen snapshot" True
@@ -226,18 +227,3 @@ maybeRequestSnapshotAfterVersionBump runtime parameters party nextSn request ver
           isLeader parameters party nextSn && newVersion > version && not (isCollectingAcks seenSnapshot)
       when eligible $ do
         sendSnapshot runtime proposal
-
-handleSettlement ::
-  forall tx.
-  IsChainState tx =>
-  RuleEnvironment ->
-  PendingDeposits tx ->
-  OpenState tx ->
-  ChainStateType tx ->
-  SnapshotVersion ->
-  Settlement tx ->
-  SnapshotNumber ->
-  MultiSignature (Snapshot tx) ->
-  Program tx ()
-handleSettlement env pendingDeposits os newChainState newVersion settlement observedNumber signatures =
-  Workflow.run $ workflow env pendingDeposits os newChainState newVersion settlement observedNumber signatures

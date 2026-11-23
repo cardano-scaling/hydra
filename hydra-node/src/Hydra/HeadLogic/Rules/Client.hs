@@ -1,5 +1,6 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# OPTIONS_GHC -Wno-ambiguous-fields #-}
 
 module Hydra.HeadLogic.Rules.Client where
@@ -16,7 +17,7 @@ import Hydra.HeadLogic.Outcome (
   Effect (ClientEffect, NetworkEffect, OnChainEffect, postChainTx),
  )
 import Hydra.HeadLogic.Program (Program, emit, reject)
-import Hydra.HeadLogic.Rules.Client.Decommit (handleDecommit)
+import Hydra.HeadLogic.Rules.Client.Decommit qualified as Decommit
 import Hydra.HeadLogic.Rules.Client.Fanout (
   onClosedClientFanout,
   onClosedClientPartialFanout,
@@ -43,6 +44,7 @@ import Hydra.HeadLogic.State (
   HeadState (..),
   OpenState (OpenState, coordinatedHeadState, headId, parameters),
  )
+import Hydra.HeadLogic.Workflow qualified as Workflow (run)
 import Hydra.Network.Message (Message (..))
 import Hydra.Node.State (ChainPointTime (..), PendingDeposits)
 import Hydra.Prelude
@@ -80,8 +82,8 @@ handleClientInput env ChainPointTime{currentSlot} pendingDeposits st ev = case (
      in if ourHeadId == otherHeadId
           then onOpenClientSideLoadSnapshot openState confirmedSnapshot
           else reject NotOurHead{ourHeadId, otherHeadId}
-  (Open OpenState{headId, coordinatedHeadState}, ClientInput Decommit{decommitTx}) -> do
-    handleDecommit env.snapshotLimits headId currentSlot coordinatedHeadState decommitTx
+  (Open OpenState{headId, coordinatedHeadState}, ClientInput Decommit{decommitTx}) ->
+    Workflow.run $ Decommit.workflow Decommit.Args{snapshotLimits = env.snapshotLimits, ..}
   -- Closed
   (Closed closedState, ClientInput Fanout) ->
     onClosedClientFanout closedState

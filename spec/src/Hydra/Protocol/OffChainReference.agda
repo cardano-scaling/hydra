@@ -33,6 +33,9 @@
 -- snapshot requests. The decommit topology lives beside its transaction machine
 -- in State.Coordinated.Transactions. Module placement does not change the
 -- decisions or retained-event projections defined here.
+-- Rules expose workflows taking named, lazy Args records; their callers use
+-- Workflow.run. Argument packaging preserves the decisions and event order
+-- projected here and does not add guards or primitive calls.
 module Hydra.Protocol.OffChainReference where
 
 open import Agda.Builtin.Bool
@@ -349,6 +352,9 @@ isCollecting _ = false
 -- verification discards this input's tentative signature, not earlier inputs.
 -- `verifies` projects the Haskell primitive's Right () to true; both
 -- VerificationError cases project to false. Error details do not affect this transition.
+-- AckSn effect payloads use the open Head's identity and parameters and the
+-- verified snapshot/signatures; chained requests use the state after confirmation.
+-- Record bindings and effect payload fields are outside this outcome projection.
 ackSnOutcomeRef : SnapshotPhaseᶜ → Nat → Nat → List Nat → Nat → Nat → Bool → Bool → Nat → SnapshotOutcomeᶜ
 ackSnOutcomeRef phase seen sn signers sender m verifies useful localParty =
   if not ((sn == seen) || (sn == suc seen)) then snapshotRejectedᶜ invalidNumberᶜ

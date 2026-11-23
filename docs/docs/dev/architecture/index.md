@@ -47,6 +47,17 @@ The Hydra node maintains an internal wallet using the Cardano signing key provid
 
 This component is at the core of the Hydra node, implementing the protocol's _state machine_. It is structured around the concepts of `Input`s and `Effect`s. `Input`s from the outside world are interpreted against the current state, potentially resulting in internal `Event`s, which are aggregated into an updated state. This can then produce `Effect`s, leading to 'side effects' on the outside world. The state available to the _head logic_ consists of the head's content (eg, current ledger, pending transactions) _and_ the data from layer 1 needed to observe and trigger on-chain transitions.
 
+Input admission, network requests, client decommit, and chain settlement expose
+a `workflow` with a named `Args` record. Callers assemble these inputs and use
+`Workflow.run` to obtain the rule's `Program`. Argument fields remain lazy, and
+each workflow retains its own topology. Network dispatch selects the deposit
+view explicitly: `ReqSn` keeps all pending deposits for the head; the other
+network workflows exclude the deposit claimed by the retained finalized commit.
+
+When `AckSn` confirms a snapshot, increment and decrement effects use the open
+head's identity and parameters together with the verified snapshot and signatures.
+Any chained snapshot request uses the coordinated state after confirmation.
+
 ### Hydra smart contracts
 
 This component represents all the Hydra smart contracts needed for the Hydra Head protocol operation. The head, minting, and CRS contracts use PlutusTx; the deposit validator uses Aiken. The implementation uses a KZG accumulator for UTxO commitments and fanout proofs, with native support in `rust-accumulator`.

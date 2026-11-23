@@ -1,10 +1,11 @@
 {-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-ambiguous-fields #-}
 
 -- | Receive a decommit request. Deposit selection takes precedence over a
 -- pending decommit, and ledger applicability takes precedence over empty outputs.
-module Hydra.HeadLogic.Rules.Network.ReqDec (Stage (..), ReqDecTopology, handleReqDec, workflow) where
+module Hydra.HeadLogic.Rules.Network.ReqDec (Stage (..), ReqDecTopology, Args (..), workflow) where
 
 import Crem.Topology (Topology (Topology))
 import Data.Map.Strict qualified as Map (lookup)
@@ -65,7 +66,6 @@ import Hydra.HeadLogic.Workflow (
   next,
  )
 import Hydra.HeadLogic.Workflow qualified as Workflow (
-  run,
   workflow,
  )
 import Hydra.Ledger (ValidationError (..))
@@ -111,8 +111,18 @@ statePhase = \case
   Record -> RecordAndRequest
   Done -> Finished
 
-workflow :: forall tx. IsChainState tx => RuleEnvironment -> TTL -> ChainPointTime -> PendingDeposits tx -> OpenState tx -> tx -> Workflow tx ReqDecTopology
-workflow env ttl ChainPointTime{currentSlot, currentChainTime} pendingDeposits openState decommitTx =
+-- | Inputs for one workflow run, lazy like function arguments.
+data Args tx = Args
+  { env :: ~RuleEnvironment
+  , ttl :: ~TTL
+  , chainPointTime :: ~ChainPointTime
+  , pendingDeposits :: ~(PendingDeposits tx)
+  , openState :: ~(OpenState tx)
+  , transaction :: ~tx
+  }
+
+workflow :: forall tx. IsChainState tx => Args tx -> Workflow tx ReqDecTopology
+workflow Args{chainPointTime = ChainPointTime{currentSlot, currentChainTime}, transaction = decommitTx, ..} =
   Workflow.workflow (show . statePhase) CommitCheck step
  where
   step :: State tx from -> Transition tx ReqDecTopology (State tx) from
@@ -174,7 +184,3 @@ workflow env ttl ChainPointTime{currentSlot, currentChainTime} pendingDeposits o
   nextSn = previous.number + 1
   CoordinatedHeadState{decommitTx = mExistingDecommitTx, confirmedSnapshot, localTxs, localUTxO, version, seenSnapshot, currentDepositTxId} = coordinatedHeadState
   OpenState{headId, parameters, coordinatedHeadState} = openState
-
--- | Handle one input through the inspectable workflow.
-handleReqDec :: forall tx. IsChainState tx => RuleEnvironment -> TTL -> ChainPointTime -> PendingDeposits tx -> OpenState tx -> tx -> Program tx ()
-handleReqDec env ttl chainPoint pendingDeposits openState decommitTx = Workflow.run $ workflow env ttl chainPoint pendingDeposits openState decommitTx

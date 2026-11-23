@@ -1,5 +1,6 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# OPTIONS_GHC -Wno-ambiguous-fields #-}
 
 module Hydra.HeadLogic.Rules.Network where
@@ -12,14 +13,15 @@ import Hydra.HeadLogic.Program (Program, change, reject)
 import Hydra.HeadLogic.Rules.Environment (
   RuleEnvironment (configuredPeers),
  )
-import Hydra.HeadLogic.Rules.Network.AckSn (handleAckSn)
-import Hydra.HeadLogic.Rules.Network.ReqDec (handleReqDec)
-import Hydra.HeadLogic.Rules.Network.ReqSn (handleReqSn)
-import Hydra.HeadLogic.Rules.Network.ReqTx (handleReqTx)
+import Hydra.HeadLogic.Rules.Network.AckSn qualified as AckSn
+import Hydra.HeadLogic.Rules.Network.ReqDec qualified as ReqDec
+import Hydra.HeadLogic.Rules.Network.ReqSn qualified as ReqSn
+import Hydra.HeadLogic.Rules.Network.ReqTx qualified as ReqTx
 import Hydra.HeadLogic.State (
   HeadState (Open),
   OpenState (OpenState, headId),
  )
+import Hydra.HeadLogic.Workflow qualified as Workflow (run)
 import Hydra.Network qualified as Network (Connectivity (..))
 import Hydra.Network.Message (Message (..), NetworkEvent (..))
 import Hydra.Node.State (
@@ -44,44 +46,18 @@ handleNetworkInput ::
 handleNetworkInput env chainPointTime pendingDeposits st ev = case (st, ev) of
   (_, NetworkInput _ (ConnectivityEvent conn)) ->
     onConnectionEvent env.configuredPeers conn
-  (Open openState, NetworkInput ttl (ReceivedMessage{msg = ReqTx tx})) ->
-    handleReqTx
-      env
-      chainPointTime
-      openState
-      ttl
-      (depositsForHeadWithoutFinalizedCommit openState pendingDeposits)
-      tx
-  (Open openState@OpenState{headId = ourHeadId}, NetworkInput ttl (ReceivedMessage{sender, msg = ReqSn sv sn txIds decommitTx depositTxId})) ->
-    handleReqSn
-      env
-      (depositsForHead ourHeadId pendingDeposits)
-      chainPointTime
-      openState
-      ttl
-      sender
-      sv
-      sn
-      txIds
-      decommitTx
-      depositTxId
-  (Open openState, NetworkInput _ (ReceivedMessage{sender, msg = AckSn snapshotSignature sn})) ->
-    handleAckSn
-      env
-      chainPointTime
-      (depositsForHeadWithoutFinalizedCommit openState pendingDeposits)
-      openState
-      sender
-      snapshotSignature
-      sn
-  (Open openState, NetworkInput ttl (ReceivedMessage{msg = ReqDec{transaction}})) ->
-    handleReqDec
-      env
-      ttl
-      chainPointTime
-      (depositsForHeadWithoutFinalizedCommit openState pendingDeposits)
-      openState
-      transaction
+  (Open openState, NetworkInput ttl (ReceivedMessage{msg = ReqTx{..}})) ->
+    Workflow.run $
+      ReqTx.workflow ReqTx.Args{pendingDeposits = depositsForHeadWithoutFinalizedCommit openState pendingDeposits, ..}
+  (Open openState@OpenState{headId = ourHeadId}, NetworkInput ttl (ReceivedMessage{sender, msg = ReqSn{..}})) ->
+    Workflow.run $
+      ReqSn.workflow ReqSn.Args{pendingDeposits = depositsForHead ourHeadId pendingDeposits, ..}
+  (Open openState, NetworkInput _ (ReceivedMessage{sender, msg = AckSn{..}})) ->
+    Workflow.run $
+      AckSn.workflow AckSn.Args{pendingDeposits = depositsForHeadWithoutFinalizedCommit openState pendingDeposits, ..}
+  (Open openState, NetworkInput ttl (ReceivedMessage{msg = ReqDec{..}})) ->
+    Workflow.run $
+      ReqDec.workflow ReqDec.Args{pendingDeposits = depositsForHeadWithoutFinalizedCommit openState pendingDeposits, ..}
   _ ->
     reject $ UnhandledInput ev st
 

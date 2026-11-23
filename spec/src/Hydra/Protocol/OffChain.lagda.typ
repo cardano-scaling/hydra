@@ -774,7 +774,7 @@ data _handles_↝_ : LocalState → Message → LocalState → Set where
     → st handles (ackSn s σ) ↝ record st { confirmed = snap }
 
   -- on (reqSn, v, s, …): the honest snapshot-leader's request triggers a party to sign (§6.4
-  -- `Rules.Network.ReqSn.handleReqSn`). The `require` guards captured here: v ≡ v̂ (version matches) and s ≡ s̄+1
+  -- `Rules.Network.ReqSn.workflow`). The `require` guards captured here: v ≡ v̂ (version matches) and s ≡ s̄+1
   -- (the requested number is one above the party's CONFIRMED snapshot - combined with the §7
   -- `signHonest` no-in-flight precondition ŝ = s̄, this is the node's `requireReqSn` s = ŝ+1 /
   -- `waitNoSnapshotInFlight`). Signing advances the last-seen number ŝ ← s, the local mutation that
@@ -1485,12 +1485,14 @@ blockchain sees a _rollback_ followed by rollforwards.
 - `Program` exposes ledger application, signing and verification as primitives; rules choose state changes and effects.
 - Complete commits changes and releases effects; Wait retains the change prefix but discards effects; Reject discards both.
 - Each input/retry starts a fresh workflow. Signing keys stay in interpreter configuration, outside traces.
+- Callers supply named, lazy `Args` records and execute workflows with `Workflow.run`; argument packaging preserves guards, primitive calls and event order.
 - Verification returns success, a signature-count mismatch, or the nonempty list of invalid signers in party order.
 - Crem constrains phase transitions and payloads; guards and primitive answers need separate checks.
 - Live admission and trusted replay use separate entry points. Replay does not grant extra live transitions.
 - Candidate handles bind Head, version, number, signing bytes and ordered parties; confirmation requires the currently owned handle.
 - Settlement can advance the working version while a candidate still collects signatures; its final acknowledgement remains valid.
 - Partial acknowledgements retain two identical signature events; replay is idempotent. Failed final verification discards the current staged signature.
+- AckSn increment/decrement effects combine the open Head's identity and parameters with the verified snapshot and signatures. Chained requests use the coordinated state after confirmation.
 - Duplicate transaction IDs cannot replace validated local or candidate-decommit payloads, including on retry expiry.
 - Retry expiry can require client resubmission. Invalid early acknowledgements have no automatic recovery; closing remains the protocol exit.
 - Agda projections and Haskell sequence tests cover bounded outcomes and replay, not complete cryptographic correctness or unbounded liveness.

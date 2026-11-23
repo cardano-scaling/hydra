@@ -1,11 +1,12 @@
 {-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE StrictData #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-ambiguous-fields #-}
 
 -- | Receive and apply a transaction. Programs inside a transition keep related
 -- guards and effects together; crem constrains transitions between phases.
-module Hydra.HeadLogic.Rules.Network.ReqTx (Stage (..), ReqTxTopology, handleReqTx, workflow) where
+module Hydra.HeadLogic.Rules.Network.ReqTx (Stage (..), ReqTxTopology, Args (..), workflow) where
 
 import Crem.Topology (Topology (Topology))
 import Data.Map.Strict qualified as Map (filter, lookup, member)
@@ -13,7 +14,6 @@ import Data.Sequence qualified as Seq ((|>))
 import Hydra.Chain.ChainState (IsChainState)
 import Hydra.HeadLogic.Input (TTL)
 import Hydra.HeadLogic.Outcome (WaitReason (..))
-import Hydra.HeadLogic.Program (Program)
 import Hydra.HeadLogic.Program qualified as Program (
   applyTransaction,
   decide,
@@ -70,7 +70,6 @@ import Hydra.HeadLogic.Workflow (
   next,
  )
 import Hydra.HeadLogic.Workflow qualified as Workflow (
-  run,
   workflow,
  )
 import Hydra.Ledger (ValidationError (..))
@@ -117,8 +116,18 @@ statePhase = \case
   Retry{} -> RetryOrInvalidate
   Done -> Finished
 
-workflow :: forall tx. IsChainState tx => RuleEnvironment -> ChainPointTime -> OpenState tx -> TTL -> PendingDeposits tx -> tx -> Workflow tx ReqTxTopology
-workflow env ChainPointTime{currentSlot, currentChainTime} st ttl pendingDeposits tx =
+-- | Inputs for one workflow run, lazy like function arguments.
+data Args tx = Args
+  { env :: ~RuleEnvironment
+  , chainPointTime :: ~ChainPointTime
+  , openState :: ~(OpenState tx)
+  , ttl :: ~TTL
+  , pendingDeposits :: ~(PendingDeposits tx)
+  , transaction :: ~tx
+  }
+
+workflow :: forall tx. IsChainState tx => Args tx -> Workflow tx ReqTxTopology
+workflow Args{chainPointTime = ChainPointTime{currentSlot, currentChainTime}, ..} =
   Workflow.workflow (show . statePhase) DuplicateCheck step
  where
   step :: State tx from -> Transition tx ReqTxTopology (State tx) from
@@ -126,26 +135,26 @@ workflow env ChainPointTime{currentSlot, currentChainTime} st ttl pendingDeposit
     DuplicateCheck
       | SeenSnapshot snapshot _ _ <- seenSnapshot
       , Just{} <- snapshot.utxoToDecommit
-      , Just known <- Map.lookup (txId tx) allTxs
+      , Just known <- Map.lookup (txId transaction) allTxs
       , matchesSnapshotDecommit snapshot known ->
           continue (const Done) $ Program.decide "transaction is retained by the candidate decommit" True
-      | Map.member (txId tx) allTxs && any ((== txId tx) . txId) localTxs ->
+      | Map.member (txId transaction) allTxs && any ((== txId transaction) . txId) localTxs ->
           continue (const Done) $ Program.decide "transaction is already applied locally" True
       | otherwise -> continue OutputCheck $ do
           void $ Program.decide "transaction is already applied locally" False
-          Staging.stage (Coordinated.start st) $ Coordinated.receiveTransaction tx
-    OutputCheck runtime -> case checkTransactionOutputs localUTxO tx of
+          Staging.stage (Coordinated.start openState) $ Coordinated.receiveTransaction transaction
+    OutputCheck runtime -> case checkTransactionOutputs localUTxO transaction of
       Right () -> choose $ do
         void $ Program.decide "outputs do not collide with the local UTxO" True
-        result <- Program.applyTransaction currentSlot localUTxO tx
+        result <- Program.applyTransaction currentSlot localUTxO transaction
         pure $ case result of
           Right after -> next $ DepositCheck runtime after
           Left err -> next $ Retry runtime err
       Left err -> continue (const $ Retry runtime err) $ Program.decide "outputs do not collide with the local UTxO" False
     DepositCheck runtime after
-      | namesNoneOf (utxoFromTx tx) namedByDepositsInPlay -> continue Select $ do
+      | namesNoneOf (utxoFromTx transaction) namedByDepositsInPlay -> continue Select $ do
           void $ Program.decide "outputs do not collide with pending deposits" True
-          Staging.stage runtime $ Coordinated.applyTransaction tx localUTxO after
+          Staging.stage runtime $ Coordinated.applyTransaction transaction localUTxO after
       | otherwise ->
           continue (const $ Retry runtime $ ValidationError "transaction creates an output a pending deposit names") $
             Program.decide "outputs do not collide with pending deposits" False
@@ -154,7 +163,7 @@ workflow env ChainPointTime{currentSlot, currentChainTime} st ttl pendingDeposit
       when noSnapshot $ do
         leader <- Program.decide "this party leads the next snapshot" (isLeader parameters env.party nextSn)
         when leader $
-          case chainedSnapshotRequest env.snapshotLimits version previous (localTxs Seq.|> tx) pendingDeposits currentDepositTxId (decommitStatus version previous decommitTx) settlingCommit of
+          case chainedSnapshotRequest env.snapshotLimits version previous (localTxs Seq.|> transaction) pendingDeposits currentDepositTxId (decommitStatus version previous decommitTx) settlingCommit of
             Nothing -> void $ Program.decide "snapshot request has useful work" False
             Just request -> do
               void $ Program.decide "snapshot request has useful work" True
@@ -165,7 +174,7 @@ workflow env ChainPointTime{currentSlot, currentChainTime} st ttl pendingDeposit
       canRetry <- Program.decide "retry budget remains" (ttl > 0)
       if canRetry
         then Program.suspend $ WaitOnNotApplicableTx err
-        else void $ Staging.stage runtime $ Coordinated.markTransactionInvalid localUTxO tx err
+        else void $ Staging.stage runtime $ Coordinated.markTransactionInvalid localUTxO transaction err
     Done -> finish Done
 
   namedByDepositsInPlay :: UTxOType tx
@@ -174,12 +183,8 @@ workflow env ChainPointTime{currentSlot, currentChainTime} st ttl pendingDeposit
       <> case settlingCommit of
         Just (ContinueCommit (_, Deposit{deposited})) -> deposited
         _ -> mempty
-  OpenState{coordinatedHeadState, parameters} = st
+  OpenState{coordinatedHeadState, parameters} = openState
   CoordinatedHeadState{localTxs, localUTxO, allTxs, confirmedSnapshot, seenSnapshot, decommitTx, version, currentDepositTxId} = coordinatedHeadState
   previous = getSnapshot confirmedSnapshot
   nextSn = previous.number + 1
   settlingCommit = settlingCommitAtPeriod env.depositPeriod version currentChainTime pendingDeposits previous
-
--- | Handle one input through the inspectable workflow.
-handleReqTx :: forall tx. IsChainState tx => RuleEnvironment -> ChainPointTime -> OpenState tx -> TTL -> PendingDeposits tx -> tx -> Program tx ()
-handleReqTx env chainPoint st ttl pendingDeposits tx = Workflow.run $ workflow env chainPoint st ttl pendingDeposits tx

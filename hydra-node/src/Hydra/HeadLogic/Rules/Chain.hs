@@ -1,4 +1,5 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# OPTIONS_GHC -Wno-ambiguous-fields #-}
 
 module Hydra.HeadLogic.Rules.Chain where
@@ -66,8 +67,8 @@ import Hydra.HeadLogic.Rules.Chain.Lifecycle (
 import Hydra.HeadLogic.Rules.Chain.Rollback (handleRollback)
 import Hydra.HeadLogic.Rules.Chain.Settlement (
   Settlement (Decrement, Increment),
-  handleSettlement,
  )
+import Hydra.HeadLogic.Rules.Chain.Settlement qualified as Settlement
 import Hydra.HeadLogic.Rules.Chain.Tick (handleTick)
 import Hydra.HeadLogic.Rules.Environment (RuleEnvironment)
 import Hydra.HeadLogic.State (
@@ -78,6 +79,7 @@ import Hydra.HeadLogic.State (
   canOpenHead,
  )
 import Hydra.HeadLogic.State.Fanout (getClosedState)
+import Hydra.HeadLogic.Workflow qualified as Workflow (run)
 import Hydra.Node.State (PendingDeposits, SyncedStatus, depositsForHeadWithoutFinalizedCommit)
 import Hydra.Prelude
 
@@ -111,12 +113,16 @@ handleChainInput env now pendingDeposits st ev syncStatus = case (st, ev) of
           reject NotOurHead{ourHeadId, otherHeadId = headId}
   (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnIncrementTx{headId, newVersion, depositTxId, snapshotNumber, signatures}, newChainState})
     | ourHeadId == headId ->
-        handleSettlement env (depositsForHeadWithoutFinalizedCommit openState pendingDeposits) openState newChainState newVersion (Increment depositTxId) snapshotNumber signatures
+        Workflow.run $
+          Settlement.workflow
+            Settlement.Args{pendingDeposits = depositsForHeadWithoutFinalizedCommit openState pendingDeposits, settlement = Increment depositTxId, ..}
     | otherwise ->
         reject NotOurHead{ourHeadId, otherHeadId = headId}
   (Open openState@OpenState{headId = ourHeadId}, ChainInput Observation{observedTx = OnDecrementTx{headId, newVersion, distributedUTxO, snapshotNumber, signatures}, newChainState})
     | ourHeadId == headId ->
-        handleSettlement env (depositsForHeadWithoutFinalizedCommit openState pendingDeposits) openState newChainState newVersion (Decrement distributedUTxO) snapshotNumber signatures
+        Workflow.run $
+          Settlement.workflow
+            Settlement.Args{pendingDeposits = depositsForHeadWithoutFinalizedCommit openState pendingDeposits, settlement = Decrement distributedUTxO, ..}
     | otherwise ->
         reject NotOurHead{ourHeadId, otherHeadId = headId}
   -- Closed

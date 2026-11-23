@@ -1,4 +1,5 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE RecordWildCards #-}
 
 -- | Cardano runtime wiring and compatibility entry points for the pure core.
 module Hydra.Node.HeadLogic (
@@ -12,6 +13,8 @@ import Hydra.HeadLogic
 import Hydra.HeadLogic.Interpreter qualified as Interpreter
 import Hydra.HeadLogic.Rules.Chain.Fanout qualified as ChainFanout
 import Hydra.HeadLogic.Rules.Fanout qualified as Fanout
+import Hydra.HeadLogic.Rules.Input qualified as Input
+import Hydra.HeadLogic.Workflow qualified as Workflow (run)
 import Hydra.Ledger (Ledger)
 import Hydra.Node.Environment (Environment)
 import Hydra.Node.HeadLogic.Configuration
@@ -22,7 +25,9 @@ import Hydra.Tx (IsTx, UTxOType)
 -- | The node and tools execute the same admission checks and rule programs.
 update :: IsChainState tx => Environment -> Ledger tx -> UTCTime -> NodeState tx -> Input tx -> Outcome tx
 update env ledger now st input =
-  Interpreter.runProgram (interpreterConfig env ledger) $ updateProgram (ruleEnvironment env) now st input
+  Interpreter.runProgram (interpreterConfig env ledger) $
+    Workflow.run $
+      Input.workflow Input.Args{env = ruleEnvironment env, nodeState = st, ..}
 
 onClosedChainPartialFanoutTx ::
   IsTx tx =>

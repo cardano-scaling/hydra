@@ -53,10 +53,8 @@ import Hydra.HeadLogic.Outcome (
   newState,
   noop,
  )
-import Hydra.HeadLogic.Program (Program)
 import Hydra.HeadLogic.Rules.Client (openFinalizedDeposit)
 import Hydra.HeadLogic.Rules.Environment (RuleEnvironment)
-import Hydra.HeadLogic.Rules.Input (handleInput)
 import Hydra.HeadLogic.Rules.Transactions (
   applyTransactionsProgram,
   applyTransactionsWithoutCollision,
@@ -111,15 +109,6 @@ import Hydra.HeadLogic.State.Node qualified as Machine
 import Hydra.HeadLogic.Transaction.Outputs (absorbable, namesNoneOf)
 import Hydra.Node.State (NodeState (..))
 import Hydra.Prelude
-
-updateProgram ::
-  IsChainState tx =>
-  RuleEnvironment ->
-  UTCTime ->
-  NodeState tx ->
-  Input tx ->
-  Program tx ()
-updateProgram = handleInput
 
 aggregateNodeState :: IsChainState tx => NodeState tx -> StateChanged tx -> NodeState tx
 aggregateNodeState = Machine.apply

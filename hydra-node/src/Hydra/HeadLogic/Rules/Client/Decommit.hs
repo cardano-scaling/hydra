@@ -1,9 +1,10 @@
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Hydra.HeadLogic.Rules.Client.Decommit (
   Stage (..),
   DecommitTopology,
-  handleDecommit,
+  Args (..),
   workflow,
 ) where
 
@@ -34,7 +35,6 @@ import Hydra.HeadLogic.Workflow (
   next,
  )
 import Hydra.HeadLogic.Workflow qualified as Workflow (
-  run,
   workflow,
  )
 import Hydra.Ledger (ValidationError (..))
@@ -77,16 +77,17 @@ statePhase = \case
   Send -> Broadcast
   Done -> Finished
 
-workflow ::
-  forall tx.
-  IsTx tx =>
-  SnapshotLimits ->
-  HeadId ->
-  ChainSlot ->
-  CoordinatedHeadState tx ->
-  tx ->
-  Workflow tx DecommitTopology
-workflow limits headId currentSlot CoordinatedHeadState{decommitTx = pending, localUTxO, version, confirmedSnapshot} decommitTx =
+-- | Inputs for one workflow run, lazy like function arguments.
+data Args tx = Args
+  { snapshotLimits :: ~SnapshotLimits
+  , headId :: ~HeadId
+  , currentSlot :: ~ChainSlot
+  , coordinatedHeadState :: ~(CoordinatedHeadState tx)
+  , decommitTx :: ~tx
+  }
+
+workflow :: forall tx. IsTx tx => Args tx -> Workflow tx DecommitTopology
+workflow Args{coordinatedHeadState = CoordinatedHeadState{decommitTx = pending, localUTxO, version, confirmedSnapshot}, ..} =
   Workflow.workflow (show . statePhase) Pending step
  where
   step :: State tx from -> Transition tx DecommitTopology (State tx) from
@@ -111,7 +112,7 @@ workflow limits headId currentSlot CoordinatedHeadState{decommitTx = pending, lo
           void $ decide "decommit produces outputs" False
           invalid DecommitTxInvalid{localUTxO, validationError = ValidationError "decommit transaction has no outputs"}
       | otherwise -> continue (const $ Capacity after) $ decide "decommit produces outputs" True
-    Capacity after -> case checkDecommitCapacity limits after (settledUTxO version $ getSnapshot confirmedSnapshot) decommitTx of
+    Capacity after -> case checkDecommitCapacity snapshotLimits after (settledUTxO version $ getSnapshot confirmedSnapshot) decommitTx of
       Left validationError -> continue (const Done) $ do
         void $ decide "decommit fits local and confirmed capacity" False
         invalid DecommitTxInvalid{localUTxO, validationError}
@@ -121,15 +122,3 @@ workflow limits headId currentSlot CoordinatedHeadState{decommitTx = pending, lo
 
   invalid :: DecommitInvalidReason tx -> Program tx ()
   invalid reason = change DecommitInvalid{headId, decommitTx, decommitInvalidReason = reason}
-
-handleDecommit ::
-  forall tx.
-  IsTx tx =>
-  SnapshotLimits ->
-  HeadId ->
-  ChainSlot ->
-  CoordinatedHeadState tx ->
-  tx ->
-  Program tx ()
-handleDecommit limits headId currentSlot coordinatedState decommitTx =
-  Workflow.run $ workflow limits headId currentSlot coordinatedState decommitTx
