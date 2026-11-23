@@ -7,8 +7,8 @@ import Hydra.Chain.ChainState (IsChainState (..))
 import Hydra.HeadLogic.Outcome (StateChanged (..))
 import Hydra.HeadLogic.Program (Program, change, decide)
 import Hydra.HeadLogic.Rules.Chain.Deposits (
-  updateDepositStates,
   maybeRequestDepositSnapshot,
+  updateDepositStates,
  )
 import Hydra.HeadLogic.Rules.Chain.Synchronisation (
   handleOutOfSync,

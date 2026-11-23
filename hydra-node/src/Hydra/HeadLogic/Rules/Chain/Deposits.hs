@@ -144,9 +144,14 @@ updateDepositStates env pendingDeposits chainTime =
     change DepositExpired{depositTxId, chainTime, deposit}
 
 -- | Track deposits and either drop them or request snapshots for inclusion.
-maybeRequestDepositSnapshot
-  :: forall tx. IsChainState tx
-  => RuleEnvironment -> UTCTime -> PendingDeposits tx -> OpenState tx -> Program tx ()
+maybeRequestDepositSnapshot ::
+  forall tx.
+  IsChainState tx =>
+  RuleEnvironment ->
+  UTCTime ->
+  PendingDeposits tx ->
+  OpenState tx ->
+  Program tx ()
 maybeRequestDepositSnapshot env chainTime pendingDeposits st
   | snapshotInFlight seenSnapshot || not (isLeader parameters party nextSn) = pure ()
   | otherwise =
