@@ -53,6 +53,8 @@ a `workflow` with a named `Args` record. Callers assemble these inputs and use
 each workflow retains its own topology. Network dispatch selects the deposit
 view explicitly: `ReqSn` keeps all pending deposits for the head; the other
 network workflows exclude the deposit claimed by the retained finalized commit.
+`ReqDec` distinguishes the incoming transaction from any pending decommit;
+its failure events identify the incoming transaction.
 
 When `AckSn` confirms a snapshot, increment and decrement effects use the open
 head's identity and parameters together with the verified snapshot and signatures.

@@ -1486,6 +1486,7 @@ blockchain sees a _rollback_ followed by rollforwards.
 - Complete commits changes and releases effects; Wait retains the change prefix but discards effects; Reject discards both.
 - Each input/retry starts a fresh workflow. Signing keys stay in interpreter configuration, outside traces.
 - Callers supply named, lazy `Args` records and execute workflows with `Workflow.run`; argument packaging preserves guards, primitive calls and event order.
+- ReqDec keeps the incoming transaction distinct from the pending decommit in coordinated state; DecommitInvalid events identify the incoming transaction.
 - Verification returns success, a signature-count mismatch, or the nonempty list of invalid signers in party order.
 - Crem constrains phase transitions and payloads; guards and primitive answers need separate checks.
 - Live admission and trusted replay use separate entry points. Replay does not grant extra live transitions.

@@ -492,6 +492,8 @@ pendingIncrementPhaseRef true true true = 4
 -- Each result names the whole ordered outcome: invalidation has one change and
 -- no effects; acceptance records one decommit and optionally sends one ReqSn.
 -- In particular ReqDec does not record SnapshotRequestDecided.
+-- The existing-decommit flag describes coordinated state, distinct from the
+-- incoming transaction carried by DecommitInvalid; that payload is not projected.
 data ReqDecOutcomeᶜ : Set where
   decWaitCommitᶜ decInvalidCommitᶜ decWaitExistingᶜ decInvalidExistingᶜ
     decWaitLedgerᶜ decInvalidLedgerᶜ decEmptyOutputsᶜ decRecordedᶜ decRequestedᶜ : ReqDecOutcomeᶜ
