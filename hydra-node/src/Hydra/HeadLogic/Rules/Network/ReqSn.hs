@@ -3,9 +3,12 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-ambiguous-fields #-}
 
--- | Validate a snapshot request, sign it and prune local transactions. A phase
--- carries only the values established by the preceding program action.
-module Hydra.HeadLogic.Rules.Network.ReqSn (Stage (..), ReqSnTopology, Args (..), workflow) where
+module Hydra.HeadLogic.Rules.Network.ReqSn (
+  Stage (..),
+  ReqSnTopology,
+  Args (..),
+  workflow,
+) where
 
 import Crem.Topology (Topology (Topology))
 import Data.Map.Strict qualified as Map (keysSet, lookup)
@@ -21,8 +24,8 @@ import Hydra.HeadLogic.Error (
  )
 import Hydra.HeadLogic.Input (TTL)
 import Hydra.HeadLogic.Outcome (Effect (..), WaitReason (..))
-import Hydra.HeadLogic.Program (Program)
-import Hydra.HeadLogic.Program qualified as Program (
+import Hydra.HeadLogic.Program (
+  Program,
   applyTransaction,
   decide,
   emit,
@@ -106,7 +109,16 @@ import Hydra.Tx.Snapshot (
   getSnapshot,
  )
 
-data Stage = CheckRequest | ResolveDecommit | ResolveDeposit | ResolveTransactions | ApplyTransactions | BuildSnapshot | SignAndAcknowledge | PruneLocalTransactions | Finished
+data Stage
+  = CheckRequest
+  | ResolveDecommit
+  | ResolveDeposit
+  | ResolveTransactions
+  | ApplyTransactions
+  | BuildSnapshot
+  | SignAndAcknowledge
+  | PruneLocalTransactions
+  | Finished
 
 type ReqSnTopology =
   'Topology
@@ -128,10 +140,27 @@ deriving stock instance Bounded Stage
 data State tx phase where
   Request :: State tx 'CheckRequest
   Checked :: State tx 'ResolveDecommit
-  DecommitResolved :: ~(UTxOType tx) -> Maybe (UTxOType tx) -> State tx 'ResolveDeposit
-  DepositResolved :: ~(UTxOType tx) -> Maybe (UTxOType tx) -> Maybe (UTxOType tx) -> State tx 'ResolveTransactions
-  TransactionsResolved :: ~(UTxOType tx) -> Maybe (UTxOType tx) -> Maybe (UTxOType tx) -> [tx] -> State tx 'ApplyTransactions
-  TransactionsApplied :: ~(UTxOType tx) -> Maybe (UTxOType tx) -> Maybe (UTxOType tx) -> [tx] -> State tx 'BuildSnapshot
+  DecommitResolved ::
+    ~(UTxOType tx) ->
+    Maybe (UTxOType tx) ->
+    State tx 'ResolveDeposit
+  DepositResolved ::
+    ~(UTxOType tx) ->
+    Maybe (UTxOType tx) ->
+    Maybe (UTxOType tx) ->
+    State tx 'ResolveTransactions
+  TransactionsResolved ::
+    ~(UTxOType tx) ->
+    Maybe (UTxOType tx) ->
+    Maybe (UTxOType tx) ->
+    [tx] ->
+    State tx 'ApplyTransactions
+  TransactionsApplied ::
+    ~(UTxOType tx) ->
+    Maybe (UTxOType tx) ->
+    Maybe (UTxOType tx) ->
+    [tx] ->
+    State tx 'BuildSnapshot
   Built :: Snapshot tx -> State tx 'SignAndAcknowledge
   Acknowledged :: Snapshot tx -> State tx 'PruneLocalTransactions
   Done :: State tx 'Finished
@@ -169,45 +198,45 @@ workflow Args{chainPointTime = ChainPointTime{currentSlot, currentChainTime}, de
   step :: State tx from -> Transition tx ReqSnTopology (State tx) from
   step = \case
     Request -> continue (const Checked) $ do
-      validNumber <- Program.decide "request is the next snapshot" (snapshotNumber == seenSn + 1)
-      unless validNumber $ Program.reject $ RequireFailed ReqSnNumberInvalid{requestedSn = snapshotNumber, lastSeenSn = seenSn}
-      leader <- Program.decide "sender leads this snapshot" (isLeader parameters sender snapshotNumber)
-      unless leader $ Program.reject $ RequireFailed ReqSnNotLeader{requestedSn = snapshotNumber, leader = sender}
-      confirmed <- Program.decide "previous snapshot is confirmed" (confSn == seenSn)
-      unless confirmed $ Program.suspend $ WaitOnSnapshotNumber seenSn
+      validNumber <- decide "request is the next snapshot" (snapshotNumber == seenSn + 1)
+      unless validNumber $ reject $ RequireFailed ReqSnNumberInvalid{requestedSn = snapshotNumber, lastSeenSn = seenSn}
+      leader <- decide "sender leads this snapshot" (isLeader parameters sender snapshotNumber)
+      unless leader $ reject $ RequireFailed ReqSnNotLeader{requestedSn = snapshotNumber, leader = sender}
+      confirmed <- decide "previous snapshot is confirmed" (confSn == seenSn)
+      unless confirmed $ suspend $ WaitOnSnapshotNumber seenSn
       -- A follower may still be waiting for the increment/decrement observation.
-      matches <- Program.decide "snapshot version matches" (version == snapshotVersion)
-      unless matches $ Program.suspend $ WaitOnSnapshotVersion snapshotVersion
+      matches <- decide "snapshot version matches" (version == snapshotVersion)
+      unless matches $ suspend $ WaitOnSnapshotVersion snapshotVersion
     Checked -> continue (uncurry DecommitResolved) resolveDecommit
     DecommitResolved active decommit -> continue (\commit -> DepositResolved active commit decommit) resolveDeposit
     DepositResolved active commit decommit -> continue (TransactionsResolved active commit decommit) $
       case toList (fromList transactionIds \\ Map.keysSet allTxs) of
         [] -> pure $ mapMaybe (`Map.lookup` allTxs) transactionIds
-        unseen -> Program.suspend $ WaitOnTxs unseen
+        unseen -> suspend $ WaitOnTxs unseen
     TransactionsResolved active commit decommit txs -> continue (\after -> TransactionsApplied after commit decommit txs) $ do
       case (mDepositTxId, commit) of
         (Just depositTxId, Just deposited)
           | not (absorbable active txs deposited) ->
-              Program.reject $ RequireFailed ReqSnDepositOutputsHeld{depositTxId}
+              reject $ RequireFailed ReqSnDepositOutputsHeld{depositTxId}
         _ -> pure ()
       -- Registry entries may be unvalidated receipts. Apply every requested tx.
       -- Freshness is relative to the round's initial active set as well as
       -- the evolving ledger: spending a deposited reference cannot free its name.
       forM_ txs $ \tx -> case checkTransactionOutputs active tx of
-        Left err -> Program.reject $ RequireFailed $ SnapshotDoesNotApply snapshotNumber (txId tx) err
+        Left err -> reject $ RequireFailed $ SnapshotDoesNotApply snapshotNumber (txId tx) err
         Right () -> pure ()
       result <- applyTransactionsProgram currentSlot active txs
       case result of
-        Left (tx, err) -> Program.reject $ RequireFailed $ SnapshotDoesNotApply snapshotNumber (txId tx) err
+        Left (tx, err) -> reject $ RequireFailed $ SnapshotDoesNotApply snapshotNumber (txId tx) err
         Right after -> pure after
-    TransactionsApplied after commit decommit txs -> continue Built $ do
-      let (accumulator, appliedAccumulator) = advanceCommitments previous after commit decommit
+    TransactionsApplied utxo utxoToCommit utxoToDecommit confirmed -> continue Built $ do
+      let (accumulator, appliedAccumulator) = advanceCommitments previous utxo utxoToCommit utxoToDecommit
       checkSize "unsettled fanout fits accumulator capacity" accumulator
       checkSize "settled fanout fits accumulator capacity" appliedAccumulator
-      pure Snapshot{headId, version, number = snapshotNumber, confirmed = txs, utxo = after, utxoToCommit = commit, utxoToDecommit = decommit, depositTxId = mDepositTxId, accumulator, appliedAccumulator}
+      pure Snapshot{number = snapshotNumber, depositTxId = mDepositTxId, ..}
     Built snapshot -> continue (const $ Acknowledged snapshot) $ do
-      signature <- Program.signSnapshot snapshot
-      Program.emit $ NetworkEffect $ AckSn signature snapshotNumber
+      signed <- signSnapshot snapshot
+      emit $ NetworkEffect AckSn{..}
     Acknowledged snapshot -> continue (const Done) $ do
       -- The acknowledgement is buffered before pruning; SnapshotRequested then
       -- reconstructs localUTxO by applying the retained transactions in order.
@@ -219,50 +248,50 @@ workflow Args{chainPointTime = ChainPointTime{currentSlot, currentChainTime}, de
   resolveDecommit :: Program tx (UTxOType tx, Maybe (UTxOType tx))
   resolveDecommit = case mDecommitTx of
     Nothing
-      | snapshotVersion == confVersion && isJust confUTxOToDecommit -> Program.reject $ RequireFailed ReqSnDecommitNotSettled
+      | snapshotVersion == confVersion && isJust confUTxOToDecommit -> reject $ RequireFailed ReqSnDecommitNotSettled
       | otherwise -> pure (confirmedUTxO, Nothing)
     Just tx
-      | Just depositTxId <- mDepositTxId -> Program.reject $ RequireFailed ReqSnBothCommitAndDecommit{depositTxId, decommitTxId = txId tx}
-      | utxoFromTx tx == mempty -> Program.reject $ RequireFailed ReqSnDecommitNoOutputs{decommitTxId = txId tx}
+      | Just depositTxId <- mDepositTxId -> reject $ RequireFailed ReqSnBothCommitAndDecommit{depositTxId, decommitTxId = txId tx}
+      | utxoFromTx tx == mempty -> reject $ RequireFailed ReqSnDecommitNoOutputs{decommitTxId = txId tx}
       | snapshotVersion == confVersion && isJust confUTxOToDecommit ->
           if confUTxOToDecommit == Just (utxoFromTx tx)
             then pure (confirmedUTxO, confUTxOToDecommit)
-            else Program.reject $ RequireFailed ReqSnDecommitNotSettled
+            else reject $ RequireFailed ReqSnDecommitNotSettled
       | otherwise -> do
-          result <- Program.applyTransaction currentSlot confirmedUTxO tx
+          result <- applyTransaction currentSlot confirmedUTxO tx
           case result of
-            Left err -> Program.reject $ RequireFailed $ SnapshotDoesNotApply snapshotNumber (txId tx) err
+            Left err -> reject $ RequireFailed $ SnapshotDoesNotApply snapshotNumber (txId tx) err
             Right after -> let outputs = utxoFromTx tx in pure (after `withoutUTxO` outputs, Just outputs)
 
   -- A deposit is carried separately: it becomes spendable only after increment.
   resolveDeposit :: Program tx (Maybe (UTxOType tx))
   resolveDeposit = case mDepositTxId of
     Nothing -> case settlingCommitAtPeriod env.depositPeriod version currentChainTime pendingDeposits previous of
-      Just (ContinueCommit (_, Deposit{deposited})) -> Program.suspend WaitOnUnresolvedCommit{commitUTxO = deposited}
+      Just (ContinueCommit (_, Deposit{deposited})) -> suspend WaitOnUnresolvedCommit{commitUTxO = deposited}
       _ -> pure Nothing
     Just depositTxId
-      | finalizedDepositTxId finalizedCommit == Just depositTxId -> Program.reject $ RequireFailed ReqSnDepositBlockedByFinalizedCommit{depositTxId}
+      | finalizedDepositTxId finalizedCommit == Just depositTxId -> reject $ RequireFailed ReqSnDepositBlockedByFinalizedCommit{depositTxId}
       | otherwise -> case Map.lookup depositTxId pendingDeposits of
           Nothing
-            | ttl > 0 -> Program.suspend WaitOnDepositObserved{depositTxId}
-            | otherwise -> Program.reject $ RequireFailed RequestedDepositNotFoundLocally{depositTxId}
+            | ttl > 0 -> suspend WaitOnDepositObserved{depositTxId}
+            | otherwise -> reject $ RequireFailed RequestedDepositNotFoundLocally{depositTxId}
           Just Deposit{status, deposited}
-            | status == Inactive -> Program.suspend WaitOnDepositActivation{depositTxId}
+            | status == Inactive -> suspend WaitOnDepositActivation{depositTxId}
             -- Identity matters as well as content. An expired deposit remains
             -- admissible here while its already-signed increment can still land.
             | snapshotVersion == confVersion && isJust confUTxOToCommit ->
                 if confUTxOToCommit == Just deposited && confDepositTxId == Just depositTxId
                   then pure confUTxOToCommit
-                  else Program.reject $ RequireFailed ReqSnCommitNotSettled
-            | status == Expired -> Program.reject $ RequireFailed RequestedDepositExpired{depositTxId}
+                  else reject $ RequireFailed ReqSnCommitNotSettled
+            | status == Expired -> reject $ RequireFailed RequestedDepositExpired{depositTxId}
             | otherwise -> pure $ Just deposited
 
   checkSize :: Text -> Accumulator.HydraAccumulator -> Program tx ()
   checkSize decision accumulator = do
     let result = checkCommitmentCapacity env.snapshotLimits accumulator
-    void $ Program.decide decision (isRight result)
+    void $ decide decision (isRight result)
     case result of
-      Left AccumulatorTooLarge{utxoCount, maxAllowed} -> Program.reject $ RequireFailed ReqSnUTxOSetTooLarge{utxoCount, maxAllowed}
+      Left AccumulatorTooLarge{..} -> reject $ RequireFailed ReqSnUTxOSetTooLarge{..}
       Right () -> pure ()
 
   previous = getSnapshot confirmedSnapshot
@@ -273,5 +302,5 @@ workflow Args{chainPointTime = ChainPointTime{currentSlot, currentChainTime}, de
   confUTxOToDecommit = case confirmedSnapshot of InitialSnapshot{} -> Nothing; ConfirmedSnapshot{} -> previous.utxoToDecommit
   seenSn = seenSnapshotNumber seenSnapshot
   confirmedUTxO = settledUTxO version previous
-  CoordinatedHeadState{confirmedSnapshot, seenSnapshot, allTxs, localTxs, version, finalizedCommit} = coordinatedHeadState
-  OpenState{parameters, coordinatedHeadState, headId} = openState
+  CoordinatedHeadState{..} = coordinatedHeadState
+  OpenState{..} = openState

@@ -330,6 +330,10 @@ data SnapshotOutcomeᶜ : Set where
                    deriving (Eq, Show) #-}
 {-# COMPILE GHC SnapshotOutcomeᶜ = data HsSnapshotOutcome (SnapshotCompleted | SnapshotWaiting | SnapshotRejected) #-}
 
+-- Haskell snapshot construction uses the applied UTxO, resolved incremental
+-- sets and ordered transactions; the request supplies its number and deposit ID.
+-- Record bindings preserve the local/requested version check below. Snapshot
+-- payloads are outside this outcome projection.
 reqSnOutcomeRef : Nat → Nat → Nat → Nat → Nat → Nat → Nat → Nat → Bool → SnapshotOutcomeᶜ
 reqSnOutcomeRef seen confirmed localVersion requestedVersion sn m sender missing applicable =
   if not (sn == suc seen) then snapshotRejectedᶜ invalidNumberᶜ

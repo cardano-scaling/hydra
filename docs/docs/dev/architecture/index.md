@@ -56,6 +56,10 @@ network workflows exclude the deposit claimed by the retained finalized commit.
 `ReqDec` distinguishes the incoming transaction from any pending decommit;
 its failure events identify the incoming transaction.
 
+`ReqSn` constructs the snapshot from the applied UTxO, resolved commit/decommit
+sets, and ordered transactions. The snapshot number and deposit ID come from
+the request; the version is checked against the current coordinated state.
+
 When `AckSn` confirms a snapshot, increment and decrement effects use the open
 head's identity and parameters together with the verified snapshot and signatures.
 Any chained snapshot request uses the coordinated state after confirmation.
