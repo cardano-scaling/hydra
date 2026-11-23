@@ -77,7 +77,6 @@ statePhase = \case
   Send -> Broadcast
   Done -> Finished
 
--- | Inputs for one workflow run, lazy like function arguments.
 data Args tx = Args
   { snapshotLimits :: ~SnapshotLimits
   , headId :: ~HeadId

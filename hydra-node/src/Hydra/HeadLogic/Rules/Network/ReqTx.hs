@@ -116,7 +116,6 @@ statePhase = \case
   Retry{} -> RetryOrInvalidate
   Done -> Finished
 
--- | Inputs for one workflow run, lazy like function arguments.
 data Args tx = Args
   { env :: ~RuleEnvironment
   , chainPointTime :: ~ChainPointTime

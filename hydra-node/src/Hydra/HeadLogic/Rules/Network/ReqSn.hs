@@ -148,7 +148,6 @@ statePhase = \case
   Acknowledged{} -> PruneLocalTransactions
   Done -> Finished
 
--- | Inputs for one workflow run, lazy like function arguments.
 data Args tx = Args
   { env :: ~RuleEnvironment
   , pendingDeposits :: ~(PendingDeposits tx)
