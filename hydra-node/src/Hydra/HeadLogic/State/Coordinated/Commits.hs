@@ -1,7 +1,5 @@
 {-# LANGUAGE OverloadedRecordDot #-}
 
--- | Own deposit selection and its relation to the confirmed certificate.
--- Request rules check eligibility; expiry and recovery retain signed approval.
 module Hydra.HeadLogic.State.Coordinated.Commits (Output (..), machine) where
 
 import Crem.BaseMachine (
@@ -25,8 +23,6 @@ import Hydra.Prelude hiding (State, state)
 import Hydra.Tx (IsTx, TxIdType)
 import Hydra.Tx.Snapshot (Snapshot (..), getSnapshot)
 
--- | Selection and signed approval are independent. An approved claim can have
--- no local selection, or a selection naming another deposit.
 data CommitState tx
   = Unselected
   | Selected (TxIdType tx)
@@ -66,8 +62,6 @@ machine snapshots selected =
       let next = update (Snapshots.viewInitial input.snapshots) input.commitUpdate owned
        in pureResult (Output input $ selection next) (Owned next)
 
--- | Unrelated updates preserve both selection and phase. Only an explicit
--- reconciliation derives a new phase from the updated certificate and version.
 update :: IsTx tx => SnapshotState tx -> CommitUpdate tx -> CommitState tx -> CommitState tx
 update snapshots change owned = case change of
   CommitUnchanged -> owned
