@@ -1511,6 +1511,7 @@ blockchain sees a _rollback_ followed by rollforwards.
 - Head lifecycle: Idle → Open → Closed → Finalized, or Closed → PartialFanout → Finalized.
 - Increment/Decrement stay Open; Contest stays Closed. Readiness and pending fanout requests do not change the protocol phase.
 - PartialFanout starts on chain observation, even without locally matching outputs; it cannot reopen or return to Closed/Idle.
+- Local fanout requests preserve chain state; partial distribution observations supply updated chain state before conversion to fanout state.
 - Finalized retains Head identity and chain state. The node can start a different Head; API Idle reports that availability.
 - Fanout checkpoints retain the observed datum, candidate and readiness flag separately from matched outputs.
 - Persistence is breaking: current generic CBOR layouts only, no migration. Cached signing bytes are reconstructed from snapshot contents.

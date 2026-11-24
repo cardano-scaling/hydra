@@ -1,4 +1,3 @@
--- | Shared commands, updates and outputs used to compose the state machines.
 module Hydra.HeadLogic.State.Types (
   DepositOutput (..),
   HeadOutput (..),

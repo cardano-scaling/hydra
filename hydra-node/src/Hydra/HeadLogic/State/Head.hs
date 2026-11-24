@@ -7,7 +7,14 @@
 
 -- | Lifecycle of one Head. Local requests do not change its protocol phase.
 -- Finalization is terminal; the node creates a new machine for another Head.
-module Hydra.HeadLogic.State.Head (Phase (..), LifecycleTopology, lifecycleTopology, sLifecycleTopology, transitionLabels, machine) where
+module Hydra.HeadLogic.State.Head (
+  Phase (..),
+  LifecycleTopology,
+  lifecycleTopology,
+  sLifecycleTopology,
+  transitionLabels,
+  machine,
+) where
 
 import Crem.BaseMachine (
   ActionResult,
@@ -152,10 +159,18 @@ statePhase = \case
   PartialFanoutHead{} -> PartialFanout
   FinalizedHead{} -> Finalized
 
-machine :: forall tx m. (IsChainState tx, Applicative m) => Head.HeadState tx -> BaseMachineT m LifecycleTopology (DepositOutput tx) (HeadOutput tx)
+machine ::
+  forall tx m.
+  (IsChainState tx, Applicative m) =>
+  Head.HeadState tx ->
+  BaseMachineT m LifecycleTopology (DepositOutput tx) (HeadOutput tx)
 machine initial = BaseMachineT (withStateInspector (describeOnly (show . statePhase)) $ restore initial) action
  where
-  action :: forall from. State tx from -> DepositOutput tx -> ActionResult m LifecycleTopology (State tx) from (HeadOutput tx)
+  action ::
+    forall from.
+    State tx from ->
+    DepositOutput tx ->
+    ActionResult m LifecycleTopology (State tx) from (HeadOutput tx)
   action state input = case state of
     IdleHead st -> case input.event of
       HeadOpened{headId, headSeed, parameters, chainState} -> opened input headId headSeed parameters chainState
@@ -198,14 +213,27 @@ machine initial = BaseMachineT (withStateInspector (describeOnly (show . statePh
     ChainRolledBack{chainState} -> output input $ ClosedHead st{Head.chainState}
     HeadContested{chainState, contestationDeadline} -> output input $ ClosedHead st{Head.chainState, Head.contestationDeadline}
     SnapshotConfirmed{snapshot = Just snapshot, signatures} ->
-      output input $ ClosedHead st{Head.confirmedSnapshot = ConfirmedSnapshot snapshot signatures, Head.unconfirmedSnapshot = Nothing}
+      output input $
+        ClosedHead st{Head.confirmedSnapshot = ConfirmedSnapshot snapshot signatures, Head.unconfirmedSnapshot = Nothing}
     HeadIsReadyToFanout{} -> output input $ ClosedHead st{Head.readyToFanoutSent = True}
     HeadFannedOut{chainState} -> output input $ FinalizedHead Head.FinalizedState{headId = st.headId, chainState}
-    HeadFanoutInitiated{remainingOutputs} -> output input $ PendingFanoutHead $ closedToPartialFanout st st.chainState remainingOutputs mempty Head.AutoDrain Head.DatumClosed
+    HeadFanoutInitiated{remainingOutputs} ->
+      output input $
+        PendingFanoutHead $
+          closedToPartialFanout st remainingOutputs mempty Head.AutoDrain Head.DatumClosed
     HeadPartialFanoutSelected{remainingOutputs, selection} ->
-      output input $ PendingFanoutHead $ closedToPartialFanout st st.chainState remainingOutputs mempty (recordedSelectionMode Head.DatumClosed remainingOutputs selection) Head.DatumClosed
+      output input $
+        PendingFanoutHead $
+          closedToPartialFanout
+            st
+            remainingOutputs
+            mempty
+            (recordedSelectionMode Head.DatumClosed remainingOutputs selection)
+            Head.DatumClosed
     HeadPartialFannedOut{distributedOutputs, remainingOutputs, chainState, mode} ->
-      output input $ PartialFanoutHead $ closedToPartialFanout st chainState remainingOutputs distributedOutputs mode Head.DatumFanoutProgress
+      output input $
+        PartialFanoutHead $
+          closedToPartialFanout st{Head.chainState} remainingOutputs distributedOutputs mode Head.DatumFanoutProgress
     _ -> output input $ ClosedHead st
 
   -- Cancellation belongs only to PendingFanoutHead. These shared updates cannot

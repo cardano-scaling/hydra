@@ -411,6 +411,9 @@ data LifecycleEventᶜ : Set where
 
 -- An observed partial fanout advances the phase even when none of its outputs
 -- match the local snapshot. Output matching is separate bookkeeping.
+-- Haskell fanout conversion preserves the supplied chain state: local requests
+-- reuse it, while observations update it before conversion. Chain state is
+-- outside this phase projection.
 lifecyclePhaseRef : LifecyclePhaseᶜ → LifecycleEventᶜ → LifecyclePhaseᶜ
 lifecyclePhaseRef idleHeadᶜ openedᶜ = openHeadᶜ
 lifecyclePhaseRef openHeadᶜ closedᶜ = closedHeadᶜ

@@ -4,7 +4,6 @@
 
 module Hydra.HeadLogic.State.Fanout where
 
-import Hydra.Chain.ChainState (IsChainState (ChainStateType))
 import Hydra.HeadLogic.State (
   ClosedState (..),
   FanoutMode,
@@ -17,14 +16,13 @@ import Hydra.Tx (UTxOType)
 
 closedToPartialFanout ::
   ClosedState tx ->
-  ChainStateType tx ->
   UTxOType tx ->
   UTxOType tx ->
   FanoutMode tx ->
   OnChainFanoutDatum ->
   PartialFanoutState tx
-closedToPartialFanout closedState newChainState remainingOutputs distributedOutputs mode fanoutDatum =
-  PartialFanoutState{chainState = newChainState, ..}
+closedToPartialFanout closedState remainingOutputs distributedOutputs mode fanoutDatum =
+  PartialFanoutState{..}
  where
   ClosedState{..} = closedState
 

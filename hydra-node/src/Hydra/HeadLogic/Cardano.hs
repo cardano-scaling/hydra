@@ -1,6 +1,5 @@
 {-# LANGUAGE OverloadedRecordDot #-}
 
--- | Concrete snapshot operations for the current Cardano settlement profile.
 module Hydra.HeadLogic.Cardano where
 
 import Hydra.HeadLogic.Limits (SnapshotLimits (..), checkOutputCount)
@@ -15,7 +14,10 @@ cardanoSnapshotLimits :: SnapshotLimits
 cardanoSnapshotLimits = SnapshotLimits maxAccumulatorSize
 
 -- | Count elements without forcing a commitment or its cached hash.
-checkCommitmentCapacity :: SnapshotLimits -> HydraAccumulator -> Either AccumulatorTooLarge ()
+checkCommitmentCapacity ::
+  SnapshotLimits ->
+  HydraAccumulator ->
+  Either AccumulatorTooLarge ()
 checkCommitmentCapacity limits = checkOutputCount limits . accumulatorSize
 
 snapshotSigningBytes :: IsTx tx => Snapshot tx -> ByteString
@@ -24,8 +26,13 @@ snapshotSigningBytes = getSignableRepresentation
 assembleCertificate :: Ord party => Map party (Signature (Snapshot tx)) -> [party] -> MultiSignature (Snapshot tx)
 assembleCertificate = aggregateInOrder
 
--- | Maintain both funding alternatives, sharing the commitment when identical.
-advanceCommitments :: IsTx tx => Snapshot tx -> UTxOType tx -> Maybe (UTxOType tx) -> Maybe (UTxOType tx) -> (HydraAccumulator, HydraAccumulator)
+advanceCommitments ::
+  IsTx tx =>
+  Snapshot tx ->
+  UTxOType tx ->
+  Maybe (UTxOType tx) ->
+  Maybe (UTxOType tx) ->
+  (HydraAccumulator, HydraAccumulator)
 advanceCommitments previous after commit decommit = (accumulator, appliedAccumulator)
  where
   accumulator =

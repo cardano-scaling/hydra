@@ -1,7 +1,5 @@
 {-# LANGUAGE OverloadedRecordDot #-}
 
--- | Compose the owners for live aggregation and recovery. Only NodeState is
--- persisted; checkpoints reconstruct every continuation at the same boundary.
 module Hydra.HeadLogic.State.Node (Runtime, start, step, currentState, apply, applyEvents, components) where
 
 import Crem.StateMachine (
@@ -11,7 +9,13 @@ import Crem.StateMachine (
  )
 import Hydra.Chain.ChainState (IsChainState)
 import Hydra.HeadLogic.Outcome (StateChanged (..), eventHeadId)
-import Hydra.HeadLogic.State (FinalizedState (chainState), HeadState (Finalized, Idle), IdleState (IdleState), canOpenHead, headIdOf)
+import Hydra.HeadLogic.State (
+  FinalizedState (chainState),
+  HeadState (Finalized, Idle),
+  IdleState (IdleState),
+  canOpenHead,
+  headIdOf,
+ )
 import Hydra.HeadLogic.State.Clock qualified as Clock (machine)
 import Hydra.HeadLogic.State.Deposits qualified as DepositRegistry (
   machine,
@@ -22,7 +26,10 @@ import Hydra.HeadLogic.State.Head qualified as Lifecycle (
 import Hydra.Node.State (NodeState (..))
 import Hydra.Prelude
 
-data Runtime tx = Runtime (NodeState tx) (StateMachineT Identity (StateChanged tx) (NodeState tx))
+data Runtime tx
+  = Runtime
+      (NodeState tx)
+      (StateMachineT Identity (StateChanged tx) (NodeState tx))
 
 start :: IsChainState tx => NodeState tx -> Runtime tx
 start node = Runtime node (withoutRendering $ components node)
@@ -33,8 +40,6 @@ currentState (Runtime node _) = node
 apply :: IsChainState tx => NodeState tx -> StateChanged tx -> NodeState tx
 apply node = currentState . step (start node)
 
--- | One retained outcome shares its continuation. A checkpoint still resets
--- every component through 'step'; nothing new is stored between node inputs.
 applyEvents :: IsChainState tx => NodeState tx -> [StateChanged tx] -> NodeState tx
 applyEvents node [] = node
 applyEvents node events = currentState $ foldl' step (start node) events
@@ -60,7 +65,10 @@ step runtime@(Runtime node machine) event =
 -- assembles these projections with its own fields into the persisted NodeState.
 -- Inspection uses this composition; 'start' drops the rendering dictionaries.
 -- 'step' owns checkpoint restoration and replacement by a different Head.
-components :: IsChainState tx => NodeState tx -> StateMachineT Identity (StateChanged tx) (NodeState tx)
+components ::
+  IsChainState tx =>
+  NodeState tx ->
+  StateMachineT Identity (StateChanged tx) (NodeState tx)
 components node =
   Basic (DepositRegistry.machine node.deposits)
     `Sequential` Basic (Lifecycle.machine node.headState)
