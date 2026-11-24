@@ -24,7 +24,6 @@ import Hydra.HeadLogic.State.Coordinated (
 import Hydra.Prelude
 import Hydra.Tx (IsTx)
 
--- | Stage a checked coordinated update in the current input program.
 stage :: Runtime tx -> Command tx -> Program tx (Runtime tx)
 stage runtime command = case advance runtime command of
   Left message -> reject $ AssertionFailed message
