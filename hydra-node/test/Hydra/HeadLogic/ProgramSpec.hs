@@ -4,6 +4,8 @@
 
 module Hydra.HeadLogic.ProgramSpec (spec) where
 
+import Hydra.HeadLogic.Program (foldProgram, instruction, suspend)
+import Hydra.Node.HeadLogic.Configuration qualified as Configuration
 import Hydra.Prelude hiding (trace)
 import Hydra.Prelude qualified as Prelude
 import Test.Hydra.HeadLogic.Interpreter (testInterpreterConfig)
@@ -29,7 +31,7 @@ import Hydra.Agda.OffChainReference (
 import Hydra.Chain.ChainState (ChainSlot)
 import Hydra.HeadLogic.Interpreter qualified as Interpreter
 import Hydra.HeadLogic.Program qualified as Program
-import Hydra.HeadLogic.Rules.Network.ReqTx qualified as CremReqTx
+import Hydra.HeadLogic.Rules.Network.ReqTx qualified as ReqTx
 import Hydra.HeadLogic.Trace qualified as Trace
 import Hydra.HeadLogic.Workflow qualified as Workflow
 import Hydra.HeadLogicSpec (inOpenState, testSnapshot, withAccumulators, zeroChainPointTime)
@@ -43,16 +45,14 @@ import Hydra.Node.HeadLogic (
   HeadState (..),
   OpenState (..),
   Outcome (..),
-  RuleEnvironment,
   SeenSnapshot (..),
   StateChanged (..),
   TTL,
   WaitReason (..),
   aggregateState,
-  onOpenNetworkReqTx,
   ruleEnvironment,
  )
-import Hydra.Node.State (ChainPointTime, Deposit (..), DepositStatus (..), NodeState (..), PendingDeposits, initialChainTime)
+import Hydra.Node.State (Deposit (..), DepositStatus (..), NodeState (..), initialChainTime)
 import Hydra.Tx.IsTx (UTxOType, txId)
 import Hydra.Tx.Party (Party)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
@@ -67,15 +67,14 @@ spec :: Spec
 spec = do
   reificationSpec
   capacityPruningSpec
-  describe "crem phases with program actions" $ specWith $ \env time st ttl pending tx ->
-    Workflow.run $ CremReqTx.workflow env time st ttl pending tx
+  describe "crem phases with program actions" $ specWith (Workflow.run . ReqTx.workflow)
 
 reificationSpec :: Spec
 reificationSpec =
   it "reifies suspension without evaluating its unreachable continuation" $ do
     let program :: Program.Program SimpleTx ()
         program = do
-          _ <- Program.suspend waitReason
+          _ <- suspend waitReason
           Prelude.error "reification evaluates the suspended continuation"
     case Debug.cursor program of
       Debug.Await (Program.Suspend actualReason) _ -> actualReason `shouldBe` waitReason
@@ -95,18 +94,40 @@ capacityPruningSpec = it "requests a pruning round when a settling deposit block
                 , currentDepositTxId = Just 7
                 }
           }
-      program = Workflow.run $ CremReqTx.workflow (ruleEnvironment testEnvironment) zeroChainPointTime st 1 pending sampleTx
+      program =
+        Workflow.run $
+          ReqTx.workflow
+            ReqTx.Args
+              { env = ruleEnvironment testEnvironment
+              , chainPointTime = zeroChainPointTime
+              , openState = st
+              , ttl = 1
+              , pendingDeposits = pending
+              , transaction = sampleTx
+              }
       outcome = Interpreter.runProgram (testInterpreterConfig simpleLedger) program
   outcome `shouldBe` Continue [received, applied, SnapshotRequestDecided 1] [NetworkEffect $ ReqSn 0 1 [] Nothing (Just 7)]
 
-type ReqTxRule = RuleEnvironment -> ChainPointTime -> OpenState SimpleTx -> TTL -> PendingDeposits SimpleTx -> SimpleTx -> Program.Program SimpleTx ()
+type ReqTxRule = ReqTx.Args SimpleTx -> Program.Program SimpleTx ()
 
 specWith :: ReqTxRule -> Spec
-specWith onOpenNetworkReqTxProgram = do
+specWith runReqTx = do
   describe "ReqTx program" $ do
     it "agrees with the production wrapper" $ do
       let program = reqTxProgram alice 1 emptyOpenState sampleTx
-      onOpenNetworkReqTx testEnvironment simpleLedger zeroChainPointTime emptyOpenState 1 mempty sampleTx
+      Interpreter.runProgram
+        (Configuration.interpreterConfig testEnvironment simpleLedger)
+        ( Workflow.run $
+            ReqTx.workflow
+              ReqTx.Args
+                { env = Configuration.ruleEnvironment testEnvironment
+                , chainPointTime = zeroChainPointTime
+                , openState = emptyOpenState
+                , ttl = 1
+                , pendingDeposits = mempty
+                , transaction = sampleTx
+                }
+        )
         `shouldBe` Interpreter.runProgram (testInterpreterConfig simpleLedger) program
 
     it "a follower applies the transaction without requesting a snapshot" $ do
@@ -133,7 +154,7 @@ specWith onOpenNetworkReqTxProgram = do
           []
 
     it "the ledger instruction can be intercepted without replacing the rule" $ do
-      let program = Program.foldProgram rejectLedgerQuery (reqTxProgram alice 1 emptyOpenState sampleTx)
+      let program = foldProgram rejectLedgerQuery (reqTxProgram alice 1 emptyOpenState sampleTx)
           ledger :: Ledger SimpleTx
           ledger = Ledger $ \_ _ _ -> Prelude.error "intercepted query reaches the real ledger"
       Interpreter.runProgram (testInterpreterConfig ledger) program
@@ -155,7 +176,16 @@ specWith onOpenNetworkReqTxProgram = do
 
     it "reports ledger failure before testing a pending deposit collision" $ do
       let pending = Map.singleton 7 $ depositFixture Active (utxoRef 42)
-          program = onOpenNetworkReqTxProgram (ruleEnvironment testEnvironment) zeroChainPointTime emptyOpenState 1 pending sampleTx
+          program =
+            runReqTx
+              ReqTx.Args
+                { env = ruleEnvironment testEnvironment
+                , chainPointTime = zeroChainPointTime
+                , openState = emptyOpenState
+                , ttl = 1
+                , pendingDeposits = pending
+                , transaction = sampleTx
+                }
           (outcome, trace) = Interpreter.traceProgram (testInterpreterConfig rejectingLedger) program
       outcome `shouldBe` Wait (WaitOnNotApplicableTx ledgerFailure) [received]
       trace `shouldNotContain` [Trace.Decided "outputs do not collide with pending deposits" False]
@@ -205,7 +235,16 @@ specWith onOpenNetworkReqTxProgram = do
                     | settling = settlingSnapshot deposited
                     | otherwise = InitialSnapshot testHeadId
                   st = emptyOpenState{coordinatedHeadState = emptyOpenState.coordinatedHeadState{confirmedSnapshot = confirmed}}
-                  program = onOpenNetworkReqTxProgram (ruleEnvironment testEnvironment) zeroChainPointTime st ttl pending sampleTx
+                  program =
+                    runReqTx
+                      ReqTx.Args
+                        { env = ruleEnvironment testEnvironment
+                        , chainPointTime = zeroChainPointTime
+                        , openState = st
+                        , ttl = ttl
+                        , pendingDeposits = pending
+                        , transaction = sampleTx
+                        }
                   outcome = Interpreter.runProgram (testInterpreterConfig simpleLedger) program
                   err = ValidationError "transaction creates an output a pending deposit names"
               if colliding && (status /= Expired || settling)
@@ -255,8 +294,16 @@ specWith onOpenNetworkReqTxProgram = do
                 projectReqTxOutcome outcome `shouldBe` Right expected
  where
   reqTxProgram :: Party -> TTL -> OpenState SimpleTx -> SimpleTx -> Program.Program SimpleTx ()
-  reqTxProgram actor ttl st =
-    onOpenNetworkReqTxProgram (ruleEnvironment testEnvironment{party = actor}) zeroChainPointTime st ttl mempty
+  reqTxProgram actor ttl st transaction =
+    runReqTx
+      ReqTx.Args
+        { env = ruleEnvironment testEnvironment{party = actor}
+        , chainPointTime = zeroChainPointTime
+        , openState = st
+        , ttl = ttl
+        , pendingDeposits = mempty
+        , transaction = transaction
+        }
 
 testParties :: [Party]
 testParties = [alice, bob, carol]
@@ -294,7 +341,7 @@ settlingSnapshot deposited =
 rejectLedgerQuery :: Program.Instruction SimpleTx a -> Program.Program SimpleTx a
 rejectLedgerQuery = \case
   Program.ApplyTransaction{} -> pure $ Left ledgerFailure
-  op -> Program.instruction op
+  op -> instruction op
 
 -- | Preserve every modeled tag and fail on unsupported output, rather than
 -- treating unmodeled rejection or effects as successful nonacceptance.
@@ -322,7 +369,7 @@ projectReqTxOutcome = \case
 lowerProgram :: Debug.Cursor tx a -> Program.Program tx a
 lowerProgram = \case
   Debug.Done result -> pure result
-  Debug.Await op resume -> Program.instruction op >>= lowerProgram . resume
+  Debug.Await op resume -> instruction op >>= lowerProgram . resume
 
 data LedgerPause tx
   = LedgerPause

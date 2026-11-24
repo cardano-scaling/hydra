@@ -9,7 +9,9 @@ import Data.Map.Strict qualified as Map
 import Hydra.API.ClientInput (ClientInput (..))
 import Hydra.Chain (ChainEvent (..), OnChainTx (..), PostTxError (..))
 import Hydra.HeadLogic.Interpreter qualified as Interpreter
+import Hydra.HeadLogic.Rules.Input qualified as Input
 import Hydra.HeadLogic.Trace (TraceStep)
+import Hydra.HeadLogic.Workflow qualified as Workflow
 import Hydra.Ledger.Simple (SimpleTx, simpleLedger)
 import Hydra.Network qualified as Network
 import Hydra.Network.Message (NetworkEvent (..))
@@ -28,7 +30,6 @@ import Hydra.Node.HeadLogic (
   mkSeenSnapshot,
   ruleEnvironment,
   update,
-  updateProgram,
  )
 import Hydra.Node.HeadLogic.Configuration qualified as Configuration
 import Hydra.Node.State (NodeState (..), initialChainTime)
@@ -44,7 +45,15 @@ import Test.Hydra.Tx.Fixture (aliceSk, bobSk, carolSk)
 
 checkInput :: Environment -> UTCTime -> NodeState SimpleTx -> Input SimpleTx -> Either Text (Outcome SimpleTx, [TraceStep])
 checkInput env now before input = do
-  let program = updateProgram (ruleEnvironment env) now before input
+  let program =
+        Workflow.run $
+          Input.workflow
+            Input.Args
+              { env = ruleEnvironment env
+              , now = now
+              , nodeState = before
+              , input = input
+              }
       config = Configuration.interpreterConfig env simpleLedger
       actual@(outcome, _) = Interpreter.traceProgram config program
       events = case outcome of Continue es _ -> es; Wait _ es -> es; Error{} -> []

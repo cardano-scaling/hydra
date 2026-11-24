@@ -7,8 +7,10 @@ import Data.Map.Strict qualified as Map
 import Hydra.API.ServerOutput (DecommitInvalidReason (..))
 import Hydra.Agda.OffChainReference qualified as Agda
 import Hydra.HeadLogic.Interpreter qualified as Interpreter
+import Hydra.HeadLogic.Rules.Client.Recover qualified as Recover
 import Hydra.HeadLogic.Rules.Network.ReqDec qualified as ReqDec
 import Hydra.HeadLogic.Trace qualified as Trace
+import Hydra.HeadLogic.Workflow qualified as Workflow
 import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Ledger.Simple (SimpleTx (..), simpleLedger)
 import Hydra.Network.Message (Message (..))
@@ -35,10 +37,9 @@ import Hydra.Node.HeadLogic (
     decommitInvalidReason
   ),
   WaitReason (WaitOnNotApplicableDecommitTx, WaitOnUnresolvedCommit),
-  onClientRecover,
-  onOpenNetworkReqDec,
   ruleEnvironment,
  )
+import Hydra.Node.HeadLogic.Configuration qualified as Configuration
 import Hydra.Node.State (Deposit (..), DepositStatus (..), NodeState (..), initialChainTime)
 import Hydra.Prelude
 import Hydra.Tx.Accumulator qualified as Accumulator
@@ -72,7 +73,18 @@ spec = do
         signatures = aggregateInOrder (Map.fromList [(alice, sign aliceSk snapshot), (bob, sign bobSk snapshot), (carol, sign carolSk snapshot)]) Scenario.scenarioParties
         st = base{coordinatedHeadState = c{localUTxO = utxo, confirmedSnapshot = ConfirmedSnapshot snapshot signatures, decommitTx = Just tx, currentDepositTxId = Just 7}}
         pending = Map.singleton 7 (deposit Active)
-        receive = onOpenNetworkReqDec env simpleLedger 1 Scenario.initialNode.chainPointTime pending st Scenario.transactionTwo
+        receive =
+          Interpreter.runProgram (Configuration.interpreterConfig env simpleLedger) $
+            Workflow.run $
+              ReqDec.workflow
+                ReqDec.Args
+                  { env = Configuration.ruleEnvironment env
+                  , ttl = 1
+                  , chainPointTime = Scenario.initialNode.chainPointTime
+                  , pendingDeposits = pending
+                  , openState = st
+                  , transaction = Scenario.transactionTwo
+                  }
     receive `shouldBe` Wait (WaitOnNotApplicableDecommitTx $ DecommitAlreadyInFlight 1) []
 
   it "ReqDec with confirmed inputs agrees with bounded Agda outcomes and guard priority" $
@@ -87,18 +99,41 @@ spec = do
               then error "ReqDec changes the ledger query arguments"
               else if applies then Right utxo else Left (tx, controlledFailure)
           environment = Scenario.environment actor
-          program = ReqDec.handle (ruleEnvironment environment) ttl Scenario.initialNode.chainPointTime pending st tx
+          program =
+            Workflow.run $
+              ReqDec.workflow
+                ReqDec.Args
+                  { env = ruleEnvironment environment
+                  , ttl = ttl
+                  , chainPointTime = Scenario.initialNode.chainPointTime
+                  , pendingDeposits = pending
+                  , openState = st
+                  , transaction = tx
+                  }
           (outcome, observations) = Interpreter.traceProgram (testInterpreterConfig ledger) program
           expected = Agda.reqDecOutcomeRef commit existing applies outputs (toInteger ttl) inFlight 2 1 (toInteger actor)
       projectDecommit outcome `shouldBe` expected
-      outcome `shouldBe` onOpenNetworkReqDec environment ledger ttl Scenario.initialNode.chainPointTime pending st tx
+      outcome
+        `shouldBe` Interpreter.runProgram
+          (Configuration.interpreterConfig environment ledger)
+          ( Workflow.run $
+              ReqDec.workflow
+                ReqDec.Args
+                  { env = Configuration.ruleEnvironment environment
+                  , ttl = ttl
+                  , chainPointTime = Scenario.initialNode.chainPointTime
+                  , pendingDeposits = pending
+                  , openState = st
+                  , transaction = tx
+                  }
+          )
       length [() | Trace.LedgerApplied{} <- observations] `shouldBe` if commit || existing then 0 else 1
 
   it "Recover preserves missing/blocked/post outcomes across status and slot" $
     forM_ [(registered, blocked, status, slot) | registered <- [False, True], blocked <- [False, True], status <- [Inactive, Active, Expired], slot <- [0, 100]] $ \(registered, blocked, status, slot) -> do
       let pending = if registered then Map.singleton 7 (deposit status) else mempty
           finalized = if blocked then Just 7 else Nothing
-          result = onClientRecover (testInterpreterConfig simpleLedger) slot pending finalized 7
+          result = Interpreter.runProgram (testInterpreterConfig simpleLedger) $ Recover.handleRecover slot pending finalized 7
       projectRecover result `shouldBe` Agda.recoverOutcomeRef registered blocked
  where
   env = Scenario.environment 0

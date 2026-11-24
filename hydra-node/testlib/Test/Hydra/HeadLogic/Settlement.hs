@@ -40,7 +40,7 @@ import Hydra.Node.HeadLogic (
  )
 import Hydra.Node.State (NodeState (..), initialChainTime)
 import Hydra.Prelude hiding (label, state)
-import Hydra.Tx.Crypto (MultiSignature, Verified (..), verifyMultiSignature)
+import Hydra.Tx.Crypto (MultiSignature, verifyMultiSignature)
 import Hydra.Tx.Party (vkey)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, getSnapshot)
 import Test.Hydra.HeadLogic.InputFixtures (checkInput)
@@ -145,7 +145,7 @@ settlementSequence confirmBeforeRollback rollbackSlot recipients = do
     unless (snapshot.number == number && snapshot.utxo == utxo) $ Left "unexpected confirmed snapshot"
     unless (snapshot.version == (if number == 1 then 0 else 1) && snapshot.confirmed == [spend | number == 2]) $ Left "unexpected confirmed version or transactions"
     unless (all ((== snapshot) . getSnapshot) (confirmedSnapshots run)) $ Left "parties disagree on the complete confirmed snapshot"
-    unless (verifyMultiSignature (vkey <$> scenarioParties) (signaturesOf confirmed) snapshot == Verified) $ Left "invalid confirmed signatures"
+    unless (verifyMultiSignature (vkey <$> scenarioParties) (signaturesOf confirmed) snapshot == Right ()) $ Left "invalid confirmed signatures"
   signaturesOf :: ConfirmedSnapshot SimpleTx -> MultiSignature (Snapshot SimpleTx)
   signaturesOf = \case ConfirmedSnapshot _ signatures -> signatures; InitialSnapshot{} -> mempty
   confirmedSnapshots :: Run -> [ConfirmedSnapshot SimpleTx]

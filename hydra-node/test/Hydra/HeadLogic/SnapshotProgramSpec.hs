@@ -10,8 +10,11 @@ import Data.Sequence qualified as Seq
 import Hydra.Agda.OffChainReference (HsReqTxOutcome (..), HsReqTxTerminal (..), HsSnapshotChange (..), HsSnapshotEffect (..), HsSnapshotOutcome (..), HsSnapshotPhase (..), HsSnapshotRejection (..), HsSnapshotWait (..), ackSnOutcomeRef, reqSnOutcomeRef, reqTxKnownOutcomeRef)
 import Hydra.Chain (PostChainTx (DecrementTx, IncrementTx))
 import Hydra.HeadLogic.Interpreter qualified as Interpreter
+import Hydra.HeadLogic.Program (foldProgram, instruction)
 import Hydra.HeadLogic.Program qualified as Program
-import Hydra.HeadLogic.Rules.Network.AckSn qualified as CremAckSn
+import Hydra.HeadLogic.Rules.Network.AckSn qualified as AckSn
+import Hydra.HeadLogic.Rules.Network.ReqSn qualified as ReqSn
+import Hydra.HeadLogic.Rules.Network.ReqTx qualified as ReqTx
 import Hydra.HeadLogic.Trace qualified as Trace
 import Hydra.HeadLogic.Workflow qualified as Workflow
 import Hydra.Ledger (Ledger (..), ValidationError (..))
@@ -41,7 +44,6 @@ import Hydra.Node.HeadLogic (
     SnapshotAlreadySigned,
     SnapshotDoesNotApply
   ),
-  RuleEnvironment,
   SeenSnapshot (
     LastSeenSnapshot,
     NoSeenSnapshot,
@@ -68,18 +70,14 @@ import Hydra.Node.HeadLogic (
   ),
   aggregateState,
   mkSeenSnapshot,
-  onOpenNetworkReqSn,
-  onOpenNetworkReqTx,
-  onOpenNetworkReqTxProgram,
   ruleEnvironment,
  )
-import Hydra.Node.HeadLogic qualified as HeadLogic
-import Hydra.Node.State (ChainPointTime, Deposit (..), DepositStatus (..), NodeState (..), PendingDeposits, initialChainTime)
+import Hydra.Node.HeadLogic.Configuration qualified as Configuration
+import Hydra.Node.State (Deposit (..), DepositStatus (..), NodeState (..), initialChainTime)
 import Hydra.Prelude hiding (state, trace)
 import Hydra.Tx (txId)
-import Hydra.Tx.Crypto (Signature, Verified (FailedKeys), getVerificationKey, sign)
-import Hydra.Tx.Party (Party)
-import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), SnapshotNumber, getSnapshot)
+import Hydra.Tx.Crypto (VerificationError (InvalidSignatures), getVerificationKey, sign)
+import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), getSnapshot)
 import Test.Hydra.HeadLogic.Debugger qualified as Debug
 import Test.Hydra.HeadLogic.Explorer qualified as Explorer
 import Test.Hydra.HeadLogic.Interpreter (testInterpreterConfig)
@@ -112,8 +110,7 @@ import Test.QuickCheck (chooseInt, counterexample, forAll, shuffle, vectorOf)
 spec :: Spec
 spec = do
   reqSnSpec
-  describe "crem phases with program actions" $ specWith $ \environment time pending st sender signature sn ->
-    Workflow.run $ CremAckSn.workflow environment time pending st sender signature sn
+  describe "crem phases with program actions" $ specWith (Workflow.run . AckSn.workflow)
   integrationSpec
 
 reqSnSpec :: Spec
@@ -130,27 +127,70 @@ reqSnSpec = do
                     let predecessor = Scenario.initialSnapshot{number = fromIntegral confirmed}
                         c = os.coordinatedHeadState{seenSnapshot = LastSeenSnapshot $ fromIntegral seen, confirmedSnapshot = ConfirmedSnapshot predecessor mempty}
                         ledger = if applicable then simpleLedger else Ledger $ \_ _ _ -> Left (Scenario.transactionOne, ValidationError "controlled failure")
-                        outcome = onOpenNetworkReqSn env ledger mempty initial.chainPointTime os{coordinatedHeadState = c} 1 (Scenario.scenarioParties !! sender) sv (fromIntegral sn) [if missing then 99 else 1] Nothing Nothing
+                        outcome =
+                          Interpreter.runProgram (Configuration.interpreterConfig env ledger) $
+                            Workflow.run $
+                              ReqSn.workflow
+                                ReqSn.Args
+                                  { env = Configuration.ruleEnvironment env
+                                  , pendingDeposits = mempty
+                                  , chainPointTime = initial.chainPointTime
+                                  , openState = os{coordinatedHeadState = c}
+                                  , ttl = 1
+                                  , sender = Scenario.scenarioParties !! sender
+                                  , snapshotVersion = sv
+                                  , snapshotNumber = fromIntegral sn
+                                  , transactionIds = [if missing then 99 else 1]
+                                  , decommitTx = Nothing
+                                  , depositTxId = Nothing
+                                  }
                     projectSnapshotOutcome outcome `shouldBe` reqSnOutcomeRef seen confirmed 0 (fromIntegral sv) sn 2 (fromIntegral sender) (if missing then 1 else 0) applicable
 
-type AckRule = RuleEnvironment -> ChainPointTime -> PendingDeposits SimpleTx -> OpenState SimpleTx -> Party -> Signature (Snapshot SimpleTx) -> SnapshotNumber -> Program.Program SimpleTx ()
+type AckRule = AckSn.Args SimpleTx -> Program.Program SimpleTx ()
 
 specWith :: AckRule -> Spec
-specWith onOpenNetworkAckSnProgram = do
+specWith runAckSn = do
   describe "AckSn program" $ do
     it "preserves increment and decrement approval ordering at confirmation" $ do
       forM_ [False, True] $ \decommitting -> do
         let pending = if decommitting then mempty else Map.singleton 7 (depositFixture Active)
             base = os{coordinatedHeadState = os.coordinatedHeadState{decommitTx = if decommitting then Just Scenario.transactionOne else Nothing}}
             ids = [1 | not decommitting]
-            req = onOpenNetworkReqSn env simpleLedger pending initial.chainPointTime base 1 alice 0 1 ids (if decommitting then Just Scenario.transactionOne else Nothing) (if decommitting then Nothing else Just 7)
+            req =
+              Interpreter.runProgram (Configuration.interpreterConfig env simpleLedger) $
+                Workflow.run $
+                  ReqSn.workflow
+                    ReqSn.Args
+                      { env = Configuration.ruleEnvironment env
+                      , pendingDeposits = pending
+                      , chainPointTime = initial.chainPointTime
+                      , openState = base
+                      , ttl = 1
+                      , sender = alice
+                      , snapshotVersion = 0
+                      , snapshotNumber = 1
+                      , transactionIds = ids
+                      , decommitTx = if decommitting then Just Scenario.transactionOne else Nothing
+                      , depositTxId = if decommitting then Nothing else Just 7
+                      }
             afterRequest = aggregateState initial{headState = Open base} req
             afterOpen = Scenario.openState afterRequest
         case afterOpen.coordinatedHeadState.seenSnapshot of
           SeenSnapshot{snapshot} -> do
             let seen = mkSeenSnapshot snapshot (Map.fromList [(alice, sign aliceSk snapshot), (bob, sign bobSk snapshot)])
                 ready = afterOpen{coordinatedHeadState = afterOpen.coordinatedHeadState{seenSnapshot = seen}}
-                new = onOpenNetworkAckSn (Scenario.environment 1) initial.chainPointTime pending ready carol (sign carolSk snapshot) 1
+                new =
+                  Interpreter.runProgram (testInterpreterConfig simpleLedger) $
+                    runAckSn
+                      AckSn.Args
+                        { env = Configuration.ruleEnvironment (Scenario.environment 1)
+                        , chainPointTime = initial.chainPointTime
+                        , pendingDeposits = pending
+                        , openState = ready
+                        , sender = carol
+                        , signed = sign carolSk snapshot
+                        , snapshotNumber = 1
+                        }
             new `shouldSatisfy` \case
               Continue (PartySignedSnapshot{} : SnapshotConfirmed{} : DecommitApproved{} : _) (OnChainEffect DecrementTx{} : _) -> decommitting
               Continue (PartySignedSnapshot{} : SnapshotConfirmed{} : CommitApproved{} : _) (OnChainEffect IncrementTx{} : _) -> not decommitting
@@ -159,7 +199,17 @@ specWith onOpenNetworkAckSnProgram = do
 
     it "rejecting the last invalid signature discards its staged change" $ do
       let state = ackState CollectingSignatures [0, 1]
-          program = onOpenNetworkAckSnProgram (ruleEnvironment env) initial.chainPointTime mempty (Scenario.openState state) carol (sign aliceSk snapshotFixture) 1
+          program =
+            runAckSn
+              AckSn.Args
+                { env = ruleEnvironment env
+                , chainPointTime = initial.chainPointTime
+                , pendingDeposits = mempty
+                , openState = Scenario.openState state
+                , sender = carol
+                , signed = sign aliceSk snapshotFixture
+                , snapshotNumber = 1
+                }
           (outcome, trace) = Interpreter.traceProgram (testInterpreterConfig simpleLedger) program
       trace `shouldContain` [Trace.Changed "party signed snapshot"]
       viaNonEmpty last trace `shouldBe` Just Trace.Rejected
@@ -168,9 +218,19 @@ specWith onOpenNetworkAckSnProgram = do
 
     it "uses the configured verifier in production and debugger recording" $ do
       let state = ackState CollectingSignatures [0, 1]
-          program = onOpenNetworkAckSnProgram (ruleEnvironment env) initial.chainPointTime mempty (Scenario.openState state) carol (sign carolSk snapshotFixture) 1
+          program =
+            runAckSn
+              AckSn.Args
+                { env = ruleEnvironment env
+                , chainPointTime = initial.chainPointTime
+                , pendingDeposits = mempty
+                , openState = Scenario.openState state
+                , sender = carol
+                , signed = sign carolSk snapshotFixture
+                , snapshotNumber = 1
+                }
           config :: Interpreter.InterpreterConfig SimpleTx
-          config = (testInterpreterConfig simpleLedger){Interpreter.snapshotVerifier = \_ _ _ -> FailedKeys [getVerificationKey carolSk]}
+          config = (testInterpreterConfig simpleLedger){Interpreter.snapshotVerifier = \_ _ _ -> Left $ InvalidSignatures (getVerificationKey carolSk :| [])}
           outcome = Interpreter.runProgram config program
       Interpreter.runProgram (testInterpreterConfig simpleLedger) program `shouldSatisfy` \case Continue{} -> True; _ -> False
       outcome `shouldSatisfy` \case
@@ -192,12 +252,20 @@ specWith onOpenNetworkAckSnProgram = do
               forM_ [False, True] $ \valid -> do
                 let state = ackState phase signers
                     signature = sign ([aliceSk, bobSk, carolSk] !! sender) (if valid then snapshotFixture else Scenario.initialSnapshot)
-                    outcome = onOpenNetworkAckSn (Scenario.environment 1) initial.chainPointTime mempty (Scenario.openState state) (Scenario.scenarioParties !! sender) signature sn
+                    outcome =
+                      Interpreter.runProgram (testInterpreterConfig simpleLedger) $
+                        runAckSn
+                          AckSn.Args
+                            { env = Configuration.ruleEnvironment (Scenario.environment 1)
+                            , chainPointTime = initial.chainPointTime
+                            , pendingDeposits = mempty
+                            , openState = Scenario.openState state
+                            , sender = Scenario.scenarioParties !! sender
+                            , signed = signature
+                            , snapshotNumber = sn
+                            }
                     seen = if phase == NeverSeen then 0 else 1
                 projectSnapshotOutcome outcome `shouldBe` ackSnOutcomeRef phase seen (fromIntegral sn) (fromIntegral <$> signers) (fromIntegral sender) 2 valid True 1
- where
-  onOpenNetworkAckSn env' time pending st sender signature sn =
-    Interpreter.runProgram (testInterpreterConfig simpleLedger) $ onOpenNetworkAckSnProgram (ruleEnvironment env') time pending st sender signature sn
 
 integrationSpec :: Spec
 integrationSpec = do
@@ -221,13 +289,39 @@ integrationSpec = do
       Explorer.invariantFailure world `shouldBe` Nothing
       let node = world.nodes !! 1
           c = (Scenario.openState node).coordinatedHeadState
-          request = onOpenNetworkReqSn (Scenario.environment 1) simpleLedger mempty node.chainPointTime (Scenario.openState node) 2 alice 0 1 [1] Nothing Nothing
+          request =
+            Interpreter.runProgram (Configuration.interpreterConfig (Scenario.environment 1) simpleLedger) $
+              Workflow.run $
+                ReqSn.workflow
+                  ReqSn.Args
+                    { env = Configuration.ruleEnvironment (Scenario.environment 1)
+                    , pendingDeposits = mempty
+                    , chainPointTime = node.chainPointTime
+                    , openState = Scenario.openState node
+                    , ttl = 2
+                    , sender = alice
+                    , snapshotVersion = 0
+                    , snapshotNumber = 1
+                    , transactionIds = [1]
+                    , decommitTx = Nothing
+                    , depositTxId = Nothing
+                    }
       c.localTxs `shouldBe` Seq.singleton Scenario.transactionOne
       c.localUTxO `shouldBe` utxoRef 2
       Map.lookup 1 c.allTxs `shouldBe` Just Scenario.transactionOne
       request `shouldSatisfy` \case Continue{} -> True; _ -> False
       forM_ [0 .. defaultTxTTL] $ \ttl -> do
-        let program = onOpenNetworkReqTxProgram (ruleEnvironment env) node.chainPointTime (Scenario.openState node) ttl mempty Scenario.transactionOne
+        let program =
+              Workflow.run $
+                ReqTx.workflow
+                  ReqTx.Args
+                    { env = ruleEnvironment env
+                    , chainPointTime = node.chainPointTime
+                    , openState = Scenario.openState node
+                    , ttl = ttl
+                    , pendingDeposits = mempty
+                    , transaction = Scenario.transactionOne
+                    }
             (outcome, trace) = Interpreter.traceProgram (testInterpreterConfig simpleLedger) program
         outcome `shouldBe` Continue [] []
         trace `shouldSatisfy` all (\case Trace.LedgerApplied{} -> False; _ -> True)
@@ -244,17 +338,56 @@ integrationSpec = do
       fmap (\c -> (getSnapshot c.confirmedSnapshot).number) states `shouldBe` [1, 1, 1]
       fmap (toList . (.localTxs)) states `shouldBe` [[Scenario.transactionTwo], [], [Scenario.transactionTwo]]
       let bobNode = world.nodes !! 1
-          request = onOpenNetworkReqSn (Scenario.environment 1) simpleLedger mempty bobNode.chainPointTime (Scenario.openState bobNode) 2 bob 0 2 [2] Nothing Nothing
+          request =
+            Interpreter.runProgram (Configuration.interpreterConfig (Scenario.environment 1) simpleLedger) $
+              Workflow.run $
+                ReqSn.workflow
+                  ReqSn.Args
+                    { env = Configuration.ruleEnvironment (Scenario.environment 1)
+                    , pendingDeposits = mempty
+                    , chainPointTime = bobNode.chainPointTime
+                    , openState = Scenario.openState bobNode
+                    , ttl = 2
+                    , sender = bob
+                    , snapshotVersion = 0
+                    , snapshotNumber = 2
+                    , transactionIds = [2]
+                    , decommitTx = Nothing
+                    , depositTxId = Nothing
+                    }
       request `shouldBe` Wait (WaitOnTxs [2]) []
       -- Re-submission supplies the lost payload and wakes the next leader.
-      let retryTx = onOpenNetworkReqTx (Scenario.environment 1) simpleLedger bobNode.chainPointTime (Scenario.openState bobNode) 2 mempty Scenario.transactionTwo
+      let retryTx =
+            Interpreter.runProgram (Configuration.interpreterConfig (Scenario.environment 1) simpleLedger) $
+              Workflow.run $
+                ReqTx.workflow
+                  ReqTx.Args
+                    { env = Configuration.ruleEnvironment (Scenario.environment 1)
+                    , chainPointTime = bobNode.chainPointTime
+                    , openState = Scenario.openState bobNode
+                    , ttl = 2
+                    , pendingDeposits = mempty
+                    , transaction = Scenario.transactionTwo
+                    }
       retryTx `shouldSatisfy` \case
         Continue{effects} -> NetworkEffect (ReqSn 0 2 [2] Nothing Nothing) `elem` effects
         _ -> False
 
     it "characterizes invalid early signatures blocking later valid replacements" $ do
       let start = ackState CollectingSignatures []
-          applyAck node sender signature = HeadLogic.onOpenNetworkAckSn (testInterpreterConfig simpleLedger) env node.chainPointTime mempty (Scenario.openState node) sender signature 1
+          applyAck node sender signature =
+            Interpreter.runProgram (testInterpreterConfig simpleLedger) $
+              Workflow.run $
+                AckSn.workflow
+                  AckSn.Args
+                    { env = Configuration.ruleEnvironment env
+                    , chainPointTime = node.chainPointTime
+                    , pendingDeposits = mempty
+                    , openState = Scenario.openState node
+                    , sender = sender
+                    , signed = signature
+                    , snapshotNumber = 1
+                    }
           bad = sign aliceSk Scenario.initialSnapshot
           accepted = applyAck start alice bad
           poisoned = aggregateState start accepted
@@ -274,14 +407,26 @@ integrationSpec = do
       let world = Scenario.initialWorld
           d = Scenario.Delivery 0 1 2 (ReqTx Scenario.transactionOne)
           withoutReceipt :: Program.Program tx a -> Program.Program tx a
-          withoutReceipt = Program.foldProgram $ \case
+          withoutReceipt = foldProgram $ \case
             Program.Change TransactionReceived{} -> pure ()
-            instruction -> Program.instruction instruction
+            op -> instruction op
           missingReceipt = case Explorer.programFor world d of
             Interpreter.Execution originalConfig program -> Interpreter.runProgram originalConfig $ withoutReceipt program
           missingDependency = Scenario.Delivery 0 1 2 (ReqTx Scenario.transactionTwo)
           config = (testInterpreterConfig simpleLedger){Interpreter.transactionApplication = \_ _ _ -> Right (utxoRef 1 <> utxoRef 3)}
-          acceptedWithoutInput = Interpreter.runProgram config $ onOpenNetworkReqTxProgram (ruleEnvironment $ Scenario.environment 1) Scenario.initialNode.chainPointTime (Scenario.openState Scenario.initialNode) 2 mempty Scenario.transactionTwo
+          acceptedWithoutInput =
+            Interpreter.runProgram config $
+              Workflow.run
+                ( ReqTx.workflow
+                    ReqTx.Args
+                      { env = ruleEnvironment $ Scenario.environment 1
+                      , chainPointTime = Scenario.initialNode.chainPointTime
+                      , openState = Scenario.openState Scenario.initialNode
+                      , ttl = 2
+                      , pendingDeposits = mempty
+                      , transaction = Scenario.transactionTwo
+                      }
+                )
       Explorer.safetyFailure (Explorer.installOutcome world d missingReceipt)
         `shouldBe` Just "local pending transaction differs from the registry payload"
       Explorer.safetyFailure (Explorer.installOutcome world missingDependency acceptedWithoutInput)
@@ -349,7 +494,17 @@ integrationSpec = do
           Explorer.explore report.limits settings `shouldBe` report
 
     it "rejects wrong query identity, arguments, missing and extra replies" $ do
-      let program = onOpenNetworkReqTxProgram (ruleEnvironment env) initial.chainPointTime (Scenario.openState Scenario.initialNode) 1 mempty Scenario.transactionOne
+      let program =
+            Workflow.run $
+              ReqTx.workflow
+                ReqTx.Args
+                  { env = ruleEnvironment env
+                  , chainPointTime = initial.chainPointTime
+                  , openState = Scenario.openState Scenario.initialNode
+                  , ttl = 1
+                  , pendingDeposits = mempty
+                  , transaction = Scenario.transactionOne
+                  }
           config = testInterpreterConfig simpleLedger
       prepared <- requireRight $ Debug.prepare Debug.RecordReplies config program
       let tape = prepared.queries
@@ -374,7 +529,27 @@ env :: Environment
 env = Scenario.environment 0
 
 snapshotFixture :: Snapshot SimpleTx
-snapshotFixture = case (Scenario.openState $ aggregateState initial $ onOpenNetworkReqSn env simpleLedger mempty initial.chainPointTime os 1 alice 0 1 [1] Nothing Nothing).coordinatedHeadState.seenSnapshot of
+snapshotFixture = case ( Scenario.openState $
+                          aggregateState initial $
+                            Interpreter.runProgram
+                              (Configuration.interpreterConfig env simpleLedger)
+                              ( Workflow.run $
+                                  ReqSn.workflow
+                                    ReqSn.Args
+                                      { env = Configuration.ruleEnvironment env
+                                      , pendingDeposits = mempty
+                                      , chainPointTime = initial.chainPointTime
+                                      , openState = os
+                                      , ttl = 1
+                                      , sender = alice
+                                      , snapshotVersion = 0
+                                      , snapshotNumber = 1
+                                      , transactionIds = [1]
+                                      , decommitTx = Nothing
+                                      , depositTxId = Nothing
+                                      }
+                              )
+                       ).coordinatedHeadState.seenSnapshot of
   SeenSnapshot{snapshot} -> snapshot
   _ -> error "snapshot fixture did not request"
 

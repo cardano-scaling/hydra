@@ -4,6 +4,8 @@
 -- machinery. Every prefix checks replay consistency and CBOR round trips.
 module Test.Hydra.HeadLogic.ConflictingDecommit (schedules) where
 
+import Hydra.HeadLogic.Rules.Input qualified as Input
+import Hydra.HeadLogic.Workflow qualified as Workflow
 import Hydra.Prelude
 
 import Cardano.Binary (decodeFull', serialize')
@@ -73,7 +75,17 @@ deliver (world, sections) action = do
       title = case delivery.message of
         ReqDec tx -> "ReqDec " <> show tx.txSimpleId <> " to party " <> show delivery.recipientIndex <> " (TTL " <> show delivery.remainingTTL <> ")"
         _ -> Scenario.actionLabel action
-  let (outcome, observations) = Interpreter.traceProgram (Configuration.interpreterConfig env simpleLedger) $ Head.updateProgram (Head.ruleEnvironment env) initialChainTime node input
+  let (outcome, observations) =
+        Interpreter.traceProgram (Configuration.interpreterConfig env simpleLedger) $
+          Workflow.run
+            ( Input.workflow
+                Input.Args
+                  { env = Configuration.ruleEnvironment env
+                  , now = initialChainTime
+                  , nodeState = node
+                  , input = input
+                  }
+            )
       events = case outcome of Head.Continue es _ -> es; Head.Wait _ es -> es; Head.Error{} -> []
       after = Head.aggregateState node outcome
   unless (decodeFull' (serialize' after) == Right after) $ Left "checkpoint round trip differs"

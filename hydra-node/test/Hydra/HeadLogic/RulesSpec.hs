@@ -3,6 +3,7 @@
 
 module Hydra.HeadLogic.RulesSpec (spec) where
 
+import Hydra.HeadLogic.Program (decide)
 import Hydra.Prelude
 import Test.Hydra.HeadLogic.Interpreter (testInterpreterConfig)
 import Test.Hydra.Prelude (Spec, describe, it, prop, shouldBe, shouldSatisfy)
@@ -12,7 +13,6 @@ import Crem.StateInspection.NoThunks (StateCheck (NotInspected))
 import Crem.StateMachine qualified as Crem
 import Data.Map.Strict qualified as Map
 import Hydra.HeadLogic.Interpreter qualified as Interpreter
-import Hydra.HeadLogic.Program qualified as Program
 import Hydra.HeadLogic.Rules.Network.ReqTx qualified as ReqTx
 import Hydra.HeadLogic.Trace (TraceStep (Decided))
 import Hydra.Ledger.Simple (simpleLedger)
@@ -30,11 +30,21 @@ spec = describe "free programs and crem phases" $ do
     forM_ [(Scenario.transactionOne, "CheckDeposits"), (Scenario.transactionTwo, "RetryOrInvalidate")] $ \(tx, phase) ->
       it ("inspects the ledger-selected phase: " <> toString phase) $ do
         let before = Scenario.initialNode
-            machine = Crem.Executable $ ReqTx.workflow (ruleEnvironment $ Scenario.environment 0) before.chainPointTime (Scenario.openState before) 1 mempty tx
+            machine =
+              Crem.Executable $
+                ReqTx.workflow
+                  ReqTx.Args
+                    { env = ruleEnvironment $ Scenario.environment 0
+                    , chainPointTime = before.chainPointTime
+                    , openState = Scenario.openState before
+                    , ttl = 1
+                    , pendingDeposits = mempty
+                    , transaction = tx
+                    }
             program = do
               (_, outputCheck) <- Crem.run machine ()
               (_, selected) <- Crem.run outputCheck ()
-              void $ Program.decide "selected phase" (inspectStates selected == [([], Just phase)])
+              void $ decide "selected phase" (inspectStates selected == [([], Just phase)])
             (_, steps) = Interpreter.traceProgram (testInterpreterConfig simpleLedger) program
         steps `shouldSatisfy` elem (Decided "selected phase" True)
         checks <- checkStates [] machine

@@ -4,6 +4,7 @@
 module Hydra.HeadLogic.CoordinatedSpec (spec) where
 
 import Hydra.HeadLogic.Cardano (cardanoSnapshotLimits)
+import Hydra.HeadLogic.Program (reject, suspend)
 import Hydra.HeadLogic.Rules.Coordinated qualified as Staging
 import Hydra.Prelude
 import Test.Hydra.HeadLogic.Interpreter (testInterpreterConfig)
@@ -159,14 +160,14 @@ spec = describe "coordinated state owners" $ do
         stage :: Program.Program SimpleTx (Coordinated.Runtime SimpleTx)
         stage = Staging.stage runtime signed
         event = PartySignedSnapshot 1 alice (sign aliceSk candidate)
-    Interpreter.runProgram (testInterpreterConfig simpleLedger) (stage >> Program.suspend WaitOnSeenSnapshot)
+    Interpreter.runProgram (testInterpreterConfig simpleLedger) (stage >> suspend WaitOnSeenSnapshot)
       `shouldBe` Wait WaitOnSeenSnapshot [event]
     Interpreter.runProgram
       (testInterpreterConfig simpleLedger)
       ( do
           next <- stage
           result <- verifyCandidate (ownedCandidate next) (aggregateInOrder (Map.singleton alice (sign aliceSk candidate)) Scenario.scenarioParties)
-          either Program.reject (void . Staging.stage next . Coordinated.confirmSnapshot) result
+          either reject (void . Staging.stage next . Coordinated.confirmSnapshot) result
       )
       `shouldSatisfy` \case Error (RequireFailed InvalidMultisignature{}) -> True; _ -> False
 
@@ -174,7 +175,7 @@ spec = describe "coordinated state owners" $ do
     let runtime snapshot = Coordinated.start open{coordinatedHeadState = open.coordinatedHeadState{seenSnapshot = mkSeenSnapshot snapshot mempty}}
         confirm :: Coordinated.Runtime SimpleTx -> Program.Program SimpleTx ()
         confirm target = do
-          verified <- verifyCandidate (ownedCandidate $ runtime candidate) signatures >>= either Program.reject pure
+          verified <- verifyCandidate (ownedCandidate $ runtime candidate) signatures >>= either reject pure
           void $ Staging.stage target $ Coordinated.confirmSnapshot verified
     Interpreter.runProgram (testInterpreterConfig simpleLedger) (confirm $ runtime candidate)
       `shouldBe` Continue [SnapshotConfirmed testHeadId Nothing signatures] []
@@ -190,7 +191,7 @@ spec = describe "coordinated state owners" $ do
             program = do
               let target = owner candidate Scenario.scenarioParties
               staged <- Staging.stage target $ Coordinated.recordSignature (ownedCandidate target) alice (sign aliceSk candidate)
-              evidence <- verifyCandidate (ownedCandidate $ owner candidate parties) signed >>= either Program.reject pure
+              evidence <- verifyCandidate (ownedCandidate $ owner candidate parties) signed >>= either reject pure
               void $ Staging.stage staged $ command evidence
         Interpreter.runProgram (testInterpreterConfig simpleLedger) program
           `shouldSatisfy` \case Error AssertionFailed{} -> True; _ -> False
@@ -202,7 +203,7 @@ spec = describe "coordinated state owners" $ do
           signed = aggregateInOrder (Map.fromList [(p, sign sk foreignSnapshot) | (p, sk) <- [(alice, aliceSk), (bob, bobSk), (carol, carolSk)]]) Scenario.scenarioParties
           program :: Program.Program SimpleTx ()
           program = do
-            evidence <- verifyCandidate (ownedCandidate $ owner foreignSnapshot Scenario.scenarioParties) signed >>= either Program.reject pure
+            evidence <- verifyCandidate (ownedCandidate $ owner foreignSnapshot Scenario.scenarioParties) signed >>= either reject pure
             void $ Staging.stage (Coordinated.start open{coordinatedHeadState = open.coordinatedHeadState{seenSnapshot = seen}}) $ command evidence
       Interpreter.runProgram (testInterpreterConfig simpleLedger) program
         `shouldSatisfy` \case Error AssertionFailed{} -> True; _ -> False
@@ -278,7 +279,7 @@ spec = describe "coordinated state owners" $ do
           signed = aggregateInOrder (Map.fromList [(p, sign sk snapshot) | (p, sk) <- [(alice, aliceSk), (bob, bobSk), (carol, carolSk)]]) (snd <$> parties)
           program :: Program.Program SimpleTx ()
           program = do
-            evidence <- verifyCandidate (ownedCandidate $ owner snapshot (snd <$> parties)) signed >>= either Program.reject pure
+            evidence <- verifyCandidate (ownedCandidate $ owner snapshot (snd <$> parties)) signed >>= either reject pure
             void $ Staging.stage (Coordinated.start open{coordinatedHeadState = open.coordinatedHeadState{seenSnapshot = mkSeenSnapshot snapshot mempty}}) $ Coordinated.confirmSnapshot evidence
           accepted = case Interpreter.runProgram (testInterpreterConfig simpleLedger) program of Continue [SnapshotConfirmed{}] [] -> True; _ -> False
       accepted `shouldBe` Agda.verificationContextRef 0 (if sameHead then 0 else 1) [1, 2, 3] (fst <$> parties)

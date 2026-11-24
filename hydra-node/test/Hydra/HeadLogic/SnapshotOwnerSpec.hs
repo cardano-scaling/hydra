@@ -3,6 +3,7 @@
 
 module Hydra.HeadLogic.SnapshotOwnerSpec (spec) where
 
+import Hydra.HeadLogic.Program (reject)
 import Hydra.HeadLogic.Rules.Coordinated qualified as Staging
 import Hydra.Prelude
 import Test.Hydra.HeadLogic.Interpreter (testInterpreterConfig)
@@ -72,7 +73,7 @@ spec = describe "live snapshot ownership" $ do
   it "refuses stale confirmation evidence even after staging a current signature" $ do
     let program :: Program.Program SimpleTx ()
         program = do
-          evidence <- verifyCandidate (owned $ owner different) (signatures different) >>= either Program.reject pure
+          evidence <- verifyCandidate (owned $ owner different) (signatures different) >>= either reject pure
           staged <- Staging.stage collecting $ Owner.recordSignature (owned collecting) alice (sign aliceSk snapshot)
           void $ Staging.stage staged $ Owner.confirmSnapshot evidence
     run program `shouldSatisfy` refused
@@ -82,7 +83,7 @@ spec = describe "live snapshot ownership" $ do
         program :: Program.Program SimpleTx ()
         program = do
           settled <- Staging.stage collecting $ Owner.recordDecommitFinalization (SimpleChainState 2) 1 mempty
-          evidence <- verifyCandidate ownedCandidate (signatures snapshot) >>= either Program.reject pure
+          evidence <- verifyCandidate ownedCandidate (signatures snapshot) >>= either reject pure
           void $ Staging.stage settled $ Owner.confirmSnapshot evidence
     run program `shouldSatisfy` \case
       Continue [DecommitFinalized{}, SnapshotConfirmed{}] [] -> True
@@ -92,16 +93,16 @@ spec = describe "live snapshot ownership" $ do
     let nextSnapshot = snapshot{number = 2}
         program :: Program.Program SimpleTx ()
         program = do
-          firstEvidence <- verifyCandidate (owned collecting) (signatures snapshot) >>= either Program.reject pure
+          firstEvidence <- verifyCandidate (owned collecting) (signatures snapshot) >>= either reject pure
           confirmed <- Staging.stage collecting $ Owner.confirmSnapshot firstEvidence
           when (isJust $ Owner.candidate confirmed) $
-            Program.reject $
+            reject $
               AssertionFailed "confirmed owner still exposes a candidate"
           next <- Staging.stage confirmed $ Owner.acceptSnapshot nextSnapshot mempty Nothing
-          nextEvidence <- verifyCandidate (owned next) (signatures nextSnapshot) >>= either Program.reject pure
+          nextEvidence <- verifyCandidate (owned next) (signatures nextSnapshot) >>= either reject pure
           finished <- Staging.stage next $ Owner.confirmSnapshot nextEvidence
           when (isJust $ Owner.candidate finished) $
-            Program.reject $
+            reject $
               AssertionFailed "second confirmation retains a candidate"
     run program `shouldSatisfy` \case
       Continue [SnapshotConfirmed{}, SnapshotRequested{}, SnapshotConfirmed{}] [] -> True
@@ -136,7 +137,7 @@ spec = describe "live snapshot ownership" $ do
   it "chain adoption also verifies contents rather than a supplied byte cache" $ do
     let supplied = SeenSnapshot snapshot mempty (getSignableRepresentation different)
         program :: Program.Program SimpleTx ()
-        program = verifySeenSnapshot (vkey <$> Scenario.scenarioParties) supplied (signatures different) >>= either Program.reject (const $ pure ())
+        program = verifySeenSnapshot (vkey <$> Scenario.scenarioParties) supplied (signatures different) >>= either reject (const $ pure ())
     run program `shouldSatisfy` invalidSignatures
 
   it "matches the Agda live graph including Crem's implicit self transitions" $ do
@@ -164,7 +165,7 @@ spec = describe "live snapshot ownership" $ do
                     issuer = Owner.start open{headId = supplied.headId, parameters}
                     proof = aggregateInOrder (Map.fromList [(p, sign sk supplied) | (p, sk) <- selected]) (fst <$> selected)
                     program = do
-                      verified <- verifyCandidate (owned issuer) proof >>= either Program.reject pure
+                      verified <- verifyCandidate (owned issuer) proof >>= either reject pure
                       void $ Staging.stage (if collects then collecting else initial) $ Owner.confirmSnapshot verified
                     accepted = case run program of Continue [SnapshotConfirmed{}] [] -> True; _ -> False
                     suppliedIdentity = [if foreignHead then 1 else 0, fromIntegral version, fromIntegral number, if otherContents then 1 else 0]

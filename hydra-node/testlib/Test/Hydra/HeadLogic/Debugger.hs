@@ -20,7 +20,7 @@ import Hydra.HeadLogic.Program (
 import Hydra.HeadLogic.Trace (changeLabel, effectLabel)
 import Hydra.Ledger.Simple (SimpleTx)
 import Hydra.Prelude hiding (keys, state)
-import Hydra.Tx.Crypto (HydraKey, VerificationKey, Verified (..))
+import Hydra.Tx.Crypto (HydraKey, VerificationError (..), VerificationKey)
 
 -- | Exact query identity and complete public arguments precede every reply.
 data QueryRecord = QueryRecord
@@ -31,7 +31,7 @@ data QueryRecord = QueryRecord
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
-data VerificationReply = Valid | InvalidKeys [VerificationKey HydraKey] | InvalidCount
+data VerificationReply = Valid | InvalidKeys (NonEmpty (VerificationKey HydraKey)) | InvalidCount
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
@@ -115,23 +115,23 @@ prepare mode config program = consume (cursor program) mode
       RecordedReplies (_ : _) -> Left "unused recorded primitive replies at termination"
       _ -> Right $ Prepared (void $ instruction op) [] [Step TerminalStep name Nothing value]
 
-encodeVerified :: Verified -> VerificationReply
+encodeVerified :: Either VerificationError () -> VerificationReply
 encodeVerified = \case
-  Verified -> Valid
-  FailedKeys keys -> InvalidKeys keys
-  KeyNumberMismatch -> InvalidCount
+  Right () -> Valid
+  Left (InvalidSignatures keys) -> InvalidKeys keys
+  Left SignatureCountMismatch -> InvalidCount
 
-decodeVerified :: VerificationReply -> Verified
+decodeVerified :: VerificationReply -> Either VerificationError ()
 decodeVerified = \case
-  Valid -> Verified
-  InvalidKeys keys -> FailedKeys keys
-  InvalidCount -> KeyNumberMismatch
+  Valid -> Right ()
+  InvalidKeys keys -> Left $ InvalidSignatures keys
+  InvalidCount -> Left SignatureCountMismatch
 
 -- | Test-only fault injection. The independent
 -- invariant still calls the real verifier on confirmed snapshots.
 bypassVerification :: Program tx a -> Program tx a
 bypassVerification = foldProgram $ \case
-  VerifySnapshot{} -> decide "TEST ONLY: bypass multisignature verification" True >> pure Verified
+  VerifySnapshot{} -> decide "TEST ONLY: bypass multisignature verification" True >> pure (Right ())
   op -> instruction op
 
 -- | Inspect a prepared instruction trace. Primitives have already been consumed;

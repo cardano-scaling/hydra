@@ -14,6 +14,8 @@ import Hydra.HeadLogic.Retry (
   RetryDecision (RetryInput),
   retryDecision,
  )
+import Hydra.HeadLogic.Rules.Input qualified as Input
+import Hydra.HeadLogic.Workflow qualified as Workflow
 import Hydra.Ledger.Simple (
   SimpleTx (txInputs, txOutputs),
   SimpleTxOut,
@@ -35,14 +37,13 @@ import Hydra.Node.HeadLogic (
   SeenSnapshot (SeenSnapshot, snapshot),
   aggregateState,
   ruleEnvironment,
-  updateProgram,
  )
 import Hydra.Node.HeadLogic.Configuration qualified as Configuration
 import Hydra.Node.State (ChainPointTime (..), NodeState (..))
 import Hydra.Prelude hiding (delete, local, state)
 import Hydra.Tx (txId)
 import Hydra.Tx.Accumulator (maxAccumulatorSize)
-import Hydra.Tx.Crypto (Verified (..), sign, verifyMultiSignature)
+import Hydra.Tx.Crypto (sign, verifyMultiSignature)
 import Hydra.Tx.Party (vkey)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..), getSnapshot)
 import Test.Hydra.HeadLogic.Debugger qualified as Debug
@@ -77,8 +78,15 @@ import Test.Hydra.Node.Fixture (aliceSk)
 programFor :: World -> Delivery -> Interpreter.Execution SimpleTx
 programFor world Delivery{senderIndex, recipientIndex, remainingTTL, message} =
   Interpreter.Execution (Configuration.interpreterConfig env simpleLedger) $
-    updateProgram (ruleEnvironment env) st.chainPointTime.currentChainTime st $
-      NetworkInput remainingTTL ReceivedMessage{sender, msg = message}
+    Workflow.run
+      ( Input.workflow
+          Input.Args
+            { env = ruleEnvironment env
+            , now = st.chainPointTime.currentChainTime
+            , nodeState = st
+            , input = NetworkInput remainingTTL ReceivedMessage{sender, msg = message}
+            }
+      )
  where
   env = environment recipientIndex
   sender = scenarioParties !! senderIndex
@@ -185,7 +193,7 @@ safetyFailure world
      in foldlM apply base.utxo c.localTxs /= Just c.localUTxO
   invalidSignature st = case (openState st).coordinatedHeadState.confirmedSnapshot of
     InitialSnapshot{} -> False
-    ConfirmedSnapshot snapshot signatures -> verifyMultiSignature (vkey <$> scenarioParties) signatures snapshot /= Verified
+    ConfirmedSnapshot snapshot signatures -> verifyMultiSignature (vkey <$> scenarioParties) signatures snapshot /= Right ()
   respectsDependencies snapshot =
     let previous = if snapshot.number == world.originSnapshot.number + 1 then Just world.originSnapshot else find (\s -> s.version == snapshot.version && s.number + 1 == snapshot.number) world.confirmations
      in case previous of

@@ -9,6 +9,9 @@ import Data.Map.Strict qualified as Map
 import Hydra.Cardano.Api (Tx, getTxBody, makeSignedTransaction)
 import Hydra.Chain.Direct.State (initialChainState)
 import Hydra.HeadLogic.Interpreter qualified as Interpreter
+import Hydra.HeadLogic.Rules.Network.ReqSn qualified as ReqSn
+import Hydra.HeadLogic.Rules.Network.ReqTx qualified as ReqTx
+import Hydra.HeadLogic.Workflow qualified as Workflow
 import Hydra.Ledger (Ledger (..))
 import Hydra.Ledger.Cardano (cardanoLedger)
 import Hydra.Network.Message (Message (..))
@@ -33,9 +36,6 @@ import Hydra.Node.HeadLogic (
   Outcome (Continue, effects),
   SeenSnapshot (NoSeenSnapshot),
   aggregateState,
-  onOpenNetworkReqSnProgram,
-  onOpenNetworkReqTx,
-  onOpenNetworkReqTxProgram,
   ruleEnvironment,
  )
 import Hydra.Node.HeadLogic.Configuration qualified as Configuration
@@ -63,12 +63,52 @@ registryRegression :: Either Text ()
 registryRegression = do
   valid <- maybe (Left "fixture has no transaction") Right $ listToMaybe transactions
   let invalid = makeSignedTransaction [] (getTxBody valid)
-      acceptedOutcome = onOpenNetworkReqTx env ledger time initialOpen 1 mempty valid
+      acceptedOutcome =
+        Interpreter.runProgram (Configuration.interpreterConfig env ledger) $
+          Workflow.run $
+            ReqTx.workflow
+              ReqTx.Args
+                { env = Configuration.ruleEnvironment env
+                , chainPointTime = time
+                , openState = initialOpen
+                , ttl = 1
+                , pendingDeposits = mempty
+                , transaction = valid
+                }
       accepted = aggregateState initial acceptedOutcome
       os = asOpen accepted
-      new = Interpreter.runProgram (testInterpreterConfig ledger) $ onOpenNetworkReqTxProgram (ruleEnvironment env) time os 1 mempty invalid
+      new =
+        Interpreter.runProgram (testInterpreterConfig ledger) $
+          Workflow.run
+            ( ReqTx.workflow
+                ReqTx.Args
+                  { env = ruleEnvironment env
+                  , chainPointTime = time
+                  , openState = os
+                  , ttl = 1
+                  , pendingDeposits = mempty
+                  , transaction = invalid
+                  }
+            )
       afterNew = aggregateState accepted new
-      request node = Interpreter.runProgram (Configuration.interpreterConfig env ledger) $ onOpenNetworkReqSnProgram (ruleEnvironment env) mempty time (asOpen node) 1 alice 0 1 [txId valid] Nothing Nothing
+      request node =
+        Interpreter.runProgram (Configuration.interpreterConfig env ledger) $
+          Workflow.run
+            ( ReqSn.workflow
+                ReqSn.Args
+                  { env = ruleEnvironment env
+                  , pendingDeposits = mempty
+                  , chainPointTime = time
+                  , openState = asOpen node
+                  , ttl = 1
+                  , sender = alice
+                  , snapshotVersion = 0
+                  , snapshotNumber = 1
+                  , transactionIds = [txId valid]
+                  , decommitTx = Nothing
+                  , depositTxId = Nothing
+                  }
+            )
       beforeRequest = request accepted
       newRequest = request afterNew
       acknowledges :: Outcome Tx -> Bool

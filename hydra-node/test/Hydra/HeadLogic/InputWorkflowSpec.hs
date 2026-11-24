@@ -10,6 +10,13 @@ import Hydra.API.ServerOutput (DecommitInvalidReason (..))
 import Hydra.API.ServerOutput qualified as ServerOutput
 import Hydra.Agda.OffChainReference qualified as Agda
 import Hydra.Chain (ChainEvent (..))
+import Hydra.HeadLogic.Cardano (cardanoSnapshotLimits)
+import Hydra.HeadLogic.Interpreter qualified as Interpreter
+import Hydra.HeadLogic.Rules.Chain.Fanout qualified as ChainFanout
+import Hydra.HeadLogic.Rules.Chain.Rollback qualified as Rollback
+import Hydra.HeadLogic.Rules.Chain.Settlement qualified as Settlement
+import Hydra.HeadLogic.Rules.Client.Decommit qualified as Decommit
+import Hydra.HeadLogic.Workflow qualified as Workflow
 import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Ledger.Simple (SimpleTx (..), SimpleTxOut (..), simpleLedger)
 import Hydra.Network.Message (Message (..), NetworkEvent (..))
@@ -34,14 +41,10 @@ import Hydra.Node.HeadLogic (
     mode
   ),
   WaitReason (WaitOnNodeInSync),
-  maybeRepostDecrementTx,
   mkSeenSnapshot,
-  onOpenChainDecrementTx,
-  onOpenChainIncrementTx,
-  onOpenClientDecommit,
-  onPartialFanoutChainPartialFanoutTx,
   update,
  )
+import Hydra.Node.HeadLogic.Configuration qualified as Configuration
 import Hydra.Node.State (NodeState (..), initialChainTime)
 import Hydra.Prelude
 import Hydra.Tx.Accumulator qualified as Accumulator
@@ -84,7 +87,17 @@ spec = describe "bounded Agda input decisions" $ do
           st :: CoordinatedHeadState SimpleTx
           st = os.coordinatedHeadState{decommitTx = if existing then Just Scenario.transactionTwo else Nothing}
           ledger = Ledger $ \_ utxo _ -> if applies then Right utxo else Left (tx, ValidationError "controlled ledger failure")
-          result = onOpenClientDecommit os.headId (testInterpreterConfig ledger) 0 st tx
+          result =
+            Interpreter.runProgram (testInterpreterConfig ledger) $
+              Workflow.run $
+                Decommit.workflow
+                  Decommit.Args
+                    { snapshotLimits = cardanoSnapshotLimits
+                    , headId = os.headId
+                    , currentSlot = 0
+                    , coordinatedHeadState = st
+                    , decommitTx = tx
+                    }
           tag = case result of
             Continue [DecommitInvalid{decommitInvalidReason = DecommitAlreadyInFlight{}}] [] -> 0
             Continue [DecommitInvalid{decommitInvalidReason = DecommitTxInvalid{validationError = ValidationError "controlled ledger failure"}}] [] -> 1
@@ -104,8 +117,34 @@ spec = describe "bounded Agda input decisions" $ do
           signatures = if valid then signaturesFor snapshot else aggregate []
           outcome =
             if increment
-              then onOpenChainIncrementTx (testInterpreterConfig simpleLedger) env mempty st 1 newVersion 42 observed signatures
-              else onOpenChainDecrementTx (testInterpreterConfig simpleLedger) env mempty st 1 newVersion (utxoRef 2) observed signatures
+              then
+                Interpreter.runProgram (testInterpreterConfig simpleLedger) $
+                  Workflow.run $
+                    Settlement.workflow
+                      Settlement.Args
+                        { env = Configuration.ruleEnvironment env
+                        , pendingDeposits = mempty
+                        , openState = st
+                        , newChainState = 1
+                        , newVersion = newVersion
+                        , settlement = Settlement.Increment 42
+                        , snapshotNumber = observed
+                        , signatures = signatures
+                        }
+              else
+                Interpreter.runProgram (testInterpreterConfig simpleLedger) $
+                  Workflow.run $
+                    Settlement.workflow
+                      Settlement.Args
+                        { env = Configuration.ruleEnvironment env
+                        , pendingDeposits = mempty
+                        , openState = st
+                        , newChainState = 1
+                        , newVersion = newVersion
+                        , settlement = Settlement.Decrement (utxoRef 2)
+                        , snapshotNumber = observed
+                        , signatures = signatures
+                        }
           shouldAdopt = Agda.adoptSettlementRef (toInteger observed) 1 0 (toInteger newVersion) matches valid
       case outcome of
         Continue events _ -> do
@@ -119,7 +158,7 @@ spec = describe "bounded Agda input decisions" $ do
           snapshot = Scenario.initialSnapshot{utxoToDecommit = Just $ utxoRef 2}
           confirmed = ConfirmedSnapshot snapshot (signaturesFor snapshot)
           finalized = Just $ FinalizedSnapshot confirmed 3
-          result = maybeRepostDecrementTx (testInterpreterConfig simpleLedger) os.headSeed os.headId os.parameters (if pending then Just Scenario.transactionOne else Nothing) confirmed finalized (fromInteger rollbackSlot)
+          result = Interpreter.runProgram (testInterpreterConfig simpleLedger) $ Rollback.maybeRepostDecrementTx os.headSeed os.headId os.parameters (if pending then Just Scenario.transactionOne else Nothing) confirmed finalized (fromInteger rollbackSlot)
           posted = case result of Continue [] [_] -> True; _ -> False
       posted `shouldBe` Agda.repostFinalizedRef pending rollbackSlot 3
 
@@ -132,7 +171,7 @@ spec = describe "bounded Agda input decisions" $ do
         let st :: PartialFanoutState SimpleTx
             st = driver{remainingOutputs = utxoRef 1 <> utxoRef 2 <> utxoRef 3, mode = fromMaybe AwaitingSelection $ listToMaybe $ drop (fromInteger modeTag) modes}
             observed = if remainderEmpty then st.remainingOutputs else utxoRef 1
-            result = onPartialFanoutChainPartialFanoutTx (testInterpreterConfig simpleLedger) st 2 observed
+            result = Interpreter.runProgram (testInterpreterConfig simpleLedger) $ ChainFanout.onPartialFanoutChainPartialFanoutTx st 2 observed
             tag = case result of
               Continue _ [] -> 0
               Continue [HeadPartialFannedOut{mode = DistributingSelection{}}] [_] -> 2

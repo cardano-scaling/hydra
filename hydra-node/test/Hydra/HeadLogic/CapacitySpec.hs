@@ -4,6 +4,9 @@
 module Hydra.HeadLogic.CapacitySpec (spec) where
 
 import Hydra.HeadLogic.Cardano (cardanoSnapshotLimits)
+import Hydra.HeadLogic.Program (change)
+import Hydra.HeadLogic.Rules.Input qualified as Input
+import Hydra.HeadLogic.Workflow qualified as Workflow
 import Hydra.Prelude hiding (local)
 import Test.Hydra.HeadLogic.Interpreter (testInterpreterConfig)
 import Test.Hydra.Prelude (Spec, describe, it, shouldBe, shouldSatisfy)
@@ -18,9 +21,8 @@ import Hydra.HeadLogic.Input (Input (ClientInput, NetworkInput))
 import Hydra.HeadLogic.Interpreter qualified as Interpreter
 import Hydra.HeadLogic.Limits (SnapshotLimits (..))
 import Hydra.HeadLogic.Outcome (Effect (NetworkEffect), Outcome (Continue, Error), StateChanged (DecommitInvalid, DecommitRecorded, SnapshotRequestDecided, SnapshotRequested))
-import Hydra.HeadLogic.Program qualified as Program
+import Hydra.HeadLogic.Rules.Coordinated (sendSnapshot)
 import Hydra.HeadLogic.Rules.Environment (RuleEnvironment (snapshotLimits))
-import Hydra.HeadLogic.Rules.SendSnapshot (sendSnapshot)
 import Hydra.HeadLogic.Rules.Transactions (applyTransactionsWithoutCollision, pruneTransactions)
 import Hydra.HeadLogic.Snapshot.Capacity (checkSnapshotCapacity)
 import Hydra.HeadLogic.Snapshot.Request (DecommitStatus (CarryDecommit, NoDecommit), SettlingCommit (ContinueCommit), nextSnapshotRequest, requestDepositTxId, requestMessage, requestTxs)
@@ -28,7 +30,7 @@ import Hydra.HeadLogic.State (CoordinatedHeadState (..), HeadState (Open), OpenS
 import Hydra.HeadLogic.State.Coordinated qualified as Coordinated
 import Hydra.Ledger.Simple (SimpleTx (..), SimpleTxOut (..), simpleLedger)
 import Hydra.Network.Message (Message (AckSn, ReqDec, ReqSn, ReqTx), NetworkEvent (ReceivedMessage))
-import Hydra.Node.HeadLogic (aggregateState, update, updateProgram)
+import Hydra.Node.HeadLogic (aggregateState, update)
 import Hydra.Node.HeadLogic.Configuration qualified as Configuration
 import Hydra.Node.State (Deposit (..), DepositStatus (Active), NodeState (headState), PendingDeposits, initialChainTime)
 import Hydra.Tx (HeadId (UnsafeHeadId), applyTxTo, txId)
@@ -69,7 +71,7 @@ spec = describe "snapshot capacity" $ do
           request = nextSnapshotRequest limits 0 base (Seq.fromList txs) mempty Nothing NoDecommit settling
           pruning = do
             kept <- pruneTransactions limits 0 (Just held) Nothing active (Seq.fromList txs)
-            Program.change $ SnapshotRequested base kept Nothing
+            change $ SnapshotRequested base kept Nothing
           expected = Agda.capacityPruneRef (toInteger limit) [1, 2, 3] commit [] spentInputs outputs
       -- Selection consumes an already admitted sequence. Pruning also covers
       -- invalid dependencies and repeated/colliding outputs after a rebase.
@@ -85,7 +87,15 @@ spec = describe "snapshot capacity" $ do
     let split = SimpleTx 1 (utxoRef 1) (refs [4, 5])
         run limits node input =
           Interpreter.runProgram (Configuration.interpreterConfig (Scenario.environment 1) simpleLedger) $
-            updateProgram (Configuration.ruleEnvironment (Scenario.environment 1)){snapshotLimits = limits} initialChainTime node input
+            Workflow.run
+              ( Input.workflow
+                  Input.Args
+                    { env = (Configuration.ruleEnvironment (Scenario.environment 1)){snapshotLimits = limits}
+                    , now = initialChainTime
+                    , nodeState = node
+                    , input = input
+                    }
+              )
         received = aggregateState Scenario.initialNode $ run cardanoSnapshotLimits Scenario.initialNode (NetworkInput 0 $ ReceivedMessage alice $ ReqTx split)
         request = NetworkInput 0 $ ReceivedMessage alice $ ReqSn 0 1 [txId split] Nothing Nothing
     run (SnapshotLimits 1) received request `shouldBe` Error (RequireFailed $ ReqSnUTxOSetTooLarge 2 1)
@@ -101,7 +111,17 @@ spec = describe "snapshot capacity" $ do
         rules = (Configuration.ruleEnvironment $ Scenario.environment 0){snapshotLimits = SnapshotLimits 0}
     void (Client.validateClientInputWith (SnapshotLimits 0) input) `shouldBe` Left (AccumulatorTooLarge 1 0)
     void (Client.validateClientInput input) `shouldBe` Right ()
-    Interpreter.runProgram config (updateProgram rules initialChainTime Scenario.initialNode $ ClientInput input)
+    Interpreter.runProgram
+      config
+      ( Workflow.run $
+          Input.workflow
+            Input.Args
+              { env = rules
+              , now = initialChainTime
+              , nodeState = Scenario.initialNode
+              , input = ClientInput input
+              }
+      )
       `shouldBe` Error (SideLoadSnapshotFailed $ SideLoadUTxOSetTooLarge 1 0)
 
   it "lets a new deposit use space freed by a merge and defers one that does not fit" $ do
@@ -186,7 +206,7 @@ spec = describe "snapshot capacity" $ do
           expected = Agda.pendingTxFitsRef valid disjoint (toInteger $ Set.size after) (toInteger $ Set.size $ after <> commit)
           program = do
             kept <- pruneTransactions cardanoSnapshotLimits 0 (Just commit) Nothing active (Seq.singleton tx)
-            Program.change $ SnapshotRequested Scenario.initialSnapshot kept Nothing
+            change $ SnapshotRequested Scenario.initialSnapshot kept Nothing
       case Interpreter.runProgram (Configuration.interpreterConfig (Scenario.environment 0) simpleLedger) program of
         Continue [SnapshotRequested _ kept _] [] -> not (null kept) `shouldBe` expected
         _ -> fail "pruning does not complete"

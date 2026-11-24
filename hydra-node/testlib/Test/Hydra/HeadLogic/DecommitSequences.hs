@@ -25,7 +25,7 @@ import Hydra.Network.Message (Message (..), NetworkEvent (ReceivedMessage))
 import Hydra.Node.HeadLogic qualified as Head
 import Hydra.Node.State (NodeState (..), initialChainTime)
 import Hydra.Tx.Accumulator qualified as Accumulator
-import Hydra.Tx.Crypto (HydraKey, MultiSignature, SigningKey, Verified (Verified), aggregateInOrder, sign, verifyMultiSignature)
+import Hydra.Tx.Crypto (HydraKey, MultiSignature, SigningKey, aggregateInOrder, sign, verifyMultiSignature)
 import Hydra.Tx.Party (Party (vkey))
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (ConfirmedSnapshot, InitialSnapshot), Snapshot (..), SnapshotNumber, SnapshotVersion, getSnapshot)
 import Test.Hydra.HeadLogic.Recovery (recover)
@@ -145,7 +145,7 @@ step recipient label input (before, history) = do
   let current = (Scenario.openState after).coordinatedHeadState
   case current.confirmedSnapshot of
     ConfirmedSnapshot snapshot certificate -> do
-      unless (verifyMultiSignature (vkey <$> Scenario.scenarioParties) certificate snapshot == Verified) $ Left "invalid confirmed signatures"
+      unless (verifyMultiSignature (vkey <$> Scenario.scenarioParties) certificate snapshot == Right ()) $ Left "invalid confirmed signatures"
       when (current.version == snapshot.version && snapshot.utxoToDecommit == Just (utxoRef 10)) $
         unless (current.decommitTx == Just decommit) $
           Left "authorised decommit lost its payload"
