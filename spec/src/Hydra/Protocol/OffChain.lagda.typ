@@ -1490,7 +1490,7 @@ blockchain sees a _rollback_ followed by rollforwards.
 - ReqDec keeps the incoming transaction distinct from the pending decommit in coordinated state; DecommitInvalid events identify the incoming transaction.
 - ReqSn constructs the snapshot from the applied UTxO, resolved commit/decommit sets and ordered transactions; the snapshot number and deposit ID come from the request, and its version matches coordinated state.
 - Verification returns success, a signature-count mismatch, or the nonempty list of invalid signers in party order.
-- Crem constrains phase transitions and payloads; guards and primitive answers need separate checks.
+- Crem constrains phase transitions and payloads; guards and primitive answers need separate checks. Diagram edge labels do not affect these transitions.
 - Live admission and trusted replay use separate entry points. Replay does not grant extra live transitions.
 - Candidate handles bind Head, version, number, signing bytes and ordered parties; confirmation requires the currently owned handle.
 - Settlement can advance the working version while a candidate still collects signatures; its final acknowledgement remains valid.

@@ -50,7 +50,8 @@ This component is at the core of the Hydra node, implementing the protocol's _st
 Input admission, network requests, client decommit, and chain settlement expose
 a `workflow` with a named `Args` record. Callers assemble these inputs and use
 `Workflow.run` to obtain the rule's `Program`. Argument fields remain lazy, and
-each workflow retains its own topology. Network dispatch selects the deposit
+each workflow retains its own topology. Diagram edge labels describe operations
+without affecting execution. Network dispatch selects the deposit
 view explicitly: `ReqSn` keeps all pending deposits for the head; the other
 network workflows exclude the deposit claimed by the retained finalized commit.
 `ReqDec` distinguishes the incoming transaction from any pending decommit;

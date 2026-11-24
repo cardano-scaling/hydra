@@ -396,6 +396,7 @@ reqTxKnownOutcomeRef false applicable ttl inFlight m sn party = reqTxOutcomeRef 
 -- Activation and recovery can change the selected deposit independently of
 -- its tracked status. Only fresh settlement makes deposited outputs spendable;
 -- payload reconstruction and repeated-settlement idempotence are Haskell checks.
+-- Diagram edge labels are presentation metadata, outside this projection.
 -- One Head has a terminal lifecycle. Readiness and pending local fanout
 -- requests are independent data within Closed, not protocol phases. A node
 -- starts a separate Idle machine when it accepts initialization of another Head.

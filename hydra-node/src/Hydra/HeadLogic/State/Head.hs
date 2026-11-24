@@ -12,7 +12,6 @@ module Hydra.HeadLogic.State.Head (
   LifecycleTopology,
   lifecycleTopology,
   sLifecycleTopology,
-  transitionLabels,
   machine,
 ) where
 
@@ -124,20 +123,6 @@ deriving stock instance Enum Phase
 deriving stock instance Bounded Phase
 
 deriving via AllVertices Phase instance RenderableVertices Phase
-
--- | Name protocol operations, including self-loops that change data without
--- changing the Head phase.
-transitionLabels :: [((Phase, Phase), String)]
-transitionLabels =
-  [ ((Idle, Open), "Init")
-  , ((Open, Open), "Increment / Decrement")
-  , ((Open, Closed), "Close")
-  , ((Closed, Closed), "Contest")
-  , ((Closed, PartialFanout), "PartialFanout")
-  , ((Closed, Finalized), "Fanout")
-  , ((PartialFanout, PartialFanout), "PartialFanout")
-  , ((PartialFanout, Finalized), "FinalPartialFanout")
-  ]
 
 -- | Each constructor owns its phase's payload. Open owns the continuation of
 -- the snapshot/transaction composition, not a second mutable copy of its fields.
