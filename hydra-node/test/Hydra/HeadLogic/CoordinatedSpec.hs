@@ -11,9 +11,6 @@ import Test.Hydra.HeadLogic.Interpreter (testInterpreterConfig)
 import Test.Hydra.Prelude (Spec, describe, it, shouldBe, shouldSatisfy)
 
 import Cardano.Binary (decodeFull', serialize')
-import Crem.Inspect (Component (..), checkStates, inspectStates)
-import Crem.StateInspection.NoThunks (StateCheck (NotInspected))
-import Crem.StateMachine qualified as Crem
 import Data.Map.Strict qualified as Map
 import Data.Sequence qualified as Seq
 import Hydra.API.ClientInput qualified as Client
@@ -46,22 +43,18 @@ import Test.Hydra.Tx.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, testHe
 spec :: Spec
 spec = describe "coordinated state owners" $ do
   it "inspects retained owner phases without rebuilding the local UTxO" $ do
-    let initial = Crem.withoutRendering $ Coordinated.components open
-        (_, applied) = runIdentity $ Crem.run initial $ Coordinated.applyTransaction Scenario.transactionOne (error "inspection demands before UTxO") (error "inspection demands after UTxO")
-        (_, collecting) = runIdentity $ Crem.run applied $ Coordinated.acceptSnapshot candidate (Seq.singleton $ error "inspection rebuilds transactions") Nothing
-    inspectStates applied `shouldBe` [([LeftComponent, LeftComponent], Just "AwaitingRequest"), ([LeftComponent, RightComponent], Just "NoDecommit"), ([RightComponent], Just "NoCommit")]
-    inspectStates collecting `shouldBe` [([LeftComponent, LeftComponent], Just "CollectingSignatures"), ([LeftComponent, RightComponent], Just "NoDecommit"), ([RightComponent], Just "NoCommit")]
-    checks <- checkStates [] collecting
-    checks `shouldSatisfy` \case
-      [(_, NotInspected), (_, NotInspected), (_, NotInspected)] -> True
-      _ -> False
+    let initial = Coordinated.start open
+        (_, applied) = Coordinated.step initial $ Coordinated.applyTransaction Scenario.transactionOne (error "inspection demands before UTxO") (error "inspection demands after UTxO")
+        (_, collecting) = Coordinated.step applied $ Coordinated.acceptSnapshot candidate (Seq.singleton $ error "inspection rebuilds transactions") Nothing
+    Coordinated.inspect applied `shouldBe` [("Snapshots", Just "AwaitingRequest"), ("Transactions", Just "NoDecommit"), ("Commits", Just "NoCommit")]
+    Coordinated.inspect collecting `shouldBe` [("Snapshots", Just "CollectingSignatures"), ("Transactions", Just "NoDecommit"), ("Commits", Just "NoCommit")]
 
   it "inspects reservation and certificate phases after reconstruction" $ do
     let pending = open{coordinatedHeadState = open.coordinatedHeadState{decommitTx = Just Scenario.transactionOne}}
         certified = open{coordinatedHeadState = open.coordinatedHeadState{confirmedSnapshot = ConfirmedSnapshot candidate{utxoToDecommit = Just $ utxoRef 2} signatures}}
-        descriptions = map (inspectStates . Crem.withoutRendering . Coordinated.components) [open, pending, certified]
+        descriptions = map (Coordinated.inspect . Coordinated.start) [open, pending, certified]
     descriptions
-      `shouldBe` [ [([LeftComponent, LeftComponent], Just "AwaitingRequest"), ([LeftComponent, RightComponent], Just phaseName), ([RightComponent], Just "NoCommit")]
+      `shouldBe` [ [("Snapshots", Just "AwaitingRequest"), ("Transactions", Just phaseName), ("Commits", Just "NoCommit")]
                  | phaseName <- ["NoDecommit", "DecommitPending", "AwaitingDecommitSettlement"]
                  ]
 

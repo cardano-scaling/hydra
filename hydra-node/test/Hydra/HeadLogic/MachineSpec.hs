@@ -15,9 +15,6 @@ import Test.Hydra.Prelude (
  )
 
 import Cardano.Binary (decodeFull', serialize')
-import Crem.Inspect (Component (..), checkStates, inspectStates)
-import Crem.StateInspection.NoThunks (StateCheck (NotInspected))
-import Crem.StateMachine qualified as Crem
 import Hydra.Agda.OffChainReference qualified as Agda
 import Hydra.Chain.ChainState (ChainSlot)
 import Hydra.HeadLogic (
@@ -86,22 +83,15 @@ spec :: Spec
 spec = describe "crem event application" $ do
   it "keeps owner descriptions across execution and state reconstruction" $ do
     let event = HeadClosed testHeadId 0 (SimpleChainState 1) initialChainTime
-        original = Machine.components initialNode
-        executable = Crem.withoutRendering original
-        (node, next) = runIdentity $ Crem.run executable event
-        (expected, described) = runIdentity $ Crem.run original event
+        next = Machine.step (Machine.start initialNode) event
+        node = Machine.currentState next
         descriptions =
-          [ ([LeftComponent, LeftComponent], Just "TrackedDeposits")
-          , ([LeftComponent, RightComponent], Just "Closed")
-          , ([RightComponent], Just "ObservedTime")
+          [ ("Deposits", Just "TrackedDeposits")
+          , ("Head", Just "Closed")
           ]
-    node `shouldBe` expected
-    node `shouldBe` Machine.currentState (Machine.step (Machine.start initialNode) event)
-    inspectStates next `shouldBe` descriptions
-    inspectStates described `shouldBe` descriptions
-    inspectStates (Machine.components node) `shouldBe` descriptions
-    checks <- checkStates [] next
-    map (\(_, result) -> case result of NotInspected -> True; _ -> False) checks `shouldBe` [True, True, True]
+    node `shouldBe` Machine.apply initialNode event
+    Machine.inspect next `shouldBe` descriptions
+    Machine.inspect (Machine.start node) `shouldBe` descriptions
 
   it "retains eligibility through consumption and rollback" $ do
     let deposit :: Deposit SimpleTx
