@@ -43,7 +43,9 @@ For deposits and incremental commits/decommits while the head is open, this work
 
 - The node tracks each deposit with the slots its deposit transaction and (once settled or recovered) its consuming transaction were observed at. On a rollback it rewinds this view to the rolled-back slot: a deposit whose deposit transaction was rolled back stops being tracked (until re-observed on the new chain), and a deposit whose consuming transaction (increment or recover) was rolled back becomes pending again.
 
-- Deposit activation and expiry are retained observations. A tick whose time computes Inactive does not erase either status. If the deposit transaction itself is erased, rollback removes the entry; re-observation records it as Inactive and its activation delay applies again.
+- Once a deposit becomes Active or Expired, receiving a chain tick with an earlier timestamp does not reset it to Inactive.
+  - If a rollback removes the deposit transaction itself, the node removes the deposit from its records.
+  - If the transaction appears on-chain again, the node records it as Inactive and waits for its activation delay before making it Active.
 
 - When an increment or decrement transaction settles on-chain (`CommitFinalized`/`DecommitFinalized`), the node retains the signed snapshot that authorized it, together with the slot the settlement was observed at. If a later rollback reaches past that slot, the settling transaction was erased from the chain and the node re-posts it from the retained snapshot. This also covers the case where newer snapshots were confirmed in the meantime (see [#2741](https://github.com/cardano-scaling/hydra/issues/2741)).
 
