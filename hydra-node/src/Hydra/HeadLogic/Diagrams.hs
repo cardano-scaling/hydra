@@ -74,8 +74,14 @@ import Hydra.Tx (
   HeadSeed (UnsafeHeadSeed),
  )
 
--- Numeric identifiers also render the unit vertex of single-state owners.
-renderTopology :: (Bounded vertex, Enum vertex, Eq vertex, Show vertex) => String -> String -> String -> [((vertex, vertex), String)] -> Topology vertex -> Text
+renderTopology ::
+  (Bounded vertex, Enum vertex, Eq vertex, Show vertex) =>
+  String ->
+  String ->
+  String ->
+  [((vertex, vertex), String)] ->
+  Topology vertex ->
+  Text
 renderTopology title source description labels (Topology edges) =
   "## "
     <> toText title
@@ -120,8 +126,6 @@ primitives =
       ]
    )
 
--- These empty values supply constructor arguments only. Rendering traverses the
--- production compositions and their metadata; it does not execute their inputs.
 page :: Either Text Text
 page = do
   let initial = initNodeState @SimpleTx 0
@@ -144,14 +148,7 @@ page = do
       , "sidebar_position: 4"
       , "---"
       , ""
-      , "This page is generated during the documentation build from the Haskell machine signatures and compositions. Commit the regenerated Markdown with topology changes so their diagrams can be reviewed alongside the code. Editing a topology changes its diagram; adding or removing a concrete machine requires updating the checked inventory."
-      , ""
-      , "Arrows show permitted transitions, not conditions under which a transition runs. Named self-loops show protocol operations such as increment, decrement, contest and further partial fanout. Primitive diagrams label the meanings of selected edges; the composition renderer shows the same allowed edges without operation labels. Crem also permits staying in the same state everywhere; unlabelled identity edges are omitted. Program guards, ledger checks, early waits and rejections occur inside actions and are not additional arrows. A one-state graph owns mutable data without restricting it to protocol phases."
-      , ""
-      , "Workflow stages last for one input. State owners survive across retained events and are reconstructed from persisted data. Deposit recovery and other small handlers compose Program operations directly and have no separate Crem graph."
-      , ""
-      , "The composition arrows below carry outputs between owners; they are not protocol transitions. The head owner delegates open-state events to the coordinated composition."
-      , ""
+      , "This page is generated during the documentation build from the Haskell machine signatures and compositions."
       , node
       , coordinated
       , Text.stripEnd $ Text.concat primitives
