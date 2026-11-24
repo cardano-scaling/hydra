@@ -13,7 +13,8 @@ import Hydra.API.ServerOutput (DecommitInvalidReason (..))
 import Hydra.Chain.ChainState (ChainSlot)
 import Hydra.HeadLogic.Limits (SnapshotLimits)
 import Hydra.HeadLogic.Outcome (Effect (..), StateChanged (..))
-import Hydra.HeadLogic.Program (Program,
+import Hydra.HeadLogic.Program (
+  Program,
   change,
   emit,
  )

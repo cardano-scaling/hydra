@@ -85,16 +85,7 @@ import Hydra.HeadLogic.Workflow (
   continue,
   finish,
  )
-import Hydra.HeadLogic.Workflow qualified as Workflow (
-  run,
-  workflow,
-  ValidationStage (..),
-  ValidationTopology,
-  ValidatedSnapshot,
-  validatedSnapshot,
-  validate,
-  validationWorkflow,
- )
+import Hydra.HeadLogic.Workflow qualified as Workflow (run, workflow)
 import Hydra.Network.Message (Message (..))
 import Hydra.Node.State (
   ChainPointTime (..),
@@ -333,4 +324,3 @@ workflow args@Args{..} = Workflow.workflow (show . statePhase) Validate step
       runtime <- maybe (pure $ Coordinated.start openState) (Staging.stage (Coordinated.start openState) . Coordinated.retainSnapshotDecommit) decommitTx
       void $ Staging.stage runtime $ Coordinated.acceptSnapshot checked newLocalTxs
     Done -> finish Done ()
-

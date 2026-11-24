@@ -16,7 +16,8 @@ import Hydra.API.ServerOutput (DecommitInvalidReason (..))
 import Hydra.Chain.ChainState (IsChainState)
 import Hydra.HeadLogic.Input (TTL)
 import Hydra.HeadLogic.Outcome (StateChanged (..), WaitReason (..))
-import Hydra.HeadLogic.Program (Program,
+import Hydra.HeadLogic.Program (
+  Program,
   change,
   decide,
   suspend,

@@ -4,7 +4,6 @@ module Hydra.HeadLogic.WorkflowSpec (spec) where
 
 import Crem.Topology (Topology (Topology))
 import Hydra.HeadLogic.Interpreter (runProgram)
-import Hydra.HeadLogic.Program (change)
 import Hydra.HeadLogic.Program (applyTransaction, change, decide, reject, suspend)
 import Hydra.HeadLogic.Workflow qualified as Workflow
 import Hydra.Ledger (Ledger (..), ValidationError (..))
