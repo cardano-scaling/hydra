@@ -245,7 +245,18 @@ specWith runAckSn = do
 
     it "records a partial acknowledgement once" $ do
       let signature = sign aliceSk snapshotFixture
-          outcome = onOpenNetworkAckSn env initial.chainPointTime mempty (Scenario.openState $ ackState CollectingSignatures []) alice signature 1
+          outcome =
+            Interpreter.runProgram (testInterpreterConfig simpleLedger) $
+              runAckSn
+                AckSn.Args
+                  { env = ruleEnvironment env
+                  , chainPointTime = initial.chainPointTime
+                  , pendingDeposits = mempty
+                  , openState = Scenario.openState $ ackState CollectingSignatures []
+                  , sender = alice
+                  , signed = signature
+                  , snapshotNumber = 1
+                  }
           event = PartySignedSnapshot 1 alice signature
       outcome `shouldBe` Continue [event] []
 
