@@ -71,8 +71,10 @@ import Hydra.Tx.Snapshot (
   getSnapshot,
  )
 
--- | An approved decommit must settle before a new pending one can replace it.
-data DecommitPhase = NoDecommit | DecommitPending | AwaitingDecommitSettlement
+data DecommitPhase
+  = NoDecommit
+  | DecommitPending
+  | AwaitingDecommitSettlement
 
 $(genSingletons [''DecommitPhase])
 
