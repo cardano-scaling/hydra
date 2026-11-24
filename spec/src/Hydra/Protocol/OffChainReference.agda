@@ -614,6 +614,7 @@ decommitReadyRef false (input ∷ rest) confirmed =
 -- equal and older observations carry VersionNotAdvanced. The finalization
 -- commands record chain observations, and this comparison controls version
 -- advancement and reservation release independently of snapshot adoption.
+-- The projections abstract the produced L1 output references retained by replay.
 settlementVersionRef : Nat → Nat → Nat
 settlementVersionRef old observed = if old < observed then observed else old
 

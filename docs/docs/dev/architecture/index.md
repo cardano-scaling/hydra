@@ -56,6 +56,8 @@ view explicitly: `ReqSn` keeps all pending deposits for the head; the other
 network workflows exclude the deposit claimed by the retained finalized commit.
 `ReqDec` distinguishes the incoming transaction from any pending decommit;
 its failure events identify the incoming transaction.
+Decrement finalization events preserve the observed L1 output references; snapshot
+verification and the local ledger continue to use the signed snapshot contents.
 
 Rules import `Program` primitives explicitly and call them without qualification.
 State destructuring uses `RecordWildCards`, with aliases where request and state

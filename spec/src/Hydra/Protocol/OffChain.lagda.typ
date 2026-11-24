@@ -1525,6 +1525,7 @@ blockchain sees a _rollback_ followed by rollforwards.
 - Check client accumulator bounds before echoing inputs, then apply the sync gate.
 - While catching up: accept chain inputs, reject client inputs and wait on network inputs.
 - Record settlement before attempted adoption; failed verification retains the settlement observation.
+- Decrement observations retain the produced L1 output references. These differ from the signed snapshot references and do not become the local ledger base.
 - Adoption checks snapshot number, successor version, incremental action and signatures. Close/Contest can also adopt a matching signed candidate.
 - Side-loading checks number and L1-relevant fields before signatures; failure reports to the client without staging changes.
 - Administrative side-loading can reset signing history; it is outside the Agda honest-signing theorem.

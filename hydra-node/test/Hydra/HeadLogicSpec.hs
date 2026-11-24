@@ -47,7 +47,7 @@ import Data.Sequence qualified as Seq
 import Data.Set qualified as Set
 import Hydra.API.ClientInput (ClientInput (Close, Decommit, Fanout, PartialFanout, Recover, SideLoadSnapshot))
 import Hydra.API.ServerOutput (ClientMessage (..), DecommitInvalidReason (..))
-import Hydra.Cardano.Api (ChainPoint (..), SlotNo (..), Tx, TxIn (..), TxIx (..), forceUTxO, fromLedgerTx, getTxBody, getTxWitnesses, makeSignedTransaction, mkVkAddress, toLedgerTx, txOutValue, unSlotNo, pattern TxValidityUpperBound)
+import Hydra.Cardano.Api (ChainPoint (..), SlotNo (..), Tx, TxIn (..), TxIx (..), forceUTxO, fromLedgerTx, getTxBody, getTxWitnesses, makeSignedTransaction, mkTxIn, mkVkAddress, toLedgerTx, txOutValue, unSlotNo, pattern TxValidityUpperBound)
 import Hydra.Cardano.Api.Gen (genTxIn)
 import Hydra.Chain (
   ChainEvent (..),
@@ -5464,7 +5464,8 @@ spec =
           maybe (failure "validated decrement was not observed") pure $
             observeDecrementTx lookupUTxO decrementTx
         signatures `shouldBe` confirmedSignatures confirmedSnapshot
-        UTxO.txOutputs distributedUTxO `shouldBe` maybe [] UTxO.txOutputs target.utxoToDecommit
+        distributedUTxO
+          `shouldBe` UTxO.fromList (zip (mkTxIn decrementTx <$> [1 ..]) (maybe [] UTxO.txOutputs target.utxoToDecommit))
         let initial =
               openWaitingFor
                 hydraContext
@@ -6070,7 +6071,8 @@ assertObservedSettlementRecovery env ledger initial observed expectedConfirmed h
             { observedTx = input
             , newChainState = ChainStateAt{spendableUTxO, recordedAt = Nothing}
             }
-      adopted = aggregateState initial $ update env ledger now initial (observe settledUTxO observed)
+      settlementOutcome = update env ledger now initial (observe settledUTxO observed)
+      adopted = aggregateState initial settlementOutcome
       chainRequest :: Outcome Tx -> IO (PostChainTx Tx)
       chainRequest outcome =
         case [request | OnChainEffect{postChainTx = request} <- effectsOf outcome] of
@@ -6113,6 +6115,13 @@ assertObservedSettlementRecovery env ledger initial observed expectedConfirmed h
         let expectedOutputs = UTxO.txOutputs (target.utxo <> fold target.utxoToCommit)
         UTxO.txOutputs fanoutUTxO `shouldMatchList` expectedOutputs
         UTxO.txOutputs (utxoFromTx tx) `shouldMatchList` expectedOutputs
+
+  case observed of
+    OnDecrementTx{distributedUTxO} ->
+      settlementOutcome `hasStateChangedSatisfying` \case
+        DecommitFinalized{distributedUTxO = retained} -> retained == distributedUTxO
+        _ -> False
+    _ -> pure ()
 
   case adopted of
     NodeInSync{headState = Open OpenState{coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot, seenSnapshot}}} -> do
