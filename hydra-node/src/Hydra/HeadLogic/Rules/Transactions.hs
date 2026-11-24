@@ -1,4 +1,4 @@
-module Hydra.HeadLogic.Rules.Transactions (ValidatedTransaction, validateTransaction, applyTransactionsWithoutCollision, applyTransactionsProgram, checkTransactionOutputs, pruneTransactions) where
+module Hydra.HeadLogic.Rules.Transactions (ValidatedTransaction, validateTransaction, applyTransactionsProgram, checkTransactionOutputs, pruneTransactions) where
 
 import Data.Sequence qualified as Seq (
   Seq (Empty, (:<|)),
@@ -15,24 +15,9 @@ import Hydra.HeadLogic.Program (
 import Hydra.HeadLogic.Snapshot.Capacity (checkSnapshotCapacity)
 import Hydra.HeadLogic.Transaction.Outputs (namesNoneOf)
 import Hydra.HeadLogic.Validation (ValidatedTransaction (..))
-import Hydra.Ledger (Ledger (..), ValidationError (..))
+import Hydra.Ledger (ValidationError (..))
 import Hydra.Prelude
 import Hydra.Tx (IsTx, UTxOType, utxoFromTx)
-
--- | Apply transactions, refusing any that creates an output the UTxO already
--- holds. Impossible on L1, possible on L2: a deposit can name a tx's outputs
--- before that tx is submitted.
-applyTransactionsWithoutCollision ::
-  IsTx tx =>
-  Ledger tx ->
-  ChainSlot ->
-  UTxOType tx ->
-  [tx] ->
-  Either (tx, ValidationError) (UTxOType tx)
-applyTransactionsWithoutCollision Ledger{applyTransactions = apply} slot =
-  foldlM $ \utxo tx -> do
-    first (tx,) $ checkTransactionOutputs utxo tx
-    apply slot utxo [tx]
 
 -- | Validate one ledger application, retaining its result for the live owner.
 -- The caller supplies the decision label used in its surrounding workflow.
