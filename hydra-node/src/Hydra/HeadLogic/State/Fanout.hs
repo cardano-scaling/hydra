@@ -15,7 +15,14 @@ import Hydra.HeadLogic.State (
 import Hydra.Prelude
 import Hydra.Tx (UTxOType)
 
-closedToPartialFanout :: ClosedState tx -> ChainStateType tx -> UTxOType tx -> UTxOType tx -> FanoutMode tx -> OnChainFanoutDatum -> PartialFanoutState tx
+closedToPartialFanout ::
+  ClosedState tx ->
+  ChainStateType tx ->
+  UTxOType tx ->
+  UTxOType tx ->
+  FanoutMode tx ->
+  OnChainFanoutDatum ->
+  PartialFanoutState tx
 closedToPartialFanout closedState newChainState remainingOutputs distributedOutputs mode fanoutDatum =
   PartialFanoutState{chainState = newChainState, ..}
  where
