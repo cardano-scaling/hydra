@@ -12,7 +12,6 @@ import Hydra.Tx.HeadParameters (HeadParameters (..))
 import Hydra.Tx.OnChainId (OnChainId)
 import Hydra.Tx.Party (Party)
 
--- | Public configuration for rules. The interpreter alone holds signing keys.
 data RuleEnvironment = RuleEnvironment
   { snapshotLimits :: SnapshotLimits
   , party :: Party

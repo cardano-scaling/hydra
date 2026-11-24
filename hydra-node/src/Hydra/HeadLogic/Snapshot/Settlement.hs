@@ -29,7 +29,14 @@ matchesSnapshotDecommit snapshot tx =
 
 -- | A confirmation can arrive after its increment/decrement observation. Keep
 -- it for reposting if that observation rolls back. Shared with side-loading.
-retainConfirmedSettlement :: IsTx tx => ChainSlot -> SnapshotVersion -> ConfirmedSnapshot tx -> Bool -> Maybe (FinalizedSnapshot tx) -> Maybe (FinalizedSnapshot tx)
+retainConfirmedSettlement ::
+  IsTx tx =>
+  ChainSlot ->
+  SnapshotVersion ->
+  ConfirmedSnapshot tx ->
+  Bool ->
+  Maybe (FinalizedSnapshot tx) ->
+  Maybe (FinalizedSnapshot tx)
 retainConfirmedSettlement slot version confirmed settles previous
   | version == (getSnapshot confirmed).version + 1 && settles = Just $ FinalizedSnapshot confirmed slot
   | otherwise = previous

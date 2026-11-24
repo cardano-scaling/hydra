@@ -4,8 +4,6 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-ambiguous-fields #-}
 
--- | All input admission goes through this workflow, including development tools.
--- Size checks precede any operation that could echo an unsafe client input.
 module Hydra.HeadLogic.Rules.Input (Stage (..), InputTopology, Args (..), workflow) where
 
 import Crem.Topology (Topology (Topology))
@@ -57,7 +55,15 @@ import Hydra.Node.State (
 import Hydra.Prelude hiding (State, state)
 import Hydra.Tx.Accumulator (AccumulatorTooLarge (..))
 
-data Stage = CheckInputSize | CheckSynchronisation | HandleIdle | HandleOpen | HandleClosed | HandleFanout | HandleFinalized | Finished
+data Stage
+  = CheckInputSize
+  | CheckSynchronisation
+  | HandleIdle
+  | HandleOpen
+  | HandleClosed
+  | HandleFanout
+  | HandleFinalized
+  | Finished
 
 type InputTopology =
   'Topology
