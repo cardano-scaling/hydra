@@ -1501,7 +1501,7 @@ blockchain sees a _rollback_ followed by rollforwards.
 - Live admission and trusted replay use separate entry points. Replay does not grant extra live transitions.
 - Candidate handles bind Head, version, number, signing bytes and ordered parties; confirmation requires the currently owned handle.
 - Settlement can advance the working version while a candidate still collects signatures; its final acknowledgement remains valid.
-- Partial acknowledgements retain two identical signature events; replay is idempotent. Failed final verification discards the current staged signature.
+- Partial acknowledgements record one signature event; replay accepts older duplicates idempotently. Failed final verification discards the current staged signature.
 - AckSn increment/decrement effects combine the open Head's identity and parameters with the verified snapshot and signatures. Chained requests use the coordinated state after confirmation.
 - Duplicate transaction IDs cannot replace validated local or candidate-decommit payloads, including on retry expiry.
 - Retry expiry can require client resubmission. Invalid early acknowledgements have no automatic recovery; closing remains the protocol exit.
