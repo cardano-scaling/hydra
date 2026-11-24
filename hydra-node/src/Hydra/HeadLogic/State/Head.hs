@@ -241,7 +241,13 @@ machine initial = BaseMachineT (withStateInspector (describeOnly (show . statePh
        in output input $ PartialFanoutHead next
     _ -> output input $ keep st
 
-  opened :: DepositOutput tx -> HeadId -> HeadSeed -> HeadParameters -> ChainStateType tx -> ActionResult m LifecycleTopology (State tx) 'Idle (HeadOutput tx)
+  opened ::
+    DepositOutput tx ->
+    HeadId ->
+    HeadSeed ->
+    HeadParameters ->
+    ChainStateType tx ->
+    ActionResult m LifecycleTopology (State tx) 'Idle (HeadOutput tx)
   opened input headId headSeed parameters chainState =
     output input $
       OpenHead $
@@ -263,7 +269,11 @@ machine initial = BaseMachineT (withStateInspector (describeOnly (show . statePh
             , ..
             }
 
-  output :: AllowedTransition LifecycleTopology from to => DepositOutput tx -> State tx to -> ActionResult m LifecycleTopology (State tx) from (HeadOutput tx)
+  output ::
+    AllowedTransition LifecycleTopology from to =>
+    DepositOutput tx ->
+    State tx to ->
+    ActionResult m LifecycleTopology (State tx) from (HeadOutput tx)
   output DepositOutput{event, deposits} next = pureResult HeadOutput{event, deposits, headState = view next} next
 
 restore :: IsChainState tx => Head.HeadState tx -> InitialState (State tx)
@@ -285,7 +295,6 @@ view = \case
   PartialFanoutHead st -> Head.FanoutProgress st
   FinalizedHead st -> Head.Finalized st
 
--- | Open-head context around the composed snapshot, transaction and commit owners.
 data OpenContext tx = OpenContext HeadParameters (ChainStateType tx) HeadId HeadSeed (Coordinated.Runtime tx)
 
 startOpen :: IsChainState tx => Head.OpenState tx -> OpenContext tx
