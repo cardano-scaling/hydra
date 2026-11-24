@@ -61,7 +61,7 @@ import Hydra.HeadLogic.State.Coordinated.Snapshots.Topology (
   SnapshotTopology,
  )
 import Hydra.HeadLogic.State.Types (
-  Command (..),
+  SnapshotCommand (..),
   SnapshotState (seen),
   TransactionUpdate (..),
   VersionChange (..),
@@ -89,7 +89,7 @@ machine ::
   HeadId ->
   [VerificationKey HydraKey] ->
   InitialState (State tx) ->
-  BaseMachineT m SnapshotTopology (Command tx) (SnapshotOutput tx)
+  BaseMachineT m SnapshotTopology (SnapshotCommand tx) (SnapshotOutput tx)
 machine headId parties initial =
   BaseMachineT (withStateInspector (describeOnly (show . statePhase)) initial) action
  where
@@ -97,7 +97,7 @@ machine headId parties initial =
   action ::
     forall from.
     State tx from ->
-    Command tx ->
+    SnapshotCommand tx ->
     ActionResult m SnapshotTopology (State tx) from (SnapshotOutput tx)
   action state command = case state of
     Idle context _ -> case command of
@@ -141,11 +141,9 @@ machine headId parties initial =
   common ::
     AllowedTransition SnapshotTopology from 'AwaitingRequest =>
     State tx from ->
-    Command tx ->
+    SnapshotCommand tx ->
     ActionResult m SnapshotTopology (State tx) from (SnapshotOutput tx)
   common state = \case
-    Transactions command ->
-      output state (RunLocalTransactionCommand command) []
     RequestSnapshot{} ->
       output state TransactionsUnchanged []
     AcceptSnapshot{} ->

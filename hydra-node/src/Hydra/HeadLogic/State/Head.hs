@@ -94,10 +94,7 @@ import Hydra.HeadLogic.State.Fanout (
   closedToPartialFanout,
   fanoutProgressToClosed,
  )
-import Hydra.HeadLogic.State.Types (
-  DepositOutput (..),
-  HeadOutput (..),
- )
+import Hydra.HeadLogic.State.Types (DepositOutput (..))
 import Hydra.Prelude hiding (State, state)
 import Hydra.Tx (HeadId, HeadParameters, HeadSeed)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..))
@@ -140,7 +137,7 @@ transitionLabels =
   ]
 
 -- | Each constructor owns its phase's payload. Open owns the continuation of
--- the snapshot/transaction composition, not a second mutable copy of its fields.
+-- the coordinated off-chain state.
 data State tx phase where
   IdleHead :: Head.IdleState tx -> State tx 'Idle
   OpenHead :: OpenContext tx -> State tx 'Open
@@ -163,24 +160,24 @@ machine ::
   forall tx m.
   (IsChainState tx, Applicative m) =>
   Head.HeadState tx ->
-  BaseMachineT m LifecycleTopology (DepositOutput tx) (HeadOutput tx)
+  BaseMachineT m LifecycleTopology (DepositOutput tx) (Head.HeadState tx)
 machine initial = BaseMachineT (withStateInspector (describeOnly (show . statePhase)) $ restore initial) action
  where
   action ::
     forall from.
     State tx from ->
     DepositOutput tx ->
-    ActionResult m LifecycleTopology (State tx) from (HeadOutput tx)
+    ActionResult m LifecycleTopology (State tx) from (Head.HeadState tx)
   action state input = case state of
     IdleHead st -> case input.event of
-      HeadOpened{headId, headSeed, parameters, chainState} -> opened input headId headSeed parameters chainState
-      ChainRolledBack{chainState} -> output input $ IdleHead st{Head.chainState}
-      _ -> output input state
+      HeadOpened{headId, headSeed, parameters, chainState} -> opened headId headSeed parameters chainState
+      ChainRolledBack{chainState} -> output $ IdleHead st{Head.chainState}
+      _ -> output state
     OpenHead runtime -> case input.event of
       HeadClosed{chainState, contestationDeadline} ->
         let os = viewOpen runtime
             chs = os.coordinatedHeadState
-         in output input $
+         in output $
               ClosedHead
                 Head.ClosedState
                   { parameters = os.parameters
@@ -195,34 +192,34 @@ machine initial = BaseMachineT (withStateInspector (describeOnly (show . statePh
                       Head.SeenSnapshot{snapshot} -> Just snapshot
                       _ -> Nothing
                   }
-      _ -> output input $ OpenHead $ stepOpen runtime input
+      _ -> output $ OpenHead $ stepOpen runtime input
     ClosedHead st -> closed st input
     PendingFanoutHead st -> case input.event of
-      HeadFanoutReverted{} -> output input $ ClosedHead $ fanoutProgressToClosed st
+      HeadFanoutReverted{} -> output $ ClosedHead $ fanoutProgressToClosed st
       HeadContested{} -> closed (fanoutProgressToClosed st) input
       SnapshotConfirmed{snapshot = Just _} -> closed (fanoutProgressToClosed st) input
-      HeadIsReadyToFanout{} -> output input $ PendingFanoutHead st{Head.readyToFanoutSent = True}
+      HeadIsReadyToFanout{} -> output $ PendingFanoutHead st{Head.readyToFanoutSent = True}
       _ -> fanout PendingFanoutHead st input
     PartialFanoutHead st -> fanout PartialFanoutHead st input
     FinalizedHead st -> case input.event of
-      ChainRolledBack{chainState} -> output input $ FinalizedHead st{Head.chainState}
-      _ -> output input state
+      ChainRolledBack{chainState} -> output $ FinalizedHead st{Head.chainState}
+      _ -> output state
 
-  closed :: Head.ClosedState tx -> DepositOutput tx -> ActionResult m LifecycleTopology (State tx) 'Closed (HeadOutput tx)
+  closed :: Head.ClosedState tx -> DepositOutput tx -> ActionResult m LifecycleTopology (State tx) 'Closed (Head.HeadState tx)
   closed st input = case input.event of
-    ChainRolledBack{chainState} -> output input $ ClosedHead st{Head.chainState}
-    HeadContested{chainState, contestationDeadline} -> output input $ ClosedHead st{Head.chainState, Head.contestationDeadline}
+    ChainRolledBack{chainState} -> output $ ClosedHead st{Head.chainState}
+    HeadContested{chainState, contestationDeadline} -> output $ ClosedHead st{Head.chainState, Head.contestationDeadline}
     SnapshotConfirmed{snapshot = Just snapshot, signatures} ->
-      output input $
+      output $
         ClosedHead st{Head.confirmedSnapshot = ConfirmedSnapshot snapshot signatures, Head.unconfirmedSnapshot = Nothing}
-    HeadIsReadyToFanout{} -> output input $ ClosedHead st{Head.readyToFanoutSent = True}
-    HeadFannedOut{chainState} -> output input $ FinalizedHead Head.FinalizedState{headId = st.headId, chainState}
+    HeadIsReadyToFanout{} -> output $ ClosedHead st{Head.readyToFanoutSent = True}
+    HeadFannedOut{chainState} -> output $ FinalizedHead Head.FinalizedState{headId = st.headId, chainState}
     HeadFanoutInitiated{remainingOutputs} ->
-      output input $
+      output $
         PendingFanoutHead $
           closedToPartialFanout st remainingOutputs mempty Head.AutoDrain Head.DatumClosed
     HeadPartialFanoutSelected{remainingOutputs, selection} ->
-      output input $
+      output $
         PendingFanoutHead $
           closedToPartialFanout
             st
@@ -231,10 +228,10 @@ machine initial = BaseMachineT (withStateInspector (describeOnly (show . statePh
             (recordedSelectionMode Head.DatumClosed remainingOutputs selection)
             Head.DatumClosed
     HeadPartialFannedOut{distributedOutputs, remainingOutputs, chainState, mode} ->
-      output input $
+      output $
         PartialFanoutHead $
           closedToPartialFanout st{Head.chainState} remainingOutputs distributedOutputs mode Head.DatumFanoutProgress
-    _ -> output input $ ClosedHead st
+    _ -> output $ ClosedHead st
 
   -- Cancellation belongs only to PendingFanoutHead. These shared updates cannot
   -- move observed distribution back to Closed or reopen a Head.
@@ -243,28 +240,27 @@ machine initial = BaseMachineT (withStateInspector (describeOnly (show . statePh
     (Head.PartialFanoutState tx -> State tx from) ->
     Head.PartialFanoutState tx ->
     DepositOutput tx ->
-    ActionResult m LifecycleTopology (State tx) from (HeadOutput tx)
+    ActionResult m LifecycleTopology (State tx) from (Head.HeadState tx)
   fanout keep st input = case input.event of
-    ChainRolledBack{chainState} -> output input $ keep st{Head.chainState}
-    HeadFannedOut{chainState} -> output input $ FinalizedHead Head.FinalizedState{headId = st.headId, chainState}
-    HeadFanoutInitiated{remainingOutputs} -> output input $ keep st{Head.mode = Head.AutoDrain, Head.remainingOutputs}
+    ChainRolledBack{chainState} -> output $ keep st{Head.chainState}
+    HeadFannedOut{chainState} -> output $ FinalizedHead Head.FinalizedState{headId = st.headId, chainState}
+    HeadFanoutInitiated{remainingOutputs} -> output $ keep st{Head.mode = Head.AutoDrain, Head.remainingOutputs}
     HeadPartialFanoutSelected{remainingOutputs, selection} ->
-      output input $ keep st{Head.mode = recordedSelectionMode st.fanoutDatum remainingOutputs selection}
+      output $ keep st{Head.mode = recordedSelectionMode st.fanoutDatum remainingOutputs selection}
     HeadPartialFannedOut{distributedOutputs = newlyDistributed, remainingOutputs, chainState, mode} ->
       let distributedOutputs = st.distributedOutputs <> newlyDistributed
           next = st{Head.chainState, Head.remainingOutputs, Head.distributedOutputs, Head.mode, Head.fanoutDatum = Head.DatumFanoutProgress}
-       in output input $ PartialFanoutHead next
-    _ -> output input $ keep st
+       in output $ PartialFanoutHead next
+    _ -> output $ keep st
 
   opened ::
-    DepositOutput tx ->
     HeadId ->
     HeadSeed ->
     HeadParameters ->
     ChainStateType tx ->
-    ActionResult m LifecycleTopology (State tx) 'Idle (HeadOutput tx)
-  opened input headId headSeed parameters chainState =
-    output input $
+    ActionResult m LifecycleTopology (State tx) 'Idle (Head.HeadState tx)
+  opened headId headSeed parameters chainState =
+    output $
       OpenHead $
         startOpen
           Head.OpenState
@@ -286,10 +282,9 @@ machine initial = BaseMachineT (withStateInspector (describeOnly (show . statePh
 
   output ::
     AllowedTransition LifecycleTopology from to =>
-    DepositOutput tx ->
     State tx to ->
-    ActionResult m LifecycleTopology (State tx) from (HeadOutput tx)
-  output DepositOutput{event, deposits} next = pureResult HeadOutput{event, deposits, headState = view next} next
+    ActionResult m LifecycleTopology (State tx) from (Head.HeadState tx)
+  output next = pureResult (view next) next
 
 restore :: IsChainState tx => Head.HeadState tx -> InitialState (State tx)
 restore = \case

@@ -4,23 +4,14 @@
 -- | Generate diagrams of all the Crem machines.
 module Hydra.HeadLogic.Diagrams (page) where
 
-import Crem.Render.Render (
-  MachineLabel,
-  Mermaid (..),
-  renderErrorMessage,
- )
-import Crem.Render.RenderFlow (TreeMetadata (..), renderFlow)
-import Crem.StateMachine (StateMachineT)
 import Crem.Topology (Topology (..))
 import Data.List qualified as List (lookup)
 import Data.Text qualified as Text (
   concat,
-  replace,
   stripEnd,
   unlines,
  )
-import Hydra.HeadLogic.Diagrams.TH (compositionSources, machineDiagrams)
-import Hydra.HeadLogic.Outcome (StateChanged (HeadOpened))
+import Hydra.HeadLogic.Diagrams.TH (machineDiagrams, stateSources)
 import Hydra.HeadLogic.Rules.Chain.Settlement qualified as Settlement (
   workflow,
  )
@@ -40,10 +31,8 @@ import Hydra.HeadLogic.Rules.Network.ReqSn qualified as ReqSn (
 import Hydra.HeadLogic.Rules.Network.ReqTx qualified as ReqTx (
   workflow,
  )
-import Hydra.HeadLogic.State qualified as State (HeadState (Open))
-import Hydra.HeadLogic.State.Clock qualified as Clock (machine)
 import Hydra.HeadLogic.State.Coordinated qualified as Coordinated (
-  components,
+  advance,
  )
 import Hydra.HeadLogic.State.Coordinated.Commits qualified as Commits (
   machine,
@@ -62,18 +51,8 @@ import Hydra.HeadLogic.State.Deposits qualified as Deposits (
   machine,
  )
 import Hydra.HeadLogic.State.Head qualified as Head (machine, transitionLabels)
-import Hydra.HeadLogic.State.Node qualified as Node (
-  apply,
-  components,
- )
-import Hydra.Ledger.Simple (SimpleTx)
-import Hydra.Node.State (NodeState (headState), initNodeState)
+import Hydra.HeadLogic.State.Node qualified as Node (step)
 import Hydra.Prelude
-import Hydra.Tx (
-  HeadId (UnsafeHeadId),
-  HeadParameters (..),
-  HeadSeed (UnsafeHeadSeed),
- )
 
 renderTopology ::
   (Bounded vertex, Enum vertex, Eq vertex, Show vertex) =>
@@ -91,16 +70,23 @@ renderTopology title source description labels (Topology edges) =
     <> "\n\n"
     <> toText source
     <> "\n\n"
-    <> fence (Text.unlines $ "stateDiagram-v2" : nodes <> arrows)
+    <> (if null selfTransitions then "" else "↻ marks a transition that keeps the same state.\n\n")
+    <> fence (Text.unlines $ "stateDiagram-v2" : nodes <> selfTransitions <> arrows)
  where
   vertices = zip [minBound .. maxBound] [0 :: Int ..]
   identifier vertex = maybe (error "Topology vertex is absent from its enumeration") (\n -> "s" <> show n) $ List.lookup vertex vertices
   nodes = ["state \"" <> (if show vertex == ("()" :: Text) then "Owned data" else show vertex) <> "\" as s" <> show n | (vertex, n) <- vertices]
+  selfTransitions =
+    [ identifier from <> " : ↻ " <> toText transitionLabel
+    | (from, destinations) <- edges
+    , from `elem` destinations
+    , Just transitionLabel <- [List.lookup (from, from) labels]
+    ]
   arrows =
     [ identifier from <> " --> " <> identifier to <> maybe "" ((" : " <>) . toText) (List.lookup (from, to) labels)
     | (from, destinations) <- edges
     , to <- destinations
-    , from /= to || isJust (List.lookup (from, to) labels)
+    , from /= to
     ]
 
 fence :: Text -> Text
@@ -122,7 +108,7 @@ primitives =
       ,
         ( "All inputs into the head logic"
         , 'Input.workflow
-        , "Client commands, network messages, and chain events.
+        , "Client commands, network messages, and chain events."
         )
       ,
         ( "ReqTx: Receive a transaction"
@@ -144,11 +130,13 @@ primitives =
         , 'AckSn.workflow
         , "Collect a signature for the owned candidate; a complete certificate permits confirmation and continuation."
         )
-      , ("Client decommit"
+      ,
+        ( "Client decommit"
         , 'Decommit.workflow
         , "Validate a client decommit before broadcasting it."
         )
-      , ("Observe incremental settlement"
+      ,
+        ( "Observe incremental settlement"
         , 'Settlement.workflow
         , "Record the chain observation, reconcile a matching candidate and consider requesting the next snapshot."
         )
@@ -158,62 +146,61 @@ primitives =
         , "Handles requesting, accepting, collecting and confirming snapshots."
         )
       ,
-        ( "Transactions on the local ledger."
+        ( "Transactions on the local ledger"
         , 'Transactions.machine
         , "Handles transactions and updates the ledger; also manages decommits."
         )
       ,
-        ( "Commit selection owner"
+        ( "Commits"
         , 'Commits.machine
         , "Handles selection of commits for inclusion."
         )
       ,
-        ( "Deposit registry owner"
+        ( "Deposits"
         , 'Deposits.machine
         , "Handles recording a deposit, and their activation or expiry."
-        )
-      ,
-        ( "Node clock owner"
-        , 'Clock.machine
-        , "Handles what happens on Tick events."
         )
       ]
    )
 
 page :: Either Text Text
-page = do
-  let initial = initNodeState @SimpleTx 0
-      opened = Node.apply initial $ HeadOpened (HeadParameters 1 1 []) 0 (UnsafeHeadId mempty) (UnsafeHeadSeed mempty) []
-  open <- case opened.headState of
-    State.Open value -> Right value
-    _ -> Left "Diagram fixture did not open the Head"
-  let labels :: a -> a -> a -> TreeMetadata a
-      labels a b c = BinaryLabel (BinaryLabel (LeafLabel a) (LeafLabel b)) (LeafLabel c)
-      render :: Text -> String -> TreeMetadata MachineLabel -> StateMachineT m input output -> Either Text Text
-      render title sources metadata machine = do
-        (Mermaid graph, _, _) <- first (toText . renderErrorMessage) $ renderFlow metadata machine
-        pure $ "## " <> title <> "\n\n" <> toText sources <> "\n\n" <> fence ("stateDiagram-v2\n" <> Text.replace "_()" "_State" graph)
-  node <-
-    render
-      "Retained-event composition"
-      $(compositionSources 'Node.components ['Deposits.machine, 'Head.machine, 'Clock.machine])
-      (labels "Deposits" "Head" "Clock")
-      $ Node.components initial
-  coordinated <-
-    render
-      "Open-head composition"
-      $(compositionSources 'Coordinated.components ['Snapshots.machine, 'Transactions.machine, 'Commits.machine])
-      (labels "Snapshots" "Transactions" "Commits")
-      $ Coordinated.components open
-  pure $
+page =
+  Right $
     Text.unlines
       [ "---"
       , "title: Head logic machines"
       , "sidebar_position: 4"
       , "---"
       , ""
-      , "This page is generated during the documentation build from the Haskell machine signatures and compositions."
-      , node
-      , coordinated
+      , "This page is generated from the Haskell machine signatures. The overview diagrams show state ownership; arrows in the individual machine diagrams show permitted phase transitions."
+      , "## Node state updates"
+      , ""
+      , "The node owns the Head state, deposit registry, and observed chain time and synchronisation status. Deposits remain recoverable after their Head closes. Tick inputs trigger time-dependent work in the rules."
+      , ""
+      , $(stateSources 'Node.step ['Head.machine, 'Deposits.machine])
+      , fence $
+          Text.unlines
+            [ "flowchart TD"
+            , "  node[\"Node state\"] --> head[\"Head lifecycle\"]"
+            , "  node --> deposits[\"Deposit registry\"]"
+            , "  node --> clock[\"Chain time and synchronisation\"]"
+            , "  head -->|when Open| coordinated[\"Off-chain state\"]"
+            ]
+      , "The node applies each state-change event to the relevant components and updates chain time and synchronisation directly in NodeState. Increment settlement reads the deposited UTxO before the registry marks it consumed and passes that value to the Head."
+      , ""
+      , "## Off-chain state updates"
+      , ""
+      , "An open Head owns snapshots, local transactions and decommit reservations, and commit selection. Ordinary transaction commands go directly to the transaction machine."
+      , ""
+      , $(stateSources 'Coordinated.advance ['Snapshots.machine, 'Transactions.machine, 'Commits.machine])
+      , fence $
+          Text.unlines
+            [ "flowchart TD"
+            , "  coordinated[\"Off-chain state\"] --> snapshots[\"Snapshots\"]"
+            , "  coordinated --> transactions[\"Local transactions and decommit\"]"
+            , "  coordinated --> commits[\"Commit selection\"]"
+            ]
+      , "Snapshot acceptance, confirmation and adoption update the snapshot first, reconcile local transactions and decommit reservations, then update commit selection. Settlement uses the same order. Retained events restore snapshot state without repeating live admission checks."
+      , ""
       , Text.stripEnd $ Text.concat primitives
       ]

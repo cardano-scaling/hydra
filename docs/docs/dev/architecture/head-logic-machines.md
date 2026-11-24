@@ -3,56 +3,35 @@ title: Head logic machines
 sidebar_position: 4
 ---
 
-This page is generated during the documentation build from the Haskell machine signatures and compositions. Commit the regenerated Markdown with topology changes so their diagrams can be reviewed alongside the code. Editing a topology changes its diagram; adding or removing a concrete machine requires updating the checked inventory.
+This page is generated from the Haskell machine signatures. The overview diagrams show state ownership; arrows in the individual machine diagrams show permitted phase transitions.
+## Node state updates
 
-Arrows show permitted transitions, not conditions under which a transition runs. Named self-loops show protocol operations such as increment, decrement, contest and further partial fanout. Primitive diagrams label the meanings of selected edges; the composition renderer shows the same allowed edges without operation labels. Crem also permits staying in the same state everywhere; unlabelled identity edges are omitted. Program guards, ledger checks, early waits and rejections occur inside actions and are not additional arrows. A one-state graph owns mutable data without restricting it to protocol phases.
+The node owns the Head state, deposit registry, and observed chain time and synchronisation status. Deposits remain recoverable after their Head closes. Tick inputs trigger time-dependent work in the rules.
 
-Workflow stages last for one input. State owners survive across retained events and are reconstructed from persisted data. Deposit recovery and other small handlers compose Program operations directly and have no separate Crem graph.
-
-The composition arrows below carry outputs between owners; they are not protocol transitions. The head owner delegates open-state events to the coordinated composition.
-
-## Retained-event composition
-
-Composition: [`Hydra.HeadLogic.State.Node.components`](../../../../hydra-node/src/Hydra/HeadLogic/State/Node.hs#L68).
+Updates: [`Hydra.HeadLogic.State.Node.step`](../../../../hydra-node/src/Hydra/HeadLogic/State/Node.hs#L54).
 
 | Machine | Topology |
 | --- | --- |
+| [`Hydra.HeadLogic.State.Head.machine`](../../../../hydra-node/src/Hydra/HeadLogic/State/Head.hs#L159) | [`Hydra.HeadLogic.State.Head.LifecycleTopology`](../../../../hydra-node/src/Hydra/HeadLogic/State/Head.hs#L106) |
 | [`Hydra.HeadLogic.State.Deposits.machine`](../../../../hydra-node/src/Hydra/HeadLogic/State/Deposits.hs#L35) | [`Crem.Topology.TrivialTopology`](../../../../hydra-node/src/Hydra/HeadLogic/State/Deposits.hs#L35) (in the machine signature) |
-| [`Hydra.HeadLogic.State.Head.machine`](../../../../hydra-node/src/Hydra/HeadLogic/State/Head.hs#L162) | [`Hydra.HeadLogic.State.Head.LifecycleTopology`](../../../../hydra-node/src/Hydra/HeadLogic/State/Head.hs#L109) |
-| [`Hydra.HeadLogic.State.Clock.machine`](../../../../hydra-node/src/Hydra/HeadLogic/State/Clock.hs#L24) | [`Crem.Topology.TrivialTopology`](../../../../hydra-node/src/Hydra/HeadLogic/State/Clock.hs#L24) (in the machine signature) |
-
 
 ```mermaid
-stateDiagram-v2
-state Deposits {
-Deposits_State
-}
-state Head {
-Head_Idle
-Head_Open
-Head_Closed
-Head_PartialFanout
-Head_Finalized
-Head_Idle --> Head_Open
-Head_Open --> Head_Open
-Head_Open --> Head_Closed
-Head_Closed --> Head_Closed
-Head_Closed --> Head_PartialFanout
-Head_Closed --> Head_Finalized
-Head_PartialFanout --> Head_PartialFanout
-Head_PartialFanout --> Head_Finalized
-}
-Deposits --> Head
-state Clock {
-Clock_State
-}
-Head --> Clock
+flowchart TD
+  node["Node state"] --> head["Head lifecycle"]
+  node --> deposits["Deposit registry"]
+  node --> clock["Chain time and synchronisation"]
+  head -->|when Open| coordinated["Off-chain state"]
+
 ```
 
 
-## Open-head composition
+The node applies each state-change event to the relevant components and updates chain time and synchronisation directly in NodeState. Increment settlement reads the deposited UTxO before the registry marks it consumed and passes that value to the Head.
 
-Composition: [`Hydra.HeadLogic.State.Coordinated.components`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated.hs#L117).
+## Off-chain state updates
+
+An open Head owns snapshots, local transactions and decommit reservations, and commit selection. Ordinary transaction commands go directly to the transaction machine.
+
+Updates: [`Hydra.HeadLogic.State.Coordinated.advance`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated.hs#L165).
 
 | Machine | Topology |
 | --- | --- |
@@ -60,42 +39,50 @@ Composition: [`Hydra.HeadLogic.State.Coordinated.components`](../../../../hydra-
 | [`Hydra.HeadLogic.State.Coordinated.Transactions.machine`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated/Transactions.hs#L131) | [`Hydra.HeadLogic.State.Coordinated.Transactions.DecommitTopology`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated/Transactions.hs#L82) |
 | [`Hydra.HeadLogic.State.Coordinated.Commits.machine`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated/Commits.hs#L54) | [`Crem.Topology.TrivialTopology`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated/Commits.hs#L54) (in the machine signature) |
 
-
 ```mermaid
-stateDiagram-v2
-state Snapshots {
-Snapshots_AwaitingRequest
-Snapshots_RequestSent
-Snapshots_CollectingSignatures
-Snapshots_AwaitingRequest --> Snapshots_RequestSent
-Snapshots_AwaitingRequest --> Snapshots_CollectingSignatures
-Snapshots_RequestSent --> Snapshots_AwaitingRequest
-Snapshots_RequestSent --> Snapshots_CollectingSignatures
-Snapshots_CollectingSignatures --> Snapshots_AwaitingRequest
-}
-state Transactions {
-Transactions_NoDecommit
-Transactions_DecommitPending
-Transactions_AwaitingDecommitSettlement
-Transactions_NoDecommit --> Transactions_DecommitPending
-Transactions_NoDecommit --> Transactions_AwaitingDecommitSettlement
-Transactions_DecommitPending --> Transactions_NoDecommit
-Transactions_DecommitPending --> Transactions_AwaitingDecommitSettlement
-Transactions_AwaitingDecommitSettlement --> Transactions_NoDecommit
-}
-Snapshots --> Transactions
-state Commits {
-Commits_State
-}
-Transactions --> Commits
+flowchart TD
+  coordinated["Off-chain state"] --> snapshots["Snapshots"]
+  coordinated --> transactions["Local transactions and decommit"]
+  coordinated --> commits["Commit selection"]
+
 ```
 
 
-## Input admission and dispatch
+Snapshot acceptance, confirmation and adoption update the snapshot first, reconcile local transactions and decommit reservations, then update commit selection. Settlement uses the same order. Retained events restore snapshot state without repeating live admission checks.
 
-Each input starts a fresh workflow. Admission checks precede dispatch by head state.
+## Head lifecycle
 
-Machine: [`Hydra.HeadLogic.Rules.Input.workflow`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Input.hs#L111). Topology: [`Hydra.HeadLogic.Rules.Input.InputTopology`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Input.hs#L68).
+This is the lifecycle of the Head protocol.
+
+- Machine: [`Hydra.HeadLogic.State.Head.machine`](../../../../hydra-node/src/Hydra/HeadLogic/State/Head.hs#L159).
+- Topology: [`Hydra.HeadLogic.State.Head.LifecycleTopology`](../../../../hydra-node/src/Hydra/HeadLogic/State/Head.hs#L106).
+
+↻ marks a transition that keeps the same state.
+
+```mermaid
+stateDiagram-v2
+state "Idle" as s0
+state "Open" as s1
+state "Closed" as s2
+state "PartialFanout" as s3
+state "Finalized" as s4
+s1 : ↻ Increment / Decrement
+s2 : ↻ Contest
+s3 : ↻ PartialFanout
+s0 --> s1 : Init
+s1 --> s2 : Close
+s2 --> s3 : PartialFanout
+s2 --> s4 : Fanout
+s3 --> s4 : FinalPartialFanout
+
+```
+
+## All inputs into the head logic
+
+Client commands, network messages, and chain events.
+
+- Machine: [`Hydra.HeadLogic.Rules.Input.workflow`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Input.hs#L111).
+- Topology: [`Hydra.HeadLogic.Rules.Input.InputTopology`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Input.hs#L68).
 
 ```mermaid
 stateDiagram-v2
@@ -122,11 +109,12 @@ s6 --> s7
 
 ```
 
-## Receive a transaction
+## ReqTx: Receive a transaction
 
 Check duplicates, outputs and deposits before selecting a snapshot or deciding whether to retry.
 
-Machine: [`Hydra.HeadLogic.Rules.Network.ReqTx.workflow`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Network/ReqTx.hs#L137). Topology: [`Hydra.HeadLogic.Rules.Network.ReqTx.ReqTxTopology`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Network/ReqTx.hs#L97).
+- Machine: [`Hydra.HeadLogic.Rules.Network.ReqTx.workflow`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Network/ReqTx.hs#L137).
+- Topology: [`Hydra.HeadLogic.Rules.Network.ReqTx.ReqTxTopology`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Network/ReqTx.hs#L97).
 
 ```mermaid
 stateDiagram-v2
@@ -147,11 +135,12 @@ s4 --> s5
 
 ```
 
-## Receive a decommit request
+## ReqDec: Receive a decommit request
 
 Check competing incremental work and transaction validity before recording a pending decommit.
 
-Machine: [`Hydra.HeadLogic.Rules.Network.ReqDec.workflow`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Network/ReqDec.hs#L132). Topology: [`Hydra.HeadLogic.Rules.Network.ReqDec.ReqDecTopology`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Network/ReqDec.hs#L92).
+- Machine: [`Hydra.HeadLogic.Rules.Network.ReqDec.workflow`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Network/ReqDec.hs#L132).
+- Topology: [`Hydra.HeadLogic.Rules.Network.ReqDec.ReqDecTopology`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Network/ReqDec.hs#L92).
 
 ```mermaid
 stateDiagram-v2
@@ -173,11 +162,12 @@ s4 --> s5
 
 ```
 
-## Receive a snapshot request
+## ReqSn: Receive a snapshot request
 
-Resolve the requested incremental work and transactions before building, signing and retaining the candidate.
+Resolve any incremental work and transactions before building, signing and retaining the snapshot.
 
-Machine: [`Hydra.HeadLogic.Rules.Network.ReqSn.workflow`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Network/ReqSn.hs#L194). Topology: [`Hydra.HeadLogic.Rules.Network.ReqSn.ReqSnTopology`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Network/ReqSn.hs#L123).
+- Machine: [`Hydra.HeadLogic.Rules.Network.ReqSn.workflow`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Network/ReqSn.hs#L194).
+- Topology: [`Hydra.HeadLogic.Rules.Network.ReqSn.ReqSnTopology`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Network/ReqSn.hs#L123).
 
 ```mermaid
 stateDiagram-v2
@@ -201,11 +191,12 @@ s7 --> s8
 
 ```
 
-## Receive a snapshot acknowledgement
+## AckSn: Receive a snapshot acknowledgement
 
 Collect a signature for the owned candidate; a complete certificate permits confirmation and continuation.
 
-Machine: [`Hydra.HeadLogic.Rules.Network.AckSn.workflow`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Network/AckSn.hs#L178). Topology: [`Hydra.HeadLogic.Rules.Network.AckSn.AckTopology`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Network/AckSn.hs#L129).
+- Machine: [`Hydra.HeadLogic.Rules.Network.AckSn.workflow`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Network/AckSn.hs#L178).
+- Topology: [`Hydra.HeadLogic.Rules.Network.AckSn.AckTopology`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Network/AckSn.hs#L129).
 
 ```mermaid
 stateDiagram-v2
@@ -227,9 +218,10 @@ s4 --> s5
 
 ## Client decommit
 
-Validate a client decommit before broadcasting it. Recording and approval occur later.
+Validate a client decommit before broadcasting it.
 
-Machine: [`Hydra.HeadLogic.Rules.Client.Decommit.workflow`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Client/Decommit.hs#L88). Topology: [`Hydra.HeadLogic.Rules.Client.Decommit.DecommitTopology`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Client/Decommit.hs#L53).
+- Machine: [`Hydra.HeadLogic.Rules.Client.Decommit.workflow`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Client/Decommit.hs#L88).
+- Topology: [`Hydra.HeadLogic.Rules.Client.Decommit.DecommitTopology`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Client/Decommit.hs#L53).
 
 ```mermaid
 stateDiagram-v2
@@ -252,7 +244,8 @@ s3 --> s4
 
 Record the chain observation, reconcile a matching candidate and consider requesting the next snapshot.
 
-Machine: [`Hydra.HeadLogic.Rules.Chain.Settlement.workflow`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Chain/Settlement.hs#L129). Topology: [`Hydra.HeadLogic.Rules.Chain.Settlement.SettlementTopology`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Chain/Settlement.hs#L86).
+- Machine: [`Hydra.HeadLogic.Rules.Chain.Settlement.workflow`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Chain/Settlement.hs#L129).
+- Topology: [`Hydra.HeadLogic.Rules.Chain.Settlement.SettlementTopology`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Chain/Settlement.hs#L86).
 
 ```mermaid
 stateDiagram-v2
@@ -266,35 +259,12 @@ s2 --> s3
 
 ```
 
-## Head lifecycle
+## Snapshot progressing logic
 
-This is the lifecycle of one Head identity. Contest updates a Closed Head's snapshot and deadline while staying Closed. A local fanout request and its cancellation also leave that protocol phase unchanged; only an observed partial distribution enters PartialFanout. Further partial distributions stay there. Full or final partial fanout reaches Finalized, which is terminal and survives checkpoint recovery. Starting a different Head creates a new machine at the node boundary. Named self-loops identify increment, decrement, contest and repeated partial distribution.
+Handles requesting, accepting, collecting and confirming snapshots.
 
-Machine: [`Hydra.HeadLogic.State.Head.machine`](../../../../hydra-node/src/Hydra/HeadLogic/State/Head.hs#L162). Topology: [`Hydra.HeadLogic.State.Head.LifecycleTopology`](../../../../hydra-node/src/Hydra/HeadLogic/State/Head.hs#L109).
-
-```mermaid
-stateDiagram-v2
-state "Idle" as s0
-state "Open" as s1
-state "Closed" as s2
-state "PartialFanout" as s3
-state "Finalized" as s4
-s0 --> s1 : Init
-s1 --> s1 : Increment / Decrement
-s1 --> s2 : Close
-s2 --> s2 : Contest
-s2 --> s3 : PartialFanout
-s2 --> s4 : Fanout
-s3 --> s3 : PartialFanout
-s3 --> s4 : FinalPartialFanout
-
-```
-
-## Snapshot ownership
-
-Normal request processing cannot restart a round while collecting signatures. Confirmation and certificate adoption finish it; administrative side-loading can instead discard the candidate and reset the seen number to the confirmed number. This administrative escape hatch is outside the Agda signing-discipline theorem. Retained-event restoration is separate from both operations.
-
-Machine: [`Hydra.HeadLogic.State.Coordinated.Snapshots.machine`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated/Snapshots.hs#L86). Topology: [`Hydra.HeadLogic.State.Coordinated.Snapshots.Topology.SnapshotTopology`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated/Snapshots/Topology.hs#L33).
+- Machine: [`Hydra.HeadLogic.State.Coordinated.Snapshots.machine`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated/Snapshots.hs#L86).
+- Topology: [`Hydra.HeadLogic.State.Coordinated.Snapshots.Topology.SnapshotTopology`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated/Snapshots/Topology.hs#L33).
 
 ```mermaid
 stateDiagram-v2
@@ -309,11 +279,12 @@ s2 --> s0 : Confirmation / adoption / administrative reset
 
 ```
 
-## Local transactions and decommit ownership
+## Transactions on the local ledger
 
-Local transactions and reserved decommit outputs share an owner. An approved decommit awaiting settlement cannot be replaced by a pending one. NoDecommit can move directly to AwaitingDecommitSettlement when a confirmed or adopted snapshot carries a decommit whose ReqDec this node has not received.
+Handles transactions and updates the ledger; also manages decommits.
 
-Machine: [`Hydra.HeadLogic.State.Coordinated.Transactions.machine`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated/Transactions.hs#L131). Topology: [`Hydra.HeadLogic.State.Coordinated.Transactions.DecommitTopology`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated/Transactions.hs#L82).
+- Machine: [`Hydra.HeadLogic.State.Coordinated.Transactions.machine`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated/Transactions.hs#L131).
+- Topology: [`Hydra.HeadLogic.State.Coordinated.Transactions.DecommitTopology`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated/Transactions.hs#L82).
 
 ```mermaid
 stateDiagram-v2
@@ -328,23 +299,12 @@ s2 --> s0 : Settle / administrative reset
 
 ```
 
-## Commit selection owner
+## Commits
 
-A single Crem state contains Unselected, Selected or Approved data. Approval and the optional selected deposit are independent. Every pair of these data states is reachable, so a phase graph would add no restriction.
+Handles selection of commits for inclusion.
 
-Machine: [`Hydra.HeadLogic.State.Coordinated.Commits.machine`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated/Commits.hs#L54). Topology: [`Crem.Topology.TrivialTopology`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated/Commits.hs#L54) (in the machine signature).
-
-```mermaid
-stateDiagram-v2
-state "Owned data" as s0
-
-```
-
-## Deposit registry owner
-
-A single Crem state owns the registry. Each entry has independent eligibility, recording and consumption fields. Ordinary reducers handle observation, status updates, consumption and rollback. This is an ownership graph, not the lifecycle of one deposit; see the [deposit lifecycle](../deposit-lifecycle.svg).
-
-Machine: [`Hydra.HeadLogic.State.Deposits.machine`](../../../../hydra-node/src/Hydra/HeadLogic/State/Deposits.hs#L35). Topology: [`Crem.Topology.TrivialTopology`](../../../../hydra-node/src/Hydra/HeadLogic/State/Deposits.hs#L35) (in the machine signature).
+- Machine: [`Hydra.HeadLogic.State.Coordinated.Commits.machine`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated/Commits.hs#L54).
+- Topology: [`Crem.Topology.TrivialTopology`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated/Commits.hs#L54) (in the machine signature).
 
 ```mermaid
 stateDiagram-v2
@@ -352,11 +312,12 @@ state "Owned data" as s0
 
 ```
 
-## Node clock owner
+## Deposits
 
-A single Crem state owns synchronization status and the observed chain clock; the diagram expresses ownership, not a protocol lifecycle.
+Handles recording a deposit, and their activation or expiry.
 
-Machine: [`Hydra.HeadLogic.State.Clock.machine`](../../../../hydra-node/src/Hydra/HeadLogic/State/Clock.hs#L24). Topology: [`Crem.Topology.TrivialTopology`](../../../../hydra-node/src/Hydra/HeadLogic/State/Clock.hs#L24) (in the machine signature).
+- Machine: [`Hydra.HeadLogic.State.Deposits.machine`](../../../../hydra-node/src/Hydra/HeadLogic/State/Deposits.hs#L35).
+- Topology: [`Crem.Topology.TrivialTopology`](../../../../hydra-node/src/Hydra/HeadLogic/State/Deposits.hs#L35) (in the machine signature).
 
 ```mermaid
 stateDiagram-v2

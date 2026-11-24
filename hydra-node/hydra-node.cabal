@@ -115,7 +115,6 @@ library
     Hydra.HeadLogic.Snapshot.Verification
     Hydra.HeadLogic.State
     Hydra.HeadLogic.State.ChainHistory
-    Hydra.HeadLogic.State.Clock
     Hydra.HeadLogic.State.Coordinated
     Hydra.HeadLogic.State.Coordinated.Snapshots.Topology
     Hydra.HeadLogic.State.Deposits

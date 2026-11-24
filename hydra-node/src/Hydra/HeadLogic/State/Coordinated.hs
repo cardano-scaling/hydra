@@ -27,14 +27,14 @@ module Hydra.HeadLogic.State.Coordinated (
   recordCommitFinalization,
   recordDecommitFinalization,
   replayEvent,
-  components,
+  inspect,
 ) where
 
-import Crem.BaseMachine (InitialState)
+import Crem.BaseMachine (InitialState, withInitialState)
+import Crem.Inspect qualified as Crem (inspectStates)
 import Crem.StateMachine (
   StateMachineT (..),
   run,
-  withoutRendering,
  )
 import Hydra.Chain.ChainState (
   IsChainState (ChainStateType),
@@ -63,7 +63,10 @@ import Hydra.HeadLogic.State.Coordinated.Snapshots qualified as Snapshots (
   machine,
  )
 import Hydra.HeadLogic.State.Coordinated.Snapshots.State qualified as State (
+  SnapshotOutput (..),
   State,
+  Update (..),
+  mkSnapshotOutput,
   restore,
   viewInitial,
  )
@@ -74,12 +77,15 @@ import Hydra.HeadLogic.State.Coordinated.Transactions (
   TransactionState (..),
  )
 import Hydra.HeadLogic.State.Coordinated.Transactions qualified as Transactions (
+  Output,
   machine,
  )
 import Hydra.HeadLogic.State.Types (
   Command (..),
   LocalTransactionCommand (..),
+  SnapshotCommand (..),
   SnapshotState (..),
+  TransactionUpdate (..),
  )
 import Hydra.Ledger (ValidationError)
 import Hydra.Prelude
@@ -98,7 +104,9 @@ data Runtime tx = Runtime
   , parties :: [VerificationKey HydraKey]
   , coordinatedState :: ~(CoordinatedHeadState tx)
   , snapshots :: InitialState (State.State tx)
-  , machine :: ~(StateMachineT Identity (Command tx) (Commits.Output tx))
+  , snapshotMachine :: ~(StateMachineT Identity (SnapshotCommand tx) (State.SnapshotOutput tx))
+  , transactionMachine :: ~(StateMachineT Identity (State.SnapshotOutput tx) (Transactions.Output tx))
+  , commitMachine :: ~(StateMachineT Identity (Transactions.Output tx) (Commits.Output tx))
   }
 
 start :: IsChainState tx => OpenState tx -> Runtime tx
@@ -108,31 +116,21 @@ start os =
     , parties
     , coordinatedState = os.coordinatedHeadState
     , snapshots
-    , machine = withoutRendering $ compose os.headId parties snapshots os.coordinatedHeadState
+    , snapshotMachine = Executable $ Snapshots.machine os.headId parties snapshots
+    , transactionMachine = Executable $ Transactions.machine os.headId snapshotState (transactionState os.coordinatedHeadState) os.coordinatedHeadState.decommitTx
+    , commitMachine = Executable $ Commits.machine snapshotState os.coordinatedHeadState.currentDepositTxId
     }
  where
   parties = vkey <$> os.parameters.parties
   snapshots = restoreSnapshots parties os
+  snapshotState = State.viewInitial snapshots
 
-components ::
-  IsChainState tx =>
-  OpenState tx ->
-  StateMachineT Identity (Command tx) (Commits.Output tx)
-components os = compose os.headId parties (restoreSnapshots parties os) os.coordinatedHeadState
- where
-  parties = vkey <$> os.parameters.parties
-
-compose ::
-  IsChainState tx =>
-  HeadId ->
-  [VerificationKey HydraKey] ->
-  InitialState (State.State tx) ->
-  CoordinatedHeadState tx ->
-  StateMachineT Identity (Command tx) (Commits.Output tx)
-compose headId parties snapshots chs =
-  Basic (Snapshots.machine headId parties snapshots)
-    `Sequential` Basic (Transactions.machine headId (State.viewInitial snapshots) (transactionState chs) chs.decommitTx)
-    `Sequential` Basic (Commits.machine (State.viewInitial snapshots) chs.currentDepositTxId)
+-- | Inspect each owner without executing commands or forcing the local ledger.
+inspect :: Runtime tx -> [(Text, Maybe Text)]
+inspect Runtime{..} =
+  [("Snapshots", description) | (_, description) <- Crem.inspectStates snapshotMachine]
+    <> [("Transactions", description) | (_, description) <- Crem.inspectStates transactionMachine]
+    <> [("Commits", description) | (_, description) <- Crem.inspectStates commitMachine]
 
 restoreSnapshots ::
   IsChainState tx =>
@@ -165,9 +163,31 @@ step :: Runtime tx -> Command tx -> ([StateChanged tx], Runtime tx)
 step runtime command = fromRight ([], runtime) $ advance runtime command
 
 advance :: Runtime tx -> Command tx -> Either Text ([StateChanged tx], Runtime tx)
-advance runtime@Runtime{machine} command =
-  let (output@Commits.Output{transactions = Output{snapshots, events, refusal}}, next) = runIdentity $ run machine command
-   in maybe (Right (events, runtime{coordinatedState = project output, snapshots, machine = next})) Left refusal
+advance runtime@Runtime{..} command =
+  let (input, nextSnapshots) = case command of
+        Transactions transaction ->
+          let update = withInitialState snapshots $ \snapshotState _ ->
+                State.mkSnapshotOutput $ State.Update snapshotState (RunLocalTransactionCommand transaction) []
+           in (update, snapshotMachine)
+        Snapshots snapshot ->
+          runIdentity $ run snapshotMachine snapshot
+      (output, next) = applyUpdates input runtime{snapshotMachine = nextSnapshots}
+   in maybe (Right (output.transactions.events, next)) Left output.transactions.refusal
+
+-- | Reconcile transactions against the updated snapshot before changing commit
+-- selection. Both live commands and retained events use this ordering.
+applyUpdates :: State.SnapshotOutput tx -> Runtime tx -> (Commits.Output tx, Runtime tx)
+applyUpdates input runtime@Runtime{..} =
+  let (transactions, nextTransactions) = runIdentity $ run transactionMachine input
+      (output, nextCommits) = runIdentity $ run commitMachine transactions
+      updated =
+        runtime
+          { coordinatedState = project output
+          , snapshots = transactions.snapshots
+          , transactionMachine = nextTransactions
+          , commitMachine = nextCommits
+          }
+   in (output, updated)
 
 project :: Commits.Output tx -> CoordinatedHeadState tx
 project Commits.Output{transactions = Output{snapshots = owned, transactions, decommit}, currentDepositTxId} =
@@ -194,10 +214,10 @@ markTransactionInvalid :: UTxOType tx -> tx -> ValidationError -> Command tx
 markTransactionInvalid utxo tx err = Transactions $ MarkTransactionInvalid utxo tx err
 
 adoptSnapshot :: VerifiedSnapshot tx -> Command tx
-adoptSnapshot = AdoptSnapshot
+adoptSnapshot = Snapshots . AdoptSnapshot
 
 clearLocalState :: SnapshotNumber -> Command tx
-clearLocalState = ClearLocalState
+clearLocalState = Snapshots . ClearLocalState
 
 recordCommitFinalization ::
   ChainStateType tx ->
@@ -205,29 +225,29 @@ recordCommitFinalization ::
   TxIdType tx ->
   UTxOType tx ->
   Command tx
-recordCommitFinalization = RecordCommitFinalization
+recordCommitFinalization chainState version depositId deposited = Snapshots $ RecordCommitFinalization chainState version depositId deposited
 
 recordDecommitFinalization ::
   ChainStateType tx ->
   SnapshotVersion ->
   UTxOType tx ->
   Command tx
-recordDecommitFinalization = RecordDecommitFinalization
+recordDecommitFinalization chainState version distributed = Snapshots $ RecordDecommitFinalization chainState version distributed
 
 recordDecommit :: tx -> Command tx
 recordDecommit = Transactions . RecordPending
 
 acceptSnapshot :: Snapshot tx -> Seq tx -> Maybe (TxIdType tx) -> Command tx
-acceptSnapshot = AcceptSnapshot
+acceptSnapshot snapshot txs deposit = Snapshots $ AcceptSnapshot snapshot txs deposit
 
 recordSignature :: Candidate tx -> Party -> Signature (Snapshot tx) -> Command tx
-recordSignature = RecordSignature
+recordSignature owned party signature = Snapshots $ RecordSignature owned party signature
 
 confirmSnapshot :: VerifiedCandidate tx -> Command tx
-confirmSnapshot = ConfirmSnapshot
+confirmSnapshot = Snapshots . ConfirmSnapshot
 
 requestSnapshot :: SnapshotRequest tx -> Command tx
-requestSnapshot = RequestSnapshot
+requestSnapshot = Snapshots . RequestSnapshot
 
 replayEvent ::
   IsChainState tx =>
@@ -235,18 +255,8 @@ replayEvent ::
   StateChanged tx ->
   Runtime tx ->
   Runtime tx
-replayEvent deposited event runtime@Runtime{headId, parties, coordinatedState = current, snapshots} =
+replayEvent deposited event runtime@Runtime{headId, parties, snapshots} =
   case Replay.replay headId parties snapshots deposited event of
     Nothing -> runtime
     Just restored ->
-      let transactions =
-            Executable (Transactions.machine headId (State.viewInitial snapshots) (transactionState current) current.decommitTx)
-              `Sequential` Executable (Commits.machine (State.viewInitial snapshots) current.currentDepositTxId)
-          (output, _) = runIdentity $ run transactions restored
-          updated = project output
-          nextSnapshots = output.transactions.snapshots
-       in runtime
-            { coordinatedState = updated
-            , snapshots = nextSnapshots
-            , machine = withoutRendering $ compose headId parties nextSnapshots updated
-            }
+      snd $ applyUpdates restored runtime{snapshotMachine = Executable $ Snapshots.machine headId parties restored.snapshots}

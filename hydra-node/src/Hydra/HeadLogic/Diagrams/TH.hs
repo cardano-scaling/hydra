@@ -2,7 +2,7 @@
 
 -- | Reflect the topology in a concrete machine's signature. Workflow aliases
 -- contain promoted values; owner topologies use Crem's singleton metadata.
-module Hydra.HeadLogic.Diagrams.TH (machineDiagrams, compositionSources) where
+module Hydra.HeadLogic.Diagrams.TH (machineDiagrams, stateSources) where
 
 import Crem.BaseMachine (BaseMachineT)
 import Data.Char (isAlphaNum, isSpace, toLower)
@@ -62,18 +62,18 @@ machineDiagrams render annotations entries = do
           _ -> pure $ AppTypeE (VarE 'demote) topology
       _ -> pure $ AppTypeE (VarE 'demote) topology
     (machine, topologySource) <- machineSources name topology
-    let sources = "Machine: " <> machine <> ". Topology: " <> topologySource <> "."
+    let sources = "- Machine: " <> machine <> ".\n- Topology: " <> topologySource <> "."
         labels = maybe (ListE []) VarE $ List.lookup name annotations
     [|$(varE render) $(lift title) $(lift sources) $(lift description) $(pure labels) $(pure value)|]
 
-compositionSources :: Name -> [Name] -> Q Exp
-compositionSources composition machines = do
-  source <- sourceLink composition
+stateSources :: Name -> [Name] -> Q Exp
+stateSources coordinator machines = do
+  source <- sourceLink coordinator
   rows <- forM machines $ \machine -> do
     topology <- reifyType machine >>= topologyOf . resultType
     (machineSource, topologySource) <- machineSources machine topology
     pure $ "| " <> machineSource <> " | " <> topologySource <> " |"
-  lift $ "Composition: " <> source <> ".\n\n" <> String.unlines ("| Machine | Topology |" : "| --- | --- |" : rows)
+  lift $ "Updates: " <> source <> ".\n\n" <> String.unlines ("| Machine | Topology |" : "| --- | --- |" : rows)
 
 resultType :: Type -> Type
 resultType = \case

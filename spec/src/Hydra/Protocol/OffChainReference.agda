@@ -33,6 +33,13 @@
 -- snapshot requests. The decommit topology lives beside its transaction machine
 -- in State.Coordinated.Transactions. Module placement does not change the
 -- decisions or retained-event projections defined here.
+-- State.Node assembles the deposit registry, Head lifecycle and observed time;
+-- time and synchronisation are plain node-state updates, without a clock machine.
+-- Deposit settlement carries the value read before consumption. State.Coordinated
+-- routes ordinary transactions directly to their owner. Snapshot changes precede
+-- transaction reconciliation and commit selection; this routing preserves the
+-- phase and ordered-outcome projections below. Rejected commands retain none of
+-- the tentative component updates; replay restores snapshots without admission.
 -- Rules expose workflows taking named, lazy Args records; their callers use
 -- Workflow.run. Argument packaging preserves the decisions and event order
 -- projected here and does not add guards or primitive calls.
