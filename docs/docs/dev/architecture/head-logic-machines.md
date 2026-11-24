@@ -31,12 +31,12 @@ The node applies each state-change event to the relevant components and updates 
 
 An open Head owns snapshots, local transactions and decommit reservations, and commit selection. Ordinary transaction commands go directly to the transaction machine.
 
-Updates: [`Hydra.HeadLogic.State.Coordinated.advance`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated.hs#L165).
+Updates: [`Hydra.HeadLogic.State.Coordinated.advance`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated.hs#L166).
 
 | Machine | Topology |
 | --- | --- |
-| [`Hydra.HeadLogic.State.Coordinated.Snapshots.machine`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated/Snapshots.hs#L86) | [`Hydra.HeadLogic.State.Coordinated.Snapshots.Topology.SnapshotTopology`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated/Snapshots/Topology.hs#L33) |
-| [`Hydra.HeadLogic.State.Coordinated.Transactions.machine`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated/Transactions.hs#L131) | [`Hydra.HeadLogic.State.Coordinated.Transactions.DecommitTopology`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated/Transactions.hs#L82) |
+| [`Hydra.HeadLogic.State.Coordinated.Snapshots.machine`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated/Snapshots.hs#L87) | [`Hydra.HeadLogic.State.Coordinated.Snapshots.Topology.SnapshotTopology`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated/Snapshots/Topology.hs#L33) |
+| [`Hydra.HeadLogic.State.Coordinated.Transactions.machine`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated/Transactions.hs#L132) | [`Hydra.HeadLogic.State.Coordinated.Transactions.DecommitTopology`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated/Transactions.hs#L83) |
 | [`Hydra.HeadLogic.State.Coordinated.Commits.machine`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated/Commits.hs#L54) | [`Crem.Topology.TrivialTopology`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated/Commits.hs#L54) (in the machine signature) |
 
 ```mermaid
@@ -139,35 +139,29 @@ s4 --> s5
 
 Check competing incremental work and transaction validity before recording a pending decommit.
 
-- Machine: [`Hydra.HeadLogic.Rules.Network.ReqDec.workflow`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Network/ReqDec.hs#L132).
-- Topology: [`Hydra.HeadLogic.Rules.Network.ReqDec.ReqDecTopology`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Network/ReqDec.hs#L92).
+- Machine: [`Hydra.HeadLogic.Rules.Network.ReqDec.workflow`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Network/ReqDec.hs#L111).
+- Topology: [`Hydra.HeadLogic.Rules.Network.ReqDec.ReqDecTopology`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Network/ReqDec.hs#L77).
 
 ```mermaid
 stateDiagram-v2
 state "CheckCommit" as s0
-state "CheckExistingDecommit" as s1
-state "CheckOutputs" as s2
-state "CheckCapacity" as s3
-state "RecordAndRequest" as s4
-state "Finished" as s5
+state "ValidateDecommit" as s1
+state "RecordAndRequest" as s2
+state "Finished" as s3
 s0 --> s1
-s0 --> s5
+s0 --> s3
 s1 --> s2
-s1 --> s5
+s1 --> s3
 s2 --> s3
-s2 --> s5
-s3 --> s4
-s3 --> s5
-s4 --> s5
 
 ```
 
-## ReqSn: Receive a snapshot request
+## Snapshot validation
 
-Resolve any incremental work and transactions before building, signing and retaining the snapshot.
+Resolve incremental work, apply transactions and check commitment capacity before issuing a checked snapshot.
 
-- Machine: [`Hydra.HeadLogic.Rules.Network.ReqSn.workflow`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Network/ReqSn.hs#L194).
-- Topology: [`Hydra.HeadLogic.Rules.Network.ReqSn.ReqSnTopology`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Network/ReqSn.hs#L123).
+- Machine: [`Hydra.HeadLogic.Rules.Network.ReqSn.validationWorkflow`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Network/ReqSn.hs#L170).
+- Topology: [`Hydra.HeadLogic.Rules.Network.ReqSn.ValidationTopology`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Network/ReqSn.hs#L119).
 
 ```mermaid
 stateDiagram-v2
@@ -177,17 +171,32 @@ state "ResolveDeposit" as s2
 state "ResolveTransactions" as s3
 state "ApplyTransactions" as s4
 state "BuildSnapshot" as s5
-state "SignAndAcknowledge" as s6
-state "PruneLocalTransactions" as s7
-state "Finished" as s8
+state "Validated" as s6
 s0 --> s1
 s1 --> s2
 s2 --> s3
 s3 --> s4
 s4 --> s5
 s5 --> s6
-s6 --> s7
-s7 --> s8
+
+```
+
+## ReqSn: Receive a snapshot request
+
+Resolve any incremental work and transactions before building, signing and retaining the snapshot.
+
+- Machine: [`Hydra.HeadLogic.Rules.Network.ReqSn.workflow`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Network/ReqSn.hs#L310).
+- Topology: [`Hydra.HeadLogic.Rules.Network.ReqSn.ReqSnTopology`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Network/ReqSn.hs#L285).
+
+```mermaid
+stateDiagram-v2
+state "ValidateRequest" as s0
+state "SignAndAcknowledge" as s1
+state "PruneLocalTransactions" as s2
+state "Finished" as s3
+s0 --> s1
+s1 --> s2
+s2 --> s3
 
 ```
 
@@ -216,27 +225,47 @@ s4 --> s5
 
 ```
 
-## Client decommit
+## Decommit admission
 
-Validate a client decommit before broadcasting it.
+Check availability, ledger applicability, nonempty outputs and capacity once. Client and network callers retain distinct refusal and retry policies.
 
-- Machine: [`Hydra.HeadLogic.Rules.Client.Decommit.workflow`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Client/Decommit.hs#L88).
-- Topology: [`Hydra.HeadLogic.Rules.Client.Decommit.DecommitTopology`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Client/Decommit.hs#L53).
+- Machine: [`Hydra.HeadLogic.Rules.Decommit.workflow`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Decommit.hs#L66).
+- Topology: [`Hydra.HeadLogic.Rules.Decommit.AdmissionTopology`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Decommit.hs#L30).
 
 ```mermaid
 stateDiagram-v2
 state "CheckPending" as s0
-state "CheckOutputs" as s1
-state "CheckCapacity" as s2
-state "Broadcast" as s3
-state "Finished" as s4
+state "ApplyLedger" as s1
+state "CheckOutputs" as s2
+state "CheckCapacity" as s3
+state "Accepted" as s4
+state "Refused" as s5
 s0 --> s1
-s0 --> s4
+s0 --> s5
 s1 --> s2
-s1 --> s4
+s1 --> s5
 s2 --> s3
-s2 --> s4
+s2 --> s5
 s3 --> s4
+s3 --> s5
+
+```
+
+## Client decommit
+
+Validate a client decommit before broadcasting it.
+
+- Machine: [`Hydra.HeadLogic.Rules.Client.Decommit.workflow`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Client/Decommit.hs#L69).
+- Topology: [`Hydra.HeadLogic.Rules.Client.Decommit.DecommitTopology`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Client/Decommit.hs#L40).
+
+```mermaid
+stateDiagram-v2
+state "ValidateDecommit" as s0
+state "Broadcast" as s1
+state "Finished" as s2
+s0 --> s1
+s0 --> s2
+s1 --> s2
 
 ```
 
@@ -263,7 +292,7 @@ s2 --> s3
 
 Handles requesting, accepting, collecting and confirming snapshots.
 
-- Machine: [`Hydra.HeadLogic.State.Coordinated.Snapshots.machine`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated/Snapshots.hs#L86).
+- Machine: [`Hydra.HeadLogic.State.Coordinated.Snapshots.machine`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated/Snapshots.hs#L87).
 - Topology: [`Hydra.HeadLogic.State.Coordinated.Snapshots.Topology.SnapshotTopology`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated/Snapshots/Topology.hs#L33).
 
 ```mermaid
@@ -283,8 +312,8 @@ s2 --> s0 : Confirmation / adoption / administrative reset
 
 Handles transactions and updates the ledger; also manages decommits.
 
-- Machine: [`Hydra.HeadLogic.State.Coordinated.Transactions.machine`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated/Transactions.hs#L131).
-- Topology: [`Hydra.HeadLogic.State.Coordinated.Transactions.DecommitTopology`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated/Transactions.hs#L82).
+- Machine: [`Hydra.HeadLogic.State.Coordinated.Transactions.machine`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated/Transactions.hs#L132).
+- Topology: [`Hydra.HeadLogic.State.Coordinated.Transactions.DecommitTopology`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated/Transactions.hs#L83).
 
 ```mermaid
 stateDiagram-v2
