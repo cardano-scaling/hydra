@@ -149,4 +149,3 @@ workflow Args{chainPointTime = ChainPointTime{currentSlot, currentChainTime}, tr
   nextSn = previous.number + 1
   CoordinatedHeadState{confirmedSnapshot, seenSnapshot} = coordinatedHeadState
   OpenState{headId, parameters, coordinatedHeadState} = openState
-

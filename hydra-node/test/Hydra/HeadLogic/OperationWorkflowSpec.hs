@@ -12,16 +12,18 @@ import Hydra.Agda.OffChainReference qualified as Agda
 import Hydra.Chain (ChainEvent (..), OnChainTx (..), PostChainTx (FinalPartialFanoutTx))
 import Hydra.HeadLogic.Error (LogicError (AssertionFailed))
 import Hydra.HeadLogic.Interpreter qualified as Interpreter
-import Hydra.HeadLogic.Program qualified as Program
+import Hydra.HeadLogic.Program (reject)
 import Hydra.HeadLogic.Rules.Chain.Deposits qualified as Deposits
+import Hydra.HeadLogic.Rules.Input qualified as Input
 import Hydra.HeadLogic.Rules.Network.AckSn qualified as AckSn
 import Hydra.HeadLogic.State (HeadState (FanoutProgress), OnChainFanoutDatum (DatumFanoutProgress), PartialFanoutState (distributedOutputs, fanoutDatum, remainingOutputs))
 import Hydra.HeadLogic.Trace (TraceStep (..))
+import Hydra.HeadLogic.Workflow qualified as Workflow
 import Hydra.HeadLogicSpec (withAccumulators)
 import Hydra.Ledger.Simple (SimpleTx (..), simpleLedger)
 import Hydra.Network.Message (Message (ReqSn))
 import Hydra.Node.Environment (Environment (depositActivation, depositPeriod))
-import Hydra.Node.HeadLogic (CoordinatedHeadState (..), Effect (..), Input (..), OpenState (..), Outcome (..), StateChanged (..), aggregateState, mkSeenSnapshot, ruleEnvironment, updateProgram)
+import Hydra.Node.HeadLogic (CoordinatedHeadState (..), Effect (..), Input (..), OpenState (..), Outcome (..), StateChanged (..), aggregateState, mkSeenSnapshot, ruleEnvironment)
 import Hydra.Node.State (Deposit (..), DepositStatus (..), NodeState (..), initialChainTime, trackedFromPending)
 import Hydra.Prelude hiding (label, state, trace)
 import Hydra.Tx.Crypto (aggregate, sign)
@@ -94,7 +96,7 @@ spec = describe "operation workflow boundaries" $ do
         base = Scenario.openState Scenario.initialNode
         state = base{coordinatedHeadState = base.coordinatedHeadState{seenSnapshot = mkSeenSnapshot snapshot $ Map.fromList [(alice, sign aliceSk snapshot), (bob, sign bobSk snapshot)], localUTxO = utxoRef 2, localTxs = Seq.singleton tx, allTxs = Map.singleton 1 tx, currentDepositTxId = Just 42}}
         pending = Map.singleton 42 $ Deposit base.headId (utxoRef 42) initialChainTime (addUTCTime 10000 initialChainTime) Active
-        program = AckSn.handle (ruleEnvironment $ Scenario.environment 1) Scenario.initialNode.chainPointTime pending state carol (sign carolSk snapshot) 1
+        program = Workflow.run $ AckSn.workflow AckSn.Args{env = ruleEnvironment $ Scenario.environment 1, chainPointTime = Scenario.initialNode.chainPointTime, pendingDeposits = pending, openState = state, sender = carol, signed = sign carolSk snapshot, snapshotNumber = 1}
         (outcome, trace) = Interpreter.traceProgram (testInterpreterConfig simpleLedger) program
     outcome `shouldSatisfy` \case Continue [PartySignedSnapshot{}, SnapshotConfirmed{}, CommitApproved{}, SnapshotRequestDecided{}] [OnChainEffect{}, NetworkEffect ReqSn{}] -> True; _ -> False
     signals trace `shouldBe` [Changed "party signed snapshot", PrimitiveCalled "verify multisignature", Changed "snapshot confirmed", Changed "commit approved", Emitted "post increment", Changed "snapshot request decided", Emitted "broadcast ReqSn"]
@@ -112,7 +114,7 @@ spec = describe "operation workflow boundaries" $ do
           program = do
             effective <- Deposits.updateDepositStates (ruleEnvironment env) before.pendingDeposits now
             unless ((statusRef . (.status) <$> Map.lookup 7 effective) == Just expected) $
-              Program.reject $
+              reject $
                 AssertionFailed "tick result differs from the retained status projection"
           outcome = Interpreter.runProgram (testInterpreterConfig simpleLedger) program
       outcome `shouldSatisfy` \case Continue _ [] -> True; _ -> False
@@ -140,7 +142,7 @@ fixture name = do
   either (fail . toString) pure $ Inputs.checkInput (Scenario.environment 0) initialChainTime before input
 
 run :: NodeState SimpleTx -> Input SimpleTx -> (Outcome SimpleTx, [TraceStep])
-run before input = Interpreter.traceProgram (testInterpreterConfig simpleLedger) $ updateProgram (ruleEnvironment $ Scenario.environment 0) initialChainTime before input
+run before input = Interpreter.traceProgram (testInterpreterConfig simpleLedger) $ Workflow.run $ Input.workflow Input.Args{env = ruleEnvironment $ Scenario.environment 0, now = initialChainTime, nodeState = before, input = input}
 
 signals :: [TraceStep] -> [TraceStep]
 signals = filter $ \case Changed{} -> True; Emitted{} -> True; PrimitiveCalled{} -> True; _ -> False

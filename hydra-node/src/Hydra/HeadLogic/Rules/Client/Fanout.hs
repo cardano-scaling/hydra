@@ -1,5 +1,4 @@
 {-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE RecordWildCards #-}
 {-# OPTIONS_GHC -Wno-ambiguous-fields #-}
 
 -- | Validate a fanout decision, retain the matching intent, then post its step.
@@ -10,7 +9,7 @@ import Hydra.API.ClientInput qualified as Client
 import Hydra.API.ServerOutput qualified as ServerOutput (ClientMessage (CommandFailed))
 import Hydra.HeadLogic.Fanout.Plan (FanoutPlan, closedSelectionPlan, fullPlan, planChange, planTransaction, remainingSelectionPlan)
 import Hydra.HeadLogic.Outcome (Effect (ClientEffect, OnChainEffect))
-import Hydra.HeadLogic.Program (Program, decide, change, emit)
+import Hydra.HeadLogic.Program (Program, change, decide, emit)
 import Hydra.HeadLogic.State (ClosedState, HeadState (Closed, FanoutProgress), PartialFanoutState)
 import Hydra.HeadLogic.Workflow (Transition, Workflow, choose, continue, finish, next)
 import Hydra.HeadLogic.Workflow qualified as Workflow
