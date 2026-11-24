@@ -17,8 +17,8 @@ import Hydra.HeadLogic.Error (
   RequirementFailure (InvalidMultisignature),
  )
 import Hydra.HeadLogic.Outcome (WaitReason (WaitOnSeenSnapshot))
-import Hydra.HeadLogic.Program (Program)
-import Hydra.HeadLogic.Program qualified as Program (
+import Hydra.HeadLogic.Program (
+  Program,
   suspend,
   verifySnapshot,
  )
@@ -75,7 +75,7 @@ verify ::
   MultiSignature (Snapshot tx) ->
   Program tx (Either VerificationError (VerifiedSnapshot tx))
 verify vkeys snapshot bytes signatures = do
-  result <- Program.verifySnapshot vkeys signatures bytes
+  result <- verifySnapshot vkeys signatures bytes
   pure $ VerifiedSnapshot snapshot signatures vkeys <$ result
 
 verifyCandidate ::
@@ -94,7 +94,7 @@ verifySeenSnapshot ::
   Program tx (Either (LogicError tx) (VerifiedSnapshot tx))
 verifySeenSnapshot parties seen signatures = case seen of
   SeenSnapshot{snapshot} -> first (verificationError parties signatures) <$> verifySignedSnapshot parties snapshot signatures
-  _ -> Program.suspend WaitOnSeenSnapshot
+  _ -> suspend WaitOnSeenSnapshot
 
 verificationError ::
   [VerificationKey HydraKey] ->

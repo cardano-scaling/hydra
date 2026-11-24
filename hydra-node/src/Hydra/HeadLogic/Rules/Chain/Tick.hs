@@ -1,4 +1,5 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# OPTIONS_GHC -Wno-ambiguous-fields #-}
 
 module Hydra.HeadLogic.Rules.Chain.Tick where
@@ -63,7 +64,7 @@ handleTick env now pendingDeposits headState chainTime chainPoint syncStatus = d
     -- A pending local fanout still counts as Closed until observed on chain.
     _ -> forM_ (getClosedState headState) notifyReadyToFanout
  where
-  notifyReadyToFanout ClosedState{contestationDeadline, readyToFanoutSent, headId} = do
+  notifyReadyToFanout ClosedState{..} = do
     shouldNotify <-
       decide
         "fanout deadline passed and notification is unsent"

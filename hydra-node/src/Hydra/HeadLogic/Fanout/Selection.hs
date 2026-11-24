@@ -1,4 +1,5 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# OPTIONS_GHC -Wno-ambiguous-fields #-}
 
 module Hydra.HeadLogic.Fanout.Selection where
@@ -110,7 +111,7 @@ mkFullFanoutTx confirmedSnapshot version headSeed contestationDeadline =
     }
  where
   (effectiveCommit, effectiveDecommit) = effectiveCommitDecommit version snapshotVersion utxoToCommit utxoToDecommit
-  Snapshot{utxo, utxoToCommit, utxoToDecommit, version = snapshotVersion} = getSnapshot confirmedSnapshot
+  Snapshot{version = snapshotVersion, ..} = getSnapshot confirmedSnapshot
 
 computeFullFanoutUTxO ::
   IsTx tx =>
@@ -130,13 +131,13 @@ fanoutUTxOFromSnapshot ::
 fanoutUTxOFromSnapshot confirmedSnapshot version =
   combinedUTxO utxo effectiveCommit effectiveDecommit
  where
-  Snapshot{utxo, utxoToCommit, utxoToDecommit, version = snapshotVersion} = getSnapshot confirmedSnapshot
+  Snapshot{version = snapshotVersion, ..} = getSnapshot confirmedSnapshot
   (effectiveCommit, effectiveDecommit) = effectiveCommitDecommit version snapshotVersion utxoToCommit utxoToDecommit
 
 -- | The step this node is currently driving. 'Nothing' while a manual fanout
 -- waits on the next selection, where nothing is pending.
 currentFanoutStep :: IsTx tx => PartialFanoutState tx -> Maybe (NextFanoutStep tx)
-currentFanoutStep PartialFanoutState{confirmedSnapshot, version, remainingOutputs, fanoutDatum, mode}
+currentFanoutStep PartialFanoutState{..}
   | fanoutDatum == DatumFanoutProgress && nullOutputs remainingOutputs = Nothing
   | otherwise = case mode of
       AwaitingSelection -> Nothing
@@ -154,7 +155,7 @@ currentFanoutStep PartialFanoutState{confirmedSnapshot, version, remainingOutput
 -- selections can both be non-final steps. By content, because naming the same
 -- outputs under other inputs is a valid way to ask for the same set.
 matchesFanoutStep :: IsTx tx => PartialFanoutState tx -> NextFanoutStep tx -> PostChainTx tx -> Bool
-matchesFanoutStep PartialFanoutState{confirmedSnapshot, version, headSeed, contestationDeadline} step postChainTx =
+matchesFanoutStep PartialFanoutState{..} step postChainTx =
   case (step, postChainTx) of
     -- A contest can replace the deadline or snapshot before a failure arrives.
     (FullFanoutStep, FanoutTx{}) -> postChainTx == mkFullFanoutTx confirmedSnapshot version headSeed contestationDeadline

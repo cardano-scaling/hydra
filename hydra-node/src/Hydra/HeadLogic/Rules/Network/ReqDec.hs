@@ -164,11 +164,13 @@ workflow Args{chainPointTime = ChainPointTime{currentSlot, currentChainTime}, tr
           void $ decide "decommit produces outputs" False
           invalid DecommitTxInvalid{validationError = ValidationError "decommit transaction has no outputs", ..}
       | otherwise -> continue (const $ CapacityCheck after) $ decide "decommit produces outputs" True
-    CapacityCheck after -> case checkDecommitCapacity env.snapshotLimits after (settledUTxO version previous) decommitTx of
-      Left validationError -> continue (const Done) $ do
-        void $ decide "decommit fits local and confirmed capacity" False
-        invalid DecommitTxInvalid{..}
-      Right () -> continue (const Record) $ decide "decommit fits local and confirmed capacity" True
+    CapacityCheck after ->
+      let capacityCheck = checkDecommitCapacity env.snapshotLimits after (settledUTxO version previous) decommitTx
+       in case capacityCheck of
+            Left validationError -> continue (const Done) $ do
+              void $ decide "decommit fits local and confirmed capacity" False
+              invalid DecommitTxInvalid{..}
+            Right () -> continue (const Record) $ decide "decommit fits local and confirmed capacity" True
     Record -> continue (const Done) $ do
       void $ Staging.stage (Coordinated.start openState) $ Coordinated.recordDecommit decommitTx
       noSnapshot <- decide "no snapshot is in flight" (not $ snapshotInFlight seenSnapshot)

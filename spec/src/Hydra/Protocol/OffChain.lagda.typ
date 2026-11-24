@@ -1486,6 +1486,7 @@ blockchain sees a _rollback_ followed by rollforwards.
 - Complete commits changes and releases effects; Wait retains the change prefix but discards effects; Reject discards both.
 - Each input/retry starts a fresh workflow. Signing keys stay in interpreter configuration, outside traces.
 - Callers supply named, lazy `Args` records and execute workflows with `Workflow.run`; argument packaging preserves guards, primitive calls and event order.
+- Record wildcards and named, lazy branch inputs preserve these decisions; explicit imports refer to the same `Program` primitives.
 - ReqDec keeps the incoming transaction distinct from the pending decommit in coordinated state; DecommitInvalid events identify the incoming transaction.
 - ReqSn constructs the snapshot from the applied UTxO, resolved commit/decommit sets and ordered transactions; the snapshot number and deposit ID come from the request, and its version matches coordinated state.
 - Verification returns success, a signature-count mismatch, or the nonempty list of invalid signers in party order.

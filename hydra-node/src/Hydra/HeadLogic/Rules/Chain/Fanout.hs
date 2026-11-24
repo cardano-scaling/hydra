@@ -1,5 +1,6 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# OPTIONS_GHC -Wno-ambiguous-fields #-}
 
 module Hydra.HeadLogic.Rules.Chain.Fanout where
@@ -146,7 +147,7 @@ onPartialFanoutChainPartialFanoutTx pfs newChainState observedDistributed =
  where
   emitStep step = emitFanoutStep step confirmedSnapshot version headSeed contestationDeadline
 
-  PartialFanoutState{headId, confirmedSnapshot, version, headSeed, contestationDeadline, remainingOutputs, mode} = pfs
+  PartialFanoutState{..} = pfs
 
 -- | Observe the final fanout while in 'PartialFanout', finalizing the head with
 -- the accumulated distributed outputs plus this final batch.

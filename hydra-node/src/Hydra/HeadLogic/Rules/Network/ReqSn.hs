@@ -209,8 +209,9 @@ workflow Args{chainPointTime = ChainPointTime{currentSlot, currentChainTime}, de
       unless matches $ suspend $ WaitOnSnapshotVersion snapshotVersion
     Checked -> continue (uncurry DecommitResolved) resolveDecommit
     DecommitResolved active decommit -> continue (\commit -> DepositResolved active commit decommit) resolveDeposit
-    DepositResolved active commit decommit -> continue (TransactionsResolved active commit decommit) $
-      case toList (fromList transactionIds \\ Map.keysSet allTxs) of
+    DepositResolved active commit decommit -> continue (TransactionsResolved active commit decommit) $ do
+      let missingTxIds = toList (fromList transactionIds \\ Map.keysSet allTxs)
+      case missingTxIds of
         [] -> pure $ mapMaybe (`Map.lookup` allTxs) transactionIds
         unseen -> suspend $ WaitOnTxs unseen
     TransactionsResolved active commit decommit txs -> continue (\after -> TransactionsApplied after commit decommit txs) $ do
@@ -266,9 +267,11 @@ workflow Args{chainPointTime = ChainPointTime{currentSlot, currentChainTime}, de
   -- A deposit is carried separately: it becomes spendable only after increment.
   resolveDeposit :: Program tx (Maybe (UTxOType tx))
   resolveDeposit = case mDepositTxId of
-    Nothing -> case settlingCommitAtPeriod env.depositPeriod version currentChainTime pendingDeposits previous of
-      Just (ContinueCommit (_, Deposit{deposited})) -> suspend WaitOnUnresolvedCommit{commitUTxO = deposited}
-      _ -> pure Nothing
+    Nothing -> do
+      let settlingCommit = settlingCommitAtPeriod env.depositPeriod version currentChainTime pendingDeposits previous
+      case settlingCommit of
+        Just (ContinueCommit (_, Deposit{deposited})) -> suspend WaitOnUnresolvedCommit{commitUTxO = deposited}
+        _ -> pure Nothing
     Just depositTxId
       | finalizedDepositTxId finalizedCommit == Just depositTxId -> reject $ RequireFailed ReqSnDepositBlockedByFinalizedCommit{depositTxId}
       | otherwise -> case Map.lookup depositTxId pendingDeposits of

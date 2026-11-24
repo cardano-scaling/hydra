@@ -20,8 +20,8 @@ import Hydra.HeadLogic.Error (
  )
 import Hydra.HeadLogic.Input (Input (..))
 import Hydra.HeadLogic.Outcome (Effect (..), WaitReason (..))
-import Hydra.HeadLogic.Program (Program)
-import Hydra.HeadLogic.Program qualified as Program (
+import Hydra.HeadLogic.Program (
+  Program,
   decide,
   emit,
   reject,
@@ -108,19 +108,21 @@ workflow Args{..} = Workflow.workflow (show . statePhase) CheckSize step
   step :: State tx from -> Transition tx InputTopology (State tx) from
   step = \case
     CheckSize -> continue (const CheckSync) $ case input of
-      ClientInput clientInput -> case validateClientInputWith env.snapshotLimits clientInput of
-        Left AccumulatorTooLarge{utxoCount, maxAllowed} -> do
-          void $ Program.decide "client input fits the accumulator" False
-          Program.reject $ SideLoadSnapshotFailed SideLoadUTxOSetTooLarge{utxoCount, maxAllowed}
-        Right _ -> void $ Program.decide "client input fits the accumulator" True
+      ClientInput clientInput -> do
+        let sizeCheck = validateClientInputWith env.snapshotLimits clientInput
+        case sizeCheck of
+          Left AccumulatorTooLarge{utxoCount, maxAllowed} -> do
+            void $ decide "client input fits the accumulator" False
+            reject $ SideLoadSnapshotFailed SideLoadUTxOSetTooLarge{utxoCount, maxAllowed}
+          Right _ -> void $ decide "client input fits the accumulator" True
       _ -> pure ()
     CheckSync -> case (syncStatus, input) of
       (CatchingUp, ClientInput clientInput) -> continue (const Done) $ do
-        void $ Program.decide "node is in sync" False
-        Program.emit $ ClientEffect $ ServerOutput.RejectedInputBecauseUnsynced clientInput chainTime.drift
+        void $ decide "node is in sync" False
+        emit $ ClientEffect $ ServerOutput.RejectedInputBecauseUnsynced clientInput chainTime.drift
       (CatchingUp, NetworkInput{}) -> continue (const Done) $ do
-        void $ Program.decide "node is in sync" False
-        Program.suspend WaitOnNodeInSync{currentSlot = chainTime.currentSlot}
+        void $ decide "node is in sync" False
+        suspend WaitOnNodeInSync{currentSlot = chainTime.currentSlot}
       _ -> case nodeState.headState of
         Idle st -> continue (const $ InIdle st) admitted
         Open st -> continue (const $ InOpen st) admitted
@@ -135,7 +137,7 @@ workflow Args{..} = Workflow.workflow (show . statePhase) CheckSize step
     Done -> finish Done
 
   admitted :: Program tx ()
-  admitted = void $ Program.decide "input is admitted while at this sync status" True
+  admitted = void $ decide "input is admitted while at this sync status" True
   dispatch st = case input of
     ChainInput{} -> handleChainInput env now nodeState.pendingDeposits st input syncStatus
     ClientInput{} -> handleClientInput env chainTime nodeState.pendingDeposits st input

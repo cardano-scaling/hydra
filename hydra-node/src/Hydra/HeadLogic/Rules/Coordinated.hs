@@ -3,8 +3,8 @@ module Hydra.HeadLogic.Rules.Coordinated (stage, sendSnapshot, broadcastSnapshot
 
 import Hydra.HeadLogic.Error (LogicError (AssertionFailed))
 import Hydra.HeadLogic.Outcome (Effect (NetworkEffect))
-import Hydra.HeadLogic.Program (Program)
-import Hydra.HeadLogic.Program qualified as Program (
+import Hydra.HeadLogic.Program (
+  Program,
   change,
   decide,
   emit,
@@ -27,8 +27,8 @@ import Hydra.Tx (IsTx)
 -- | Stage a checked coordinated update in the current input program.
 stage :: Runtime tx -> Command tx -> Program tx (Runtime tx)
 stage runtime command = case advance runtime command of
-  Left message -> Program.reject $ AssertionFailed message
-  Right (events, next) -> traverse_ Program.change events $> next
+  Left message -> reject $ AssertionFailed message
+  Right (events, next) -> traverse_ change events $> next
 
 sendSnapshot ::
   IsTx tx =>
@@ -37,10 +37,10 @@ sendSnapshot ::
   Program tx ()
 sendSnapshot runtime request = do
   let (events, _) = step runtime $ requestSnapshot request
-  accepted <- Program.decide "proposal matches the current snapshot context" (not $ null events)
+  accepted <- decide "proposal matches the current snapshot context" (not $ null events)
   when accepted $ do
-    traverse_ Program.change events
+    traverse_ change events
     broadcastSnapshot request
 
 broadcastSnapshot :: IsTx tx => SnapshotRequest tx -> Program tx ()
-broadcastSnapshot = Program.emit . NetworkEffect . requestMessage
+broadcastSnapshot = emit . NetworkEffect . requestMessage

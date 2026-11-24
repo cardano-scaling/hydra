@@ -56,6 +56,10 @@ network workflows exclude the deposit claimed by the retained finalized commit.
 `ReqDec` distinguishes the incoming transaction from any pending decommit;
 its failure events identify the incoming transaction.
 
+Rules import `Program` primitives explicitly and call them without qualification.
+State destructuring uses `RecordWildCards`, with aliases where request and state
+fields overlap. Complex `case` subjects use named, lazy intermediate results.
+
 `ReqSn` constructs the snapshot from the applied UTxO, resolved commit/decommit
 sets, and ordered transactions. The snapshot number and deposit ID come from
 the request; the version is checked against the current coordinated state.

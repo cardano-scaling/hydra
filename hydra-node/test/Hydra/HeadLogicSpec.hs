@@ -5396,7 +5396,8 @@ spec =
             (vk, sk) <- generate genKeyPair
             txOut <- generate (genOutputFor vk)
             txIn <- generate genTxIn
-            tx <- case mkSimpleTx (txIn, txOut) (mkVkAddress Fixture.testNetworkId vk, txOutValue txOut) (mkSecret sk) of
+            let payment = mkSimpleTx (txIn, txOut) (mkVkAddress Fixture.testNetworkId vk, txOutValue txOut) (mkSecret sk)
+            tx <- case payment of
               Left err -> failure $ "cannot create payment tx: " <> show err
               Right tx' -> pure tx'
             depositOut <- generate (genOutputFor vk)
@@ -5607,7 +5608,8 @@ spec =
             outcome `hasNoEffectSatisfying` \case
               NetworkEffect{} -> True
               _ -> False
-        case update aliceEnv ledger now st (receiveMessage $ ReqSn 0 1 [] (Just tx) Nothing) of
+        let outcome = update aliceEnv ledger now st (receiveMessage $ ReqSn 0 1 [] (Just tx) Nothing)
+        case outcome of
           Error (RequireFailed (SnapshotDoesNotApply 1 rejected _)) -> rejected `shouldBe` txId tx
           other -> failure $ "expected the colliding decommit snapshot to be rejected, got: " <> show other
 
@@ -5623,7 +5625,8 @@ spec =
         txIn1 <- generate genTxIn
         txIn2 <- generate genTxIn
         let u0 = forceUTxO $ UTxO.fromList [(txIn1, txOut1), (txIn2, txOut2)]
-        tx <- case mkSimpleTx (txIn1, txOut1) (mkVkAddress Fixture.testNetworkId vk, txOutValue txOut1) (mkSecret sk) of
+            payment = mkSimpleTx (txIn1, txOut1) (mkVkAddress Fixture.testNetworkId vk, txOutValue txOut1) (mkSecret sk)
+        tx <- case payment of
           Left err -> failure $ "cannot create tx: " <> show err
           Right tx' -> pure tx'
         let st0 =
@@ -5654,8 +5657,9 @@ spec =
           getState
         outcome <- runHeadLogic aliceEnv ledger s1 $ step $ receiveMessage $ ReqSn 0 1 [txId tx] Nothing Nothing
         case outcome of
-          Continue{stateChanges} ->
-            case listToMaybe [u | SnapshotRequested{requestedSnapshot = Snapshot{utxo = u}} <- stateChanges] of
+          Continue{stateChanges} -> do
+            let requestedUTxO = listToMaybe [u | SnapshotRequested{requestedSnapshot = Snapshot{utxo = u}} <- stateChanges]
+            case requestedUTxO of
               Nothing -> expectationFailure "expected a SnapshotRequested state change"
               Just snapUtxo ->
                 utxoNoThunks snapUtxo >>= \case
@@ -5681,11 +5685,13 @@ spec =
             attackerAddr = mkVkAddress Fixture.testNetworkId attackerVk
             victimAddr = mkVkAddress Fixture.testNetworkId victimVk
         -- The theft the attacker wants: the victim's UTxO paid to the attacker.
-        goodTx <- case mkSimpleTx (victimTxIn, victimTxOut) (attackerAddr, value) (mkSecret victimSk) of
+        let theft = mkSimpleTx (victimTxIn, victimTxOut) (attackerAddr, value) (mkSecret victimSk)
+        goodTx <- case theft of
           Left err -> failure $ "cannot create theft tx: " <> show err
           Right tx -> pure tx
         -- A different tx over the same input, so its witness signs another body.
-        decoyTx <- case mkSimpleTx (victimTxIn, victimTxOut) (victimAddr, value) (mkSecret victimSk) of
+        let decoy = mkSimpleTx (victimTxIn, victimTxOut) (victimAddr, value) (mkSecret victimSk)
+        decoyTx <- case decoy of
           Left err -> failure $ "cannot create decoy tx: " <> show err
           Right tx -> pure tx
         -- Splice the decoy's witness (victim's real vkey, so the needed-witness

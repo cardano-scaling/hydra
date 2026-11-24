@@ -127,7 +127,7 @@ data Args tx = Args
   }
 
 workflow :: forall tx. IsChainState tx => Args tx -> Workflow tx SettlementTopology
-workflow Args{openState = openState@OpenState{parameters, coordinatedHeadState}, ..} =
+workflow Args{openState = openState@OpenState{..}, ..} =
   Workflow.workflow (show . statePhase) Record step
  where
   step :: State tx from -> Transition tx SettlementTopology (State tx) from
@@ -204,7 +204,7 @@ workflow Args{openState = openState@OpenState{parameters, coordinatedHeadState},
 
   previous = getSnapshot confirmedSnapshot
   vkeys = vkey <$> parameters.parties
-  CoordinatedHeadState{confirmedSnapshot, version, seenSnapshot} = coordinatedHeadState
+  CoordinatedHeadState{..} = coordinatedHeadState
 
 maybeRequestSnapshotAfterVersionBump ::
   IsTx tx =>

@@ -36,6 +36,8 @@
 -- Rules expose workflows taking named, lazy Args records; their callers use
 -- Workflow.run. Argument packaging preserves the decisions and event order
 -- projected here and does not add guards or primitive calls.
+-- Record wildcards, named lazy branch inputs and unqualified primitive imports
+-- preserve the same decisions and ordered changes/effects.
 module Hydra.Protocol.OffChainReference where
 
 open import Agda.Builtin.Bool

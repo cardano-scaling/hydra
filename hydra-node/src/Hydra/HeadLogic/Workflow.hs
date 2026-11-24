@@ -38,10 +38,10 @@ workflow describe initial step =
 -- | Let a program decide which state to go to; i.e.
 --
 -- choose $ do
---    okay <- Program.decide "okay?" condition
+--    okay <- decide "okay?" condition
 --    if okay
 --       then pure $ next NextThing
---       else Program.suspend waitReason
+--       else suspend waitReason
 choose ::
   Program tx (Destination topology state from) ->
   Transition tx topology state from

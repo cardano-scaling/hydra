@@ -4,9 +4,12 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-ambiguous-fields #-}
 
--- | Receive and apply a transaction. Programs inside a transition keep related
--- guards and effects together; crem constrains transitions between phases.
-module Hydra.HeadLogic.Rules.Network.ReqTx (Stage (..), ReqTxTopology, Args (..), workflow) where
+module Hydra.HeadLogic.Rules.Network.ReqTx (
+  Stage (..),
+  ReqTxTopology,
+  Args (..),
+  workflow,
+) where
 
 import Crem.Topology (Topology (Topology))
 import Data.Map.Strict qualified as Map (filter, lookup, member)
@@ -14,7 +17,7 @@ import Data.Sequence qualified as Seq ((|>))
 import Hydra.Chain.ChainState (IsChainState)
 import Hydra.HeadLogic.Input (TTL)
 import Hydra.HeadLogic.Outcome (WaitReason (..))
-import Hydra.HeadLogic.Program qualified as Program (
+import Hydra.HeadLogic.Program (
   applyTransaction,
   decide,
   suspend,
@@ -83,7 +86,13 @@ import Hydra.Prelude hiding (State, state)
 import Hydra.Tx (UTxOType, txId, utxoFromTx)
 import Hydra.Tx.Snapshot (Snapshot (..), getSnapshot)
 
-data Stage = CheckDuplicate | CheckOutputs | CheckDeposits | SelectSnapshot | RetryOrInvalidate | Finished
+data Stage
+  = CheckDuplicate
+  | CheckOutputs
+  | CheckDeposits
+  | SelectSnapshot
+  | RetryOrInvalidate
+  | Finished
 
 type ReqTxTopology =
   'Topology
@@ -136,43 +145,53 @@ workflow Args{chainPointTime = ChainPointTime{currentSlot, currentChainTime}, ..
       , Just{} <- snapshot.utxoToDecommit
       , Just known <- Map.lookup (txId transaction) allTxs
       , matchesSnapshotDecommit snapshot known ->
-          continue (const Done) $ Program.decide "transaction is retained by the candidate decommit" True
+          continue (const Done) $ decide "transaction is retained by the candidate decommit" True
       | Map.member (txId transaction) allTxs && any ((== txId transaction) . txId) localTxs ->
-          continue (const Done) $ Program.decide "transaction is already applied locally" True
+          continue (const Done) $ decide "transaction is already applied locally" True
       | otherwise -> continue OutputCheck $ do
-          void $ Program.decide "transaction is already applied locally" False
+          void $ decide "transaction is already applied locally" False
           Staging.stage (Coordinated.start openState) $ Coordinated.receiveTransaction transaction
     OutputCheck runtime -> case checkTransactionOutputs localUTxO transaction of
       Right () -> choose $ do
-        void $ Program.decide "outputs do not collide with the local UTxO" True
-        result <- Program.applyTransaction currentSlot localUTxO transaction
+        void $ decide "outputs do not collide with the local UTxO" True
+        result <- applyTransaction currentSlot localUTxO transaction
         pure $ case result of
           Right after -> next $ DepositCheck runtime after
           Left err -> next $ Retry runtime err
-      Left err -> continue (const $ Retry runtime err) $ Program.decide "outputs do not collide with the local UTxO" False
+      Left err -> continue (const $ Retry runtime err) $ decide "outputs do not collide with the local UTxO" False
     DepositCheck runtime after
       | namesNoneOf (utxoFromTx transaction) namedByDepositsInPlay -> continue Select $ do
-          void $ Program.decide "outputs do not collide with pending deposits" True
+          void $ decide "outputs do not collide with pending deposits" True
           Staging.stage runtime $ Coordinated.applyTransaction transaction localUTxO after
       | otherwise ->
           continue (const $ Retry runtime $ ValidationError "transaction creates an output a pending deposit names") $
-            Program.decide "outputs do not collide with pending deposits" False
+            decide "outputs do not collide with pending deposits" False
     Select runtime -> continue (const Done) $ do
-      noSnapshot <- Program.decide "no snapshot is in flight" (not $ snapshotInFlight seenSnapshot)
+      noSnapshot <- decide "no snapshot is in flight" (not $ snapshotInFlight seenSnapshot)
       when noSnapshot $ do
-        leader <- Program.decide "this party leads the next snapshot" (isLeader parameters env.party nextSn)
-        when leader $
-          case chainedSnapshotRequest env.snapshotLimits version previous (localTxs Seq.|> transaction) pendingDeposits currentDepositTxId (decommitStatus version previous decommitTx) settlingCommit of
-            Nothing -> void $ Program.decide "snapshot request has useful work" False
+        leader <- decide "this party leads the next snapshot" (isLeader parameters env.party nextSn)
+        when leader $ do
+          let nextRequest =
+                chainedSnapshotRequest
+                  env.snapshotLimits
+                  version
+                  previous
+                  (localTxs Seq.|> transaction)
+                  pendingDeposits
+                  currentDepositTxId
+                  (decommitStatus version previous decommitTx)
+                  settlingCommit
+          case nextRequest of
+            Nothing -> void $ decide "snapshot request has useful work" False
             Just request -> do
-              void $ Program.decide "snapshot request has useful work" True
+              void $ decide "snapshot request has useful work" True
               sendSnapshot runtime request
     Retry runtime err -> continue (const Done) $ do
       -- Expiry still drops the payload. A later dependency does not wake this
       -- transaction; changing that recovery policy is deferred.
-      canRetry <- Program.decide "retry budget remains" (ttl > 0)
+      canRetry <- decide "retry budget remains" (ttl > 0)
       if canRetry
-        then Program.suspend $ WaitOnNotApplicableTx err
+        then suspend $ WaitOnNotApplicableTx err
         else void $ Staging.stage runtime $ Coordinated.markTransactionInvalid localUTxO transaction err
     Done -> finish Done
 
@@ -182,8 +201,8 @@ workflow Args{chainPointTime = ChainPointTime{currentSlot, currentChainTime}, ..
       <> case settlingCommit of
         Just (ContinueCommit (_, Deposit{deposited})) -> deposited
         _ -> mempty
-  OpenState{coordinatedHeadState, parameters} = openState
-  CoordinatedHeadState{localTxs, localUTxO, allTxs, confirmedSnapshot, seenSnapshot, decommitTx, version, currentDepositTxId} = coordinatedHeadState
+  OpenState{..} = openState
+  CoordinatedHeadState{..} = coordinatedHeadState
   previous = getSnapshot confirmedSnapshot
   nextSn = previous.number + 1
   settlingCommit = settlingCommitAtPeriod env.depositPeriod version currentChainTime pendingDeposits previous

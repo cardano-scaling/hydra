@@ -1,5 +1,6 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# OPTIONS_GHC -Wno-ambiguous-fields #-}
 
 module Hydra.HeadLogic.Rules.Chain.Rollback where
@@ -151,7 +152,7 @@ handleRollback env now pendingDeposits st rolledBackChainState chainTime syncSta
   change ChainRolledBack{chainState = rolledBackChainState}
   handleOutOfSync env now (chainStatePoint rolledBackChainState) chainTime syncStatus
   case st of
-    Open OpenState{headSeed, headId, parameters, coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot, decommitTx, finalizedCommit, finalizedDecommit}} -> do
+    Open OpenState{coordinatedHeadState = CoordinatedHeadState{..}, ..} -> do
       maybeRepostIncrementTx headSeed headId parameters (depositsForHead headId pendingDeposits) confirmedSnapshot finalizedCommit slot
       maybeRepostDecrementTx headSeed headId parameters decommitTx confirmedSnapshot finalizedDecommit slot
     FanoutProgress fanout -> repostFanoutStep fanout

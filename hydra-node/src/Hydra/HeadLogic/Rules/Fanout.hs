@@ -1,4 +1,5 @@
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# OPTIONS_GHC -Wno-ambiguous-fields #-}
 
 module Hydra.HeadLogic.Rules.Fanout where
@@ -108,4 +109,4 @@ repostFanoutStep pfs =
     Just step ->
       emitFanoutStep step confirmedSnapshot version headSeed contestationDeadline
  where
-  PartialFanoutState{confirmedSnapshot, version, headSeed, contestationDeadline} = pfs
+  PartialFanoutState{..} = pfs

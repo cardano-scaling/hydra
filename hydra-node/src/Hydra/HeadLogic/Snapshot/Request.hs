@@ -87,9 +87,13 @@ existingDeposit pendingDeposits currentDeposit =
 -- 'created' timestamp.
 nextActiveDepositId :: IsTx tx => (UTxOType tx -> Bool) -> PendingDeposits tx -> Maybe (TxIdType tx)
 nextActiveDepositId absorbableHere deposits =
-  case filter (\(_, Deposit{deposited, status}) -> deposited /= mempty && status == Active && absorbableHere deposited) (Map.toList deposits) of
-    [] -> Nothing
-    xs -> Just (fst (minimumBy (comparing ((.created) . snd)) xs))
+  let eligibleDeposits =
+        filter
+          (\(_, Deposit{deposited, status}) -> deposited /= mempty && status == Active && absorbableHere deposited)
+          (Map.toList deposits)
+   in case eligibleDeposits of
+        [] -> Nothing
+        xs -> Just (fst (minimumBy (comparing ((.created) . snd)) xs))
 
 -- | Select the deposit to include in the next snapshot.
 --
@@ -217,15 +221,17 @@ buildSnapshotRequest limits version previous localTxs pendingDeposits currentDep
       Just (ContinueCommit (depositId, Deposit{deposited})) ->
         build (Just (depositId, deposited)) Nothing hasPending
       Just DropCommit -> withoutDeposit
-      Nothing -> case selectNextDeposit canAbsorb pendingDeposits currentDepositTxId (pendingDecommit decommit) of
-        Just depositId
-          | Just Deposit{deposited} <- Map.lookup depositId pendingDeposits ->
-              -- A new deposit can use space freed by this request's transactions.
-              -- It is not part of the active ledger on which those transactions run.
-              let (txs, after) = ordinaryRequest
-               in (makeRequest txs Nothing (Just depositId), True)
-                    <$ guard (isRight $ checkSnapshotCapacity limits after (Just deposited) Nothing)
-        _ -> withoutDeposit
+      Nothing ->
+        let selectedDeposit = selectNextDeposit canAbsorb pendingDeposits currentDepositTxId (pendingDecommit decommit)
+         in case selectedDeposit of
+              Just depositId
+                | Just Deposit{deposited} <- Map.lookup depositId pendingDeposits ->
+                    -- A new deposit can use space freed by this request's transactions.
+                    -- It is not part of the active ledger on which those transactions run.
+                    let (txs, after) = ordinaryRequest
+                     in (makeRequest txs Nothing (Just depositId), True)
+                          <$ guard (isRight $ checkSnapshotCapacity limits after (Just deposited) Nothing)
+              _ -> withoutDeposit
  where
   utxo = settledUTxO version previous
   candidates = toList (Seq.take maxTxsPerSnapshot localTxs)
@@ -302,11 +308,13 @@ data SettlingCommit tx
 settlingCommitAtPeriod :: IsTx tx => DepositPeriod -> SnapshotVersion -> UTCTime -> PendingDeposits tx -> Snapshot tx -> Maybe (SettlingCommit tx)
 settlingCommitAtPeriod depositPeriod version chainTime pendingDeposits Snapshot{utxoToCommit, depositTxId, version = snapshotVersion}
   | version /= snapshotVersion || isNothing utxoToCommit = Nothing
-  | otherwise = Just $ case (\claimed -> (claimed,) <$> Map.lookup claimed pendingDeposits) =<< depositTxId of
-      Just claimed@(_, Deposit{deadline})
-        | chainTime <= addUTCTime (toNominalDiffTime depositPeriod) deadline -> ContinueCommit claimed
-      -- Also for snapshots without a 'depositTxId' (before 2.4.0).
-      _ -> DropCommit
+  | otherwise =
+      let claimedDeposit = (\claimed -> (claimed,) <$> Map.lookup claimed pendingDeposits) =<< depositTxId
+       in Just $ case claimedDeposit of
+            Just claimed@(_, Deposit{deadline})
+              | chainTime <= addUTCTime (toNominalDiffTime depositPeriod) deadline -> ContinueCommit claimed
+            -- Also for snapshots without a 'depositTxId' (before 2.4.0).
+            _ -> DropCommit
 
 -- | Maximum number of transaction ids per snapshot. This effectively limits our
 -- "block size" and ensures it does not grow arbitrarily with the backlog of

@@ -86,7 +86,7 @@ data Args tx = Args
   }
 
 workflow :: forall tx. IsTx tx => Args tx -> Workflow tx DecommitTopology
-workflow Args{coordinatedHeadState = CoordinatedHeadState{decommitTx = pending, localUTxO, version, confirmedSnapshot}, ..} =
+workflow Args{coordinatedHeadState = CoordinatedHeadState{decommitTx = pending, ..}, ..} =
   Workflow.workflow (show . statePhase) Pending step
  where
   step :: State tx from -> Transition tx DecommitTopology (State tx) from
@@ -111,11 +111,13 @@ workflow Args{coordinatedHeadState = CoordinatedHeadState{decommitTx = pending, 
           void $ decide "decommit produces outputs" False
           invalid DecommitTxInvalid{localUTxO, validationError = ValidationError "decommit transaction has no outputs"}
       | otherwise -> continue (const $ Capacity after) $ decide "decommit produces outputs" True
-    Capacity after -> case checkDecommitCapacity snapshotLimits after (settledUTxO version $ getSnapshot confirmedSnapshot) decommitTx of
-      Left validationError -> continue (const Done) $ do
-        void $ decide "decommit fits local and confirmed capacity" False
-        invalid DecommitTxInvalid{localUTxO, validationError}
-      Right () -> continue (const Send) $ decide "decommit fits local and confirmed capacity" True
+    Capacity after ->
+      let capacityCheck = checkDecommitCapacity snapshotLimits after (settledUTxO version $ getSnapshot confirmedSnapshot) decommitTx
+       in case capacityCheck of
+            Left validationError -> continue (const Done) $ do
+              void $ decide "decommit fits local and confirmed capacity" False
+              invalid DecommitTxInvalid{localUTxO, validationError}
+            Right () -> continue (const Send) $ decide "decommit fits local and confirmed capacity" True
     Send -> continue (const Done) $ emit $ NetworkEffect ReqDec{transaction = decommitTx}
     Done -> finish Done
 

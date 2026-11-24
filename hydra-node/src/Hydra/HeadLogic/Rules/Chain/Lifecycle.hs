@@ -1,5 +1,6 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE OverloadedRecordDot #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# OPTIONS_GHC -Wno-ambiguous-fields #-}
 
 module Hydra.HeadLogic.Rules.Chain.Lifecycle where
@@ -101,7 +102,7 @@ onIdleChainInitTx env newChainState headId headSeed headParameters participants
 
   configuredParties = Set.fromList (party : otherParties)
 
-  HeadParameters{parties, contestationPeriod, depositPeriod} = headParameters
+  HeadParameters{..} = headParameters
 
   RuleEnvironment
     { party
@@ -119,7 +120,7 @@ onOpenChainCloseTx ::
   UTCTime ->
   MultiSignature (Snapshot tx) ->
   Program tx ()
-onOpenChainCloseTx os@OpenState{headId, parameters, coordinatedHeadState} newChainState closedNumber contestationDeadline signatures = do
+onOpenChainCloseTx os@OpenState{..} newChainState closedNumber contestationDeadline signatures = do
   void $
     adoptSnapshot
       parameters.parties
@@ -132,7 +133,7 @@ onOpenChainCloseTx os@OpenState{headId, parameters, coordinatedHeadState} newCha
   -- Compare the confirmed snapshot from before adoption, as the existing rule does.
   postNewerSnapshot headId parameters version confirmedSnapshot closedNumber
  where
-  CoordinatedHeadState{confirmedSnapshot, seenSnapshot, version} = coordinatedHeadState
+  CoordinatedHeadState{..} = coordinatedHeadState
   candidate = case seenSnapshot of
     seen@SeenSnapshot{} -> Just seen
     _ -> Nothing
@@ -145,7 +146,7 @@ onClosedChainContestTx ::
   UTCTime ->
   MultiSignature (Snapshot tx) ->
   Program tx ()
-onClosedChainContestTx ClosedState{headId, parameters, confirmedSnapshot, version, unconfirmedSnapshot} newChainState snapshotNumber contestationDeadline signatures = do
+onClosedChainContestTx ClosedState{..} newChainState snapshotNumber contestationDeadline signatures = do
   adopted <- adoptSnapshot parameters.parties snapshotNumber signatures ((`mkSeenSnapshot` mempty) <$> unconfirmedSnapshot) $ \evidence ->
     change SnapshotConfirmed{headId, snapshot = Just $ verifiedSnapshot evidence, signatures}
   change HeadContested{headId, chainState = newChainState, contestationDeadline, snapshotNumber}
