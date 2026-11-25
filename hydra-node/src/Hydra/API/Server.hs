@@ -40,9 +40,10 @@ import Hydra.HeadLogic (
   HeadState (..),
   OpenState (..),
   SeenSnapshot (..),
-  aggregateNodeState,
  )
 import Hydra.HeadLogic.Outcome qualified as StateChanged
+import Hydra.HeadLogic.Snapshot.Cached qualified as Cached
+import Hydra.HeadLogic.State.Node qualified as NodeMachine
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.Network (IP, PortNumber, StallReason)
 import Hydra.Node.ApiTransactionTimeout (ApiTransactionTimeout)
@@ -115,7 +116,10 @@ withAPIServer config runOptions env party eventSource tracer initialChainState c
     responseChannel <- newBroadcastTChanIO
     -- Initialize our read models from stored events
     -- NOTE: we do not keep the stored events around in memory
-    nodeStateP <- mkProjection "nodeStateP" (initNodeState initialChainState) aggregateNodeState
+    -- Retain the typed owners across events; expose their ordinary state view
+    -- to readers. Checkpoints replace the runtime through the same step function.
+    nodeRuntimeP <- mkProjection "nodeStateP" (NodeMachine.start $ initNodeState initialChainState) NodeMachine.step
+    let nodeStateP = nodeRuntimeP{getLatest = NodeMachine.currentState <$> getLatest nodeRuntimeP}
     -- XXX: We never subscribe to changes of commitInfoP et al directly so a
     -- single read model and normal functions mapping from HeadState ->
     -- CommitInfo etc. would suffice and are less fragile
@@ -321,7 +325,7 @@ updateSeenSnapshot mSn _ = mSn
 -- | Extract the snapshot currently in 'SeenSnapshot' from a 'NodeState', if any.
 seenSnapshotOf :: NodeState tx -> Maybe (Snapshot tx)
 seenSnapshotOf ns = case headState ns of
-  Open OpenState{coordinatedHeadState = CoordinatedHeadState{seenSnapshot = SeenSnapshot sn _ _}} -> Just sn
+  Open OpenState{coordinatedHeadState = CoordinatedHeadState{seenSnapshot = SeenSnapshot cached _}} -> Just $ Cached.snapshot cached
   _ -> Nothing
 
 -- | Projection to obtain 'CommitInfo' needed to draft commit transactions.

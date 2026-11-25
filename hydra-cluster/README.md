@@ -316,6 +316,9 @@ other people's merges cannot appear as PR deltas):
   run; `scripts/bench-e2e-diff.py --calibrate <dir>` prints suggested
   per-metric values to land in the script. Draft PRs are skipped unless the
   PR carries the `bench` label (applies from the next push).
+* Each of the four runners measures one branch/master pair, with opposite
+  execution orders on half the runners. A missing results directory discards
+  that runner's incomplete pair.
 
 A new summary metric only shows a difference once both sides emit it, and
 must be registered in the script's `METRICS` table.

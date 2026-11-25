@@ -19,6 +19,7 @@ import Data.Secret (Secret)
 import Hydra.Chain (ChainEvent (Observation), OnChainTx (OnDecrementTx))
 import Hydra.Chain qualified as Chain
 import Hydra.HeadLogic.Retry (RetryDecision (RetryInput), retryDecision)
+import Hydra.HeadLogic.Snapshot.Cached qualified as Cached
 import Hydra.HeadLogic.State (CoordinatedHeadState (..), HeadState (Open), OpenState (..), SeenSnapshot (SeenSnapshot))
 import Hydra.Ledger.Simple (SimpleChainState (SimpleChainState), SimpleTx (..), simpleLedger)
 import Hydra.Network.Message (Message (..), NetworkEvent (ReceivedMessage))
@@ -93,7 +94,7 @@ runSchedule schedule = do
     reserved <- if schedule.reserveLocally then step recipient "reserve decommit" (network alice $ ReqDec decommit) (initial, []) else Right (initial, [])
     requested <- step recipient "receive candidate before ReqDec" (network alice $ ReqSn 0 1 [] (Just decommit) Nothing) reserved
     candidate <- case (Scenario.openState $ fst requested).coordinatedHeadState.seenSnapshot of
-      SeenSnapshot snapshot _ _ -> Right snapshot
+      SeenSnapshot cached _ -> Right $ Cached.snapshot cached
       _ -> Left "request did not create a candidate"
     unless (candidate.utxo == utxoRef 2 <> utxoRef 3 && candidate.utxoToDecommit == Just (utxoRef 10)) $ Left "candidate has the wrong UTxO"
     let early = network alice $ ReqTx child
@@ -110,7 +111,7 @@ runSchedule schedule = do
     unless (current.version == 1 && (getSnapshot current.confirmedSnapshot).number == 1) $ Left "first round did not settle and confirm"
     nextRequested <- step recipient "request next round after settlement" (network bob $ ReqSn 1 2 [20, 21] Nothing Nothing) settled
     nextCandidate <- case (Scenario.openState $ fst nextRequested).coordinatedHeadState.seenSnapshot of
-      SeenSnapshot snapshot _ _ -> Right snapshot
+      SeenSnapshot cached _ -> Right $ Cached.snapshot cached
       _ -> Left "second request did not create a candidate"
     confirmed <- foldlM (\pending (party, key) -> step recipient "confirm next round" (network party $ AckSn (sign key nextCandidate) 2) pending) nextRequested signers
     rolled <- preserving recipient "rollback after the next confirmation" (rollback 1) confirmed

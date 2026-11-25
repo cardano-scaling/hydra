@@ -2,9 +2,10 @@
 
 module Hydra.HeadLogic.WorkflowSpec (spec) where
 
+import Crem.StateMachine qualified as Crem
 import Crem.Topology (Topology (Topology))
-import Hydra.HeadLogic.Interpreter (runProgram)
-import Hydra.HeadLogic.Program (applyTransaction, change, reject, suspend, traceB)
+import Hydra.HeadLogic.Interpreter (runProgram, traceProgram)
+import Hydra.HeadLogic.Program (Program, applyTransaction, change, reject, suspend, traceB)
 import Hydra.HeadLogic.Workflow qualified as Workflow
 import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Ledger.Simple (SimpleTx)
@@ -53,6 +54,24 @@ spec = describe "workflow execution" $ do
     let ledger :: Ledger SimpleTx
         ledger = Ledger $ \_ _ _ -> Left (transaction, ValidationError "controlled rejection")
     runProgram (testInterpreterConfig ledger) (Workflow.run $ example True) `shouldBe` Error (AssertionFailed "ledger rejected")
+  it "preserves the generic Crem runner's outcome and complete instruction trace" $
+    forM_ [(eligible, valid) | eligible <- [False, True], valid <- [False, True]] $ \(eligible, valid) -> do
+      let ledger :: Ledger SimpleTx
+          ledger = Ledger $ \_ utxo _ ->
+            if valid then Right utxo else Left (transaction, ValidationError "controlled rejection")
+          config = testInterpreterConfig ledger
+          workflow = example eligible
+      traceProgram config (Workflow.run workflow)
+        `shouldBe` traceProgram config (runThroughCrem workflow)
+
+-- Keep the general runner as an independent oracle for the direct driver.
+runThroughCrem :: Workflow.Workflow tx topology result -> Program tx result
+runThroughCrem = drive . Crem.Executable
+ where
+  drive :: Monad m => Crem.StateMachineT m () (Maybe result) -> m result
+  drive machine = do
+    (result, remaining) <- Crem.run machine ()
+    maybe (drive remaining) pure result
 
 example :: Bool -> Workflow.Workflow SimpleTx TopologyOf ()
 example eligible = Workflow.workflow describePhase Decide step

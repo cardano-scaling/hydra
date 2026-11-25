@@ -25,6 +25,7 @@ import Hydra.HeadLogic.Rules.Environment (
     party
   ),
  )
+import Hydra.HeadLogic.Snapshot.Cached qualified as Cached
 import Hydra.HeadLogic.Snapshot.Verification (
   VerifiedSnapshot,
   verifiedSnapshot,
@@ -46,7 +47,7 @@ import Hydra.HeadLogic.State (
     version
   ),
   OpenState (OpenState, coordinatedHeadState, headId, parameters),
-  SeenSnapshot (SeenSnapshot, snapshot),
+  SeenSnapshot (SeenSnapshot, cachedSnapshot),
   mkSeenSnapshot,
  )
 import Hydra.HeadLogic.State.Coordinated qualified as Coordinated (
@@ -217,7 +218,7 @@ adoptSnapshot ::
   (VerifiedSnapshot tx -> Program tx ()) ->
   Program tx Bool
 adoptSnapshot parties observedNumber signatures candidate retain = case candidate of
-  Just seen@SeenSnapshot{snapshot} | snapshot.number == observedNumber -> do
+  Just seen@SeenSnapshot{cachedSnapshot = (Cached.snapshot -> snapshot)} | snapshot.number == observedNumber -> do
     void $ traceB "chain observation matches the unconfirmed snapshot number" True
     verified <- verifySeenSnapshot (vkey <$> parties) seen signatures
     valid <- traceB "observed snapshot signatures verify" (isRight verified)

@@ -127,7 +127,6 @@ jobs:
 
   # Four jobs, each measuring one same-machine pair; slot order alternates so
   # slot-position effects (cold caches in slot 1) cancel across the fleet.
-  # More pairs per machine is a one-line change to `order`.
   benchmark:
     name: Benchmark (${{ matrix.machine }})
     needs: generate-datasets

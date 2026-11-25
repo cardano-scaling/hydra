@@ -15,6 +15,7 @@ import Hydra.HeadLogic.Program qualified as Program
 import Hydra.HeadLogic.Rules.Network.AckSn qualified as AckSn
 import Hydra.HeadLogic.Rules.Network.ReqSn qualified as ReqSn
 import Hydra.HeadLogic.Rules.Network.ReqTx qualified as ReqTx
+import Hydra.HeadLogic.Snapshot.Cached qualified as Cached
 import Hydra.HeadLogic.Trace qualified as Trace
 import Hydra.HeadLogic.Workflow qualified as Workflow
 import Hydra.Ledger (Ledger (..), ValidationError (..))
@@ -49,8 +50,7 @@ import Hydra.Node.HeadLogic (
     NoSeenSnapshot,
     RequestedSnapshot,
     SeenSnapshot,
-    signableBytes,
-    snapshot
+    cachedSnapshot
   ),
   StateChanged (
     CommitApproved,
@@ -176,7 +176,7 @@ specWith runAckSn = do
             afterRequest = aggregateState initial{headState = Open base} req
             afterOpen = Scenario.openState afterRequest
         case afterOpen.coordinatedHeadState.seenSnapshot of
-          SeenSnapshot{snapshot} -> do
+          SeenSnapshot{cachedSnapshot = (Cached.snapshot -> snapshot)} -> do
             let seen = mkSeenSnapshot snapshot (Map.fromList [(alice, sign aliceSk snapshot), (bob, sign bobSk snapshot)])
                 ready = afterOpen{coordinatedHeadState = afterOpen.coordinatedHeadState{seenSnapshot = seen}}
                 new =
@@ -567,7 +567,7 @@ snapshotFixture = case ( Scenario.openState $
                                       }
                               )
                        ).coordinatedHeadState.seenSnapshot of
-  SeenSnapshot{snapshot} -> snapshot
+  SeenSnapshot{cachedSnapshot} -> Cached.snapshot cachedSnapshot
   _ -> error "snapshot fixture did not request"
 
 ackState :: HsSnapshotPhase -> [Int] -> NodeState SimpleTx
@@ -577,9 +577,7 @@ ackState phase signers = initial{headState = Open os{coordinatedHeadState = c{lo
   seen = case phase of
     NeverSeen -> NoSeenSnapshot
     RequestPending -> RequestedSnapshot 1 2
-    CollectingSignatures -> case mkSeenSnapshot snapshotFixture mempty of
-      SeenSnapshot{signableBytes} -> SeenSnapshot snapshotFixture (Map.fromList [(Scenario.scenarioParties !! i, sign ([aliceSk, bobSk, carolSk] !! i) snapshotFixture) | i <- signers]) signableBytes
-      _ -> error "mkSeenSnapshot did not construct a seen snapshot"
+    CollectingSignatures -> mkSeenSnapshot snapshotFixture (Map.fromList [(Scenario.scenarioParties !! i, sign ([aliceSk, bobSk, carolSk] !! i) snapshotFixture) | i <- signers])
     LastConfirmed -> LastSeenSnapshot 1
 
 depositFixture :: DepositStatus -> Deposit SimpleTx

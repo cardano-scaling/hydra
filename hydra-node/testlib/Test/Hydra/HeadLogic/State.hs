@@ -7,6 +7,7 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Hydra.Chain.ChainState (IsChainState (..))
+import Hydra.HeadLogic.Snapshot.Cached (CachedSnapshot, cacheSnapshot)
 import Hydra.HeadLogic.State (
   ClosedState (..),
   CoordinatedHeadState (..),
@@ -53,6 +54,9 @@ instance ArbitraryIsTx tx => Arbitrary (SeenSnapshot tx) where
       , RequestedSnapshot <$> arbitrary <*> arbitrary
       , mkSeenSnapshot <$> arbitrary <*> arbitrary
       ]
+
+instance ArbitraryIsTx tx => Arbitrary (CachedSnapshot tx) where
+  arbitrary = cacheSnapshot <$> arbitrary
 
 instance (ArbitraryIsTx tx, Arbitrary (ChainStateType tx)) => Arbitrary (ClosedState tx) where
   arbitrary =

@@ -346,7 +346,8 @@ isCollecting _ = false
 -- `verifies` projects the Haskell primitive's Right () to true; both
 -- VerificationError cases project to false. Error details do not affect this transition.
 -- AckSn effect payloads use the open Head's identity and parameters and the
--- verified snapshot/signatures; chained requests use the state after confirmation.
+-- verified snapshot/signatures; only the next leader selects a chained request,
+-- using the state after confirmation.
 -- Record bindings and effect payload fields are outside this outcome projection.
 ackSnOutcomeRef : SnapshotPhaseᶜ → Nat → Nat → List Nat → Nat → Nat → Bool → Bool → Nat → SnapshotOutcomeᶜ
 ackSnOutcomeRef phase seen sn signers sender m verifies useful localParty =
@@ -357,7 +358,7 @@ ackSnOutcomeRef phase seen sn signers sender m verifies useful localParty =
   else if not (allSignedRef (suc m) (sender ∷ signers)) then
     snapshotCompletedᶜ (recordSignatureᶜ ∷ []) []
   else if not verifies then snapshotRejectedᶜ invalidSignatureSetᶜ
-  else if useful && leaderRef m (suc sn) localParty then
+  else if leaderRef m (suc sn) localParty && useful then
     snapshotCompletedᶜ (recordSignatureᶜ ∷ confirmSnapshotᶜ ∷ decideNextSnapshotᶜ ∷ []) (sendSnapshotRequestᶜ ∷ [])
   else snapshotCompletedᶜ (recordSignatureᶜ ∷ confirmSnapshotᶜ ∷ []) []
 
@@ -867,8 +868,12 @@ liveSnapshotEdgeRef 2 2 = true
 liveSnapshotEdgeRef _ _ = false
 
 -- Identities contain exactly Head, version, number and signing-content token.
--- The token abstracts canonical bytes; this does not model hashing, the cache,
--- ledger validity, or cryptographic verification. Valid signatures are a premise.
+-- The token abstracts canonical bytes. Haskell's opaque CachedSnapshot binds
+-- its snapshot to a trusted lazy cache through a smart constructor and read-only
+-- accessors. State and live owners share this value across restoration and
+-- acknowledgements; decoding derives it again from the snapshot without
+-- changing the serialized format. Canonical cache contents and
+-- valid signatures are premises, not properties proved by this projection.
 candidateIdentityRef : List Nat → List Nat → Bool
 candidateIdentityRef (h ∷ v ∷ n ∷ b ∷ []) (h′ ∷ v′ ∷ n′ ∷ b′ ∷ []) =
   (h == h′) && (v == v′) && (n == n′) && (b == b′)
@@ -897,7 +902,8 @@ same-owned-candidate-confirms = refl
 {-# COMPILE GHC liveSnapshotEdgeRef as hsLiveSnapshotEdgeRef #-}
 {-# COMPILE GHC candidateConfirmationRef as hsCandidateConfirmationRef #-}
 
--- Haskell shares the owned identity through signature collection and settlement,
+-- Haskell shares the owned identity and cached bytes through restoration,
+-- event aggregation, signature collection and settlement,
 -- retiring it on confirmation. Heap sharing and encoding counts are outside this
 -- value-level projection; the same identity and phase predicates still apply.
 
@@ -1023,3 +1029,11 @@ repeated-settlement-preserves-new-reservation : ∀ current rebuilt →
 repeated-settlement-preserves-new-reservation _ _ = refl
 
 {-# COMPILE GHC settlementUTxORef as hsSettlementUTxORef #-}
+
+-- The Haskell workflow driver executes the same typed transitions directly;
+-- intermediate machine wrappers are outside this reference. Differential tests
+-- compare its complete instruction trace and outcome with the generic Crem
+-- runner, including suspension and rejection.
+-- The API retains state owners across events. MachineSpec checks every prefix
+-- against reconstruction and CBOR recovery, including the phase projections
+-- above. Retention changes neither event order nor checkpoint restoration.

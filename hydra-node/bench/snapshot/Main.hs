@@ -1,12 +1,12 @@
--- | Criterion benchmark of the per-snapshot work a single hydra-node performs
--- when processing a 'ReqSn': transaction re-application, accumulator build, G1
--- commitment and Ed25519 signing, isolated from networking and persistence.
---
--- Drives the pure 'HeadLogic.update' with a synthetic open head at a grid of
--- UTxO sizes and transactions per snapshot. The result projection demands the
--- 'AckSn' signature, which transitively forces the accumulator commitment,
--- and errors loudly on any other outcome so fixture drift cannot silently
--- benchmark an error path.
+{-# LANGUAGE OverloadedRecordDot #-}
+{-# OPTIONS_GHC -Wno-ambiguous-fields #-}
+
+-- | Measure transaction receipt, snapshot requests and partial/final
+-- acknowledgements with reproducible Cardano transactions. Each comparison
+-- demands the same outcome before optionally aggregating its events. The API
+-- projection retains its runtime while folding events, as 'Hydra.API.Server'
+-- does. A separate comparison reconstructs its machines after each event.
+-- Networking, persistence and output encoding remain outside these timings.
 module Main where
 
 import Hydra.Prelude
@@ -19,17 +19,23 @@ import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Cardano.Api (Tx)
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot))
 import Hydra.Chain.Direct.State (initialChainState)
+import Hydra.HeadLogic.Snapshot.Cached qualified as Cached
+import Hydra.HeadLogic.State.Node qualified as NodeMachine
 import Hydra.Ledger (Ledger (..))
 import Hydra.Ledger.Cardano (cardanoLedger)
-import Hydra.Network.Message (Message (AckSn, ReqSn))
+import Hydra.Network.Message (Message (AckSn, ReqSn, ReqTx))
 import Hydra.Node (mkNetworkInput)
+import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.HeadLogic (
   CoordinatedHeadState (..),
   Effect (NetworkEffect),
   HeadState (Open),
+  Input,
   OpenState (..),
-  Outcome (Continue, effects),
-  SeenSnapshot (LastSeenSnapshot),
+  Outcome (Continue, stateChanges),
+  SeenSnapshot (LastSeenSnapshot, SeenSnapshot),
+  StateChanged (..),
+  aggregateNodeState,
   aggregateState,
   isLeader,
   update,
@@ -37,13 +43,14 @@ import Hydra.Node.HeadLogic (
 import Hydra.Node.State (ChainPointTime (..), NodeState (..))
 import Hydra.Tx (HeadParameters (..), Snapshot (..), txId)
 import Hydra.Tx.Accumulator (buildFromUTxO, getAccumulatorHash, maxAccumulatorSize)
-import Hydra.Tx.Crypto (Signature, sign)
+import Hydra.Tx.Crypto (sign)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..))
 import Test.Hydra.Ledger.Cardano (genFixedSizeSequenceOfSimplePaymentTransactions)
 import Test.Hydra.Node.Fixture (defaultGlobals, defaultLedgerEnv, testEnvironment)
-import Test.Hydra.Tx.Fixture (alice, aliceSk, bob, carol, cperiod, dperiod, testHeadId, testHeadSeed)
+import Test.Hydra.Tx.Fixture (alice, aliceSk, bob, bobSk, carol, carolSk, cperiod, dperiod, testHeadId, testHeadSeed)
 import Test.Hydra.Tx.Gen (genUTxOAdaOnlyOfSize)
-import Test.QuickCheck (generate)
+import Test.QuickCheck.Gen (unGen)
+import Test.QuickCheck.Random (mkQCGen)
 
 main :: IO ()
 main = do
@@ -51,16 +58,21 @@ main = do
   --
   -- > BENCH_MAX_UTXO=32767 cabal bench hydra-node:snapshot
   maxN <- fromMaybe 1000 . (>>= readMaybe) <$> lookupEnv "BENCH_MAX_UTXO"
+  seed <- fromMaybe 42 . (>>= readMaybe) <$> lookupEnv "BENCH_SEED"
   let utxoSizes = filter (<= maxN) [10, 100, 1000, 4095, 8191, 16383, maxAccumulatorSize]
       txCounts = [1, 10, 100]
-  benches <- forM [(n, m) | n <- utxoSizes, m <- txCounts] $ uncurry benchCell
+  benches <- forM [(n, m) | n <- utxoSizes, m <- txCounts] $ uncurry (benchCell seed)
   defaultMain benches
 
-benchCell :: Int -> Int -> IO Benchmark
-benchCell n m = do
-  (seedUTxO, txs) <- generate $ genFixedSizeSequenceOfSimplePaymentTransactions m
-  background <- generate $ genUTxOAdaOnlyOfSize (max 0 (n - UTxO.size seedUTxO))
-  let utxo = seedUTxO <> background
+benchCell :: Int -> Int -> Int -> IO Benchmark
+benchCell seed n m = do
+  let ((seedUTxO, allTransactions), background) = unGen fixture (mkQCGen $ seed + n * 1000 + m) 30
+      fixture = do
+        payments@(initialUTxO, _) <- genFixedSizeSequenceOfSimplePaymentTransactions (2 * m)
+        padding <- genUTxOAdaOnlyOfSize (max 0 (n - UTxO.size initialUTxO))
+        pure (payments, padding)
+      (txs, backlog) = splitAt m allTransactions
+      utxo = seedUTxO <> background
       acc0 = buildFromUTxO @Tx utxo
       snap0 =
         Snapshot
@@ -107,20 +119,40 @@ benchCell n m = do
                 }
           }
       reqSn = mkNetworkInput leader (ReqSn 0 2 (txId <$> txs) Nothing Nothing)
+      requested = advance Request testEnvironment st reqSn
+      snapshot = case (coordinated requested).seenSnapshot of
+        SeenSnapshot cached _ -> Cached.snapshot cached
+        _ -> error "ReqSn did not retain its candidate"
+      acks = [mkNetworkInput p $ AckSn (sign sk snapshot) 2 | (p, sk) <- [(alice, aliceSk), (bob, bobSk), (carol, carolSk)]]
+      (firstAck, secondAck, finalAck) = case acks of
+        [a, b, c] -> (a, b, c)
+        _ -> error "expected three acknowledgements"
+      once = advance PartialAck testEnvironment requested firstAck
+      twice = advance PartialAck testEnvironment once secondAck
+      queued = mapCoordinated (\s -> s{localTxs = Seq.fromList backlog, allTxs = Map.fromList [(txId tx, tx) | tx <- allTransactions], localUTxO = applyOrCrash snapshot.utxo backlog}) twice
+      withoutTransactions = mapCoordinated (\s -> s{localTxs = mempty, allTxs = mempty}) st
+      reqTx = mkNetworkInput alice $ ReqTx $ fromMaybe (error "empty transaction fixture") $ listToMaybe txs
+      nextLeader = testEnvironment{party = carol, signingKey = carolSk, otherParties = [alice, bob]}
   -- Pre-force the confirmed snapshot's commitment so only the requested
   -- snapshot's accumulator work is measured.
-  let !_ = getAccumulatorHash acc0
+  _ <- evaluate $ getAccumulatorHash acc0
+  -- Check and warm every fixture before Criterion starts the clock. Signing
+  -- incoming acknowledgements belongs to the sender, not the measured rule.
+  forM_ acks $ \input -> evaluate $ input `seq` ()
+  evaluate $ checkOutcome Request $ update testEnvironment ledger now st reqSn
+  evaluate $ checkOutcome (FinalAck False) $ update testEnvironment ledger now queued finalAck
+  evaluate $ checkOutcome (FinalAck True) $ update nextLeader ledger now queued finalAck
   pure $
     bgroup
-      ("reqsn/utxo-" <> show n <> "/txs-" <> show m)
-      ( [ bench "full-update" $ whnf (ackSignature . update testEnvironment ledger now st) reqSn
-        , -- update plus the state aggregation the node loop (and, today, the
-          -- API server again) performs on its outcome; WHNF of the resulting
-          -- NodeState forces the strict-field cascade like state hydration
-          -- does. Compare against full-update to isolate the aggregate share.
-          bench "update-and-aggregate" $
-            whnf (aggregateState st . update testEnvironment ledger now st) reqSn
-        , bench "ledger-apply-only" $ whnf (applyOrCrash utxo) txs
+      ("utxo-" <> show n <> "/txs-" <> show m)
+      ( [ inputBenches "reqtx" Transaction testEnvironment withoutTransactions reqTx
+        , inputBenches "reqsn" Request testEnvironment st reqSn
+        , inputBenches "acksn/first" PartialAck testEnvironment requested firstAck
+        , inputBenches "acksn/second" PartialAck testEnvironment once secondAck
+        , inputBenches "acksn/final-follower" (FinalAck False) testEnvironment queued finalAck
+        , inputBenches "acksn/final-leader" (FinalAck True) nextLeader queued finalAck
+        , bench "reqsn-and-three-acks" $ whnf (\input -> foldl' (advanceAck testEnvironment) (advance Request testEnvironment st input) (zip [PartialAck, PartialAck, FinalAck False] acks)) reqSn
+        , bench "ledger-apply-only" $ whnf (UTxO.size . applyOrCrash utxo) txs
         ]
           -- These do not depend on the number of transactions, so only emit
           -- them once per UTxO size.
@@ -139,21 +171,69 @@ benchCell n m = do
     fromMaybe (error "no leader found for snapshot 2") $
       find (\p -> isLeader parameters p 2) [alice, bob, carol]
 
-  now = posixSecondsToUTCTime 0
-
-  ledger = cardanoLedger defaultGlobals defaultLedgerEnv
-
   applyOrCrash utxo txs =
-    either (\(tx, err) -> error $ "tx does not apply: " <> show (txId tx) <> ": " <> show err) UTxO.size $
+    either (\(tx, err) -> error $ "tx does not apply: " <> show (txId tx) <> ": " <> show err) id $
       applyTransactions ledger (ChainSlot 1) utxo txs
 
--- | Extract the AckSn signature from the outcome of processing a ReqSn.
--- 'Signature' is a newtype over the Ed25519 signature, so forcing it to WHNF
--- forces the signing and, transitively, the accumulator commitment it signs.
-ackSignature :: Outcome Tx -> Signature (Snapshot Tx)
-ackSignature = \case
-  Continue{effects} ->
-    case [sig | NetworkEffect (AckSn sig _) <- effects] of
-      [sig] -> sig
-      other -> error $ "expected exactly one AckSn effect, got " <> show (length other)
-  outcome -> error $ "unexpected outcome: " <> show outcome
+now :: UTCTime
+now = posixSecondsToUTCTime 0
+
+ledger :: Ledger Tx
+ledger = cardanoLedger defaultGlobals defaultLedgerEnv
+
+data Expected = Transaction | Request | PartialAck | FinalAck Bool
+
+-- | Reject fixture drift and force the signature or request payload that the
+-- node sends. In particular both ReqSn cases demand the AckSn signature.
+checkOutcome :: Expected -> Outcome Tx -> ()
+checkOutcome expected outcome = case (expected, outcome) of
+  (Transaction, Continue [TransactionReceived{}, TransactionAppliedToLocalUTxO{}] []) -> ()
+  (Request, Continue [SnapshotRequested{}] [NetworkEffect (AckSn signed _)]) -> signed `seq` ()
+  (PartialAck, Continue [PartySignedSnapshot{}] []) -> ()
+  (FinalAck False, Continue [PartySignedSnapshot{}, SnapshotConfirmed{}] []) -> ()
+  (FinalAck True, Continue [PartySignedSnapshot{}, SnapshotConfirmed{}, SnapshotRequestDecided{}] [NetworkEffect (ReqSn _ _ ids _ _)]) -> length ids `seq` ()
+  _ -> error $ "unexpected outcome: " <> show outcome
+
+inputBenches :: String -> Expected -> Environment -> NodeState Tx -> Input Tx -> Benchmark
+inputBenches name expected env st input =
+  checkOutcome expected outcome
+    `seq` bgroup
+      name
+      [ bench "full-update" $ whnf (checkOutcome expected . run) input
+      , bench "update-and-aggregate" $ whnf (advance expected env st) input
+      , bench "update-and-aggregate-and-api" $ whnf withAPI input
+      , bench "aggregate-only" $ whnf (aggregateState st) outcome
+      , bench "api-projection-only" $ whnf projectAPI outcome
+      , bench "api-projection-restarted" $ whnf projectRestartedAPI outcome
+      ]
+ where
+  run = update env ledger now st
+  outcome = run input
+  projectRestartedAPI = \case
+    Continue{stateChanges} -> foldl' aggregateNodeState st stateChanges
+    other -> error $ "unexpected outcome: " <> show other
+  runtime = NodeMachine.start st
+  projectAPI = \case
+    Continue{stateChanges} -> NodeMachine.currentState $ foldl' NodeMachine.step runtime stateChanges
+    other -> error $ "unexpected outcome: " <> show other
+  withAPI i =
+    let result = run i
+     in checkOutcome expected result `seq` aggregateState st result `seq` projectAPI result `seq` ()
+
+advance :: Expected -> Environment -> NodeState Tx -> Input Tx -> NodeState Tx
+advance expected env st input =
+  let outcome = update env ledger now st input
+   in checkOutcome expected outcome `seq` aggregateState st outcome
+
+advanceAck :: Environment -> NodeState Tx -> (Expected, Input Tx) -> NodeState Tx
+advanceAck env st (expected, input) = advance expected env st input
+
+coordinated :: NodeState Tx -> CoordinatedHeadState Tx
+coordinated st = case st.headState of
+  Open open -> open.coordinatedHeadState
+  _ -> error "expected an Open Head"
+
+mapCoordinated :: (CoordinatedHeadState Tx -> CoordinatedHeadState Tx) -> NodeState Tx -> NodeState Tx
+mapCoordinated f st = case st.headState of
+  Open open -> st{headState = Open open{coordinatedHeadState = f open.coordinatedHeadState}}
+  _ -> error "expected an Open Head"
