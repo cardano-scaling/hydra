@@ -688,10 +688,11 @@ d_ackSnOutcomeRef_286 v0 v1 v2 v3 v4 v5 v6 v7 v8
                      (coe
                         du_if_then_else__16
                         (coe
-                           d__'38''38'__34 (coe v7)
+                           d__'38''38'__34
                            (coe
                               d_leaderRef_152 (coe v5) (coe addInt (coe (1 :: Integer)) (coe v2))
-                              (coe v8)))
+                              (coe v8))
+                           (coe v7))
                         (coe
                            C_snapshotCompleted'7580'_256
                            (coe

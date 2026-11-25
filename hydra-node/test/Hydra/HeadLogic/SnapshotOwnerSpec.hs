@@ -5,12 +5,16 @@ module Hydra.HeadLogic.SnapshotOwnerSpec (spec) where
 
 import Hydra.HeadLogic.Program (reject)
 import Hydra.HeadLogic.Rules.Coordinated qualified as Staging
+import Hydra.HeadLogic.Rules.Network.AckSn qualified as AckSn
 import Hydra.Prelude
 import Test.Hydra.HeadLogic.Interpreter (testInterpreterConfig)
 import Test.Hydra.HeadLogic.Validated (checkedSnapshot)
 import Test.Hydra.Prelude (Spec, describe, it, shouldBe, shouldSatisfy)
 
+import Cardano.Binary (decodeFull', serialize')
+import Control.Monad (foldM)
 import Crem.Topology (Topology (Topology))
+import Data.Aeson (eitherDecode, encode)
 import Data.Map.Strict qualified as Map
 import Hydra.Agda.OffChainReference qualified as Agda
 import Hydra.HeadLogic.Error (LogicError (AssertionFailed, RequireFailed), RequirementFailure (InvalidMultisignature))
@@ -18,9 +22,10 @@ import Hydra.HeadLogic.Interpreter qualified as Interpreter
 import Hydra.HeadLogic.Outcome (Outcome (Continue, Error), StateChanged (DecommitFinalized, PartySignedSnapshot, SnapshotConfirmed, SnapshotRequestDecided, SnapshotRequested))
 import Hydra.HeadLogic.Program qualified as Program
 import Hydra.HeadLogic.Snapshot.Verification (verifyCandidate, verifySeenSnapshot)
-import Hydra.HeadLogic.State (CoordinatedHeadState (..), HeadState (Open), OpenState (..), SeenSnapshot (RequestedSnapshot, SeenSnapshot), mkSeenSnapshot)
+import Hydra.HeadLogic.State (CoordinatedHeadState (..), HeadState (Open), OpenState (..), SeenSnapshot (RequestedSnapshot, SeenSnapshot, signableBytes), mkSeenSnapshot)
 import Hydra.HeadLogic.State.Coordinated qualified as Owner
 import Hydra.HeadLogic.State.Coordinated.Snapshots.Topology (SnapshotPhase, snapshotTopology)
+import Hydra.HeadLogic.Workflow qualified as Workflow
 import Hydra.Ledger.Simple (SimpleChainState (SimpleChainState), SimpleTx (..), simpleLedger)
 import Hydra.Network.Message (Message (AckSn), NetworkEvent (ReceivedMessage))
 import Hydra.Node.HeadLogic qualified as Head
@@ -32,6 +37,7 @@ import Hydra.Tx.HeadParameters (HeadParameters (parties))
 import Hydra.Tx.Party (Party (vkey))
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (ConfirmedSnapshot), Snapshot (..))
 import Hydra.Tx.Snapshot qualified as Snapshot
+import System.Mem.StableName (makeStableName)
 import Test.Hydra.HeadLogic.DecommitSequences qualified as Sequences
 import Test.Hydra.HeadLogic.Scenario qualified as Scenario
 import Test.Hydra.Ledger.Simple (utxoRef)
@@ -115,15 +121,54 @@ spec = describe "live snapshot ownership" $ do
     let imported = Owner.replayEvent mempty (SnapshotRequested different mempty Nothing) collecting
     (Owner.currentState imported).seenSnapshot `shouldBe` mkSeenSnapshot different mempty
 
-  it "does not confirm one snapshot using another snapshot's cached signing bytes" $ do
-    let before = withCache different different
+  it "does not confirm one snapshot using another snapshot's signatures" $ do
+    let before = withSignatures different
         input = Head.NetworkInput 0 $ ReceivedMessage carol $ AckSn (sign carolSk different) 1
         outcome = Head.update (Scenario.environment 0) simpleLedger initialChainTime before input
     outcome `shouldSatisfy` invalidSignatures
     Head.aggregateState before outcome `shouldBe` before
 
-  it "verifies the owned contents even when the stored signing-byte cache is wrong" $ do
-    let before = withCache different snapshot
+  it "shares signing bytes through restoration, partial acknowledgements and aggregation" $ do
+    let before = node snapshot
+        bytes st = case (Scenario.openState st).coordinatedHeadState.seenSnapshot of
+          SeenSnapshot{signableBytes} -> signableBytes
+          _ -> error "expected a collecting snapshot"
+    cached <- evaluate (bytes before) >>= makeStableName
+    after <-
+      foldM
+        ( \st (party, sk) -> do
+            let runtime = Owner.start $ Scenario.openState st
+                (events, staged) = Owner.step runtime $ Owner.recordSignature (owned runtime) party (sign sk snapshot)
+            events `shouldBe` [PartySignedSnapshot 1 party (sign sk snapshot)]
+            restored <- evaluate (Owner.currentState staged).seenSnapshot.signableBytes >>= makeStableName
+            (restored == cached) `shouldBe` True
+            let outcome = Head.update (Scenario.environment 0) simpleLedger initialChainTime st $ Head.NetworkInput 0 $ ReceivedMessage party $ AckSn (sign sk snapshot) 1
+            outcome `shouldBe` Continue [PartySignedSnapshot 1 party (sign sk snapshot)] []
+            let next = Head.aggregateState st outcome
+            retained <- evaluate (bytes next) >>= makeStableName
+            (retained == cached) `shouldBe` True
+            pure next
+        )
+        before
+        [(alice, aliceSk), (bob, bobSk)]
+    let outcome =
+          Head.update (Scenario.environment 0) simpleLedger initialChainTime after $
+            Head.NetworkInput 0 $
+              ReceivedMessage carol $
+                AckSn (sign carolSk snapshot) 1
+    outcome `shouldSatisfy` \case
+      Continue [PartySignedSnapshot{}, SnapshotConfirmed{}] _ -> True
+      _ -> False
+    (Scenario.openState $ Head.aggregateState after outcome).coordinatedHeadState.confirmedSnapshot
+      `shouldBe` ConfirmedSnapshot snapshot (signatures snapshot)
+
+  it "reconstructs canonical signing bytes when decoding JSON and CBOR" $ do
+    let seen = SeenSnapshot snapshot mempty (error "the derived cache must not be serialized")
+    eitherDecode (encode seen) `shouldBe` Right (mkSeenSnapshot snapshot mempty)
+    decodeFull' (serialize' seen) `shouldBe` Right (mkSeenSnapshot snapshot mempty)
+
+  it "confirms the owned contents using their cached signing bytes" $ do
+    let before = withSignatures snapshot
         outcome =
           Head.update (Scenario.environment 0) simpleLedger initialChainTime before $
             Head.NetworkInput 0 $
@@ -134,6 +179,24 @@ spec = describe "live snapshot ownership" $ do
       _ -> False
     (Scenario.openState $ Head.aggregateState before outcome).coordinatedHeadState.confirmedSnapshot
       `shouldBe` ConfirmedSnapshot snapshot (signatures snapshot)
+
+  it "does not select a chained request when this party is not the next leader" $ do
+    let before = withSignatures snapshot
+        program =
+          Workflow.run $
+            AckSn.workflow
+              AckSn.Args
+                { env = Head.ruleEnvironment $ Scenario.environment 0
+                , chainPointTime = before.chainPointTime
+                , pendingDeposits = error "a follower must not inspect deposits to select a request"
+                , openState = Scenario.openState before
+                , sender = carol
+                , signed = sign carolSk snapshot
+                , snapshotNumber = 1
+                }
+    run program `shouldSatisfy` \case
+      Continue [PartySignedSnapshot{}, SnapshotConfirmed{}] [] -> True
+      _ -> False
 
   it "chain adoption also verifies contents rather than a supplied byte cache" $ do
     let supplied = SeenSnapshot snapshot mempty (getSignableRepresentation different)
@@ -209,8 +272,8 @@ snapshotFor tx = Scenario.initialSnapshot{number = 1, confirmed = [tx], utxo = t
 signatures :: Snapshot SimpleTx -> MultiSignature (Snapshot SimpleTx)
 signatures candidate = aggregateInOrder (Map.fromList [(alice, sign aliceSk candidate), (bob, sign bobSk candidate), (carol, sign carolSk candidate)]) Scenario.scenarioParties
 
-withCache :: Snapshot SimpleTx -> Snapshot SimpleTx -> NodeState SimpleTx
-withCache cached signed =
+withSignatures :: Snapshot SimpleTx -> NodeState SimpleTx
+withSignatures signed =
   let open = Scenario.openState $ node snapshot
-      seen = SeenSnapshot snapshot (Map.fromList [(alice, sign aliceSk signed), (bob, sign bobSk signed)]) (getSignableRepresentation cached)
+      seen = mkSeenSnapshot snapshot (Map.fromList [(alice, sign aliceSk signed), (bob, sign bobSk signed)])
    in Scenario.initialNode{headState = Open open{coordinatedHeadState = open.coordinatedHeadState{seenSnapshot = seen}}}

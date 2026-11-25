@@ -182,9 +182,9 @@ docs:
     yarn install --frozen-lockfile
     yarn start'
 
-# run the hydra-node per-snapshot micro-benchmark (ReqSn -> AckSn work);
-# BENCH_MAX_UTXO=4000 includes the largest grid cells
-[doc("run the hydra-node per-snapshot micro-benchmark (ReqSn -> AckSn work)")]
+# Measure ReqTx, ReqSn, partial/final AckSn and state aggregation.
+# BENCH_MAX_UTXO=32767 includes all supported UTxO sizes; BENCH_SEED defaults to 42.
+[doc("run the hydra-node transaction and snapshot micro-benchmarks")]
 bench-snapshot OPTIONS="":
   #!/usr/bin/env bash
   set -euo pipefail

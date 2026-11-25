@@ -211,9 +211,10 @@ data SeenSnapshot tx
       , signatories :: Map Party (Signature (Snapshot tx))
       -- ^ Collected signatures so far.
       , signableBytes :: ~ByteString
-      -- ^ Pre-computed result of 'snapshotSigningBytes snapshot', cached
-      -- to avoid recomputing the expensive UTxO hash on every AckSn
-      -- verification. Explicitly lazy under StrictData: state hydration folds
+      -- ^ Trusted result of 'snapshotSigningBytes snapshot', shared across
+      -- owner restoration, signature collection and event aggregation. New
+      -- candidates and decoding derive their own cache. Explicitly lazy under
+      -- StrictData: state hydration folds
       -- every historical 'NodeState' to WHNF, and a strict field here would
       -- force one full accumulator commitment per replayed SnapshotRequested
       -- event. At runtime it is forced once, on the first AckSn.

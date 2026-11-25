@@ -245,11 +245,10 @@ workflow Args{chainPointTime = ChainPointTime{currentChainTime}, ..} =
       snapshot = verifiedSnapshot $ candidateEvidence verified
     Request snapshot confirmedRuntime -> continue (const Done) $ do
       let nextSn = snapshot.number + 1
-          current = Coordinated.currentState confirmedRuntime
-          req = chainedRequest env.snapshotLimits $ currentRequestContext env.depositPeriod currentChainTime pendingDeposits current
-      case req of
-        Just request | isLeader headParameters env.party nextSn -> sendSnapshot confirmedRuntime request
-        _ -> pure ()
+      when (isLeader headParameters env.party nextSn) $ do
+        let current = Coordinated.currentState confirmedRuntime
+            req = chainedRequest env.snapshotLimits $ currentRequestContext env.depositPeriod currentChainTime pendingDeposits current
+        forM_ req $ sendSnapshot confirmedRuntime
     Done -> finish Done ()
 
   OpenState{parameters = headParameters@HeadParameters{parties}, ..} = openState

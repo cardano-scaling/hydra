@@ -346,7 +346,8 @@ isCollecting _ = false
 -- `verifies` projects the Haskell primitive's Right () to true; both
 -- VerificationError cases project to false. Error details do not affect this transition.
 -- AckSn effect payloads use the open Head's identity and parameters and the
--- verified snapshot/signatures; chained requests use the state after confirmation.
+-- verified snapshot/signatures; only the next leader selects a chained request,
+-- using the state after confirmation.
 -- Record bindings and effect payload fields are outside this outcome projection.
 ackSnOutcomeRef : SnapshotPhaseᶜ → Nat → Nat → List Nat → Nat → Nat → Bool → Bool → Nat → SnapshotOutcomeᶜ
 ackSnOutcomeRef phase seen sn signers sender m verifies useful localParty =
@@ -357,7 +358,7 @@ ackSnOutcomeRef phase seen sn signers sender m verifies useful localParty =
   else if not (allSignedRef (suc m) (sender ∷ signers)) then
     snapshotCompletedᶜ (recordSignatureᶜ ∷ []) []
   else if not verifies then snapshotRejectedᶜ invalidSignatureSetᶜ
-  else if useful && leaderRef m (suc sn) localParty then
+  else if leaderRef m (suc sn) localParty && useful then
     snapshotCompletedᶜ (recordSignatureᶜ ∷ confirmSnapshotᶜ ∷ decideNextSnapshotᶜ ∷ []) (sendSnapshotRequestᶜ ∷ [])
   else snapshotCompletedᶜ (recordSignatureᶜ ∷ confirmSnapshotᶜ ∷ []) []
 
@@ -867,8 +868,10 @@ liveSnapshotEdgeRef 2 2 = true
 liveSnapshotEdgeRef _ _ = false
 
 -- Identities contain exactly Head, version, number and signing-content token.
--- The token abstracts canonical bytes; this does not model hashing, the cache,
--- ledger validity, or cryptographic verification. Valid signatures are a premise.
+-- The token abstracts canonical bytes. The implementation trusts its lazy,
+-- derived cache and retains it across owner restoration and acknowledgements;
+-- decoding derives it again from the snapshot. Canonical cache contents and
+-- valid signatures are premises, not properties proved by this projection.
 candidateIdentityRef : List Nat → List Nat → Bool
 candidateIdentityRef (h ∷ v ∷ n ∷ b ∷ []) (h′ ∷ v′ ∷ n′ ∷ b′ ∷ []) =
   (h == h′) && (v == v′) && (n == n′) && (b == b′)
@@ -897,7 +900,8 @@ same-owned-candidate-confirms = refl
 {-# COMPILE GHC liveSnapshotEdgeRef as hsLiveSnapshotEdgeRef #-}
 {-# COMPILE GHC candidateConfirmationRef as hsCandidateConfirmationRef #-}
 
--- Haskell shares the owned identity through signature collection and settlement,
+-- Haskell shares the owned identity and cached bytes through restoration,
+-- event aggregation, signature collection and settlement,
 -- retiring it on confirmation. Heap sharing and encoding counts are outside this
 -- value-level projection; the same identity and phase predicates still apply.
 

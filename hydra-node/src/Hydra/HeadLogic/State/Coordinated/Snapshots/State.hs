@@ -101,7 +101,6 @@ statePhase = \case
   Collecting{} -> CollectingSignatures
 
 restore ::
-  IsTx tx =>
   [VerificationKey HydraKey] ->
   SnapshotState tx ->
   InitialState (State tx)
@@ -114,8 +113,10 @@ restore parties Port.SnapshotState{..} =
           InitialState $ Idle context (Just number)
         RequestedSnapshot lastSeen requested ->
           InitialState $ Requested context lastSeen requested
-        SeenSnapshot{snapshot, signatories} ->
-          InitialState $ Collecting context (issue parties snapshot) signatories
+        SeenSnapshot{snapshot, signatories, signableBytes} ->
+          -- This trusted cache belongs to the retained snapshot. Sharing it
+          -- through restoration and projection avoids encoding on every AckSn.
+          InitialState $ Collecting context (Candidate snapshot parties signableBytes) signatories
 
 issue ::
   IsTx tx =>

@@ -680,9 +680,11 @@ message $(hpAS,hats,msSig_i)$.
 
 - Require snapshot number $hats$ or $hats + 1$; wait for the corresponding $hpRS$ and reject duplicate signatures.
 - Collect signatures in $hatSigma$; when all parties have signed, verify the aggregate $msCSig$.
+- The implementation caches the canonical signing bytes of $mc(C)$ and trusts this derived value. Restoring the live owner and collecting signatures preserve the same cache; constructing or decoding a different candidate derives its own bytes. The cache is lazy and is not persisted.
+- Candidate ownership still compares the Head identity, signed version, number, ordered parties and signing bytes. Cache reuse does not replace aggregate signature verification.
 - Confirm the retained candidate: $macron(mc(S)) <- mc(C)$, preserving its signed version and payload, and attach $msCSig$.
 - Submit the corresponding $mtxDecrement$ or $mono("incrementTx")$ using the confirmed snapshot and accumulator commitment $eta'$.
-- The next leader uses $sans("selectRequest")$ for further useful work; an already-carried decommit alone starts no round.
+- After confirmation, check leadership before running $sans("selectRequest")$ for further useful work; an already-carried decommit alone starts no round.
 - $sans("requestDecommit")(hatv, macron(mc(S)), tx_omega)$ returns $tx_omega$ when carried at this version or when all required inputs are confirmed; otherwise $bot$.
 - $sans("newDecommit")$ additionally excludes carried decommits. Both helpers still require ledger validation in $hpRS$.
 - $sans("reconcileReservation")$ runs on confirmation/adoption: rebuild the optimistic ledger from the settled base and retained ordinary transactions.
