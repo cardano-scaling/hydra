@@ -15,7 +15,7 @@ Updates: [`Hydra.HeadLogic.State.Node.step`](../../../../hydra-node/src/Hydra/He
 
 | Machine | Topology |
 | --- | --- |
-| [`Hydra.HeadLogic.State.Head.machine`](../../../../hydra-node/src/Hydra/HeadLogic/State/Head.hs#L159) | [`Hydra.HeadLogic.State.Head.LifecycleTopology`](../../../../hydra-node/src/Hydra/HeadLogic/State/Head.hs#L106) |
+| [`Hydra.HeadLogic.State.Head.machine`](../../../../hydra-node/src/Hydra/HeadLogic/State/Head.hs#L160) | [`Hydra.HeadLogic.State.Head.LifecycleTopology`](../../../../hydra-node/src/Hydra/HeadLogic/State/Head.hs#L107) |
 | [`Hydra.HeadLogic.State.Deposits.machine`](../../../../hydra-node/src/Hydra/HeadLogic/State/Deposits.hs#L35) | [`Crem.Topology.TrivialTopology`](../../../../hydra-node/src/Hydra/HeadLogic/State/Deposits.hs#L35) (in the machine signature) |
 
 ```mermaid
@@ -38,8 +38,8 @@ Updates: [`Hydra.HeadLogic.State.Coordinated.advance`](../../../../hydra-node/sr
 
 | Machine | Topology |
 | --- | --- |
-| [`Hydra.HeadLogic.State.Coordinated.Snapshots.machine`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated/Snapshots.hs#L87) | [`Hydra.HeadLogic.State.Coordinated.Snapshots.Topology.SnapshotTopology`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated/Snapshots/Topology.hs#L28) |
-| [`Hydra.HeadLogic.State.Coordinated.Transactions.machine`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated/Transactions.hs#L129) | [`Hydra.HeadLogic.State.Coordinated.Transactions.DecommitTopology`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated/Transactions.hs#L81) |
+| [`Hydra.HeadLogic.State.Coordinated.Snapshots.machine`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated/Snapshots.hs#L88) | [`Hydra.HeadLogic.State.Coordinated.Snapshots.Topology.SnapshotTopology`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated/Snapshots/Topology.hs#L28) |
+| [`Hydra.HeadLogic.State.Coordinated.Transactions.machine`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated/Transactions.hs#L130) | [`Hydra.HeadLogic.State.Coordinated.Transactions.DecommitTopology`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated/Transactions.hs#L82) |
 | [`Hydra.HeadLogic.State.Coordinated.Commits.machine`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated/Commits.hs#L54) | [`Crem.Topology.TrivialTopology`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated/Commits.hs#L54) (in the machine signature) |
 
 ```mermaid
@@ -57,8 +57,8 @@ Snapshot acceptance, confirmation and adoption update the snapshot first, reconc
 
 This is the lifecycle of the Head protocol.
 
-- Machine: [`Hydra.HeadLogic.State.Head.machine`](../../../../hydra-node/src/Hydra/HeadLogic/State/Head.hs#L159).
-- Topology: [`Hydra.HeadLogic.State.Head.LifecycleTopology`](../../../../hydra-node/src/Hydra/HeadLogic/State/Head.hs#L106).
+- Machine: [`Hydra.HeadLogic.State.Head.machine`](../../../../hydra-node/src/Hydra/HeadLogic/State/Head.hs#L160).
+- Topology: [`Hydra.HeadLogic.State.Head.LifecycleTopology`](../../../../hydra-node/src/Hydra/HeadLogic/State/Head.hs#L107).
 
 ↻ marks a transition that keeps the same state.
 
@@ -116,8 +116,8 @@ s6 --> s7
 
 Check duplicates, outputs and deposits before selecting a snapshot or deciding whether to retry.
 
-- Machine: [`Hydra.HeadLogic.Rules.Network.ReqTx.workflow`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Network/ReqTx.hs#L134).
-- Topology: [`Hydra.HeadLogic.Rules.Network.ReqTx.ReqTxTopology`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Network/ReqTx.hs#L94).
+- Machine: [`Hydra.HeadLogic.Rules.Network.ReqTx.workflow`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Network/ReqTx.hs#L135).
+- Topology: [`Hydra.HeadLogic.Rules.Network.ReqTx.ReqTxTopology`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Network/ReqTx.hs#L95).
 
 ```mermaid
 stateDiagram-v2
@@ -302,8 +302,8 @@ s4 --> s5
 
 Attempt adoption, record the observed chain fact even when verification fails, then consider contesting with a newer certificate.
 
-- Machine: [`Hydra.HeadLogic.Rules.Chain.Lifecycle.maybeContestWorkflow`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Chain/Lifecycle.hs#L195).
-- Topology: [`Hydra.HeadLogic.Rules.Chain.Lifecycle.ObservationTopology`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Chain/Lifecycle.hs#L78).
+- Machine: [`Hydra.HeadLogic.Rules.Chain.Lifecycle.maybeContestWorkflow`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Chain/Lifecycle.hs#L196).
+- Topology: [`Hydra.HeadLogic.Rules.Chain.Lifecycle.ObservationTopology`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Chain/Lifecycle.hs#L79).
 
 ```mermaid
 stateDiagram-v2
@@ -321,8 +321,8 @@ s2 --> s3
 
 Record the chain observation, reconcile a matching candidate and consider requesting the next snapshot.
 
-- Machine: [`Hydra.HeadLogic.Rules.Chain.Settlement.workflow`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Chain/Settlement.hs#L127).
-- Topology: [`Hydra.HeadLogic.Rules.Chain.Settlement.SettlementTopology`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Chain/Settlement.hs#L84).
+- Machine: [`Hydra.HeadLogic.Rules.Chain.Settlement.workflow`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Chain/Settlement.hs#L128).
+- Topology: [`Hydra.HeadLogic.Rules.Chain.Settlement.SettlementTopology`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Chain/Settlement.hs#L85).
 
 ```mermaid
 stateDiagram-v2
@@ -340,7 +340,7 @@ s2 --> s3
 
 Handles requesting, accepting, collecting and confirming snapshots.
 
-- Machine: [`Hydra.HeadLogic.State.Coordinated.Snapshots.machine`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated/Snapshots.hs#L87).
+- Machine: [`Hydra.HeadLogic.State.Coordinated.Snapshots.machine`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated/Snapshots.hs#L88).
 - Topology: [`Hydra.HeadLogic.State.Coordinated.Snapshots.Topology.SnapshotTopology`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated/Snapshots/Topology.hs#L28).
 
 ```mermaid
@@ -360,8 +360,8 @@ s2 --> s0 : Confirmation / adoption / administrative reset
 
 Handles transactions and updates the ledger; also manages decommits.
 
-- Machine: [`Hydra.HeadLogic.State.Coordinated.Transactions.machine`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated/Transactions.hs#L129).
-- Topology: [`Hydra.HeadLogic.State.Coordinated.Transactions.DecommitTopology`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated/Transactions.hs#L81).
+- Machine: [`Hydra.HeadLogic.State.Coordinated.Transactions.machine`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated/Transactions.hs#L130).
+- Topology: [`Hydra.HeadLogic.State.Coordinated.Transactions.DecommitTopology`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated/Transactions.hs#L82).
 
 ```mermaid
 stateDiagram-v2
