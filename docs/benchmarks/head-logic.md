@@ -86,12 +86,9 @@ sizes alongside elapsed time, throughput and latency; open-loop batch boundaries
 can move percentiles substantially. See the [metrics reference](./metrics.md)
 for the meaning and limits of each reported value.
 
-To confirm a small difference in CI, dispatch `bench-e2e-diff.yaml` with exact
-`head_ref` and `base_ref` commits. `pairs_per_runner` accepts `1` through `4`;
-each runner reverses order after every pair. Use `2` or `4` to balance both
-execution orders on each runner. Compare an optimization against its immediate
-parent to isolate it, then compare the combined changes against the merged
-baseline. An A/A run with both refs equal estimates variation without a code
-change. Keep machine identities when interpreting repeated pairs: repeated runs
-on one VM are not independent machines, and an uncolored row does not prove
-that performance is unchanged.
+To compare changes in CI, dispatch `bench-e2e-diff.yaml` with exact `head_ref`
+and `base_ref` commits. Each of the four runners measures one pair, with
+opposite execution orders on half the runners. Compare an optimization against
+its immediate parent to isolate it, then compare the combined changes against
+the merged baseline. An A/A run with both refs equal estimates variation without
+a code change. An uncolored row does not prove that performance is unchanged.
