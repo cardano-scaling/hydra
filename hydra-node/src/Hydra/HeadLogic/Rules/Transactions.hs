@@ -1,4 +1,10 @@
-module Hydra.HeadLogic.Rules.Transactions (ValidatedTransaction, validateTransaction, applyTransactionsProgram, checkTransactionOutputs, pruneTransactions) where
+module Hydra.HeadLogic.Rules.Transactions (
+  ValidatedTransaction,
+  validateTransaction,
+  applyTransactionsProgram,
+  checkTransactionOutputs,
+  pruneTransactions,
+) where
 
 import Data.Sequence qualified as Seq (
   Seq (Empty, (:<|)),
@@ -19,9 +25,13 @@ import Hydra.Ledger (ValidationError (..))
 import Hydra.Prelude
 import Hydra.Tx (IsTx, UTxOType, utxoFromTx)
 
--- | Validate one ledger application, retaining its result for the live owner.
--- The caller supplies the decision label used in its surrounding workflow.
-validateTransaction :: IsTx tx => Text -> ChainSlot -> UTxOType tx -> tx -> Program tx (Either ValidationError (ValidatedTransaction tx))
+validateTransaction ::
+  IsTx tx =>
+  Text ->
+  ChainSlot ->
+  UTxOType tx ->
+  tx ->
+  Program tx (Either ValidationError (ValidatedTransaction tx))
 validateTransaction decision slot before tx = do
   let collision = checkTransactionOutputs before tx
   void $ decide decision (isRight collision)
@@ -31,7 +41,12 @@ validateTransaction decision slot before tx = do
 
 -- | Apply the same validation used for a transaction request to each member of
 -- the snapshot in order, stopping at its first invalid transaction.
-applyTransactionsProgram :: IsTx tx => ChainSlot -> UTxOType tx -> [tx] -> Program tx (Either (tx, ValidationError) (UTxOType tx))
+applyTransactionsProgram ::
+  IsTx tx =>
+  ChainSlot ->
+  UTxOType tx ->
+  [tx] ->
+  Program tx (Either (tx, ValidationError) (UTxOType tx))
 applyTransactionsProgram slot = go
  where
   go u [] = pure $ Right u
