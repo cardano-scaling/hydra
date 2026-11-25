@@ -159,37 +159,13 @@ s2 --> s3
 
 ```
 
-## Snapshot validation
-
-Resolve incremental work, apply transactions and check commitment capacity before issuing a checked snapshot.
-
-- Machine: [`Hydra.HeadLogic.Rules.Network.ReqSn.validationWorkflow`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Network/ReqSn.hs#L170).
-- Topology: [`Hydra.HeadLogic.Rules.Network.ReqSn.ValidationTopology`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Network/ReqSn.hs#L119).
-
-```mermaid
-stateDiagram-v2
-state "CheckRequest" as s0
-state "ResolveDecommit" as s1
-state "ResolveDeposit" as s2
-state "ResolveTransactions" as s3
-state "ApplyTransactions" as s4
-state "BuildSnapshot" as s5
-state "Validated" as s6
-s0 --> s1
-s1 --> s2
-s2 --> s3
-s3 --> s4
-s4 --> s5
-s5 --> s6
-
-```
-
 ## ReqSn: Receive a snapshot request
 
-Resolve any incremental work and transactions before building, signing and retaining the snapshot.
+The `ValidateRequest` stage runs `validationWorkflow` to check the request, resolve incremental work, apply transactions and check commitment capacity. The remaining stages sign and acknowledge the snapshot, prune local transactions and retain the snapshot.
 
 - Machine: [`Hydra.HeadLogic.Rules.Network.ReqSn.workflow`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Network/ReqSn.hs#L310).
 - Topology: [`Hydra.HeadLogic.Rules.Network.ReqSn.ReqSnTopology`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Network/ReqSn.hs#L285).
+- Includes: [`Hydra.HeadLogic.Rules.Network.ReqSn.validationWorkflow`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Network/ReqSn.hs#L170).
 
 ```mermaid
 stateDiagram-v2
@@ -232,12 +208,12 @@ s6 --> s7
 
 ```
 
-## Decommit admission
+## Decommit rules
 
-Check availability, ledger applicability, nonempty outputs and capacity once.
+Check availability, ledger applicability, nonempty outputs and capacity.
 
-- Machine: [`Hydra.HeadLogic.Rules.Decommit.workflow`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Decommit.hs#L66).
-- Topology: [`Hydra.HeadLogic.Rules.Decommit.AdmissionTopology`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Decommit.hs#L30).
+- Machine: [`Hydra.HeadLogic.Rules.Decommit.workflow`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Decommit.hs#L82).
+- Topology: [`Hydra.HeadLogic.Rules.Decommit.AdmissionTopology`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Decommit.hs#L40).
 
 ```mermaid
 stateDiagram-v2
