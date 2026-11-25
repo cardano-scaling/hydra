@@ -261,7 +261,6 @@ executable head-logic-diagrams
     , filepath
     , hydra-node
     , hydra-prelude
-    , text
 
 library testlib
   import:          project-config

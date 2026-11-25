@@ -1,5 +1,18 @@
 { self, ... }: {
   perSystem = { self', pkgs, lib, ... }: {
+    checks.head-logic-diagrams = pkgs.runCommand "head-logic-diagrams-check"
+      {
+        nativeBuildInputs = [ pkgs.diffutils ];
+      } ''
+      ${self'.packages.head-logic-diagrams}/bin/head-logic-diagrams generated.md
+      diff -u ${self}/docs/docs/dev/architecture/head-logic-machines.md generated.md || {
+        echo "HeadLogic diagrams are out of date."
+        echo "From docs/, run 'yarn head-logic-diagrams' and commit the updated page."
+        exit 1
+      }
+      touch "$out"
+    '';
+
     packages = rec {
       docs =
         let
