@@ -1,0 +1,211 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE DuplicateRecordFields #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE RecordWildCards #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# OPTIONS_GHC -Wno-ambiguous-fields #-}</span><span>
+</span><span id="line-4"></span><span>
+</span><span id="line-5"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.HeadLogic.State.Fanout</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-6"></span><span>
+</span><span id="line-7"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.html"><span class="hs-identifier">Hydra.HeadLogic.State</span></a></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-8"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.html#ClosedState"><span class="hs-identifier">ClosedState</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-9"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.html#FanoutMode"><span class="hs-identifier">FanoutMode</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-10"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.html#HeadState"><span class="hs-identifier">HeadState</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.State.html#Closed"><span class="hs-identifier">Closed</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.html#FanoutProgress"><span class="hs-identifier">FanoutProgress</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-11"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.html#OnChainFanoutDatum"><span class="hs-identifier">OnChainFanoutDatum</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-12"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.html#PartialFanoutState"><span class="hs-identifier">PartialFanoutState</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-13"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-14"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Prelude</span></span><span>
+</span><span id="line-15"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">UTxOType</span></span><span class="hs-special">)</span><span>
+</span><span id="line-16"></span><span>
+</span><span id="line-17"></span><span id="local-6989586621680991827"><span class="annot"><a href="Hydra.HeadLogic.State.Fanout.html#closedToPartialFanout"><span class="hs-identifier hs-type">closedToPartialFanout</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-18"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.html#ClosedState"><span class="hs-identifier hs-type">ClosedState</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680991827"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-19"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">UTxOType</span></span><span> </span><span class="annot"><a href="#local-6989586621680991827"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-20"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">UTxOType</span></span><span> </span><span class="annot"><a href="#local-6989586621680991827"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-21"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.html#FanoutMode"><span class="hs-identifier hs-type">FanoutMode</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680991827"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-22"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.html#OnChainFanoutDatum"><span class="hs-identifier hs-type">OnChainFanoutDatum</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-23"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.html#PartialFanoutState"><span class="hs-identifier hs-type">PartialFanoutState</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680991827"><span class="hs-identifier hs-type">tx</span></a></span></span><span>
+</span><span id="line-24"></span><span id="closedToPartialFanout"><span class="annot"><span class="annottext">closedToPartialFanout :: forall tx.
+ClosedState tx
+-&gt; UTxOType tx
+-&gt; UTxOType tx
+-&gt; FanoutMode tx
+-&gt; OnChainFanoutDatum
+-&gt; PartialFanoutState tx
+</span><a href="Hydra.HeadLogic.State.Fanout.html#closedToPartialFanout"><span class="hs-identifier hs-var hs-var">closedToPartialFanout</span></a></span></span><span> </span><span id="local-6989586621680991875"><span class="annot"><span class="annottext">ClosedState tx
+</span><a href="#local-6989586621680991875"><span class="hs-identifier hs-var">closedState</span></a></span></span><span> </span><span id="local-6989586621680991876"><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621680991876"><span class="hs-identifier hs-var">remainingOutputs</span></a></span></span><span> </span><span id="local-6989586621680991877"><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621680991877"><span class="hs-identifier hs-var">distributedOutputs</span></a></span></span><span> </span><span id="local-6989586621680991878"><span class="annot"><span class="annottext">FanoutMode tx
+</span><a href="#local-6989586621680991878"><span class="hs-identifier hs-var">mode</span></a></span></span><span> </span><span id="local-6989586621680991879"><span class="annot"><span class="annottext">OnChainFanoutDatum
+</span><a href="#local-6989586621680991879"><span class="hs-identifier hs-var">fanoutDatum</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-25"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.html#PartialFanoutState"><span class="hs-identifier hs-type">PartialFanoutState</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">Bool
+Maybe (Snapshot tx)
+UTCTime
+ChainStateType tx
+HeadId
+HeadSeed
+HeadParameters
+UTxOType tx
+ConfirmedSnapshot tx
+SnapshotVersion
+OnChainFanoutDatum
+FanoutMode tx
+remainingOutputs :: UTxOType tx
+distributedOutputs :: UTxOType tx
+mode :: FanoutMode tx
+fanoutDatum :: OnChainFanoutDatum
+parameters :: HeadParameters
+confirmedSnapshot :: ConfirmedSnapshot tx
+contestationDeadline :: UTCTime
+readyToFanoutSent :: Bool
+chainState :: ChainStateType tx
+headId :: HeadId
+headSeed :: HeadSeed
+version :: SnapshotVersion
+unconfirmedSnapshot :: Maybe (Snapshot tx)
+$sel:parameters:PartialFanoutState :: HeadParameters
+$sel:confirmedSnapshot:PartialFanoutState :: ConfirmedSnapshot tx
+$sel:contestationDeadline:PartialFanoutState :: UTCTime
+$sel:chainState:PartialFanoutState :: ChainStateType tx
+$sel:headId:PartialFanoutState :: HeadId
+$sel:headSeed:PartialFanoutState :: HeadSeed
+$sel:version:PartialFanoutState :: SnapshotVersion
+$sel:remainingOutputs:PartialFanoutState :: UTxOType tx
+$sel:distributedOutputs:PartialFanoutState :: UTxOType tx
+$sel:mode:PartialFanoutState :: FanoutMode tx
+$sel:fanoutDatum:PartialFanoutState :: OnChainFanoutDatum
+$sel:readyToFanoutSent:PartialFanoutState :: Bool
+$sel:unconfirmedSnapshot:PartialFanoutState :: Maybe (Snapshot tx)
+</span><a href="#local-6989586621680991876"><span class="hs-glyph hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">..</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-26"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-27"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.html#ClosedState"><span class="hs-identifier hs-type">ClosedState</span></a></span><span class="hs-special">{</span><span id="local-6989586621680991881"><span id="local-6989586621680991882"><span id="local-6989586621680991883"><span id="local-6989586621680991884"><span id="local-6989586621680991885"><span id="local-6989586621680991886"><span id="local-6989586621680991887"><span id="local-6989586621680991888"><span id="local-6989586621680991889"><span class="annot"><span class="annottext">Bool
+Maybe (Snapshot tx)
+UTCTime
+ChainStateType tx
+HeadId
+HeadSeed
+HeadParameters
+ConfirmedSnapshot tx
+SnapshotVersion
+parameters :: HeadParameters
+confirmedSnapshot :: ConfirmedSnapshot tx
+contestationDeadline :: UTCTime
+readyToFanoutSent :: Bool
+chainState :: ChainStateType tx
+headId :: HeadId
+headSeed :: HeadSeed
+version :: SnapshotVersion
+unconfirmedSnapshot :: Maybe (Snapshot tx)
+$sel:parameters:ClosedState :: forall tx. ClosedState tx -&gt; HeadParameters
+$sel:confirmedSnapshot:ClosedState :: forall tx. ClosedState tx -&gt; ConfirmedSnapshot tx
+$sel:contestationDeadline:ClosedState :: forall tx. ClosedState tx -&gt; UTCTime
+$sel:readyToFanoutSent:ClosedState :: forall tx. ClosedState tx -&gt; Bool
+$sel:chainState:ClosedState :: forall tx. ClosedState tx -&gt; ChainStateType tx
+$sel:headId:ClosedState :: forall tx. ClosedState tx -&gt; HeadId
+$sel:headSeed:ClosedState :: forall tx. ClosedState tx -&gt; HeadSeed
+$sel:version:ClosedState :: forall tx. ClosedState tx -&gt; SnapshotVersion
+$sel:unconfirmedSnapshot:ClosedState :: forall tx. ClosedState tx -&gt; Maybe (Snapshot tx)
+</span><a href="#local-6989586621680991881"><span class="hs-glyph hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">..</span></a></span></span></span></span></span></span></span></span></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ClosedState tx
+</span><a href="#local-6989586621680991875"><span class="hs-identifier hs-var">closedState</span></a></span><span>
+</span><span id="line-28"></span><span>
+</span><span id="line-29"></span><span class="hs-comment">-- | Rebuild the 'ClosedState' from a 'PartialFanoutState' when clearing a</span><span>
+</span><span id="line-30"></span><span class="hs-comment">-- local fanout request (see 'HeadFanoutReverted'). The Head stays Closed.</span><span>
+</span><span id="line-31"></span><span class="hs-comment">-- The head owner only applies this to pending fanout, before any distribution.</span><span>
+</span><span id="line-32"></span><span class="hs-comment">-- The candidate and notification state remain available before the deadline,</span><span>
+</span><span id="line-33"></span><span class="hs-comment">-- including after a checkpoint or a failed early request.</span><span>
+</span><span id="line-34"></span><span id="local-6989586621680991851"><span class="annot"><a href="Hydra.HeadLogic.State.Fanout.html#fanoutProgressToClosed"><span class="hs-identifier hs-type">fanoutProgressToClosed</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.html#PartialFanoutState"><span class="hs-identifier hs-type">PartialFanoutState</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680991851"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.html#ClosedState"><span class="hs-identifier hs-type">ClosedState</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680991851"><span class="hs-identifier hs-type">tx</span></a></span></span><span>
+</span><span id="line-35"></span><span id="fanoutProgressToClosed"><span class="annot"><span class="annottext">fanoutProgressToClosed :: forall tx. PartialFanoutState tx -&gt; ClosedState tx
+</span><a href="Hydra.HeadLogic.State.Fanout.html#fanoutProgressToClosed"><span class="hs-identifier hs-var hs-var">fanoutProgressToClosed</span></a></span></span><span> </span><span id="local-6989586621680991914"><span class="annot"><span class="annottext">PartialFanoutState tx
+</span><a href="#local-6989586621680991914"><span class="hs-identifier hs-var">pfs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-36"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.html#ClosedState"><span class="hs-identifier hs-type">ClosedState</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">Bool
+Maybe (Snapshot tx)
+UTCTime
+ChainStateType tx
+HeadId
+HeadSeed
+HeadParameters
+ConfirmedSnapshot tx
+SnapshotVersion
+$sel:parameters:ClosedState :: HeadParameters
+$sel:confirmedSnapshot:ClosedState :: ConfirmedSnapshot tx
+$sel:contestationDeadline:ClosedState :: UTCTime
+$sel:readyToFanoutSent:ClosedState :: Bool
+$sel:chainState:ClosedState :: ChainStateType tx
+$sel:headId:ClosedState :: HeadId
+$sel:headSeed:ClosedState :: HeadSeed
+$sel:version:ClosedState :: SnapshotVersion
+$sel:unconfirmedSnapshot:ClosedState :: Maybe (Snapshot tx)
+parameters :: HeadParameters
+confirmedSnapshot :: ConfirmedSnapshot tx
+contestationDeadline :: UTCTime
+chainState :: ChainStateType tx
+headId :: HeadId
+headSeed :: HeadSeed
+version :: SnapshotVersion
+readyToFanoutSent :: Bool
+unconfirmedSnapshot :: Maybe (Snapshot tx)
+</span><a href="Hydra.HeadLogic.State.html#%24sel%3Aparameters%3AClosedState"><span class="hs-glyph hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">..</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-37"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-38"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.html#PartialFanoutState"><span class="hs-identifier hs-type">PartialFanoutState</span></a></span><span class="hs-special">{</span><span id="local-6989586621680991915"><span id="local-6989586621680991916"><span id="local-6989586621680991917"><span id="local-6989586621680991918"><span id="local-6989586621680991919"><span id="local-6989586621680991920"><span id="local-6989586621680991921"><span id="local-6989586621680991922"><span id="local-6989586621680991923"><span id="local-6989586621680991924"><span id="local-6989586621680991925"><span id="local-6989586621680991926"><span id="local-6989586621680991927"><span class="annot"><span class="annottext">Bool
+Maybe (Snapshot tx)
+UTCTime
+ChainStateType tx
+HeadId
+HeadSeed
+HeadParameters
+UTxOType tx
+ConfirmedSnapshot tx
+SnapshotVersion
+OnChainFanoutDatum
+FanoutMode tx
+$sel:parameters:PartialFanoutState :: forall tx. PartialFanoutState tx -&gt; HeadParameters
+$sel:confirmedSnapshot:PartialFanoutState :: forall tx. PartialFanoutState tx -&gt; ConfirmedSnapshot tx
+$sel:contestationDeadline:PartialFanoutState :: forall tx. PartialFanoutState tx -&gt; UTCTime
+$sel:chainState:PartialFanoutState :: forall tx. PartialFanoutState tx -&gt; ChainStateType tx
+$sel:headId:PartialFanoutState :: forall tx. PartialFanoutState tx -&gt; HeadId
+$sel:headSeed:PartialFanoutState :: forall tx. PartialFanoutState tx -&gt; HeadSeed
+$sel:version:PartialFanoutState :: forall tx. PartialFanoutState tx -&gt; SnapshotVersion
+$sel:remainingOutputs:PartialFanoutState :: forall tx. PartialFanoutState tx -&gt; UTxOType tx
+$sel:distributedOutputs:PartialFanoutState :: forall tx. PartialFanoutState tx -&gt; UTxOType tx
+$sel:mode:PartialFanoutState :: forall tx. PartialFanoutState tx -&gt; FanoutMode tx
+$sel:fanoutDatum:PartialFanoutState :: forall tx. PartialFanoutState tx -&gt; OnChainFanoutDatum
+$sel:readyToFanoutSent:PartialFanoutState :: forall tx. PartialFanoutState tx -&gt; Bool
+$sel:unconfirmedSnapshot:PartialFanoutState :: forall tx. PartialFanoutState tx -&gt; Maybe (Snapshot tx)
+parameters :: HeadParameters
+confirmedSnapshot :: ConfirmedSnapshot tx
+contestationDeadline :: UTCTime
+chainState :: ChainStateType tx
+headId :: HeadId
+headSeed :: HeadSeed
+version :: SnapshotVersion
+readyToFanoutSent :: Bool
+unconfirmedSnapshot :: Maybe (Snapshot tx)
+remainingOutputs :: UTxOType tx
+distributedOutputs :: UTxOType tx
+mode :: FanoutMode tx
+fanoutDatum :: OnChainFanoutDatum
+</span><a href="Hydra.HeadLogic.State.html#%24sel%3Aparameters%3APartialFanoutState"><span class="hs-glyph hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">..</span></a></span></span></span></span></span></span></span></span></span></span></span></span></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PartialFanoutState tx
+</span><a href="#local-6989586621680991914"><span class="hs-identifier hs-var">pfs</span></a></span><span>
+</span><span id="line-39"></span><span>
+</span><span id="line-40"></span><span class="annot"><span class="hs-comment">-- | Local fanout intent does not stop the on-chain Head being Closed.</span></span><span>
+</span><span id="line-41"></span><span id="local-6989586621680991865"><span class="annot"><a href="Hydra.HeadLogic.State.Fanout.html#getClosedState"><span class="hs-identifier hs-type">getClosedState</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.html#HeadState"><span class="hs-identifier hs-type">HeadState</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680991865"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.State.html#ClosedState"><span class="hs-identifier hs-type">ClosedState</span></a></span><span> </span><span class="annot"><a href="#local-6989586621680991865"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span></span><span>
+</span><span id="line-42"></span><span id="getClosedState"><span class="annot"><span class="annottext">getClosedState :: forall tx. HeadState tx -&gt; Maybe (ClosedState tx)
+</span><a href="Hydra.HeadLogic.State.Fanout.html#getClosedState"><span class="hs-identifier hs-var hs-var">getClosedState</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-43"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.html#Closed"><span class="hs-identifier hs-type">Closed</span></a></span><span> </span><span id="local-6989586621680991929"><span class="annot"><span class="annottext">ClosedState tx
+</span><a href="#local-6989586621680991929"><span class="hs-identifier hs-var">st</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ClosedState tx -&gt; Maybe (ClosedState tx)
+forall a. a -&gt; Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">ClosedState tx
+</span><a href="#local-6989586621680991929"><span class="hs-identifier hs-var">st</span></a></span><span>
+</span><span id="line-44"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.html#FanoutProgress"><span class="hs-identifier hs-type">FanoutProgress</span></a></span><span> </span><span id="local-6989586621680991930"><span class="annot"><span class="annottext">st :: PartialFanoutState tx
+</span><a href="#local-6989586621680991930"><span class="hs-identifier hs-var">st</span></a></span></span><span class="hs-glyph">@</span><span class="annot"><a href="Hydra.HeadLogic.State.html#PartialFanoutState"><span class="hs-identifier hs-type">PartialFanoutState</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:fanoutDatum:PartialFanoutState :: forall tx. PartialFanoutState tx -&gt; OnChainFanoutDatum
+</span><a href="Hydra.HeadLogic.State.html#%24sel%3AfanoutDatum%3APartialFanoutState"><span class="hs-identifier hs-var">fanoutDatum</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">OnChainFanoutDatum
+</span><a href="Hydra.HeadLogic.State.html#DatumClosed"><span class="hs-identifier hs-var">DatumClosed</span></a></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ClosedState tx -&gt; Maybe (ClosedState tx)
+forall a. a -&gt; Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">(ClosedState tx -&gt; Maybe (ClosedState tx))
+-&gt; ClosedState tx -&gt; Maybe (ClosedState tx)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">PartialFanoutState tx -&gt; ClosedState tx
+forall tx. PartialFanoutState tx -&gt; ClosedState tx
+</span><a href="Hydra.HeadLogic.State.Fanout.html#fanoutProgressToClosed"><span class="hs-identifier hs-var">fanoutProgressToClosed</span></a></span><span> </span><span class="annot"><span class="annottext">PartialFanoutState tx
+</span><a href="#local-6989586621680991930"><span class="hs-identifier hs-var">st</span></a></span><span>
+</span><span id="line-45"></span><span>  </span><span class="annot"><span class="annottext">HeadState tx
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Maybe (ClosedState tx)
+forall a. Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span>
+</span><span id="line-46"></span></pre></body></html>

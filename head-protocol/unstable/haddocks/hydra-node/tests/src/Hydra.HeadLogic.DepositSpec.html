@@ -1,0 +1,422 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.HeadLogic.DepositSpec</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.DepositSpec.html#spec"><span class="hs-identifier">spec</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-2"></span><span>
+</span><span id="line-3"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.html"><span class="hs-identifier">Data.Time</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Clock.Internal.UTCTime.html#UTCTime"><span class="hs-identifier">UTCTime</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Calendar.Gregorian.html#fromGregorian"><span class="hs-identifier">fromGregorian</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-4"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.HeadLogic.Deposit</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Deposit</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">DepositStatus</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">TrackedDeposit</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-5"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.HeadLogic.Deposit</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Deposit</span></span><span>
+</span><span id="line-6"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Ledger.Simple</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">SimpleTx</span></span><span class="hs-special">)</span><span>
+</span><span id="line-7"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Prelude</span></span><span>
+</span><span id="line-8"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.Hydra.Ledger.Simple</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">utxoRef</span></span><span class="hs-special">)</span><span>
+</span><span id="line-9"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.Hydra.Prelude</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Spec</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">describe</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">it</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">shouldBe</span></span><span class="hs-special">)</span><span>
+</span><span id="line-10"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.Hydra.Tx.Fixture</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">testHeadId</span></span><span class="hs-special">)</span><span>
+</span><span id="line-11"></span><span>
+</span><span id="line-12"></span><span class="annot"><a href="Hydra.HeadLogic.DepositSpec.html#spec"><span class="hs-identifier hs-type">spec</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Spec</span></span><span>
+</span><span id="line-13"></span><span id="spec"><span class="annot"><span class="annottext">spec :: Spec
+</span><a href="Hydra.HeadLogic.DepositSpec.html#spec"><span class="hs-identifier hs-var hs-var">spec</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; Spec -&gt; Spec
+forall a. HasCallStack =&gt; String -&gt; SpecWith a -&gt; SpecWith a
+</span><span class="hs-identifier hs-var">describe</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;deposit entry observations&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Spec -&gt; Spec) -&gt; Spec -&gt; Spec
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-14"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; IO () -&gt; SpecWith (Arg (IO ()))
+forall a.
+(HasCallStack, Example a) =&gt;
+String -&gt; a -&gt; SpecWith (Arg a)
+</span><span class="hs-identifier hs-var">it</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;leaves unknown deposits absent on status updates and consumption&quot;</span></span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; SpecWith (Arg (IO ())))
+-&gt; IO () -&gt; SpecWith (Arg (IO ()))
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-15"></span><span>    </span><span class="annot"><span class="annottext">Deposit SimpleTx
+-&gt; Maybe (TrackedDeposit SimpleTx)
+-&gt; Maybe (TrackedDeposit SimpleTx)
+forall tx.
+Deposit tx
+-&gt; Maybe (TrackedDeposit tx) -&gt; Maybe (TrackedDeposit tx)
+</span><span class="hs-identifier hs-var">Deposit.update</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">DepositStatus -&gt; Deposit SimpleTx
+</span><a href="Hydra.HeadLogic.DepositSpec.html#mkDeposit"><span class="hs-identifier hs-var">mkDeposit</span></a></span><span> </span><span class="annot"><span class="annottext">DepositStatus
+</span><span class="hs-identifier hs-var">Active</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Maybe (TrackedDeposit SimpleTx)
+forall a. Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (TrackedDeposit SimpleTx)
+-&gt; Maybe (TrackedDeposit SimpleTx) -&gt; IO ()
+forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; IO ()
+</span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">Maybe (TrackedDeposit SimpleTx)
+forall a. Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span>
+</span><span id="line-16"></span><span>    </span><span class="annot"><span class="annottext">ChainSlot
+-&gt; Maybe (TrackedDeposit SimpleTx)
+-&gt; Maybe (TrackedDeposit SimpleTx)
+forall tx.
+ChainSlot -&gt; Maybe (TrackedDeposit tx) -&gt; Maybe (TrackedDeposit tx)
+</span><span class="hs-identifier hs-var">Deposit.consume</span></span><span> </span><span class="annot"><span class="annottext">ChainSlot
+</span><span class="hs-number">3</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Maybe (TrackedDeposit SimpleTx)
+forall a. Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TrackedDeposit</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SimpleTx</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Maybe (TrackedDeposit SimpleTx)
+-&gt; Maybe (TrackedDeposit SimpleTx) -&gt; IO ()
+forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; IO ()
+</span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">Maybe (TrackedDeposit SimpleTx)
+forall a. Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span>
+</span><span id="line-17"></span><span>
+</span><span id="line-18"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; IO () -&gt; SpecWith (Arg (IO ()))
+forall a.
+(HasCallStack, Example a) =&gt;
+String -&gt; a -&gt; SpecWith (Arg a)
+</span><span class="hs-identifier hs-var">it</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;keeps eligibility independent of consumption and restores it on rollback&quot;</span></span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; SpecWith (Arg (IO ())))
+-&gt; IO () -&gt; SpecWith (Arg (IO ()))
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-19"></span><span>    </span><span class="annot"><span class="annottext">[DepositStatus] -&gt; (DepositStatus -&gt; IO ()) -&gt; IO ()
+forall (t :: * -&gt; *) (m :: * -&gt; *) a b.
+(Foldable t, Monad m) =&gt;
+t a -&gt; (a -&gt; m b) -&gt; m ()
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#forM_"><span class="hs-identifier hs-var">forM_</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">DepositStatus
+</span><span class="hs-identifier hs-var">Inactive</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">DepositStatus
+</span><span class="hs-identifier hs-var">Active</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">DepositStatus
+</span><span class="hs-identifier hs-var">Expired</span></span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">((DepositStatus -&gt; IO ()) -&gt; IO ())
+-&gt; (DepositStatus -&gt; IO ()) -&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679948194"><span class="annot"><span class="annottext">DepositStatus
+</span><a href="#local-6989586621679948194"><span class="hs-identifier hs-var">status</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-20"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679948196"><span class="annot"><span class="annottext">observed :: Maybe (TrackedDeposit SimpleTx)
+</span><a href="#local-6989586621679948196"><span class="hs-identifier hs-var hs-var">observed</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ChainSlot
+-&gt; Deposit SimpleTx
+-&gt; Maybe (TrackedDeposit SimpleTx)
+-&gt; Maybe (TrackedDeposit SimpleTx)
+forall tx.
+ChainSlot
+-&gt; Deposit tx
+-&gt; Maybe (TrackedDeposit tx)
+-&gt; Maybe (TrackedDeposit tx)
+</span><span class="hs-identifier hs-var">Deposit.record</span></span><span> </span><span class="annot"><span class="annottext">ChainSlot
+</span><span class="hs-number">1</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">DepositStatus -&gt; Deposit SimpleTx
+</span><a href="Hydra.HeadLogic.DepositSpec.html#mkDeposit"><span class="hs-identifier hs-var">mkDeposit</span></a></span><span> </span><span class="annot"><span class="annottext">DepositStatus
+</span><span class="hs-identifier hs-var">Inactive</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Maybe (TrackedDeposit SimpleTx)
+forall a. Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span>
+</span><span id="line-21"></span><span>          </span><span id="local-6989586621679948199"><span class="annot"><span class="annottext">consumed :: Maybe (TrackedDeposit SimpleTx)
+</span><a href="#local-6989586621679948199"><span class="hs-identifier hs-var hs-var">consumed</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ChainSlot
+-&gt; Maybe (TrackedDeposit SimpleTx)
+-&gt; Maybe (TrackedDeposit SimpleTx)
+forall tx.
+ChainSlot -&gt; Maybe (TrackedDeposit tx) -&gt; Maybe (TrackedDeposit tx)
+</span><span class="hs-identifier hs-var">Deposit.consume</span></span><span> </span><span class="annot"><span class="annottext">ChainSlot
+</span><span class="hs-number">3</span></span><span> </span><span class="annot"><span class="annottext">Maybe (TrackedDeposit SimpleTx)
+</span><a href="#local-6989586621679948196"><span class="hs-identifier hs-var">observed</span></a></span><span>
+</span><span id="line-22"></span><span>          </span><span id="local-6989586621679948200"><span class="annot"><span class="annottext">changed :: Maybe (TrackedDeposit SimpleTx)
+</span><a href="#local-6989586621679948200"><span class="hs-identifier hs-var hs-var">changed</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Deposit SimpleTx
+-&gt; Maybe (TrackedDeposit SimpleTx)
+-&gt; Maybe (TrackedDeposit SimpleTx)
+forall tx.
+Deposit tx
+-&gt; Maybe (TrackedDeposit tx) -&gt; Maybe (TrackedDeposit tx)
+</span><span class="hs-identifier hs-var">Deposit.update</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">DepositStatus -&gt; Deposit SimpleTx
+</span><a href="Hydra.HeadLogic.DepositSpec.html#mkDeposit"><span class="hs-identifier hs-var">mkDeposit</span></a></span><span> </span><span class="annot"><span class="annottext">DepositStatus
+</span><a href="#local-6989586621679948194"><span class="hs-identifier hs-var">status</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Maybe (TrackedDeposit SimpleTx)
+</span><a href="#local-6989586621679948199"><span class="hs-identifier hs-var">consumed</span></a></span><span>
+</span><span id="line-23"></span><span>      </span><span class="annot"><span class="annottext">Maybe (TrackedDeposit SimpleTx)
+</span><a href="#local-6989586621679948200"><span class="hs-identifier hs-var">changed</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (TrackedDeposit SimpleTx)
+-&gt; Maybe (TrackedDeposit SimpleTx) -&gt; IO ()
+forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; IO ()
+</span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">TrackedDeposit SimpleTx -&gt; Maybe (TrackedDeposit SimpleTx)
+forall a. a -&gt; Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">TrackedDeposit</span></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:deposit:TrackedDeposit :: Deposit SimpleTx
+</span><span class="hs-identifier hs-var">deposit</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">DepositStatus -&gt; Deposit SimpleTx
+</span><a href="Hydra.HeadLogic.DepositSpec.html#mkDeposit"><span class="hs-identifier hs-var">mkDeposit</span></a></span><span> </span><span class="annot"><span class="annottext">DepositStatus
+</span><a href="#local-6989586621679948194"><span class="hs-identifier hs-var">status</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:recordedAt:TrackedDeposit :: ChainSlot
+</span><span class="hs-identifier hs-var">recordedAt</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ChainSlot
+</span><span class="hs-number">1</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:consumedAt:TrackedDeposit :: Maybe ChainSlot
+</span><span class="hs-identifier hs-var">consumedAt</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ChainSlot -&gt; Maybe ChainSlot
+forall a. a -&gt; Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">ChainSlot
+</span><span class="hs-number">3</span></span><span class="hs-special">}</span><span>
+</span><span id="line-24"></span><span>      </span><span class="annot"><span class="annottext">ChainSlot
+-&gt; Maybe (TrackedDeposit SimpleTx)
+-&gt; Maybe (TrackedDeposit SimpleTx)
+forall tx.
+ChainSlot -&gt; Maybe (TrackedDeposit tx) -&gt; Maybe (TrackedDeposit tx)
+</span><span class="hs-identifier hs-var">Deposit.rollback</span></span><span> </span><span class="annot"><span class="annottext">ChainSlot
+</span><span class="hs-number">3</span></span><span> </span><span class="annot"><span class="annottext">Maybe (TrackedDeposit SimpleTx)
+</span><a href="#local-6989586621679948200"><span class="hs-identifier hs-var">changed</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (TrackedDeposit SimpleTx)
+-&gt; Maybe (TrackedDeposit SimpleTx) -&gt; IO ()
+forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; IO ()
+</span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">Maybe (TrackedDeposit SimpleTx)
+</span><a href="#local-6989586621679948200"><span class="hs-identifier hs-var">changed</span></a></span><span>
+</span><span id="line-25"></span><span>      </span><span class="annot"><span class="annottext">ChainSlot
+-&gt; Maybe (TrackedDeposit SimpleTx)
+-&gt; Maybe (TrackedDeposit SimpleTx)
+forall tx.
+ChainSlot -&gt; Maybe (TrackedDeposit tx) -&gt; Maybe (TrackedDeposit tx)
+</span><span class="hs-identifier hs-var">Deposit.rollback</span></span><span> </span><span class="annot"><span class="annottext">ChainSlot
+</span><span class="hs-number">2</span></span><span> </span><span class="annot"><span class="annottext">Maybe (TrackedDeposit SimpleTx)
+</span><a href="#local-6989586621679948200"><span class="hs-identifier hs-var">changed</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (TrackedDeposit SimpleTx)
+-&gt; Maybe (TrackedDeposit SimpleTx) -&gt; IO ()
+forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; IO ()
+</span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">TrackedDeposit SimpleTx -&gt; Maybe (TrackedDeposit SimpleTx)
+forall a. a -&gt; Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">TrackedDeposit</span></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:deposit:TrackedDeposit :: Deposit SimpleTx
+</span><span class="hs-identifier hs-var">deposit</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">DepositStatus -&gt; Deposit SimpleTx
+</span><a href="Hydra.HeadLogic.DepositSpec.html#mkDeposit"><span class="hs-identifier hs-var">mkDeposit</span></a></span><span> </span><span class="annot"><span class="annottext">DepositStatus
+</span><a href="#local-6989586621679948194"><span class="hs-identifier hs-var">status</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:recordedAt:TrackedDeposit :: ChainSlot
+</span><span class="hs-identifier hs-var">recordedAt</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ChainSlot
+</span><span class="hs-number">1</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:consumedAt:TrackedDeposit :: Maybe ChainSlot
+</span><span class="hs-identifier hs-var">consumedAt</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Maybe ChainSlot
+forall a. Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-26"></span><span>      </span><span class="annot"><span class="annottext">ChainSlot
+-&gt; Maybe (TrackedDeposit SimpleTx)
+-&gt; Maybe (TrackedDeposit SimpleTx)
+forall tx.
+ChainSlot -&gt; Maybe (TrackedDeposit tx) -&gt; Maybe (TrackedDeposit tx)
+</span><span class="hs-identifier hs-var">Deposit.rollback</span></span><span> </span><span class="annot"><span class="annottext">ChainSlot
+</span><span class="hs-number">0</span></span><span> </span><span class="annot"><span class="annottext">Maybe (TrackedDeposit SimpleTx)
+</span><a href="#local-6989586621679948200"><span class="hs-identifier hs-var">changed</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (TrackedDeposit SimpleTx)
+-&gt; Maybe (TrackedDeposit SimpleTx) -&gt; IO ()
+forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; IO ()
+</span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">Maybe (TrackedDeposit SimpleTx)
+forall a. Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span>
+</span><span id="line-27"></span><span>
+</span><span id="line-28"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; IO () -&gt; SpecWith (Arg (IO ()))
+forall a.
+(HasCallStack, Example a) =&gt;
+String -&gt; a -&gt; SpecWith (Arg a)
+</span><span class="hs-identifier hs-var">it</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;replaces the lifecycle on re-observation, including a consumed record&quot;</span></span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; SpecWith (Arg (IO ())))
+-&gt; IO () -&gt; SpecWith (Arg (IO ()))
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-29"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679948208"><span class="annot"><span class="annottext">before :: Maybe (TrackedDeposit SimpleTx)
+</span><a href="#local-6989586621679948208"><span class="hs-identifier hs-var hs-var">before</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ChainSlot
+-&gt; Maybe (TrackedDeposit SimpleTx)
+-&gt; Maybe (TrackedDeposit SimpleTx)
+forall tx.
+ChainSlot -&gt; Maybe (TrackedDeposit tx) -&gt; Maybe (TrackedDeposit tx)
+</span><span class="hs-identifier hs-var">Deposit.consume</span></span><span> </span><span class="annot"><span class="annottext">ChainSlot
+</span><span class="hs-number">3</span></span><span> </span><span class="annot"><span class="annottext">(Maybe (TrackedDeposit SimpleTx)
+ -&gt; Maybe (TrackedDeposit SimpleTx))
+-&gt; Maybe (TrackedDeposit SimpleTx)
+-&gt; Maybe (TrackedDeposit SimpleTx)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">ChainSlot
+-&gt; Deposit SimpleTx
+-&gt; Maybe (TrackedDeposit SimpleTx)
+-&gt; Maybe (TrackedDeposit SimpleTx)
+forall tx.
+ChainSlot
+-&gt; Deposit tx
+-&gt; Maybe (TrackedDeposit tx)
+-&gt; Maybe (TrackedDeposit tx)
+</span><span class="hs-identifier hs-var">Deposit.record</span></span><span> </span><span class="annot"><span class="annottext">ChainSlot
+</span><span class="hs-number">1</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">DepositStatus -&gt; Deposit SimpleTx
+</span><a href="Hydra.HeadLogic.DepositSpec.html#mkDeposit"><span class="hs-identifier hs-var">mkDeposit</span></a></span><span> </span><span class="annot"><span class="annottext">DepositStatus
+</span><span class="hs-identifier hs-var">Active</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Maybe (TrackedDeposit SimpleTx)
+forall a. Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span>
+</span><span id="line-30"></span><span>        </span><span id="local-6989586621679948210"><span class="annot"><span class="annottext">restored :: Maybe (TrackedDeposit SimpleTx)
+</span><a href="#local-6989586621679948210"><span class="hs-identifier hs-var hs-var">restored</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ChainSlot
+-&gt; Deposit SimpleTx
+-&gt; Maybe (TrackedDeposit SimpleTx)
+-&gt; Maybe (TrackedDeposit SimpleTx)
+forall tx.
+ChainSlot
+-&gt; Deposit tx
+-&gt; Maybe (TrackedDeposit tx)
+-&gt; Maybe (TrackedDeposit tx)
+</span><span class="hs-identifier hs-var">Deposit.record</span></span><span> </span><span class="annot"><span class="annottext">ChainSlot
+</span><span class="hs-number">5</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">DepositStatus -&gt; Deposit SimpleTx
+</span><a href="Hydra.HeadLogic.DepositSpec.html#mkDeposit"><span class="hs-identifier hs-var">mkDeposit</span></a></span><span> </span><span class="annot"><span class="annottext">DepositStatus
+</span><span class="hs-identifier hs-var">Inactive</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Maybe (TrackedDeposit SimpleTx)
+</span><a href="#local-6989586621679948208"><span class="hs-identifier hs-var">before</span></a></span><span>
+</span><span id="line-31"></span><span>    </span><span class="annot"><span class="annottext">Maybe (TrackedDeposit SimpleTx)
+</span><a href="#local-6989586621679948210"><span class="hs-identifier hs-var">restored</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (TrackedDeposit SimpleTx)
+-&gt; Maybe (TrackedDeposit SimpleTx) -&gt; IO ()
+forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; IO ()
+</span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">TrackedDeposit SimpleTx -&gt; Maybe (TrackedDeposit SimpleTx)
+forall a. a -&gt; Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">TrackedDeposit</span></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:deposit:TrackedDeposit :: Deposit SimpleTx
+</span><span class="hs-identifier hs-var">deposit</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">DepositStatus -&gt; Deposit SimpleTx
+</span><a href="Hydra.HeadLogic.DepositSpec.html#mkDeposit"><span class="hs-identifier hs-var">mkDeposit</span></a></span><span> </span><span class="annot"><span class="annottext">DepositStatus
+</span><span class="hs-identifier hs-var">Inactive</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:recordedAt:TrackedDeposit :: ChainSlot
+</span><span class="hs-identifier hs-var">recordedAt</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ChainSlot
+</span><span class="hs-number">5</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:consumedAt:TrackedDeposit :: Maybe ChainSlot
+</span><span class="hs-identifier hs-var">consumedAt</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Maybe ChainSlot
+forall a. Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-32"></span><span>    </span><span class="annot"><span class="annottext">ChainSlot
+-&gt; Maybe (TrackedDeposit SimpleTx)
+-&gt; Maybe (TrackedDeposit SimpleTx)
+forall tx.
+ChainSlot -&gt; Maybe (TrackedDeposit tx) -&gt; Maybe (TrackedDeposit tx)
+</span><span class="hs-identifier hs-var">Deposit.rollback</span></span><span> </span><span class="annot"><span class="annottext">ChainSlot
+</span><span class="hs-number">4</span></span><span> </span><span class="annot"><span class="annottext">Maybe (TrackedDeposit SimpleTx)
+</span><a href="#local-6989586621679948210"><span class="hs-identifier hs-var">restored</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (TrackedDeposit SimpleTx)
+-&gt; Maybe (TrackedDeposit SimpleTx) -&gt; IO ()
+forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; IO ()
+</span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">Maybe (TrackedDeposit SimpleTx)
+forall a. Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span>
+</span><span id="line-33"></span><span>
+</span><span id="line-34"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; IO () -&gt; SpecWith (Arg (IO ()))
+forall a.
+(HasCallStack, Example a) =&gt;
+String -&gt; a -&gt; SpecWith (Arg a)
+</span><span class="hs-identifier hs-var">it</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;refreshes the consumption slot when an increment is observed again&quot;</span></span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; SpecWith (Arg (IO ())))
+-&gt; IO () -&gt; SpecWith (Arg (IO ()))
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-35"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679948213"><span class="annot"><span class="annottext">before :: Maybe (TrackedDeposit SimpleTx)
+</span><a href="#local-6989586621679948213"><span class="hs-identifier hs-var hs-var">before</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ChainSlot
+-&gt; Maybe (TrackedDeposit SimpleTx)
+-&gt; Maybe (TrackedDeposit SimpleTx)
+forall tx.
+ChainSlot -&gt; Maybe (TrackedDeposit tx) -&gt; Maybe (TrackedDeposit tx)
+</span><span class="hs-identifier hs-var">Deposit.consume</span></span><span> </span><span class="annot"><span class="annottext">ChainSlot
+</span><span class="hs-number">3</span></span><span> </span><span class="annot"><span class="annottext">(Maybe (TrackedDeposit SimpleTx)
+ -&gt; Maybe (TrackedDeposit SimpleTx))
+-&gt; Maybe (TrackedDeposit SimpleTx)
+-&gt; Maybe (TrackedDeposit SimpleTx)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">ChainSlot
+-&gt; Deposit SimpleTx
+-&gt; Maybe (TrackedDeposit SimpleTx)
+-&gt; Maybe (TrackedDeposit SimpleTx)
+forall tx.
+ChainSlot
+-&gt; Deposit tx
+-&gt; Maybe (TrackedDeposit tx)
+-&gt; Maybe (TrackedDeposit tx)
+</span><span class="hs-identifier hs-var">Deposit.record</span></span><span> </span><span class="annot"><span class="annottext">ChainSlot
+</span><span class="hs-number">1</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">DepositStatus -&gt; Deposit SimpleTx
+</span><a href="Hydra.HeadLogic.DepositSpec.html#mkDeposit"><span class="hs-identifier hs-var">mkDeposit</span></a></span><span> </span><span class="annot"><span class="annottext">DepositStatus
+</span><span class="hs-identifier hs-var">Active</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Maybe (TrackedDeposit SimpleTx)
+forall a. Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span>
+</span><span id="line-36"></span><span>        </span><span id="local-6989586621679948215"><span class="annot"><span class="annottext">again :: Maybe (TrackedDeposit SimpleTx)
+</span><a href="#local-6989586621679948215"><span class="hs-identifier hs-var hs-var">again</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ChainSlot
+-&gt; Maybe (TrackedDeposit SimpleTx)
+-&gt; Maybe (TrackedDeposit SimpleTx)
+forall tx.
+ChainSlot -&gt; Maybe (TrackedDeposit tx) -&gt; Maybe (TrackedDeposit tx)
+</span><span class="hs-identifier hs-var">Deposit.consume</span></span><span> </span><span class="annot"><span class="annottext">ChainSlot
+</span><span class="hs-number">5</span></span><span> </span><span class="annot"><span class="annottext">Maybe (TrackedDeposit SimpleTx)
+</span><a href="#local-6989586621679948213"><span class="hs-identifier hs-var">before</span></a></span><span>
+</span><span id="line-37"></span><span>    </span><span class="annot"><span class="annottext">ChainSlot
+-&gt; Maybe (TrackedDeposit SimpleTx)
+-&gt; Maybe (TrackedDeposit SimpleTx)
+forall tx.
+ChainSlot -&gt; Maybe (TrackedDeposit tx) -&gt; Maybe (TrackedDeposit tx)
+</span><span class="hs-identifier hs-var">Deposit.rollback</span></span><span> </span><span class="annot"><span class="annottext">ChainSlot
+</span><span class="hs-number">4</span></span><span> </span><span class="annot"><span class="annottext">Maybe (TrackedDeposit SimpleTx)
+</span><a href="#local-6989586621679948215"><span class="hs-identifier hs-var">again</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (TrackedDeposit SimpleTx)
+-&gt; Maybe (TrackedDeposit SimpleTx) -&gt; IO ()
+forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; IO ()
+</span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">ChainSlot
+-&gt; Deposit SimpleTx
+-&gt; Maybe (TrackedDeposit SimpleTx)
+-&gt; Maybe (TrackedDeposit SimpleTx)
+forall tx.
+ChainSlot
+-&gt; Deposit tx
+-&gt; Maybe (TrackedDeposit tx)
+-&gt; Maybe (TrackedDeposit tx)
+</span><span class="hs-identifier hs-var">Deposit.record</span></span><span> </span><span class="annot"><span class="annottext">ChainSlot
+</span><span class="hs-number">1</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">DepositStatus -&gt; Deposit SimpleTx
+</span><a href="Hydra.HeadLogic.DepositSpec.html#mkDeposit"><span class="hs-identifier hs-var">mkDeposit</span></a></span><span> </span><span class="annot"><span class="annottext">DepositStatus
+</span><span class="hs-identifier hs-var">Active</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Maybe (TrackedDeposit SimpleTx)
+forall a. Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span>
+</span><span id="line-38"></span><span>    </span><span class="annot"><span class="annottext">ChainSlot
+-&gt; Maybe (TrackedDeposit SimpleTx)
+-&gt; Maybe (TrackedDeposit SimpleTx)
+forall tx.
+ChainSlot -&gt; Maybe (TrackedDeposit tx) -&gt; Maybe (TrackedDeposit tx)
+</span><span class="hs-identifier hs-var">Deposit.rollback</span></span><span> </span><span class="annot"><span class="annottext">ChainSlot
+</span><span class="hs-number">5</span></span><span> </span><span class="annot"><span class="annottext">Maybe (TrackedDeposit SimpleTx)
+</span><a href="#local-6989586621679948215"><span class="hs-identifier hs-var">again</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (TrackedDeposit SimpleTx)
+-&gt; Maybe (TrackedDeposit SimpleTx) -&gt; IO ()
+forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; IO ()
+</span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">Maybe (TrackedDeposit SimpleTx)
+</span><a href="#local-6989586621679948215"><span class="hs-identifier hs-var">again</span></a></span><span>
+</span><span id="line-39"></span><span>
+</span><span id="line-40"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; IO () -&gt; SpecWith (Arg (IO ()))
+forall a.
+(HasCallStack, Example a) =&gt;
+String -&gt; a -&gt; SpecWith (Arg a)
+</span><span class="hs-identifier hs-var">it</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;preserves the entire retained activation payload without changing observation slots&quot;</span></span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; SpecWith (Arg (IO ())))
+-&gt; IO () -&gt; SpecWith (Arg (IO ()))
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-41"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679948217"><span class="annot"><span class="annottext">observed :: Maybe (TrackedDeposit SimpleTx)
+</span><a href="#local-6989586621679948217"><span class="hs-identifier hs-var hs-var">observed</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ChainSlot
+-&gt; Deposit SimpleTx
+-&gt; Maybe (TrackedDeposit SimpleTx)
+-&gt; Maybe (TrackedDeposit SimpleTx)
+forall tx.
+ChainSlot
+-&gt; Deposit tx
+-&gt; Maybe (TrackedDeposit tx)
+-&gt; Maybe (TrackedDeposit tx)
+</span><span class="hs-identifier hs-var">Deposit.record</span></span><span> </span><span class="annot"><span class="annottext">ChainSlot
+</span><span class="hs-number">1</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">DepositStatus -&gt; Deposit SimpleTx
+</span><a href="Hydra.HeadLogic.DepositSpec.html#mkDeposit"><span class="hs-identifier hs-var">mkDeposit</span></a></span><span> </span><span class="annot"><span class="annottext">DepositStatus
+</span><span class="hs-identifier hs-var">Inactive</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Maybe (TrackedDeposit SimpleTx)
+forall a. Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span>
+</span><span id="line-42"></span><span>        </span><span id="local-6989586621679948219"><span class="annot"><span class="annottext">retained :: Deposit SimpleTx
+</span><a href="#local-6989586621679948219"><span class="hs-identifier hs-var hs-var">retained</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">DepositStatus -&gt; Deposit SimpleTx
+</span><a href="Hydra.HeadLogic.DepositSpec.html#mkDeposit"><span class="hs-identifier hs-var">mkDeposit</span></a></span><span> </span><span class="annot"><span class="annottext">DepositStatus
+</span><span class="hs-identifier hs-var">Active</span></span><span class="hs-special">)</span><span class="hs-special">{</span><span class="annot"><span class="hs-identifier hs-var">deposited</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">utxoRef</span></span><span> </span><span class="annot"><span class="hs-number">99</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-var">deadline</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Clock.Internal.UTCDiff.html#addUTCTime"><span class="hs-identifier hs-type">addUTCTime</span></a></span><span> </span><span class="annot"><span class="hs-number">50</span></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.DepositSpec.html#epoch"><span class="hs-identifier hs-type">epoch</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-43"></span><span>    </span><span class="annot"><span class="annottext">Deposit SimpleTx
+-&gt; Maybe (TrackedDeposit SimpleTx)
+-&gt; Maybe (TrackedDeposit SimpleTx)
+forall tx.
+Deposit tx
+-&gt; Maybe (TrackedDeposit tx) -&gt; Maybe (TrackedDeposit tx)
+</span><span class="hs-identifier hs-var">Deposit.update</span></span><span> </span><span class="annot"><span class="annottext">Deposit SimpleTx
+</span><a href="#local-6989586621679948219"><span class="hs-identifier hs-var">retained</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (TrackedDeposit SimpleTx)
+</span><a href="#local-6989586621679948217"><span class="hs-identifier hs-var">observed</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (TrackedDeposit SimpleTx)
+-&gt; Maybe (TrackedDeposit SimpleTx) -&gt; IO ()
+forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; IO ()
+</span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">TrackedDeposit SimpleTx -&gt; Maybe (TrackedDeposit SimpleTx)
+forall a. a -&gt; Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">TrackedDeposit</span></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:deposit:TrackedDeposit :: Deposit SimpleTx
+</span><span class="hs-identifier hs-var">deposit</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Deposit SimpleTx
+</span><a href="#local-6989586621679948219"><span class="hs-identifier hs-var">retained</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:recordedAt:TrackedDeposit :: ChainSlot
+</span><span class="hs-identifier hs-var">recordedAt</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ChainSlot
+</span><span class="hs-number">1</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:consumedAt:TrackedDeposit :: Maybe ChainSlot
+</span><span class="hs-identifier hs-var">consumedAt</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Maybe ChainSlot
+forall a. Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-44"></span><span>
+</span><span id="line-45"></span><span class="annot"><a href="Hydra.HeadLogic.DepositSpec.html#mkDeposit"><span class="hs-identifier hs-type">mkDeposit</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">DepositStatus</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Deposit</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SimpleTx</span></span><span>
+</span><span id="line-46"></span><span id="mkDeposit"><span class="annot"><span class="annottext">mkDeposit :: DepositStatus -&gt; Deposit SimpleTx
+</span><a href="Hydra.HeadLogic.DepositSpec.html#mkDeposit"><span class="hs-identifier hs-var hs-var">mkDeposit</span></a></span></span><span> </span><span id="local-6989586621679948224"><span class="annot"><span class="annottext">DepositStatus
+</span><a href="#local-6989586621679948224"><span class="hs-identifier hs-var">status</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Deposit</span></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:headId:Deposit :: HeadId
+</span><span class="hs-identifier hs-var">headId</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HeadId
+</span><span class="hs-identifier hs-var">testHeadId</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:deposited:Deposit :: UTxOType SimpleTx
+</span><span class="hs-identifier hs-var">deposited</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Integer -&gt; UTxOType SimpleTx
+</span><span class="hs-identifier hs-var">utxoRef</span></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><span class="hs-number">7</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:created:Deposit :: UTCTime
+</span><span class="hs-identifier hs-var">created</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UTCTime
+</span><a href="Hydra.HeadLogic.DepositSpec.html#epoch"><span class="hs-identifier hs-var">epoch</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:deadline:Deposit :: UTCTime
+</span><span class="hs-identifier hs-var">deadline</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; UTCTime -&gt; UTCTime
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Clock.Internal.UTCDiff.html#addUTCTime"><span class="hs-identifier hs-var">addUTCTime</span></a></span><span> </span><span class="annot"><span class="annottext">NominalDiffTime
+</span><span class="hs-number">100</span></span><span> </span><span class="annot"><span class="annottext">UTCTime
+</span><a href="Hydra.HeadLogic.DepositSpec.html#epoch"><span class="hs-identifier hs-var">epoch</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">DepositStatus
+status :: DepositStatus
+$sel:status:Deposit :: DepositStatus
+</span><a href="#local-6989586621679948224"><span class="hs-identifier hs-var hs-var">status</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-47"></span><span>
+</span><span id="line-48"></span><span class="annot"><a href="Hydra.HeadLogic.DepositSpec.html#epoch"><span class="hs-identifier hs-type">epoch</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Clock.Internal.UTCTime.html#UTCTime"><span class="hs-identifier hs-type">UTCTime</span></a></span><span>
+</span><span id="line-49"></span><span id="epoch"><span class="annot"><span class="annottext">epoch :: UTCTime
+</span><a href="Hydra.HeadLogic.DepositSpec.html#epoch"><span class="hs-identifier hs-var hs-var">epoch</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Day -&gt; DiffTime -&gt; UTCTime
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Clock.Internal.UTCTime.html#UTCTime"><span class="hs-identifier hs-var">UTCTime</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Integer -&gt; MonthOfYear -&gt; MonthOfYear -&gt; Day
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Calendar.Gregorian.html#fromGregorian"><span class="hs-identifier hs-var">fromGregorian</span></a></span><span> </span><span class="annot"><span class="annottext">Integer
+</span><span class="hs-number">2026</span></span><span> </span><span class="annot"><span class="annottext">MonthOfYear
+</span><span class="hs-number">1</span></span><span> </span><span class="annot"><span class="annottext">MonthOfYear
+</span><span class="hs-number">1</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">DiffTime
+</span><span class="hs-number">0</span></span><span>
+</span><span id="line-50"></span></pre></body></html>

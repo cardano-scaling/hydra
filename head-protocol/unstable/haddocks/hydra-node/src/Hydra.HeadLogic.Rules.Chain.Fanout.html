@@ -1,0 +1,476 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE DuplicateRecordFields #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE OverloadedRecordDot #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE RecordWildCards #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# OPTIONS_GHC -Wno-ambiguous-fields #-}</span><span>
+</span><span id="line-5"></span><span>
+</span><span id="line-6"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.HeadLogic.Rules.Chain.Fanout</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-7"></span><span>
+</span><span id="line-8"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.API.ServerOutput.html"><span class="hs-identifier">Hydra.API.ServerOutput</span></a></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">ServerOutput</span></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-9"></span><span>  </span><span class="annot"><a href="Hydra.API.ServerOutput.html#ClientMessage"><span class="hs-identifier">ClientMessage</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.API.ServerOutput.html#PostTxOnChainFailed"><span class="hs-identifier">PostTxOnChainFailed</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.API.ServerOutput.html#%24sel%3ApostChainTx%3ACommandFailed"><span class="hs-identifier">postChainTx</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.API.ServerOutput.html#%24sel%3ApostTxError%3ACommandFailed"><span class="hs-identifier">postTxError</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-10"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-11"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Chain.html"><span class="hs-identifier">Hydra.Chain</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Chain.html#PostChainTx"><span class="hs-identifier">PostChainTx</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Chain.html#PostTxError"><span class="hs-identifier">PostTxError</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-12"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Chain.ChainState</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">IsChainState</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-13"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Fanout.Outputs.html"><span class="hs-identifier">Hydra.HeadLogic.Fanout.Outputs</span></a></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-14"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Fanout.Outputs.html#nullOutputs"><span class="hs-identifier">nullOutputs</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-15"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Fanout.Outputs.html#removeDistributedOutputs"><span class="hs-identifier">removeDistributedOutputs</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-16"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-17"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Fanout.Selection.html"><span class="hs-identifier">Hydra.HeadLogic.Fanout.Selection</span></a></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-18"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Fanout.Selection.html#computeFullFanoutUTxO"><span class="hs-identifier">computeFullFanoutUTxO</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-19"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Fanout.Selection.html#currentFanoutStep"><span class="hs-identifier">currentFanoutStep</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-20"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Fanout.Selection.html#matchesFanoutStep"><span class="hs-identifier">matchesFanoutStep</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-21"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Fanout.Selection.html#nextFanoutStep"><span class="hs-identifier">nextFanoutStep</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-22"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-23"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html"><span class="hs-identifier">Hydra.HeadLogic.Outcome</span></a></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-24"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#Effect"><span class="hs-identifier">Effect</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#ClientEffect"><span class="hs-identifier">ClientEffect</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-25"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#StateChanged"><span class="hs-identifier">StateChanged</span></a></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-26"></span><span>    </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#HeadFannedOut"><span class="hs-identifier">HeadFannedOut</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-27"></span><span>    </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#HeadFanoutReverted"><span class="hs-identifier">HeadFanoutReverted</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-28"></span><span>    </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#HeadPartialFannedOut"><span class="hs-identifier">HeadPartialFannedOut</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-29"></span><span>    </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#%24sel%3AchainState%3ANetworkConnected"><span class="hs-identifier">chainState</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-30"></span><span>    </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#%24sel%3AdistributedOutputs%3ANetworkConnected"><span class="hs-identifier">distributedOutputs</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-31"></span><span>    </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#%24sel%3AfinalizedOutputs%3ANetworkConnected"><span class="hs-identifier">finalizedOutputs</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-32"></span><span>    </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#%24sel%3AheadId%3ANetworkConnected"><span class="hs-identifier">headId</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-33"></span><span>    </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#%24sel%3Amode%3ANetworkConnected"><span class="hs-identifier">mode</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-34"></span><span>    </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#%24sel%3AremainingOutputs%3ANetworkConnected"><span class="hs-identifier">remainingOutputs</span></a></span><span>
+</span><span id="line-35"></span><span>  </span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-36"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-37"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Program.html"><span class="hs-identifier">Hydra.HeadLogic.Program</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.Program.html#Program"><span class="hs-identifier">Program</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Program.html#change"><span class="hs-identifier">change</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Program.html#emit"><span class="hs-identifier">emit</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-38"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Fanout.html"><span class="hs-identifier">Hydra.HeadLogic.Rules.Fanout</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.Rules.Fanout.html#emitFanoutStep"><span class="hs-identifier">emitFanoutStep</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-39"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.html"><span class="hs-identifier">Hydra.HeadLogic.State</span></a></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-40"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.html#ClosedState"><span class="hs-identifier">ClosedState</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.State.html#ClosedState"><span class="hs-identifier">ClosedState</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.html#%24sel%3AheadId%3AClosedState"><span class="hs-identifier">headId</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-41"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.html#FanoutMode"><span class="hs-identifier">FanoutMode</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.State.html#AutoDrain"><span class="hs-identifier">AutoDrain</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.html#AwaitingSelection"><span class="hs-identifier">AwaitingSelection</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.html#DistributingSelection"><span class="hs-identifier">DistributingSelection</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-42"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.html#OnChainFanoutDatum"><span class="hs-identifier">OnChainFanoutDatum</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-43"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.html#PartialFanoutState"><span class="hs-identifier">PartialFanoutState</span></a></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-44"></span><span>    </span><span class="annot"><a href="Hydra.HeadLogic.State.html#PartialFanoutState"><span class="hs-identifier">PartialFanoutState</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-45"></span><span>    </span><span class="annot"><a href="Hydra.HeadLogic.State.html#%24sel%3AconfirmedSnapshot%3APartialFanoutState"><span class="hs-identifier">confirmedSnapshot</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-46"></span><span>    </span><span class="annot"><a href="Hydra.HeadLogic.State.html#%24sel%3AcontestationDeadline%3APartialFanoutState"><span class="hs-identifier">contestationDeadline</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-47"></span><span>    </span><span class="annot"><a href="Hydra.HeadLogic.State.html#%24sel%3AdistributedOutputs%3APartialFanoutState"><span class="hs-identifier">distributedOutputs</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-48"></span><span>    </span><span class="annot"><a href="Hydra.HeadLogic.State.html#%24sel%3AfanoutDatum%3APartialFanoutState"><span class="hs-identifier">fanoutDatum</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-49"></span><span>    </span><span class="annot"><a href="Hydra.HeadLogic.State.html#%24sel%3AheadId%3APartialFanoutState"><span class="hs-identifier">headId</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-50"></span><span>    </span><span class="annot"><a href="Hydra.HeadLogic.State.html#%24sel%3AheadSeed%3APartialFanoutState"><span class="hs-identifier">headSeed</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-51"></span><span>    </span><span class="annot"><a href="Hydra.HeadLogic.State.html#%24sel%3Amode%3APartialFanoutState"><span class="hs-identifier">mode</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-52"></span><span>    </span><span class="annot"><a href="Hydra.HeadLogic.State.html#%24sel%3AremainingOutputs%3APartialFanoutState"><span class="hs-identifier">remainingOutputs</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-53"></span><span>    </span><span class="annot"><a href="Hydra.HeadLogic.State.html#%24sel%3Aversion%3APartialFanoutState"><span class="hs-identifier">version</span></a></span><span>
+</span><span id="line-54"></span><span>  </span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-55"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-56"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Prelude</span></span><span>
+</span><span id="line-57"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">IsTx</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">UTxOType</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">outputsOfUTxO</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">withoutUTxO</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-58"></span><span>
+</span><span id="line-59"></span><span class="annot"><span class="hs-comment">-- | Observe a (full or final) fanout transaction, finalizing the head.</span></span><span>
+</span><span id="line-60"></span><span id="local-6989586621681037641"><span class="annot"><a href="Hydra.HeadLogic.Rules.Chain.Fanout.html#onClosedChainFanoutTx"><span class="hs-identifier hs-type">onClosedChainFanoutTx</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-61"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.html#ClosedState"><span class="hs-identifier hs-type">ClosedState</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681037641"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-62"></span><span>  </span><span class="annot"><span class="hs-comment">-- | New chain state</span></span><span>
+</span><span id="line-63"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">ChainStateType</span></span><span> </span><span class="annot"><a href="#local-6989586621681037641"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-64"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">UTxOType</span></span><span> </span><span class="annot"><a href="#local-6989586621681037641"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-65"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Program.html#Program"><span class="hs-identifier hs-type">Program</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681037641"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-66"></span><span id="onClosedChainFanoutTx"><span class="annot"><span class="annottext">onClosedChainFanoutTx :: forall tx.
+ClosedState tx -&gt; ChainStateType tx -&gt; UTxOType tx -&gt; Program tx ()
+</span><a href="Hydra.HeadLogic.Rules.Chain.Fanout.html#onClosedChainFanoutTx"><span class="hs-identifier hs-var hs-var">onClosedChainFanoutTx</span></a></span></span><span> </span><span id="local-6989586621681037747"><span class="annot"><span class="annottext">ClosedState tx
+</span><a href="#local-6989586621681037747"><span class="hs-identifier hs-var">closedState</span></a></span></span><span> </span><span id="local-6989586621681037748"><span class="annot"><span class="annottext">ChainStateType tx
+</span><a href="#local-6989586621681037748"><span class="hs-identifier hs-var">newChainState</span></a></span></span><span> </span><span id="local-6989586621681037749"><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621681037749"><span class="hs-identifier hs-var">fanoutUTxO</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-67"></span><span>  </span><span class="annot"><span class="annottext">StateChanged tx -&gt; Program tx ()
+forall tx. StateChanged tx -&gt; Program tx ()
+</span><a href="Hydra.HeadLogic.Program.html#change"><span class="hs-identifier hs-var">change</span></a></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#HeadFannedOut"><span class="hs-identifier hs-type">HeadFannedOut</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">HeadId
+$sel:headId:NetworkConnected :: HeadId
+headId :: HeadId
+</span><a href="Hydra.HeadLogic.Outcome.html#%24sel%3AheadId%3ANetworkConnected"><span class="hs-identifier hs-var hs-var">headId</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:finalizedOutputs:NetworkConnected :: UTxOType tx
+</span><a href="Hydra.HeadLogic.Outcome.html#%24sel%3AfinalizedOutputs%3ANetworkConnected"><span class="hs-identifier hs-var">finalizedOutputs</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621681037749"><span class="hs-identifier hs-var">fanoutUTxO</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:chainState:NetworkConnected :: ChainStateType tx
+</span><a href="Hydra.HeadLogic.Outcome.html#%24sel%3AchainState%3ANetworkConnected"><span class="hs-identifier hs-var">chainState</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ChainStateType tx
+</span><a href="#local-6989586621681037748"><span class="hs-identifier hs-var">newChainState</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-68"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-69"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.html#ClosedState"><span class="hs-identifier hs-type">ClosedState</span></a></span><span class="hs-special">{</span><span id="local-6989586621681037750"><span class="annot"><span class="annottext">HeadId
+$sel:headId:ClosedState :: forall tx. ClosedState tx -&gt; HeadId
+headId :: HeadId
+</span><a href="Hydra.HeadLogic.State.html#%24sel%3AheadId%3AClosedState"><span class="hs-identifier hs-var hs-var">headId</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ClosedState tx
+</span><a href="#local-6989586621681037747"><span class="hs-identifier hs-var">closedState</span></a></span><span>
+</span><span id="line-70"></span><span>
+</span><span id="line-71"></span><span class="hs-comment">-- | Observe a partial fanout without a local request. The driver already stores</span><span>
+</span><span id="line-72"></span><span class="hs-comment">-- pending fanout bookkeeping after its 'Fanout'/'PartialFanout' command, so this</span><span>
+</span><span id="line-73"></span><span class="hs-comment">-- handler is only reached by passive observers. Both remain in the protocol's</span><span>
+</span><span id="line-74"></span><span class="hs-comment">-- Closed phase until this observation.</span><span>
+</span><span id="line-75"></span><span class="hs-comment">--</span><span>
+</span><span id="line-76"></span><span class="hs-comment">-- The observer transitions into 'PartialFanout' in 'AwaitingSelection' mode and</span><span>
+</span><span id="line-77"></span><span class="hs-comment">-- does __not__ auto-drive the rest: only the driver advances the fanout. This is</span><span>
+</span><span id="line-78"></span><span class="hs-comment">-- what makes selective partial fanout work in a multi-party head &#8212; observers must</span><span>
+</span><span id="line-79"></span><span class="hs-comment">-- not steamroll the remaining UTxO the driver deliberately left.</span><span>
+</span><span id="line-80"></span><span id="local-6989586621681037651"><span class="annot"><a href="Hydra.HeadLogic.Rules.Chain.Fanout.html#onClosedChainPartialFanoutTx"><span class="hs-identifier hs-type">onClosedChainPartialFanoutTx</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-81"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">IsTx</span></span><span> </span><span class="annot"><a href="#local-6989586621681037651"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-82"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.html#ClosedState"><span class="hs-identifier hs-type">ClosedState</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681037651"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-83"></span><span>  </span><span class="annot"><span class="hs-comment">-- | New chain state</span></span><span>
+</span><span id="line-84"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">ChainStateType</span></span><span> </span><span class="annot"><a href="#local-6989586621681037651"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-85"></span><span>  </span><span class="annot"><span class="hs-comment">-- | UTxO distributed in this partial fanout (keyed by new TxIn; values preserve duplicates)</span></span><span>
+</span><span id="line-86"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">UTxOType</span></span><span> </span><span class="annot"><a href="#local-6989586621681037651"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-87"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Program.html#Program"><span class="hs-identifier hs-type">Program</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681037651"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-88"></span><span id="onClosedChainPartialFanoutTx"><span class="annot"><span class="annottext">onClosedChainPartialFanoutTx :: forall tx.
+IsTx tx =&gt;
+ClosedState tx -&gt; ChainStateType tx -&gt; UTxOType tx -&gt; Program tx ()
+</span><a href="Hydra.HeadLogic.Rules.Chain.Fanout.html#onClosedChainPartialFanoutTx"><span class="hs-identifier hs-var hs-var">onClosedChainPartialFanoutTx</span></a></span></span><span> </span><span id="local-6989586621681037757"><span class="annot"><span class="annottext">ClosedState tx
+</span><a href="#local-6989586621681037757"><span class="hs-identifier hs-var">closedState</span></a></span></span><span> </span><span id="local-6989586621681037758"><span class="annot"><span class="annottext">ChainStateType tx
+</span><a href="#local-6989586621681037758"><span class="hs-identifier hs-var">newChainState</span></a></span></span><span> </span><span id="local-6989586621681037759"><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621681037759"><span class="hs-identifier hs-var">observedDistributed</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-89"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621681037760"><span class="annot"><span class="annottext">fullUTxO :: UTxOType tx
+</span><a href="#local-6989586621681037760"><span class="hs-identifier hs-var hs-var">fullUTxO</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ClosedState tx -&gt; UTxOType tx
+forall tx. IsTx tx =&gt; ClosedState tx -&gt; UTxOType tx
+</span><a href="Hydra.HeadLogic.Fanout.Selection.html#computeFullFanoutUTxO"><span class="hs-identifier hs-var">computeFullFanoutUTxO</span></a></span><span> </span><span class="annot"><span class="annottext">ClosedState tx
+</span><a href="#local-6989586621681037757"><span class="hs-identifier hs-var">closedState</span></a></span><span>
+</span><span id="line-90"></span><span>      </span><span id="local-6989586621681037761"><span class="annot"><span class="annottext">remaining :: UTxOType tx
+</span><a href="#local-6989586621681037761"><span class="hs-identifier hs-var hs-var">remaining</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[TxOutType tx] -&gt; UTxOType tx -&gt; UTxOType tx
+forall tx. IsTx tx =&gt; [TxOutType tx] -&gt; UTxOType tx -&gt; UTxOType tx
+</span><a href="Hydra.HeadLogic.Fanout.Outputs.html#removeDistributedOutputs"><span class="hs-identifier hs-var">removeDistributedOutputs</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">UTxOType tx -&gt; [TxOutType tx]
+forall tx. IsTx tx =&gt; UTxOType tx -&gt; [TxOutType tx]
+</span><span class="hs-identifier hs-var">outputsOfUTxO</span></span><span> </span><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621681037759"><span class="hs-identifier hs-var">observedDistributed</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621681037760"><span class="hs-identifier hs-var">fullUTxO</span></a></span><span>
+</span><span id="line-91"></span><span>      </span><span id="local-6989586621681037762"><span class="annot"><span class="annottext">distributedUTxO :: UTxOType tx
+</span><a href="#local-6989586621681037762"><span class="hs-identifier hs-var hs-var">distributedUTxO</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UTxOType tx -&gt; UTxOType tx -&gt; UTxOType tx
+forall tx. IsTx tx =&gt; UTxOType tx -&gt; UTxOType tx -&gt; UTxOType tx
+</span><span class="hs-identifier hs-var">withoutUTxO</span></span><span> </span><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621681037760"><span class="hs-identifier hs-var">fullUTxO</span></a></span><span> </span><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621681037761"><span class="hs-identifier hs-var">remaining</span></a></span><span>
+</span><span id="line-92"></span><span>   </span><span class="hs-keyword">in</span><span> </span><span class="annot"><span class="annottext">StateChanged tx -&gt; Program tx ()
+forall tx. StateChanged tx -&gt; Program tx ()
+</span><a href="Hydra.HeadLogic.Program.html#change"><span class="hs-identifier hs-var">change</span></a></span><span>
+</span><span id="line-93"></span><span>        </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#HeadPartialFannedOut"><span class="hs-identifier hs-type">HeadPartialFannedOut</span></a></span><span>
+</span><span id="line-94"></span><span>          </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">HeadId
+$sel:headId:NetworkConnected :: HeadId
+headId :: HeadId
+</span><a href="Hydra.HeadLogic.Outcome.html#%24sel%3AheadId%3ANetworkConnected"><span class="hs-identifier hs-var hs-var">headId</span></a></span><span>
+</span><span id="line-95"></span><span>          </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:distributedOutputs:NetworkConnected :: UTxOType tx
+</span><a href="Hydra.HeadLogic.Outcome.html#%24sel%3AdistributedOutputs%3ANetworkConnected"><span class="hs-identifier hs-var">distributedOutputs</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621681037762"><span class="hs-identifier hs-var">distributedUTxO</span></a></span><span>
+</span><span id="line-96"></span><span>          </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:remainingOutputs:NetworkConnected :: UTxOType tx
+</span><a href="Hydra.HeadLogic.Outcome.html#%24sel%3AremainingOutputs%3ANetworkConnected"><span class="hs-identifier hs-var">remainingOutputs</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621681037761"><span class="hs-identifier hs-var">remaining</span></a></span><span>
+</span><span id="line-97"></span><span>          </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:chainState:NetworkConnected :: ChainStateType tx
+</span><a href="Hydra.HeadLogic.Outcome.html#%24sel%3AchainState%3ANetworkConnected"><span class="hs-identifier hs-var">chainState</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ChainStateType tx
+</span><a href="#local-6989586621681037758"><span class="hs-identifier hs-var">newChainState</span></a></span><span>
+</span><span id="line-98"></span><span>          </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:mode:NetworkConnected :: FanoutMode tx
+</span><a href="Hydra.HeadLogic.Outcome.html#%24sel%3Amode%3ANetworkConnected"><span class="hs-identifier hs-var">mode</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">FanoutMode tx
+forall tx. FanoutMode tx
+</span><a href="Hydra.HeadLogic.State.html#AwaitingSelection"><span class="hs-identifier hs-var">AwaitingSelection</span></a></span><span>
+</span><span id="line-99"></span><span>          </span><span class="hs-special">}</span><span>
+</span><span id="line-100"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-101"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.html#ClosedState"><span class="hs-identifier hs-type">ClosedState</span></a></span><span class="hs-special">{</span><span id="local-6989586621681037763"><span class="annot"><span class="annottext">HeadId
+$sel:headId:ClosedState :: forall tx. ClosedState tx -&gt; HeadId
+headId :: HeadId
+</span><a href="Hydra.HeadLogic.State.html#%24sel%3AheadId%3AClosedState"><span class="hs-identifier hs-var hs-var">headId</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ClosedState tx
+</span><a href="#local-6989586621681037757"><span class="hs-identifier hs-var">closedState</span></a></span><span>
+</span><span id="line-102"></span><span>
+</span><span id="line-103"></span><span class="hs-comment">-- | Observe a partial fanout while pending or already distributing. Updates the remaining and</span><span>
+</span><span id="line-104"></span><span class="hs-comment">-- distributed sets and, depending on the current 'FanoutMode', either continues</span><span>
+</span><span id="line-105"></span><span class="hs-comment">-- draining automatically (or within the active selection) or waits for the next</span><span>
+</span><span id="line-106"></span><span class="hs-comment">-- 'PartialFanout' command.</span><span>
+</span><span id="line-107"></span><span id="local-6989586621681037660"><span class="annot"><a href="Hydra.HeadLogic.Rules.Chain.Fanout.html#onPartialFanoutChainPartialFanoutTx"><span class="hs-identifier hs-type">onPartialFanoutChainPartialFanoutTx</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-108"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">IsTx</span></span><span> </span><span class="annot"><a href="#local-6989586621681037660"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-109"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.html#PartialFanoutState"><span class="hs-identifier hs-type">PartialFanoutState</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681037660"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-110"></span><span>  </span><span class="annot"><span class="hs-comment">-- | New chain state</span></span><span>
+</span><span id="line-111"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">ChainStateType</span></span><span> </span><span class="annot"><a href="#local-6989586621681037660"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-112"></span><span>  </span><span class="annot"><span class="hs-comment">-- | UTxO distributed in this partial fanout</span></span><span>
+</span><span id="line-113"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">UTxOType</span></span><span> </span><span class="annot"><a href="#local-6989586621681037660"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-114"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Program.html#Program"><span class="hs-identifier hs-type">Program</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681037660"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-115"></span><span id="onPartialFanoutChainPartialFanoutTx"><span class="annot"><span class="annottext">onPartialFanoutChainPartialFanoutTx :: forall tx.
+IsTx tx =&gt;
+PartialFanoutState tx
+-&gt; ChainStateType tx -&gt; UTxOType tx -&gt; Program tx ()
+</span><a href="Hydra.HeadLogic.Rules.Chain.Fanout.html#onPartialFanoutChainPartialFanoutTx"><span class="hs-identifier hs-var hs-var">onPartialFanoutChainPartialFanoutTx</span></a></span></span><span> </span><span id="local-6989586621681037779"><span class="annot"><span class="annottext">PartialFanoutState tx
+</span><a href="#local-6989586621681037779"><span class="hs-identifier hs-var">pfs</span></a></span></span><span> </span><span id="local-6989586621681037780"><span class="annot"><span class="annottext">ChainStateType tx
+</span><a href="#local-6989586621681037780"><span class="hs-identifier hs-var">newChainState</span></a></span></span><span> </span><span id="local-6989586621681037781"><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621681037781"><span class="hs-identifier hs-var">observedDistributed</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-116"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621681037782"><span class="annot"><span class="annottext">observedOutputs :: [TxOutType tx]
+</span><a href="#local-6989586621681037782"><span class="hs-identifier hs-var hs-var">observedOutputs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UTxOType tx -&gt; [TxOutType tx]
+forall tx. IsTx tx =&gt; UTxOType tx -&gt; [TxOutType tx]
+</span><span class="hs-identifier hs-var">outputsOfUTxO</span></span><span> </span><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621681037781"><span class="hs-identifier hs-var">observedDistributed</span></a></span><span>
+</span><span id="line-117"></span><span>      </span><span id="local-6989586621681037783"><span class="annot"><span class="annottext">remaining :: UTxOType tx
+</span><a href="#local-6989586621681037783"><span class="hs-identifier hs-var hs-var">remaining</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[TxOutType tx] -&gt; UTxOType tx -&gt; UTxOType tx
+forall tx. IsTx tx =&gt; [TxOutType tx] -&gt; UTxOType tx -&gt; UTxOType tx
+</span><a href="Hydra.HeadLogic.Fanout.Outputs.html#removeDistributedOutputs"><span class="hs-identifier hs-var">removeDistributedOutputs</span></a></span><span> </span><span class="annot"><span class="annottext">[TxOutType tx]
+</span><a href="#local-6989586621681037782"><span class="hs-identifier hs-var">observedOutputs</span></a></span><span> </span><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621681037784"><span class="hs-identifier hs-var">remainingOutputs</span></a></span><span>
+</span><span id="line-118"></span><span>      </span><span id="local-6989586621681037785"><span class="annot"><span class="annottext">distributedUTxO :: UTxOType tx
+</span><a href="#local-6989586621681037785"><span class="hs-identifier hs-var hs-var">distributedUTxO</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UTxOType tx -&gt; UTxOType tx -&gt; UTxOType tx
+forall tx. IsTx tx =&gt; UTxOType tx -&gt; UTxOType tx -&gt; UTxOType tx
+</span><span class="hs-identifier hs-var">withoutUTxO</span></span><span> </span><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621681037784"><span class="hs-identifier hs-var">remainingOutputs</span></a></span><span> </span><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621681037783"><span class="hs-identifier hs-var">remaining</span></a></span><span>
+</span><span id="line-119"></span><span>      </span><span id="local-6989586621681037786"><span class="annot"><span class="annottext">newMode :: FanoutMode tx
+</span><a href="#local-6989586621681037786"><span class="hs-identifier hs-var hs-var">newMode</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">FanoutMode tx
+</span><a href="#local-6989586621681037787"><span class="hs-identifier hs-var">mode</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-120"></span><span>        </span><span class="annot"><span class="annottext">FanoutMode tx
+</span><a href="Hydra.HeadLogic.State.html#AutoDrain"><span class="hs-identifier hs-var">AutoDrain</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">FanoutMode tx
+forall tx. FanoutMode tx
+</span><a href="Hydra.HeadLogic.State.html#AutoDrain"><span class="hs-identifier hs-var">AutoDrain</span></a></span><span>
+</span><span id="line-121"></span><span>        </span><span class="annot"><span class="annottext">FanoutMode tx
+</span><a href="Hydra.HeadLogic.State.html#AwaitingSelection"><span class="hs-identifier hs-var">AwaitingSelection</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">FanoutMode tx
+forall tx. FanoutMode tx
+</span><a href="Hydra.HeadLogic.State.html#AwaitingSelection"><span class="hs-identifier hs-var">AwaitingSelection</span></a></span><span>
+</span><span id="line-122"></span><span>        </span><span class="annot"><a href="Hydra.HeadLogic.State.html#DistributingSelection"><span class="hs-identifier hs-type">DistributingSelection</span></a></span><span> </span><span id="local-6989586621681037788"><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621681037788"><span class="hs-identifier hs-var">sel</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-123"></span><span>          </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621681037789"><span class="annot"><span class="annottext">sel' :: UTxOType tx
+</span><a href="#local-6989586621681037789"><span class="hs-identifier hs-var hs-var">sel'</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[TxOutType tx] -&gt; UTxOType tx -&gt; UTxOType tx
+forall tx. IsTx tx =&gt; [TxOutType tx] -&gt; UTxOType tx -&gt; UTxOType tx
+</span><a href="Hydra.HeadLogic.Fanout.Outputs.html#removeDistributedOutputs"><span class="hs-identifier hs-var">removeDistributedOutputs</span></a></span><span> </span><span class="annot"><span class="annottext">[TxOutType tx]
+</span><a href="#local-6989586621681037782"><span class="hs-identifier hs-var">observedOutputs</span></a></span><span> </span><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621681037788"><span class="hs-identifier hs-var">sel</span></a></span><span>
+</span><span id="line-124"></span><span>           </span><span class="hs-keyword">in</span><span> </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">UTxOType tx -&gt; Bool
+forall tx. IsTx tx =&gt; UTxOType tx -&gt; Bool
+</span><a href="Hydra.HeadLogic.Fanout.Outputs.html#nullOutputs"><span class="hs-identifier hs-var">nullOutputs</span></a></span><span> </span><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621681037789"><span class="hs-identifier hs-var">sel'</span></a></span><span> </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">FanoutMode tx
+forall tx. FanoutMode tx
+</span><a href="Hydra.HeadLogic.State.html#AwaitingSelection"><span class="hs-identifier hs-var">AwaitingSelection</span></a></span><span> </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">UTxOType tx -&gt; FanoutMode tx
+forall tx. UTxOType tx -&gt; FanoutMode tx
+</span><a href="Hydra.HeadLogic.State.html#DistributingSelection"><span class="hs-identifier hs-var">DistributingSelection</span></a></span><span> </span><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621681037789"><span class="hs-identifier hs-var">sel'</span></a></span><span>
+</span><span id="line-125"></span><span>      </span><span id="local-6989586621681037790"><span class="annot"><span class="annottext">record :: Program tx ()
+</span><a href="#local-6989586621681037790"><span class="hs-identifier hs-var hs-var">record</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-126"></span><span>        </span><span class="annot"><span class="annottext">StateChanged tx -&gt; Program tx ()
+forall tx. StateChanged tx -&gt; Program tx ()
+</span><a href="Hydra.HeadLogic.Program.html#change"><span class="hs-identifier hs-var">change</span></a></span><span>
+</span><span id="line-127"></span><span>          </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#HeadPartialFannedOut"><span class="hs-identifier hs-type">HeadPartialFannedOut</span></a></span><span>
+</span><span id="line-128"></span><span>            </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">HeadId
+$sel:headId:NetworkConnected :: HeadId
+headId :: HeadId
+</span><a href="Hydra.HeadLogic.Outcome.html#%24sel%3AheadId%3ANetworkConnected"><span class="hs-identifier hs-var hs-var">headId</span></a></span><span>
+</span><span id="line-129"></span><span>            </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:distributedOutputs:NetworkConnected :: UTxOType tx
+</span><a href="Hydra.HeadLogic.Outcome.html#%24sel%3AdistributedOutputs%3ANetworkConnected"><span class="hs-identifier hs-var">distributedOutputs</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621681037785"><span class="hs-identifier hs-var">distributedUTxO</span></a></span><span>
+</span><span id="line-130"></span><span>            </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:remainingOutputs:NetworkConnected :: UTxOType tx
+</span><a href="Hydra.HeadLogic.Outcome.html#%24sel%3AremainingOutputs%3ANetworkConnected"><span class="hs-identifier hs-var">remainingOutputs</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621681037783"><span class="hs-identifier hs-var">remaining</span></a></span><span>
+</span><span id="line-131"></span><span>            </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:chainState:NetworkConnected :: ChainStateType tx
+</span><a href="Hydra.HeadLogic.Outcome.html#%24sel%3AchainState%3ANetworkConnected"><span class="hs-identifier hs-var">chainState</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ChainStateType tx
+</span><a href="#local-6989586621681037780"><span class="hs-identifier hs-var">newChainState</span></a></span><span>
+</span><span id="line-132"></span><span>            </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:mode:NetworkConnected :: FanoutMode tx
+</span><a href="Hydra.HeadLogic.Outcome.html#%24sel%3Amode%3ANetworkConnected"><span class="hs-identifier hs-var">mode</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">FanoutMode tx
+</span><a href="#local-6989586621681037786"><span class="hs-identifier hs-var">newMode</span></a></span><span>
+</span><span id="line-133"></span><span>            </span><span class="hs-special">}</span><span>
+</span><span id="line-134"></span><span>      </span><span class="hs-comment">-- Already in 'FanoutProgress' on chain, so any continuation may finalize.</span><span>
+</span><span id="line-135"></span><span>      </span><span id="local-6989586621681037792"><span class="annot"><span class="annottext">finalize :: Program tx ()
+</span><a href="#local-6989586621681037792"><span class="hs-identifier hs-var hs-var">finalize</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NextFanoutStep tx -&gt; Program tx ()
+</span><a href="#local-6989586621681037793"><span class="hs-identifier hs-var">emitStep</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ConfirmedSnapshot tx
+-&gt; SnapshotVersion
+-&gt; UTxOType tx
+-&gt; UTxOType tx
+-&gt; OnChainFanoutDatum
+-&gt; NextFanoutStep tx
+forall tx.
+IsTx tx =&gt;
+ConfirmedSnapshot tx
+-&gt; SnapshotVersion
+-&gt; UTxOType tx
+-&gt; UTxOType tx
+-&gt; OnChainFanoutDatum
+-&gt; NextFanoutStep tx
+</span><a href="Hydra.HeadLogic.Fanout.Selection.html#nextFanoutStep"><span class="hs-identifier hs-var">nextFanoutStep</span></a></span><span> </span><span class="annot"><span class="annottext">ConfirmedSnapshot tx
+</span><a href="#local-6989586621681037794"><span class="hs-identifier hs-var">confirmedSnapshot</span></a></span><span> </span><span class="annot"><span class="annottext">SnapshotVersion
+</span><a href="#local-6989586621681037795"><span class="hs-identifier hs-var">version</span></a></span><span> </span><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621681037783"><span class="hs-identifier hs-var">remaining</span></a></span><span> </span><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621681037783"><span class="hs-identifier hs-var">remaining</span></a></span><span> </span><span class="annot"><span class="annottext">OnChainFanoutDatum
+</span><a href="Hydra.HeadLogic.State.html#DatumFanoutProgress"><span class="hs-identifier hs-var">DatumFanoutProgress</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-136"></span><span>      </span><span id="local-6989586621681037797"><span class="annot"><span class="annottext">continue :: Program tx ()
+</span><a href="#local-6989586621681037797"><span class="hs-identifier hs-var hs-var">continue</span></a></span></span><span>
+</span><span id="line-137"></span><span>        </span><span class="hs-comment">-- Intermediate fanout cannot empty the on-chain accumulator. If the</span><span>
+</span><span id="line-138"></span><span>        </span><span class="hs-comment">-- local view is exhausted, retain the observation without posting an</span><span>
+</span><span id="line-139"></span><span>        </span><span class="hs-comment">-- invalid zero-output final batch.</span><span>
+</span><span id="line-140"></span><span>        </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">UTxOType tx -&gt; Bool
+forall tx. IsTx tx =&gt; UTxOType tx -&gt; Bool
+</span><a href="Hydra.HeadLogic.Fanout.Outputs.html#nullOutputs"><span class="hs-identifier hs-var">nullOutputs</span></a></span><span> </span><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621681037783"><span class="hs-identifier hs-var">remaining</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">() -&gt; Program tx ()
+forall a. a -&gt; Program tx a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-141"></span><span>        </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#otherwise"><span class="hs-identifier hs-var">otherwise</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">FanoutMode tx
+</span><a href="#local-6989586621681037786"><span class="hs-identifier hs-var">newMode</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-142"></span><span>            </span><span class="annot"><span class="annottext">FanoutMode tx
+</span><a href="Hydra.HeadLogic.State.html#AutoDrain"><span class="hs-identifier hs-var">AutoDrain</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Program tx ()
+</span><a href="#local-6989586621681037792"><span class="hs-identifier hs-var">finalize</span></a></span><span>
+</span><span id="line-143"></span><span>            </span><span class="annot"><a href="Hydra.HeadLogic.State.html#DistributingSelection"><span class="hs-identifier hs-type">DistributingSelection</span></a></span><span> </span><span id="local-6989586621681037798"><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621681037798"><span class="hs-identifier hs-var">sel'</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-144"></span><span>              </span><span class="annot"><span class="annottext">NextFanoutStep tx -&gt; Program tx ()
+</span><a href="#local-6989586621681037793"><span class="hs-identifier hs-var">emitStep</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ConfirmedSnapshot tx
+-&gt; SnapshotVersion
+-&gt; UTxOType tx
+-&gt; UTxOType tx
+-&gt; OnChainFanoutDatum
+-&gt; NextFanoutStep tx
+forall tx.
+IsTx tx =&gt;
+ConfirmedSnapshot tx
+-&gt; SnapshotVersion
+-&gt; UTxOType tx
+-&gt; UTxOType tx
+-&gt; OnChainFanoutDatum
+-&gt; NextFanoutStep tx
+</span><a href="Hydra.HeadLogic.Fanout.Selection.html#nextFanoutStep"><span class="hs-identifier hs-var">nextFanoutStep</span></a></span><span> </span><span class="annot"><span class="annottext">ConfirmedSnapshot tx
+</span><a href="#local-6989586621681037794"><span class="hs-identifier hs-var">confirmedSnapshot</span></a></span><span> </span><span class="annot"><span class="annottext">SnapshotVersion
+</span><a href="#local-6989586621681037795"><span class="hs-identifier hs-var">version</span></a></span><span> </span><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621681037798"><span class="hs-identifier hs-var">sel'</span></a></span><span> </span><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621681037783"><span class="hs-identifier hs-var">remaining</span></a></span><span> </span><span class="annot"><span class="annottext">OnChainFanoutDatum
+</span><a href="Hydra.HeadLogic.State.html#DatumFanoutProgress"><span class="hs-identifier hs-var">DatumFanoutProgress</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-145"></span><span>            </span><span class="annot"><span class="annottext">FanoutMode tx
+</span><a href="Hydra.HeadLogic.State.html#AwaitingSelection"><span class="hs-identifier hs-var">AwaitingSelection</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">() -&gt; Program tx ()
+forall a. a -&gt; Program tx a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-146"></span><span>   </span><span class="hs-keyword">in</span><span> </span><span class="annot"><span class="annottext">Program tx ()
+</span><a href="#local-6989586621681037790"><span class="hs-identifier hs-var">record</span></a></span><span> </span><span class="annot"><span class="annottext">Program tx () -&gt; Program tx () -&gt; Program tx ()
+forall a b. Program tx a -&gt; Program tx b -&gt; Program tx b
+forall (f :: * -&gt; *) a b. Applicative f =&gt; f a -&gt; f b -&gt; f b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%2A%3E"><span class="hs-operator hs-var">*&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Program tx ()
+</span><a href="#local-6989586621681037797"><span class="hs-identifier hs-var">continue</span></a></span><span>
+</span><span id="line-147"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-148"></span><span>  </span><span id="local-6989586621681037793"><span class="annot"><span class="annottext">emitStep :: NextFanoutStep tx -&gt; Program tx ()
+</span><a href="#local-6989586621681037793"><span class="hs-identifier hs-var hs-var">emitStep</span></a></span></span><span> </span><span id="local-6989586621681037799"><span class="annot"><span class="annottext">NextFanoutStep tx
+</span><a href="#local-6989586621681037799"><span class="hs-identifier hs-var">step</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NextFanoutStep tx
+-&gt; ConfirmedSnapshot tx
+-&gt; SnapshotVersion
+-&gt; HeadSeed
+-&gt; UTCTime
+-&gt; Program tx ()
+forall tx.
+IsTx tx =&gt;
+NextFanoutStep tx
+-&gt; ConfirmedSnapshot tx
+-&gt; SnapshotVersion
+-&gt; HeadSeed
+-&gt; UTCTime
+-&gt; Program tx ()
+</span><a href="Hydra.HeadLogic.Rules.Fanout.html#emitFanoutStep"><span class="hs-identifier hs-var">emitFanoutStep</span></a></span><span> </span><span class="annot"><span class="annottext">NextFanoutStep tx
+</span><a href="#local-6989586621681037799"><span class="hs-identifier hs-var">step</span></a></span><span> </span><span class="annot"><span class="annottext">ConfirmedSnapshot tx
+</span><a href="#local-6989586621681037794"><span class="hs-identifier hs-var">confirmedSnapshot</span></a></span><span> </span><span class="annot"><span class="annottext">SnapshotVersion
+</span><a href="#local-6989586621681037795"><span class="hs-identifier hs-var">version</span></a></span><span> </span><span class="annot"><span class="annottext">HeadSeed
+</span><a href="#local-6989586621681037800"><span class="hs-identifier hs-var">headSeed</span></a></span><span> </span><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621681037801"><span class="hs-identifier hs-var">contestationDeadline</span></a></span><span>
+</span><span id="line-149"></span><span>
+</span><span id="line-150"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.html#PartialFanoutState"><span class="hs-identifier hs-type">PartialFanoutState</span></a></span><span class="hs-special">{</span><span id="local-6989586621681037784"><span id="local-6989586621681037787"><span id="local-6989586621681037791"><span id="local-6989586621681037794"><span id="local-6989586621681037795"><span id="local-6989586621681037800"><span id="local-6989586621681037801"><span id="local-6989586621681037802"><span id="local-6989586621681037803"><span class="annot"><span class="annottext">UTCTime
+HeadId
+HeadSeed
+UTxOType tx
+ConfirmedSnapshot tx
+SnapshotVersion
+OnChainFanoutDatum
+FanoutMode tx
+$sel:confirmedSnapshot:PartialFanoutState :: forall tx. PartialFanoutState tx -&gt; ConfirmedSnapshot tx
+$sel:contestationDeadline:PartialFanoutState :: forall tx. PartialFanoutState tx -&gt; UTCTime
+$sel:distributedOutputs:PartialFanoutState :: forall tx. PartialFanoutState tx -&gt; UTxOType tx
+$sel:fanoutDatum:PartialFanoutState :: forall tx. PartialFanoutState tx -&gt; OnChainFanoutDatum
+$sel:headId:PartialFanoutState :: forall tx. PartialFanoutState tx -&gt; HeadId
+$sel:headSeed:PartialFanoutState :: forall tx. PartialFanoutState tx -&gt; HeadSeed
+$sel:mode:PartialFanoutState :: forall tx. PartialFanoutState tx -&gt; FanoutMode tx
+$sel:remainingOutputs:PartialFanoutState :: forall tx. PartialFanoutState tx -&gt; UTxOType tx
+$sel:version:PartialFanoutState :: forall tx. PartialFanoutState tx -&gt; SnapshotVersion
+remainingOutputs :: UTxOType tx
+mode :: FanoutMode tx
+headId :: HeadId
+confirmedSnapshot :: ConfirmedSnapshot tx
+version :: SnapshotVersion
+headSeed :: HeadSeed
+contestationDeadline :: UTCTime
+distributedOutputs :: UTxOType tx
+fanoutDatum :: OnChainFanoutDatum
+</span><a href="Hydra.HeadLogic.State.html#%24sel%3AconfirmedSnapshot%3APartialFanoutState"><span class="hs-glyph hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">..</span></a></span></span></span></span></span></span></span></span></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PartialFanoutState tx
+</span><a href="#local-6989586621681037779"><span class="hs-identifier hs-var">pfs</span></a></span><span>
+</span><span id="line-151"></span><span>
+</span><span id="line-152"></span><span class="hs-comment">-- | Observe the final fanout while in 'PartialFanout', finalizing the head with</span><span>
+</span><span id="line-153"></span><span class="hs-comment">-- the accumulated distributed outputs plus this final batch.</span><span>
+</span><span id="line-154"></span><span id="local-6989586621681037804"><span class="annot"><a href="Hydra.HeadLogic.Rules.Chain.Fanout.html#onPartialFanoutChainFanoutTx"><span class="hs-identifier hs-type">onPartialFanoutChainFanoutTx</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-155"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">IsTx</span></span><span> </span><span class="annot"><a href="#local-6989586621681037804"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-156"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.html#PartialFanoutState"><span class="hs-identifier hs-type">PartialFanoutState</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681037804"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-157"></span><span>  </span><span class="annot"><span class="hs-comment">-- | New chain state</span></span><span>
+</span><span id="line-158"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">ChainStateType</span></span><span> </span><span class="annot"><a href="#local-6989586621681037804"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-159"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">UTxOType</span></span><span> </span><span class="annot"><a href="#local-6989586621681037804"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-160"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Program.html#Program"><span class="hs-identifier hs-type">Program</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681037804"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-161"></span><span id="onPartialFanoutChainFanoutTx"><span class="annot"><span class="annottext">onPartialFanoutChainFanoutTx :: forall tx.
+IsTx tx =&gt;
+PartialFanoutState tx
+-&gt; ChainStateType tx -&gt; UTxOType tx -&gt; Program tx ()
+</span><a href="Hydra.HeadLogic.Rules.Chain.Fanout.html#onPartialFanoutChainFanoutTx"><span class="hs-identifier hs-var hs-var">onPartialFanoutChainFanoutTx</span></a></span></span><span> </span><span id="local-6989586621681037812"><span class="annot"><span class="annottext">PartialFanoutState tx
+</span><a href="#local-6989586621681037812"><span class="hs-identifier hs-var">pfs</span></a></span></span><span> </span><span id="local-6989586621681037813"><span class="annot"><span class="annottext">ChainStateType tx
+</span><a href="#local-6989586621681037813"><span class="hs-identifier hs-var">newChainState</span></a></span></span><span> </span><span id="local-6989586621681037814"><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621681037814"><span class="hs-identifier hs-var">fanoutUTxO</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-162"></span><span>  </span><span class="annot"><span class="annottext">StateChanged tx -&gt; Program tx ()
+forall tx. StateChanged tx -&gt; Program tx ()
+</span><a href="Hydra.HeadLogic.Program.html#change"><span class="hs-identifier hs-var">change</span></a></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#HeadFannedOut"><span class="hs-identifier hs-type">HeadFannedOut</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">HeadId
+$sel:headId:NetworkConnected :: HeadId
+headId :: HeadId
+</span><a href="Hydra.HeadLogic.Outcome.html#%24sel%3AheadId%3ANetworkConnected"><span class="hs-identifier hs-var hs-var">headId</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:finalizedOutputs:NetworkConnected :: UTxOType tx
+</span><a href="Hydra.HeadLogic.Outcome.html#%24sel%3AfinalizedOutputs%3ANetworkConnected"><span class="hs-identifier hs-var">finalizedOutputs</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621681037816"><span class="hs-identifier hs-var">distributedOutputs</span></a></span><span> </span><span class="annot"><span class="annottext">UTxOType tx -&gt; UTxOType tx -&gt; UTxOType tx
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621681037814"><span class="hs-identifier hs-var">fanoutUTxO</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:chainState:NetworkConnected :: ChainStateType tx
+</span><a href="Hydra.HeadLogic.Outcome.html#%24sel%3AchainState%3ANetworkConnected"><span class="hs-identifier hs-var">chainState</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ChainStateType tx
+</span><a href="#local-6989586621681037813"><span class="hs-identifier hs-var">newChainState</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-163"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-164"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.html#PartialFanoutState"><span class="hs-identifier hs-type">PartialFanoutState</span></a></span><span class="hs-special">{</span><span id="local-6989586621681037815"><span class="annot"><span class="annottext">HeadId
+$sel:headId:PartialFanoutState :: forall tx. PartialFanoutState tx -&gt; HeadId
+headId :: HeadId
+</span><a href="Hydra.HeadLogic.State.html#%24sel%3AheadId%3APartialFanoutState"><span class="hs-identifier hs-var hs-var">headId</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681037816"><span class="annot"><span class="annottext">UTxOType tx
+$sel:distributedOutputs:PartialFanoutState :: forall tx. PartialFanoutState tx -&gt; UTxOType tx
+distributedOutputs :: UTxOType tx
+</span><a href="Hydra.HeadLogic.State.html#%24sel%3AdistributedOutputs%3APartialFanoutState"><span class="hs-identifier hs-var hs-var">distributedOutputs</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PartialFanoutState tx
+</span><a href="#local-6989586621681037812"><span class="hs-identifier hs-var">pfs</span></a></span><span>
+</span><span id="line-165"></span><span>
+</span><span id="line-166"></span><span class="hs-comment">-- | Undo an optimistic fanout only when the failed transaction is the current</span><span>
+</span><span id="line-167"></span><span class="hs-comment">-- step and no output has landed. A stale failure must not discard a newer</span><span>
+</span><span id="line-168"></span><span class="hs-comment">-- selection or turn observed fanout progress back into a closed head.</span><span>
+</span><span id="line-169"></span><span id="local-6989586621681037688"><span class="annot"><a href="Hydra.HeadLogic.Rules.Chain.Fanout.html#onFanoutPostTxError"><span class="hs-identifier hs-type">onFanoutPostTxError</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IsTx</span></span><span> </span><span class="annot"><a href="#local-6989586621681037688"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.html#PartialFanoutState"><span class="hs-identifier hs-type">PartialFanoutState</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681037688"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.Chain.html#PostChainTx"><span class="hs-identifier hs-type">PostChainTx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681037688"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.Chain.html#PostTxError"><span class="hs-identifier hs-type">PostTxError</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681037688"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Program.html#Program"><span class="hs-identifier hs-type">Program</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681037688"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-170"></span><span id="onFanoutPostTxError"><span class="annot"><span class="annottext">onFanoutPostTxError :: forall tx.
+IsTx tx =&gt;
+PartialFanoutState tx
+-&gt; PostChainTx tx -&gt; PostTxError tx -&gt; Program tx ()
+</span><a href="Hydra.HeadLogic.Rules.Chain.Fanout.html#onFanoutPostTxError"><span class="hs-identifier hs-var hs-var">onFanoutPostTxError</span></a></span></span><span> </span><span id="local-6989586621681037828"><span class="annot"><span class="annottext">PartialFanoutState tx
+</span><a href="#local-6989586621681037828"><span class="hs-identifier hs-var">pfs</span></a></span></span><span> </span><span id="local-6989586621681037829"><span class="annot"><span class="annottext">PostChainTx tx
+</span><a href="#local-6989586621681037829"><span class="hs-identifier hs-var">postChainTx</span></a></span></span><span> </span><span id="local-6989586621681037830"><span class="annot"><span class="annottext">PostTxError tx
+</span><a href="#local-6989586621681037830"><span class="hs-identifier hs-var">postTxError</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-171"></span><span>  </span><span class="annot"><span class="annottext">Bool -&gt; Program tx () -&gt; Program tx ()
+forall (f :: * -&gt; *). Applicative f =&gt; Bool -&gt; f () -&gt; f ()
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#when"><span class="hs-identifier hs-var">when</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">PartialFanoutState tx
+</span><a href="#local-6989586621681037828"><span class="hs-identifier hs-var">pfs</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">fanoutDatum</span><span> </span><span class="annot"><span class="annottext">OnChainFanoutDatum -&gt; OnChainFanoutDatum -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3D%3D"><span class="hs-operator hs-var">==</span></a></span><span> </span><span class="annot"><span class="annottext">OnChainFanoutDatum
+</span><a href="Hydra.HeadLogic.State.html#DatumClosed"><span class="hs-identifier hs-var">DatumClosed</span></a></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%26%26"><span class="hs-operator hs-var">&amp;&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">Bool
+-&gt; (NextFanoutStep tx -&gt; Bool) -&gt; Maybe (NextFanoutStep tx) -&gt; Bool
+forall b a. b -&gt; (a -&gt; b) -&gt; Maybe a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Maybe.html#maybe"><span class="hs-identifier hs-var">maybe</span></a></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#False"><span class="hs-identifier hs-var">False</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621681037835"><span class="annot"><span class="annottext">NextFanoutStep tx
+</span><a href="#local-6989586621681037835"><span class="hs-identifier hs-var">step</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">PartialFanoutState tx
+-&gt; NextFanoutStep tx -&gt; PostChainTx tx -&gt; Bool
+forall tx.
+IsTx tx =&gt;
+PartialFanoutState tx
+-&gt; NextFanoutStep tx -&gt; PostChainTx tx -&gt; Bool
+</span><a href="Hydra.HeadLogic.Fanout.Selection.html#matchesFanoutStep"><span class="hs-identifier hs-var">matchesFanoutStep</span></a></span><span> </span><span class="annot"><span class="annottext">PartialFanoutState tx
+</span><a href="#local-6989586621681037828"><span class="hs-identifier hs-var">pfs</span></a></span><span> </span><span class="annot"><span class="annottext">NextFanoutStep tx
+</span><a href="#local-6989586621681037835"><span class="hs-identifier hs-var">step</span></a></span><span> </span><span class="annot"><span class="annottext">PostChainTx tx
+</span><a href="#local-6989586621681037829"><span class="hs-identifier hs-var">postChainTx</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">PartialFanoutState tx -&gt; Maybe (NextFanoutStep tx)
+forall tx.
+IsTx tx =&gt;
+PartialFanoutState tx -&gt; Maybe (NextFanoutStep tx)
+</span><a href="Hydra.HeadLogic.Fanout.Selection.html#currentFanoutStep"><span class="hs-identifier hs-var">currentFanoutStep</span></a></span><span> </span><span class="annot"><span class="annottext">PartialFanoutState tx
+</span><a href="#local-6989586621681037828"><span class="hs-identifier hs-var">pfs</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Program tx () -&gt; Program tx ()) -&gt; Program tx () -&gt; Program tx ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-172"></span><span>    </span><span class="annot"><span class="annottext">StateChanged tx -&gt; Program tx ()
+forall tx. StateChanged tx -&gt; Program tx ()
+</span><a href="Hydra.HeadLogic.Program.html#change"><span class="hs-identifier hs-var">change</span></a></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#HeadFanoutReverted"><span class="hs-identifier hs-type">HeadFanoutReverted</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:headId:NetworkConnected :: HeadId
+</span><a href="Hydra.HeadLogic.Outcome.html#%24sel%3AheadId%3ANetworkConnected"><span class="hs-identifier hs-var">headId</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PartialFanoutState tx
+</span><a href="#local-6989586621681037828"><span class="hs-identifier hs-var">pfs</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">headId</span><span class="hs-special">}</span><span>
+</span><span id="line-173"></span><span>  </span><span class="annot"><span class="annottext">Effect tx -&gt; Program tx ()
+forall tx. Effect tx -&gt; Program tx ()
+</span><a href="Hydra.HeadLogic.Program.html#emit"><span class="hs-identifier hs-var">emit</span></a></span><span> </span><span class="annot"><span class="annottext">(Effect tx -&gt; Program tx ()) -&gt; Effect tx -&gt; Program tx ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">ClientMessage tx -&gt; Effect tx
+forall tx. ClientMessage tx -&gt; Effect tx
+</span><a href="Hydra.HeadLogic.Outcome.html#ClientEffect"><span class="hs-identifier hs-var">ClientEffect</span></a></span><span> </span><span class="annot"><a href="Hydra.API.ServerOutput.html#PostTxOnChainFailed"><span class="hs-identifier hs-type">ServerOutput.PostTxOnChainFailed</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">PostChainTx tx
+$sel:postChainTx:CommandFailed :: PostChainTx tx
+postChainTx :: PostChainTx tx
+</span><a href="Hydra.API.ServerOutput.html#%24sel%3ApostChainTx%3ACommandFailed"><span class="hs-identifier hs-var hs-var">postChainTx</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">PostTxError tx
+$sel:postTxError:CommandFailed :: PostTxError tx
+postTxError :: PostTxError tx
+</span><a href="Hydra.API.ServerOutput.html#%24sel%3ApostTxError%3ACommandFailed"><span class="hs-identifier hs-var hs-var">postTxError</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-174"></span></pre></body></html>

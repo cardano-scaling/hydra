@@ -1,0 +1,139 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="annot"><span class="hs-comment">-- | Stage coordinated state updates and broadcast snapshot requests.</span></span><span>
+</span><span id="line-2"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.HeadLogic.Rules.Coordinated</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.Rules.Coordinated.html#stage"><span class="hs-identifier">stage</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Coordinated.html#sendSnapshot"><span class="hs-identifier">sendSnapshot</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Coordinated.html#broadcastSnapshot"><span class="hs-identifier">broadcastSnapshot</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-3"></span><span>
+</span><span id="line-4"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Error.html"><span class="hs-identifier">Hydra.HeadLogic.Error</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.Error.html#LogicError"><span class="hs-identifier">LogicError</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.Error.html#AssertionFailed"><span class="hs-identifier">AssertionFailed</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-5"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html"><span class="hs-identifier">Hydra.HeadLogic.Outcome</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#Effect"><span class="hs-identifier">Effect</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#NetworkEffect"><span class="hs-identifier">NetworkEffect</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-6"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Program.html"><span class="hs-identifier">Hydra.HeadLogic.Program</span></a></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-7"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Program.html#Program"><span class="hs-identifier">Program</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-8"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Program.html#change"><span class="hs-identifier">change</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-9"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Program.html#emit"><span class="hs-identifier">emit</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-10"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Program.html#reject"><span class="hs-identifier">reject</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-11"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Program.html#traceB"><span class="hs-identifier">traceB</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-12"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-13"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Snapshot.Request.html"><span class="hs-identifier">Hydra.HeadLogic.Snapshot.Request</span></a></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-14"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Snapshot.Request.html#SnapshotRequest"><span class="hs-identifier">SnapshotRequest</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-15"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Snapshot.Request.html#requestMessage"><span class="hs-identifier">requestMessage</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-16"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-17"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html"><span class="hs-identifier">Hydra.HeadLogic.State.Coordinated</span></a></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-18"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.Types.html#Command"><span class="hs-identifier">Command</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-19"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#Runtime"><span class="hs-identifier">Runtime</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-20"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#advance"><span class="hs-identifier">advance</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-21"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#requestSnapshot"><span class="hs-identifier">requestSnapshot</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-22"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#step"><span class="hs-identifier">step</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-23"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-24"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Prelude</span></span><span>
+</span><span id="line-25"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">IsTx</span></span><span class="hs-special">)</span><span>
+</span><span id="line-26"></span><span>
+</span><span id="line-27"></span><span id="local-6989586621681036677"><span class="annot"><a href="Hydra.HeadLogic.Rules.Coordinated.html#stage"><span class="hs-identifier hs-type">stage</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#Runtime"><span class="hs-identifier hs-type">Runtime</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681036677"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.Types.html#Command"><span class="hs-identifier hs-type">Command</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681036677"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Program.html#Program"><span class="hs-identifier hs-type">Program</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681036677"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#Runtime"><span class="hs-identifier hs-type">Runtime</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681036677"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span></span><span>
+</span><span id="line-28"></span><span id="stage"><span class="annot"><span class="annottext">stage :: forall tx. Runtime tx -&gt; Command tx -&gt; Program tx (Runtime tx)
+</span><a href="Hydra.HeadLogic.Rules.Coordinated.html#stage"><span class="hs-identifier hs-var hs-var">stage</span></a></span></span><span> </span><span id="local-6989586621681036742"><span class="annot"><span class="annottext">Runtime tx
+</span><a href="#local-6989586621681036742"><span class="hs-identifier hs-var">runtime</span></a></span></span><span> </span><span id="local-6989586621681036743"><span class="annot"><span class="annottext">Command tx
+</span><a href="#local-6989586621681036743"><span class="hs-identifier hs-var">command</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Runtime tx
+-&gt; Command tx -&gt; Either Text ([StateChanged tx], Runtime tx)
+forall tx.
+Runtime tx
+-&gt; Command tx -&gt; Either Text ([StateChanged tx], Runtime tx)
+</span><a href="Hydra.HeadLogic.State.Coordinated.html#advance"><span class="hs-identifier hs-var">advance</span></a></span><span> </span><span class="annot"><span class="annottext">Runtime tx
+</span><a href="#local-6989586621681036742"><span class="hs-identifier hs-var">runtime</span></a></span><span> </span><span class="annot"><span class="annottext">Command tx
+</span><a href="#local-6989586621681036743"><span class="hs-identifier hs-var">command</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-29"></span><span>  </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Left"><span class="hs-identifier hs-type">Left</span></a></span><span> </span><span id="local-6989586621681036744"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681036744"><span class="hs-identifier hs-var">message</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">LogicError tx -&gt; Program tx (Runtime tx)
+forall tx a. LogicError tx -&gt; Program tx a
+</span><a href="Hydra.HeadLogic.Program.html#reject"><span class="hs-identifier hs-var">reject</span></a></span><span> </span><span class="annot"><span class="annottext">(LogicError tx -&gt; Program tx (Runtime tx))
+-&gt; LogicError tx -&gt; Program tx (Runtime tx)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; LogicError tx
+forall tx. Text -&gt; LogicError tx
+</span><a href="Hydra.HeadLogic.Error.html#AssertionFailed"><span class="hs-identifier hs-var">AssertionFailed</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681036744"><span class="hs-identifier hs-var">message</span></a></span><span>
+</span><span id="line-30"></span><span>  </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Right"><span class="hs-identifier hs-type">Right</span></a></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681036745"><span class="annot"><span class="annottext">[StateChanged tx]
+</span><a href="#local-6989586621681036745"><span class="hs-identifier hs-var">events</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681036746"><span class="annot"><span class="annottext">Runtime tx
+</span><a href="#local-6989586621681036746"><span class="hs-identifier hs-var">next</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(StateChanged tx -&gt; Program tx ())
+-&gt; [StateChanged tx] -&gt; Program tx ()
+forall (t :: * -&gt; *) (f :: * -&gt; *) a b.
+(Foldable t, Applicative f) =&gt;
+(a -&gt; f b) -&gt; t a -&gt; f ()
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#traverse_"><span class="hs-identifier hs-var">traverse_</span></a></span><span> </span><span class="annot"><span class="annottext">StateChanged tx -&gt; Program tx ()
+forall tx. StateChanged tx -&gt; Program tx ()
+</span><a href="Hydra.HeadLogic.Program.html#change"><span class="hs-identifier hs-var">change</span></a></span><span> </span><span class="annot"><span class="annottext">[StateChanged tx]
+</span><a href="#local-6989586621681036745"><span class="hs-identifier hs-var">events</span></a></span><span> </span><span class="annot"><span class="annottext">Program tx () -&gt; Runtime tx -&gt; Program tx (Runtime tx)
+forall (f :: * -&gt; *) a b. Functor f =&gt; f a -&gt; b -&gt; f b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%24%3E"><span class="hs-operator hs-var">$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Runtime tx
+</span><a href="#local-6989586621681036746"><span class="hs-identifier hs-var">next</span></a></span><span>
+</span><span id="line-31"></span><span>
+</span><span id="line-32"></span><span id="local-6989586621681036702"><span class="annot"><a href="Hydra.HeadLogic.Rules.Coordinated.html#sendSnapshot"><span class="hs-identifier hs-type">sendSnapshot</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-33"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">IsTx</span></span><span> </span><span class="annot"><a href="#local-6989586621681036702"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-34"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#Runtime"><span class="hs-identifier hs-type">Runtime</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681036702"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-35"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Snapshot.Request.html#SnapshotRequest"><span class="hs-identifier hs-type">SnapshotRequest</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681036702"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-36"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Program.html#Program"><span class="hs-identifier hs-type">Program</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681036702"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-37"></span><span id="sendSnapshot"><span class="annot"><span class="annottext">sendSnapshot :: forall tx.
+IsTx tx =&gt;
+Runtime tx -&gt; SnapshotRequest tx -&gt; Program tx ()
+</span><a href="Hydra.HeadLogic.Rules.Coordinated.html#sendSnapshot"><span class="hs-identifier hs-var hs-var">sendSnapshot</span></a></span></span><span> </span><span id="local-6989586621681036760"><span class="annot"><span class="annottext">Runtime tx
+</span><a href="#local-6989586621681036760"><span class="hs-identifier hs-var">runtime</span></a></span></span><span> </span><span id="local-6989586621681036761"><span class="annot"><span class="annottext">SnapshotRequest tx
+</span><a href="#local-6989586621681036761"><span class="hs-identifier hs-var">request</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-38"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span class="hs-special">(</span><span id="local-6989586621681036762"><span class="annot"><span class="annottext">[StateChanged tx]
+</span><a href="#local-6989586621681036762"><span class="hs-identifier hs-var">events</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Runtime tx
+</span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Runtime tx -&gt; Command tx -&gt; ([StateChanged tx], Runtime tx)
+forall tx.
+Runtime tx -&gt; Command tx -&gt; ([StateChanged tx], Runtime tx)
+</span><a href="Hydra.HeadLogic.State.Coordinated.html#step"><span class="hs-identifier hs-var">step</span></a></span><span> </span><span class="annot"><span class="annottext">Runtime tx
+</span><a href="#local-6989586621681036760"><span class="hs-identifier hs-var">runtime</span></a></span><span> </span><span class="annot"><span class="annottext">(Command tx -&gt; ([StateChanged tx], Runtime tx))
+-&gt; Command tx -&gt; ([StateChanged tx], Runtime tx)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">SnapshotRequest tx -&gt; Command tx
+forall tx. SnapshotRequest tx -&gt; Command tx
+</span><a href="Hydra.HeadLogic.State.Coordinated.html#requestSnapshot"><span class="hs-identifier hs-var">requestSnapshot</span></a></span><span> </span><span class="annot"><span class="annottext">SnapshotRequest tx
+</span><a href="#local-6989586621681036761"><span class="hs-identifier hs-var">request</span></a></span><span>
+</span><span id="line-39"></span><span>  </span><span id="local-6989586621681036763"><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621681036763"><span class="hs-identifier hs-var">accepted</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Bool -&gt; Program tx Bool
+forall tx. Text -&gt; Bool -&gt; Program tx Bool
+</span><a href="Hydra.HeadLogic.Program.html#traceB"><span class="hs-identifier hs-var">traceB</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;proposal matches the current snapshot context&quot;</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Bool -&gt; Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#not"><span class="hs-identifier hs-var">not</span></a></span><span> </span><span class="annot"><span class="annottext">(Bool -&gt; Bool) -&gt; Bool -&gt; Bool
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">[StateChanged tx] -&gt; Bool
+forall a. [a] -&gt; Bool
+forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#null"><span class="hs-identifier hs-var">null</span></a></span><span> </span><span class="annot"><span class="annottext">[StateChanged tx]
+</span><a href="#local-6989586621681036762"><span class="hs-identifier hs-var">events</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-40"></span><span>  </span><span class="annot"><span class="annottext">Bool -&gt; Program tx () -&gt; Program tx ()
+forall (f :: * -&gt; *). Applicative f =&gt; Bool -&gt; f () -&gt; f ()
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#when"><span class="hs-identifier hs-var">when</span></a></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621681036763"><span class="hs-identifier hs-var">accepted</span></a></span><span> </span><span class="annot"><span class="annottext">(Program tx () -&gt; Program tx ()) -&gt; Program tx () -&gt; Program tx ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-41"></span><span>    </span><span class="annot"><span class="annottext">(StateChanged tx -&gt; Program tx ())
+-&gt; [StateChanged tx] -&gt; Program tx ()
+forall (t :: * -&gt; *) (f :: * -&gt; *) a b.
+(Foldable t, Applicative f) =&gt;
+(a -&gt; f b) -&gt; t a -&gt; f ()
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#traverse_"><span class="hs-identifier hs-var">traverse_</span></a></span><span> </span><span class="annot"><span class="annottext">StateChanged tx -&gt; Program tx ()
+forall tx. StateChanged tx -&gt; Program tx ()
+</span><a href="Hydra.HeadLogic.Program.html#change"><span class="hs-identifier hs-var">change</span></a></span><span> </span><span class="annot"><span class="annottext">[StateChanged tx]
+</span><a href="#local-6989586621681036762"><span class="hs-identifier hs-var">events</span></a></span><span>
+</span><span id="line-42"></span><span>    </span><span class="annot"><span class="annottext">SnapshotRequest tx -&gt; Program tx ()
+forall tx. IsTx tx =&gt; SnapshotRequest tx -&gt; Program tx ()
+</span><a href="Hydra.HeadLogic.Rules.Coordinated.html#broadcastSnapshot"><span class="hs-identifier hs-var">broadcastSnapshot</span></a></span><span> </span><span class="annot"><span class="annottext">SnapshotRequest tx
+</span><a href="#local-6989586621681036761"><span class="hs-identifier hs-var">request</span></a></span><span>
+</span><span id="line-43"></span><span>
+</span><span id="line-44"></span><span id="local-6989586621681036713"><span class="annot"><a href="Hydra.HeadLogic.Rules.Coordinated.html#broadcastSnapshot"><span class="hs-identifier hs-type">broadcastSnapshot</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IsTx</span></span><span> </span><span class="annot"><a href="#local-6989586621681036713"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Snapshot.Request.html#SnapshotRequest"><span class="hs-identifier hs-type">SnapshotRequest</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681036713"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Program.html#Program"><span class="hs-identifier hs-type">Program</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681036713"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-45"></span><span id="broadcastSnapshot"><span class="annot"><span class="annottext">broadcastSnapshot :: forall tx. IsTx tx =&gt; SnapshotRequest tx -&gt; Program tx ()
+</span><a href="Hydra.HeadLogic.Rules.Coordinated.html#broadcastSnapshot"><span class="hs-identifier hs-var hs-var">broadcastSnapshot</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Effect tx -&gt; Program tx ()
+forall tx. Effect tx -&gt; Program tx ()
+</span><a href="Hydra.HeadLogic.Program.html#emit"><span class="hs-identifier hs-var">emit</span></a></span><span> </span><span class="annot"><span class="annottext">(Effect tx -&gt; Program tx ())
+-&gt; (SnapshotRequest tx -&gt; Effect tx)
+-&gt; SnapshotRequest tx
+-&gt; Program tx ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">Message tx -&gt; Effect tx
+forall tx. Message tx -&gt; Effect tx
+</span><a href="Hydra.HeadLogic.Outcome.html#NetworkEffect"><span class="hs-identifier hs-var">NetworkEffect</span></a></span><span> </span><span class="annot"><span class="annottext">(Message tx -&gt; Effect tx)
+-&gt; (SnapshotRequest tx -&gt; Message tx)
+-&gt; SnapshotRequest tx
+-&gt; Effect tx
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">SnapshotRequest tx -&gt; Message tx
+forall tx. IsTx tx =&gt; SnapshotRequest tx -&gt; Message tx
+</span><a href="Hydra.HeadLogic.Snapshot.Request.html#requestMessage"><span class="hs-identifier hs-var">requestMessage</span></a></span><span>
+</span><span id="line-46"></span></pre></body></html>

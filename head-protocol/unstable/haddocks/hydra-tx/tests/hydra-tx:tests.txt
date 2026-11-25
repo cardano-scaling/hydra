@@ -1681,6 +1681,9 @@ spec :: Spec
 module Hydra.Tx.HeadValidatorAgreementSpec
 spec :: Spec
 
+module Hydra.Tx.InitSpec
+spec :: Spec
+
 module Hydra.Tx.IsTxSpec
 spec :: Spec
 genConwayCompatibleBabbageTx :: Gen (Tx TopTx BabbageEra)
@@ -1688,6 +1691,7 @@ roundtripTxId :: Tx -> Property
 roundtripTxId' :: Tx -> Property
 roundtripLedger :: Tx -> Property
 roundtripCBOR :: (Eq a, Show a, ToCBOR a, FromCBOR a) => a -> Property
+requiredInputs :: Tx -> TxId -> TxOut CtxUTxO -> Property
 
 module Hydra.Tx.KZGTrustedSetupSpec
 spec :: Spec

@@ -1,0 +1,253 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="annot"><span class="hs-comment">-- | A workflow consists of a Crem machine running a Program.</span></span><span>
+</span><span id="line-2"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.HeadLogic.Workflow</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-3"></span><span>
+</span><span id="line-4"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Crem.BaseMachine</span></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-5"></span><span>  </span><span class="annot"><span class="hs-identifier">ActionResult</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-6"></span><span>  </span><span class="annot"><span class="hs-identifier">BaseMachineT</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-7"></span><span>  </span><span class="annot"><span class="hs-identifier">InitialState</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">InspectableState</span></span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-8"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-9"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Crem.BaseMachine</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Base</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Transition</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-10"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Crem.StateInspection</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">describeOnly</span></span><span class="hs-special">)</span><span>
+</span><span id="line-11"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Crem.StateMachine</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Crem</span></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-12"></span><span>  </span><span class="annot"><span class="hs-identifier">StateMachineT</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Executable</span></span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-13"></span><span>  </span><span class="annot"><span class="hs-identifier">run</span></span><span class="hs-special">,</span><span>
+</span><span id="line-14"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-15"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Crem.Topology</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">AllowedTransition</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">Topology</span></span><span class="hs-special">)</span><span>
+</span><span id="line-16"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Program.html"><span class="hs-identifier">Hydra.HeadLogic.Program</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.Program.html#Program"><span class="hs-identifier">Program</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-17"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Prelude</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/mtl-2.3.1/src/Control.Monad.State.Class.html#state"><span class="hs-identifier">state</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-18"></span><span>
+</span><span id="line-19"></span><span class="hs-keyword">type</span><span> </span><span id="Workflow"><span class="annot"><a href="Hydra.HeadLogic.Workflow.html#Workflow"><span class="hs-identifier hs-var">Workflow</span></a></span></span><span> </span><span id="local-6989586621681031745"><span id="local-6989586621681031746"><span class="annot"><a href="#local-6989586621681031746"><span class="hs-identifier hs-type">tx</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621681031747"><span class="annot"><a href="#local-6989586621681031747"><span class="hs-identifier hs-type">topology</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Topology</span></span><span> </span><span class="annot"><a href="#local-6989586621681031745"><span class="hs-identifier hs-type">vertex</span></a></span><span class="hs-special">)</span><span> </span><span id="local-6989586621681031748"><span class="annot"><a href="#local-6989586621681031748"><span class="hs-identifier hs-type">result</span></a></span></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-20"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">BaseMachineT</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.Program.html#Program"><span class="hs-identifier hs-type">Program</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681031746"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621681031747"><span class="hs-identifier hs-type">topology</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681031748"><span class="hs-identifier hs-type">result</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-21"></span><span>
+</span><span id="line-22"></span><span class="hs-keyword">type</span><span> </span><span id="Transition"><span class="annot"><a href="Hydra.HeadLogic.Workflow.html#Transition"><span class="hs-identifier hs-var">Transition</span></a></span></span><span> </span><span id="local-6989586621681031749"><span class="annot"><a href="#local-6989586621681031749"><span class="hs-identifier hs-type">tx</span></a></span></span><span> </span><span id="local-6989586621681031750"><span class="annot"><a href="#local-6989586621681031750"><span class="hs-identifier hs-type">topology</span></a></span></span><span> </span><span id="local-6989586621681031751"><span class="annot"><a href="#local-6989586621681031751"><span class="hs-identifier hs-type">state</span></a></span></span><span> </span><span id="local-6989586621681031752"><span class="annot"><a href="#local-6989586621681031752"><span class="hs-identifier hs-type">from</span></a></span></span><span> </span><span id="local-6989586621681031753"><span class="annot"><a href="#local-6989586621681031753"><span class="hs-identifier hs-type">result</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-23"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">ActionResult</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.Program.html#Program"><span class="hs-identifier hs-type">Program</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681031749"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621681031750"><span class="hs-identifier hs-type">topology</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681031751"><span class="hs-identifier hs-type">state</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681031752"><span class="hs-identifier hs-type">from</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681031753"><span class="hs-identifier hs-type">result</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-24"></span><span>
+</span><span id="line-25"></span><span class="hs-keyword">type</span><span> </span><span id="Destination"><span class="annot"><a href="Hydra.HeadLogic.Workflow.html#Destination"><span class="hs-identifier hs-var">Destination</span></a></span></span><span> </span><span id="local-6989586621681031754"><span class="annot"><a href="#local-6989586621681031754"><span class="hs-identifier hs-type">topology</span></a></span></span><span> </span><span id="local-6989586621681031755"><span class="annot"><a href="#local-6989586621681031755"><span class="hs-identifier hs-type">state</span></a></span></span><span> </span><span id="local-6989586621681031756"><span class="annot"><a href="#local-6989586621681031756"><span class="hs-identifier hs-type">from</span></a></span></span><span> </span><span id="local-6989586621681031757"><span class="annot"><a href="#local-6989586621681031757"><span class="hs-identifier hs-type">result</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-26"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Base.Transition</span></span><span> </span><span class="annot"><a href="#local-6989586621681031754"><span class="hs-identifier hs-type">topology</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681031755"><span class="hs-identifier hs-type">state</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681031756"><span class="hs-identifier hs-type">from</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681031757"><span class="hs-identifier hs-type">result</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-27"></span><span>
+</span><span id="line-28"></span><span class="hs-comment">-- | A workflow is a description, a starting state, and a function advancing</span><span>
+</span><span id="line-29"></span><span class="hs-comment">-- to the next state.</span><span>
+</span><span id="line-30"></span><span id="local-6989586621681031593"><span id="local-6989586621681031596"><span id="local-6989586621681031598"><span id="local-6989586621681031599"><span id="local-6989586621681031600"><span class="annot"><a href="Hydra.HeadLogic.Workflow.html#workflow"><span class="hs-identifier hs-type">workflow</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-31"></span><span>  </span><span class="hs-special">(</span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621681031594"><span class="annot"><a href="#local-6989586621681031594"><span class="hs-identifier hs-type">phase</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="annot"><a href="#local-6989586621681031593"><span class="hs-identifier hs-type">state</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681031594"><span class="hs-identifier hs-type">phase</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-32"></span><span>  </span><span class="annot"><a href="#local-6989586621681031593"><span class="hs-identifier hs-type">state</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681031596"><span class="hs-identifier hs-type">initial</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-33"></span><span>  </span><span class="hs-special">(</span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621681031597"><span class="annot"><a href="#local-6989586621681031597"><span class="hs-identifier hs-type">from</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="annot"><a href="#local-6989586621681031593"><span class="hs-identifier hs-type">state</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681031597"><span class="hs-identifier hs-type">from</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Workflow.html#Transition"><span class="hs-identifier hs-type">Transition</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681031598"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681031599"><span class="hs-identifier hs-type">topology</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681031593"><span class="hs-identifier hs-type">state</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681031597"><span class="hs-identifier hs-type">from</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681031600"><span class="hs-identifier hs-type">result</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-34"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Workflow.html#Workflow"><span class="hs-identifier hs-type">Workflow</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681031598"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681031599"><span class="hs-identifier hs-type">topology</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681031600"><span class="hs-identifier hs-type">result</span></a></span></span></span></span></span></span><span>
+</span><span id="line-35"></span><span id="workflow"><span class="annot"><span class="annottext">workflow :: forall {k} (state :: k -&gt; *) (initial :: k) tx
+       (topology :: Topology k) result.
+(forall (phase :: k). state phase -&gt; Text)
+-&gt; state initial
+-&gt; (forall (from :: k).
+    state from -&gt; Transition tx topology state from result)
+-&gt; Workflow tx topology result
+</span><a href="Hydra.HeadLogic.Workflow.html#workflow"><span class="hs-identifier hs-var hs-var">workflow</span></a></span></span><span> </span><span id="local-6989586621681031759"><span class="annot"><span class="annottext">forall (phase :: k). state phase -&gt; Text
+</span><a href="#local-6989586621681031759"><span class="hs-identifier hs-var">describe</span></a></span></span><span> </span><span id="local-6989586621681031760"><span class="annot"><span class="annottext">state initial
+</span><a href="#local-6989586621681031760"><span class="hs-identifier hs-var">initial</span></a></span></span><span> </span><span id="local-6989586621681031761"><span class="annot"><span class="annottext">forall (from :: k).
+state from -&gt; Transition tx topology state from result
+</span><a href="#local-6989586621681031761"><span class="hs-identifier hs-var">step</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-36"></span><span>  </span><span class="annot"><span class="annottext">InitialState state
+-&gt; (forall {initialVertex :: k}.
+    state initialVertex
+    -&gt; ()
+    -&gt; ActionResult
+         (Program tx) topology state initialVertex (Maybe result))
+-&gt; BaseMachineT (Program tx) topology () (Maybe result)
+forall vertex (m :: * -&gt; *) (topology :: Topology vertex) input
+       output (state :: vertex -&gt; *).
+InitialState state
+-&gt; (forall (initialVertex :: vertex).
+    state initialVertex
+    -&gt; input -&gt; ActionResult m topology state initialVertex output)
+-&gt; BaseMachineT m topology input output
+</span><span class="hs-identifier hs-var">BaseMachineT</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">StateInspector state -&gt; state initial -&gt; InitialState state
+forall {vertex} (state :: vertex -&gt; *) (vertex1 :: vertex).
+StateInspector state -&gt; state vertex1 -&gt; InitialState state
+</span><span class="hs-identifier hs-var">InspectableState</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(forall (phase :: k). state phase -&gt; Text) -&gt; StateInspector state
+forall {vertex} (state :: vertex -&gt; *).
+(forall (phase :: vertex). state phase -&gt; Text)
+-&gt; StateInspector state
+</span><span class="hs-identifier hs-var">describeOnly</span></span><span> </span><span class="annot"><span class="annottext">state phase -&gt; Text
+forall (phase :: k). state phase -&gt; Text
+</span><a href="#local-6989586621681031759"><span class="hs-identifier hs-var">describe</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">state initial
+</span><a href="#local-6989586621681031760"><span class="hs-identifier hs-var">initial</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">((forall {initialVertex :: k}.
+  state initialVertex
+  -&gt; ()
+  -&gt; ActionResult
+       (Program tx) topology state initialVertex (Maybe result))
+ -&gt; BaseMachineT (Program tx) topology () (Maybe result))
+-&gt; (forall {initialVertex :: k}.
+    state initialVertex
+    -&gt; ()
+    -&gt; ActionResult
+         (Program tx) topology state initialVertex (Maybe result))
+-&gt; BaseMachineT (Program tx) topology () (Maybe result)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681031763"><span class="annot"><span class="annottext">state initialVertex
+</span><a href="#local-6989586621681031763"><span class="hs-identifier hs-var">state</span></a></span></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">state initialVertex
+-&gt; ActionResult
+     (Program tx) topology state initialVertex (Maybe result)
+forall (from :: k).
+state from -&gt; Transition tx topology state from result
+</span><a href="#local-6989586621681031761"><span class="hs-identifier hs-var">step</span></a></span><span> </span><span class="annot"><span class="annottext">state initialVertex
+</span><a href="#local-6989586621681031763"><span class="hs-identifier hs-var">state</span></a></span><span>
+</span><span id="line-37"></span><span>
+</span><span id="line-38"></span><span class="hs-comment">-- | Let a program decide which state to go to; i.e.</span><span>
+</span><span id="line-39"></span><span class="hs-comment">--</span><span>
+</span><span id="line-40"></span><span class="hs-comment">-- choose $ do</span><span>
+</span><span id="line-41"></span><span class="hs-comment">--    okay &lt;- traceB &quot;okay?&quot; condition</span><span>
+</span><span id="line-42"></span><span class="hs-comment">--    if okay</span><span>
+</span><span id="line-43"></span><span class="hs-comment">--       then pure $ next NextThing</span><span>
+</span><span id="line-44"></span><span class="hs-comment">--       else suspend waitReason</span><span>
+</span><span id="line-45"></span><span id="local-6989586621681031634"><span id="local-6989586621681031635"><span id="local-6989586621681031636"><span id="local-6989586621681031637"><span id="local-6989586621681031638"><span class="annot"><a href="Hydra.HeadLogic.Workflow.html#choose"><span class="hs-identifier hs-type">choose</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-46"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Program.html#Program"><span class="hs-identifier hs-type">Program</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681031634"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.Workflow.html#Destination"><span class="hs-identifier hs-type">Destination</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681031635"><span class="hs-identifier hs-type">topology</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681031636"><span class="hs-identifier hs-type">state</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681031637"><span class="hs-identifier hs-type">from</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681031638"><span class="hs-identifier hs-type">result</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-47"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Workflow.html#Transition"><span class="hs-identifier hs-type">Transition</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681031634"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681031635"><span class="hs-identifier hs-type">topology</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681031636"><span class="hs-identifier hs-type">state</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681031637"><span class="hs-identifier hs-type">from</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681031638"><span class="hs-identifier hs-type">result</span></a></span></span></span></span></span></span><span>
+</span><span id="line-48"></span><span id="choose"><span class="annot"><span class="annottext">choose :: forall {vertex} tx (topology :: Topology vertex)
+       (state :: vertex -&gt; *) (from :: vertex) result.
+Program tx (Destination topology state from result)
+-&gt; Transition tx topology state from result
+</span><a href="Hydra.HeadLogic.Workflow.html#choose"><span class="hs-identifier hs-var hs-var">choose</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Program tx (Transition topology state from (Maybe result))
+-&gt; ActionResult (Program tx) topology state from (Maybe result)
+forall {vertex} (m :: * -&gt; *) (topology :: Topology vertex)
+       (state :: vertex -&gt; *) (initialVertex :: vertex) output.
+m (Transition topology state initialVertex output)
+-&gt; ActionResult m topology state initialVertex output
+</span><span class="hs-identifier hs-var">ChooseTransition</span></span><span>
+</span><span id="line-49"></span><span>
+</span><span id="line-50"></span><span id="local-6989586621681031654"><span id="local-6989586621681031655"><span id="local-6989586621681031656"><span id="local-6989586621681031658"><span id="local-6989586621681031659"><span class="annot"><a href="Hydra.HeadLogic.Workflow.html#next"><span class="hs-identifier hs-type">next</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-51"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">AllowedTransition</span></span><span> </span><span class="annot"><a href="#local-6989586621681031654"><span class="hs-identifier hs-type">topology</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681031655"><span class="hs-identifier hs-type">from</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681031656"><span class="hs-identifier hs-type">to</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-52"></span><span>  </span><span class="annot"><a href="#local-6989586621681031658"><span class="hs-identifier hs-type">state</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681031656"><span class="hs-identifier hs-type">to</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-53"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Workflow.html#Destination"><span class="hs-identifier hs-type">Destination</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681031654"><span class="hs-identifier hs-type">topology</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681031658"><span class="hs-identifier hs-type">state</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681031655"><span class="hs-identifier hs-type">from</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681031659"><span class="hs-identifier hs-type">result</span></a></span></span></span></span></span></span><span>
+</span><span id="line-54"></span><span id="next"><span class="annot"><span class="annottext">next :: forall {vertex} (topology :: Topology vertex) (from :: vertex)
+       (to :: vertex) (state :: vertex -&gt; *) result.
+AllowedTransition topology from to =&gt;
+state to -&gt; Destination topology state from result
+</span><a href="Hydra.HeadLogic.Workflow.html#next"><span class="hs-identifier hs-var hs-var">next</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Maybe result
+-&gt; state to -&gt; Transition topology state from (Maybe result)
+forall {vertex} (topology :: Topology vertex) (from :: vertex)
+       (to :: vertex) output (state :: vertex -&gt; *).
+AllowedTransition topology from to =&gt;
+output -&gt; state to -&gt; Transition topology state from output
+</span><span class="hs-identifier hs-var">Base.Transition</span></span><span> </span><span class="annot"><span class="annottext">Maybe result
+forall a. Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span>
+</span><span id="line-55"></span><span>
+</span><span id="line-56"></span><span class="annot"><span class="hs-comment">-- | Perform some operation and head to the next state.</span></span><span>
+</span><span id="line-57"></span><span id="local-6989586621681031674"><span id="local-6989586621681031675"><span id="local-6989586621681031676"><span id="local-6989586621681031677"><span id="local-6989586621681031678"><span id="local-6989586621681031679"><span id="local-6989586621681031680"><span class="annot"><a href="Hydra.HeadLogic.Workflow.html#continue"><span class="hs-identifier hs-type">continue</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-58"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">AllowedTransition</span></span><span> </span><span class="annot"><a href="#local-6989586621681031674"><span class="hs-identifier hs-type">topology</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681031675"><span class="hs-identifier hs-type">from</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681031676"><span class="hs-identifier hs-type">to</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-59"></span><span>  </span><span class="hs-special">(</span><span class="annot"><a href="#local-6989586621681031677"><span class="hs-identifier hs-type">reply</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681031678"><span class="hs-identifier hs-type">state</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681031676"><span class="hs-identifier hs-type">to</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-60"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Program.html#Program"><span class="hs-identifier hs-type">Program</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681031679"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681031677"><span class="hs-identifier hs-type">reply</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-61"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Workflow.html#Transition"><span class="hs-identifier hs-type">Transition</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681031679"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681031674"><span class="hs-identifier hs-type">topology</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681031678"><span class="hs-identifier hs-type">state</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681031675"><span class="hs-identifier hs-type">from</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681031680"><span class="hs-identifier hs-type">result</span></a></span></span></span></span></span></span></span></span><span>
+</span><span id="line-62"></span><span id="continue"><span class="annot"><span class="annottext">continue :: forall {vertex} (topology :: Topology vertex) (from :: vertex)
+       (to :: vertex) reply (state :: vertex -&gt; *) tx result.
+AllowedTransition topology from to =&gt;
+(reply -&gt; state to)
+-&gt; Program tx reply -&gt; Transition tx topology state from result
+</span><a href="Hydra.HeadLogic.Workflow.html#continue"><span class="hs-identifier hs-var hs-var">continue</span></a></span></span><span> </span><span id="local-6989586621681031775"><span class="annot"><span class="annottext">reply -&gt; state to
+</span><a href="#local-6989586621681031775"><span class="hs-identifier hs-var">destination</span></a></span></span><span> </span><span id="local-6989586621681031776"><span class="annot"><span class="annottext">Program tx reply
+</span><a href="#local-6989586621681031776"><span class="hs-identifier hs-var">operation</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-63"></span><span>  </span><span class="annot"><span class="annottext">Program tx (Maybe result, state to)
+-&gt; ActionResult (Program tx) topology state from (Maybe result)
+forall {vertex} (topology :: Topology vertex)
+       (initialVertex :: vertex) (finalVertex :: vertex) (m :: * -&gt; *)
+       output (state :: vertex -&gt; *).
+AllowedTransition topology initialVertex finalVertex =&gt;
+m (output, state finalVertex)
+-&gt; ActionResult m topology state initialVertex output
+</span><span class="hs-identifier hs-var">ActionResult</span></span><span> </span><span class="annot"><span class="annottext">(Program tx (Maybe result, state to)
+ -&gt; ActionResult (Program tx) topology state from (Maybe result))
+-&gt; Program tx (Maybe result, state to)
+-&gt; ActionResult (Program tx) topology state from (Maybe result)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">\</span><span id="local-6989586621681031778"><span class="annot"><span class="annottext">reply
+</span><a href="#local-6989586621681031778"><span class="hs-identifier hs-var">reply</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Maybe result
+forall a. Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">reply -&gt; state to
+</span><a href="#local-6989586621681031775"><span class="hs-identifier hs-var">destination</span></a></span><span> </span><span class="annot"><span class="annottext">reply
+</span><a href="#local-6989586621681031778"><span class="hs-identifier hs-var">reply</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(reply -&gt; (Maybe result, state to))
+-&gt; Program tx reply -&gt; Program tx (Maybe result, state to)
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Program tx reply
+</span><a href="#local-6989586621681031776"><span class="hs-identifier hs-var">operation</span></a></span><span>
+</span><span id="line-64"></span><span>
+</span><span id="line-65"></span><span class="annot"><span class="hs-comment">-- | Complete the state transformations.</span></span><span>
+</span><span id="line-66"></span><span id="local-6989586621681031695"><span id="local-6989586621681031696"><span id="local-6989586621681031697"><span id="local-6989586621681031698"><span id="local-6989586621681031699"><span class="annot"><a href="Hydra.HeadLogic.Workflow.html#finish"><span class="hs-identifier hs-type">finish</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-67"></span><span>  </span><span class="annot"><a href="#local-6989586621681031695"><span class="hs-identifier hs-type">state</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681031696"><span class="hs-identifier hs-type">phase</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-68"></span><span>  </span><span class="annot"><a href="#local-6989586621681031697"><span class="hs-identifier hs-type">result</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-69"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Workflow.html#Transition"><span class="hs-identifier hs-type">Transition</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681031698"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681031699"><span class="hs-identifier hs-type">topology</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681031695"><span class="hs-identifier hs-type">state</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681031696"><span class="hs-identifier hs-type">phase</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681031697"><span class="hs-identifier hs-type">result</span></a></span></span></span></span></span></span><span>
+</span><span id="line-70"></span><span id="finish"><span class="annot"><span class="annottext">finish :: forall {vertex} (state :: vertex -&gt; *) (phase :: vertex) result tx
+       (topology :: Topology vertex).
+state phase -&gt; result -&gt; Transition tx topology state phase result
+</span><a href="Hydra.HeadLogic.Workflow.html#finish"><span class="hs-identifier hs-var hs-var">finish</span></a></span></span><span> </span><span id="local-6989586621681031785"><span class="annot"><span class="annottext">state phase
+</span><a href="#local-6989586621681031785"><span class="hs-identifier hs-var">state</span></a></span></span><span> </span><span id="local-6989586621681031786"><span class="annot"><span class="annottext">result
+</span><a href="#local-6989586621681031786"><span class="hs-identifier hs-var">result</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Program tx (Maybe result, state phase)
+-&gt; ActionResult (Program tx) topology state phase (Maybe result)
+forall {vertex} (topology :: Topology vertex)
+       (initialVertex :: vertex) (finalVertex :: vertex) (m :: * -&gt; *)
+       output (state :: vertex -&gt; *).
+AllowedTransition topology initialVertex finalVertex =&gt;
+m (output, state finalVertex)
+-&gt; ActionResult m topology state initialVertex output
+</span><span class="hs-identifier hs-var">ActionResult</span></span><span> </span><span class="annot"><span class="annottext">(Program tx (Maybe result, state phase)
+ -&gt; ActionResult (Program tx) topology state phase (Maybe result))
+-&gt; Program tx (Maybe result, state phase)
+-&gt; ActionResult (Program tx) topology state phase (Maybe result)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">(Maybe result, state phase)
+-&gt; Program tx (Maybe result, state phase)
+forall a. a -&gt; Program tx a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">result -&gt; Maybe result
+forall a. a -&gt; Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">result
+</span><a href="#local-6989586621681031786"><span class="hs-identifier hs-var">result</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">state phase
+</span><a href="#local-6989586621681031785"><span class="hs-identifier hs-var">state</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-71"></span><span>
+</span><span id="line-72"></span><span class="annot"><span class="hs-comment">-- | Run a Crem program and get a `Program` out.</span></span><span>
+</span><span id="line-73"></span><span id="local-6989586621681031713"><span id="local-6989586621681031714"><span id="local-6989586621681031715"><span class="annot"><a href="Hydra.HeadLogic.Workflow.html#run"><span class="hs-identifier hs-type">run</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Workflow.html#Workflow"><span class="hs-identifier hs-type">Workflow</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681031713"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681031714"><span class="hs-identifier hs-type">topology</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681031715"><span class="hs-identifier hs-type">result</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Program.html#Program"><span class="hs-identifier hs-type">Program</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681031713"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681031715"><span class="hs-identifier hs-type">result</span></a></span></span></span></span><span>
+</span><span id="line-74"></span><span id="run"><span class="annot"><span class="annottext">run :: forall {vertex} tx (topology :: Topology vertex) result.
+Workflow tx topology result -&gt; Program tx result
+</span><a href="Hydra.HeadLogic.Workflow.html#run"><span class="hs-identifier hs-var hs-var">run</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">StateMachineT (Program tx) () (Maybe result) -&gt; Program tx result
+forall (m :: * -&gt; *) a.
+Monad m =&gt;
+StateMachineT m () (Maybe a) -&gt; m a
+</span><a href="#local-6989586621681031790"><span class="hs-identifier hs-var">drive</span></a></span><span> </span><span class="annot"><span class="annottext">(StateMachineT (Program tx) () (Maybe result) -&gt; Program tx result)
+-&gt; (Workflow tx topology result
+    -&gt; StateMachineT (Program tx) () (Maybe result))
+-&gt; Workflow tx topology result
+-&gt; Program tx result
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">Workflow tx topology result
+-&gt; StateMachineT (Program tx) () (Maybe result)
+forall {vertex} (m :: * -&gt; *) (topology :: Topology vertex) input
+       output.
+BaseMachineT m topology input output
+-&gt; StateMachineT m input output
+</span><span class="hs-identifier hs-var">Crem.Executable</span></span><span>
+</span><span id="line-75"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-76"></span><span>  </span><span id="local-6989586621681031720"><span id="local-6989586621681031721"><span class="annot"><a href="#local-6989586621681031790"><span class="hs-identifier hs-type">drive</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#Monad"><span class="hs-identifier hs-type">Monad</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681031720"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Crem.StateMachineT</span></span><span> </span><span class="annot"><a href="#local-6989586621681031720"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681031721"><span class="hs-identifier hs-type">a</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681031720"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681031721"><span class="hs-identifier hs-type">a</span></a></span></span></span><span>
+</span><span id="line-77"></span><span>  </span><span id="local-6989586621681031790"><span class="annot"><span class="annottext">drive :: forall (m :: * -&gt; *) a.
+Monad m =&gt;
+StateMachineT m () (Maybe a) -&gt; m a
+</span><a href="#local-6989586621681031790"><span class="hs-identifier hs-var hs-var">drive</span></a></span></span><span> </span><span id="local-6989586621681031799"><span class="annot"><span class="annottext">StateMachineT m () (Maybe a)
+</span><a href="#local-6989586621681031799"><span class="hs-identifier hs-var">machine</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-78"></span><span>    </span><span class="hs-special">(</span><span id="local-6989586621681031800"><span class="annot"><span class="annottext">Maybe a
+</span><a href="#local-6989586621681031800"><span class="hs-identifier hs-var">result</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681031801"><span class="annot"><span class="annottext">StateMachineT m () (Maybe a)
+</span><a href="#local-6989586621681031801"><span class="hs-identifier hs-var">remaining</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">StateMachineT m () (Maybe a)
+-&gt; () -&gt; m (Maybe a, StateMachineT m () (Maybe a))
+forall (m :: * -&gt; *) a b.
+Monad m =&gt;
+StateMachineT m a b -&gt; a -&gt; m (b, StateMachineT m a b)
+</span><span class="hs-identifier hs-var">Crem.run</span></span><span> </span><span class="annot"><span class="annottext">StateMachineT m () (Maybe a)
+</span><a href="#local-6989586621681031799"><span class="hs-identifier hs-var">machine</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-79"></span><span>    </span><span class="annot"><span class="annottext">m a -&gt; (a -&gt; m a) -&gt; Maybe a -&gt; m a
+forall b a. b -&gt; (a -&gt; b) -&gt; Maybe a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Maybe.html#maybe"><span class="hs-identifier hs-var">maybe</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">StateMachineT m () (Maybe a) -&gt; m a
+forall (m :: * -&gt; *) a.
+Monad m =&gt;
+StateMachineT m () (Maybe a) -&gt; m a
+</span><a href="#local-6989586621681031790"><span class="hs-identifier hs-var">drive</span></a></span><span> </span><span class="annot"><span class="annottext">StateMachineT m () (Maybe a)
+</span><a href="#local-6989586621681031801"><span class="hs-identifier hs-var">remaining</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">a -&gt; m a
+forall a. a -&gt; m a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe a
+</span><a href="#local-6989586621681031800"><span class="hs-identifier hs-var">result</span></a></span><span>
+</span><span id="line-80"></span></pre></body></html>

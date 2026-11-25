@@ -1,0 +1,272 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span id="local-6989586621681037488"><span id="local-6989586621681037489"></span></span><span class="hs-pragma">{-# LANGUAGE RecordWildCards #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE UndecidableInstances #-}</span><span>
+</span><span id="line-3"></span><span>
+</span><span id="line-4"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.HeadLogic.Rules.Client.Decommit</span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-5"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Client.Decommit.html#Stage"><span class="hs-identifier">Stage</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-6"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Client.Decommit.html#DecommitTopology"><span class="hs-identifier">DecommitTopology</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-7"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Client.Decommit.html#Args"><span class="hs-identifier">Args</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-8"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Client.Decommit.html#workflow"><span class="hs-identifier">workflow</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-9"></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-10"></span><span>
+</span><span id="line-11"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Crem.Topology</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Topology</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Topology</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-12"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.API.ServerOutput.html"><span class="hs-identifier">Hydra.API.ServerOutput</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.API.ServerOutput.html#DecommitInvalidReason"><span class="hs-identifier">DecommitInvalidReason</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-13"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Chain.ChainState</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">ChainSlot</span></span><span class="hs-special">)</span><span>
+</span><span id="line-14"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Limits.html"><span class="hs-identifier">Hydra.HeadLogic.Limits</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.Limits.html#SnapshotLimits"><span class="hs-identifier">SnapshotLimits</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-15"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html"><span class="hs-identifier">Hydra.HeadLogic.Outcome</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#Effect"><span class="hs-identifier">Effect</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#StateChanged"><span class="hs-identifier">StateChanged</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-16"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Program.html"><span class="hs-identifier">Hydra.HeadLogic.Program</span></a></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-17"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Program.html#Program"><span class="hs-identifier">Program</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-18"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Program.html#change"><span class="hs-identifier">change</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-19"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Program.html#emit"><span class="hs-identifier">emit</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-20"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-21"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Decommit.html"><span class="hs-identifier">Hydra.HeadLogic.Rules.Decommit</span></a></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Admission</span></span><span>
+</span><span id="line-22"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.html"><span class="hs-identifier">Hydra.HeadLogic.State</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.State.html#CoordinatedHeadState"><span class="hs-identifier">CoordinatedHeadState</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-23"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Workflow.html"><span class="hs-identifier">Hydra.HeadLogic.Workflow</span></a></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-24"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Workflow.html#Transition"><span class="hs-identifier">Transition</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-25"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Workflow.html#Workflow"><span class="hs-identifier">Workflow</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-26"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Workflow.html#choose"><span class="hs-identifier">choose</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-27"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Workflow.html#continue"><span class="hs-identifier">continue</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-28"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Workflow.html#finish"><span class="hs-identifier">finish</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-29"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Workflow.html#next"><span class="hs-identifier">next</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-30"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-31"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Workflow.html"><span class="hs-identifier">Hydra.HeadLogic.Workflow</span></a></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Workflow</span></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-32"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Workflow.html#workflow"><span class="hs-identifier">workflow</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-33"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-34"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Network.Message.html"><span class="hs-identifier">Hydra.Network.Message</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Network.Message.html#Message"><span class="hs-identifier">Message</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-35"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Prelude</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/transformers-0.6.1.0/src/Control.Monad.Trans.State.Strict.html#State"><span class="hs-identifier">State</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">handle</span></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/mtl-2.3.1/src/Control.Monad.State.Class.html#state"><span class="hs-identifier">state</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-36"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">HeadId</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">IsTx</span></span><span class="hs-special">)</span><span>
+</span><span id="line-37"></span><span>
+</span><span id="line-38"></span><span class="hs-keyword">data</span><span> </span><span id="Stage"><span class="annot"><a href="Hydra.HeadLogic.Rules.Client.Decommit.html#Stage"><span class="hs-identifier hs-var">Stage</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="ValidateDecommit"><span class="annot"><a href="Hydra.HeadLogic.Rules.Client.Decommit.html#ValidateDecommit"><span class="hs-identifier hs-var">ValidateDecommit</span></a></span></span><span> </span><span class="hs-glyph">|</span><span> </span><span id="Broadcast"><span class="annot"><a href="Hydra.HeadLogic.Rules.Client.Decommit.html#Broadcast"><span class="hs-identifier hs-var">Broadcast</span></a></span></span><span> </span><span class="hs-glyph">|</span><span> </span><span id="Finished"><span class="annot"><a href="Hydra.HeadLogic.Rules.Client.Decommit.html#Finished"><span class="hs-identifier hs-var">Finished</span></a></span></span><span>
+</span><span id="line-39"></span><span>
+</span><span id="line-40"></span><span class="hs-keyword">type</span><span> </span><span id="DecommitTopology"><span class="annot"><a href="Hydra.HeadLogic.Rules.Client.Decommit.html#DecommitTopology"><span class="hs-identifier hs-var">DecommitTopology</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-41"></span><span>  </span><span class="hs-special">'</span><span class="annot"><span class="hs-identifier hs-type">Topology</span></span><span>
+</span><span id="line-42"></span><span>    </span><span class="hs-special">'</span><span class="hs-special">[</span><span> </span><span class="hs-special">'</span><span class="hs-special">(</span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Hydra.HeadLogic.Rules.Client.Decommit.html#ValidateDecommit"><span class="hs-identifier hs-type">ValidateDecommit</span></a></span><span class="hs-special">,</span><span> </span><span class="hs-special">'</span><span class="hs-special">[</span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Hydra.HeadLogic.Rules.Client.Decommit.html#Broadcast"><span class="hs-identifier hs-type">Broadcast</span></a></span><span class="hs-special">,</span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Hydra.HeadLogic.Rules.Client.Decommit.html#Finished"><span class="hs-identifier hs-type">Finished</span></a></span><span class="hs-special">]</span><span class="hs-special">)</span><span>
+</span><span id="line-43"></span><span>     </span><span class="hs-special">,</span><span> </span><span class="hs-special">'</span><span class="hs-special">(</span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Hydra.HeadLogic.Rules.Client.Decommit.html#Broadcast"><span class="hs-identifier hs-type">Broadcast</span></a></span><span class="hs-special">,</span><span> </span><span class="hs-special">'</span><span class="hs-special">[</span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Hydra.HeadLogic.Rules.Client.Decommit.html#Finished"><span class="hs-identifier hs-type">Finished</span></a></span><span class="hs-special">]</span><span class="hs-special">)</span><span>
+</span><span id="line-44"></span><span>     </span><span class="hs-special">]</span><span>
+</span><span id="line-45"></span><span id="local-6989586621681037502"><span id="local-6989586621681037504"><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-type">Eq</span></a></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Client.Decommit.html#Stage"><span class="hs-identifier hs-type">Stage</span></a></span></span></span><span>
+</span><span id="line-46"></span><span id="local-6989586621681037509"><span id="local-6989586621681037511"><span id="local-6989586621681037515"><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-type">Show</span></a></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Client.Decommit.html#Stage"><span class="hs-identifier hs-type">Stage</span></a></span></span></span></span><span>
+</span><span id="line-47"></span><span id="local-6989586621681037519"><span id="local-6989586621681037527"><span id="local-6989586621681037533"><span id="local-6989586621681037547"><span id="local-6989586621681037549"><span id="local-6989586621681037553"><span id="local-6989586621681037557"><span id="local-6989586621681037561"><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Enum.html#Enum"><span class="hs-identifier hs-type">Enum</span></a></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Client.Decommit.html#Stage"><span class="hs-identifier hs-type">Stage</span></a></span></span></span></span></span></span></span></span></span><span>
+</span><span id="line-48"></span><span id="local-6989586621681037565"><span id="local-6989586621681037567"><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Enum.html#Bounded"><span class="hs-identifier hs-type">Bounded</span></a></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Client.Decommit.html#Stage"><span class="hs-identifier hs-type">Stage</span></a></span></span></span><span>
+</span><span id="line-49"></span><span>
+</span><span id="line-50"></span><span class="hs-keyword">data</span><span> </span><span id="State"><span class="annot"><a href="Hydra.HeadLogic.Rules.Client.Decommit.html#State"><span class="hs-identifier hs-var">State</span></a></span></span><span> </span><span id="local-6989586621681037570"><span class="annot"><a href="#local-6989586621681037570"><span class="hs-identifier hs-type">tx</span></a></span></span><span> </span><span id="local-6989586621681037571"><span class="annot"><a href="#local-6989586621681037571"><span class="hs-identifier hs-type">phase</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-51"></span><span>  </span><span id="local-6989586621681037413"><span id="Validate"><span class="annot"><a href="Hydra.HeadLogic.Rules.Client.Decommit.html#Validate"><span class="hs-identifier hs-var">Validate</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Client.Decommit.html#State"><span class="hs-identifier hs-type">State</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681037413"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Hydra.HeadLogic.Rules.Client.Decommit.html#ValidateDecommit"><span class="hs-identifier hs-type">ValidateDecommit</span></a></span></span><span>
+</span><span id="line-52"></span><span>  </span><span id="local-6989586621681037454"><span id="Send"><span class="annot"><a href="Hydra.HeadLogic.Rules.Client.Decommit.html#Send"><span class="hs-identifier hs-var">Send</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Validation.html#ValidatedDecommit"><span class="hs-identifier hs-type">Admission.ValidatedDecommit</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681037454"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Client.Decommit.html#State"><span class="hs-identifier hs-type">State</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681037454"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Hydra.HeadLogic.Rules.Client.Decommit.html#Broadcast"><span class="hs-identifier hs-type">Broadcast</span></a></span></span><span>
+</span><span id="line-53"></span><span>  </span><span id="local-6989586621681037459"><span id="Done"><span class="annot"><a href="Hydra.HeadLogic.Rules.Client.Decommit.html#Done"><span class="hs-identifier hs-var">Done</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Client.Decommit.html#State"><span class="hs-identifier hs-type">State</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681037459"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Hydra.HeadLogic.Rules.Client.Decommit.html#Finished"><span class="hs-identifier hs-type">Finished</span></a></span></span><span>
+</span><span id="line-54"></span><span>
+</span><span id="line-55"></span><span id="local-6989586621681037372"><span id="local-6989586621681037373"><span class="annot"><a href="Hydra.HeadLogic.Rules.Client.Decommit.html#statePhase"><span class="hs-identifier hs-type">statePhase</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Client.Decommit.html#State"><span class="hs-identifier hs-type">State</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681037372"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681037373"><span class="hs-identifier hs-type">phase</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Client.Decommit.html#Stage"><span class="hs-identifier hs-type">Stage</span></a></span></span></span><span>
+</span><span id="line-56"></span><span id="statePhase"><span class="annot"><span class="annottext">statePhase :: forall tx (phase :: Stage). State tx phase -&gt; Stage
+</span><a href="Hydra.HeadLogic.Rules.Client.Decommit.html#statePhase"><span class="hs-identifier hs-var hs-var">statePhase</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-57"></span><span>  </span><span class="annot"><span class="annottext">State tx phase
+</span><a href="Hydra.HeadLogic.Rules.Client.Decommit.html#Validate"><span class="hs-identifier hs-var">Validate</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Stage
+</span><a href="Hydra.HeadLogic.Rules.Client.Decommit.html#ValidateDecommit"><span class="hs-identifier hs-var">ValidateDecommit</span></a></span><span>
+</span><span id="line-58"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Client.Decommit.html#Send"><span class="hs-identifier hs-type">Send</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Stage
+</span><a href="Hydra.HeadLogic.Rules.Client.Decommit.html#Broadcast"><span class="hs-identifier hs-var">Broadcast</span></a></span><span>
+</span><span id="line-59"></span><span>  </span><span class="annot"><span class="annottext">State tx phase
+</span><a href="Hydra.HeadLogic.Rules.Client.Decommit.html#Done"><span class="hs-identifier hs-var">Done</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Stage
+</span><a href="Hydra.HeadLogic.Rules.Client.Decommit.html#Finished"><span class="hs-identifier hs-var">Finished</span></a></span><span>
+</span><span id="line-60"></span><span>
+</span><span id="line-61"></span><span class="hs-keyword">data</span><span> </span><span id="Args"><span class="annot"><a href="Hydra.HeadLogic.Rules.Client.Decommit.html#Args"><span class="hs-identifier hs-var">Args</span></a></span></span><span> </span><span id="local-6989586621681037380"><span class="annot"><a href="#local-6989586621681037380"><span class="hs-identifier hs-type">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Args"><span class="annot"><a href="Hydra.HeadLogic.Rules.Client.Decommit.html#Args"><span class="hs-identifier hs-var">Args</span></a></span></span><span>
+</span><span id="line-62"></span><span>  </span><span class="hs-special">{</span><span> </span><span id="%24sel%3AsnapshotLimits%3AArgs"><span class="annot"><span class="annottext">forall tx. Args tx -&gt; SnapshotLimits
+</span><a href="Hydra.HeadLogic.Rules.Client.Decommit.html#%24sel%3AsnapshotLimits%3AArgs"><span class="hs-identifier hs-var hs-var">snapshotLimits</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">~</span><span class="annot"><a href="Hydra.HeadLogic.Limits.html#SnapshotLimits"><span class="hs-identifier hs-type">SnapshotLimits</span></a></span><span>
+</span><span id="line-63"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AheadId%3AArgs"><span class="annot"><span class="annottext">forall tx. Args tx -&gt; HeadId
+</span><a href="Hydra.HeadLogic.Rules.Client.Decommit.html#%24sel%3AheadId%3AArgs"><span class="hs-identifier hs-var hs-var">headId</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">~</span><span class="annot"><span class="hs-identifier hs-type">HeadId</span></span><span>
+</span><span id="line-64"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AcurrentSlot%3AArgs"><span class="annot"><span class="annottext">forall tx. Args tx -&gt; ChainSlot
+</span><a href="Hydra.HeadLogic.Rules.Client.Decommit.html#%24sel%3AcurrentSlot%3AArgs"><span class="hs-identifier hs-var hs-var">currentSlot</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">~</span><span class="annot"><span class="hs-identifier hs-type">ChainSlot</span></span><span>
+</span><span id="line-65"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AcoordinatedHeadState%3AArgs"><span class="annot"><span class="annottext">forall tx. Args tx -&gt; CoordinatedHeadState tx
+</span><a href="Hydra.HeadLogic.Rules.Client.Decommit.html#%24sel%3AcoordinatedHeadState%3AArgs"><span class="hs-identifier hs-var hs-var">coordinatedHeadState</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">~</span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.State.html#CoordinatedHeadState"><span class="hs-identifier hs-type">CoordinatedHeadState</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681037380"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-66"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AdecommitTx%3AArgs"><span class="annot"><span class="annottext">forall tx. Args tx -&gt; tx
+</span><a href="Hydra.HeadLogic.Rules.Client.Decommit.html#%24sel%3AdecommitTx%3AArgs"><span class="hs-identifier hs-var hs-var">decommitTx</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">~</span><span class="annot"><a href="#local-6989586621681037380"><span class="hs-identifier hs-type">tx</span></a></span><span>
+</span><span id="line-67"></span><span>  </span><span class="hs-special">}</span><span>
+</span><span id="line-68"></span><span>
+</span><span id="line-69"></span><span class="annot"><a href="Hydra.HeadLogic.Rules.Client.Decommit.html#workflow"><span class="hs-identifier hs-type">workflow</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621681037391"><span class="annot"><a href="#local-6989586621681037391"><span class="hs-identifier hs-type">tx</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IsTx</span></span><span> </span><span class="annot"><a href="#local-6989586621681037391"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Client.Decommit.html#Args"><span class="hs-identifier hs-type">Args</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681037391"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Workflow.html#Workflow"><span class="hs-identifier hs-type">Workflow</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681037391"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Client.Decommit.html#DecommitTopology"><span class="hs-identifier hs-type">DecommitTopology</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-70"></span><span id="workflow"><span class="annot"><span class="annottext">workflow :: forall tx. IsTx tx =&gt; Args tx -&gt; Workflow tx DecommitTopology ()
+</span><a href="Hydra.HeadLogic.Rules.Client.Decommit.html#workflow"><span class="hs-identifier hs-var hs-var">workflow</span></a></span></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Client.Decommit.html#Args"><span class="hs-identifier hs-type">Args</span></a></span><span class="hs-special">{</span><span id="local-6989586621681037586"><span id="local-6989586621681037587"><span id="local-6989586621681037588"><span id="local-6989586621681037589"><span id="local-6989586621681037590"><span class="annot"><span class="annottext">tx
+ChainSlot
+HeadId
+SnapshotLimits
+CoordinatedHeadState tx
+$sel:snapshotLimits:Args :: forall tx. Args tx -&gt; SnapshotLimits
+$sel:headId:Args :: forall tx. Args tx -&gt; HeadId
+$sel:currentSlot:Args :: forall tx. Args tx -&gt; ChainSlot
+$sel:coordinatedHeadState:Args :: forall tx. Args tx -&gt; CoordinatedHeadState tx
+$sel:decommitTx:Args :: forall tx. Args tx -&gt; tx
+snapshotLimits :: SnapshotLimits
+headId :: HeadId
+currentSlot :: ChainSlot
+coordinatedHeadState :: CoordinatedHeadState tx
+decommitTx :: tx
+</span><a href="Hydra.HeadLogic.Rules.Client.Decommit.html#%24sel%3AsnapshotLimits%3AArgs"><span class="hs-glyph hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">..</span></a></span></span></span></span></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-71"></span><span>  </span><span class="annot"><span class="annottext">(forall (phase :: Stage). State tx phase -&gt; Text)
+-&gt; State tx 'ValidateDecommit
+-&gt; (forall (from :: Stage).
+    State tx from -&gt; Transition tx DecommitTopology (State tx) from ())
+-&gt; Workflow tx DecommitTopology ()
+forall {k} (state :: k -&gt; *) (initial :: k) tx
+       (topology :: Topology k) result.
+(forall (phase :: k). state phase -&gt; Text)
+-&gt; state initial
+-&gt; (forall (from :: k).
+    state from -&gt; Transition tx topology state from result)
+-&gt; Workflow tx topology result
+</span><a href="Hydra.HeadLogic.Workflow.html#workflow"><span class="hs-identifier hs-var">Workflow.workflow</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Stage -&gt; Text
+forall b a. (Show a, IsString b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">show</span></span><span> </span><span class="annot"><span class="annottext">(Stage -&gt; Text)
+-&gt; (State tx phase -&gt; Stage) -&gt; State tx phase -&gt; Text
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">State tx phase -&gt; Stage
+forall tx (phase :: Stage). State tx phase -&gt; Stage
+</span><a href="Hydra.HeadLogic.Rules.Client.Decommit.html#statePhase"><span class="hs-identifier hs-var">statePhase</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">State tx 'ValidateDecommit
+forall tx. State tx 'ValidateDecommit
+</span><a href="Hydra.HeadLogic.Rules.Client.Decommit.html#Validate"><span class="hs-identifier hs-var">Validate</span></a></span><span> </span><span class="annot"><span class="annottext">State tx from -&gt; Transition tx DecommitTopology (State tx) from ()
+forall (from :: Stage).
+State tx from -&gt; Transition tx DecommitTopology (State tx) from ()
+</span><a href="#local-6989586621681037596"><span class="hs-identifier hs-var">step</span></a></span><span>
+</span><span id="line-72"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-73"></span><span>  </span><span id="local-6989586621681037597"><span class="annot"><a href="#local-6989586621681037596"><span class="hs-identifier hs-type">step</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Client.Decommit.html#State"><span class="hs-identifier hs-type">State</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681037391"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681037597"><span class="hs-identifier hs-type">from</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Workflow.html#Transition"><span class="hs-identifier hs-type">Transition</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681037391"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Client.Decommit.html#DecommitTopology"><span class="hs-identifier hs-type">DecommitTopology</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.Rules.Client.Decommit.html#State"><span class="hs-identifier hs-type">State</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681037391"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621681037597"><span class="hs-identifier hs-type">from</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-74"></span><span>  </span><span id="local-6989586621681037596"><span class="annot"><span class="annottext">step :: forall (from :: Stage).
+State tx from -&gt; Transition tx DecommitTopology (State tx) from ()
+</span><a href="#local-6989586621681037596"><span class="hs-identifier hs-var hs-var">step</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-75"></span><span>    </span><span class="annot"><span class="annottext">State tx from
+</span><a href="Hydra.HeadLogic.Rules.Client.Decommit.html#Validate"><span class="hs-identifier hs-var">Validate</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Program tx (Destination DecommitTopology (State tx) from ())
+-&gt; Transition tx DecommitTopology (State tx) from ()
+forall {vertex} tx (topology :: Topology vertex)
+       (state :: vertex -&gt; *) (from :: vertex) result.
+Program tx (Destination topology state from result)
+-&gt; Transition tx topology state from result
+</span><a href="Hydra.HeadLogic.Workflow.html#choose"><span class="hs-identifier hs-var">choose</span></a></span><span> </span><span class="annot"><span class="annottext">(Program tx (Destination DecommitTopology (State tx) from ())
+ -&gt; Transition tx DecommitTopology (State tx) from ())
+-&gt; Program tx (Destination DecommitTopology (State tx) from ())
+-&gt; Transition tx DecommitTopology (State tx) from ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-76"></span><span>      </span><span id="local-6989586621681037615"><span class="annot"><span class="annottext">Either (Failure tx) (ValidatedDecommit tx)
+</span><a href="#local-6989586621681037615"><span class="hs-identifier hs-var">result</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">SnapshotLimits
+-&gt; ChainSlot
+-&gt; CoordinatedHeadState tx
+-&gt; tx
+-&gt; Program tx (Either (Failure tx) (ValidatedDecommit tx))
+forall tx.
+IsTx tx =&gt;
+SnapshotLimits
+-&gt; ChainSlot
+-&gt; CoordinatedHeadState tx
+-&gt; tx
+-&gt; Program tx (Either (Failure tx) (ValidatedDecommit tx))
+</span><a href="Hydra.HeadLogic.Rules.Decommit.html#validate"><span class="hs-identifier hs-var">Admission.validate</span></a></span><span> </span><span class="annot"><span class="annottext">SnapshotLimits
+</span><a href="#local-6989586621681037586"><span class="hs-identifier hs-var">snapshotLimits</span></a></span><span> </span><span class="annot"><span class="annottext">ChainSlot
+</span><a href="#local-6989586621681037588"><span class="hs-identifier hs-var">currentSlot</span></a></span><span> </span><span class="annot"><span class="annottext">CoordinatedHeadState tx
+</span><a href="#local-6989586621681037589"><span class="hs-identifier hs-var">coordinatedHeadState</span></a></span><span> </span><span class="annot"><span class="annottext">tx
+</span><a href="#local-6989586621681037590"><span class="hs-identifier hs-var">decommitTx</span></a></span><span>
+</span><span id="line-77"></span><span>      </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Either (Failure tx) (ValidatedDecommit tx)
+</span><a href="#local-6989586621681037615"><span class="hs-identifier hs-var">result</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-78"></span><span>        </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Right"><span class="hs-identifier hs-type">Right</span></a></span><span> </span><span id="local-6989586621681037617"><span class="annot"><span class="annottext">ValidatedDecommit tx
+</span><a href="#local-6989586621681037617"><span class="hs-identifier hs-var">checked</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Destination DecommitTopology (State tx) from ()
+-&gt; Program tx (Destination DecommitTopology (State tx) from ())
+forall a. a -&gt; Program tx a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">(Destination DecommitTopology (State tx) from ()
+ -&gt; Program tx (Destination DecommitTopology (State tx) from ()))
+-&gt; Destination DecommitTopology (State tx) from ()
+-&gt; Program tx (Destination DecommitTopology (State tx) from ())
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">State tx 'Broadcast
+-&gt; Destination DecommitTopology (State tx) from ()
+forall {vertex} (topology :: Topology vertex) (from :: vertex)
+       (to :: vertex) (state :: vertex -&gt; *) result.
+AllowedTransition topology from to =&gt;
+state to -&gt; Destination topology state from result
+</span><a href="Hydra.HeadLogic.Workflow.html#next"><span class="hs-identifier hs-var">next</span></a></span><span> </span><span class="annot"><span class="annottext">(State tx 'Broadcast
+ -&gt; Destination DecommitTopology (State tx) from ())
+-&gt; State tx 'Broadcast
+-&gt; Destination DecommitTopology (State tx) from ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">ValidatedDecommit tx -&gt; State tx 'Broadcast
+forall tx. ValidatedDecommit tx -&gt; State tx 'Broadcast
+</span><a href="Hydra.HeadLogic.Rules.Client.Decommit.html#Send"><span class="hs-identifier hs-var">Send</span></a></span><span> </span><span class="annot"><span class="annottext">ValidatedDecommit tx
+</span><a href="#local-6989586621681037617"><span class="hs-identifier hs-var">checked</span></a></span><span>
+</span><span id="line-79"></span><span>        </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Left"><span class="hs-identifier hs-type">Left</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.Rules.Decommit.html#NotApplicable"><span class="hs-identifier hs-type">Admission.NotApplicable</span></a></span><span> </span><span id="local-6989586621681037619"><span class="annot"><span class="annottext">DecommitInvalidReason tx
+</span><a href="#local-6989586621681037619"><span class="hs-identifier hs-var">reason</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">DecommitInvalidReason tx -&gt; Program tx ()
+</span><a href="#local-6989586621681037620"><span class="hs-identifier hs-var">invalid</span></a></span><span> </span><span class="annot"><span class="annottext">DecommitInvalidReason tx
+</span><a href="#local-6989586621681037619"><span class="hs-identifier hs-var">reason</span></a></span><span> </span><span class="annot"><span class="annottext">Program tx ()
+-&gt; Destination DecommitTopology (State tx) from ()
+-&gt; Program tx (Destination DecommitTopology (State tx) from ())
+forall (f :: * -&gt; *) a b. Functor f =&gt; f a -&gt; b -&gt; f b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%24%3E"><span class="hs-operator hs-var">$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">State tx 'Finished
+-&gt; Destination DecommitTopology (State tx) from ()
+forall {vertex} (topology :: Topology vertex) (from :: vertex)
+       (to :: vertex) (state :: vertex -&gt; *) result.
+AllowedTransition topology from to =&gt;
+state to -&gt; Destination topology state from result
+</span><a href="Hydra.HeadLogic.Workflow.html#next"><span class="hs-identifier hs-var">next</span></a></span><span> </span><span class="annot"><span class="annottext">State tx 'Finished
+forall tx. State tx 'Finished
+</span><a href="Hydra.HeadLogic.Rules.Client.Decommit.html#Done"><span class="hs-identifier hs-var">Done</span></a></span><span>
+</span><span id="line-80"></span><span>        </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Left"><span class="hs-identifier hs-type">Left</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.Rules.Decommit.html#Invalid"><span class="hs-identifier hs-type">Admission.Invalid</span></a></span><span> </span><span id="local-6989586621681037623"><span class="annot"><span class="annottext">DecommitInvalidReason tx
+</span><a href="#local-6989586621681037623"><span class="hs-identifier hs-var">reason</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">DecommitInvalidReason tx -&gt; Program tx ()
+</span><a href="#local-6989586621681037620"><span class="hs-identifier hs-var">invalid</span></a></span><span> </span><span class="annot"><span class="annottext">DecommitInvalidReason tx
+</span><a href="#local-6989586621681037623"><span class="hs-identifier hs-var">reason</span></a></span><span> </span><span class="annot"><span class="annottext">Program tx ()
+-&gt; Destination DecommitTopology (State tx) from ()
+-&gt; Program tx (Destination DecommitTopology (State tx) from ())
+forall (f :: * -&gt; *) a b. Functor f =&gt; f a -&gt; b -&gt; f b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%24%3E"><span class="hs-operator hs-var">$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">State tx 'Finished
+-&gt; Destination DecommitTopology (State tx) from ()
+forall {vertex} (topology :: Topology vertex) (from :: vertex)
+       (to :: vertex) (state :: vertex -&gt; *) result.
+AllowedTransition topology from to =&gt;
+state to -&gt; Destination topology state from result
+</span><a href="Hydra.HeadLogic.Workflow.html#next"><span class="hs-identifier hs-var">next</span></a></span><span> </span><span class="annot"><span class="annottext">State tx 'Finished
+forall tx. State tx 'Finished
+</span><a href="Hydra.HeadLogic.Rules.Client.Decommit.html#Done"><span class="hs-identifier hs-var">Done</span></a></span><span>
+</span><span id="line-81"></span><span>    </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Client.Decommit.html#Send"><span class="hs-identifier hs-type">Send</span></a></span><span> </span><span id="local-6989586621681037629"><span class="annot"><span class="annottext">ValidatedDecommit tx
+</span><a href="#local-6989586621681037629"><span class="hs-identifier hs-var">checked</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(() -&gt; State tx 'Finished)
+-&gt; Program tx ()
+-&gt; Transition tx DecommitTopology (State tx) from ()
+forall {vertex} (topology :: Topology vertex) (from :: vertex)
+       (to :: vertex) reply (state :: vertex -&gt; *) tx result.
+AllowedTransition topology from to =&gt;
+(reply -&gt; state to)
+-&gt; Program tx reply -&gt; Transition tx topology state from result
+</span><a href="Hydra.HeadLogic.Workflow.html#continue"><span class="hs-identifier hs-var">continue</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">State tx 'Finished -&gt; () -&gt; State tx 'Finished
+forall a b. a -&gt; b -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#const"><span class="hs-identifier hs-var">const</span></a></span><span> </span><span class="annot"><span class="annottext">State tx 'Finished
+forall tx. State tx 'Finished
+</span><a href="Hydra.HeadLogic.Rules.Client.Decommit.html#Done"><span class="hs-identifier hs-var">Done</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Program tx ()
+ -&gt; Transition tx DecommitTopology (State tx) from ())
+-&gt; Program tx ()
+-&gt; Transition tx DecommitTopology (State tx) from ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Effect tx -&gt; Program tx ()
+forall tx. Effect tx -&gt; Program tx ()
+</span><a href="Hydra.HeadLogic.Program.html#emit"><span class="hs-identifier hs-var">emit</span></a></span><span> </span><span class="annot"><span class="annottext">(Effect tx -&gt; Program tx ()) -&gt; Effect tx -&gt; Program tx ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Message tx -&gt; Effect tx
+forall tx. Message tx -&gt; Effect tx
+</span><a href="Hydra.HeadLogic.Outcome.html#NetworkEffect"><span class="hs-identifier hs-var">NetworkEffect</span></a></span><span> </span><span class="annot"><a href="Hydra.Network.Message.html#ReqDec"><span class="hs-identifier hs-type">ReqDec</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:transaction:ReqTx :: tx
+</span><a href="#local-6989586621681037633"><span class="hs-identifier hs-var">transaction</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ValidatedDecommit tx -&gt; tx
+forall tx. ValidatedDecommit tx -&gt; tx
+</span><a href="Hydra.HeadLogic.Rules.Decommit.html#transaction"><span class="hs-identifier hs-var">Admission.transaction</span></a></span><span> </span><span class="annot"><span class="annottext">ValidatedDecommit tx
+</span><a href="#local-6989586621681037629"><span class="hs-identifier hs-var">checked</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-82"></span><span>    </span><span class="annot"><span class="annottext">State tx from
+</span><a href="Hydra.HeadLogic.Rules.Client.Decommit.html#Done"><span class="hs-identifier hs-var">Done</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">State tx from
+-&gt; () -&gt; Transition tx DecommitTopology (State tx) from ()
+forall {vertex} (state :: vertex -&gt; *) (phase :: vertex) result tx
+       (topology :: Topology vertex).
+state phase -&gt; result -&gt; Transition tx topology state phase result
+</span><a href="Hydra.HeadLogic.Workflow.html#finish"><span class="hs-identifier hs-var">finish</span></a></span><span> </span><span class="annot"><span class="annottext">State tx from
+State tx 'Finished
+forall tx. State tx 'Finished
+</span><a href="Hydra.HeadLogic.Rules.Client.Decommit.html#Done"><span class="hs-identifier hs-var">Done</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-83"></span><span>
+</span><span id="line-84"></span><span>  </span><span class="annot"><a href="#local-6989586621681037620"><span class="hs-identifier hs-type">invalid</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.API.ServerOutput.html#DecommitInvalidReason"><span class="hs-identifier hs-type">DecommitInvalidReason</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681037391"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Program.html#Program"><span class="hs-identifier hs-type">Program</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681037391"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-85"></span><span>  </span><span id="local-6989586621681037620"><span class="annot"><span class="annottext">invalid :: DecommitInvalidReason tx -&gt; Program tx ()
+</span><a href="#local-6989586621681037620"><span class="hs-identifier hs-var hs-var">invalid</span></a></span></span><span> </span><span id="local-6989586621681037636"><span class="annot"><span class="annottext">DecommitInvalidReason tx
+</span><a href="#local-6989586621681037636"><span class="hs-identifier hs-var">reason</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">StateChanged tx -&gt; Program tx ()
+forall tx. StateChanged tx -&gt; Program tx ()
+</span><a href="Hydra.HeadLogic.Program.html#change"><span class="hs-identifier hs-var">change</span></a></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#DecommitInvalid"><span class="hs-identifier hs-type">DecommitInvalid</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">HeadId
+headId :: HeadId
+$sel:headId:NetworkConnected :: HeadId
+</span><a href="#local-6989586621681037587"><span class="hs-identifier hs-var hs-var">headId</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">tx
+decommitTx :: tx
+$sel:decommitTx:NetworkConnected :: tx
+</span><a href="#local-6989586621681037590"><span class="hs-identifier hs-var hs-var">decommitTx</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:decommitInvalidReason:NetworkConnected :: DecommitInvalidReason tx
+</span><a href="Hydra.HeadLogic.Outcome.html#%24sel%3AdecommitInvalidReason%3ANetworkConnected"><span class="hs-identifier hs-var">decommitInvalidReason</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">DecommitInvalidReason tx
+</span><a href="#local-6989586621681037636"><span class="hs-identifier hs-var">reason</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-86"></span></pre></body></html>

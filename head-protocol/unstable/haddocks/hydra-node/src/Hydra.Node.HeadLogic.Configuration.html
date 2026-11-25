@@ -1,0 +1,150 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE RecordWildCards #-}</span><span>
+</span><span id="line-2"></span><span>
+</span><span id="line-3"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.Node.HeadLogic.Configuration</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-4"></span><span>
+</span><span id="line-5"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Cardano.html"><span class="hs-identifier">Hydra.HeadLogic.Cardano</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.Cardano.html#cardanoSnapshotLimits"><span class="hs-identifier">cardanoSnapshotLimits</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-6"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Interpreter.html"><span class="hs-identifier">Hydra.HeadLogic.Interpreter</span></a></span><span>
+</span><span id="line-7"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Environment.html"><span class="hs-identifier">Hydra.HeadLogic.Rules.Environment</span></a></span><span>
+</span><span id="line-8"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Snapshot.Request.html"><span class="hs-identifier">Hydra.HeadLogic.Snapshot.Request</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.Snapshot.Request.html#SettlingCommit"><span class="hs-identifier">SettlingCommit</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Snapshot.Request.html#settlingCommitAtPeriod"><span class="hs-identifier">settlingCommitAtPeriod</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-9"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Ledger.html"><span class="hs-identifier">Hydra.Ledger</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Ledger.html#Ledger"><span class="hs-identifier">Ledger</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-10"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Node.Environment.html"><span class="hs-identifier">Hydra.Node.Environment</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Node.Environment.html#Environment"><span class="hs-identifier">Environment</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-11"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Node.Environment.html"><span class="hs-identifier">Hydra.Node.Environment</span></a></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Node</span></span><span>
+</span><span id="line-12"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Node.State.html"><span class="hs-identifier">Hydra.Node.State</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Node.State.html#PendingDeposits"><span class="hs-identifier">PendingDeposits</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-13"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Prelude</span></span><span>
+</span><span id="line-14"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">IsTx</span></span><span class="hs-special">)</span><span>
+</span><span id="line-15"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx.Crypto</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">getVerificationKey</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">sign</span></span><span class="hs-special">)</span><span>
+</span><span id="line-16"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx.Snapshot</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Snapshot</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">SnapshotVersion</span></span><span class="hs-special">)</span><span>
+</span><span id="line-17"></span><span>
+</span><span id="line-18"></span><span class="annot"><a href="Hydra.Node.HeadLogic.Configuration.html#ruleEnvironment"><span class="hs-identifier hs-type">ruleEnvironment</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-19"></span><span>  </span><span class="annot"><a href="Hydra.Node.Environment.html#Environment"><span class="hs-identifier hs-type">Environment</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-20"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Environment.html#RuleEnvironment"><span class="hs-identifier hs-type">RuleEnvironment</span></a></span><span>
+</span><span id="line-21"></span><span id="ruleEnvironment"><span class="annot"><span class="annottext">ruleEnvironment :: Environment -&gt; RuleEnvironment
+</span><a href="Hydra.Node.HeadLogic.Configuration.html#ruleEnvironment"><span class="hs-identifier hs-var hs-var">ruleEnvironment</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Node.Environment.html#Environment"><span class="hs-identifier hs-type">Node.Environment</span></a></span><span class="hs-special">{</span><span id="local-6989586621681040927"><span id="local-6989586621681040928"><span id="local-6989586621681040929"><span id="local-6989586621681040930"><span id="local-6989586621681040931"><span id="local-6989586621681040932"><span id="local-6989586621681040933"><span id="local-6989586621681040934"><span id="local-6989586621681040935"><span class="annot"><span class="annottext">[Party]
+[OnChainId]
+Text
+Party
+Secret (SigningKey HydraKey)
+ContestationPeriod
+DepositPeriod
+UnsyncedPeriod
+party :: Party
+signingKey :: Secret (SigningKey HydraKey)
+otherParties :: [Party]
+participants :: [OnChainId]
+contestationPeriod :: ContestationPeriod
+depositPeriod :: DepositPeriod
+depositActivation :: DepositPeriod
+unsyncedPeriod :: UnsyncedPeriod
+configuredPeers :: Text
+$sel:party:Environment :: Environment -&gt; Party
+$sel:signingKey:Environment :: Environment -&gt; Secret (SigningKey HydraKey)
+$sel:otherParties:Environment :: Environment -&gt; [Party]
+$sel:participants:Environment :: Environment -&gt; [OnChainId]
+$sel:contestationPeriod:Environment :: Environment -&gt; ContestationPeriod
+$sel:depositPeriod:Environment :: Environment -&gt; DepositPeriod
+$sel:depositActivation:Environment :: Environment -&gt; DepositPeriod
+$sel:unsyncedPeriod:Environment :: Environment -&gt; UnsyncedPeriod
+$sel:configuredPeers:Environment :: Environment -&gt; Text
+</span><a href="#local-6989586621681040927"><span class="hs-glyph hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">..</span></a></span></span></span></span></span></span></span></span></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-22"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621681040945"><span class="annot"><span class="annottext">snapshotLimits :: SnapshotLimits
+</span><a href="#local-6989586621681040945"><span class="hs-identifier hs-var hs-var">snapshotLimits</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SnapshotLimits
+</span><a href="Hydra.HeadLogic.Cardano.html#cardanoSnapshotLimits"><span class="hs-identifier hs-var">cardanoSnapshotLimits</span></a></span><span>
+</span><span id="line-23"></span><span>   </span><span class="hs-keyword">in</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Environment.html#RuleEnvironment"><span class="hs-identifier hs-type">RuleEnvironment</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">[Party]
+[OnChainId]
+Text
+Party
+ContestationPeriod
+DepositPeriod
+SnapshotLimits
+UnsyncedPeriod
+party :: Party
+otherParties :: [Party]
+participants :: [OnChainId]
+contestationPeriod :: ContestationPeriod
+depositPeriod :: DepositPeriod
+depositActivation :: DepositPeriod
+unsyncedPeriod :: UnsyncedPeriod
+configuredPeers :: Text
+snapshotLimits :: SnapshotLimits
+$sel:snapshotLimits:RuleEnvironment :: SnapshotLimits
+$sel:party:RuleEnvironment :: Party
+$sel:otherParties:RuleEnvironment :: [Party]
+$sel:participants:RuleEnvironment :: [OnChainId]
+$sel:contestationPeriod:RuleEnvironment :: ContestationPeriod
+$sel:depositPeriod:RuleEnvironment :: DepositPeriod
+$sel:depositActivation:RuleEnvironment :: DepositPeriod
+$sel:unsyncedPeriod:RuleEnvironment :: UnsyncedPeriod
+$sel:configuredPeers:RuleEnvironment :: Text
+</span><a href="#local-6989586621681040927"><span class="hs-glyph hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">..</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-24"></span><span>
+</span><span id="line-25"></span><span id="local-6989586621681040888"><span class="annot"><a href="Hydra.Node.HeadLogic.Configuration.html#interpreterConfig"><span class="hs-identifier hs-type">interpreterConfig</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-26"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">IsTx</span></span><span> </span><span class="annot"><a href="#local-6989586621681040888"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-27"></span><span>  </span><span class="annot"><a href="Hydra.Node.Environment.html#Environment"><span class="hs-identifier hs-type">Environment</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-28"></span><span>  </span><span class="annot"><a href="Hydra.Ledger.html#Ledger"><span class="hs-identifier hs-type">Ledger</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681040888"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-29"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Interpreter.html#InterpreterConfig"><span class="hs-identifier hs-type">InterpreterConfig</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681040888"><span class="hs-identifier hs-type">tx</span></a></span></span><span>
+</span><span id="line-30"></span><span id="interpreterConfig"><span class="annot"><span class="annottext">interpreterConfig :: forall tx.
+IsTx tx =&gt;
+Environment -&gt; Ledger tx -&gt; InterpreterConfig tx
+</span><a href="Hydra.Node.HeadLogic.Configuration.html#interpreterConfig"><span class="hs-identifier hs-var hs-var">interpreterConfig</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Node.Environment.html#Environment"><span class="hs-identifier hs-type">Environment</span></a></span><span class="hs-special">{</span><span id="local-6989586621681040966"><span class="annot"><span class="annottext">Secret (SigningKey HydraKey)
+$sel:signingKey:Environment :: Environment -&gt; Secret (SigningKey HydraKey)
+signingKey :: Secret (SigningKey HydraKey)
+</span><a href="Hydra.Node.Environment.html#%24sel%3AsigningKey%3AEnvironment"><span class="hs-identifier hs-var hs-var">signingKey</span></a></span></span><span class="hs-special">}</span><span> </span><span id="local-6989586621681040967"><span class="annot"><span class="annottext">Ledger tx
+</span><a href="#local-6989586621681040967"><span class="hs-identifier hs-var">ledger</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-31"></span><span>  </span><span class="annot"><span class="annottext">Ledger tx -&gt; SnapshotSigner tx -&gt; InterpreterConfig tx
+forall tx. Ledger tx -&gt; SnapshotSigner tx -&gt; InterpreterConfig tx
+</span><a href="Hydra.HeadLogic.Interpreter.html#mkInterpreterConfig"><span class="hs-identifier hs-var">mkInterpreterConfig</span></a></span><span> </span><span class="annot"><span class="annottext">Ledger tx
+</span><a href="#local-6989586621681040967"><span class="hs-identifier hs-var">ledger</span></a></span><span> </span><span class="annot"><span class="annottext">(SnapshotSigner tx -&gt; InterpreterConfig tx)
+-&gt; SnapshotSigner tx -&gt; InterpreterConfig tx
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">(Snapshot tx -&gt; Signature (Snapshot tx))
+-&gt; VerificationKey HydraKey -&gt; SnapshotSigner tx
+forall tx.
+(Snapshot tx -&gt; Signature (Snapshot tx))
+-&gt; VerificationKey HydraKey -&gt; SnapshotSigner tx
+</span><a href="Hydra.HeadLogic.Interpreter.html#SnapshotSigner"><span class="hs-identifier hs-var">SnapshotSigner</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Secret (SigningKey HydraKey)
+-&gt; Snapshot tx -&gt; Signature (Snapshot tx)
+forall a.
+SignableRepresentation a =&gt;
+Secret (SigningKey HydraKey) -&gt; a -&gt; Signature a
+</span><span class="hs-identifier hs-var">sign</span></span><span> </span><span class="annot"><span class="annottext">Secret (SigningKey HydraKey)
+</span><a href="#local-6989586621681040966"><span class="hs-identifier hs-var">signingKey</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Secret (SigningKey HydraKey) -&gt; VerificationKey HydraKey
+forall s k. HasVerificationKey s k =&gt; s -&gt; VerificationKey k
+</span><span class="hs-identifier hs-var">getVerificationKey</span></span><span> </span><span class="annot"><span class="annottext">Secret (SigningKey HydraKey)
+</span><a href="#local-6989586621681040966"><span class="hs-identifier hs-var">signingKey</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-32"></span><span>
+</span><span id="line-33"></span><span id="local-6989586621681040911"><span class="annot"><a href="Hydra.Node.HeadLogic.Configuration.html#settlingCommitAt"><span class="hs-identifier hs-type">settlingCommitAt</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-34"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">IsTx</span></span><span> </span><span class="annot"><a href="#local-6989586621681040911"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-35"></span><span>  </span><span class="annot"><a href="Hydra.Node.Environment.html#Environment"><span class="hs-identifier hs-type">Environment</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-36"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">SnapshotVersion</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-37"></span><span>  </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Clock.Internal.UTCTime.html#UTCTime"><span class="hs-identifier hs-type">UTCTime</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-38"></span><span>  </span><span class="annot"><a href="Hydra.Node.State.html#PendingDeposits"><span class="hs-identifier hs-type">PendingDeposits</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681040911"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-39"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Snapshot</span></span><span> </span><span class="annot"><a href="#local-6989586621681040911"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-40"></span><span>  </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.Snapshot.Request.html#SettlingCommit"><span class="hs-identifier hs-type">SettlingCommit</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681040911"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span></span><span>
+</span><span id="line-41"></span><span id="settlingCommitAt"><span class="annot"><span class="annottext">settlingCommitAt :: forall tx.
+IsTx tx =&gt;
+Environment
+-&gt; SnapshotVersion
+-&gt; UTCTime
+-&gt; PendingDeposits tx
+-&gt; Snapshot tx
+-&gt; Maybe (SettlingCommit tx)
+</span><a href="Hydra.Node.HeadLogic.Configuration.html#settlingCommitAt"><span class="hs-identifier hs-var hs-var">settlingCommitAt</span></a></span></span><span> </span><span class="annot"><a href="Hydra.Node.Environment.html#Environment"><span class="hs-identifier hs-type">Environment</span></a></span><span class="hs-special">{</span><span id="local-6989586621681040973"><span class="annot"><span class="annottext">DepositPeriod
+$sel:depositPeriod:Environment :: Environment -&gt; DepositPeriod
+depositPeriod :: DepositPeriod
+</span><a href="Hydra.Node.Environment.html#%24sel%3AdepositPeriod%3AEnvironment"><span class="hs-identifier hs-var hs-var">depositPeriod</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">DepositPeriod
+-&gt; SnapshotVersion
+-&gt; UTCTime
+-&gt; Map (TxIdType tx) (Deposit tx)
+-&gt; Snapshot tx
+-&gt; Maybe (SettlingCommit tx)
+forall tx.
+IsTx tx =&gt;
+DepositPeriod
+-&gt; SnapshotVersion
+-&gt; UTCTime
+-&gt; PendingDeposits tx
+-&gt; Snapshot tx
+-&gt; Maybe (SettlingCommit tx)
+</span><a href="Hydra.HeadLogic.Snapshot.Request.html#settlingCommitAtPeriod"><span class="hs-identifier hs-var">settlingCommitAtPeriod</span></a></span><span> </span><span class="annot"><span class="annottext">DepositPeriod
+</span><a href="#local-6989586621681040973"><span class="hs-identifier hs-var">depositPeriod</span></a></span><span>
+</span><span id="line-42"></span></pre></body></html>

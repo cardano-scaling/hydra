@@ -1,0 +1,1107 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE OverloadedRecordDot #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE RecordWildCards #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# OPTIONS_GHC -Wno-ambiguous-fields #-}</span><span>
+</span><span id="line-4"></span><span>
+</span><span id="line-5"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.HeadLogic.State.Coordinated</span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-6"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#Runtime"><span class="hs-identifier">Runtime</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-7"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.Transactions.html#DecommitPhase"><span class="hs-identifier">DecommitPhase</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-8"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.Transactions.html#DecommitTopology"><span class="hs-identifier">DecommitTopology</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-9"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.Types.html#Command"><span class="hs-identifier">Command</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-10"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Snapshot.Candidate.html#Candidate"><span class="hs-identifier">Candidate</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-11"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#candidate"><span class="hs-identifier">candidate</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-12"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#start"><span class="hs-identifier">start</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-13"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#step"><span class="hs-identifier">step</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-14"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#currentState"><span class="hs-identifier">currentState</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-15"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#advance"><span class="hs-identifier">advance</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-16"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#recordDecommit"><span class="hs-identifier">recordDecommit</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-17"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#acceptSnapshot"><span class="hs-identifier">acceptSnapshot</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-18"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#recordSignature"><span class="hs-identifier">recordSignature</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-19"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#confirmSnapshot"><span class="hs-identifier">confirmSnapshot</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-20"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#requestSnapshot"><span class="hs-identifier">requestSnapshot</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-21"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#receiveTransaction"><span class="hs-identifier">receiveTransaction</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-22"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#retainSnapshotDecommit"><span class="hs-identifier">retainSnapshotDecommit</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-23"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#applyTransaction"><span class="hs-identifier">applyTransaction</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-24"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#markTransactionInvalid"><span class="hs-identifier">markTransactionInvalid</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-25"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#adoptSnapshot"><span class="hs-identifier">adoptSnapshot</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-26"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#clearLocalState"><span class="hs-identifier">clearLocalState</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-27"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#recordCommitFinalization"><span class="hs-identifier">recordCommitFinalization</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-28"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#recordDecommitFinalization"><span class="hs-identifier">recordDecommitFinalization</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-29"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#replayEvent"><span class="hs-identifier">replayEvent</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-30"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#inspect"><span class="hs-identifier">inspect</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-31"></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-32"></span><span>
+</span><span id="line-33"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Crem.BaseMachine</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">InitialState</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">withInitialState</span></span><span class="hs-special">)</span><span>
+</span><span id="line-34"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Crem.Inspect</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Crem</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">inspectStates</span></span><span class="hs-special">)</span><span>
+</span><span id="line-35"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Crem.StateMachine</span></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-36"></span><span>  </span><span class="annot"><span class="hs-identifier">StateMachineT</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-37"></span><span>  </span><span class="annot"><span class="hs-identifier">run</span></span><span class="hs-special">,</span><span>
+</span><span id="line-38"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-39"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Chain.ChainState</span></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-40"></span><span>  </span><span class="annot"><span class="hs-identifier">IsChainState</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">ChainStateType</span></span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-41"></span><span>  </span><span class="annot"><span class="hs-identifier">chainStateSlot</span></span><span class="hs-special">,</span><span>
+</span><span id="line-42"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-43"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html"><span class="hs-identifier">Hydra.HeadLogic.Outcome</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#StateChanged"><span class="hs-identifier">StateChanged</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-44"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Snapshot.Candidate.html"><span class="hs-identifier">Hydra.HeadLogic.Snapshot.Candidate</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.Snapshot.Candidate.html#Candidate"><span class="hs-identifier">Candidate</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-45"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Snapshot.Request.html"><span class="hs-identifier">Hydra.HeadLogic.Snapshot.Request</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.Snapshot.Request.html#SnapshotRequest"><span class="hs-identifier">SnapshotRequest</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-46"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Snapshot.Verification.html"><span class="hs-identifier">Hydra.HeadLogic.Snapshot.Verification</span></a></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-47"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Snapshot.Verification.html#VerifiedCandidate"><span class="hs-identifier">VerifiedCandidate</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-48"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Snapshot.Verification.html#VerifiedSnapshot"><span class="hs-identifier">VerifiedSnapshot</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-49"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-50"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.html"><span class="hs-identifier">Hydra.HeadLogic.State</span></a></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-51"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.html#CoordinatedHeadState"><span class="hs-identifier">CoordinatedHeadState</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-52"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.html#OpenState"><span class="hs-identifier">OpenState</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-53"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-54"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.Commits.html"><span class="hs-identifier">Hydra.HeadLogic.State.Coordinated.Commits</span></a></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Commits</span></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-55"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.Commits.html#Output"><span class="hs-identifier">Output</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-56"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.Commits.html#machine"><span class="hs-identifier">machine</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-57"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-58"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.Replay.html"><span class="hs-identifier">Hydra.HeadLogic.State.Coordinated.Replay</span></a></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Replay</span></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-59"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.Replay.html#replay"><span class="hs-identifier">replay</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-60"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-61"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.Snapshots.html"><span class="hs-identifier">Hydra.HeadLogic.State.Coordinated.Snapshots</span></a></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Snapshots</span></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-62"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.Snapshots.html#candidate"><span class="hs-identifier">candidate</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-63"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.Snapshots.html#machine"><span class="hs-identifier">machine</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-64"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-65"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.Snapshots.State.html"><span class="hs-identifier">Hydra.HeadLogic.State.Coordinated.Snapshots.State</span></a></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">State</span></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-66"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.Snapshots.State.html#SnapshotOutput"><span class="hs-identifier">SnapshotOutput</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-67"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.Snapshots.State.html#State"><span class="hs-identifier">State</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-68"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.Snapshots.State.html#Update"><span class="hs-identifier">Update</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-69"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.Snapshots.State.html#mkSnapshotOutput"><span class="hs-identifier">mkSnapshotOutput</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-70"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.Snapshots.State.html#restore"><span class="hs-identifier">restore</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-71"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.Snapshots.State.html#viewInitial"><span class="hs-identifier">viewInitial</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-72"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-73"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.Transactions.html"><span class="hs-identifier">Hydra.HeadLogic.State.Coordinated.Transactions</span></a></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-74"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.Transactions.html#DecommitPhase"><span class="hs-identifier">DecommitPhase</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-75"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.Transactions.html#DecommitTopology"><span class="hs-identifier">DecommitTopology</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-76"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.Transactions.html#Output"><span class="hs-identifier">Output</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-77"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.Transactions.html#TransactionState"><span class="hs-identifier">TransactionState</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-78"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-79"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.Transactions.html"><span class="hs-identifier">Hydra.HeadLogic.State.Coordinated.Transactions</span></a></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Transactions</span></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-80"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.Transactions.html#Output"><span class="hs-identifier">Output</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-81"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.Transactions.html#machine"><span class="hs-identifier">machine</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-82"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-83"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.Types.html"><span class="hs-identifier">Hydra.HeadLogic.State.Types</span></a></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-84"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.Types.html#Command"><span class="hs-identifier">Command</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-85"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.Types.html#LocalTransactionCommand"><span class="hs-identifier">LocalTransactionCommand</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-86"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.Types.html#SnapshotCommand"><span class="hs-identifier">SnapshotCommand</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-87"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.Types.html#SnapshotState"><span class="hs-identifier">SnapshotState</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-88"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.Types.html#TransactionUpdate"><span class="hs-identifier">TransactionUpdate</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-89"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-90"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Validation.html"><span class="hs-identifier">Hydra.HeadLogic.Validation</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.Validation.html#ValidatedDecommit"><span class="hs-identifier">ValidatedDecommit</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Validation.html#ValidatedSnapshot"><span class="hs-identifier">ValidatedSnapshot</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Validation.html#ValidatedTransaction"><span class="hs-identifier">ValidatedTransaction</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-91"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Ledger.html"><span class="hs-identifier">Hydra.Ledger</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Ledger.html#ValidationError"><span class="hs-identifier">ValidationError</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-92"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Prelude</span></span><span>
+</span><span id="line-93"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">HeadId</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">TxIdType</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">UTxOType</span></span><span class="hs-special">)</span><span>
+</span><span id="line-94"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx.Crypto</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">HydraKey</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">Signature</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">VerificationKey</span></span><span class="hs-special">)</span><span>
+</span><span id="line-95"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx.HeadParameters</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">HeadParameters</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">parties</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-96"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx.Party</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Party</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">vkey</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-97"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx.Snapshot</span></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-98"></span><span>  </span><span class="annot"><span class="hs-identifier">Snapshot</span></span><span class="hs-special">,</span><span>
+</span><span id="line-99"></span><span>  </span><span class="annot"><span class="hs-identifier">SnapshotNumber</span></span><span class="hs-special">,</span><span>
+</span><span id="line-100"></span><span>  </span><span class="annot"><span class="hs-identifier">SnapshotVersion</span></span><span class="hs-special">,</span><span>
+</span><span id="line-101"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-102"></span><span>
+</span><span id="line-103"></span><span class="hs-keyword">data</span><span> </span><span id="Runtime"><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#Runtime"><span class="hs-identifier hs-var">Runtime</span></a></span></span><span> </span><span id="local-6989586621681034712"><span class="annot"><a href="#local-6989586621681034712"><span class="hs-identifier hs-type">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Runtime"><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#Runtime"><span class="hs-identifier hs-var">Runtime</span></a></span></span><span>
+</span><span id="line-104"></span><span>  </span><span class="hs-special">{</span><span> </span><span id="%24sel%3AheadId%3ARuntime"><span class="annot"><span class="annottext">forall tx. Runtime tx -&gt; HeadId
+</span><a href="Hydra.HeadLogic.State.Coordinated.html#%24sel%3AheadId%3ARuntime"><span class="hs-identifier hs-var hs-var">headId</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HeadId</span></span><span>
+</span><span id="line-105"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3Aparties%3ARuntime"><span class="annot"><span class="annottext">forall tx. Runtime tx -&gt; [VerificationKey HydraKey]
+</span><a href="Hydra.HeadLogic.State.Coordinated.html#%24sel%3Aparties%3ARuntime"><span class="hs-identifier hs-var hs-var">parties</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">VerificationKey</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">HydraKey</span></span><span class="hs-special">]</span><span>
+</span><span id="line-106"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AcoordinatedState%3ARuntime"><span class="annot"><span class="annottext">forall tx. Runtime tx -&gt; CoordinatedHeadState tx
+</span><a href="Hydra.HeadLogic.State.Coordinated.html#%24sel%3AcoordinatedState%3ARuntime"><span class="hs-identifier hs-var hs-var">coordinatedState</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">~</span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.State.html#CoordinatedHeadState"><span class="hs-identifier hs-type">CoordinatedHeadState</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681034712"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-107"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3Asnapshots%3ARuntime"><span class="annot"><span class="annottext">forall tx. Runtime tx -&gt; InitialState (State tx)
+</span><a href="Hydra.HeadLogic.State.Coordinated.html#%24sel%3Asnapshots%3ARuntime"><span class="hs-identifier hs-var hs-var">snapshots</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">InitialState</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.Snapshots.State.html#State"><span class="hs-identifier hs-type">State.State</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681034712"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-108"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AsnapshotMachine%3ARuntime"><span class="annot"><span class="annottext">forall tx.
+Runtime tx
+-&gt; StateMachineT Identity (SnapshotCommand tx) (SnapshotOutput tx)
+</span><a href="Hydra.HeadLogic.State.Coordinated.html#%24sel%3AsnapshotMachine%3ARuntime"><span class="hs-identifier hs-var hs-var">snapshotMachine</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">~</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">StateMachineT</span></span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.Identity.html#Identity"><span class="hs-identifier hs-type">Identity</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.State.Types.html#SnapshotCommand"><span class="hs-identifier hs-type">SnapshotCommand</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681034712"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.Snapshots.State.html#SnapshotOutput"><span class="hs-identifier hs-type">State.SnapshotOutput</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681034712"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-109"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AtransactionMachine%3ARuntime"><span class="annot"><span class="annottext">forall tx.
+Runtime tx
+-&gt; StateMachineT Identity (SnapshotOutput tx) (Output tx)
+</span><a href="Hydra.HeadLogic.State.Coordinated.html#%24sel%3AtransactionMachine%3ARuntime"><span class="hs-identifier hs-var hs-var">transactionMachine</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">~</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">StateMachineT</span></span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.Identity.html#Identity"><span class="hs-identifier hs-type">Identity</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.Snapshots.State.html#SnapshotOutput"><span class="hs-identifier hs-type">State.SnapshotOutput</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681034712"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.Transactions.html#Output"><span class="hs-identifier hs-type">Transactions.Output</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681034712"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-110"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AcommitMachine%3ARuntime"><span class="annot"><span class="annottext">forall tx.
+Runtime tx -&gt; StateMachineT Identity (Output tx) (Output tx)
+</span><a href="Hydra.HeadLogic.State.Coordinated.html#%24sel%3AcommitMachine%3ARuntime"><span class="hs-identifier hs-var hs-var">commitMachine</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">~</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">StateMachineT</span></span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.Identity.html#Identity"><span class="hs-identifier hs-type">Identity</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.Transactions.html#Output"><span class="hs-identifier hs-type">Transactions.Output</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681034712"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.Commits.html#Output"><span class="hs-identifier hs-type">Commits.Output</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681034712"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-111"></span><span>  </span><span class="hs-special">}</span><span>
+</span><span id="line-112"></span><span>
+</span><span id="line-113"></span><span id="local-6989586621681034734"><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#start"><span class="hs-identifier hs-type">start</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IsChainState</span></span><span> </span><span class="annot"><a href="#local-6989586621681034734"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.html#OpenState"><span class="hs-identifier hs-type">OpenState</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681034734"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#Runtime"><span class="hs-identifier hs-type">Runtime</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681034734"><span class="hs-identifier hs-type">tx</span></a></span></span><span>
+</span><span id="line-114"></span><span id="start"><span class="annot"><span class="annottext">start :: forall tx. IsChainState tx =&gt; OpenState tx -&gt; Runtime tx
+</span><a href="Hydra.HeadLogic.State.Coordinated.html#start"><span class="hs-identifier hs-var hs-var">start</span></a></span></span><span> </span><span id="local-6989586621681034971"><span class="annot"><span class="annottext">OpenState tx
+</span><a href="#local-6989586621681034971"><span class="hs-identifier hs-var">os</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-115"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#Runtime"><span class="hs-identifier hs-type">Runtime</span></a></span><span>
+</span><span id="line-116"></span><span>    </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">$sel:headId:Runtime :: HeadId
+</span><a href="Hydra.HeadLogic.State.Coordinated.html#%24sel%3AheadId%3ARuntime"><span class="hs-identifier hs-var">headId</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">OpenState tx
+</span><a href="#local-6989586621681034971"><span class="hs-identifier hs-var">os</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">headId</span><span>
+</span><span id="line-117"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">[VerificationKey HydraKey]
+$sel:parties:Runtime :: [VerificationKey HydraKey]
+parties :: [VerificationKey HydraKey]
+</span><a href="Hydra.HeadLogic.State.Coordinated.html#%24sel%3Aparties%3ARuntime"><span class="hs-identifier hs-var hs-var">parties</span></a></span><span>
+</span><span id="line-118"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:coordinatedState:Runtime :: CoordinatedHeadState tx
+</span><a href="Hydra.HeadLogic.State.Coordinated.html#%24sel%3AcoordinatedState%3ARuntime"><span class="hs-identifier hs-var">coordinatedState</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">OpenState tx
+</span><a href="#local-6989586621681034971"><span class="hs-identifier hs-var">os</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">coordinatedHeadState</span><span>
+</span><span id="line-119"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">InitialState (State tx)
+$sel:snapshots:Runtime :: InitialState (State tx)
+snapshots :: InitialState (State tx)
+</span><a href="Hydra.HeadLogic.State.Coordinated.html#%24sel%3Asnapshots%3ARuntime"><span class="hs-identifier hs-var hs-var">snapshots</span></a></span><span>
+</span><span id="line-120"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:snapshotMachine:Runtime :: StateMachineT Identity (SnapshotCommand tx) (SnapshotOutput tx)
+</span><a href="Hydra.HeadLogic.State.Coordinated.html#%24sel%3AsnapshotMachine%3ARuntime"><span class="hs-identifier hs-var">snapshotMachine</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">BaseMachineT
+  Identity
+  ('Topology
+     '[ '( 'AwaitingRequest, '[ 'RequestSent, 'CollectingSignatures]),
+        '( 'RequestSent, '[ 'AwaitingRequest, 'CollectingSignatures]),
+        '( 'CollectingSignatures, '[ 'AwaitingRequest])])
+  (SnapshotCommand tx)
+  (SnapshotOutput tx)
+-&gt; StateMachineT Identity (SnapshotCommand tx) (SnapshotOutput tx)
+forall {vertex} (m :: * -&gt; *) (topology :: Topology vertex) input
+       output.
+BaseMachineT m topology input output
+-&gt; StateMachineT m input output
+</span><span class="hs-identifier hs-var">Executable</span></span><span> </span><span class="annot"><span class="annottext">(BaseMachineT
+   Identity
+   ('Topology
+      '[ '( 'AwaitingRequest, '[ 'RequestSent, 'CollectingSignatures]),
+         '( 'RequestSent, '[ 'AwaitingRequest, 'CollectingSignatures]),
+         '( 'CollectingSignatures, '[ 'AwaitingRequest])])
+   (SnapshotCommand tx)
+   (SnapshotOutput tx)
+ -&gt; StateMachineT Identity (SnapshotCommand tx) (SnapshotOutput tx))
+-&gt; BaseMachineT
+     Identity
+     ('Topology
+        '[ '( 'AwaitingRequest, '[ 'RequestSent, 'CollectingSignatures]),
+           '( 'RequestSent, '[ 'AwaitingRequest, 'CollectingSignatures]),
+           '( 'CollectingSignatures, '[ 'AwaitingRequest])])
+     (SnapshotCommand tx)
+     (SnapshotOutput tx)
+-&gt; StateMachineT Identity (SnapshotCommand tx) (SnapshotOutput tx)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">HeadId
+-&gt; [VerificationKey HydraKey]
+-&gt; InitialState (State tx)
+-&gt; BaseMachineT
+     Identity SnapshotTopology (SnapshotCommand tx) (SnapshotOutput tx)
+forall tx (m :: * -&gt; *).
+(IsChainState tx, Applicative m) =&gt;
+HeadId
+-&gt; [VerificationKey HydraKey]
+-&gt; InitialState (State tx)
+-&gt; BaseMachineT
+     m SnapshotTopology (SnapshotCommand tx) (SnapshotOutput tx)
+</span><a href="Hydra.HeadLogic.State.Coordinated.Snapshots.html#machine"><span class="hs-identifier hs-var">Snapshots.machine</span></a></span><span> </span><span class="annot"><span class="annottext">OpenState tx
+</span><a href="#local-6989586621681034971"><span class="hs-identifier hs-var">os</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">headId</span><span> </span><span class="annot"><span class="annottext">[VerificationKey HydraKey]
+</span><a href="#local-6989586621681034972"><span class="hs-identifier hs-var">parties</span></a></span><span> </span><span class="annot"><span class="annottext">InitialState (State tx)
+</span><a href="#local-6989586621681034973"><span class="hs-identifier hs-var">snapshots</span></a></span><span>
+</span><span id="line-121"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:transactionMachine:Runtime :: StateMachineT Identity (SnapshotOutput tx) (Output tx)
+</span><a href="Hydra.HeadLogic.State.Coordinated.html#%24sel%3AtransactionMachine%3ARuntime"><span class="hs-identifier hs-var">transactionMachine</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">BaseMachineT
+  Identity DecommitTopology (SnapshotOutput tx) (Output tx)
+-&gt; StateMachineT Identity (SnapshotOutput tx) (Output tx)
+forall {vertex} (m :: * -&gt; *) (topology :: Topology vertex) input
+       output.
+BaseMachineT m topology input output
+-&gt; StateMachineT m input output
+</span><span class="hs-identifier hs-var">Executable</span></span><span> </span><span class="annot"><span class="annottext">(BaseMachineT
+   Identity DecommitTopology (SnapshotOutput tx) (Output tx)
+ -&gt; StateMachineT Identity (SnapshotOutput tx) (Output tx))
+-&gt; BaseMachineT
+     Identity DecommitTopology (SnapshotOutput tx) (Output tx)
+-&gt; StateMachineT Identity (SnapshotOutput tx) (Output tx)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">HeadId
+-&gt; SnapshotState tx
+-&gt; TransactionState tx
+-&gt; Maybe tx
+-&gt; BaseMachineT
+     Identity DecommitTopology (SnapshotOutput tx) (Output tx)
+forall tx (m :: * -&gt; *).
+(IsTx tx, Applicative m) =&gt;
+HeadId
+-&gt; SnapshotState tx
+-&gt; TransactionState tx
+-&gt; Maybe tx
+-&gt; BaseMachineT m DecommitTopology (SnapshotOutput tx) (Output tx)
+</span><a href="Hydra.HeadLogic.State.Coordinated.Transactions.html#machine"><span class="hs-identifier hs-var">Transactions.machine</span></a></span><span> </span><span class="annot"><span class="annottext">OpenState tx
+</span><a href="#local-6989586621681034971"><span class="hs-identifier hs-var">os</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">headId</span><span> </span><span class="annot"><span class="annottext">SnapshotState tx
+</span><a href="#local-6989586621681034975"><span class="hs-identifier hs-var">snapshotState</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">CoordinatedHeadState tx -&gt; TransactionState tx
+forall tx. CoordinatedHeadState tx -&gt; TransactionState tx
+</span><a href="Hydra.HeadLogic.State.Coordinated.html#transactionState"><span class="hs-identifier hs-var">transactionState</span></a></span><span> </span><span class="annot"><span class="annottext">OpenState tx
+</span><a href="#local-6989586621681034971"><span class="hs-identifier hs-var">os</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">coordinatedHeadState</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">OpenState tx
+</span><a href="#local-6989586621681034971"><span class="hs-identifier hs-var">os</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">coordinatedHeadState</span><span class="hs-operator">.</span><span class="hs-identifier">decommitTx</span><span>
+</span><span id="line-122"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:commitMachine:Runtime :: StateMachineT Identity (Output tx) (Output tx)
+</span><a href="Hydra.HeadLogic.State.Coordinated.html#%24sel%3AcommitMachine%3ARuntime"><span class="hs-identifier hs-var">commitMachine</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">BaseMachineT Identity ('Topology '[]) (Output tx) (Output tx)
+-&gt; StateMachineT Identity (Output tx) (Output tx)
+forall {vertex} (m :: * -&gt; *) (topology :: Topology vertex) input
+       output.
+BaseMachineT m topology input output
+-&gt; StateMachineT m input output
+</span><span class="hs-identifier hs-var">Executable</span></span><span> </span><span class="annot"><span class="annottext">(BaseMachineT Identity ('Topology '[]) (Output tx) (Output tx)
+ -&gt; StateMachineT Identity (Output tx) (Output tx))
+-&gt; BaseMachineT Identity ('Topology '[]) (Output tx) (Output tx)
+-&gt; StateMachineT Identity (Output tx) (Output tx)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">SnapshotState tx
+-&gt; Maybe (TxIdType tx)
+-&gt; BaseMachineT Identity TrivialTopology (Output tx) (Output tx)
+forall tx (m :: * -&gt; *).
+(IsTx tx, Applicative m) =&gt;
+SnapshotState tx
+-&gt; Maybe (TxIdType tx)
+-&gt; BaseMachineT m TrivialTopology (Output tx) (Output tx)
+</span><a href="Hydra.HeadLogic.State.Coordinated.Commits.html#machine"><span class="hs-identifier hs-var">Commits.machine</span></a></span><span> </span><span class="annot"><span class="annottext">SnapshotState tx
+</span><a href="#local-6989586621681034975"><span class="hs-identifier hs-var">snapshotState</span></a></span><span> </span><span class="annot"><span class="annottext">OpenState tx
+</span><a href="#local-6989586621681034971"><span class="hs-identifier hs-var">os</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">coordinatedHeadState</span><span class="hs-operator">.</span><span class="hs-identifier">currentDepositTxId</span><span>
+</span><span id="line-123"></span><span>    </span><span class="hs-special">}</span><span>
+</span><span id="line-124"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-125"></span><span>  </span><span id="local-6989586621681034972"><span class="annot"><span class="annottext">parties :: [VerificationKey HydraKey]
+</span><a href="#local-6989586621681034972"><span class="hs-identifier hs-var hs-var">parties</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Party -&gt; VerificationKey HydraKey
+</span><span class="hs-identifier hs-var">vkey</span></span><span> </span><span class="annot"><span class="annottext">(Party -&gt; VerificationKey HydraKey)
+-&gt; [Party] -&gt; [VerificationKey HydraKey]
+forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">OpenState tx
+</span><a href="#local-6989586621681034971"><span class="hs-identifier hs-var">os</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">parameters</span><span class="hs-operator">.</span><span class="hs-identifier">parties</span><span>
+</span><span id="line-126"></span><span>  </span><span id="local-6989586621681034973"><span class="annot"><span class="annottext">snapshots :: InitialState (State tx)
+</span><a href="#local-6989586621681034973"><span class="hs-identifier hs-var hs-var">snapshots</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[VerificationKey HydraKey]
+-&gt; OpenState tx -&gt; InitialState (State tx)
+forall tx.
+IsChainState tx =&gt;
+[VerificationKey HydraKey]
+-&gt; OpenState tx -&gt; InitialState (State tx)
+</span><a href="Hydra.HeadLogic.State.Coordinated.html#restoreSnapshots"><span class="hs-identifier hs-var">restoreSnapshots</span></a></span><span> </span><span class="annot"><span class="annottext">[VerificationKey HydraKey]
+</span><a href="#local-6989586621681034972"><span class="hs-identifier hs-var">parties</span></a></span><span> </span><span class="annot"><span class="annottext">OpenState tx
+</span><a href="#local-6989586621681034971"><span class="hs-identifier hs-var">os</span></a></span><span>
+</span><span id="line-127"></span><span>  </span><span id="local-6989586621681034975"><span class="annot"><span class="annottext">snapshotState :: SnapshotState tx
+</span><a href="#local-6989586621681034975"><span class="hs-identifier hs-var hs-var">snapshotState</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">InitialState (State tx) -&gt; SnapshotState tx
+forall tx. InitialState (State tx) -&gt; SnapshotState tx
+</span><a href="Hydra.HeadLogic.State.Coordinated.Snapshots.State.html#viewInitial"><span class="hs-identifier hs-var">State.viewInitial</span></a></span><span> </span><span class="annot"><span class="annottext">InitialState (State tx)
+</span><a href="#local-6989586621681034973"><span class="hs-identifier hs-var">snapshots</span></a></span><span>
+</span><span id="line-128"></span><span>
+</span><span id="line-129"></span><span class="annot"><span class="hs-comment">-- | Inspect each owner without executing commands or forcing the local ledger.</span></span><span>
+</span><span id="line-130"></span><span id="local-6989586621681034775"><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#inspect"><span class="hs-identifier hs-type">inspect</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#Runtime"><span class="hs-identifier hs-type">Runtime</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681034775"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span class="hs-special">)</span><span class="hs-special">]</span></span><span>
+</span><span id="line-131"></span><span id="inspect"><span class="annot"><span class="annottext">inspect :: forall tx. Runtime tx -&gt; [(Text, Maybe Text)]
+</span><a href="Hydra.HeadLogic.State.Coordinated.html#inspect"><span class="hs-identifier hs-var hs-var">inspect</span></a></span></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#Runtime"><span class="hs-identifier hs-type">Runtime</span></a></span><span class="hs-special">{</span><span id="local-6989586621681034986"><span id="local-6989586621681034987"><span id="local-6989586621681034988"><span id="local-6989586621681034989"><span id="local-6989586621681034990"><span id="local-6989586621681034991"><span id="local-6989586621681034992"><span class="annot"><span class="annottext">[VerificationKey HydraKey]
+HeadId
+CoordinatedHeadState tx
+InitialState (State tx)
+StateMachineT Identity (SnapshotCommand tx) (SnapshotOutput tx)
+StateMachineT Identity (SnapshotOutput tx) (Output tx)
+StateMachineT Identity (Output tx) (Output tx)
+$sel:headId:Runtime :: forall tx. Runtime tx -&gt; HeadId
+$sel:parties:Runtime :: forall tx. Runtime tx -&gt; [VerificationKey HydraKey]
+$sel:coordinatedState:Runtime :: forall tx. Runtime tx -&gt; CoordinatedHeadState tx
+$sel:snapshots:Runtime :: forall tx. Runtime tx -&gt; InitialState (State tx)
+$sel:snapshotMachine:Runtime :: forall tx.
+Runtime tx
+-&gt; StateMachineT Identity (SnapshotCommand tx) (SnapshotOutput tx)
+$sel:transactionMachine:Runtime :: forall tx.
+Runtime tx
+-&gt; StateMachineT Identity (SnapshotOutput tx) (Output tx)
+$sel:commitMachine:Runtime :: forall tx.
+Runtime tx -&gt; StateMachineT Identity (Output tx) (Output tx)
+headId :: HeadId
+parties :: [VerificationKey HydraKey]
+coordinatedState :: CoordinatedHeadState tx
+snapshots :: InitialState (State tx)
+snapshotMachine :: StateMachineT Identity (SnapshotCommand tx) (SnapshotOutput tx)
+transactionMachine :: StateMachineT Identity (SnapshotOutput tx) (Output tx)
+commitMachine :: StateMachineT Identity (Output tx) (Output tx)
+</span><a href="Hydra.HeadLogic.State.Coordinated.html#%24sel%3AheadId%3ARuntime"><span class="hs-glyph hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">..</span></a></span></span></span></span></span></span></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-132"></span><span>  </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;Snapshots&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Maybe Text
+</span><a href="#local-6989586621681034993"><span class="hs-identifier hs-var">description</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">|</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Component]
+</span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681034993"><span class="annot"><span class="annottext">Maybe Text
+</span><a href="#local-6989586621681034993"><span class="hs-identifier hs-var">description</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">StateMachineT Identity (SnapshotCommand tx) (SnapshotOutput tx)
+-&gt; [([Component], Maybe Text)]
+forall (m :: * -&gt; *) a b.
+StateMachineT m a b -&gt; [([Component], Maybe Text)]
+</span><span class="hs-identifier hs-var">Crem.inspectStates</span></span><span> </span><span class="annot"><span class="annottext">StateMachineT Identity (SnapshotCommand tx) (SnapshotOutput tx)
+</span><a href="#local-6989586621681034990"><span class="hs-identifier hs-var">snapshotMachine</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-133"></span><span>    </span><span class="annot"><span class="annottext">[(Text, Maybe Text)]
+-&gt; [(Text, Maybe Text)] -&gt; [(Text, Maybe Text)]
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;Transactions&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Maybe Text
+</span><a href="#local-6989586621681034994"><span class="hs-identifier hs-var">description</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">|</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Component]
+</span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681034994"><span class="annot"><span class="annottext">Maybe Text
+</span><a href="#local-6989586621681034994"><span class="hs-identifier hs-var">description</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">StateMachineT Identity (SnapshotOutput tx) (Output tx)
+-&gt; [([Component], Maybe Text)]
+forall (m :: * -&gt; *) a b.
+StateMachineT m a b -&gt; [([Component], Maybe Text)]
+</span><span class="hs-identifier hs-var">Crem.inspectStates</span></span><span> </span><span class="annot"><span class="annottext">StateMachineT Identity (SnapshotOutput tx) (Output tx)
+</span><a href="#local-6989586621681034991"><span class="hs-identifier hs-var">transactionMachine</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-134"></span><span>    </span><span class="annot"><span class="annottext">[(Text, Maybe Text)]
+-&gt; [(Text, Maybe Text)] -&gt; [(Text, Maybe Text)]
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;Commits&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Maybe Text
+</span><a href="#local-6989586621681034995"><span class="hs-identifier hs-var">description</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">|</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Component]
+</span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681034995"><span class="annot"><span class="annottext">Maybe Text
+</span><a href="#local-6989586621681034995"><span class="hs-identifier hs-var">description</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">StateMachineT Identity (Output tx) (Output tx)
+-&gt; [([Component], Maybe Text)]
+forall (m :: * -&gt; *) a b.
+StateMachineT m a b -&gt; [([Component], Maybe Text)]
+</span><span class="hs-identifier hs-var">Crem.inspectStates</span></span><span> </span><span class="annot"><span class="annottext">StateMachineT Identity (Output tx) (Output tx)
+</span><a href="#local-6989586621681034992"><span class="hs-identifier hs-var">commitMachine</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-135"></span><span>
+</span><span id="line-136"></span><span id="local-6989586621681034773"><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#restoreSnapshots"><span class="hs-identifier hs-type">restoreSnapshots</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-137"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">IsChainState</span></span><span> </span><span class="annot"><a href="#local-6989586621681034773"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-138"></span><span>  </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">VerificationKey</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">HydraKey</span></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-139"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.html#OpenState"><span class="hs-identifier hs-type">OpenState</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681034773"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-140"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">InitialState</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.Snapshots.State.html#State"><span class="hs-identifier hs-type">State.State</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681034773"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span></span><span>
+</span><span id="line-141"></span><span id="restoreSnapshots"><span class="annot"><span class="annottext">restoreSnapshots :: forall tx.
+IsChainState tx =&gt;
+[VerificationKey HydraKey]
+-&gt; OpenState tx -&gt; InitialState (State tx)
+</span><a href="Hydra.HeadLogic.State.Coordinated.html#restoreSnapshots"><span class="hs-identifier hs-var hs-var">restoreSnapshots</span></a></span></span><span> </span><span id="local-6989586621681035002"><span class="annot"><span class="annottext">[VerificationKey HydraKey]
+</span><a href="#local-6989586621681035002"><span class="hs-identifier hs-var">parties</span></a></span></span><span> </span><span id="local-6989586621681035003"><span class="annot"><span class="annottext">OpenState tx
+</span><a href="#local-6989586621681035003"><span class="hs-identifier hs-var">os</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-142"></span><span>  </span><span class="annot"><span class="annottext">[VerificationKey HydraKey]
+-&gt; SnapshotState tx -&gt; InitialState (State tx)
+forall tx.
+IsTx tx =&gt;
+[VerificationKey HydraKey]
+-&gt; SnapshotState tx -&gt; InitialState (State tx)
+</span><a href="Hydra.HeadLogic.State.Coordinated.Snapshots.State.html#restore"><span class="hs-identifier hs-var">State.restore</span></a></span><span> </span><span class="annot"><span class="annottext">[VerificationKey HydraKey]
+</span><a href="#local-6989586621681035002"><span class="hs-identifier hs-var">parties</span></a></span><span> </span><span class="annot"><span class="annottext">(SnapshotState tx -&gt; InitialState (State tx))
+-&gt; SnapshotState tx -&gt; InitialState (State tx)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-143"></span><span>    </span><span class="annot"><a href="Hydra.HeadLogic.State.Types.html#SnapshotState"><span class="hs-identifier hs-type">SnapshotState</span></a></span><span>
+</span><span id="line-144"></span><span>      </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">$sel:chainSlot:SnapshotState :: ChainSlot
+</span><a href="Hydra.HeadLogic.State.Types.html#%24sel%3AchainSlot%3ASnapshotState"><span class="hs-identifier hs-var">chainSlot</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ChainStateType tx -&gt; ChainSlot
+forall tx. IsChainState tx =&gt; ChainStateType tx -&gt; ChainSlot
+</span><span class="hs-identifier hs-var">chainStateSlot</span></span><span> </span><span class="annot"><span class="annottext">OpenState tx
+</span><a href="#local-6989586621681035003"><span class="hs-identifier hs-var">os</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">chainState</span><span>
+</span><span id="line-145"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:confirmed:SnapshotState :: ConfirmedSnapshot tx
+</span><a href="Hydra.HeadLogic.State.Types.html#%24sel%3Aconfirmed%3ASnapshotState"><span class="hs-identifier hs-var">confirmed</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ConfirmedSnapshot tx
+</span><a href="#local-6989586621681035007"><span class="hs-identifier hs-var">confirmedSnapshot</span></a></span><span>
+</span><span id="line-146"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:seen:SnapshotState :: SeenSnapshot tx
+</span><a href="Hydra.HeadLogic.State.Types.html#%24sel%3Aseen%3ASnapshotState"><span class="hs-identifier hs-var">seen</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SeenSnapshot tx
+</span><a href="#local-6989586621681035009"><span class="hs-identifier hs-var">seenSnapshot</span></a></span><span>
+</span><span id="line-147"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Maybe (FinalizedSnapshot tx)
+SnapshotVersion
+version :: SnapshotVersion
+finalizedCommit :: Maybe (FinalizedSnapshot tx)
+finalizedDecommit :: Maybe (FinalizedSnapshot tx)
+$sel:version:SnapshotState :: SnapshotVersion
+$sel:finalizedCommit:SnapshotState :: Maybe (FinalizedSnapshot tx)
+$sel:finalizedDecommit:SnapshotState :: Maybe (FinalizedSnapshot tx)
+</span><a href="#local-6989586621681035010"><span class="hs-glyph hs-var hs-var hs-var hs-var hs-var hs-var">..</span></a></span><span>
+</span><span id="line-148"></span><span>      </span><span class="hs-special">}</span><span>
+</span><span id="line-149"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-150"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.html#CoordinatedHeadState"><span class="hs-identifier hs-type">CoordinatedHeadState</span></a></span><span class="hs-special">{</span><span id="local-6989586621681035007"><span id="local-6989586621681035009"><span id="local-6989586621681035010"><span id="local-6989586621681035011"><span id="local-6989586621681035012"><span id="local-6989586621681035017"><span id="local-6989586621681035018"><span id="local-6989586621681035019"><span id="local-6989586621681035020"><span id="local-6989586621681035021"><span class="annot"><span class="annottext">Maybe tx
+Maybe (TxIdType tx)
+Maybe (FinalizedSnapshot tx)
+Seq tx
+Map (TxIdType tx) tx
+UTxOType tx
+ConfirmedSnapshot tx
+SnapshotVersion
+SeenSnapshot tx
+confirmedSnapshot :: ConfirmedSnapshot tx
+seenSnapshot :: SeenSnapshot tx
+version :: SnapshotVersion
+finalizedCommit :: Maybe (FinalizedSnapshot tx)
+finalizedDecommit :: Maybe (FinalizedSnapshot tx)
+localUTxO :: UTxOType tx
+localTxs :: Seq tx
+allTxs :: Map (TxIdType tx) tx
+currentDepositTxId :: Maybe (TxIdType tx)
+decommitTx :: Maybe tx
+$sel:localUTxO:CoordinatedHeadState :: forall tx. CoordinatedHeadState tx -&gt; UTxOType tx
+$sel:localTxs:CoordinatedHeadState :: forall tx. CoordinatedHeadState tx -&gt; Seq tx
+$sel:allTxs:CoordinatedHeadState :: forall tx. CoordinatedHeadState tx -&gt; Map (TxIdType tx) tx
+$sel:confirmedSnapshot:CoordinatedHeadState :: forall tx. CoordinatedHeadState tx -&gt; ConfirmedSnapshot tx
+$sel:seenSnapshot:CoordinatedHeadState :: forall tx. CoordinatedHeadState tx -&gt; SeenSnapshot tx
+$sel:currentDepositTxId:CoordinatedHeadState :: forall tx. CoordinatedHeadState tx -&gt; Maybe (TxIdType tx)
+$sel:decommitTx:CoordinatedHeadState :: forall tx. CoordinatedHeadState tx -&gt; Maybe tx
+$sel:version:CoordinatedHeadState :: forall tx. CoordinatedHeadState tx -&gt; SnapshotVersion
+$sel:finalizedCommit:CoordinatedHeadState :: forall tx. CoordinatedHeadState tx -&gt; Maybe (FinalizedSnapshot tx)
+$sel:finalizedDecommit:CoordinatedHeadState :: forall tx. CoordinatedHeadState tx -&gt; Maybe (FinalizedSnapshot tx)
+</span><a href="#local-6989586621681035007"><span class="hs-glyph hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">..</span></a></span></span></span></span></span></span></span></span></span></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">OpenState tx
+</span><a href="#local-6989586621681035003"><span class="hs-identifier hs-var">os</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">coordinatedHeadState</span><span>
+</span><span id="line-151"></span><span>
+</span><span id="line-152"></span><span id="local-6989586621681034766"><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#transactionState"><span class="hs-identifier hs-type">transactionState</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.html#CoordinatedHeadState"><span class="hs-identifier hs-type">CoordinatedHeadState</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681034766"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.Transactions.html#TransactionState"><span class="hs-identifier hs-type">TransactionState</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681034766"><span class="hs-identifier hs-type">tx</span></a></span></span><span>
+</span><span id="line-153"></span><span id="transactionState"><span class="annot"><span class="annottext">transactionState :: forall tx. CoordinatedHeadState tx -&gt; TransactionState tx
+</span><a href="Hydra.HeadLogic.State.Coordinated.html#transactionState"><span class="hs-identifier hs-var hs-var">transactionState</span></a></span></span><span> </span><span id="local-6989586621681035032"><span class="annot"><span class="annottext">CoordinatedHeadState tx
+</span><a href="#local-6989586621681035032"><span class="hs-identifier hs-var">chs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.Transactions.html#TransactionState"><span class="hs-identifier hs-type">TransactionState</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">Seq tx
+Map (TxIdType tx) tx
+UTxOType tx
+localUTxO :: UTxOType tx
+localTxs :: Seq tx
+allTxs :: Map (TxIdType tx) tx
+$sel:localUTxO:TransactionState :: UTxOType tx
+$sel:localTxs:TransactionState :: Seq tx
+$sel:allTxs:TransactionState :: Map (TxIdType tx) tx
+</span><a href="#local-6989586621681035034"><span class="hs-glyph hs-var hs-var hs-var hs-var hs-var hs-var">..</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-154"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-155"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.html#CoordinatedHeadState"><span class="hs-identifier hs-type">CoordinatedHeadState</span></a></span><span class="hs-special">{</span><span id="local-6989586621681035034"><span id="local-6989586621681035035"><span id="local-6989586621681035036"><span id="local-6989586621681035040"><span id="local-6989586621681035041"><span id="local-6989586621681035042"><span id="local-6989586621681035043"><span id="local-6989586621681035044"><span id="local-6989586621681035045"><span id="local-6989586621681035046"><span class="annot"><span class="annottext">Maybe tx
+Maybe (TxIdType tx)
+Maybe (FinalizedSnapshot tx)
+Seq tx
+Map (TxIdType tx) tx
+UTxOType tx
+ConfirmedSnapshot tx
+SnapshotVersion
+SeenSnapshot tx
+$sel:localUTxO:CoordinatedHeadState :: forall tx. CoordinatedHeadState tx -&gt; UTxOType tx
+$sel:localTxs:CoordinatedHeadState :: forall tx. CoordinatedHeadState tx -&gt; Seq tx
+$sel:allTxs:CoordinatedHeadState :: forall tx. CoordinatedHeadState tx -&gt; Map (TxIdType tx) tx
+$sel:confirmedSnapshot:CoordinatedHeadState :: forall tx. CoordinatedHeadState tx -&gt; ConfirmedSnapshot tx
+$sel:seenSnapshot:CoordinatedHeadState :: forall tx. CoordinatedHeadState tx -&gt; SeenSnapshot tx
+$sel:currentDepositTxId:CoordinatedHeadState :: forall tx. CoordinatedHeadState tx -&gt; Maybe (TxIdType tx)
+$sel:decommitTx:CoordinatedHeadState :: forall tx. CoordinatedHeadState tx -&gt; Maybe tx
+$sel:version:CoordinatedHeadState :: forall tx. CoordinatedHeadState tx -&gt; SnapshotVersion
+$sel:finalizedCommit:CoordinatedHeadState :: forall tx. CoordinatedHeadState tx -&gt; Maybe (FinalizedSnapshot tx)
+$sel:finalizedDecommit:CoordinatedHeadState :: forall tx. CoordinatedHeadState tx -&gt; Maybe (FinalizedSnapshot tx)
+localUTxO :: UTxOType tx
+localTxs :: Seq tx
+allTxs :: Map (TxIdType tx) tx
+confirmedSnapshot :: ConfirmedSnapshot tx
+seenSnapshot :: SeenSnapshot tx
+currentDepositTxId :: Maybe (TxIdType tx)
+decommitTx :: Maybe tx
+version :: SnapshotVersion
+finalizedCommit :: Maybe (FinalizedSnapshot tx)
+finalizedDecommit :: Maybe (FinalizedSnapshot tx)
+</span><a href="Hydra.HeadLogic.State.html#%24sel%3AlocalUTxO%3ACoordinatedHeadState"><span class="hs-glyph hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">..</span></a></span></span></span></span></span></span></span></span></span></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">CoordinatedHeadState tx
+</span><a href="#local-6989586621681035032"><span class="hs-identifier hs-var">chs</span></a></span><span>
+</span><span id="line-156"></span><span>
+</span><span id="line-157"></span><span id="local-6989586621681035047"><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#currentState"><span class="hs-identifier hs-type">currentState</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#Runtime"><span class="hs-identifier hs-type">Runtime</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681035047"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.html#CoordinatedHeadState"><span class="hs-identifier hs-type">CoordinatedHeadState</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681035047"><span class="hs-identifier hs-type">tx</span></a></span></span><span>
+</span><span id="line-158"></span><span id="currentState"><span class="annot"><span class="annottext">currentState :: forall tx. Runtime tx -&gt; CoordinatedHeadState tx
+</span><a href="Hydra.HeadLogic.State.Coordinated.html#currentState"><span class="hs-identifier hs-var hs-var">currentState</span></a></span></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#Runtime"><span class="hs-identifier hs-type">Runtime</span></a></span><span class="hs-special">{</span><span id="local-6989586621681035048"><span class="annot"><span class="annottext">CoordinatedHeadState tx
+$sel:coordinatedState:Runtime :: forall tx. Runtime tx -&gt; CoordinatedHeadState tx
+coordinatedState :: CoordinatedHeadState tx
+</span><a href="Hydra.HeadLogic.State.Coordinated.html#%24sel%3AcoordinatedState%3ARuntime"><span class="hs-identifier hs-var hs-var">coordinatedState</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">CoordinatedHeadState tx
+</span><a href="#local-6989586621681035048"><span class="hs-identifier hs-var">coordinatedState</span></a></span><span>
+</span><span id="line-159"></span><span>
+</span><span id="line-160"></span><span id="local-6989586621681034807"><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#candidate"><span class="hs-identifier hs-type">candidate</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#Runtime"><span class="hs-identifier hs-type">Runtime</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681034807"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.Snapshot.Candidate.html#Candidate"><span class="hs-identifier hs-type">Candidate</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681034807"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span></span><span>
+</span><span id="line-161"></span><span id="candidate"><span class="annot"><span class="annottext">candidate :: forall tx. Runtime tx -&gt; Maybe (Candidate tx)
+</span><a href="Hydra.HeadLogic.State.Coordinated.html#candidate"><span class="hs-identifier hs-var hs-var">candidate</span></a></span></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#Runtime"><span class="hs-identifier hs-type">Runtime</span></a></span><span class="hs-special">{</span><span id="local-6989586621681035049"><span class="annot"><span class="annottext">HeadId
+$sel:headId:Runtime :: forall tx. Runtime tx -&gt; HeadId
+headId :: HeadId
+</span><a href="Hydra.HeadLogic.State.Coordinated.html#%24sel%3AheadId%3ARuntime"><span class="hs-identifier hs-var hs-var">headId</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681035050"><span class="annot"><span class="annottext">InitialState (State tx)
+$sel:snapshots:Runtime :: forall tx. Runtime tx -&gt; InitialState (State tx)
+snapshots :: InitialState (State tx)
+</span><a href="Hydra.HeadLogic.State.Coordinated.html#%24sel%3Asnapshots%3ARuntime"><span class="hs-identifier hs-var hs-var">snapshots</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HeadId -&gt; InitialState (State tx) -&gt; Maybe (Candidate tx)
+forall tx.
+HeadId -&gt; InitialState (State tx) -&gt; Maybe (Candidate tx)
+</span><a href="Hydra.HeadLogic.State.Coordinated.Snapshots.html#candidate"><span class="hs-identifier hs-var">Snapshots.candidate</span></a></span><span> </span><span class="annot"><span class="annottext">HeadId
+</span><a href="#local-6989586621681035049"><span class="hs-identifier hs-var">headId</span></a></span><span> </span><span class="annot"><span class="annottext">InitialState (State tx)
+</span><a href="#local-6989586621681035050"><span class="hs-identifier hs-var">snapshots</span></a></span><span>
+</span><span id="line-162"></span><span>
+</span><span id="line-163"></span><span id="local-6989586621681034811"><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#step"><span class="hs-identifier hs-type">step</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#Runtime"><span class="hs-identifier hs-type">Runtime</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681034811"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.Types.html#Command"><span class="hs-identifier hs-type">Command</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681034811"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="hs-special">[</span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#StateChanged"><span class="hs-identifier hs-type">StateChanged</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681034811"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">]</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#Runtime"><span class="hs-identifier hs-type">Runtime</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681034811"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span></span><span>
+</span><span id="line-164"></span><span id="step"><span class="annot"><span class="annottext">step :: forall tx.
+Runtime tx -&gt; Command tx -&gt; ([StateChanged tx], Runtime tx)
+</span><a href="Hydra.HeadLogic.State.Coordinated.html#step"><span class="hs-identifier hs-var hs-var">step</span></a></span></span><span> </span><span id="local-6989586621681035051"><span class="annot"><span class="annottext">Runtime tx
+</span><a href="#local-6989586621681035051"><span class="hs-identifier hs-var">runtime</span></a></span></span><span> </span><span id="local-6989586621681035052"><span class="annot"><span class="annottext">Command tx
+</span><a href="#local-6989586621681035052"><span class="hs-identifier hs-var">command</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">([StateChanged tx], Runtime tx)
+-&gt; Either Text ([StateChanged tx], Runtime tx)
+-&gt; ([StateChanged tx], Runtime tx)
+forall b a. b -&gt; Either a b -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#fromRight"><span class="hs-identifier hs-var">fromRight</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">[</span><span class="hs-special">]</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Runtime tx
+</span><a href="#local-6989586621681035051"><span class="hs-identifier hs-var">runtime</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Either Text ([StateChanged tx], Runtime tx)
+ -&gt; ([StateChanged tx], Runtime tx))
+-&gt; Either Text ([StateChanged tx], Runtime tx)
+-&gt; ([StateChanged tx], Runtime tx)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Runtime tx
+-&gt; Command tx -&gt; Either Text ([StateChanged tx], Runtime tx)
+forall tx.
+Runtime tx
+-&gt; Command tx -&gt; Either Text ([StateChanged tx], Runtime tx)
+</span><a href="Hydra.HeadLogic.State.Coordinated.html#advance"><span class="hs-identifier hs-var">advance</span></a></span><span> </span><span class="annot"><span class="annottext">Runtime tx
+</span><a href="#local-6989586621681035051"><span class="hs-identifier hs-var">runtime</span></a></span><span> </span><span class="annot"><span class="annottext">Command tx
+</span><a href="#local-6989586621681035052"><span class="hs-identifier hs-var">command</span></a></span><span>
+</span><span id="line-165"></span><span>
+</span><span id="line-166"></span><span id="local-6989586621681034818"><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#advance"><span class="hs-identifier hs-type">advance</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#Runtime"><span class="hs-identifier hs-type">Runtime</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681034818"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.Types.html#Command"><span class="hs-identifier hs-type">Command</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681034818"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Either"><span class="hs-identifier hs-type">Either</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="hs-special">(</span><span class="hs-special">[</span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#StateChanged"><span class="hs-identifier hs-type">StateChanged</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681034818"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">]</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#Runtime"><span class="hs-identifier hs-type">Runtime</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681034818"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span></span><span>
+</span><span id="line-167"></span><span id="advance"><span class="annot"><span class="annottext">advance :: forall tx.
+Runtime tx
+-&gt; Command tx -&gt; Either Text ([StateChanged tx], Runtime tx)
+</span><a href="Hydra.HeadLogic.State.Coordinated.html#advance"><span class="hs-identifier hs-var hs-var">advance</span></a></span></span><span> </span><span id="local-6989586621681035060"><span class="annot"><span class="annottext">runtime :: Runtime tx
+</span><a href="#local-6989586621681035060"><span class="hs-identifier hs-var">runtime</span></a></span></span><span class="hs-glyph">@</span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#Runtime"><span class="hs-identifier hs-type">Runtime</span></a></span><span class="hs-special">{</span><span id="local-6989586621681035061"><span id="local-6989586621681035062"><span id="local-6989586621681035063"><span id="local-6989586621681035064"><span id="local-6989586621681035065"><span id="local-6989586621681035066"><span id="local-6989586621681035067"><span class="annot"><span class="annottext">[VerificationKey HydraKey]
+HeadId
+CoordinatedHeadState tx
+InitialState (State tx)
+StateMachineT Identity (SnapshotCommand tx) (SnapshotOutput tx)
+StateMachineT Identity (SnapshotOutput tx) (Output tx)
+StateMachineT Identity (Output tx) (Output tx)
+$sel:headId:Runtime :: forall tx. Runtime tx -&gt; HeadId
+$sel:parties:Runtime :: forall tx. Runtime tx -&gt; [VerificationKey HydraKey]
+$sel:coordinatedState:Runtime :: forall tx. Runtime tx -&gt; CoordinatedHeadState tx
+$sel:snapshots:Runtime :: forall tx. Runtime tx -&gt; InitialState (State tx)
+$sel:snapshotMachine:Runtime :: forall tx.
+Runtime tx
+-&gt; StateMachineT Identity (SnapshotCommand tx) (SnapshotOutput tx)
+$sel:transactionMachine:Runtime :: forall tx.
+Runtime tx
+-&gt; StateMachineT Identity (SnapshotOutput tx) (Output tx)
+$sel:commitMachine:Runtime :: forall tx.
+Runtime tx -&gt; StateMachineT Identity (Output tx) (Output tx)
+headId :: HeadId
+parties :: [VerificationKey HydraKey]
+coordinatedState :: CoordinatedHeadState tx
+snapshots :: InitialState (State tx)
+snapshotMachine :: StateMachineT Identity (SnapshotCommand tx) (SnapshotOutput tx)
+transactionMachine :: StateMachineT Identity (SnapshotOutput tx) (Output tx)
+commitMachine :: StateMachineT Identity (Output tx) (Output tx)
+</span><a href="Hydra.HeadLogic.State.Coordinated.html#%24sel%3AheadId%3ARuntime"><span class="hs-glyph hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">..</span></a></span></span></span></span></span></span></span></span><span class="hs-special">}</span><span> </span><span id="local-6989586621681035068"><span class="annot"><span class="annottext">Command tx
+</span><a href="#local-6989586621681035068"><span class="hs-identifier hs-var">command</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-168"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span class="hs-special">(</span><span id="local-6989586621681035069"><span class="annot"><span class="annottext">SnapshotOutput tx
+</span><a href="#local-6989586621681035069"><span class="hs-identifier hs-var">input</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681035070"><span class="annot"><span class="annottext">StateMachineT Identity (SnapshotCommand tx) (SnapshotOutput tx)
+</span><a href="#local-6989586621681035070"><span class="hs-identifier hs-var">nextSnapshots</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Command tx
+</span><a href="#local-6989586621681035068"><span class="hs-identifier hs-var">command</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-169"></span><span>        </span><span class="annot"><a href="Hydra.HeadLogic.State.Types.html#Transactions"><span class="hs-identifier hs-type">Transactions</span></a></span><span> </span><span id="local-6989586621681035072"><span class="annot"><span class="annottext">LocalTransactionCommand tx
+</span><a href="#local-6989586621681035072"><span class="hs-identifier hs-var">transaction</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-170"></span><span>          </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621681035073"><span class="annot"><span class="annottext">update :: SnapshotOutput tx
+</span><a href="#local-6989586621681035073"><span class="hs-identifier hs-var hs-var">update</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">InitialState (State tx)
+-&gt; (forall (phase :: SnapshotPhase).
+    State tx phase
+    -&gt; (forall (next :: SnapshotPhase).
+        State tx next -&gt; InitialState (State tx))
+    -&gt; SnapshotOutput tx)
+-&gt; SnapshotOutput tx
+forall {vertex} (state :: vertex -&gt; *) a.
+InitialState state
+-&gt; (forall (phase :: vertex).
+    state phase
+    -&gt; (forall (next :: vertex). state next -&gt; InitialState state)
+    -&gt; a)
+-&gt; a
+</span><span class="hs-identifier hs-var">withInitialState</span></span><span> </span><span class="annot"><span class="annottext">InitialState (State tx)
+</span><a href="#local-6989586621681035064"><span class="hs-identifier hs-var">snapshots</span></a></span><span> </span><span class="annot"><span class="annottext">((forall (phase :: SnapshotPhase).
+  State tx phase
+  -&gt; (forall (next :: SnapshotPhase).
+      State tx next -&gt; InitialState (State tx))
+  -&gt; SnapshotOutput tx)
+ -&gt; SnapshotOutput tx)
+-&gt; (forall (phase :: SnapshotPhase).
+    State tx phase
+    -&gt; (forall (next :: SnapshotPhase).
+        State tx next -&gt; InitialState (State tx))
+    -&gt; SnapshotOutput tx)
+-&gt; SnapshotOutput tx
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621681035074"><span class="annot"><span class="annottext">State tx phase
+</span><a href="#local-6989586621681035074"><span class="hs-identifier hs-var">snapshotState</span></a></span></span><span> </span><span class="annot"><span class="annottext">forall (next :: SnapshotPhase).
+State tx next -&gt; InitialState (State tx)
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-171"></span><span>                </span><span class="annot"><span class="annottext">Update tx phase -&gt; SnapshotOutput tx
+forall tx (phase :: SnapshotPhase).
+Update tx phase -&gt; SnapshotOutput tx
+</span><a href="Hydra.HeadLogic.State.Coordinated.Snapshots.State.html#mkSnapshotOutput"><span class="hs-identifier hs-var">State.mkSnapshotOutput</span></a></span><span> </span><span class="annot"><span class="annottext">(Update tx phase -&gt; SnapshotOutput tx)
+-&gt; Update tx phase -&gt; SnapshotOutput tx
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">State tx phase
+-&gt; TransactionUpdate tx -&gt; [StateChanged tx] -&gt; Update tx phase
+forall tx (phase :: SnapshotPhase).
+State tx phase
+-&gt; TransactionUpdate tx -&gt; [StateChanged tx] -&gt; Update tx phase
+</span><a href="Hydra.HeadLogic.State.Coordinated.Snapshots.State.html#Update"><span class="hs-identifier hs-var">State.Update</span></a></span><span> </span><span class="annot"><span class="annottext">State tx phase
+</span><a href="#local-6989586621681035074"><span class="hs-identifier hs-var">snapshotState</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">LocalTransactionCommand tx -&gt; TransactionUpdate tx
+forall tx. LocalTransactionCommand tx -&gt; TransactionUpdate tx
+</span><a href="Hydra.HeadLogic.State.Types.html#RunLocalTransactionCommand"><span class="hs-identifier hs-var">RunLocalTransactionCommand</span></a></span><span> </span><span class="annot"><span class="annottext">LocalTransactionCommand tx
+</span><a href="#local-6989586621681035072"><span class="hs-identifier hs-var">transaction</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
+</span><span id="line-172"></span><span>           </span><span class="hs-keyword">in</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SnapshotOutput tx
+</span><a href="#local-6989586621681035073"><span class="hs-identifier hs-var">update</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">StateMachineT Identity (SnapshotCommand tx) (SnapshotOutput tx)
+</span><a href="#local-6989586621681035065"><span class="hs-identifier hs-var">snapshotMachine</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-173"></span><span>        </span><span class="annot"><a href="Hydra.HeadLogic.State.Types.html#Snapshots"><span class="hs-identifier hs-type">Snapshots</span></a></span><span> </span><span id="local-6989586621681035078"><span class="annot"><span class="annottext">SnapshotCommand tx
+</span><a href="#local-6989586621681035078"><span class="hs-identifier hs-var">snapshot</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-174"></span><span>          </span><span class="annot"><span class="annottext">Identity
+  (SnapshotOutput tx,
+   StateMachineT Identity (SnapshotCommand tx) (SnapshotOutput tx))
+-&gt; (SnapshotOutput tx,
+    StateMachineT Identity (SnapshotCommand tx) (SnapshotOutput tx))
+forall a. Identity a -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.Identity.html#runIdentity"><span class="hs-identifier hs-var">runIdentity</span></a></span><span> </span><span class="annot"><span class="annottext">(Identity
+   (SnapshotOutput tx,
+    StateMachineT Identity (SnapshotCommand tx) (SnapshotOutput tx))
+ -&gt; (SnapshotOutput tx,
+     StateMachineT Identity (SnapshotCommand tx) (SnapshotOutput tx)))
+-&gt; Identity
+     (SnapshotOutput tx,
+      StateMachineT Identity (SnapshotCommand tx) (SnapshotOutput tx))
+-&gt; (SnapshotOutput tx,
+    StateMachineT Identity (SnapshotCommand tx) (SnapshotOutput tx))
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">StateMachineT Identity (SnapshotCommand tx) (SnapshotOutput tx)
+-&gt; SnapshotCommand tx
+-&gt; Identity
+     (SnapshotOutput tx,
+      StateMachineT Identity (SnapshotCommand tx) (SnapshotOutput tx))
+forall (m :: * -&gt; *) a b.
+Monad m =&gt;
+StateMachineT m a b -&gt; a -&gt; m (b, StateMachineT m a b)
+</span><span class="hs-identifier hs-var">run</span></span><span> </span><span class="annot"><span class="annottext">StateMachineT Identity (SnapshotCommand tx) (SnapshotOutput tx)
+</span><a href="#local-6989586621681035065"><span class="hs-identifier hs-var">snapshotMachine</span></a></span><span> </span><span class="annot"><span class="annottext">SnapshotCommand tx
+</span><a href="#local-6989586621681035078"><span class="hs-identifier hs-var">snapshot</span></a></span><span>
+</span><span id="line-175"></span><span>      </span><span class="hs-special">(</span><span id="local-6989586621681035080"><span class="annot"><span class="annottext">Output tx
+</span><a href="#local-6989586621681035080"><span class="hs-identifier hs-var">output</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681035081"><span class="annot"><span class="annottext">Runtime tx
+</span><a href="#local-6989586621681035081"><span class="hs-identifier hs-var">next</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SnapshotOutput tx -&gt; Runtime tx -&gt; (Output tx, Runtime tx)
+forall tx.
+SnapshotOutput tx -&gt; Runtime tx -&gt; (Output tx, Runtime tx)
+</span><a href="Hydra.HeadLogic.State.Coordinated.html#applyUpdates"><span class="hs-identifier hs-var">applyUpdates</span></a></span><span> </span><span class="annot"><span class="annottext">SnapshotOutput tx
+</span><a href="#local-6989586621681035069"><span class="hs-identifier hs-var">input</span></a></span><span> </span><span class="annot"><span class="annottext">Runtime tx
+</span><a href="#local-6989586621681035060"><span class="hs-identifier hs-var">runtime</span></a></span><span class="hs-special">{</span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#%24sel%3AsnapshotMachine%3ARuntime"><span class="hs-identifier hs-var">snapshotMachine</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="#local-6989586621681035070"><span class="hs-identifier hs-type">nextSnapshots</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-176"></span><span>   </span><span class="hs-keyword">in</span><span> </span><span class="annot"><span class="annottext">Either Text ([StateChanged tx], Runtime tx)
+-&gt; (Text -&gt; Either Text ([StateChanged tx], Runtime tx))
+-&gt; Maybe Text
+-&gt; Either Text ([StateChanged tx], Runtime tx)
+forall b a. b -&gt; (a -&gt; b) -&gt; Maybe a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Maybe.html#maybe"><span class="hs-identifier hs-var">maybe</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">([StateChanged tx], Runtime tx)
+-&gt; Either Text ([StateChanged tx], Runtime tx)
+forall a b. b -&gt; Either a b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Right"><span class="hs-identifier hs-var">Right</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Output tx
+</span><a href="#local-6989586621681035080"><span class="hs-identifier hs-var">output</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">transactions</span><span class="hs-operator">.</span><span class="hs-identifier">events</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Runtime tx
+</span><a href="#local-6989586621681035081"><span class="hs-identifier hs-var">next</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Either Text ([StateChanged tx], Runtime tx)
+forall a b. a -&gt; Either a b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Left"><span class="hs-identifier hs-var">Left</span></a></span><span> </span><span class="annot"><span class="annottext">Output tx
+</span><a href="#local-6989586621681035080"><span class="hs-identifier hs-var">output</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">transactions</span><span class="hs-operator">.</span><span class="hs-identifier">refusal</span><span>
+</span><span id="line-177"></span><span>
+</span><span id="line-178"></span><span class="hs-comment">-- | Reconcile transactions against the updated snapshot before changing commit</span><span>
+</span><span id="line-179"></span><span class="hs-comment">-- selection. Both live commands and retained events use this ordering.</span><span>
+</span><span id="line-180"></span><span id="local-6989586621681034838"><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#applyUpdates"><span class="hs-identifier hs-type">applyUpdates</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.Snapshots.State.html#SnapshotOutput"><span class="hs-identifier hs-type">State.SnapshotOutput</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681034838"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#Runtime"><span class="hs-identifier hs-type">Runtime</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681034838"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.Commits.html#Output"><span class="hs-identifier hs-type">Commits.Output</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681034838"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#Runtime"><span class="hs-identifier hs-type">Runtime</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681034838"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span></span><span>
+</span><span id="line-181"></span><span id="applyUpdates"><span class="annot"><span class="annottext">applyUpdates :: forall tx.
+SnapshotOutput tx -&gt; Runtime tx -&gt; (Output tx, Runtime tx)
+</span><a href="Hydra.HeadLogic.State.Coordinated.html#applyUpdates"><span class="hs-identifier hs-var hs-var">applyUpdates</span></a></span></span><span> </span><span id="local-6989586621681035087"><span class="annot"><span class="annottext">SnapshotOutput tx
+</span><a href="#local-6989586621681035087"><span class="hs-identifier hs-var">input</span></a></span></span><span> </span><span id="local-6989586621681035088"><span class="annot"><span class="annottext">runtime :: Runtime tx
+</span><a href="#local-6989586621681035088"><span class="hs-identifier hs-var">runtime</span></a></span></span><span class="hs-glyph">@</span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#Runtime"><span class="hs-identifier hs-type">Runtime</span></a></span><span class="hs-special">{</span><span id="local-6989586621681035089"><span id="local-6989586621681035090"><span id="local-6989586621681035091"><span id="local-6989586621681035092"><span id="local-6989586621681035093"><span id="local-6989586621681035094"><span id="local-6989586621681035095"><span class="annot"><span class="annottext">[VerificationKey HydraKey]
+HeadId
+CoordinatedHeadState tx
+InitialState (State tx)
+StateMachineT Identity (SnapshotCommand tx) (SnapshotOutput tx)
+StateMachineT Identity (SnapshotOutput tx) (Output tx)
+StateMachineT Identity (Output tx) (Output tx)
+$sel:headId:Runtime :: forall tx. Runtime tx -&gt; HeadId
+$sel:parties:Runtime :: forall tx. Runtime tx -&gt; [VerificationKey HydraKey]
+$sel:coordinatedState:Runtime :: forall tx. Runtime tx -&gt; CoordinatedHeadState tx
+$sel:snapshots:Runtime :: forall tx. Runtime tx -&gt; InitialState (State tx)
+$sel:snapshotMachine:Runtime :: forall tx.
+Runtime tx
+-&gt; StateMachineT Identity (SnapshotCommand tx) (SnapshotOutput tx)
+$sel:transactionMachine:Runtime :: forall tx.
+Runtime tx
+-&gt; StateMachineT Identity (SnapshotOutput tx) (Output tx)
+$sel:commitMachine:Runtime :: forall tx.
+Runtime tx -&gt; StateMachineT Identity (Output tx) (Output tx)
+headId :: HeadId
+parties :: [VerificationKey HydraKey]
+coordinatedState :: CoordinatedHeadState tx
+snapshots :: InitialState (State tx)
+snapshotMachine :: StateMachineT Identity (SnapshotCommand tx) (SnapshotOutput tx)
+transactionMachine :: StateMachineT Identity (SnapshotOutput tx) (Output tx)
+commitMachine :: StateMachineT Identity (Output tx) (Output tx)
+</span><a href="Hydra.HeadLogic.State.Coordinated.html#%24sel%3AheadId%3ARuntime"><span class="hs-glyph hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">..</span></a></span></span></span></span></span></span></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-182"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span class="hs-special">(</span><span id="local-6989586621681035096"><span class="annot"><span class="annottext">Output tx
+</span><a href="#local-6989586621681035096"><span class="hs-identifier hs-var">transactions</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681035097"><span class="annot"><span class="annottext">StateMachineT Identity (SnapshotOutput tx) (Output tx)
+</span><a href="#local-6989586621681035097"><span class="hs-identifier hs-var">nextTransactions</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Identity
+  (Output tx, StateMachineT Identity (SnapshotOutput tx) (Output tx))
+-&gt; (Output tx,
+    StateMachineT Identity (SnapshotOutput tx) (Output tx))
+forall a. Identity a -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.Identity.html#runIdentity"><span class="hs-identifier hs-var">runIdentity</span></a></span><span> </span><span class="annot"><span class="annottext">(Identity
+   (Output tx, StateMachineT Identity (SnapshotOutput tx) (Output tx))
+ -&gt; (Output tx,
+     StateMachineT Identity (SnapshotOutput tx) (Output tx)))
+-&gt; Identity
+     (Output tx, StateMachineT Identity (SnapshotOutput tx) (Output tx))
+-&gt; (Output tx,
+    StateMachineT Identity (SnapshotOutput tx) (Output tx))
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">StateMachineT Identity (SnapshotOutput tx) (Output tx)
+-&gt; SnapshotOutput tx
+-&gt; Identity
+     (Output tx, StateMachineT Identity (SnapshotOutput tx) (Output tx))
+forall (m :: * -&gt; *) a b.
+Monad m =&gt;
+StateMachineT m a b -&gt; a -&gt; m (b, StateMachineT m a b)
+</span><span class="hs-identifier hs-var">run</span></span><span> </span><span class="annot"><span class="annottext">StateMachineT Identity (SnapshotOutput tx) (Output tx)
+</span><a href="#local-6989586621681035094"><span class="hs-identifier hs-var">transactionMachine</span></a></span><span> </span><span class="annot"><span class="annottext">SnapshotOutput tx
+</span><a href="#local-6989586621681035087"><span class="hs-identifier hs-var">input</span></a></span><span>
+</span><span id="line-183"></span><span>      </span><span class="hs-special">(</span><span id="local-6989586621681035098"><span class="annot"><span class="annottext">Output tx
+</span><a href="#local-6989586621681035098"><span class="hs-identifier hs-var">output</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681035099"><span class="annot"><span class="annottext">StateMachineT Identity (Output tx) (Output tx)
+</span><a href="#local-6989586621681035099"><span class="hs-identifier hs-var">nextCommits</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Identity
+  (Output tx, StateMachineT Identity (Output tx) (Output tx))
+-&gt; (Output tx, StateMachineT Identity (Output tx) (Output tx))
+forall a. Identity a -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.Identity.html#runIdentity"><span class="hs-identifier hs-var">runIdentity</span></a></span><span> </span><span class="annot"><span class="annottext">(Identity
+   (Output tx, StateMachineT Identity (Output tx) (Output tx))
+ -&gt; (Output tx, StateMachineT Identity (Output tx) (Output tx)))
+-&gt; Identity
+     (Output tx, StateMachineT Identity (Output tx) (Output tx))
+-&gt; (Output tx, StateMachineT Identity (Output tx) (Output tx))
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">StateMachineT Identity (Output tx) (Output tx)
+-&gt; Output tx
+-&gt; Identity
+     (Output tx, StateMachineT Identity (Output tx) (Output tx))
+forall (m :: * -&gt; *) a b.
+Monad m =&gt;
+StateMachineT m a b -&gt; a -&gt; m (b, StateMachineT m a b)
+</span><span class="hs-identifier hs-var">run</span></span><span> </span><span class="annot"><span class="annottext">StateMachineT Identity (Output tx) (Output tx)
+</span><a href="#local-6989586621681035095"><span class="hs-identifier hs-var">commitMachine</span></a></span><span> </span><span class="annot"><span class="annottext">Output tx
+</span><a href="#local-6989586621681035096"><span class="hs-identifier hs-var">transactions</span></a></span><span>
+</span><span id="line-184"></span><span>      </span><span id="local-6989586621681035100"><span class="annot"><span class="annottext">updated :: Runtime tx
+</span><a href="#local-6989586621681035100"><span class="hs-identifier hs-var hs-var">updated</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-185"></span><span>        </span><span class="annot"><span class="annottext">Runtime tx
+</span><a href="#local-6989586621681035088"><span class="hs-identifier hs-var">runtime</span></a></span><span>
+</span><span id="line-186"></span><span>          </span><span class="hs-special">{</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#%24sel%3AcoordinatedState%3ARuntime"><span class="hs-identifier hs-var">coordinatedState</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#project"><span class="hs-identifier hs-type">project</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681035098"><span class="hs-identifier hs-type">output</span></a></span><span>
+</span><span id="line-187"></span><span>          </span><span class="hs-special">,</span><span> </span><span class="hs-identifier">snapshots</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier">transactions</span></span><span class="hs-operator">.</span><span class="hs-identifier">snapshots</span><span>
+</span><span id="line-188"></span><span>          </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#%24sel%3AtransactionMachine%3ARuntime"><span class="hs-identifier hs-var">transactionMachine</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="#local-6989586621681035097"><span class="hs-identifier hs-type">nextTransactions</span></a></span><span>
+</span><span id="line-189"></span><span>          </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#%24sel%3AcommitMachine%3ARuntime"><span class="hs-identifier hs-var">commitMachine</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="#local-6989586621681035099"><span class="hs-identifier hs-type">nextCommits</span></a></span><span>
+</span><span id="line-190"></span><span>          </span><span class="hs-special">}</span><span>
+</span><span id="line-191"></span><span>   </span><span class="hs-keyword">in</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Output tx
+</span><a href="#local-6989586621681035098"><span class="hs-identifier hs-var">output</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Runtime tx
+</span><a href="#local-6989586621681035100"><span class="hs-identifier hs-var">updated</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-192"></span><span>
+</span><span id="line-193"></span><span id="local-6989586621681034844"><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#project"><span class="hs-identifier hs-type">project</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.Commits.html#Output"><span class="hs-identifier hs-type">Commits.Output</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681034844"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.html#CoordinatedHeadState"><span class="hs-identifier hs-type">CoordinatedHeadState</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681034844"><span class="hs-identifier hs-type">tx</span></a></span></span><span>
+</span><span id="line-194"></span><span id="project"><span class="annot"><span class="annottext">project :: forall tx. Output tx -&gt; CoordinatedHeadState tx
+</span><a href="Hydra.HeadLogic.State.Coordinated.html#project"><span class="hs-identifier hs-var hs-var">project</span></a></span></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.Commits.html#Output"><span class="hs-identifier hs-type">Commits.Output</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:transactions:Output :: forall tx. Output tx -&gt; Output tx
+</span><a href="Hydra.HeadLogic.State.Coordinated.Commits.html#%24sel%3Atransactions%3AOutput"><span class="hs-identifier hs-var">transactions</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.Transactions.html#Output"><span class="hs-identifier hs-type">Output</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:snapshots:Output :: forall tx. Output tx -&gt; InitialState (State tx)
+</span><a href="Hydra.HeadLogic.State.Coordinated.Transactions.html#%24sel%3Asnapshots%3AOutput"><span class="hs-identifier hs-var">snapshots</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="local-6989586621681035106"><span class="annot"><span class="annottext">InitialState (State tx)
+</span><a href="#local-6989586621681035106"><span class="hs-identifier hs-var">owned</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681035107"><span class="annot"><span class="annottext">TransactionState tx
+transactions :: TransactionState tx
+$sel:transactions:Output :: forall tx. Output tx -&gt; TransactionState tx
+</span><a href="#local-6989586621681035107"><span class="hs-identifier hs-var hs-var">transactions</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681035109"><span class="annot"><span class="annottext">Maybe tx
+decommit :: Maybe tx
+$sel:decommit:Output :: forall tx. Output tx -&gt; Maybe tx
+</span><a href="#local-6989586621681035109"><span class="hs-identifier hs-var hs-var">decommit</span></a></span></span><span class="hs-special">}</span><span class="hs-special">,</span><span> </span><span id="local-6989586621681035111"><span class="annot"><span class="annottext">Maybe (TxIdType tx)
+currentDepositTxId :: Maybe (TxIdType tx)
+$sel:currentDepositTxId:Output :: forall tx. Output tx -&gt; Maybe (TxIdType tx)
+</span><a href="#local-6989586621681035111"><span class="hs-identifier hs-var hs-var">currentDepositTxId</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-195"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.html#CoordinatedHeadState"><span class="hs-identifier hs-type">CoordinatedHeadState</span></a></span><span>
+</span><span id="line-196"></span><span>    </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">$sel:confirmedSnapshot:CoordinatedHeadState :: ConfirmedSnapshot tx
+</span><a href="Hydra.HeadLogic.State.html#%24sel%3AconfirmedSnapshot%3ACoordinatedHeadState"><span class="hs-identifier hs-var">confirmedSnapshot</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ConfirmedSnapshot tx
+</span><a href="#local-6989586621681035113"><span class="hs-identifier hs-var">confirmed</span></a></span><span>
+</span><span id="line-197"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:seenSnapshot:CoordinatedHeadState :: SeenSnapshot tx
+</span><a href="Hydra.HeadLogic.State.html#%24sel%3AseenSnapshot%3ACoordinatedHeadState"><span class="hs-identifier hs-var">seenSnapshot</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SeenSnapshot tx
+</span><a href="#local-6989586621681035114"><span class="hs-identifier hs-var">seen</span></a></span><span>
+</span><span id="line-198"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:decommitTx:CoordinatedHeadState :: Maybe tx
+</span><a href="Hydra.HeadLogic.State.html#%24sel%3AdecommitTx%3ACoordinatedHeadState"><span class="hs-identifier hs-var">decommitTx</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Maybe tx
+</span><a href="#local-6989586621681035109"><span class="hs-identifier hs-var">decommit</span></a></span><span>
+</span><span id="line-199"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Maybe (TxIdType tx)
+Maybe (FinalizedSnapshot tx)
+Seq tx
+Map (TxIdType tx) tx
+UTxOType tx
+SnapshotVersion
+$sel:localUTxO:CoordinatedHeadState :: UTxOType tx
+$sel:localTxs:CoordinatedHeadState :: Seq tx
+$sel:allTxs:CoordinatedHeadState :: Map (TxIdType tx) tx
+$sel:currentDepositTxId:CoordinatedHeadState :: Maybe (TxIdType tx)
+$sel:version:CoordinatedHeadState :: SnapshotVersion
+$sel:finalizedCommit:CoordinatedHeadState :: Maybe (FinalizedSnapshot tx)
+$sel:finalizedDecommit:CoordinatedHeadState :: Maybe (FinalizedSnapshot tx)
+currentDepositTxId :: Maybe (TxIdType tx)
+version :: SnapshotVersion
+finalizedCommit :: Maybe (FinalizedSnapshot tx)
+finalizedDecommit :: Maybe (FinalizedSnapshot tx)
+localUTxO :: UTxOType tx
+localTxs :: Seq tx
+allTxs :: Map (TxIdType tx) tx
+</span><a href="Hydra.HeadLogic.State.html#%24sel%3AlocalUTxO%3ACoordinatedHeadState"><span class="hs-glyph hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">..</span></a></span><span>
+</span><span id="line-200"></span><span>    </span><span class="hs-special">}</span><span>
+</span><span id="line-201"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-202"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.Types.html#SnapshotState"><span class="hs-identifier hs-type">SnapshotState</span></a></span><span class="hs-special">{</span><span id="local-6989586621681035113"><span id="local-6989586621681035114"><span id="local-6989586621681035115"><span id="local-6989586621681035116"><span id="local-6989586621681035117"><span id="local-6989586621681035121"><span class="annot"><span class="annottext">Maybe (FinalizedSnapshot tx)
+ChainSlot
+ConfirmedSnapshot tx
+SnapshotVersion
+SeenSnapshot tx
+$sel:chainSlot:SnapshotState :: forall tx. SnapshotState tx -&gt; ChainSlot
+$sel:confirmed:SnapshotState :: forall tx. SnapshotState tx -&gt; ConfirmedSnapshot tx
+$sel:seen:SnapshotState :: forall tx. SnapshotState tx -&gt; SeenSnapshot tx
+$sel:version:SnapshotState :: forall tx. SnapshotState tx -&gt; SnapshotVersion
+$sel:finalizedCommit:SnapshotState :: forall tx. SnapshotState tx -&gt; Maybe (FinalizedSnapshot tx)
+$sel:finalizedDecommit:SnapshotState :: forall tx. SnapshotState tx -&gt; Maybe (FinalizedSnapshot tx)
+confirmed :: ConfirmedSnapshot tx
+seen :: SeenSnapshot tx
+version :: SnapshotVersion
+finalizedCommit :: Maybe (FinalizedSnapshot tx)
+finalizedDecommit :: Maybe (FinalizedSnapshot tx)
+chainSlot :: ChainSlot
+</span><a href="Hydra.HeadLogic.State.Types.html#%24sel%3AchainSlot%3ASnapshotState"><span class="hs-glyph hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">..</span></a></span></span></span></span></span></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">InitialState (State tx) -&gt; SnapshotState tx
+forall tx. InitialState (State tx) -&gt; SnapshotState tx
+</span><a href="Hydra.HeadLogic.State.Coordinated.Snapshots.State.html#viewInitial"><span class="hs-identifier hs-var">State.viewInitial</span></a></span><span> </span><span class="annot"><span class="annottext">InitialState (State tx)
+</span><a href="#local-6989586621681035106"><span class="hs-identifier hs-var">owned</span></a></span><span>
+</span><span id="line-203"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.Transactions.html#TransactionState"><span class="hs-identifier hs-type">TransactionState</span></a></span><span class="hs-special">{</span><span id="local-6989586621681035118"><span id="local-6989586621681035119"><span id="local-6989586621681035120"><span class="annot"><span class="annottext">Seq tx
+Map (TxIdType tx) tx
+UTxOType tx
+$sel:localUTxO:TransactionState :: forall tx. TransactionState tx -&gt; UTxOType tx
+$sel:localTxs:TransactionState :: forall tx. TransactionState tx -&gt; Seq tx
+$sel:allTxs:TransactionState :: forall tx. TransactionState tx -&gt; Map (TxIdType tx) tx
+localUTxO :: UTxOType tx
+localTxs :: Seq tx
+allTxs :: Map (TxIdType tx) tx
+</span><a href="Hydra.HeadLogic.State.Coordinated.Transactions.html#%24sel%3AlocalUTxO%3ATransactionState"><span class="hs-glyph hs-var hs-var hs-var hs-var hs-var hs-var">..</span></a></span></span></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TransactionState tx
+</span><a href="#local-6989586621681035107"><span class="hs-identifier hs-var">transactions</span></a></span><span>
+</span><span id="line-204"></span><span>
+</span><span id="line-205"></span><span id="local-6989586621681034859"><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#receiveTransaction"><span class="hs-identifier hs-type">receiveTransaction</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621681034859"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.Types.html#Command"><span class="hs-identifier hs-type">Command</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681034859"><span class="hs-identifier hs-type">tx</span></a></span></span><span>
+</span><span id="line-206"></span><span id="receiveTransaction"><span class="annot"><span class="annottext">receiveTransaction :: forall tx. tx -&gt; Command tx
+</span><a href="Hydra.HeadLogic.State.Coordinated.html#receiveTransaction"><span class="hs-identifier hs-var hs-var">receiveTransaction</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">LocalTransactionCommand tx -&gt; Command tx
+forall tx. LocalTransactionCommand tx -&gt; Command tx
+</span><a href="Hydra.HeadLogic.State.Types.html#Transactions"><span class="hs-identifier hs-var">Transactions</span></a></span><span> </span><span class="annot"><span class="annottext">(LocalTransactionCommand tx -&gt; Command tx)
+-&gt; (tx -&gt; LocalTransactionCommand tx) -&gt; tx -&gt; Command tx
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">tx -&gt; LocalTransactionCommand tx
+forall tx. tx -&gt; LocalTransactionCommand tx
+</span><a href="Hydra.HeadLogic.State.Types.html#ReceiveTransaction"><span class="hs-identifier hs-var">ReceiveTransaction</span></a></span><span>
+</span><span id="line-207"></span><span>
+</span><span id="line-208"></span><span id="local-6989586621681035124"><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#retainSnapshotDecommit"><span class="hs-identifier hs-type">retainSnapshotDecommit</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="#local-6989586621681035124"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.Types.html#Command"><span class="hs-identifier hs-type">Command</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681035124"><span class="hs-identifier hs-type">tx</span></a></span></span><span>
+</span><span id="line-209"></span><span id="retainSnapshotDecommit"><span class="annot"><span class="annottext">retainSnapshotDecommit :: forall tx. tx -&gt; Command tx
+</span><a href="Hydra.HeadLogic.State.Coordinated.html#retainSnapshotDecommit"><span class="hs-identifier hs-var hs-var">retainSnapshotDecommit</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">LocalTransactionCommand tx -&gt; Command tx
+forall tx. LocalTransactionCommand tx -&gt; Command tx
+</span><a href="Hydra.HeadLogic.State.Types.html#Transactions"><span class="hs-identifier hs-var">Transactions</span></a></span><span> </span><span class="annot"><span class="annottext">(LocalTransactionCommand tx -&gt; Command tx)
+-&gt; (tx -&gt; LocalTransactionCommand tx) -&gt; tx -&gt; Command tx
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">tx -&gt; LocalTransactionCommand tx
+forall tx. tx -&gt; LocalTransactionCommand tx
+</span><a href="Hydra.HeadLogic.State.Types.html#RetainSnapshotDecommit"><span class="hs-identifier hs-var">RetainSnapshotDecommit</span></a></span><span>
+</span><span id="line-210"></span><span>
+</span><span id="line-211"></span><span id="local-6989586621681034867"><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#applyTransaction"><span class="hs-identifier hs-type">applyTransaction</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Validation.html#ValidatedTransaction"><span class="hs-identifier hs-type">ValidatedTransaction</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681034867"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.Types.html#Command"><span class="hs-identifier hs-type">Command</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681034867"><span class="hs-identifier hs-type">tx</span></a></span></span><span>
+</span><span id="line-212"></span><span id="applyTransaction"><span class="annot"><span class="annottext">applyTransaction :: forall tx. ValidatedTransaction tx -&gt; Command tx
+</span><a href="Hydra.HeadLogic.State.Coordinated.html#applyTransaction"><span class="hs-identifier hs-var hs-var">applyTransaction</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">LocalTransactionCommand tx -&gt; Command tx
+forall tx. LocalTransactionCommand tx -&gt; Command tx
+</span><a href="Hydra.HeadLogic.State.Types.html#Transactions"><span class="hs-identifier hs-var">Transactions</span></a></span><span> </span><span class="annot"><span class="annottext">(LocalTransactionCommand tx -&gt; Command tx)
+-&gt; (ValidatedTransaction tx -&gt; LocalTransactionCommand tx)
+-&gt; ValidatedTransaction tx
+-&gt; Command tx
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">ValidatedTransaction tx -&gt; LocalTransactionCommand tx
+forall tx. ValidatedTransaction tx -&gt; LocalTransactionCommand tx
+</span><a href="Hydra.HeadLogic.State.Types.html#ApplyValidatedTransaction"><span class="hs-identifier hs-var">ApplyValidatedTransaction</span></a></span><span>
+</span><span id="line-213"></span><span>
+</span><span id="line-214"></span><span id="local-6989586621681034870"><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#markTransactionInvalid"><span class="hs-identifier hs-type">markTransactionInvalid</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxOType</span></span><span> </span><span class="annot"><a href="#local-6989586621681034870"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621681034870"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.Ledger.html#ValidationError"><span class="hs-identifier hs-type">ValidationError</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.Types.html#Command"><span class="hs-identifier hs-type">Command</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681034870"><span class="hs-identifier hs-type">tx</span></a></span></span><span>
+</span><span id="line-215"></span><span id="markTransactionInvalid"><span class="annot"><span class="annottext">markTransactionInvalid :: forall tx. UTxOType tx -&gt; tx -&gt; ValidationError -&gt; Command tx
+</span><a href="Hydra.HeadLogic.State.Coordinated.html#markTransactionInvalid"><span class="hs-identifier hs-var hs-var">markTransactionInvalid</span></a></span></span><span> </span><span id="local-6989586621681035127"><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621681035127"><span class="hs-identifier hs-var">utxo</span></a></span></span><span> </span><span id="local-6989586621681035128"><span class="annot"><span class="annottext">tx
+</span><a href="#local-6989586621681035128"><span class="hs-identifier hs-var">tx</span></a></span></span><span> </span><span id="local-6989586621681035129"><span class="annot"><span class="annottext">ValidationError
+</span><a href="#local-6989586621681035129"><span class="hs-identifier hs-var">err</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">LocalTransactionCommand tx -&gt; Command tx
+forall tx. LocalTransactionCommand tx -&gt; Command tx
+</span><a href="Hydra.HeadLogic.State.Types.html#Transactions"><span class="hs-identifier hs-var">Transactions</span></a></span><span> </span><span class="annot"><span class="annottext">(LocalTransactionCommand tx -&gt; Command tx)
+-&gt; LocalTransactionCommand tx -&gt; Command tx
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">UTxOType tx -&gt; tx -&gt; ValidationError -&gt; LocalTransactionCommand tx
+forall tx.
+UTxOType tx -&gt; tx -&gt; ValidationError -&gt; LocalTransactionCommand tx
+</span><a href="Hydra.HeadLogic.State.Types.html#MarkTransactionInvalid"><span class="hs-identifier hs-var">MarkTransactionInvalid</span></a></span><span> </span><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621681035127"><span class="hs-identifier hs-var">utxo</span></a></span><span> </span><span class="annot"><span class="annottext">tx
+</span><a href="#local-6989586621681035128"><span class="hs-identifier hs-var">tx</span></a></span><span> </span><span class="annot"><span class="annottext">ValidationError
+</span><a href="#local-6989586621681035129"><span class="hs-identifier hs-var">err</span></a></span><span>
+</span><span id="line-216"></span><span>
+</span><span id="line-217"></span><span id="local-6989586621681034873"><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#adoptSnapshot"><span class="hs-identifier hs-type">adoptSnapshot</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Snapshot.Verification.html#VerifiedSnapshot"><span class="hs-identifier hs-type">VerifiedSnapshot</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681034873"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.Types.html#Command"><span class="hs-identifier hs-type">Command</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681034873"><span class="hs-identifier hs-type">tx</span></a></span></span><span>
+</span><span id="line-218"></span><span id="adoptSnapshot"><span class="annot"><span class="annottext">adoptSnapshot :: forall tx. VerifiedSnapshot tx -&gt; Command tx
+</span><a href="Hydra.HeadLogic.State.Coordinated.html#adoptSnapshot"><span class="hs-identifier hs-var hs-var">adoptSnapshot</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SnapshotCommand tx -&gt; Command tx
+forall tx. SnapshotCommand tx -&gt; Command tx
+</span><a href="Hydra.HeadLogic.State.Types.html#Snapshots"><span class="hs-identifier hs-var">Snapshots</span></a></span><span> </span><span class="annot"><span class="annottext">(SnapshotCommand tx -&gt; Command tx)
+-&gt; (VerifiedSnapshot tx -&gt; SnapshotCommand tx)
+-&gt; VerifiedSnapshot tx
+-&gt; Command tx
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">VerifiedSnapshot tx -&gt; SnapshotCommand tx
+forall tx. VerifiedSnapshot tx -&gt; SnapshotCommand tx
+</span><a href="Hydra.HeadLogic.State.Types.html#AdoptSnapshot"><span class="hs-identifier hs-var">AdoptSnapshot</span></a></span><span>
+</span><span id="line-219"></span><span>
+</span><span id="line-220"></span><span id="local-6989586621681034878"><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#clearLocalState"><span class="hs-identifier hs-type">clearLocalState</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SnapshotNumber</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.Types.html#Command"><span class="hs-identifier hs-type">Command</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681034878"><span class="hs-identifier hs-type">tx</span></a></span></span><span>
+</span><span id="line-221"></span><span id="clearLocalState"><span class="annot"><span class="annottext">clearLocalState :: forall tx. SnapshotNumber -&gt; Command tx
+</span><a href="Hydra.HeadLogic.State.Coordinated.html#clearLocalState"><span class="hs-identifier hs-var hs-var">clearLocalState</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SnapshotCommand tx -&gt; Command tx
+forall tx. SnapshotCommand tx -&gt; Command tx
+</span><a href="Hydra.HeadLogic.State.Types.html#Snapshots"><span class="hs-identifier hs-var">Snapshots</span></a></span><span> </span><span class="annot"><span class="annottext">(SnapshotCommand tx -&gt; Command tx)
+-&gt; (SnapshotNumber -&gt; SnapshotCommand tx)
+-&gt; SnapshotNumber
+-&gt; Command tx
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">SnapshotNumber -&gt; SnapshotCommand tx
+forall tx. SnapshotNumber -&gt; SnapshotCommand tx
+</span><a href="Hydra.HeadLogic.State.Types.html#ClearLocalState"><span class="hs-identifier hs-var">ClearLocalState</span></a></span><span>
+</span><span id="line-222"></span><span>
+</span><span id="line-223"></span><span id="local-6989586621681034880"><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#recordCommitFinalization"><span class="hs-identifier hs-type">recordCommitFinalization</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-224"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">ChainStateType</span></span><span> </span><span class="annot"><a href="#local-6989586621681034880"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-225"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">SnapshotVersion</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-226"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">TxIdType</span></span><span> </span><span class="annot"><a href="#local-6989586621681034880"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-227"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">UTxOType</span></span><span> </span><span class="annot"><a href="#local-6989586621681034880"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-228"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.Types.html#Command"><span class="hs-identifier hs-type">Command</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681034880"><span class="hs-identifier hs-type">tx</span></a></span></span><span>
+</span><span id="line-229"></span><span id="recordCommitFinalization"><span class="annot"><span class="annottext">recordCommitFinalization :: forall tx.
+ChainStateType tx
+-&gt; SnapshotVersion -&gt; TxIdType tx -&gt; UTxOType tx -&gt; Command tx
+</span><a href="Hydra.HeadLogic.State.Coordinated.html#recordCommitFinalization"><span class="hs-identifier hs-var hs-var">recordCommitFinalization</span></a></span></span><span> </span><span id="local-6989586621681035133"><span class="annot"><span class="annottext">ChainStateType tx
+</span><a href="#local-6989586621681035133"><span class="hs-identifier hs-var">chainState</span></a></span></span><span> </span><span id="local-6989586621681035134"><span class="annot"><span class="annottext">SnapshotVersion
+</span><a href="#local-6989586621681035134"><span class="hs-identifier hs-var">version</span></a></span></span><span> </span><span id="local-6989586621681035135"><span class="annot"><span class="annottext">TxIdType tx
+</span><a href="#local-6989586621681035135"><span class="hs-identifier hs-var">depositId</span></a></span></span><span> </span><span id="local-6989586621681035136"><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621681035136"><span class="hs-identifier hs-var">deposited</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SnapshotCommand tx -&gt; Command tx
+forall tx. SnapshotCommand tx -&gt; Command tx
+</span><a href="Hydra.HeadLogic.State.Types.html#Snapshots"><span class="hs-identifier hs-var">Snapshots</span></a></span><span> </span><span class="annot"><span class="annottext">(SnapshotCommand tx -&gt; Command tx)
+-&gt; SnapshotCommand tx -&gt; Command tx
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">ChainStateType tx
+-&gt; SnapshotVersion
+-&gt; TxIdType tx
+-&gt; UTxOType tx
+-&gt; SnapshotCommand tx
+forall tx.
+ChainStateType tx
+-&gt; SnapshotVersion
+-&gt; TxIdType tx
+-&gt; UTxOType tx
+-&gt; SnapshotCommand tx
+</span><a href="Hydra.HeadLogic.State.Types.html#RecordCommitFinalization"><span class="hs-identifier hs-var">RecordCommitFinalization</span></a></span><span> </span><span class="annot"><span class="annottext">ChainStateType tx
+</span><a href="#local-6989586621681035133"><span class="hs-identifier hs-var">chainState</span></a></span><span> </span><span class="annot"><span class="annottext">SnapshotVersion
+</span><a href="#local-6989586621681035134"><span class="hs-identifier hs-var">version</span></a></span><span> </span><span class="annot"><span class="annottext">TxIdType tx
+</span><a href="#local-6989586621681035135"><span class="hs-identifier hs-var">depositId</span></a></span><span> </span><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621681035136"><span class="hs-identifier hs-var">deposited</span></a></span><span>
+</span><span id="line-230"></span><span>
+</span><span id="line-231"></span><span id="local-6989586621681034882"><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#recordDecommitFinalization"><span class="hs-identifier hs-type">recordDecommitFinalization</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-232"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">ChainStateType</span></span><span> </span><span class="annot"><a href="#local-6989586621681034882"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-233"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">SnapshotVersion</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-234"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">UTxOType</span></span><span> </span><span class="annot"><a href="#local-6989586621681034882"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-235"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.Types.html#Command"><span class="hs-identifier hs-type">Command</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681034882"><span class="hs-identifier hs-type">tx</span></a></span></span><span>
+</span><span id="line-236"></span><span id="recordDecommitFinalization"><span class="annot"><span class="annottext">recordDecommitFinalization :: forall tx.
+ChainStateType tx -&gt; SnapshotVersion -&gt; UTxOType tx -&gt; Command tx
+</span><a href="Hydra.HeadLogic.State.Coordinated.html#recordDecommitFinalization"><span class="hs-identifier hs-var hs-var">recordDecommitFinalization</span></a></span></span><span> </span><span id="local-6989586621681035138"><span class="annot"><span class="annottext">ChainStateType tx
+</span><a href="#local-6989586621681035138"><span class="hs-identifier hs-var">chainState</span></a></span></span><span> </span><span id="local-6989586621681035139"><span class="annot"><span class="annottext">SnapshotVersion
+</span><a href="#local-6989586621681035139"><span class="hs-identifier hs-var">version</span></a></span></span><span> </span><span id="local-6989586621681035140"><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621681035140"><span class="hs-identifier hs-var">distributed</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SnapshotCommand tx -&gt; Command tx
+forall tx. SnapshotCommand tx -&gt; Command tx
+</span><a href="Hydra.HeadLogic.State.Types.html#Snapshots"><span class="hs-identifier hs-var">Snapshots</span></a></span><span> </span><span class="annot"><span class="annottext">(SnapshotCommand tx -&gt; Command tx)
+-&gt; SnapshotCommand tx -&gt; Command tx
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">ChainStateType tx
+-&gt; SnapshotVersion -&gt; UTxOType tx -&gt; SnapshotCommand tx
+forall tx.
+ChainStateType tx
+-&gt; SnapshotVersion -&gt; UTxOType tx -&gt; SnapshotCommand tx
+</span><a href="Hydra.HeadLogic.State.Types.html#RecordDecommitFinalization"><span class="hs-identifier hs-var">RecordDecommitFinalization</span></a></span><span> </span><span class="annot"><span class="annottext">ChainStateType tx
+</span><a href="#local-6989586621681035138"><span class="hs-identifier hs-var">chainState</span></a></span><span> </span><span class="annot"><span class="annottext">SnapshotVersion
+</span><a href="#local-6989586621681035139"><span class="hs-identifier hs-var">version</span></a></span><span> </span><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621681035140"><span class="hs-identifier hs-var">distributed</span></a></span><span>
+</span><span id="line-237"></span><span>
+</span><span id="line-238"></span><span id="local-6989586621681034884"><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#recordDecommit"><span class="hs-identifier hs-type">recordDecommit</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Validation.html#ValidatedDecommit"><span class="hs-identifier hs-type">ValidatedDecommit</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681034884"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.Types.html#Command"><span class="hs-identifier hs-type">Command</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681034884"><span class="hs-identifier hs-type">tx</span></a></span></span><span>
+</span><span id="line-239"></span><span id="recordDecommit"><span class="annot"><span class="annottext">recordDecommit :: forall tx. ValidatedDecommit tx -&gt; Command tx
+</span><a href="Hydra.HeadLogic.State.Coordinated.html#recordDecommit"><span class="hs-identifier hs-var hs-var">recordDecommit</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">LocalTransactionCommand tx -&gt; Command tx
+forall tx. LocalTransactionCommand tx -&gt; Command tx
+</span><a href="Hydra.HeadLogic.State.Types.html#Transactions"><span class="hs-identifier hs-var">Transactions</span></a></span><span> </span><span class="annot"><span class="annottext">(LocalTransactionCommand tx -&gt; Command tx)
+-&gt; (ValidatedDecommit tx -&gt; LocalTransactionCommand tx)
+-&gt; ValidatedDecommit tx
+-&gt; Command tx
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">ValidatedDecommit tx -&gt; LocalTransactionCommand tx
+forall tx. ValidatedDecommit tx -&gt; LocalTransactionCommand tx
+</span><a href="Hydra.HeadLogic.State.Types.html#RecordPending"><span class="hs-identifier hs-var">RecordPending</span></a></span><span>
+</span><span id="line-240"></span><span>
+</span><span id="line-241"></span><span id="local-6989586621681034887"><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#acceptSnapshot"><span class="hs-identifier hs-type">acceptSnapshot</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Validation.html#ValidatedSnapshot"><span class="hs-identifier hs-type">ValidatedSnapshot</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681034887"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Sequence.Internal.html#Seq"><span class="hs-identifier hs-type">Seq</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681034887"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.Types.html#Command"><span class="hs-identifier hs-type">Command</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681034887"><span class="hs-identifier hs-type">tx</span></a></span></span><span>
+</span><span id="line-242"></span><span id="acceptSnapshot"><span class="annot"><span class="annottext">acceptSnapshot :: forall tx. ValidatedSnapshot tx -&gt; Seq tx -&gt; Command tx
+</span><a href="Hydra.HeadLogic.State.Coordinated.html#acceptSnapshot"><span class="hs-identifier hs-var hs-var">acceptSnapshot</span></a></span></span><span> </span><span id="local-6989586621681035143"><span class="annot"><span class="annottext">ValidatedSnapshot tx
+</span><a href="#local-6989586621681035143"><span class="hs-identifier hs-var">snapshot</span></a></span></span><span> </span><span id="local-6989586621681035144"><span class="annot"><span class="annottext">Seq tx
+</span><a href="#local-6989586621681035144"><span class="hs-identifier hs-var">txs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SnapshotCommand tx -&gt; Command tx
+forall tx. SnapshotCommand tx -&gt; Command tx
+</span><a href="Hydra.HeadLogic.State.Types.html#Snapshots"><span class="hs-identifier hs-var">Snapshots</span></a></span><span> </span><span class="annot"><span class="annottext">(SnapshotCommand tx -&gt; Command tx)
+-&gt; SnapshotCommand tx -&gt; Command tx
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">ValidatedSnapshot tx -&gt; Seq tx -&gt; SnapshotCommand tx
+forall tx. ValidatedSnapshot tx -&gt; Seq tx -&gt; SnapshotCommand tx
+</span><a href="Hydra.HeadLogic.State.Types.html#AcceptSnapshot"><span class="hs-identifier hs-var">AcceptSnapshot</span></a></span><span> </span><span class="annot"><span class="annottext">ValidatedSnapshot tx
+</span><a href="#local-6989586621681035143"><span class="hs-identifier hs-var">snapshot</span></a></span><span> </span><span class="annot"><span class="annottext">Seq tx
+</span><a href="#local-6989586621681035144"><span class="hs-identifier hs-var">txs</span></a></span><span>
+</span><span id="line-243"></span><span>
+</span><span id="line-244"></span><span id="local-6989586621681034890"><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#recordSignature"><span class="hs-identifier hs-type">recordSignature</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Snapshot.Candidate.html#Candidate"><span class="hs-identifier hs-type">Candidate</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681034890"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Party</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Signature</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Snapshot</span></span><span> </span><span class="annot"><a href="#local-6989586621681034890"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.Types.html#Command"><span class="hs-identifier hs-type">Command</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681034890"><span class="hs-identifier hs-type">tx</span></a></span></span><span>
+</span><span id="line-245"></span><span id="recordSignature"><span class="annot"><span class="annottext">recordSignature :: forall tx.
+Candidate tx -&gt; Party -&gt; Signature (Snapshot tx) -&gt; Command tx
+</span><a href="Hydra.HeadLogic.State.Coordinated.html#recordSignature"><span class="hs-identifier hs-var hs-var">recordSignature</span></a></span></span><span> </span><span id="local-6989586621681035146"><span class="annot"><span class="annottext">Candidate tx
+</span><a href="#local-6989586621681035146"><span class="hs-identifier hs-var">owned</span></a></span></span><span> </span><span id="local-6989586621681035147"><span class="annot"><span class="annottext">Party
+</span><a href="#local-6989586621681035147"><span class="hs-identifier hs-var">party</span></a></span></span><span> </span><span id="local-6989586621681035148"><span class="annot"><span class="annottext">Signature (Snapshot tx)
+</span><a href="#local-6989586621681035148"><span class="hs-keyword hs-var">signature</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SnapshotCommand tx -&gt; Command tx
+forall tx. SnapshotCommand tx -&gt; Command tx
+</span><a href="Hydra.HeadLogic.State.Types.html#Snapshots"><span class="hs-identifier hs-var">Snapshots</span></a></span><span> </span><span class="annot"><span class="annottext">(SnapshotCommand tx -&gt; Command tx)
+-&gt; SnapshotCommand tx -&gt; Command tx
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Candidate tx
+-&gt; Party -&gt; Signature (Snapshot tx) -&gt; SnapshotCommand tx
+forall tx.
+Candidate tx
+-&gt; Party -&gt; Signature (Snapshot tx) -&gt; SnapshotCommand tx
+</span><a href="Hydra.HeadLogic.State.Types.html#RecordSignature"><span class="hs-identifier hs-var">RecordSignature</span></a></span><span> </span><span class="annot"><span class="annottext">Candidate tx
+</span><a href="#local-6989586621681035146"><span class="hs-identifier hs-var">owned</span></a></span><span> </span><span class="annot"><span class="annottext">Party
+</span><a href="#local-6989586621681035147"><span class="hs-identifier hs-var">party</span></a></span><span> </span><span class="annot"><span class="annottext">Signature (Snapshot tx)
+</span><a href="#local-6989586621681035148"><span class="hs-keyword hs-var">signature</span></a></span><span>
+</span><span id="line-246"></span><span>
+</span><span id="line-247"></span><span id="local-6989586621681034894"><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#confirmSnapshot"><span class="hs-identifier hs-type">confirmSnapshot</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Snapshot.Verification.html#VerifiedCandidate"><span class="hs-identifier hs-type">VerifiedCandidate</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681034894"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.Types.html#Command"><span class="hs-identifier hs-type">Command</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681034894"><span class="hs-identifier hs-type">tx</span></a></span></span><span>
+</span><span id="line-248"></span><span id="confirmSnapshot"><span class="annot"><span class="annottext">confirmSnapshot :: forall tx. VerifiedCandidate tx -&gt; Command tx
+</span><a href="Hydra.HeadLogic.State.Coordinated.html#confirmSnapshot"><span class="hs-identifier hs-var hs-var">confirmSnapshot</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SnapshotCommand tx -&gt; Command tx
+forall tx. SnapshotCommand tx -&gt; Command tx
+</span><a href="Hydra.HeadLogic.State.Types.html#Snapshots"><span class="hs-identifier hs-var">Snapshots</span></a></span><span> </span><span class="annot"><span class="annottext">(SnapshotCommand tx -&gt; Command tx)
+-&gt; (VerifiedCandidate tx -&gt; SnapshotCommand tx)
+-&gt; VerifiedCandidate tx
+-&gt; Command tx
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">VerifiedCandidate tx -&gt; SnapshotCommand tx
+forall tx. VerifiedCandidate tx -&gt; SnapshotCommand tx
+</span><a href="Hydra.HeadLogic.State.Types.html#ConfirmSnapshot"><span class="hs-identifier hs-var">ConfirmSnapshot</span></a></span><span>
+</span><span id="line-249"></span><span>
+</span><span id="line-250"></span><span id="local-6989586621681034897"><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#requestSnapshot"><span class="hs-identifier hs-type">requestSnapshot</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Snapshot.Request.html#SnapshotRequest"><span class="hs-identifier hs-type">SnapshotRequest</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681034897"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.Types.html#Command"><span class="hs-identifier hs-type">Command</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681034897"><span class="hs-identifier hs-type">tx</span></a></span></span><span>
+</span><span id="line-251"></span><span id="requestSnapshot"><span class="annot"><span class="annottext">requestSnapshot :: forall tx. SnapshotRequest tx -&gt; Command tx
+</span><a href="Hydra.HeadLogic.State.Coordinated.html#requestSnapshot"><span class="hs-identifier hs-var hs-var">requestSnapshot</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SnapshotCommand tx -&gt; Command tx
+forall tx. SnapshotCommand tx -&gt; Command tx
+</span><a href="Hydra.HeadLogic.State.Types.html#Snapshots"><span class="hs-identifier hs-var">Snapshots</span></a></span><span> </span><span class="annot"><span class="annottext">(SnapshotCommand tx -&gt; Command tx)
+-&gt; (SnapshotRequest tx -&gt; SnapshotCommand tx)
+-&gt; SnapshotRequest tx
+-&gt; Command tx
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">SnapshotRequest tx -&gt; SnapshotCommand tx
+forall tx. SnapshotRequest tx -&gt; SnapshotCommand tx
+</span><a href="Hydra.HeadLogic.State.Types.html#RequestSnapshot"><span class="hs-identifier hs-var">RequestSnapshot</span></a></span><span>
+</span><span id="line-252"></span><span>
+</span><span id="line-253"></span><span id="local-6989586621681034900"><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#replayEvent"><span class="hs-identifier hs-type">replayEvent</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-254"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">IsChainState</span></span><span> </span><span class="annot"><a href="#local-6989586621681034900"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-255"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">UTxOType</span></span><span> </span><span class="annot"><a href="#local-6989586621681034900"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-256"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#StateChanged"><span class="hs-identifier hs-type">StateChanged</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681034900"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-257"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#Runtime"><span class="hs-identifier hs-type">Runtime</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681034900"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-258"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#Runtime"><span class="hs-identifier hs-type">Runtime</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681034900"><span class="hs-identifier hs-type">tx</span></a></span></span><span>
+</span><span id="line-259"></span><span id="replayEvent"><span class="annot"><span class="annottext">replayEvent :: forall tx.
+IsChainState tx =&gt;
+UTxOType tx -&gt; StateChanged tx -&gt; Runtime tx -&gt; Runtime tx
+</span><a href="Hydra.HeadLogic.State.Coordinated.html#replayEvent"><span class="hs-identifier hs-var hs-var">replayEvent</span></a></span></span><span> </span><span id="local-6989586621681035157"><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621681035157"><span class="hs-identifier hs-var">deposited</span></a></span></span><span> </span><span id="local-6989586621681035158"><span class="annot"><span class="annottext">StateChanged tx
+</span><a href="#local-6989586621681035158"><span class="hs-identifier hs-var">event</span></a></span></span><span> </span><span id="local-6989586621681035159"><span class="annot"><span class="annottext">runtime :: Runtime tx
+</span><a href="#local-6989586621681035159"><span class="hs-identifier hs-var">runtime</span></a></span></span><span class="hs-glyph">@</span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#Runtime"><span class="hs-identifier hs-type">Runtime</span></a></span><span class="hs-special">{</span><span id="local-6989586621681035160"><span class="annot"><span class="annottext">HeadId
+$sel:headId:Runtime :: forall tx. Runtime tx -&gt; HeadId
+headId :: HeadId
+</span><a href="Hydra.HeadLogic.State.Coordinated.html#%24sel%3AheadId%3ARuntime"><span class="hs-identifier hs-var hs-var">headId</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681035161"><span class="annot"><span class="annottext">[VerificationKey HydraKey]
+$sel:parties:Runtime :: forall tx. Runtime tx -&gt; [VerificationKey HydraKey]
+parties :: [VerificationKey HydraKey]
+</span><a href="Hydra.HeadLogic.State.Coordinated.html#%24sel%3Aparties%3ARuntime"><span class="hs-identifier hs-var hs-var">parties</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681035162"><span class="annot"><span class="annottext">InitialState (State tx)
+$sel:snapshots:Runtime :: forall tx. Runtime tx -&gt; InitialState (State tx)
+snapshots :: InitialState (State tx)
+</span><a href="Hydra.HeadLogic.State.Coordinated.html#%24sel%3Asnapshots%3ARuntime"><span class="hs-identifier hs-var hs-var">snapshots</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-260"></span><span>  </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">HeadId
+-&gt; [VerificationKey HydraKey]
+-&gt; InitialState (State tx)
+-&gt; UTxOType tx
+-&gt; StateChanged tx
+-&gt; Maybe (SnapshotOutput tx)
+forall tx.
+IsChainState tx =&gt;
+HeadId
+-&gt; [VerificationKey HydraKey]
+-&gt; InitialState (State tx)
+-&gt; UTxOType tx
+-&gt; StateChanged tx
+-&gt; Maybe (SnapshotOutput tx)
+</span><a href="Hydra.HeadLogic.State.Coordinated.Replay.html#replay"><span class="hs-identifier hs-var">Replay.replay</span></a></span><span> </span><span class="annot"><span class="annottext">HeadId
+</span><a href="#local-6989586621681035160"><span class="hs-identifier hs-var">headId</span></a></span><span> </span><span class="annot"><span class="annottext">[VerificationKey HydraKey]
+</span><a href="#local-6989586621681035161"><span class="hs-identifier hs-var">parties</span></a></span><span> </span><span class="annot"><span class="annottext">InitialState (State tx)
+</span><a href="#local-6989586621681035162"><span class="hs-identifier hs-var">snapshots</span></a></span><span> </span><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621681035157"><span class="hs-identifier hs-var">deposited</span></a></span><span> </span><span class="annot"><span class="annottext">StateChanged tx
+</span><a href="#local-6989586621681035158"><span class="hs-identifier hs-var">event</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-261"></span><span>    </span><span class="annot"><span class="annottext">Maybe (SnapshotOutput tx)
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Runtime tx
+</span><a href="#local-6989586621681035159"><span class="hs-identifier hs-var">runtime</span></a></span><span>
+</span><span id="line-262"></span><span>    </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span id="local-6989586621681035163"><span class="annot"><span class="annottext">SnapshotOutput tx
+</span><a href="#local-6989586621681035163"><span class="hs-identifier hs-var">restored</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-263"></span><span>      </span><span class="annot"><span class="annottext">(Output tx, Runtime tx) -&gt; Runtime tx
+forall a b. (a, b) -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Tuple.html#snd"><span class="hs-identifier hs-var">snd</span></a></span><span> </span><span class="annot"><span class="annottext">((Output tx, Runtime tx) -&gt; Runtime tx)
+-&gt; (Output tx, Runtime tx) -&gt; Runtime tx
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">SnapshotOutput tx -&gt; Runtime tx -&gt; (Output tx, Runtime tx)
+forall tx.
+SnapshotOutput tx -&gt; Runtime tx -&gt; (Output tx, Runtime tx)
+</span><a href="Hydra.HeadLogic.State.Coordinated.html#applyUpdates"><span class="hs-identifier hs-var">applyUpdates</span></a></span><span> </span><span class="annot"><span class="annottext">SnapshotOutput tx
+</span><a href="#local-6989586621681035163"><span class="hs-identifier hs-var">restored</span></a></span><span> </span><span class="annot"><span class="annottext">Runtime tx
+</span><a href="#local-6989586621681035159"><span class="hs-identifier hs-var">runtime</span></a></span><span class="hs-special">{</span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.html#%24sel%3AsnapshotMachine%3ARuntime"><span class="hs-identifier hs-var">snapshotMachine</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Executable</span></span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-type">$</span></a></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.Coordinated.Snapshots.html#machine"><span class="hs-identifier hs-type">Snapshots.machine</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681035160"><span class="hs-identifier hs-type">headId</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681035161"><span class="hs-identifier hs-type">parties</span></a></span><span> </span><span class="annot"><span class="hs-identifier">restored</span></span><span class="hs-operator">.</span><span class="hs-identifier">snapshots</span><span class="hs-special">}</span><span>
+</span><span id="line-264"></span></pre></body></html>

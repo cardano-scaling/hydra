@@ -1,0 +1,617 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span id="local-6989586621681046268"><span id="local-6989586621681046269"></span></span><span class="hs-pragma">{-# LANGUAGE DuplicateRecordFields #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE OverloadedRecordDot #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE RecordWildCards #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# LANGUAGE UndecidableInstances #-}</span><span>
+</span><span id="line-5"></span><span class="hs-pragma">{-# OPTIONS_GHC -Wno-ambiguous-fields #-}</span><span>
+</span><span id="line-6"></span><span>
+</span><span id="line-7"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.HeadLogic.Rules.Input</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#Stage"><span class="hs-identifier">Stage</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#InputTopology"><span class="hs-identifier">InputTopology</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#Args"><span class="hs-identifier">Args</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#workflow"><span class="hs-identifier">workflow</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-8"></span><span>
+</span><span id="line-9"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Crem.Topology</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Topology</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Topology</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-10"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.API.ClientInput.html"><span class="hs-identifier">Hydra.API.ClientInput</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.API.ClientInput.html#validateClientInputWith"><span class="hs-identifier">validateClientInputWith</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-11"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.API.ServerOutput.html"><span class="hs-identifier">Hydra.API.ServerOutput</span></a></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">ServerOutput</span></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-12"></span><span>  </span><span class="annot"><a href="Hydra.API.ServerOutput.html#ClientMessage"><span class="hs-identifier">ClientMessage</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.API.ServerOutput.html#RejectedInputBecauseUnsynced"><span class="hs-identifier">RejectedInputBecauseUnsynced</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-13"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-14"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Chain.ChainState</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">IsChainState</span></span><span class="hs-special">)</span><span>
+</span><span id="line-15"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Error.html"><span class="hs-identifier">Hydra.HeadLogic.Error</span></a></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-16"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Error.html#LogicError"><span class="hs-identifier">LogicError</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-17"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Error.html#SideLoadRequirementFailure"><span class="hs-identifier">SideLoadRequirementFailure</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-18"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-19"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Input.html"><span class="hs-identifier">Hydra.HeadLogic.Input</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.Input.html#Input"><span class="hs-identifier">Input</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-20"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html"><span class="hs-identifier">Hydra.HeadLogic.Outcome</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#Effect"><span class="hs-identifier">Effect</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#WaitReason"><span class="hs-identifier">WaitReason</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-21"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Program.html"><span class="hs-identifier">Hydra.HeadLogic.Program</span></a></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-22"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Program.html#Program"><span class="hs-identifier">Program</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-23"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Program.html#emit"><span class="hs-identifier">emit</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-24"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Program.html#reject"><span class="hs-identifier">reject</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-25"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Program.html#suspend"><span class="hs-identifier">suspend</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-26"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Program.html#traceB"><span class="hs-identifier">traceB</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-27"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-28"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Chain.html"><span class="hs-identifier">Hydra.HeadLogic.Rules.Chain</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.Rules.Chain.html#handleChainInput"><span class="hs-identifier">handleChainInput</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-29"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Client.html"><span class="hs-identifier">Hydra.HeadLogic.Rules.Client</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.Rules.Client.html#handleClientInput"><span class="hs-identifier">handleClientInput</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-30"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Environment.html"><span class="hs-identifier">Hydra.HeadLogic.Rules.Environment</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.Rules.Environment.html#RuleEnvironment"><span class="hs-identifier">RuleEnvironment</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-31"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Network.html"><span class="hs-identifier">Hydra.HeadLogic.Rules.Network</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.Rules.Network.html#handleNetworkInput"><span class="hs-identifier">handleNetworkInput</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-32"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.html"><span class="hs-identifier">Hydra.HeadLogic.State</span></a></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-33"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.html#ClosedState"><span class="hs-identifier">ClosedState</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-34"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.html#FinalizedState"><span class="hs-identifier">FinalizedState</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-35"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.html#HeadState"><span class="hs-identifier">HeadState</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.State.html#Closed"><span class="hs-identifier">Closed</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.html#FanoutProgress"><span class="hs-identifier">FanoutProgress</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.html#Finalized"><span class="hs-identifier">Finalized</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.html#Idle"><span class="hs-identifier">Idle</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.html#Open"><span class="hs-identifier">Open</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-36"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.html#IdleState"><span class="hs-identifier">IdleState</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-37"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.html#OpenState"><span class="hs-identifier">OpenState</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-38"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.html#PartialFanoutState"><span class="hs-identifier">PartialFanoutState</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-39"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-40"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Workflow.html"><span class="hs-identifier">Hydra.HeadLogic.Workflow</span></a></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-41"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Workflow.html#Transition"><span class="hs-identifier">Transition</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-42"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Workflow.html#Workflow"><span class="hs-identifier">Workflow</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-43"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Workflow.html#continue"><span class="hs-identifier">continue</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-44"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Workflow.html#finish"><span class="hs-identifier">finish</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-45"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-46"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Workflow.html"><span class="hs-identifier">Hydra.HeadLogic.Workflow</span></a></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Workflow</span></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-47"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Workflow.html#workflow"><span class="hs-identifier">workflow</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-48"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-49"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Node.State.html"><span class="hs-identifier">Hydra.Node.State</span></a></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-50"></span><span>  </span><span class="annot"><a href="Hydra.Node.State.html#ChainPointTime"><span class="hs-identifier">ChainPointTime</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-51"></span><span>  </span><span class="annot"><a href="Hydra.Node.State.html#NodeState"><span class="hs-identifier">NodeState</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-52"></span><span>  </span><span class="annot"><a href="Hydra.Node.State.html#SyncedStatus"><span class="hs-identifier">SyncedStatus</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-53"></span><span>  </span><span class="annot"><a href="Hydra.Node.State.html#syncedStatus"><span class="hs-identifier">syncedStatus</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-54"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-55"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Prelude</span></span><span> </span><span class="hs-keyword">hiding</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/transformers-0.6.1.0/src/Control.Monad.Trans.State.Strict.html#State"><span class="hs-identifier">State</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/mtl-2.3.1/src/Control.Monad.State.Class.html#state"><span class="hs-identifier">state</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-56"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx.Accumulator</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">AccumulatorTooLarge</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-57"></span><span>
+</span><span id="line-58"></span><span class="hs-keyword">data</span><span> </span><span id="Stage"><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#Stage"><span class="hs-identifier hs-var">Stage</span></a></span></span><span>
+</span><span id="line-59"></span><span>  </span><span class="hs-glyph">=</span><span> </span><span id="CheckInputSize"><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#CheckInputSize"><span class="hs-identifier hs-var">CheckInputSize</span></a></span></span><span>
+</span><span id="line-60"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="CheckSynchronisation"><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#CheckSynchronisation"><span class="hs-identifier hs-var">CheckSynchronisation</span></a></span></span><span>
+</span><span id="line-61"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="HandleIdle"><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#HandleIdle"><span class="hs-identifier hs-var">HandleIdle</span></a></span></span><span>
+</span><span id="line-62"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="HandleOpen"><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#HandleOpen"><span class="hs-identifier hs-var">HandleOpen</span></a></span></span><span>
+</span><span id="line-63"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="HandleClosed"><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#HandleClosed"><span class="hs-identifier hs-var">HandleClosed</span></a></span></span><span>
+</span><span id="line-64"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="HandleFanout"><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#HandleFanout"><span class="hs-identifier hs-var">HandleFanout</span></a></span></span><span>
+</span><span id="line-65"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="HandleFinalized"><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#HandleFinalized"><span class="hs-identifier hs-var">HandleFinalized</span></a></span></span><span>
+</span><span id="line-66"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span id="Finished"><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#Finished"><span class="hs-identifier hs-var">Finished</span></a></span></span><span>
+</span><span id="line-67"></span><span>
+</span><span id="line-68"></span><span class="hs-keyword">type</span><span> </span><span id="InputTopology"><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#InputTopology"><span class="hs-identifier hs-var">InputTopology</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-69"></span><span>  </span><span class="hs-special">'</span><span class="annot"><span class="hs-identifier hs-type">Topology</span></span><span>
+</span><span id="line-70"></span><span>    </span><span class="hs-special">'</span><span class="hs-special">[</span><span> </span><span class="hs-special">'</span><span class="hs-special">(</span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#CheckInputSize"><span class="hs-identifier hs-type">CheckInputSize</span></a></span><span class="hs-special">,</span><span> </span><span class="hs-special">'</span><span class="hs-special">[</span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#CheckSynchronisation"><span class="hs-identifier hs-type">CheckSynchronisation</span></a></span><span class="hs-special">]</span><span class="hs-special">)</span><span>
+</span><span id="line-71"></span><span>     </span><span class="hs-special">,</span><span> </span><span class="hs-special">'</span><span class="hs-special">(</span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#CheckSynchronisation"><span class="hs-identifier hs-type">CheckSynchronisation</span></a></span><span class="hs-special">,</span><span> </span><span class="hs-special">'</span><span class="hs-special">[</span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#HandleIdle"><span class="hs-identifier hs-type">HandleIdle</span></a></span><span class="hs-special">,</span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#HandleOpen"><span class="hs-identifier hs-type">HandleOpen</span></a></span><span class="hs-special">,</span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#HandleClosed"><span class="hs-identifier hs-type">HandleClosed</span></a></span><span class="hs-special">,</span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#HandleFanout"><span class="hs-identifier hs-type">HandleFanout</span></a></span><span class="hs-special">,</span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#HandleFinalized"><span class="hs-identifier hs-type">HandleFinalized</span></a></span><span class="hs-special">,</span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#Finished"><span class="hs-identifier hs-type">Finished</span></a></span><span class="hs-special">]</span><span class="hs-special">)</span><span>
+</span><span id="line-72"></span><span>     </span><span class="hs-special">,</span><span> </span><span class="hs-special">'</span><span class="hs-special">(</span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#HandleIdle"><span class="hs-identifier hs-type">HandleIdle</span></a></span><span class="hs-special">,</span><span> </span><span class="hs-special">'</span><span class="hs-special">[</span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#Finished"><span class="hs-identifier hs-type">Finished</span></a></span><span class="hs-special">]</span><span class="hs-special">)</span><span>
+</span><span id="line-73"></span><span>     </span><span class="hs-special">,</span><span> </span><span class="hs-special">'</span><span class="hs-special">(</span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#HandleOpen"><span class="hs-identifier hs-type">HandleOpen</span></a></span><span class="hs-special">,</span><span> </span><span class="hs-special">'</span><span class="hs-special">[</span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#Finished"><span class="hs-identifier hs-type">Finished</span></a></span><span class="hs-special">]</span><span class="hs-special">)</span><span>
+</span><span id="line-74"></span><span>     </span><span class="hs-special">,</span><span> </span><span class="hs-special">'</span><span class="hs-special">(</span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#HandleClosed"><span class="hs-identifier hs-type">HandleClosed</span></a></span><span class="hs-special">,</span><span> </span><span class="hs-special">'</span><span class="hs-special">[</span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#Finished"><span class="hs-identifier hs-type">Finished</span></a></span><span class="hs-special">]</span><span class="hs-special">)</span><span>
+</span><span id="line-75"></span><span>     </span><span class="hs-special">,</span><span> </span><span class="hs-special">'</span><span class="hs-special">(</span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#HandleFanout"><span class="hs-identifier hs-type">HandleFanout</span></a></span><span class="hs-special">,</span><span> </span><span class="hs-special">'</span><span class="hs-special">[</span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#Finished"><span class="hs-identifier hs-type">Finished</span></a></span><span class="hs-special">]</span><span class="hs-special">)</span><span>
+</span><span id="line-76"></span><span>     </span><span class="hs-special">,</span><span> </span><span class="hs-special">'</span><span class="hs-special">(</span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#HandleFinalized"><span class="hs-identifier hs-type">HandleFinalized</span></a></span><span class="hs-special">,</span><span> </span><span class="hs-special">'</span><span class="hs-special">[</span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#Finished"><span class="hs-identifier hs-type">Finished</span></a></span><span class="hs-special">]</span><span class="hs-special">)</span><span>
+</span><span id="line-77"></span><span>     </span><span class="hs-special">]</span><span>
+</span><span id="line-78"></span><span id="local-6989586621681046292"><span id="local-6989586621681046294"><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#Eq"><span class="hs-identifier hs-type">Eq</span></a></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#Stage"><span class="hs-identifier hs-type">Stage</span></a></span></span></span><span>
+</span><span id="line-79"></span><span id="local-6989586621681046299"><span id="local-6989586621681046301"><span id="local-6989586621681046305"><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Show.html#Show"><span class="hs-identifier hs-type">Show</span></a></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#Stage"><span class="hs-identifier hs-type">Stage</span></a></span></span></span></span><span>
+</span><span id="line-80"></span><span id="local-6989586621681046309"><span id="local-6989586621681046317"><span id="local-6989586621681046323"><span id="local-6989586621681046337"><span id="local-6989586621681046339"><span id="local-6989586621681046343"><span id="local-6989586621681046347"><span id="local-6989586621681046351"><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Enum.html#Enum"><span class="hs-identifier hs-type">Enum</span></a></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#Stage"><span class="hs-identifier hs-type">Stage</span></a></span></span></span></span></span></span></span></span></span><span>
+</span><span id="line-81"></span><span id="local-6989586621681046355"><span id="local-6989586621681046357"><span class="hs-keyword">deriving</span><span> </span><span class="annot"><span class="hs-keyword">stock</span></span><span> </span><span class="hs-keyword">instance</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Enum.html#Bounded"><span class="hs-identifier hs-type">Bounded</span></a></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#Stage"><span class="hs-identifier hs-type">Stage</span></a></span></span></span><span>
+</span><span id="line-82"></span><span>
+</span><span id="line-83"></span><span class="hs-keyword">data</span><span> </span><span id="State"><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#State"><span class="hs-identifier hs-var">State</span></a></span></span><span> </span><span id="local-6989586621681046360"><span class="annot"><a href="#local-6989586621681046360"><span class="hs-identifier hs-type">tx</span></a></span></span><span> </span><span id="local-6989586621681046361"><span class="annot"><a href="#local-6989586621681046361"><span class="hs-identifier hs-type">phase</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-84"></span><span>  </span><span id="local-6989586621681046184"><span id="CheckSize"><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#CheckSize"><span class="hs-identifier hs-var">CheckSize</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#State"><span class="hs-identifier hs-type">State</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681046184"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#CheckInputSize"><span class="hs-identifier hs-type">CheckInputSize</span></a></span></span><span>
+</span><span id="line-85"></span><span>  </span><span id="local-6989586621681046207"><span id="CheckSync"><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#CheckSync"><span class="hs-identifier hs-var">CheckSync</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#State"><span class="hs-identifier hs-type">State</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681046207"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#CheckSynchronisation"><span class="hs-identifier hs-type">CheckSynchronisation</span></a></span></span><span>
+</span><span id="line-86"></span><span>  </span><span id="local-6989586621681046249"><span id="InIdle"><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#InIdle"><span class="hs-identifier hs-var">InIdle</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.html#IdleState"><span class="hs-identifier hs-type">IdleState</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681046249"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#State"><span class="hs-identifier hs-type">State</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681046249"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#HandleIdle"><span class="hs-identifier hs-type">HandleIdle</span></a></span></span><span>
+</span><span id="line-87"></span><span>  </span><span id="local-6989586621681046251"><span id="InOpen"><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#InOpen"><span class="hs-identifier hs-var">InOpen</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.html#OpenState"><span class="hs-identifier hs-type">OpenState</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681046251"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#State"><span class="hs-identifier hs-type">State</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681046251"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#HandleOpen"><span class="hs-identifier hs-type">HandleOpen</span></a></span></span><span>
+</span><span id="line-88"></span><span>  </span><span id="local-6989586621681046253"><span id="InClosed"><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#InClosed"><span class="hs-identifier hs-var">InClosed</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.html#ClosedState"><span class="hs-identifier hs-type">ClosedState</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681046253"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#State"><span class="hs-identifier hs-type">State</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681046253"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#HandleClosed"><span class="hs-identifier hs-type">HandleClosed</span></a></span></span><span>
+</span><span id="line-89"></span><span>  </span><span id="local-6989586621681046255"><span id="InFanout"><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#InFanout"><span class="hs-identifier hs-var">InFanout</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.html#PartialFanoutState"><span class="hs-identifier hs-type">PartialFanoutState</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681046255"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#State"><span class="hs-identifier hs-type">State</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681046255"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#HandleFanout"><span class="hs-identifier hs-type">HandleFanout</span></a></span></span><span>
+</span><span id="line-90"></span><span>  </span><span id="local-6989586621681046257"><span id="InFinalized"><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#InFinalized"><span class="hs-identifier hs-var">InFinalized</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.html#FinalizedState"><span class="hs-identifier hs-type">FinalizedState</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681046257"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#State"><span class="hs-identifier hs-type">State</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681046257"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#HandleFinalized"><span class="hs-identifier hs-type">HandleFinalized</span></a></span></span><span>
+</span><span id="line-91"></span><span>  </span><span id="local-6989586621681046239"><span id="Done"><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#Done"><span class="hs-identifier hs-var">Done</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#State"><span class="hs-identifier hs-type">State</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681046239"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#Finished"><span class="hs-identifier hs-type">Finished</span></a></span></span><span>
+</span><span id="line-92"></span><span>
+</span><span id="line-93"></span><span id="local-6989586621681046128"><span id="local-6989586621681046129"><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#statePhase"><span class="hs-identifier hs-type">statePhase</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#State"><span class="hs-identifier hs-type">State</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681046128"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681046129"><span class="hs-identifier hs-type">phase</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#Stage"><span class="hs-identifier hs-type">Stage</span></a></span></span></span><span>
+</span><span id="line-94"></span><span id="statePhase"><span class="annot"><span class="annottext">statePhase :: forall tx (phase :: Stage). State tx phase -&gt; Stage
+</span><a href="Hydra.HeadLogic.Rules.Input.html#statePhase"><span class="hs-identifier hs-var hs-var">statePhase</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-95"></span><span>  </span><span class="annot"><span class="annottext">State tx phase
+</span><a href="Hydra.HeadLogic.Rules.Input.html#CheckSize"><span class="hs-identifier hs-var">CheckSize</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Stage
+</span><a href="Hydra.HeadLogic.Rules.Input.html#CheckInputSize"><span class="hs-identifier hs-var">CheckInputSize</span></a></span><span>
+</span><span id="line-96"></span><span>  </span><span class="annot"><span class="annottext">State tx phase
+</span><a href="Hydra.HeadLogic.Rules.Input.html#CheckSync"><span class="hs-identifier hs-var">CheckSync</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Stage
+</span><a href="Hydra.HeadLogic.Rules.Input.html#CheckSynchronisation"><span class="hs-identifier hs-var">CheckSynchronisation</span></a></span><span>
+</span><span id="line-97"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#InIdle"><span class="hs-identifier hs-type">InIdle</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Stage
+</span><a href="Hydra.HeadLogic.Rules.Input.html#HandleIdle"><span class="hs-identifier hs-var">HandleIdle</span></a></span><span>
+</span><span id="line-98"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#InOpen"><span class="hs-identifier hs-type">InOpen</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Stage
+</span><a href="Hydra.HeadLogic.Rules.Input.html#HandleOpen"><span class="hs-identifier hs-var">HandleOpen</span></a></span><span>
+</span><span id="line-99"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#InClosed"><span class="hs-identifier hs-type">InClosed</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Stage
+</span><a href="Hydra.HeadLogic.Rules.Input.html#HandleClosed"><span class="hs-identifier hs-var">HandleClosed</span></a></span><span>
+</span><span id="line-100"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#InFanout"><span class="hs-identifier hs-type">InFanout</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Stage
+</span><a href="Hydra.HeadLogic.Rules.Input.html#HandleFanout"><span class="hs-identifier hs-var">HandleFanout</span></a></span><span>
+</span><span id="line-101"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#InFinalized"><span class="hs-identifier hs-type">InFinalized</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Stage
+</span><a href="Hydra.HeadLogic.Rules.Input.html#HandleFinalized"><span class="hs-identifier hs-var">HandleFinalized</span></a></span><span>
+</span><span id="line-102"></span><span>  </span><span class="annot"><span class="annottext">State tx phase
+</span><a href="Hydra.HeadLogic.Rules.Input.html#Done"><span class="hs-identifier hs-var">Done</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Stage
+</span><a href="Hydra.HeadLogic.Rules.Input.html#Finished"><span class="hs-identifier hs-var">Finished</span></a></span><span>
+</span><span id="line-103"></span><span>
+</span><span id="line-104"></span><span class="hs-keyword">data</span><span> </span><span id="Args"><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#Args"><span class="hs-identifier hs-var">Args</span></a></span></span><span> </span><span id="local-6989586621681046141"><span class="annot"><a href="#local-6989586621681046141"><span class="hs-identifier hs-type">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Args"><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#Args"><span class="hs-identifier hs-var">Args</span></a></span></span><span>
+</span><span id="line-105"></span><span>  </span><span class="hs-special">{</span><span> </span><span id="%24sel%3Aenv%3AArgs"><span class="annot"><span class="annottext">forall tx. Args tx -&gt; RuleEnvironment
+</span><a href="Hydra.HeadLogic.Rules.Input.html#%24sel%3Aenv%3AArgs"><span class="hs-identifier hs-var hs-var">env</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">~</span><span class="annot"><a href="Hydra.HeadLogic.Rules.Environment.html#RuleEnvironment"><span class="hs-identifier hs-type">RuleEnvironment</span></a></span><span>
+</span><span id="line-106"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3Anow%3AArgs"><span class="annot"><span class="annottext">forall tx. Args tx -&gt; UTCTime
+</span><a href="Hydra.HeadLogic.Rules.Input.html#%24sel%3Anow%3AArgs"><span class="hs-identifier hs-var hs-var">now</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">~</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Clock.Internal.UTCTime.html#UTCTime"><span class="hs-identifier hs-type">UTCTime</span></a></span><span>
+</span><span id="line-107"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AnodeState%3AArgs"><span class="annot"><span class="annottext">forall tx. Args tx -&gt; NodeState tx
+</span><a href="Hydra.HeadLogic.Rules.Input.html#%24sel%3AnodeState%3AArgs"><span class="hs-identifier hs-var hs-var">nodeState</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">~</span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Node.State.html#NodeState"><span class="hs-identifier hs-type">NodeState</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681046141"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-108"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3Ainput%3AArgs"><span class="annot"><span class="annottext">forall tx. Args tx -&gt; Input tx
+</span><a href="Hydra.HeadLogic.Rules.Input.html#%24sel%3Ainput%3AArgs"><span class="hs-identifier hs-var hs-var">input</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-glyph">~</span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.Input.html#Input"><span class="hs-identifier hs-type">Input</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681046141"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-109"></span><span>  </span><span class="hs-special">}</span><span>
+</span><span id="line-110"></span><span>
+</span><span id="line-111"></span><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#workflow"><span class="hs-identifier hs-type">workflow</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-keyword">forall</span><span> </span><span id="local-6989586621681046151"><span class="annot"><a href="#local-6989586621681046151"><span class="hs-identifier hs-type">tx</span></a></span></span><span class="hs-operator">.</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IsChainState</span></span><span> </span><span class="annot"><a href="#local-6989586621681046151"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#Args"><span class="hs-identifier hs-type">Args</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681046151"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Workflow.html#Workflow"><span class="hs-identifier hs-type">Workflow</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681046151"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#InputTopology"><span class="hs-identifier hs-type">InputTopology</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-112"></span><span id="workflow"><span class="annot"><span class="annottext">workflow :: forall tx.
+IsChainState tx =&gt;
+Args tx -&gt; Workflow tx InputTopology ()
+</span><a href="Hydra.HeadLogic.Rules.Input.html#workflow"><span class="hs-identifier hs-var hs-var">workflow</span></a></span></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#Args"><span class="hs-identifier hs-type">Args</span></a></span><span class="hs-special">{</span><span id="local-6989586621681046400"><span id="local-6989586621681046401"><span id="local-6989586621681046402"><span id="local-6989586621681046403"><span class="annot"><span class="annottext">UTCTime
+Input tx
+NodeState tx
+RuleEnvironment
+$sel:env:Args :: forall tx. Args tx -&gt; RuleEnvironment
+$sel:now:Args :: forall tx. Args tx -&gt; UTCTime
+$sel:nodeState:Args :: forall tx. Args tx -&gt; NodeState tx
+$sel:input:Args :: forall tx. Args tx -&gt; Input tx
+env :: RuleEnvironment
+now :: UTCTime
+nodeState :: NodeState tx
+input :: Input tx
+</span><a href="Hydra.HeadLogic.Rules.Input.html#%24sel%3Aenv%3AArgs"><span class="hs-glyph hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">..</span></a></span></span></span></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(forall (phase :: Stage). State tx phase -&gt; Text)
+-&gt; State tx 'CheckInputSize
+-&gt; (forall (from :: Stage).
+    State tx from -&gt; Transition tx InputTopology (State tx) from ())
+-&gt; Workflow tx InputTopology ()
+forall {k} (state :: k -&gt; *) (initial :: k) tx
+       (topology :: Topology k) result.
+(forall (phase :: k). state phase -&gt; Text)
+-&gt; state initial
+-&gt; (forall (from :: k).
+    state from -&gt; Transition tx topology state from result)
+-&gt; Workflow tx topology result
+</span><a href="Hydra.HeadLogic.Workflow.html#workflow"><span class="hs-identifier hs-var">Workflow.workflow</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Stage -&gt; Text
+forall b a. (Show a, IsString b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">show</span></span><span> </span><span class="annot"><span class="annottext">(Stage -&gt; Text)
+-&gt; (State tx phase -&gt; Stage) -&gt; State tx phase -&gt; Text
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">State tx phase -&gt; Stage
+forall tx (phase :: Stage). State tx phase -&gt; Stage
+</span><a href="Hydra.HeadLogic.Rules.Input.html#statePhase"><span class="hs-identifier hs-var">statePhase</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">State tx 'CheckInputSize
+forall tx. State tx 'CheckInputSize
+</span><a href="Hydra.HeadLogic.Rules.Input.html#CheckSize"><span class="hs-identifier hs-var">CheckSize</span></a></span><span> </span><span class="annot"><span class="annottext">State tx from -&gt; Transition tx InputTopology (State tx) from ()
+forall (from :: Stage).
+State tx from -&gt; Transition tx InputTopology (State tx) from ()
+</span><a href="#local-6989586621681046408"><span class="hs-identifier hs-var">step</span></a></span><span>
+</span><span id="line-113"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-114"></span><span>  </span><span id="local-6989586621681046409"><span class="annot"><a href="#local-6989586621681046408"><span class="hs-identifier hs-type">step</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#State"><span class="hs-identifier hs-type">State</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681046151"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681046409"><span class="hs-identifier hs-type">from</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Workflow.html#Transition"><span class="hs-identifier hs-type">Transition</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681046151"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#InputTopology"><span class="hs-identifier hs-type">InputTopology</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#State"><span class="hs-identifier hs-type">State</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681046151"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="#local-6989586621681046409"><span class="hs-identifier hs-type">from</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-115"></span><span>  </span><span id="local-6989586621681046408"><span class="annot"><span class="annottext">step :: forall (from :: Stage).
+State tx from -&gt; Transition tx InputTopology (State tx) from ()
+</span><a href="#local-6989586621681046408"><span class="hs-identifier hs-var hs-var">step</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-116"></span><span>    </span><span class="annot"><span class="annottext">State tx from
+</span><a href="Hydra.HeadLogic.Rules.Input.html#CheckSize"><span class="hs-identifier hs-var">CheckSize</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(() -&gt; State tx 'CheckSynchronisation)
+-&gt; Program tx () -&gt; Transition tx InputTopology (State tx) from ()
+forall {vertex} (topology :: Topology vertex) (from :: vertex)
+       (to :: vertex) reply (state :: vertex -&gt; *) tx result.
+AllowedTransition topology from to =&gt;
+(reply -&gt; state to)
+-&gt; Program tx reply -&gt; Transition tx topology state from result
+</span><a href="Hydra.HeadLogic.Workflow.html#continue"><span class="hs-identifier hs-var">continue</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">State tx 'CheckSynchronisation
+-&gt; () -&gt; State tx 'CheckSynchronisation
+forall a b. a -&gt; b -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#const"><span class="hs-identifier hs-var">const</span></a></span><span> </span><span class="annot"><span class="annottext">State tx 'CheckSynchronisation
+forall tx. State tx 'CheckSynchronisation
+</span><a href="Hydra.HeadLogic.Rules.Input.html#CheckSync"><span class="hs-identifier hs-var">CheckSync</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Program tx () -&gt; Transition tx InputTopology (State tx) from ())
+-&gt; Program tx () -&gt; Transition tx InputTopology (State tx) from ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Input tx
+</span><a href="#local-6989586621681046403"><span class="hs-identifier hs-var">input</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-117"></span><span>      </span><span class="annot"><a href="Hydra.HeadLogic.Input.html#ClientInput"><span class="hs-identifier hs-type">ClientInput</span></a></span><span> </span><span id="local-6989586621681046426"><span class="annot"><span class="annottext">ClientInput tx
+</span><a href="#local-6989586621681046426"><span class="hs-identifier hs-var">clientInput</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-118"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621681046427"><span class="annot"><span class="annottext">sizeCheck :: Either AccumulatorTooLarge (ClientInput tx)
+</span><a href="#local-6989586621681046427"><span class="hs-identifier hs-var hs-var">sizeCheck</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SnapshotLimits
+-&gt; ClientInput tx -&gt; Either AccumulatorTooLarge (ClientInput tx)
+forall tx.
+IsTx tx =&gt;
+SnapshotLimits
+-&gt; ClientInput tx -&gt; Either AccumulatorTooLarge (ClientInput tx)
+</span><a href="Hydra.API.ClientInput.html#validateClientInputWith"><span class="hs-identifier hs-var">validateClientInputWith</span></a></span><span> </span><span class="annot"><span class="annottext">RuleEnvironment
+</span><a href="#local-6989586621681046400"><span class="hs-identifier hs-var">env</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">snapshotLimits</span><span> </span><span class="annot"><span class="annottext">ClientInput tx
+</span><a href="#local-6989586621681046426"><span class="hs-identifier hs-var">clientInput</span></a></span><span>
+</span><span id="line-119"></span><span>        </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Either AccumulatorTooLarge (ClientInput tx)
+</span><a href="#local-6989586621681046427"><span class="hs-identifier hs-var">sizeCheck</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-120"></span><span>          </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Left"><span class="hs-identifier hs-type">Left</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">AccumulatorTooLarge</span></span><span class="hs-special">{</span><span id="local-6989586621681046429"><span class="annot"><span class="annottext">Int
+utxoCount :: Int
+$sel:utxoCount:AccumulatorTooLarge :: AccumulatorTooLarge -&gt; Int
+</span><a href="#local-6989586621681046429"><span class="hs-identifier hs-var hs-var">utxoCount</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681046431"><span class="annot"><span class="annottext">Int
+maxAllowed :: Int
+$sel:maxAllowed:AccumulatorTooLarge :: AccumulatorTooLarge -&gt; Int
+</span><a href="#local-6989586621681046431"><span class="hs-identifier hs-var hs-var">maxAllowed</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-121"></span><span>            </span><span class="annot"><span class="annottext">Program tx Bool -&gt; Program tx ()
+forall (f :: * -&gt; *) a. Functor f =&gt; f a -&gt; f ()
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#void"><span class="hs-identifier hs-var">void</span></a></span><span> </span><span class="annot"><span class="annottext">(Program tx Bool -&gt; Program tx ())
+-&gt; Program tx Bool -&gt; Program tx ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Bool -&gt; Program tx Bool
+forall tx. Text -&gt; Bool -&gt; Program tx Bool
+</span><a href="Hydra.HeadLogic.Program.html#traceB"><span class="hs-identifier hs-var">traceB</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;client input fits the accumulator&quot;</span></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#False"><span class="hs-identifier hs-var">False</span></a></span><span>
+</span><span id="line-122"></span><span>            </span><span class="annot"><span class="annottext">LogicError tx -&gt; Program tx ()
+forall tx a. LogicError tx -&gt; Program tx a
+</span><a href="Hydra.HeadLogic.Program.html#reject"><span class="hs-identifier hs-var">reject</span></a></span><span> </span><span class="annot"><span class="annottext">(LogicError tx -&gt; Program tx ()) -&gt; LogicError tx -&gt; Program tx ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">SideLoadRequirementFailure tx -&gt; LogicError tx
+forall tx. SideLoadRequirementFailure tx -&gt; LogicError tx
+</span><a href="Hydra.HeadLogic.Error.html#SideLoadSnapshotFailed"><span class="hs-identifier hs-var">SideLoadSnapshotFailed</span></a></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Error.html#SideLoadUTxOSetTooLarge"><span class="hs-identifier hs-type">SideLoadUTxOSetTooLarge</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">Int
+utxoCount :: Int
+$sel:utxoCount:SideLoadInitialSnapshotMismatch :: Int
+</span><a href="#local-6989586621681046429"><span class="hs-identifier hs-var hs-var">utxoCount</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Int
+maxAllowed :: Int
+$sel:maxAllowed:SideLoadInitialSnapshotMismatch :: Int
+</span><a href="#local-6989586621681046431"><span class="hs-identifier hs-var hs-var">maxAllowed</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-123"></span><span>          </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Right"><span class="hs-identifier hs-type">Right</span></a></span><span> </span><span class="annot"><span class="annottext">ClientInput tx
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Program tx Bool -&gt; Program tx ()
+forall (f :: * -&gt; *) a. Functor f =&gt; f a -&gt; f ()
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#void"><span class="hs-identifier hs-var">void</span></a></span><span> </span><span class="annot"><span class="annottext">(Program tx Bool -&gt; Program tx ())
+-&gt; Program tx Bool -&gt; Program tx ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Bool -&gt; Program tx Bool
+forall tx. Text -&gt; Bool -&gt; Program tx Bool
+</span><a href="Hydra.HeadLogic.Program.html#traceB"><span class="hs-identifier hs-var">traceB</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;client input fits the accumulator&quot;</span></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#True"><span class="hs-identifier hs-var">True</span></a></span><span>
+</span><span id="line-124"></span><span>      </span><span class="annot"><span class="annottext">Input tx
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">() -&gt; Program tx ()
+forall a. a -&gt; Program tx a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-125"></span><span>    </span><span class="annot"><span class="annottext">State tx from
+</span><a href="Hydra.HeadLogic.Rules.Input.html#CheckSync"><span class="hs-identifier hs-var">CheckSync</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SyncedStatus
+</span><a href="#local-6989586621681046484"><span class="hs-identifier hs-var">syncStatus</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Input tx
+</span><a href="#local-6989586621681046403"><span class="hs-identifier hs-var">input</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-126"></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SyncedStatus
+</span><a href="Hydra.Node.State.html#CatchingUp"><span class="hs-identifier hs-var">CatchingUp</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Input.html#ClientInput"><span class="hs-identifier hs-type">ClientInput</span></a></span><span> </span><span id="local-6989586621681046486"><span class="annot"><span class="annottext">ClientInput tx
+</span><a href="#local-6989586621681046486"><span class="hs-identifier hs-var">clientInput</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(() -&gt; State tx 'Finished)
+-&gt; Program tx () -&gt; Transition tx InputTopology (State tx) from ()
+forall {vertex} (topology :: Topology vertex) (from :: vertex)
+       (to :: vertex) reply (state :: vertex -&gt; *) tx result.
+AllowedTransition topology from to =&gt;
+(reply -&gt; state to)
+-&gt; Program tx reply -&gt; Transition tx topology state from result
+</span><a href="Hydra.HeadLogic.Workflow.html#continue"><span class="hs-identifier hs-var">continue</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">State tx 'Finished -&gt; () -&gt; State tx 'Finished
+forall a b. a -&gt; b -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#const"><span class="hs-identifier hs-var">const</span></a></span><span> </span><span class="annot"><span class="annottext">State tx 'Finished
+forall tx. State tx 'Finished
+</span><a href="Hydra.HeadLogic.Rules.Input.html#Done"><span class="hs-identifier hs-var">Done</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Program tx () -&gt; Transition tx InputTopology (State tx) from ())
+-&gt; Program tx () -&gt; Transition tx InputTopology (State tx) from ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-127"></span><span>        </span><span class="annot"><span class="annottext">Program tx Bool -&gt; Program tx ()
+forall (f :: * -&gt; *) a. Functor f =&gt; f a -&gt; f ()
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#void"><span class="hs-identifier hs-var">void</span></a></span><span> </span><span class="annot"><span class="annottext">(Program tx Bool -&gt; Program tx ())
+-&gt; Program tx Bool -&gt; Program tx ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Bool -&gt; Program tx Bool
+forall tx. Text -&gt; Bool -&gt; Program tx Bool
+</span><a href="Hydra.HeadLogic.Program.html#traceB"><span class="hs-identifier hs-var">traceB</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;node is in sync&quot;</span></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#False"><span class="hs-identifier hs-var">False</span></a></span><span>
+</span><span id="line-128"></span><span>        </span><span class="annot"><span class="annottext">Effect tx -&gt; Program tx ()
+forall tx. Effect tx -&gt; Program tx ()
+</span><a href="Hydra.HeadLogic.Program.html#emit"><span class="hs-identifier hs-var">emit</span></a></span><span> </span><span class="annot"><span class="annottext">(Effect tx -&gt; Program tx ()) -&gt; Effect tx -&gt; Program tx ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">ClientMessage tx -&gt; Effect tx
+forall tx. ClientMessage tx -&gt; Effect tx
+</span><a href="Hydra.HeadLogic.Outcome.html#ClientEffect"><span class="hs-identifier hs-var">ClientEffect</span></a></span><span> </span><span class="annot"><span class="annottext">(ClientMessage tx -&gt; Effect tx) -&gt; ClientMessage tx -&gt; Effect tx
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">ClientInput tx -&gt; NominalDiffTime -&gt; ClientMessage tx
+forall tx. ClientInput tx -&gt; NominalDiffTime -&gt; ClientMessage tx
+</span><a href="Hydra.API.ServerOutput.html#RejectedInputBecauseUnsynced"><span class="hs-identifier hs-var">ServerOutput.RejectedInputBecauseUnsynced</span></a></span><span> </span><span class="annot"><span class="annottext">ClientInput tx
+</span><a href="#local-6989586621681046486"><span class="hs-identifier hs-var">clientInput</span></a></span><span> </span><span class="annot"><span class="annottext">ChainPointTime
+</span><a href="#local-6989586621681046488"><span class="hs-identifier hs-var">chainTime</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">drift</span><span>
+</span><span id="line-129"></span><span>      </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SyncedStatus
+</span><a href="Hydra.Node.State.html#CatchingUp"><span class="hs-identifier hs-var">CatchingUp</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Input.html#NetworkInput"><span class="hs-identifier hs-type">NetworkInput</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(Any -&gt; State tx 'Finished)
+-&gt; Program tx Any -&gt; Transition tx InputTopology (State tx) from ()
+forall {vertex} (topology :: Topology vertex) (from :: vertex)
+       (to :: vertex) reply (state :: vertex -&gt; *) tx result.
+AllowedTransition topology from to =&gt;
+(reply -&gt; state to)
+-&gt; Program tx reply -&gt; Transition tx topology state from result
+</span><a href="Hydra.HeadLogic.Workflow.html#continue"><span class="hs-identifier hs-var">continue</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">State tx 'Finished -&gt; Any -&gt; State tx 'Finished
+forall a b. a -&gt; b -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#const"><span class="hs-identifier hs-var">const</span></a></span><span> </span><span class="annot"><span class="annottext">State tx 'Finished
+forall tx. State tx 'Finished
+</span><a href="Hydra.HeadLogic.Rules.Input.html#Done"><span class="hs-identifier hs-var">Done</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Program tx Any -&gt; Transition tx InputTopology (State tx) from ())
+-&gt; Program tx Any -&gt; Transition tx InputTopology (State tx) from ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-130"></span><span>        </span><span class="annot"><span class="annottext">Program tx Bool -&gt; Program tx ()
+forall (f :: * -&gt; *) a. Functor f =&gt; f a -&gt; f ()
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#void"><span class="hs-identifier hs-var">void</span></a></span><span> </span><span class="annot"><span class="annottext">(Program tx Bool -&gt; Program tx ())
+-&gt; Program tx Bool -&gt; Program tx ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Bool -&gt; Program tx Bool
+forall tx. Text -&gt; Bool -&gt; Program tx Bool
+</span><a href="Hydra.HeadLogic.Program.html#traceB"><span class="hs-identifier hs-var">traceB</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;node is in sync&quot;</span></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#False"><span class="hs-identifier hs-var">False</span></a></span><span>
+</span><span id="line-131"></span><span>        </span><span class="annot"><span class="annottext">WaitReason tx -&gt; Program tx Any
+forall tx a. WaitReason tx -&gt; Program tx a
+</span><a href="Hydra.HeadLogic.Program.html#suspend"><span class="hs-identifier hs-var">suspend</span></a></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#WaitOnNodeInSync"><span class="hs-identifier hs-type">WaitOnNodeInSync</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:currentSlot:WaitOnNotApplicableTx :: ChainSlot
+</span><a href="#local-6989586621681046491"><span class="hs-identifier hs-var">currentSlot</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ChainPointTime
+</span><a href="#local-6989586621681046488"><span class="hs-identifier hs-var">chainTime</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">currentSlot</span><span class="hs-special">}</span><span>
+</span><span id="line-132"></span><span>      </span><span class="annot"><span class="annottext">(SyncedStatus, Input tx)
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">NodeState tx
+</span><a href="#local-6989586621681046402"><span class="hs-identifier hs-var">nodeState</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">headState</span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-133"></span><span>        </span><span class="annot"><a href="Hydra.HeadLogic.State.html#Idle"><span class="hs-identifier hs-type">Idle</span></a></span><span> </span><span id="local-6989586621681046492"><span class="annot"><span class="annottext">IdleState tx
+</span><a href="#local-6989586621681046492"><span class="hs-identifier hs-var">st</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(() -&gt; State tx 'HandleIdle)
+-&gt; Program tx () -&gt; Transition tx InputTopology (State tx) from ()
+forall {vertex} (topology :: Topology vertex) (from :: vertex)
+       (to :: vertex) reply (state :: vertex -&gt; *) tx result.
+AllowedTransition topology from to =&gt;
+(reply -&gt; state to)
+-&gt; Program tx reply -&gt; Transition tx topology state from result
+</span><a href="Hydra.HeadLogic.Workflow.html#continue"><span class="hs-identifier hs-var">continue</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">State tx 'HandleIdle -&gt; () -&gt; State tx 'HandleIdle
+forall a b. a -&gt; b -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#const"><span class="hs-identifier hs-var">const</span></a></span><span> </span><span class="annot"><span class="annottext">(State tx 'HandleIdle -&gt; () -&gt; State tx 'HandleIdle)
+-&gt; State tx 'HandleIdle -&gt; () -&gt; State tx 'HandleIdle
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">IdleState tx -&gt; State tx 'HandleIdle
+forall tx. IdleState tx -&gt; State tx 'HandleIdle
+</span><a href="Hydra.HeadLogic.Rules.Input.html#InIdle"><span class="hs-identifier hs-var">InIdle</span></a></span><span> </span><span class="annot"><span class="annottext">IdleState tx
+</span><a href="#local-6989586621681046492"><span class="hs-identifier hs-var">st</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Program tx ()
+</span><a href="#local-6989586621681046493"><span class="hs-identifier hs-var">admitted</span></a></span><span>
+</span><span id="line-134"></span><span>        </span><span class="annot"><a href="Hydra.HeadLogic.State.html#Open"><span class="hs-identifier hs-type">Open</span></a></span><span> </span><span id="local-6989586621681046494"><span class="annot"><span class="annottext">OpenState tx
+</span><a href="#local-6989586621681046494"><span class="hs-identifier hs-var">st</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(() -&gt; State tx 'HandleOpen)
+-&gt; Program tx () -&gt; Transition tx InputTopology (State tx) from ()
+forall {vertex} (topology :: Topology vertex) (from :: vertex)
+       (to :: vertex) reply (state :: vertex -&gt; *) tx result.
+AllowedTransition topology from to =&gt;
+(reply -&gt; state to)
+-&gt; Program tx reply -&gt; Transition tx topology state from result
+</span><a href="Hydra.HeadLogic.Workflow.html#continue"><span class="hs-identifier hs-var">continue</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">State tx 'HandleOpen -&gt; () -&gt; State tx 'HandleOpen
+forall a b. a -&gt; b -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#const"><span class="hs-identifier hs-var">const</span></a></span><span> </span><span class="annot"><span class="annottext">(State tx 'HandleOpen -&gt; () -&gt; State tx 'HandleOpen)
+-&gt; State tx 'HandleOpen -&gt; () -&gt; State tx 'HandleOpen
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">OpenState tx -&gt; State tx 'HandleOpen
+forall tx. OpenState tx -&gt; State tx 'HandleOpen
+</span><a href="Hydra.HeadLogic.Rules.Input.html#InOpen"><span class="hs-identifier hs-var">InOpen</span></a></span><span> </span><span class="annot"><span class="annottext">OpenState tx
+</span><a href="#local-6989586621681046494"><span class="hs-identifier hs-var">st</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Program tx ()
+</span><a href="#local-6989586621681046493"><span class="hs-identifier hs-var">admitted</span></a></span><span>
+</span><span id="line-135"></span><span>        </span><span class="annot"><a href="Hydra.HeadLogic.State.html#Closed"><span class="hs-identifier hs-type">Closed</span></a></span><span> </span><span id="local-6989586621681046495"><span class="annot"><span class="annottext">ClosedState tx
+</span><a href="#local-6989586621681046495"><span class="hs-identifier hs-var">st</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(() -&gt; State tx 'HandleClosed)
+-&gt; Program tx () -&gt; Transition tx InputTopology (State tx) from ()
+forall {vertex} (topology :: Topology vertex) (from :: vertex)
+       (to :: vertex) reply (state :: vertex -&gt; *) tx result.
+AllowedTransition topology from to =&gt;
+(reply -&gt; state to)
+-&gt; Program tx reply -&gt; Transition tx topology state from result
+</span><a href="Hydra.HeadLogic.Workflow.html#continue"><span class="hs-identifier hs-var">continue</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">State tx 'HandleClosed -&gt; () -&gt; State tx 'HandleClosed
+forall a b. a -&gt; b -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#const"><span class="hs-identifier hs-var">const</span></a></span><span> </span><span class="annot"><span class="annottext">(State tx 'HandleClosed -&gt; () -&gt; State tx 'HandleClosed)
+-&gt; State tx 'HandleClosed -&gt; () -&gt; State tx 'HandleClosed
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">ClosedState tx -&gt; State tx 'HandleClosed
+forall tx. ClosedState tx -&gt; State tx 'HandleClosed
+</span><a href="Hydra.HeadLogic.Rules.Input.html#InClosed"><span class="hs-identifier hs-var">InClosed</span></a></span><span> </span><span class="annot"><span class="annottext">ClosedState tx
+</span><a href="#local-6989586621681046495"><span class="hs-identifier hs-var">st</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Program tx ()
+</span><a href="#local-6989586621681046493"><span class="hs-identifier hs-var">admitted</span></a></span><span>
+</span><span id="line-136"></span><span>        </span><span class="annot"><a href="Hydra.HeadLogic.State.html#FanoutProgress"><span class="hs-identifier hs-type">FanoutProgress</span></a></span><span> </span><span id="local-6989586621681046496"><span class="annot"><span class="annottext">PartialFanoutState tx
+</span><a href="#local-6989586621681046496"><span class="hs-identifier hs-var">st</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(() -&gt; State tx 'HandleFanout)
+-&gt; Program tx () -&gt; Transition tx InputTopology (State tx) from ()
+forall {vertex} (topology :: Topology vertex) (from :: vertex)
+       (to :: vertex) reply (state :: vertex -&gt; *) tx result.
+AllowedTransition topology from to =&gt;
+(reply -&gt; state to)
+-&gt; Program tx reply -&gt; Transition tx topology state from result
+</span><a href="Hydra.HeadLogic.Workflow.html#continue"><span class="hs-identifier hs-var">continue</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">State tx 'HandleFanout -&gt; () -&gt; State tx 'HandleFanout
+forall a b. a -&gt; b -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#const"><span class="hs-identifier hs-var">const</span></a></span><span> </span><span class="annot"><span class="annottext">(State tx 'HandleFanout -&gt; () -&gt; State tx 'HandleFanout)
+-&gt; State tx 'HandleFanout -&gt; () -&gt; State tx 'HandleFanout
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">PartialFanoutState tx -&gt; State tx 'HandleFanout
+forall tx. PartialFanoutState tx -&gt; State tx 'HandleFanout
+</span><a href="Hydra.HeadLogic.Rules.Input.html#InFanout"><span class="hs-identifier hs-var">InFanout</span></a></span><span> </span><span class="annot"><span class="annottext">PartialFanoutState tx
+</span><a href="#local-6989586621681046496"><span class="hs-identifier hs-var">st</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Program tx ()
+</span><a href="#local-6989586621681046493"><span class="hs-identifier hs-var">admitted</span></a></span><span>
+</span><span id="line-137"></span><span>        </span><span class="annot"><a href="Hydra.HeadLogic.State.html#Finalized"><span class="hs-identifier hs-type">Finalized</span></a></span><span> </span><span id="local-6989586621681046497"><span class="annot"><span class="annottext">FinalizedState tx
+</span><a href="#local-6989586621681046497"><span class="hs-identifier hs-var">st</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(() -&gt; State tx 'HandleFinalized)
+-&gt; Program tx () -&gt; Transition tx InputTopology (State tx) from ()
+forall {vertex} (topology :: Topology vertex) (from :: vertex)
+       (to :: vertex) reply (state :: vertex -&gt; *) tx result.
+AllowedTransition topology from to =&gt;
+(reply -&gt; state to)
+-&gt; Program tx reply -&gt; Transition tx topology state from result
+</span><a href="Hydra.HeadLogic.Workflow.html#continue"><span class="hs-identifier hs-var">continue</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">State tx 'HandleFinalized -&gt; () -&gt; State tx 'HandleFinalized
+forall a b. a -&gt; b -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#const"><span class="hs-identifier hs-var">const</span></a></span><span> </span><span class="annot"><span class="annottext">(State tx 'HandleFinalized -&gt; () -&gt; State tx 'HandleFinalized)
+-&gt; State tx 'HandleFinalized -&gt; () -&gt; State tx 'HandleFinalized
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">FinalizedState tx -&gt; State tx 'HandleFinalized
+forall tx. FinalizedState tx -&gt; State tx 'HandleFinalized
+</span><a href="Hydra.HeadLogic.Rules.Input.html#InFinalized"><span class="hs-identifier hs-var">InFinalized</span></a></span><span> </span><span class="annot"><span class="annottext">FinalizedState tx
+</span><a href="#local-6989586621681046497"><span class="hs-identifier hs-var">st</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Program tx ()
+</span><a href="#local-6989586621681046493"><span class="hs-identifier hs-var">admitted</span></a></span><span>
+</span><span id="line-138"></span><span>    </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#InIdle"><span class="hs-identifier hs-type">InIdle</span></a></span><span> </span><span id="local-6989586621681046503"><span class="annot"><span class="annottext">IdleState tx
+</span><a href="#local-6989586621681046503"><span class="hs-identifier hs-var">st</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(() -&gt; State tx 'Finished)
+-&gt; Program tx () -&gt; Transition tx InputTopology (State tx) from ()
+forall {vertex} (topology :: Topology vertex) (from :: vertex)
+       (to :: vertex) reply (state :: vertex -&gt; *) tx result.
+AllowedTransition topology from to =&gt;
+(reply -&gt; state to)
+-&gt; Program tx reply -&gt; Transition tx topology state from result
+</span><a href="Hydra.HeadLogic.Workflow.html#continue"><span class="hs-identifier hs-var">continue</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">State tx 'Finished -&gt; () -&gt; State tx 'Finished
+forall a b. a -&gt; b -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#const"><span class="hs-identifier hs-var">const</span></a></span><span> </span><span class="annot"><span class="annottext">State tx 'Finished
+forall tx. State tx 'Finished
+</span><a href="Hydra.HeadLogic.Rules.Input.html#Done"><span class="hs-identifier hs-var">Done</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Program tx () -&gt; Transition tx InputTopology (State tx) from ())
+-&gt; Program tx () -&gt; Transition tx InputTopology (State tx) from ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">HeadState tx -&gt; Program tx ()
+</span><a href="#local-6989586621681046504"><span class="hs-identifier hs-var">dispatch</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">IdleState tx -&gt; HeadState tx
+forall tx. IdleState tx -&gt; HeadState tx
+</span><a href="Hydra.HeadLogic.State.html#Idle"><span class="hs-identifier hs-var">Idle</span></a></span><span> </span><span class="annot"><span class="annottext">IdleState tx
+</span><a href="#local-6989586621681046503"><span class="hs-identifier hs-var">st</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-139"></span><span>    </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#InOpen"><span class="hs-identifier hs-type">InOpen</span></a></span><span> </span><span id="local-6989586621681046511"><span class="annot"><span class="annottext">OpenState tx
+</span><a href="#local-6989586621681046511"><span class="hs-identifier hs-var">st</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(() -&gt; State tx 'Finished)
+-&gt; Program tx () -&gt; Transition tx InputTopology (State tx) from ()
+forall {vertex} (topology :: Topology vertex) (from :: vertex)
+       (to :: vertex) reply (state :: vertex -&gt; *) tx result.
+AllowedTransition topology from to =&gt;
+(reply -&gt; state to)
+-&gt; Program tx reply -&gt; Transition tx topology state from result
+</span><a href="Hydra.HeadLogic.Workflow.html#continue"><span class="hs-identifier hs-var">continue</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">State tx 'Finished -&gt; () -&gt; State tx 'Finished
+forall a b. a -&gt; b -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#const"><span class="hs-identifier hs-var">const</span></a></span><span> </span><span class="annot"><span class="annottext">State tx 'Finished
+forall tx. State tx 'Finished
+</span><a href="Hydra.HeadLogic.Rules.Input.html#Done"><span class="hs-identifier hs-var">Done</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Program tx () -&gt; Transition tx InputTopology (State tx) from ())
+-&gt; Program tx () -&gt; Transition tx InputTopology (State tx) from ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">HeadState tx -&gt; Program tx ()
+</span><a href="#local-6989586621681046504"><span class="hs-identifier hs-var">dispatch</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">OpenState tx -&gt; HeadState tx
+forall tx. OpenState tx -&gt; HeadState tx
+</span><a href="Hydra.HeadLogic.State.html#Open"><span class="hs-identifier hs-var">Open</span></a></span><span> </span><span class="annot"><span class="annottext">OpenState tx
+</span><a href="#local-6989586621681046511"><span class="hs-identifier hs-var">st</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-140"></span><span>    </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#InClosed"><span class="hs-identifier hs-type">InClosed</span></a></span><span> </span><span id="local-6989586621681046519"><span class="annot"><span class="annottext">ClosedState tx
+</span><a href="#local-6989586621681046519"><span class="hs-identifier hs-var">st</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(() -&gt; State tx 'Finished)
+-&gt; Program tx () -&gt; Transition tx InputTopology (State tx) from ()
+forall {vertex} (topology :: Topology vertex) (from :: vertex)
+       (to :: vertex) reply (state :: vertex -&gt; *) tx result.
+AllowedTransition topology from to =&gt;
+(reply -&gt; state to)
+-&gt; Program tx reply -&gt; Transition tx topology state from result
+</span><a href="Hydra.HeadLogic.Workflow.html#continue"><span class="hs-identifier hs-var">continue</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">State tx 'Finished -&gt; () -&gt; State tx 'Finished
+forall a b. a -&gt; b -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#const"><span class="hs-identifier hs-var">const</span></a></span><span> </span><span class="annot"><span class="annottext">State tx 'Finished
+forall tx. State tx 'Finished
+</span><a href="Hydra.HeadLogic.Rules.Input.html#Done"><span class="hs-identifier hs-var">Done</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Program tx () -&gt; Transition tx InputTopology (State tx) from ())
+-&gt; Program tx () -&gt; Transition tx InputTopology (State tx) from ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">HeadState tx -&gt; Program tx ()
+</span><a href="#local-6989586621681046504"><span class="hs-identifier hs-var">dispatch</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ClosedState tx -&gt; HeadState tx
+forall tx. ClosedState tx -&gt; HeadState tx
+</span><a href="Hydra.HeadLogic.State.html#Closed"><span class="hs-identifier hs-var">Closed</span></a></span><span> </span><span class="annot"><span class="annottext">ClosedState tx
+</span><a href="#local-6989586621681046519"><span class="hs-identifier hs-var">st</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-141"></span><span>    </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#InFanout"><span class="hs-identifier hs-type">InFanout</span></a></span><span> </span><span id="local-6989586621681046528"><span class="annot"><span class="annottext">PartialFanoutState tx
+</span><a href="#local-6989586621681046528"><span class="hs-identifier hs-var">st</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(() -&gt; State tx 'Finished)
+-&gt; Program tx () -&gt; Transition tx InputTopology (State tx) from ()
+forall {vertex} (topology :: Topology vertex) (from :: vertex)
+       (to :: vertex) reply (state :: vertex -&gt; *) tx result.
+AllowedTransition topology from to =&gt;
+(reply -&gt; state to)
+-&gt; Program tx reply -&gt; Transition tx topology state from result
+</span><a href="Hydra.HeadLogic.Workflow.html#continue"><span class="hs-identifier hs-var">continue</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">State tx 'Finished -&gt; () -&gt; State tx 'Finished
+forall a b. a -&gt; b -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#const"><span class="hs-identifier hs-var">const</span></a></span><span> </span><span class="annot"><span class="annottext">State tx 'Finished
+forall tx. State tx 'Finished
+</span><a href="Hydra.HeadLogic.Rules.Input.html#Done"><span class="hs-identifier hs-var">Done</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Program tx () -&gt; Transition tx InputTopology (State tx) from ())
+-&gt; Program tx () -&gt; Transition tx InputTopology (State tx) from ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">HeadState tx -&gt; Program tx ()
+</span><a href="#local-6989586621681046504"><span class="hs-identifier hs-var">dispatch</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">PartialFanoutState tx -&gt; HeadState tx
+forall tx. PartialFanoutState tx -&gt; HeadState tx
+</span><a href="Hydra.HeadLogic.State.html#FanoutProgress"><span class="hs-identifier hs-var">FanoutProgress</span></a></span><span> </span><span class="annot"><span class="annottext">PartialFanoutState tx
+</span><a href="#local-6989586621681046528"><span class="hs-identifier hs-var">st</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-142"></span><span>    </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Input.html#InFinalized"><span class="hs-identifier hs-type">InFinalized</span></a></span><span> </span><span id="local-6989586621681046538"><span class="annot"><span class="annottext">FinalizedState tx
+</span><a href="#local-6989586621681046538"><span class="hs-identifier hs-var">st</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(() -&gt; State tx 'Finished)
+-&gt; Program tx () -&gt; Transition tx InputTopology (State tx) from ()
+forall {vertex} (topology :: Topology vertex) (from :: vertex)
+       (to :: vertex) reply (state :: vertex -&gt; *) tx result.
+AllowedTransition topology from to =&gt;
+(reply -&gt; state to)
+-&gt; Program tx reply -&gt; Transition tx topology state from result
+</span><a href="Hydra.HeadLogic.Workflow.html#continue"><span class="hs-identifier hs-var">continue</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">State tx 'Finished -&gt; () -&gt; State tx 'Finished
+forall a b. a -&gt; b -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#const"><span class="hs-identifier hs-var">const</span></a></span><span> </span><span class="annot"><span class="annottext">State tx 'Finished
+forall tx. State tx 'Finished
+</span><a href="Hydra.HeadLogic.Rules.Input.html#Done"><span class="hs-identifier hs-var">Done</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Program tx () -&gt; Transition tx InputTopology (State tx) from ())
+-&gt; Program tx () -&gt; Transition tx InputTopology (State tx) from ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">HeadState tx -&gt; Program tx ()
+</span><a href="#local-6989586621681046504"><span class="hs-identifier hs-var">dispatch</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">FinalizedState tx -&gt; HeadState tx
+forall tx. FinalizedState tx -&gt; HeadState tx
+</span><a href="Hydra.HeadLogic.State.html#Finalized"><span class="hs-identifier hs-var">Finalized</span></a></span><span> </span><span class="annot"><span class="annottext">FinalizedState tx
+</span><a href="#local-6989586621681046538"><span class="hs-identifier hs-var">st</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-143"></span><span>    </span><span class="annot"><span class="annottext">State tx from
+</span><a href="Hydra.HeadLogic.Rules.Input.html#Done"><span class="hs-identifier hs-var">Done</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">State tx from
+-&gt; () -&gt; Transition tx InputTopology (State tx) from ()
+forall {vertex} (state :: vertex -&gt; *) (phase :: vertex) result tx
+       (topology :: Topology vertex).
+state phase -&gt; result -&gt; Transition tx topology state phase result
+</span><a href="Hydra.HeadLogic.Workflow.html#finish"><span class="hs-identifier hs-var">finish</span></a></span><span> </span><span class="annot"><span class="annottext">State tx from
+State tx 'Finished
+forall tx. State tx 'Finished
+</span><a href="Hydra.HeadLogic.Rules.Input.html#Done"><span class="hs-identifier hs-var">Done</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-144"></span><span>
+</span><span id="line-145"></span><span>  </span><span class="annot"><a href="#local-6989586621681046493"><span class="hs-identifier hs-type">admitted</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Program.html#Program"><span class="hs-identifier hs-type">Program</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681046151"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-146"></span><span>  </span><span id="local-6989586621681046493"><span class="annot"><span class="annottext">admitted :: Program tx ()
+</span><a href="#local-6989586621681046493"><span class="hs-identifier hs-var hs-var">admitted</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Program tx Bool -&gt; Program tx ()
+forall (f :: * -&gt; *) a. Functor f =&gt; f a -&gt; f ()
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#void"><span class="hs-identifier hs-var">void</span></a></span><span> </span><span class="annot"><span class="annottext">(Program tx Bool -&gt; Program tx ())
+-&gt; Program tx Bool -&gt; Program tx ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Bool -&gt; Program tx Bool
+forall tx. Text -&gt; Bool -&gt; Program tx Bool
+</span><a href="Hydra.HeadLogic.Program.html#traceB"><span class="hs-identifier hs-var">traceB</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;input is admitted while at this sync status&quot;</span></span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#True"><span class="hs-identifier hs-var">True</span></a></span><span>
+</span><span id="line-147"></span><span>  </span><span id="local-6989586621681046504"><span class="annot"><span class="annottext">dispatch :: HeadState tx -&gt; Program tx ()
+</span><a href="#local-6989586621681046504"><span class="hs-identifier hs-var hs-var">dispatch</span></a></span></span><span> </span><span id="local-6989586621681046540"><span class="annot"><span class="annottext">HeadState tx
+</span><a href="#local-6989586621681046540"><span class="hs-identifier hs-var">st</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Input tx
+</span><a href="#local-6989586621681046403"><span class="hs-identifier hs-var">input</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-148"></span><span>    </span><span class="annot"><a href="Hydra.HeadLogic.Input.html#ChainInput"><span class="hs-identifier hs-type">ChainInput</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">RuleEnvironment
+-&gt; UTCTime
+-&gt; Map (TxIdType tx) (Deposit tx)
+-&gt; HeadState tx
+-&gt; Input tx
+-&gt; SyncedStatus
+-&gt; Program tx ()
+forall tx.
+IsChainState tx =&gt;
+RuleEnvironment
+-&gt; UTCTime
+-&gt; PendingDeposits tx
+-&gt; HeadState tx
+-&gt; Input tx
+-&gt; SyncedStatus
+-&gt; Program tx ()
+</span><a href="Hydra.HeadLogic.Rules.Chain.html#handleChainInput"><span class="hs-identifier hs-var">handleChainInput</span></a></span><span> </span><span class="annot"><span class="annottext">RuleEnvironment
+</span><a href="#local-6989586621681046400"><span class="hs-identifier hs-var">env</span></a></span><span> </span><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621681046401"><span class="hs-identifier hs-var">now</span></a></span><span> </span><span class="annot"><span class="annottext">NodeState tx
+</span><a href="#local-6989586621681046402"><span class="hs-identifier hs-var">nodeState</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">pendingDeposits</span><span> </span><span class="annot"><span class="annottext">HeadState tx
+</span><a href="#local-6989586621681046540"><span class="hs-identifier hs-var">st</span></a></span><span> </span><span class="annot"><span class="annottext">Input tx
+</span><a href="#local-6989586621681046403"><span class="hs-identifier hs-var">input</span></a></span><span> </span><span class="annot"><span class="annottext">SyncedStatus
+</span><a href="#local-6989586621681046484"><span class="hs-identifier hs-var">syncStatus</span></a></span><span>
+</span><span id="line-149"></span><span>    </span><span class="annot"><a href="Hydra.HeadLogic.Input.html#ClientInput"><span class="hs-identifier hs-type">ClientInput</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">RuleEnvironment
+-&gt; ChainPointTime
+-&gt; Map (TxIdType tx) (Deposit tx)
+-&gt; HeadState tx
+-&gt; Input tx
+-&gt; Program tx ()
+forall tx.
+IsChainState tx =&gt;
+RuleEnvironment
+-&gt; ChainPointTime
+-&gt; PendingDeposits tx
+-&gt; HeadState tx
+-&gt; Input tx
+-&gt; Program tx ()
+</span><a href="Hydra.HeadLogic.Rules.Client.html#handleClientInput"><span class="hs-identifier hs-var">handleClientInput</span></a></span><span> </span><span class="annot"><span class="annottext">RuleEnvironment
+</span><a href="#local-6989586621681046400"><span class="hs-identifier hs-var">env</span></a></span><span> </span><span class="annot"><span class="annottext">ChainPointTime
+</span><a href="#local-6989586621681046488"><span class="hs-identifier hs-var">chainTime</span></a></span><span> </span><span class="annot"><span class="annottext">NodeState tx
+</span><a href="#local-6989586621681046402"><span class="hs-identifier hs-var">nodeState</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">pendingDeposits</span><span> </span><span class="annot"><span class="annottext">HeadState tx
+</span><a href="#local-6989586621681046540"><span class="hs-identifier hs-var">st</span></a></span><span> </span><span class="annot"><span class="annottext">Input tx
+</span><a href="#local-6989586621681046403"><span class="hs-identifier hs-var">input</span></a></span><span>
+</span><span id="line-150"></span><span>    </span><span class="annot"><a href="Hydra.HeadLogic.Input.html#NetworkInput"><span class="hs-identifier hs-type">NetworkInput</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">RuleEnvironment
+-&gt; ChainPointTime
+-&gt; Map (TxIdType tx) (Deposit tx)
+-&gt; HeadState tx
+-&gt; Input tx
+-&gt; Program tx ()
+forall tx.
+IsChainState tx =&gt;
+RuleEnvironment
+-&gt; ChainPointTime
+-&gt; PendingDeposits tx
+-&gt; HeadState tx
+-&gt; Input tx
+-&gt; Program tx ()
+</span><a href="Hydra.HeadLogic.Rules.Network.html#handleNetworkInput"><span class="hs-identifier hs-var">handleNetworkInput</span></a></span><span> </span><span class="annot"><span class="annottext">RuleEnvironment
+</span><a href="#local-6989586621681046400"><span class="hs-identifier hs-var">env</span></a></span><span> </span><span class="annot"><span class="annottext">ChainPointTime
+</span><a href="#local-6989586621681046488"><span class="hs-identifier hs-var">chainTime</span></a></span><span> </span><span class="annot"><span class="annottext">NodeState tx
+</span><a href="#local-6989586621681046402"><span class="hs-identifier hs-var">nodeState</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">pendingDeposits</span><span> </span><span class="annot"><span class="annottext">HeadState tx
+</span><a href="#local-6989586621681046540"><span class="hs-identifier hs-var">st</span></a></span><span> </span><span class="annot"><span class="annottext">Input tx
+</span><a href="#local-6989586621681046403"><span class="hs-identifier hs-var">input</span></a></span><span>
+</span><span id="line-151"></span><span>  </span><span id="local-6989586621681046484"><span class="annot"><span class="annottext">syncStatus :: SyncedStatus
+</span><a href="#local-6989586621681046484"><span class="hs-identifier hs-var hs-var">syncStatus</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NodeState tx -&gt; SyncedStatus
+forall tx. NodeState tx -&gt; SyncedStatus
+</span><a href="Hydra.Node.State.html#syncedStatus"><span class="hs-identifier hs-var">syncedStatus</span></a></span><span> </span><span class="annot"><span class="annottext">NodeState tx
+</span><a href="#local-6989586621681046402"><span class="hs-identifier hs-var">nodeState</span></a></span><span>
+</span><span id="line-152"></span><span>  </span><span id="local-6989586621681046488"><span class="annot"><span class="annottext">chainTime :: ChainPointTime
+</span><a href="#local-6989586621681046488"><span class="hs-identifier hs-var hs-var">chainTime</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NodeState tx
+</span><a href="#local-6989586621681046402"><span class="hs-identifier hs-var">nodeState</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">chainPointTime</span><span>
+</span><span id="line-153"></span></pre></body></html>

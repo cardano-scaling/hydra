@@ -1,0 +1,148 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE DuplicateRecordFields #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# OPTIONS_GHC -Wno-ambiguous-fields #-}</span><span>
+</span><span id="line-3"></span><span>
+</span><span id="line-4"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.HeadLogic.Fanout.Outputs</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-5"></span><span>
+</span><span id="line-6"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Prelude</span></span><span>
+</span><span id="line-7"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx</span></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-8"></span><span>  </span><span class="annot"><span class="hs-identifier">IsTx</span></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-9"></span><span>    </span><span class="annot"><span class="hs-identifier">TxOutType</span></span><span class="hs-special">,</span><span>
+</span><span id="line-10"></span><span>    </span><span class="annot"><span class="hs-identifier">UTxOType</span></span><span class="hs-special">,</span><span>
+</span><span id="line-11"></span><span>    </span><span class="annot"><span class="hs-identifier">outputsOfUTxO</span></span><span class="hs-special">,</span><span>
+</span><span id="line-12"></span><span>    </span><span class="annot"><span class="hs-identifier">removeOneOutputFromUTxO</span></span><span>
+</span><span id="line-13"></span><span>  </span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-14"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-15"></span><span>
+</span><span id="line-16"></span><span class="annot"><span class="hs-comment">-- | Remove the given outputs from the given UTxO.</span></span><span>
+</span><span id="line-17"></span><span id="local-6989586621680985070"><span class="annot"><a href="Hydra.HeadLogic.Fanout.Outputs.html#removeDistributedOutputs"><span class="hs-identifier hs-type">removeDistributedOutputs</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IsTx</span></span><span> </span><span class="annot"><a href="#local-6989586621680985070"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">TxOutType</span></span><span> </span><span class="annot"><a href="#local-6989586621680985070"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxOType</span></span><span> </span><span class="annot"><a href="#local-6989586621680985070"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxOType</span></span><span> </span><span class="annot"><a href="#local-6989586621680985070"><span class="hs-identifier hs-type">tx</span></a></span></span><span>
+</span><span id="line-18"></span><span id="removeDistributedOutputs"><span class="annot"><span class="annottext">removeDistributedOutputs :: forall tx. IsTx tx =&gt; [TxOutType tx] -&gt; UTxOType tx -&gt; UTxOType tx
+</span><a href="Hydra.HeadLogic.Fanout.Outputs.html#removeDistributedOutputs"><span class="hs-identifier hs-var hs-var">removeDistributedOutputs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(UTxOType tx -&gt; [TxOutType tx] -&gt; UTxOType tx)
+-&gt; [TxOutType tx] -&gt; UTxOType tx -&gt; UTxOType tx
+forall a b c. (a -&gt; b -&gt; c) -&gt; b -&gt; a -&gt; c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#flip"><span class="hs-identifier hs-var">flip</span></a></span><span> </span><span class="annot"><span class="annottext">((UTxOType tx -&gt; [TxOutType tx] -&gt; UTxOType tx)
+ -&gt; [TxOutType tx] -&gt; UTxOType tx -&gt; UTxOType tx)
+-&gt; ((TxOutType tx -&gt; UTxOType tx -&gt; UTxOType tx)
+    -&gt; UTxOType tx -&gt; [TxOutType tx] -&gt; UTxOType tx)
+-&gt; (TxOutType tx -&gt; UTxOType tx -&gt; UTxOType tx)
+-&gt; [TxOutType tx]
+-&gt; UTxOType tx
+-&gt; UTxOType tx
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">(UTxOType tx -&gt; TxOutType tx -&gt; UTxOType tx)
+-&gt; UTxOType tx -&gt; [TxOutType tx] -&gt; UTxOType tx
+forall b a. (b -&gt; a -&gt; b) -&gt; b -&gt; [a] -&gt; b
+forall (t :: * -&gt; *) b a.
+Foldable t =&gt;
+(b -&gt; a -&gt; b) -&gt; b -&gt; t a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#foldl%27"><span class="hs-identifier hs-var">foldl'</span></a></span><span> </span><span class="annot"><span class="annottext">((UTxOType tx -&gt; TxOutType tx -&gt; UTxOType tx)
+ -&gt; UTxOType tx -&gt; [TxOutType tx] -&gt; UTxOType tx)
+-&gt; ((TxOutType tx -&gt; UTxOType tx -&gt; UTxOType tx)
+    -&gt; UTxOType tx -&gt; TxOutType tx -&gt; UTxOType tx)
+-&gt; (TxOutType tx -&gt; UTxOType tx -&gt; UTxOType tx)
+-&gt; UTxOType tx
+-&gt; [TxOutType tx]
+-&gt; UTxOType tx
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">(TxOutType tx -&gt; UTxOType tx -&gt; UTxOType tx)
+-&gt; UTxOType tx -&gt; TxOutType tx -&gt; UTxOType tx
+forall a b c. (a -&gt; b -&gt; c) -&gt; b -&gt; a -&gt; c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#flip"><span class="hs-identifier hs-var">flip</span></a></span><span> </span><span class="annot"><span class="annottext">((TxOutType tx -&gt; UTxOType tx -&gt; UTxOType tx)
+ -&gt; [TxOutType tx] -&gt; UTxOType tx -&gt; UTxOType tx)
+-&gt; (TxOutType tx -&gt; UTxOType tx -&gt; UTxOType tx)
+-&gt; [TxOutType tx]
+-&gt; UTxOType tx
+-&gt; UTxOType tx
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">TxOutType tx -&gt; UTxOType tx -&gt; UTxOType tx
+forall tx. IsTx tx =&gt; TxOutType tx -&gt; UTxOType tx -&gt; UTxOType tx
+</span><span class="hs-identifier hs-var">removeOneOutputFromUTxO</span></span><span>
+</span><span id="line-19"></span><span>
+</span><span id="line-20"></span><span class="annot"><span class="hs-comment">-- | Whether a UTxO has no outputs.</span></span><span>
+</span><span id="line-21"></span><span id="local-6989586621680985088"><span class="annot"><a href="Hydra.HeadLogic.Fanout.Outputs.html#nullOutputs"><span class="hs-identifier hs-type">nullOutputs</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IsTx</span></span><span> </span><span class="annot"><a href="#local-6989586621680985088"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxOType</span></span><span> </span><span class="annot"><a href="#local-6989586621680985088"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Bool"><span class="hs-identifier hs-type">Bool</span></a></span></span><span>
+</span><span id="line-22"></span><span id="nullOutputs"><span class="annot"><span class="annottext">nullOutputs :: forall tx. IsTx tx =&gt; UTxOType tx -&gt; Bool
+</span><a href="Hydra.HeadLogic.Fanout.Outputs.html#nullOutputs"><span class="hs-identifier hs-var hs-var">nullOutputs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[TxOutType tx] -&gt; Bool
+forall a. [a] -&gt; Bool
+forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#null"><span class="hs-identifier hs-var">null</span></a></span><span> </span><span class="annot"><span class="annottext">([TxOutType tx] -&gt; Bool)
+-&gt; (UTxOType tx -&gt; [TxOutType tx]) -&gt; UTxOType tx -&gt; Bool
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">UTxOType tx -&gt; [TxOutType tx]
+forall tx. IsTx tx =&gt; UTxOType tx -&gt; [TxOutType tx]
+</span><span class="hs-identifier hs-var">outputsOfUTxO</span></span><span>
+</span><span id="line-23"></span><span>
+</span><span id="line-24"></span><span class="hs-comment">-- | Whether the outputs of @a@ are a sub-multiset (by content) of @b@. This</span><span>
+</span><span id="line-25"></span><span class="hs-comment">-- mirrors how partial fanout tracks distributed UTxO by content rather than by</span><span>
+</span><span id="line-26"></span><span class="hs-comment">-- 'TxIn', so a user-provided selection is validated against what is actually</span><span>
+</span><span id="line-27"></span><span class="hs-comment">-- still in the head.</span><span>
+</span><span id="line-28"></span><span id="local-6989586621680985091"><span class="annot"><a href="Hydra.HeadLogic.Fanout.Outputs.html#isSubMultisetOf"><span class="hs-identifier hs-type">isSubMultisetOf</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IsTx</span></span><span> </span><span class="annot"><a href="#local-6989586621680985091"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxOType</span></span><span> </span><span class="annot"><a href="#local-6989586621680985091"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxOType</span></span><span> </span><span class="annot"><a href="#local-6989586621680985091"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Bool"><span class="hs-identifier hs-type">Bool</span></a></span></span><span>
+</span><span id="line-29"></span><span id="isSubMultisetOf"><span class="annot"><span class="annottext">isSubMultisetOf :: forall tx. IsTx tx =&gt; UTxOType tx -&gt; UTxOType tx -&gt; Bool
+</span><a href="Hydra.HeadLogic.Fanout.Outputs.html#isSubMultisetOf"><span class="hs-identifier hs-var hs-var">isSubMultisetOf</span></a></span></span><span> </span><span id="local-6989586621680985126"><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621680985126"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span id="local-6989586621680985127"><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621680985127"><span class="hs-identifier hs-var">b</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-30"></span><span>  </span><span class="annot"><span class="annottext">[TxOutType tx] -&gt; Int
+forall a. [a] -&gt; Int
+forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; Int
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#length"><span class="hs-identifier hs-var">length</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">UTxOType tx -&gt; [TxOutType tx]
+forall tx. IsTx tx =&gt; UTxOType tx -&gt; [TxOutType tx]
+</span><span class="hs-identifier hs-var">outputsOfUTxO</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[TxOutType tx] -&gt; UTxOType tx -&gt; UTxOType tx
+forall tx. IsTx tx =&gt; [TxOutType tx] -&gt; UTxOType tx -&gt; UTxOType tx
+</span><a href="Hydra.HeadLogic.Fanout.Outputs.html#removeDistributedOutputs"><span class="hs-identifier hs-var">removeDistributedOutputs</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">UTxOType tx -&gt; [TxOutType tx]
+forall tx. IsTx tx =&gt; UTxOType tx -&gt; [TxOutType tx]
+</span><span class="hs-identifier hs-var">outputsOfUTxO</span></span><span> </span><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621680985126"><span class="hs-identifier hs-var">a</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621680985127"><span class="hs-identifier hs-var">b</span></a></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-31"></span><span>    </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3D%3D"><span class="hs-operator hs-var">==</span></a></span><span> </span><span class="annot"><span class="annottext">[TxOutType tx] -&gt; Int
+forall a. [a] -&gt; Int
+forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; Int
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#length"><span class="hs-identifier hs-var">length</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">UTxOType tx -&gt; [TxOutType tx]
+forall tx. IsTx tx =&gt; UTxOType tx -&gt; [TxOutType tx]
+</span><span class="hs-identifier hs-var">outputsOfUTxO</span></span><span> </span><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621680985127"><span class="hs-identifier hs-var">b</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-32"></span><span>    </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+forall a. Num a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#-"><span class="hs-glyph hs-var">-</span></a></span><span> </span><span class="annot"><span class="annottext">[TxOutType tx] -&gt; Int
+forall a. [a] -&gt; Int
+forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; Int
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#length"><span class="hs-identifier hs-var">length</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">UTxOType tx -&gt; [TxOutType tx]
+forall tx. IsTx tx =&gt; UTxOType tx -&gt; [TxOutType tx]
+</span><span class="hs-identifier hs-var">outputsOfUTxO</span></span><span> </span><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621680985126"><span class="hs-identifier hs-var">a</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-33"></span><span>
+</span><span id="line-34"></span><span class="hs-comment">-- | Whether two UTxO sets have the same outputs (by content, as a multiset).</span><span>
+</span><span id="line-35"></span><span class="hs-comment">-- The @a == b@ short-circuit avoids the O(n&#178;) multiset comparison in the common</span><span>
+</span><span id="line-36"></span><span class="hs-comment">-- case where both arguments are the same tracked set (e.g. the auto-drain</span><span>
+</span><span id="line-37"></span><span class="hs-comment">-- @sameOutputs remaining remaining@ check on every observed chunk), which is</span><span>
+</span><span id="line-38"></span><span class="hs-comment">-- exactly the large-UTxO heads partial fanout targets.</span><span>
+</span><span id="line-39"></span><span id="local-6989586621680985129"><span class="annot"><a href="Hydra.HeadLogic.Fanout.Outputs.html#sameOutputs"><span class="hs-identifier hs-type">sameOutputs</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IsTx</span></span><span> </span><span class="annot"><a href="#local-6989586621680985129"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxOType</span></span><span> </span><span class="annot"><a href="#local-6989586621680985129"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxOType</span></span><span> </span><span class="annot"><a href="#local-6989586621680985129"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Bool"><span class="hs-identifier hs-type">Bool</span></a></span></span><span>
+</span><span id="line-40"></span><span id="sameOutputs"><span class="annot"><span class="annottext">sameOutputs :: forall tx. IsTx tx =&gt; UTxOType tx -&gt; UTxOType tx -&gt; Bool
+</span><a href="Hydra.HeadLogic.Fanout.Outputs.html#sameOutputs"><span class="hs-identifier hs-var hs-var">sameOutputs</span></a></span></span><span> </span><span id="local-6989586621680985141"><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621680985141"><span class="hs-identifier hs-var">a</span></a></span></span><span> </span><span id="local-6989586621680985142"><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621680985142"><span class="hs-identifier hs-var">b</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-41"></span><span>  </span><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621680985141"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">UTxOType tx -&gt; UTxOType tx -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3D%3D"><span class="hs-operator hs-var">==</span></a></span><span> </span><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621680985142"><span class="hs-identifier hs-var">b</span></a></span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%7C%7C"><span class="hs-operator hs-var">||</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[TxOutType tx] -&gt; Int
+forall a. [a] -&gt; Int
+forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; Int
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#length"><span class="hs-identifier hs-var">length</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">UTxOType tx -&gt; [TxOutType tx]
+forall tx. IsTx tx =&gt; UTxOType tx -&gt; [TxOutType tx]
+</span><span class="hs-identifier hs-var">outputsOfUTxO</span></span><span> </span><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621680985141"><span class="hs-identifier hs-var">a</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3D%3D"><span class="hs-operator hs-var">==</span></a></span><span> </span><span class="annot"><span class="annottext">[TxOutType tx] -&gt; Int
+forall a. [a] -&gt; Int
+forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; Int
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#length"><span class="hs-identifier hs-var">length</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">UTxOType tx -&gt; [TxOutType tx]
+forall tx. IsTx tx =&gt; UTxOType tx -&gt; [TxOutType tx]
+</span><span class="hs-identifier hs-var">outputsOfUTxO</span></span><span> </span><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621680985142"><span class="hs-identifier hs-var">b</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%26%26"><span class="hs-operator hs-var">&amp;&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621680985141"><span class="hs-identifier hs-var">a</span></a></span><span> </span><span class="annot"><span class="annottext">UTxOType tx -&gt; UTxOType tx -&gt; Bool
+forall tx. IsTx tx =&gt; UTxOType tx -&gt; UTxOType tx -&gt; Bool
+</span><a href="Hydra.HeadLogic.Fanout.Outputs.html#isSubMultisetOf"><span class="hs-operator hs-var">`isSubMultisetOf`</span></a></span><span> </span><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621680985142"><span class="hs-identifier hs-var">b</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-42"></span></pre></body></html>

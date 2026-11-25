@@ -1,0 +1,1074 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE OverloadedRecordDot #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# OPTIONS_GHC -Wno-ambiguous-fields #-}</span><span>
+</span><span id="line-3"></span><span>
+</span><span id="line-4"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.HeadLogic.CommitPhaseSpec</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.CommitPhaseSpec.html#spec"><span class="hs-identifier">spec</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-5"></span><span>
+</span><span id="line-6"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Prelude</span></span><span>
+</span><span id="line-7"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.Hydra.HeadLogic.Validated</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">checkedSnapshot</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">checkedTransaction</span></span><span class="hs-special">)</span><span>
+</span><span id="line-8"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.Hydra.Prelude</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Expectation</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">Spec</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">describe</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">it</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">shouldBe</span></span><span class="hs-special">)</span><span>
+</span><span id="line-9"></span><span>
+</span><span id="line-10"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Cardano.Binary</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">decodeFull'</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">serialize'</span></span><span class="hs-special">)</span><span>
+</span><span id="line-11"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.html"><span class="hs-identifier">Control.Monad</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.html#foldM"><span class="hs-identifier">foldM</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-12"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.List.html"><span class="hs-identifier">Data.List</span></a></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">List</span></span><span>
+</span><span id="line-13"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Sequence.html"><span class="hs-identifier">Data.Sequence</span></a></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Seq</span></span><span>
+</span><span id="line-14"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Agda.OffChainReference</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Agda</span></span><span>
+</span><span id="line-15"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.HeadLogic.Program</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Instruction</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">VerifySnapshot</span></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">Program</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">foldProgram</span></span><span class="hs-special">)</span><span>
+</span><span id="line-16"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.HeadLogic.Snapshot.Verification</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">VerifiedSnapshot</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">verifyCandidate</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">verifySignedSnapshot</span></span><span class="hs-special">)</span><span>
+</span><span id="line-17"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.HeadLogic.State</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">CoordinatedHeadState</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">HeadState</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Open</span></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">OpenState</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">SeenSnapshot</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">LastSeenSnapshot</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-18"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.HeadLogic.State.Coordinated</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Coordinated</span></span><span>
+</span><span id="line-19"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogicSpec.html"><span class="hs-identifier">Hydra.HeadLogicSpec</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogicSpec.html#inOpenState"><span class="hs-identifier">inOpenState</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogicSpec.html#testSnapshot"><span class="hs-identifier">testSnapshot</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogicSpec.html#withAccumulators"><span class="hs-identifier">withAccumulators</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-20"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Ledger.Simple</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">SimpleChainState</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">SimpleTx</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-21"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Node.State</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">NodeState</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">headState</span></span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-22"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">UTxOType</span></span><span class="hs-special">)</span><span>
+</span><span id="line-23"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx.Crypto</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">aggregate</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">getVerificationKey</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">sign</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">verifyMultiSignatureBytes</span></span><span class="hs-special">)</span><span>
+</span><span id="line-24"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx.Snapshot</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">ConfirmedSnapshot</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">ConfirmedSnapshot</span></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">Snapshot</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-25"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.Hydra.Ledger.Simple</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">utxoRef</span></span><span class="hs-special">)</span><span>
+</span><span id="line-26"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Test.Hydra.Tx.Fixture</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">alice</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">aliceSk</span></span><span class="hs-special">)</span><span>
+</span><span id="line-27"></span><span>
+</span><span id="line-28"></span><span class="annot"><a href="Hydra.HeadLogic.CommitPhaseSpec.html#spec"><span class="hs-identifier hs-type">spec</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Spec</span></span><span>
+</span><span id="line-29"></span><span id="spec"><span class="annot"><span class="annottext">spec :: Spec
+</span><a href="Hydra.HeadLogic.CommitPhaseSpec.html#spec"><span class="hs-identifier hs-var hs-var">spec</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String -&gt; Spec -&gt; Spec
+forall a. HasCallStack =&gt; String -&gt; SpecWith a -&gt; SpecWith a
+</span><span class="hs-identifier hs-var">describe</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;commit ownership phases&quot;</span></span><span> </span><span class="annot"><span class="annottext">(Spec -&gt; Spec) -&gt; Spec -&gt; Spec
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-30"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; IO () -&gt; SpecWith (Arg (IO ()))
+forall a.
+(HasCallStack, Example a) =&gt;
+String -&gt; a -&gt; SpecWith (Arg a)
+</span><span class="hs-identifier hs-var">it</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;restores selection and signed authority independently, including legacy certificates without a deposit id&quot;</span></span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; SpecWith (Arg (IO ())))
+-&gt; IO () -&gt; SpecWith (Arg (IO ()))
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-31"></span><span>    </span><span class="annot"><span class="annottext">[(Maybe SimpleId, SimpleId, SimpleId, Maybe (Set SimpleTxOut),
+  Maybe SimpleId)]
+-&gt; ((Maybe SimpleId, SimpleId, SimpleId, Maybe (Set SimpleTxOut),
+     Maybe SimpleId)
+    -&gt; IO ())
+-&gt; IO ()
+forall (t :: * -&gt; *) (m :: * -&gt; *) a b.
+(Foldable t, Monad m) =&gt;
+t a -&gt; (a -&gt; m b) -&gt; m ()
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#forM_"><span class="hs-identifier hs-var">forM_</span></a></span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="annottext">Maybe SimpleId
+</span><a href="#local-6989586621679994474"><span class="hs-identifier hs-var">selected</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">SimpleId
+</span><a href="#local-6989586621679994475"><span class="hs-identifier hs-var">version</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">SimpleId
+</span><a href="#local-6989586621679994476"><span class="hs-identifier hs-var">signedVersion</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Maybe (Set SimpleTxOut)
+</span><a href="#local-6989586621679994477"><span class="hs-identifier hs-var">claim</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Maybe SimpleId
+</span><a href="#local-6989586621679994478"><span class="hs-identifier hs-var">depositIdentity</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">|</span><span> </span><span id="local-6989586621679994474"><span class="annot"><span class="annottext">Maybe SimpleId
+</span><a href="#local-6989586621679994474"><span class="hs-identifier hs-var">selected</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Maybe SimpleId
+forall a. Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">SimpleId -&gt; Maybe SimpleId
+forall a. a -&gt; Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">SimpleId
+</span><span class="hs-number">7</span></span><span class="hs-special">]</span><span class="hs-special">,</span><span> </span><span id="local-6989586621679994475"><span class="annot"><span class="annottext">SimpleId
+</span><a href="#local-6989586621679994475"><span class="hs-identifier hs-var">version</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">SimpleId
+</span><span class="hs-number">0</span></span><span> </span><span class="hs-glyph">..</span><span> </span><span class="annot"><span class="annottext">SimpleId
+</span><span class="hs-number">2</span></span><span class="hs-special">]</span><span class="hs-special">,</span><span> </span><span id="local-6989586621679994476"><span class="annot"><span class="annottext">SimpleId
+</span><a href="#local-6989586621679994476"><span class="hs-identifier hs-var">signedVersion</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">SimpleId
+</span><span class="hs-number">0</span></span><span> </span><span class="hs-glyph">..</span><span> </span><span class="annot"><span class="annottext">SimpleId
+</span><span class="hs-number">2</span></span><span class="hs-special">]</span><span class="hs-special">,</span><span> </span><span id="local-6989586621679994477"><span class="annot"><span class="annottext">Maybe (Set SimpleTxOut)
+</span><a href="#local-6989586621679994477"><span class="hs-identifier hs-var">claim</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Maybe (Set SimpleTxOut)
+forall a. Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut -&gt; Maybe (Set SimpleTxOut)
+forall a. a -&gt; Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut
+forall a. Monoid a =&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#mempty"><span class="hs-identifier hs-var">mempty</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut -&gt; Maybe (Set SimpleTxOut)
+forall a. a -&gt; Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut
+UTxOType SimpleTx
+</span><a href="Hydra.HeadLogic.CommitPhaseSpec.html#deposited"><span class="hs-identifier hs-var">deposited</span></a></span><span class="hs-special">]</span><span class="hs-special">,</span><span> </span><span id="local-6989586621679994478"><span class="annot"><span class="annottext">Maybe SimpleId
+</span><a href="#local-6989586621679994478"><span class="hs-identifier hs-var">depositIdentity</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Maybe SimpleId
+forall a. Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">SimpleId -&gt; Maybe SimpleId
+forall a. a -&gt; Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">SimpleId
+</span><span class="hs-number">7</span></span><span class="hs-special">]</span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">(((Maybe SimpleId, SimpleId, SimpleId, Maybe (Set SimpleTxOut),
+   Maybe SimpleId)
+  -&gt; IO ())
+ -&gt; IO ())
+-&gt; ((Maybe SimpleId, SimpleId, SimpleId, Maybe (Set SimpleTxOut),
+     Maybe SimpleId)
+    -&gt; IO ())
+-&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="hs-special">(</span><span id="local-6989586621679994480"><span class="annot"><span class="annottext">Maybe SimpleId
+</span><a href="#local-6989586621679994480"><span class="hs-identifier hs-var">selected</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679994481"><span class="annot"><span class="annottext">SimpleId
+</span><a href="#local-6989586621679994481"><span class="hs-identifier hs-var">version</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679994482"><span class="annot"><span class="annottext">SimpleId
+</span><a href="#local-6989586621679994482"><span class="hs-identifier hs-var">signedVersion</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679994483"><span class="annot"><span class="annottext">Maybe (Set SimpleTxOut)
+</span><a href="#local-6989586621679994483"><span class="hs-identifier hs-var">claim</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679994484"><span class="annot"><span class="annottext">Maybe SimpleId
+</span><a href="#local-6989586621679994484"><span class="hs-identifier hs-var">depositIdentity</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-32"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679994485"><span class="annot"><span class="annottext">signed :: Snapshot SimpleTx
+</span><a href="#local-6989586621679994485"><span class="hs-identifier hs-var hs-var">signed</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Snapshot SimpleTx
+</span><a href="Hydra.HeadLogic.CommitPhaseSpec.html#snapshot"><span class="hs-identifier hs-var">snapshot</span></a></span><span class="hs-special">{</span><span class="hs-identifier">version</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#fromInteger"><span class="hs-identifier hs-type">fromInteger</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679994482"><span class="hs-identifier hs-type">signedVersion</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-var">utxoToCommit</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="#local-6989586621679994483"><span class="hs-identifier hs-type">claim</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-var">depositTxId</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="#local-6989586621679994484"><span class="hs-identifier hs-type">depositIdentity</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-33"></span><span>          </span><span id="local-6989586621679994489"><span class="annot"><span class="annottext">before :: OpenState SimpleTx
+</span><a href="#local-6989586621679994489"><span class="hs-identifier hs-var hs-var">before</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">OpenState SimpleTx
+</span><a href="Hydra.HeadLogic.CommitPhaseSpec.html#open"><span class="hs-identifier hs-var">open</span></a></span><span class="hs-special">{</span><span class="annot"><span class="hs-identifier hs-var">coordinatedHeadState</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier">open</span></span><span class="hs-operator">.</span><span class="hs-identifier">coordinatedHeadState</span><span class="hs-special">{</span><span class="hs-identifier">version</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#fromInteger"><span class="hs-identifier hs-type">fromInteger</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679994481"><span class="hs-identifier hs-type">version</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-var">currentDepositTxId</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="#local-6989586621679994480"><span class="hs-identifier hs-type">selected</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-var">confirmedSnapshot</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ConfirmedSnapshot</span></span><span> </span><span class="annot"><a href="#local-6989586621679994485"><span class="hs-identifier hs-type">signed</span></a></span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#mempty"><span class="hs-identifier hs-type">mempty</span></a></span><span class="hs-special">}</span><span class="hs-special">}</span><span>
+</span><span id="line-34"></span><span>          </span><span id="local-6989586621679994494"><span class="annot"><span class="annottext">expected :: HsCommitPhase
+</span><a href="#local-6989586621679994494"><span class="hs-identifier hs-var hs-var">expected</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; SimpleId -&gt; SimpleId -&gt; Bool -&gt; HsCommitPhase
+</span><span class="hs-identifier hs-var">Agda.commitPhaseRef</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Maybe SimpleId -&gt; Bool
+forall a. Maybe a -&gt; Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Maybe.html#isJust"><span class="hs-identifier hs-var">isJust</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe SimpleId
+</span><a href="#local-6989586621679994480"><span class="hs-identifier hs-var">selected</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">SimpleId
+</span><a href="#local-6989586621679994481"><span class="hs-identifier hs-var">version</span></a></span><span> </span><span class="annot"><span class="annottext">SimpleId
+</span><a href="#local-6989586621679994482"><span class="hs-identifier hs-var">signedVersion</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Maybe (Set SimpleTxOut) -&gt; Bool
+forall a. Maybe a -&gt; Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Maybe.html#isJust"><span class="hs-identifier hs-var">isJust</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (Set SimpleTxOut)
+</span><a href="#local-6989586621679994483"><span class="hs-identifier hs-var">claim</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-35"></span><span>      </span><span class="annot"><span class="annottext">Runtime SimpleTx -&gt; Maybe Text
+forall tx. Runtime tx -&gt; Maybe Text
+</span><a href="Hydra.HeadLogic.CommitPhaseSpec.html#commitPhase"><span class="hs-identifier hs-var">commitPhase</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">OpenState SimpleTx -&gt; Runtime SimpleTx
+forall tx. IsChainState tx =&gt; OpenState tx -&gt; Runtime tx
+</span><span class="hs-identifier hs-var">Coordinated.start</span></span><span> </span><span class="annot"><span class="annottext">OpenState SimpleTx
+</span><a href="#local-6989586621679994489"><span class="hs-identifier hs-var">before</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Maybe Text -&gt; Maybe Text -&gt; IO ()
+forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; IO ()
+</span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Maybe Text
+forall a. a -&gt; Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">HsCommitPhase -&gt; Text
+forall b a. (Show a, IsString b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">show</span></span><span> </span><span class="annot"><span class="annottext">HsCommitPhase
+</span><a href="#local-6989586621679994494"><span class="hs-identifier hs-var">expected</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-36"></span><span>
+</span><span id="line-37"></span><span>  </span><span class="annot"><span class="annottext">[Bool] -&gt; (Bool -&gt; Spec) -&gt; Spec
+forall (t :: * -&gt; *) (m :: * -&gt; *) a b.
+(Foldable t, Monad m) =&gt;
+t a -&gt; (a -&gt; m b) -&gt; m ()
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#forM_"><span class="hs-identifier hs-var">forM_</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#False"><span class="hs-identifier hs-var">False</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#True"><span class="hs-identifier hs-var">True</span></a></span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">((Bool -&gt; Spec) -&gt; Spec) -&gt; (Bool -&gt; Spec) -&gt; Spec
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679994500"><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679994500"><span class="hs-identifier hs-var">settleFirst</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-38"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; IO () -&gt; SpecWith (Arg (IO ()))
+forall a.
+(HasCallStack, Example a) =&gt;
+String -&gt; a -&gt; SpecWith (Arg a)
+</span><span class="hs-identifier hs-var">it</span></span><span> </span><span class="hs-special">(</span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679994500"><span class="hs-identifier hs-var">settleFirst</span></a></span><span> </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;retires authority when settlement precedes confirmation&quot;</span></span><span> </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;confirms selection and retires authority on settlement&quot;</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; SpecWith (Arg (IO ())))
+-&gt; IO () -&gt; SpecWith (Arg (IO ()))
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-39"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679994502"><span class="annot"><span class="annottext">accept :: Command SimpleTx
+</span><a href="#local-6989586621679994502"><span class="hs-identifier hs-var hs-var">accept</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ValidatedSnapshot SimpleTx -&gt; Seq SimpleTx -&gt; Command SimpleTx
+forall tx. ValidatedSnapshot tx -&gt; Seq tx -&gt; Command tx
+</span><span class="hs-identifier hs-var">Coordinated.acceptSnapshot</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Snapshot SimpleTx -&gt; ValidatedSnapshot SimpleTx
+</span><span class="hs-identifier hs-var">checkedSnapshot</span></span><span> </span><span class="annot"><span class="annottext">Snapshot SimpleTx
+</span><a href="Hydra.HeadLogic.CommitPhaseSpec.html#snapshot"><span class="hs-identifier hs-var">snapshot</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Seq SimpleTx
+forall a. Monoid a =&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#mempty"><span class="hs-identifier hs-var">mempty</span></a></span><span>
+</span><span id="line-40"></span><span>          </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[StateChanged SimpleTx]
+</span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679994505"><span class="annot"><span class="annottext">Runtime SimpleTx
+</span><a href="#local-6989586621679994505"><span class="hs-identifier hs-var">accepted</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Runtime SimpleTx
+-&gt; Command SimpleTx -&gt; ([StateChanged SimpleTx], Runtime SimpleTx)
+forall tx.
+Runtime tx -&gt; Command tx -&gt; ([StateChanged tx], Runtime tx)
+</span><span class="hs-identifier hs-var">Coordinated.step</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">OpenState SimpleTx -&gt; Runtime SimpleTx
+forall tx. IsChainState tx =&gt; OpenState tx -&gt; Runtime tx
+</span><span class="hs-identifier hs-var">Coordinated.start</span></span><span> </span><span class="annot"><span class="annottext">OpenState SimpleTx
+</span><a href="Hydra.HeadLogic.CommitPhaseSpec.html#open"><span class="hs-identifier hs-var">open</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Command SimpleTx
+</span><a href="#local-6989586621679994502"><span class="hs-identifier hs-var">accept</span></a></span><span>
+</span><span id="line-41"></span><span>      </span><span id="local-6989586621679994507"><span class="annot"><span class="annottext">Candidate SimpleTx
+</span><a href="#local-6989586621679994507"><span class="hs-identifier hs-var">owned</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO (Candidate SimpleTx)
+-&gt; (Candidate SimpleTx -&gt; IO (Candidate SimpleTx))
+-&gt; Maybe (Candidate SimpleTx)
+-&gt; IO (Candidate SimpleTx)
+forall b a. b -&gt; (a -&gt; b) -&gt; Maybe a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Maybe.html#maybe"><span class="hs-identifier hs-var">maybe</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String -&gt; IO (Candidate SimpleTx)
+forall a. String -&gt; IO a
+forall (m :: * -&gt; *) a. MonadFail m =&gt; String -&gt; m a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.Fail.html#fail"><span class="hs-identifier hs-var">fail</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;missing candidate&quot;</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Candidate SimpleTx -&gt; IO (Candidate SimpleTx)
+forall a. a -&gt; IO a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">(Maybe (Candidate SimpleTx) -&gt; IO (Candidate SimpleTx))
+-&gt; Maybe (Candidate SimpleTx) -&gt; IO (Candidate SimpleTx)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Runtime SimpleTx -&gt; Maybe (Candidate SimpleTx)
+forall tx. Runtime tx -&gt; Maybe (Candidate tx)
+</span><span class="hs-identifier hs-var">Coordinated.candidate</span></span><span> </span><span class="annot"><span class="annottext">Runtime SimpleTx
+</span><a href="#local-6989586621679994505"><span class="hs-identifier hs-var">accepted</span></a></span><span>
+</span><span id="line-42"></span><span>      </span><span id="local-6989586621679994510"><span class="annot"><span class="annottext">VerifiedCandidate SimpleTx
+</span><a href="#local-6989586621679994510"><span class="hs-identifier hs-var">evidence</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Program
+  SimpleTx
+  (Either (LogicError SimpleTx) (VerifiedCandidate SimpleTx))
+-&gt; IO (Either (LogicError SimpleTx) (VerifiedCandidate SimpleTx))
+forall a. Program SimpleTx a -&gt; IO a
+</span><a href="Hydra.HeadLogic.CommitPhaseSpec.html#verifyOnly"><span class="hs-identifier hs-var">verifyOnly</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Candidate SimpleTx
+-&gt; MultiSignature (Snapshot SimpleTx)
+-&gt; Program
+     SimpleTx
+     (Either (LogicError SimpleTx) (VerifiedCandidate SimpleTx))
+forall tx.
+Candidate tx
+-&gt; MultiSignature (Snapshot tx)
+-&gt; Program tx (Either (LogicError tx) (VerifiedCandidate tx))
+</span><span class="hs-identifier hs-var">verifyCandidate</span></span><span> </span><span class="annot"><span class="annottext">Candidate SimpleTx
+</span><a href="#local-6989586621679994507"><span class="hs-identifier hs-var">owned</span></a></span><span> </span><span class="annot"><span class="annottext">(MultiSignature (Snapshot SimpleTx)
+ -&gt; Program
+      SimpleTx
+      (Either (LogicError SimpleTx) (VerifiedCandidate SimpleTx)))
+-&gt; MultiSignature (Snapshot SimpleTx)
+-&gt; Program
+     SimpleTx
+     (Either (LogicError SimpleTx) (VerifiedCandidate SimpleTx))
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">[Signature (Snapshot SimpleTx)]
+-&gt; MultiSignature (Snapshot SimpleTx)
+forall a. [Signature a] -&gt; MultiSignature a
+</span><span class="hs-identifier hs-var">aggregate</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Secret (SigningKey HydraKey)
+-&gt; Snapshot SimpleTx -&gt; Signature (Snapshot SimpleTx)
+forall a.
+SignableRepresentation a =&gt;
+Secret (SigningKey HydraKey) -&gt; a -&gt; Signature a
+</span><span class="hs-identifier hs-var">sign</span></span><span> </span><span class="annot"><span class="annottext">Secret (SigningKey HydraKey)
+</span><span class="hs-identifier hs-var">aliceSk</span></span><span> </span><span class="annot"><span class="annottext">Snapshot SimpleTx
+</span><a href="Hydra.HeadLogic.CommitPhaseSpec.html#snapshot"><span class="hs-identifier hs-var">snapshot</span></a></span><span class="hs-special">]</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">IO (Either (LogicError SimpleTx) (VerifiedCandidate SimpleTx))
+-&gt; (Either (LogicError SimpleTx) (VerifiedCandidate SimpleTx)
+    -&gt; IO (VerifiedCandidate SimpleTx))
+-&gt; IO (VerifiedCandidate SimpleTx)
+forall a b. IO a -&gt; (a -&gt; IO b) -&gt; IO b
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3E%3E%3D"><span class="hs-operator hs-var">&gt;&gt;=</span></a></span><span> </span><span class="annot"><span class="annottext">(LogicError SimpleTx -&gt; IO (VerifiedCandidate SimpleTx))
+-&gt; (VerifiedCandidate SimpleTx -&gt; IO (VerifiedCandidate SimpleTx))
+-&gt; Either (LogicError SimpleTx) (VerifiedCandidate SimpleTx)
+-&gt; IO (VerifiedCandidate SimpleTx)
+forall a c b. (a -&gt; c) -&gt; (b -&gt; c) -&gt; Either a b -&gt; c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#either"><span class="hs-identifier hs-var">either</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String -&gt; IO (VerifiedCandidate SimpleTx)
+forall a. String -&gt; IO a
+forall (m :: * -&gt; *) a. MonadFail m =&gt; String -&gt; m a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.Fail.html#fail"><span class="hs-identifier hs-var">fail</span></a></span><span> </span><span class="annot"><span class="annottext">(String -&gt; IO (VerifiedCandidate SimpleTx))
+-&gt; (LogicError SimpleTx -&gt; String)
+-&gt; LogicError SimpleTx
+-&gt; IO (VerifiedCandidate SimpleTx)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">LogicError SimpleTx -&gt; String
+forall b a. (Show a, IsString b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">show</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">VerifiedCandidate SimpleTx -&gt; IO (VerifiedCandidate SimpleTx)
+forall a. a -&gt; IO a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span>
+</span><span id="line-43"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679994514"><span class="annot"><span class="annottext">confirm :: Command SimpleTx
+</span><a href="#local-6989586621679994514"><span class="hs-identifier hs-var hs-var">confirm</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">VerifiedCandidate SimpleTx -&gt; Command SimpleTx
+forall tx. VerifiedCandidate tx -&gt; Command tx
+</span><span class="hs-identifier hs-var">Coordinated.confirmSnapshot</span></span><span> </span><span class="annot"><span class="annottext">VerifiedCandidate SimpleTx
+</span><a href="#local-6989586621679994510"><span class="hs-identifier hs-var">evidence</span></a></span><span>
+</span><span id="line-44"></span><span>          </span><span id="local-6989586621679994519"><span class="annot"><span class="annottext">settle :: Command SimpleTx
+</span><a href="#local-6989586621679994519"><span class="hs-identifier hs-var hs-var">settle</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ChainStateType SimpleTx
+-&gt; SnapshotVersion
+-&gt; TxIdType SimpleTx
+-&gt; UTxOType SimpleTx
+-&gt; Command SimpleTx
+forall tx.
+ChainStateType tx
+-&gt; SnapshotVersion -&gt; TxIdType tx -&gt; UTxOType tx -&gt; Command tx
+</span><span class="hs-identifier hs-var">Coordinated.recordCommitFinalization</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ChainSlot -&gt; SimpleChainState
+</span><span class="hs-identifier hs-var">SimpleChainState</span></span><span> </span><span class="annot"><span class="annottext">ChainSlot
+</span><span class="hs-number">3</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">SnapshotVersion
+</span><span class="hs-number">1</span></span><span> </span><span class="annot"><span class="annottext">SimpleId
+TxIdType SimpleTx
+</span><span class="hs-number">7</span></span><span> </span><span class="annot"><span class="annottext">UTxOType SimpleTx
+</span><a href="Hydra.HeadLogic.CommitPhaseSpec.html#deposited"><span class="hs-identifier hs-var">deposited</span></a></span><span>
+</span><span id="line-45"></span><span>          </span><span id="local-6989586621679994522"><span class="annot"><span class="annottext">ending :: [(Command SimpleTx, Maybe SimpleId, Text, Set SimpleTxOut)]
+</span><a href="#local-6989586621679994522"><span class="hs-identifier hs-var hs-var">ending</span></a></span></span><span>
+</span><span id="line-46"></span><span>            </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679994500"><span class="hs-identifier hs-var">settleFirst</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="annottext">Command SimpleTx
+</span><a href="#local-6989586621679994519"><span class="hs-identifier hs-var">settle</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Maybe SimpleId
+forall a. Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;NoCommit&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut
+UTxOType SimpleTx
+</span><a href="Hydra.HeadLogic.CommitPhaseSpec.html#deposited"><span class="hs-identifier hs-var">deposited</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Command SimpleTx
+</span><a href="#local-6989586621679994514"><span class="hs-identifier hs-var">confirm</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Maybe SimpleId
+forall a. Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;NoCommit&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut
+UTxOType SimpleTx
+</span><a href="Hydra.HeadLogic.CommitPhaseSpec.html#deposited"><span class="hs-identifier hs-var">deposited</span></a></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
+</span><span id="line-47"></span><span>            </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#otherwise"><span class="hs-identifier hs-var">otherwise</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="annottext">Command SimpleTx
+</span><a href="#local-6989586621679994514"><span class="hs-identifier hs-var">confirm</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">SimpleId -&gt; Maybe SimpleId
+forall a. a -&gt; Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">SimpleId
+</span><span class="hs-number">7</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;AwaitingCommitSettlement&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut
+forall a. Monoid a =&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#mempty"><span class="hs-identifier hs-var">mempty</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Command SimpleTx
+</span><a href="#local-6989586621679994519"><span class="hs-identifier hs-var">settle</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Maybe SimpleId
+forall a. Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;NoCommit&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut
+UTxOType SimpleTx
+</span><a href="Hydra.HeadLogic.CommitPhaseSpec.html#deposited"><span class="hs-identifier hs-var">deposited</span></a></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
+</span><span id="line-48"></span><span>          </span><span id="local-6989586621679994523"><span class="annot"><span class="annottext">spend :: SimpleTx
+</span><a href="#local-6989586621679994523"><span class="hs-identifier hs-var hs-var">spend</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SimpleId -&gt; UTxOType SimpleTx -&gt; UTxOType SimpleTx -&gt; SimpleTx
+</span><span class="hs-identifier hs-var">SimpleTx</span></span><span> </span><span class="annot"><span class="annottext">SimpleId
+</span><span class="hs-number">100</span></span><span> </span><span class="annot"><span class="annottext">UTxOType SimpleTx
+</span><a href="Hydra.HeadLogic.CommitPhaseSpec.html#deposited"><span class="hs-identifier hs-var">deposited</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SimpleId -&gt; UTxOType SimpleTx
+</span><span class="hs-identifier hs-var">utxoRef</span></span><span> </span><span class="annot"><span class="annottext">SimpleId
+</span><span class="hs-number">100</span></span><span class="hs-special">)</span><span>
+</span><span id="line-49"></span><span>      </span><span class="annot"><span class="annottext">OpenState SimpleTx
+-&gt; [(Command SimpleTx, Maybe SimpleId, Text, UTxOType SimpleTx)]
+-&gt; IO ()
+</span><a href="Hydra.HeadLogic.CommitPhaseSpec.html#checkSteps"><span class="hs-identifier hs-var">checkSteps</span></a></span><span> </span><span class="annot"><span class="annottext">OpenState SimpleTx
+</span><a href="Hydra.HeadLogic.CommitPhaseSpec.html#open"><span class="hs-identifier hs-var">open</span></a></span><span> </span><span class="annot"><span class="annottext">([(Command SimpleTx, Maybe SimpleId, Text, UTxOType SimpleTx)]
+ -&gt; IO ())
+-&gt; [(Command SimpleTx, Maybe SimpleId, Text, UTxOType SimpleTx)]
+-&gt; IO ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-50"></span><span>        </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="annottext">Command SimpleTx
+</span><a href="#local-6989586621679994502"><span class="hs-identifier hs-var">accept</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">SimpleId -&gt; Maybe SimpleId
+forall a. a -&gt; Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">SimpleId
+</span><span class="hs-number">7</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;CommitSelected&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut
+forall a. Monoid a =&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#mempty"><span class="hs-identifier hs-var">mempty</span></a></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
+</span><span id="line-51"></span><span>          </span><span class="annot"><span class="annottext">[(Command SimpleTx, Maybe SimpleId, Text, Set SimpleTxOut)]
+-&gt; [(Command SimpleTx, Maybe SimpleId, Text, Set SimpleTxOut)]
+-&gt; [(Command SimpleTx, Maybe SimpleId, Text, Set SimpleTxOut)]
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">[(Command SimpleTx, Maybe SimpleId, Text, Set SimpleTxOut)]
+</span><a href="#local-6989586621679994522"><span class="hs-identifier hs-var">ending</span></a></span><span>
+</span><span id="line-52"></span><span>          </span><span class="annot"><span class="annottext">[(Command SimpleTx, Maybe SimpleId, Text, Set SimpleTxOut)]
+-&gt; [(Command SimpleTx, Maybe SimpleId, Text, Set SimpleTxOut)]
+-&gt; [(Command SimpleTx, Maybe SimpleId, Text, Set SimpleTxOut)]
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="hs-special">[</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ValidatedTransaction SimpleTx -&gt; Command SimpleTx
+forall tx. ValidatedTransaction tx -&gt; Command tx
+</span><span class="hs-identifier hs-var">Coordinated.applyTransaction</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">UTxOType SimpleTx -&gt; SimpleTx -&gt; ValidatedTransaction SimpleTx
+</span><span class="hs-identifier hs-var">checkedTransaction</span></span><span> </span><span class="annot"><span class="annottext">UTxOType SimpleTx
+</span><a href="Hydra.HeadLogic.CommitPhaseSpec.html#deposited"><span class="hs-identifier hs-var">deposited</span></a></span><span> </span><span class="annot"><span class="annottext">SimpleTx
+</span><a href="#local-6989586621679994523"><span class="hs-identifier hs-var">spend</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Maybe SimpleId
+forall a. Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;NoCommit&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">SimpleId -&gt; UTxOType SimpleTx
+</span><span class="hs-identifier hs-var">utxoRef</span></span><span> </span><span class="annot"><span class="annottext">SimpleId
+</span><span class="hs-number">100</span></span><span class="hs-special">)</span><span>
+</span><span id="line-53"></span><span>             </span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Command SimpleTx
+</span><a href="#local-6989586621679994519"><span class="hs-identifier hs-var">settle</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Maybe SimpleId
+forall a. Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;NoCommit&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">SimpleId -&gt; UTxOType SimpleTx
+</span><span class="hs-identifier hs-var">utxoRef</span></span><span> </span><span class="annot"><span class="annottext">SimpleId
+</span><span class="hs-number">100</span></span><span class="hs-special">)</span><span>
+</span><span id="line-54"></span><span>             </span><span class="hs-special">]</span><span>
+</span><span id="line-55"></span><span>
+</span><span id="line-56"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; IO () -&gt; SpecWith (Arg (IO ()))
+forall a.
+(HasCallStack, Example a) =&gt;
+String -&gt; a -&gt; SpecWith (Arg a)
+</span><span class="hs-identifier hs-var">it</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;keeps adopted authority without selection across clearing and ordinary transactions&quot;</span></span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; SpecWith (Arg (IO ())))
+-&gt; IO () -&gt; SpecWith (Arg (IO ()))
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-57"></span><span>    </span><span id="local-6989586621679994527"><span class="annot"><span class="annottext">VerifiedSnapshot SimpleTx
+</span><a href="#local-6989586621679994527"><span class="hs-identifier hs-var">evidence</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Snapshot SimpleTx -&gt; IO (VerifiedSnapshot SimpleTx)
+</span><a href="Hydra.HeadLogic.CommitPhaseSpec.html#verified"><span class="hs-identifier hs-var">verified</span></a></span><span> </span><span class="annot"><span class="annottext">Snapshot SimpleTx
+</span><a href="Hydra.HeadLogic.CommitPhaseSpec.html#snapshot"><span class="hs-identifier hs-var">snapshot</span></a></span><span>
+</span><span id="line-58"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679994531"><span class="annot"><span class="annottext">tx :: SimpleTx
+</span><a href="#local-6989586621679994531"><span class="hs-identifier hs-var hs-var">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SimpleId -&gt; UTxOType SimpleTx -&gt; UTxOType SimpleTx -&gt; SimpleTx
+</span><span class="hs-identifier hs-var">SimpleTx</span></span><span> </span><span class="annot"><span class="annottext">SimpleId
+</span><span class="hs-number">100</span></span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut
+UTxOType SimpleTx
+forall a. Monoid a =&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#mempty"><span class="hs-identifier hs-var">mempty</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SimpleId -&gt; UTxOType SimpleTx
+</span><span class="hs-identifier hs-var">utxoRef</span></span><span> </span><span class="annot"><span class="annottext">SimpleId
+</span><span class="hs-number">100</span></span><span class="hs-special">)</span><span>
+</span><span id="line-59"></span><span>    </span><span class="annot"><span class="annottext">OpenState SimpleTx
+-&gt; [(Command SimpleTx, Maybe SimpleId, Text, UTxOType SimpleTx)]
+-&gt; IO ()
+</span><a href="Hydra.HeadLogic.CommitPhaseSpec.html#checkSteps"><span class="hs-identifier hs-var">checkSteps</span></a></span><span>
+</span><span id="line-60"></span><span>      </span><span class="annot"><span class="annottext">OpenState SimpleTx
+</span><a href="Hydra.HeadLogic.CommitPhaseSpec.html#open"><span class="hs-identifier hs-var">open</span></a></span><span>
+</span><span id="line-61"></span><span>      </span><span class="hs-special">[</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">VerifiedSnapshot SimpleTx -&gt; Command SimpleTx
+forall tx. VerifiedSnapshot tx -&gt; Command tx
+</span><span class="hs-identifier hs-var">Coordinated.adoptSnapshot</span></span><span> </span><span class="annot"><span class="annottext">VerifiedSnapshot SimpleTx
+</span><a href="#local-6989586621679994527"><span class="hs-identifier hs-var">evidence</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Maybe SimpleId
+forall a. Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;AwaitingCommitSettlement&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut
+UTxOType SimpleTx
+forall a. Monoid a =&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#mempty"><span class="hs-identifier hs-var">mempty</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-62"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SnapshotNumber -&gt; Command SimpleTx
+forall tx. SnapshotNumber -&gt; Command tx
+</span><span class="hs-identifier hs-var">Coordinated.clearLocalState</span></span><span> </span><span class="annot"><span class="annottext">SnapshotNumber
+</span><span class="hs-number">1</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Maybe SimpleId
+forall a. Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;AwaitingCommitSettlement&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut
+UTxOType SimpleTx
+forall a. Monoid a =&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#mempty"><span class="hs-identifier hs-var">mempty</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-63"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ValidatedTransaction SimpleTx -&gt; Command SimpleTx
+forall tx. ValidatedTransaction tx -&gt; Command tx
+</span><span class="hs-identifier hs-var">Coordinated.applyTransaction</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">UTxOType SimpleTx -&gt; SimpleTx -&gt; ValidatedTransaction SimpleTx
+</span><span class="hs-identifier hs-var">checkedTransaction</span></span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut
+UTxOType SimpleTx
+forall a. Monoid a =&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#mempty"><span class="hs-identifier hs-var">mempty</span></a></span><span> </span><span class="annot"><span class="annottext">SimpleTx
+</span><a href="#local-6989586621679994531"><span class="hs-identifier hs-var">tx</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Maybe SimpleId
+forall a. Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;AwaitingCommitSettlement&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">SimpleId -&gt; UTxOType SimpleTx
+</span><span class="hs-identifier hs-var">utxoRef</span></span><span> </span><span class="annot"><span class="annottext">SimpleId
+</span><span class="hs-number">100</span></span><span class="hs-special">)</span><span>
+</span><span id="line-64"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ChainStateType SimpleTx
+-&gt; SnapshotVersion
+-&gt; TxIdType SimpleTx
+-&gt; UTxOType SimpleTx
+-&gt; Command SimpleTx
+forall tx.
+ChainStateType tx
+-&gt; SnapshotVersion -&gt; TxIdType tx -&gt; UTxOType tx -&gt; Command tx
+</span><span class="hs-identifier hs-var">Coordinated.recordCommitFinalization</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ChainSlot -&gt; SimpleChainState
+</span><span class="hs-identifier hs-var">SimpleChainState</span></span><span> </span><span class="annot"><span class="annottext">ChainSlot
+</span><span class="hs-number">3</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">SnapshotVersion
+</span><span class="hs-number">1</span></span><span> </span><span class="annot"><span class="annottext">SimpleId
+TxIdType SimpleTx
+</span><span class="hs-number">7</span></span><span> </span><span class="annot"><span class="annottext">UTxOType SimpleTx
+</span><a href="Hydra.HeadLogic.CommitPhaseSpec.html#deposited"><span class="hs-identifier hs-var">deposited</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Maybe SimpleId
+forall a. Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;NoCommit&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut
+UTxOType SimpleTx
+</span><a href="Hydra.HeadLogic.CommitPhaseSpec.html#deposited"><span class="hs-identifier hs-var">deposited</span></a></span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut -&gt; Set SimpleTxOut -&gt; Set SimpleTxOut
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">SimpleId -&gt; UTxOType SimpleTx
+</span><span class="hs-identifier hs-var">utxoRef</span></span><span> </span><span class="annot"><span class="annottext">SimpleId
+</span><span class="hs-number">100</span></span><span class="hs-special">)</span><span>
+</span><span id="line-65"></span><span>      </span><span class="hs-special">]</span><span>
+</span><span id="line-66"></span><span>
+</span><span id="line-67"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; IO () -&gt; SpecWith (Arg (IO ()))
+forall a.
+(HasCallStack, Example a) =&gt;
+String -&gt; a -&gt; SpecWith (Arg a)
+</span><span class="hs-identifier hs-var">it</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;retires a dropped claim only when the replacement snapshot is confirmed&quot;</span></span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; SpecWith (Arg (IO ())))
+-&gt; IO () -&gt; SpecWith (Arg (IO ()))
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-68"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679994538"><span class="annot"><span class="annottext">before :: OpenState SimpleTx
+</span><a href="#local-6989586621679994538"><span class="hs-identifier hs-var hs-var">before</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">OpenState SimpleTx
+</span><a href="Hydra.HeadLogic.CommitPhaseSpec.html#open"><span class="hs-identifier hs-var">open</span></a></span><span class="hs-special">{</span><span class="annot"><span class="hs-identifier hs-var">coordinatedHeadState</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier">open</span></span><span class="hs-operator">.</span><span class="hs-identifier">coordinatedHeadState</span><span class="hs-special">{</span><span class="annot"><span class="hs-identifier hs-var">currentDepositTxId</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span class="annot"><span class="hs-number">7</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-var">confirmedSnapshot</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ConfirmedSnapshot</span></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.CommitPhaseSpec.html#snapshot"><span class="hs-identifier hs-type">snapshot</span></a></span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#mempty"><span class="hs-identifier hs-type">mempty</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-var">seenSnapshot</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">LastSeenSnapshot</span></span><span> </span><span class="annot"><span class="hs-number">1</span></span><span class="hs-special">}</span><span class="hs-special">}</span><span>
+</span><span id="line-69"></span><span>        </span><span id="local-6989586621679994623"><span class="annot"><span class="annottext">replacement :: Snapshot SimpleTx
+</span><a href="#local-6989586621679994623"><span class="hs-identifier hs-var hs-var">replacement</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SnapshotNumber
+-&gt; SnapshotVersion
+-&gt; [SimpleTx]
+-&gt; UTxOType SimpleTx
+-&gt; Snapshot SimpleTx
+forall tx.
+IsTx tx =&gt;
+SnapshotNumber
+-&gt; SnapshotVersion -&gt; [tx] -&gt; UTxOType tx -&gt; Snapshot tx
+</span><a href="Hydra.HeadLogicSpec.html#testSnapshot"><span class="hs-identifier hs-var">testSnapshot</span></a></span><span> </span><span class="annot"><span class="annottext">SnapshotNumber
+</span><span class="hs-number">2</span></span><span> </span><span class="annot"><span class="annottext">SnapshotVersion
+</span><span class="hs-number">0</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">UTxOType SimpleTx
+forall a. Monoid a =&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#mempty"><span class="hs-identifier hs-var">mempty</span></a></span><span>
+</span><span id="line-70"></span><span>    </span><span id="local-6989586621679994624"><span class="annot"><span class="annottext">VerifiedSnapshot SimpleTx
+</span><a href="#local-6989586621679994624"><span class="hs-identifier hs-var">evidence</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Snapshot SimpleTx -&gt; IO (VerifiedSnapshot SimpleTx)
+</span><a href="Hydra.HeadLogic.CommitPhaseSpec.html#verified"><span class="hs-identifier hs-var">verified</span></a></span><span> </span><span class="annot"><span class="annottext">Snapshot SimpleTx
+</span><a href="#local-6989586621679994623"><span class="hs-identifier hs-var">replacement</span></a></span><span>
+</span><span id="line-71"></span><span>    </span><span class="annot"><span class="annottext">OpenState SimpleTx
+-&gt; [(Command SimpleTx, Maybe SimpleId, Text, UTxOType SimpleTx)]
+-&gt; IO ()
+</span><a href="Hydra.HeadLogic.CommitPhaseSpec.html#checkSteps"><span class="hs-identifier hs-var">checkSteps</span></a></span><span>
+</span><span id="line-72"></span><span>      </span><span class="annot"><span class="annottext">OpenState SimpleTx
+</span><a href="#local-6989586621679994538"><span class="hs-identifier hs-var">before</span></a></span><span>
+</span><span id="line-73"></span><span>      </span><span class="hs-special">[</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ValidatedSnapshot SimpleTx -&gt; Seq SimpleTx -&gt; Command SimpleTx
+forall tx. ValidatedSnapshot tx -&gt; Seq tx -&gt; Command tx
+</span><span class="hs-identifier hs-var">Coordinated.acceptSnapshot</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Snapshot SimpleTx -&gt; ValidatedSnapshot SimpleTx
+</span><span class="hs-identifier hs-var">checkedSnapshot</span></span><span> </span><span class="annot"><span class="annottext">Snapshot SimpleTx
+</span><a href="#local-6989586621679994623"><span class="hs-identifier hs-var">replacement</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Seq SimpleTx
+forall a. Monoid a =&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#mempty"><span class="hs-identifier hs-var">mempty</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Maybe SimpleId
+forall a. Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;AwaitingCommitSettlement&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut
+UTxOType SimpleTx
+forall a. Monoid a =&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#mempty"><span class="hs-identifier hs-var">mempty</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-74"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">VerifiedSnapshot SimpleTx -&gt; Command SimpleTx
+forall tx. VerifiedSnapshot tx -&gt; Command tx
+</span><span class="hs-identifier hs-var">Coordinated.adoptSnapshot</span></span><span> </span><span class="annot"><span class="annottext">VerifiedSnapshot SimpleTx
+</span><a href="#local-6989586621679994624"><span class="hs-identifier hs-var">evidence</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Maybe SimpleId
+forall a. Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;NoCommit&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut
+UTxOType SimpleTx
+forall a. Monoid a =&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#mempty"><span class="hs-identifier hs-var">mempty</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-75"></span><span>      </span><span class="hs-special">]</span><span>
+</span><span id="line-76"></span><span>
+</span><span id="line-77"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; IO () -&gt; SpecWith (Arg (IO ()))
+forall a.
+(HasCallStack, Example a) =&gt;
+String -&gt; a -&gt; SpecWith (Arg a)
+</span><span class="hs-identifier hs-var">it</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;preserves another selection when adoption retires an older claim&quot;</span></span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; SpecWith (Arg (IO ())))
+-&gt; IO () -&gt; SpecWith (Arg (IO ()))
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-78"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679994628"><span class="annot"><span class="annottext">before :: OpenState SimpleTx
+</span><a href="#local-6989586621679994628"><span class="hs-identifier hs-var hs-var">before</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">OpenState SimpleTx
+</span><a href="Hydra.HeadLogic.CommitPhaseSpec.html#open"><span class="hs-identifier hs-var">open</span></a></span><span class="hs-special">{</span><span class="annot"><span class="hs-identifier hs-var">coordinatedHeadState</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier">open</span></span><span class="hs-operator">.</span><span class="hs-identifier">coordinatedHeadState</span><span class="hs-special">{</span><span class="annot"><span class="hs-identifier hs-var">currentDepositTxId</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span class="annot"><span class="hs-number">8</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-var">confirmedSnapshot</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ConfirmedSnapshot</span></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.CommitPhaseSpec.html#snapshot"><span class="hs-identifier hs-type">snapshot</span></a></span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#mempty"><span class="hs-identifier hs-type">mempty</span></a></span><span class="hs-special">}</span><span class="hs-special">}</span><span>
+</span><span id="line-79"></span><span>    </span><span id="local-6989586621679994629"><span class="annot"><span class="annottext">VerifiedSnapshot SimpleTx
+</span><a href="#local-6989586621679994629"><span class="hs-identifier hs-var">evidence</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Snapshot SimpleTx -&gt; IO (VerifiedSnapshot SimpleTx)
+</span><a href="Hydra.HeadLogic.CommitPhaseSpec.html#verified"><span class="hs-identifier hs-var">verified</span></a></span><span> </span><span class="annot"><span class="annottext">(Snapshot SimpleTx -&gt; IO (VerifiedSnapshot SimpleTx))
+-&gt; Snapshot SimpleTx -&gt; IO (VerifiedSnapshot SimpleTx)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">SnapshotNumber
+-&gt; SnapshotVersion
+-&gt; [SimpleTx]
+-&gt; UTxOType SimpleTx
+-&gt; Snapshot SimpleTx
+forall tx.
+IsTx tx =&gt;
+SnapshotNumber
+-&gt; SnapshotVersion -&gt; [tx] -&gt; UTxOType tx -&gt; Snapshot tx
+</span><a href="Hydra.HeadLogicSpec.html#testSnapshot"><span class="hs-identifier hs-var">testSnapshot</span></a></span><span> </span><span class="annot"><span class="annottext">SnapshotNumber
+</span><span class="hs-number">2</span></span><span> </span><span class="annot"><span class="annottext">SnapshotVersion
+</span><span class="hs-number">0</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut
+UTxOType SimpleTx
+forall a. Monoid a =&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#mempty"><span class="hs-identifier hs-var">mempty</span></a></span><span>
+</span><span id="line-80"></span><span>    </span><span class="annot"><span class="annottext">OpenState SimpleTx
+-&gt; [(Command SimpleTx, Maybe SimpleId, Text, UTxOType SimpleTx)]
+-&gt; IO ()
+</span><a href="Hydra.HeadLogic.CommitPhaseSpec.html#checkSteps"><span class="hs-identifier hs-var">checkSteps</span></a></span><span> </span><span class="annot"><span class="annottext">OpenState SimpleTx
+</span><a href="#local-6989586621679994628"><span class="hs-identifier hs-var">before</span></a></span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="annottext">VerifiedSnapshot SimpleTx -&gt; Command SimpleTx
+forall tx. VerifiedSnapshot tx -&gt; Command tx
+</span><span class="hs-identifier hs-var">Coordinated.adoptSnapshot</span></span><span> </span><span class="annot"><span class="annottext">VerifiedSnapshot SimpleTx
+</span><a href="#local-6989586621679994629"><span class="hs-identifier hs-var">evidence</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">SimpleId -&gt; Maybe SimpleId
+forall a. a -&gt; Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">SimpleId
+</span><span class="hs-number">8</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;CommitSelected&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut
+UTxOType SimpleTx
+forall a. Monoid a =&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#mempty"><span class="hs-identifier hs-var">mempty</span></a></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
+</span><span id="line-81"></span><span>
+</span><span id="line-82"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; IO () -&gt; SpecWith (Arg (IO ()))
+forall a.
+(HasCallStack, Example a) =&gt;
+String -&gt; a -&gt; SpecWith (Arg a)
+</span><span class="hs-identifier hs-var">it</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;retires old commit authority on a newer decrement while preserving selection&quot;</span></span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; SpecWith (Arg (IO ())))
+-&gt; IO () -&gt; SpecWith (Arg (IO ()))
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-83"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679994633"><span class="annot"><span class="annottext">before :: OpenState SimpleTx
+</span><a href="#local-6989586621679994633"><span class="hs-identifier hs-var hs-var">before</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">OpenState SimpleTx
+</span><a href="Hydra.HeadLogic.CommitPhaseSpec.html#open"><span class="hs-identifier hs-var">open</span></a></span><span class="hs-special">{</span><span class="annot"><span class="hs-identifier hs-var">coordinatedHeadState</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier">open</span></span><span class="hs-operator">.</span><span class="hs-identifier">coordinatedHeadState</span><span class="hs-special">{</span><span class="annot"><span class="hs-identifier hs-var">currentDepositTxId</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span class="annot"><span class="hs-number">8</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-var">confirmedSnapshot</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ConfirmedSnapshot</span></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.CommitPhaseSpec.html#snapshot"><span class="hs-identifier hs-type">snapshot</span></a></span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#mempty"><span class="hs-identifier hs-type">mempty</span></a></span><span class="hs-special">}</span><span class="hs-special">}</span><span>
+</span><span id="line-84"></span><span>    </span><span class="annot"><span class="annottext">OpenState SimpleTx
+-&gt; [(Command SimpleTx, Maybe SimpleId, Text, UTxOType SimpleTx)]
+-&gt; IO ()
+</span><a href="Hydra.HeadLogic.CommitPhaseSpec.html#checkSteps"><span class="hs-identifier hs-var">checkSteps</span></a></span><span> </span><span class="annot"><span class="annottext">OpenState SimpleTx
+</span><a href="#local-6989586621679994633"><span class="hs-identifier hs-var">before</span></a></span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="annottext">ChainStateType SimpleTx
+-&gt; SnapshotVersion -&gt; UTxOType SimpleTx -&gt; Command SimpleTx
+forall tx.
+ChainStateType tx -&gt; SnapshotVersion -&gt; UTxOType tx -&gt; Command tx
+</span><span class="hs-identifier hs-var">Coordinated.recordDecommitFinalization</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ChainSlot -&gt; SimpleChainState
+</span><span class="hs-identifier hs-var">SimpleChainState</span></span><span> </span><span class="annot"><span class="annottext">ChainSlot
+</span><span class="hs-number">3</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">SnapshotVersion
+</span><span class="hs-number">1</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SimpleId -&gt; UTxOType SimpleTx
+</span><span class="hs-identifier hs-var">utxoRef</span></span><span> </span><span class="annot"><span class="annottext">SimpleId
+</span><span class="hs-number">9</span></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">SimpleId -&gt; Maybe SimpleId
+forall a. a -&gt; Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">SimpleId
+</span><span class="hs-number">8</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;CommitSelected&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut
+UTxOType SimpleTx
+forall a. Monoid a =&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#mempty"><span class="hs-identifier hs-var">mempty</span></a></span><span class="hs-special">)</span><span class="hs-special">]</span><span>
+</span><span id="line-85"></span><span>
+</span><span id="line-86"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; IO () -&gt; SpecWith (Arg (IO ()))
+forall a.
+(HasCallStack, Example a) =&gt;
+String -&gt; a -&gt; SpecWith (Arg a)
+</span><span class="hs-identifier hs-var">it</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;preserves a newer selection on duplicate and older increment observations&quot;</span></span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; SpecWith (Arg (IO ())))
+-&gt; IO () -&gt; SpecWith (Arg (IO ()))
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-87"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679994639"><span class="annot"><span class="annottext">before :: OpenState SimpleTx
+</span><a href="#local-6989586621679994639"><span class="hs-identifier hs-var hs-var">before</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">OpenState SimpleTx
+</span><a href="Hydra.HeadLogic.CommitPhaseSpec.html#open"><span class="hs-identifier hs-var">open</span></a></span><span class="hs-special">{</span><span class="annot"><span class="hs-identifier hs-var">coordinatedHeadState</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier">open</span></span><span class="hs-operator">.</span><span class="hs-identifier">coordinatedHeadState</span><span class="hs-special">{</span><span class="annot"><span class="hs-identifier hs-var">currentDepositTxId</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span class="annot"><span class="hs-number">7</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-var">confirmedSnapshot</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ConfirmedSnapshot</span></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.CommitPhaseSpec.html#snapshot"><span class="hs-identifier hs-type">snapshot</span></a></span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#mempty"><span class="hs-identifier hs-type">mempty</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-var">seenSnapshot</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">LastSeenSnapshot</span></span><span> </span><span class="annot"><span class="hs-number">1</span></span><span class="hs-special">}</span><span class="hs-special">}</span><span>
+</span><span id="line-88"></span><span>        </span><span id="local-6989586621679994645"><span class="annot"><span class="annottext">proposal :: Snapshot SimpleTx
+</span><a href="#local-6989586621679994645"><span class="hs-identifier hs-var hs-var">proposal</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Snapshot SimpleTx -&gt; Snapshot SimpleTx
+forall tx. IsTx tx =&gt; Snapshot tx -&gt; Snapshot tx
+</span><a href="Hydra.HeadLogicSpec.html#withAccumulators"><span class="hs-identifier hs-var">withAccumulators</span></a></span><span> </span><span class="annot"><span class="annottext">(Snapshot SimpleTx -&gt; Snapshot SimpleTx)
+-&gt; Snapshot SimpleTx -&gt; Snapshot SimpleTx
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SnapshotNumber
+-&gt; SnapshotVersion
+-&gt; [SimpleTx]
+-&gt; UTxOType SimpleTx
+-&gt; Snapshot SimpleTx
+forall tx.
+IsTx tx =&gt;
+SnapshotNumber
+-&gt; SnapshotVersion -&gt; [tx] -&gt; UTxOType tx -&gt; Snapshot tx
+</span><a href="Hydra.HeadLogicSpec.html#testSnapshot"><span class="hs-identifier hs-var">testSnapshot</span></a></span><span> </span><span class="annot"><span class="annottext">SnapshotNumber
+</span><span class="hs-number">2</span></span><span> </span><span class="annot"><span class="annottext">SnapshotVersion
+</span><span class="hs-number">1</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">UTxOType SimpleTx
+</span><a href="Hydra.HeadLogic.CommitPhaseSpec.html#deposited"><span class="hs-identifier hs-var">deposited</span></a></span><span class="hs-special">)</span><span class="hs-special">{</span><span class="annot"><span class="hs-identifier hs-var">utxoToCommit</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">utxoRef</span></span><span> </span><span class="annot"><span class="hs-number">8</span></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-var">depositTxId</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span class="annot"><span class="hs-number">8</span></span><span class="hs-special">}</span><span>
+</span><span id="line-89"></span><span>    </span><span class="annot"><span class="annottext">OpenState SimpleTx
+-&gt; [(Command SimpleTx, Maybe SimpleId, Text, UTxOType SimpleTx)]
+-&gt; IO ()
+</span><a href="Hydra.HeadLogic.CommitPhaseSpec.html#checkSteps"><span class="hs-identifier hs-var">checkSteps</span></a></span><span>
+</span><span id="line-90"></span><span>      </span><span class="annot"><span class="annottext">OpenState SimpleTx
+</span><a href="#local-6989586621679994639"><span class="hs-identifier hs-var">before</span></a></span><span>
+</span><span id="line-91"></span><span>      </span><span class="hs-special">[</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ChainStateType SimpleTx
+-&gt; SnapshotVersion
+-&gt; TxIdType SimpleTx
+-&gt; UTxOType SimpleTx
+-&gt; Command SimpleTx
+forall tx.
+ChainStateType tx
+-&gt; SnapshotVersion -&gt; TxIdType tx -&gt; UTxOType tx -&gt; Command tx
+</span><span class="hs-identifier hs-var">Coordinated.recordCommitFinalization</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ChainSlot -&gt; SimpleChainState
+</span><span class="hs-identifier hs-var">SimpleChainState</span></span><span> </span><span class="annot"><span class="annottext">ChainSlot
+</span><span class="hs-number">3</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">SnapshotVersion
+</span><span class="hs-number">1</span></span><span> </span><span class="annot"><span class="annottext">SimpleId
+TxIdType SimpleTx
+</span><span class="hs-number">7</span></span><span> </span><span class="annot"><span class="annottext">UTxOType SimpleTx
+</span><a href="Hydra.HeadLogic.CommitPhaseSpec.html#deposited"><span class="hs-identifier hs-var">deposited</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Maybe SimpleId
+forall a. Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;NoCommit&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">UTxOType SimpleTx
+</span><a href="Hydra.HeadLogic.CommitPhaseSpec.html#deposited"><span class="hs-identifier hs-var">deposited</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-92"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ValidatedSnapshot SimpleTx -&gt; Seq SimpleTx -&gt; Command SimpleTx
+forall tx. ValidatedSnapshot tx -&gt; Seq tx -&gt; Command tx
+</span><span class="hs-identifier hs-var">Coordinated.acceptSnapshot</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Snapshot SimpleTx -&gt; ValidatedSnapshot SimpleTx
+</span><span class="hs-identifier hs-var">checkedSnapshot</span></span><span> </span><span class="annot"><span class="annottext">Snapshot SimpleTx
+</span><a href="#local-6989586621679994645"><span class="hs-identifier hs-var">proposal</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Seq SimpleTx
+forall a. Monoid a =&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#mempty"><span class="hs-identifier hs-var">mempty</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">SimpleId -&gt; Maybe SimpleId
+forall a. a -&gt; Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">SimpleId
+</span><span class="hs-number">8</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;CommitSelected&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">UTxOType SimpleTx
+</span><a href="Hydra.HeadLogic.CommitPhaseSpec.html#deposited"><span class="hs-identifier hs-var">deposited</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-93"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ChainStateType SimpleTx
+-&gt; SnapshotVersion
+-&gt; TxIdType SimpleTx
+-&gt; UTxOType SimpleTx
+-&gt; Command SimpleTx
+forall tx.
+ChainStateType tx
+-&gt; SnapshotVersion -&gt; TxIdType tx -&gt; UTxOType tx -&gt; Command tx
+</span><span class="hs-identifier hs-var">Coordinated.recordCommitFinalization</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ChainSlot -&gt; SimpleChainState
+</span><span class="hs-identifier hs-var">SimpleChainState</span></span><span> </span><span class="annot"><span class="annottext">ChainSlot
+</span><span class="hs-number">4</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">SnapshotVersion
+</span><span class="hs-number">1</span></span><span> </span><span class="annot"><span class="annottext">SimpleId
+TxIdType SimpleTx
+</span><span class="hs-number">7</span></span><span> </span><span class="annot"><span class="annottext">UTxOType SimpleTx
+</span><a href="Hydra.HeadLogic.CommitPhaseSpec.html#deposited"><span class="hs-identifier hs-var">deposited</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">SimpleId -&gt; Maybe SimpleId
+forall a. a -&gt; Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">SimpleId
+</span><span class="hs-number">8</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;CommitSelected&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">UTxOType SimpleTx
+</span><a href="Hydra.HeadLogic.CommitPhaseSpec.html#deposited"><span class="hs-identifier hs-var">deposited</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-94"></span><span>      </span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ChainStateType SimpleTx
+-&gt; SnapshotVersion
+-&gt; TxIdType SimpleTx
+-&gt; UTxOType SimpleTx
+-&gt; Command SimpleTx
+forall tx.
+ChainStateType tx
+-&gt; SnapshotVersion -&gt; TxIdType tx -&gt; UTxOType tx -&gt; Command tx
+</span><span class="hs-identifier hs-var">Coordinated.recordCommitFinalization</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ChainSlot -&gt; SimpleChainState
+</span><span class="hs-identifier hs-var">SimpleChainState</span></span><span> </span><span class="annot"><span class="annottext">ChainSlot
+</span><span class="hs-number">2</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">SnapshotVersion
+</span><span class="hs-number">0</span></span><span> </span><span class="annot"><span class="annottext">SimpleId
+TxIdType SimpleTx
+</span><span class="hs-number">7</span></span><span> </span><span class="annot"><span class="annottext">UTxOType SimpleTx
+</span><a href="Hydra.HeadLogic.CommitPhaseSpec.html#deposited"><span class="hs-identifier hs-var">deposited</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">SimpleId -&gt; Maybe SimpleId
+forall a. a -&gt; Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">SimpleId
+</span><span class="hs-number">8</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;CommitSelected&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">UTxOType SimpleTx
+</span><a href="Hydra.HeadLogic.CommitPhaseSpec.html#deposited"><span class="hs-identifier hs-var">deposited</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-95"></span><span>      </span><span class="hs-special">]</span><span>
+</span><span id="line-96"></span><span>
+</span><span id="line-97"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; IO () -&gt; SpecWith (Arg (IO ()))
+forall a.
+(HasCallStack, Example a) =&gt;
+String -&gt; a -&gt; SpecWith (Arg a)
+</span><span class="hs-identifier hs-var">it</span></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;does not force the transaction ledger to advance or inspect commit selection&quot;</span></span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; SpecWith (Arg (IO ())))
+-&gt; IO () -&gt; SpecWith (Arg (IO ()))
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-98"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[StateChanged SimpleTx]
+</span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679994654"><span class="annot"><span class="annottext">Runtime SimpleTx
+</span><a href="#local-6989586621679994654"><span class="hs-identifier hs-var">next</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Runtime SimpleTx
+-&gt; Command SimpleTx -&gt; ([StateChanged SimpleTx], Runtime SimpleTx)
+forall tx.
+Runtime tx -&gt; Command tx -&gt; ([StateChanged tx], Runtime tx)
+</span><span class="hs-identifier hs-var">Coordinated.step</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">OpenState SimpleTx -&gt; Runtime SimpleTx
+forall tx. IsChainState tx =&gt; OpenState tx -&gt; Runtime tx
+</span><span class="hs-identifier hs-var">Coordinated.start</span></span><span> </span><span class="annot"><span class="annottext">OpenState SimpleTx
+</span><a href="Hydra.HeadLogic.CommitPhaseSpec.html#open"><span class="hs-identifier hs-var">open</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Command SimpleTx -&gt; ([StateChanged SimpleTx], Runtime SimpleTx))
+-&gt; Command SimpleTx -&gt; ([StateChanged SimpleTx], Runtime SimpleTx)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">ValidatedSnapshot SimpleTx -&gt; Seq SimpleTx -&gt; Command SimpleTx
+forall tx. ValidatedSnapshot tx -&gt; Seq tx -&gt; Command tx
+</span><span class="hs-identifier hs-var">Coordinated.acceptSnapshot</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Snapshot SimpleTx -&gt; ValidatedSnapshot SimpleTx
+</span><span class="hs-identifier hs-var">checkedSnapshot</span></span><span> </span><span class="annot"><span class="annottext">Snapshot SimpleTx
+</span><a href="Hydra.HeadLogic.CommitPhaseSpec.html#snapshot"><span class="hs-identifier hs-var">snapshot</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SimpleTx -&gt; Seq SimpleTx
+forall a. a -&gt; Seq a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Sequence.Internal.html#singleton"><span class="hs-identifier hs-var">Seq.singleton</span></a></span><span> </span><span class="annot"><span class="annottext">(SimpleTx -&gt; Seq SimpleTx) -&gt; SimpleTx -&gt; Seq SimpleTx
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; SimpleTx
+forall a t. (HasCallStack, IsText t) =&gt; t -&gt; a
+</span><span class="hs-identifier hs-var">error</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;commit phase demands transactions&quot;</span></span><span class="hs-special">)</span><span>
+</span><span id="line-99"></span><span>    </span><span class="annot"><span class="annottext">Runtime SimpleTx -&gt; Maybe Text
+forall tx. Runtime tx -&gt; Maybe Text
+</span><a href="Hydra.HeadLogic.CommitPhaseSpec.html#commitPhase"><span class="hs-identifier hs-var">commitPhase</span></a></span><span> </span><span class="annot"><span class="annottext">Runtime SimpleTx
+</span><a href="#local-6989586621679994654"><span class="hs-identifier hs-var">next</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe Text -&gt; Maybe Text -&gt; IO ()
+forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; IO ()
+</span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Maybe Text
+forall a. a -&gt; Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;CommitSelected&quot;</span></span><span>
+</span><span id="line-100"></span><span>
+</span><span id="line-101"></span><span class="hs-comment">-- Compare the live continuation, retained events and checkpoint reconstruction</span><span>
+</span><span id="line-102"></span><span class="hs-comment">-- after every command, including the selected pointer and spendable ledger.</span><span>
+</span><span id="line-103"></span><span class="annot"><a href="Hydra.HeadLogic.CommitPhaseSpec.html#checkSteps"><span class="hs-identifier hs-type">checkSteps</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">OpenState</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SimpleTx</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Coordinated.Command</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SimpleTx</span></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-bignum-1.3/src/GHC.Num.Integer.html#Integer"><span class="hs-identifier hs-type">Integer</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxOType</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SimpleTx</span></span><span class="hs-special">)</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Expectation</span></span><span>
+</span><span id="line-104"></span><span id="checkSteps"><span class="annot"><span class="annottext">checkSteps :: OpenState SimpleTx
+-&gt; [(Command SimpleTx, Maybe SimpleId, Text, UTxOType SimpleTx)]
+-&gt; IO ()
+</span><a href="Hydra.HeadLogic.CommitPhaseSpec.html#checkSteps"><span class="hs-identifier hs-var hs-var">checkSteps</span></a></span></span><span> </span><span id="local-6989586621679994657"><span class="annot"><span class="annottext">OpenState SimpleTx
+</span><a href="#local-6989586621679994657"><span class="hs-identifier hs-var">initial</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">IO (Runtime SimpleTx) -&gt; IO ()
+forall (f :: * -&gt; *) a. Functor f =&gt; f a -&gt; f ()
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#void"><span class="hs-identifier hs-var">void</span></a></span><span> </span><span class="annot"><span class="annottext">(IO (Runtime SimpleTx) -&gt; IO ())
+-&gt; ([(Command SimpleTx, Maybe SimpleId, Text, Set SimpleTxOut)]
+    -&gt; IO (Runtime SimpleTx))
+-&gt; [(Command SimpleTx, Maybe SimpleId, Text, Set SimpleTxOut)]
+-&gt; IO ()
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">(Runtime SimpleTx
+ -&gt; (Command SimpleTx, Maybe SimpleId, Text, Set SimpleTxOut)
+ -&gt; IO (Runtime SimpleTx))
+-&gt; Runtime SimpleTx
+-&gt; [(Command SimpleTx, Maybe SimpleId, Text, Set SimpleTxOut)]
+-&gt; IO (Runtime SimpleTx)
+forall (t :: * -&gt; *) (m :: * -&gt; *) b a.
+(Foldable t, Monad m) =&gt;
+(b -&gt; a -&gt; m b) -&gt; b -&gt; t a -&gt; m b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.html#foldM"><span class="hs-identifier hs-var">foldM</span></a></span><span> </span><span class="annot"><span class="annottext">Runtime SimpleTx
+-&gt; (Command SimpleTx, Maybe SimpleId, Text, Set SimpleTxOut)
+-&gt; IO (Runtime SimpleTx)
+</span><a href="#local-6989586621679994659"><span class="hs-identifier hs-var">step</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">OpenState SimpleTx -&gt; Runtime SimpleTx
+forall tx. IsChainState tx =&gt; OpenState tx -&gt; Runtime tx
+</span><span class="hs-identifier hs-var">Coordinated.start</span></span><span> </span><span class="annot"><span class="annottext">OpenState SimpleTx
+</span><a href="#local-6989586621679994657"><span class="hs-identifier hs-var">initial</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-105"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-106"></span><span>  </span><span id="local-6989586621679994659"><span class="annot"><span class="annottext">step :: Runtime SimpleTx
+-&gt; (Command SimpleTx, Maybe SimpleId, Text, Set SimpleTxOut)
+-&gt; IO (Runtime SimpleTx)
+</span><a href="#local-6989586621679994659"><span class="hs-identifier hs-var hs-var">step</span></a></span></span><span> </span><span id="local-6989586621679994660"><span class="annot"><span class="annottext">Runtime SimpleTx
+</span><a href="#local-6989586621679994660"><span class="hs-identifier hs-var">runtime</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679994661"><span class="annot"><span class="annottext">Command SimpleTx
+</span><a href="#local-6989586621679994661"><span class="hs-identifier hs-var">command</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679994662"><span class="annot"><span class="annottext">Maybe SimpleId
+</span><a href="#local-6989586621679994662"><span class="hs-identifier hs-var">selected</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679994663"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679994663"><span class="hs-identifier hs-var">phase</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679994664"><span class="annot"><span class="annottext">Set SimpleTxOut
+</span><a href="#local-6989586621679994664"><span class="hs-identifier hs-var">utxo</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-107"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span class="hs-special">(</span><span id="local-6989586621679994665"><span class="annot"><span class="annottext">[StateChanged SimpleTx]
+</span><a href="#local-6989586621679994665"><span class="hs-identifier hs-var">events</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679994666"><span class="annot"><span class="annottext">Runtime SimpleTx
+</span><a href="#local-6989586621679994666"><span class="hs-identifier hs-var">updated</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Runtime SimpleTx
+-&gt; Command SimpleTx -&gt; ([StateChanged SimpleTx], Runtime SimpleTx)
+forall tx.
+Runtime tx -&gt; Command tx -&gt; ([StateChanged tx], Runtime tx)
+</span><span class="hs-identifier hs-var">Coordinated.step</span></span><span> </span><span class="annot"><span class="annottext">Runtime SimpleTx
+</span><a href="#local-6989586621679994660"><span class="hs-identifier hs-var">runtime</span></a></span><span> </span><span class="annot"><span class="annottext">Command SimpleTx
+</span><a href="#local-6989586621679994661"><span class="hs-identifier hs-var">command</span></a></span><span>
+</span><span id="line-108"></span><span>        </span><span id="local-6989586621679994667"><span class="annot"><span class="annottext">current :: CoordinatedHeadState SimpleTx
+</span><a href="#local-6989586621679994667"><span class="hs-identifier hs-var hs-var">current</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Runtime SimpleTx -&gt; CoordinatedHeadState SimpleTx
+forall tx. Runtime tx -&gt; CoordinatedHeadState tx
+</span><span class="hs-identifier hs-var">Coordinated.currentState</span></span><span> </span><span class="annot"><span class="annottext">Runtime SimpleTx
+</span><a href="#local-6989586621679994666"><span class="hs-identifier hs-var">updated</span></a></span><span>
+</span><span id="line-109"></span><span>        </span><span id="local-6989586621679994669"><span class="annot"><span class="annottext">replayed :: Runtime SimpleTx
+</span><a href="#local-6989586621679994669"><span class="hs-identifier hs-var hs-var">replayed</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Runtime SimpleTx -&gt; StateChanged SimpleTx -&gt; Runtime SimpleTx)
+-&gt; Runtime SimpleTx -&gt; [StateChanged SimpleTx] -&gt; Runtime SimpleTx
+forall b a. (b -&gt; a -&gt; b) -&gt; b -&gt; [a] -&gt; b
+forall (t :: * -&gt; *) b a.
+Foldable t =&gt;
+(b -&gt; a -&gt; b) -&gt; b -&gt; t a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#foldl%27"><span class="hs-identifier hs-var">foldl'</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(StateChanged SimpleTx -&gt; Runtime SimpleTx -&gt; Runtime SimpleTx)
+-&gt; Runtime SimpleTx -&gt; StateChanged SimpleTx -&gt; Runtime SimpleTx
+forall a b c. (a -&gt; b -&gt; c) -&gt; b -&gt; a -&gt; c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#flip"><span class="hs-identifier hs-var">flip</span></a></span><span> </span><span class="annot"><span class="annottext">((StateChanged SimpleTx -&gt; Runtime SimpleTx -&gt; Runtime SimpleTx)
+ -&gt; Runtime SimpleTx -&gt; StateChanged SimpleTx -&gt; Runtime SimpleTx)
+-&gt; (StateChanged SimpleTx -&gt; Runtime SimpleTx -&gt; Runtime SimpleTx)
+-&gt; Runtime SimpleTx
+-&gt; StateChanged SimpleTx
+-&gt; Runtime SimpleTx
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">UTxOType SimpleTx
+-&gt; StateChanged SimpleTx -&gt; Runtime SimpleTx -&gt; Runtime SimpleTx
+forall tx.
+IsChainState tx =&gt;
+UTxOType tx -&gt; StateChanged tx -&gt; Runtime tx -&gt; Runtime tx
+</span><span class="hs-identifier hs-var">Coordinated.replayEvent</span></span><span> </span><span class="annot"><span class="annottext">UTxOType SimpleTx
+</span><a href="Hydra.HeadLogic.CommitPhaseSpec.html#deposited"><span class="hs-identifier hs-var">deposited</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Runtime SimpleTx
+</span><a href="#local-6989586621679994660"><span class="hs-identifier hs-var">runtime</span></a></span><span> </span><span class="annot"><span class="annottext">[StateChanged SimpleTx]
+</span><a href="#local-6989586621679994665"><span class="hs-identifier hs-var">events</span></a></span><span>
+</span><span id="line-110"></span><span>    </span><span class="annot"><span class="annottext">CoordinatedHeadState SimpleTx
+</span><a href="#local-6989586621679994667"><span class="hs-identifier hs-var">current</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">currentDepositTxId</span><span> </span><span class="annot"><span class="annottext">Maybe SimpleId -&gt; Maybe SimpleId -&gt; IO ()
+forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; IO ()
+</span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">Maybe SimpleId
+</span><a href="#local-6989586621679994662"><span class="hs-identifier hs-var">selected</span></a></span><span>
+</span><span id="line-111"></span><span>    </span><span class="annot"><span class="annottext">CoordinatedHeadState SimpleTx
+</span><a href="#local-6989586621679994667"><span class="hs-identifier hs-var">current</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">localUTxO</span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut -&gt; Set SimpleTxOut -&gt; IO ()
+forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; IO ()
+</span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut
+</span><a href="#local-6989586621679994664"><span class="hs-identifier hs-var">utxo</span></a></span><span>
+</span><span id="line-112"></span><span>    </span><span class="annot"><span class="annottext">Runtime SimpleTx -&gt; CoordinatedHeadState SimpleTx
+forall tx. Runtime tx -&gt; CoordinatedHeadState tx
+</span><span class="hs-identifier hs-var">Coordinated.currentState</span></span><span> </span><span class="annot"><span class="annottext">Runtime SimpleTx
+</span><a href="#local-6989586621679994669"><span class="hs-identifier hs-var">replayed</span></a></span><span> </span><span class="annot"><span class="annottext">CoordinatedHeadState SimpleTx
+-&gt; CoordinatedHeadState SimpleTx -&gt; IO ()
+forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; IO ()
+</span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">CoordinatedHeadState SimpleTx
+</span><a href="#local-6989586621679994667"><span class="hs-identifier hs-var">current</span></a></span><span>
+</span><span id="line-113"></span><span>    </span><span id="local-6989586621679994673"><span class="annot"><span class="annottext">CoordinatedHeadState SimpleTx
+</span><a href="#local-6989586621679994673"><span class="hs-identifier hs-var">restored</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">(DecoderError -&gt; IO (CoordinatedHeadState SimpleTx))
+-&gt; (CoordinatedHeadState SimpleTx
+    -&gt; IO (CoordinatedHeadState SimpleTx))
+-&gt; Either DecoderError (CoordinatedHeadState SimpleTx)
+-&gt; IO (CoordinatedHeadState SimpleTx)
+forall a c b. (a -&gt; c) -&gt; (b -&gt; c) -&gt; Either a b -&gt; c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#either"><span class="hs-identifier hs-var">either</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String -&gt; IO (CoordinatedHeadState SimpleTx)
+forall a. String -&gt; IO a
+forall (m :: * -&gt; *) a. MonadFail m =&gt; String -&gt; m a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.Fail.html#fail"><span class="hs-identifier hs-var">fail</span></a></span><span> </span><span class="annot"><span class="annottext">(String -&gt; IO (CoordinatedHeadState SimpleTx))
+-&gt; (DecoderError -&gt; String)
+-&gt; DecoderError
+-&gt; IO (CoordinatedHeadState SimpleTx)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">DecoderError -&gt; String
+forall b a. (Show a, IsString b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">show</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">CoordinatedHeadState SimpleTx -&gt; IO (CoordinatedHeadState SimpleTx)
+forall a. a -&gt; IO a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">(Either DecoderError (CoordinatedHeadState SimpleTx)
+ -&gt; IO (CoordinatedHeadState SimpleTx))
+-&gt; Either DecoderError (CoordinatedHeadState SimpleTx)
+-&gt; IO (CoordinatedHeadState SimpleTx)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString -&gt; Either DecoderError (CoordinatedHeadState SimpleTx)
+forall a. FromCBOR a =&gt; ByteString -&gt; Either DecoderError a
+</span><span class="hs-identifier hs-var">decodeFull'</span></span><span> </span><span class="annot"><span class="annottext">(ByteString -&gt; Either DecoderError (CoordinatedHeadState SimpleTx))
+-&gt; ByteString
+-&gt; Either DecoderError (CoordinatedHeadState SimpleTx)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">CoordinatedHeadState SimpleTx -&gt; ByteString
+forall a. ToCBOR a =&gt; a -&gt; ByteString
+</span><span class="hs-identifier hs-var">serialize'</span></span><span> </span><span class="annot"><span class="annottext">CoordinatedHeadState SimpleTx
+</span><a href="#local-6989586621679994667"><span class="hs-identifier hs-var">current</span></a></span><span>
+</span><span id="line-114"></span><span>    </span><span class="annot"><span class="annottext">Runtime SimpleTx -&gt; [(Text, Maybe Text)]
+forall tx. Runtime tx -&gt; [(Text, Maybe Text)]
+</span><span class="hs-identifier hs-var">Coordinated.inspect</span></span><span> </span><span class="annot"><span class="annottext">Runtime SimpleTx
+</span><a href="#local-6989586621679994666"><span class="hs-identifier hs-var">updated</span></a></span><span> </span><span class="annot"><span class="annottext">[(Text, Maybe Text)] -&gt; [(Text, Maybe Text)] -&gt; IO ()
+forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; IO ()
+</span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">Runtime SimpleTx -&gt; [(Text, Maybe Text)]
+forall tx. Runtime tx -&gt; [(Text, Maybe Text)]
+</span><span class="hs-identifier hs-var">Coordinated.inspect</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">OpenState SimpleTx -&gt; Runtime SimpleTx
+forall tx. IsChainState tx =&gt; OpenState tx -&gt; Runtime tx
+</span><span class="hs-identifier hs-var">Coordinated.start</span></span><span> </span><span class="annot"><span class="annottext">OpenState SimpleTx
+</span><a href="#local-6989586621679994657"><span class="hs-identifier hs-var">initial</span></a></span><span class="hs-special">{</span><span class="annot"><span class="hs-identifier hs-var">coordinatedHeadState</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="#local-6989586621679994673"><span class="hs-identifier hs-type">restored</span></a></span><span class="hs-special">}</span><span class="hs-special">)</span><span>
+</span><span id="line-115"></span><span>    </span><span class="annot"><span class="annottext">Runtime SimpleTx -&gt; Maybe Text
+forall tx. Runtime tx -&gt; Maybe Text
+</span><a href="Hydra.HeadLogic.CommitPhaseSpec.html#commitPhase"><span class="hs-identifier hs-var">commitPhase</span></a></span><span> </span><span class="annot"><span class="annottext">Runtime SimpleTx
+</span><a href="#local-6989586621679994666"><span class="hs-identifier hs-var">updated</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe Text -&gt; Maybe Text -&gt; IO ()
+forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; IO ()
+</span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Maybe Text
+forall a. a -&gt; Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621679994663"><span class="hs-identifier hs-var">phase</span></a></span><span>
+</span><span id="line-116"></span><span>    </span><span class="annot"><span class="annottext">Runtime SimpleTx -&gt; IO (Runtime SimpleTx)
+forall a. a -&gt; IO a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">Runtime SimpleTx
+</span><a href="#local-6989586621679994666"><span class="hs-identifier hs-var">updated</span></a></span><span>
+</span><span id="line-117"></span><span>
+</span><span id="line-118"></span><span id="local-6989586621679994075"><span class="annot"><a href="Hydra.HeadLogic.CommitPhaseSpec.html#commitPhase"><span class="hs-identifier hs-type">commitPhase</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Coordinated.Runtime</span></span><span> </span><span class="annot"><a href="#local-6989586621679994075"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span></span><span>
+</span><span id="line-119"></span><span id="commitPhase"><span class="annot"><span class="annottext">commitPhase :: forall tx. Runtime tx -&gt; Maybe Text
+</span><a href="Hydra.HeadLogic.CommitPhaseSpec.html#commitPhase"><span class="hs-identifier hs-var hs-var">commitPhase</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Maybe (Maybe Text) -&gt; Maybe Text
+forall (m :: * -&gt; *) a. Monad m =&gt; m (m a) -&gt; m a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#join"><span class="hs-identifier hs-var">join</span></a></span><span> </span><span class="annot"><span class="annottext">(Maybe (Maybe Text) -&gt; Maybe Text)
+-&gt; (Runtime tx -&gt; Maybe (Maybe Text)) -&gt; Runtime tx -&gt; Maybe Text
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; [(Text, Maybe Text)] -&gt; Maybe (Maybe Text)
+forall a b. Eq a =&gt; a -&gt; [(a, b)] -&gt; Maybe b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.List.html#lookup"><span class="hs-identifier hs-var">List.lookup</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;Commits&quot;</span></span><span> </span><span class="annot"><span class="annottext">([(Text, Maybe Text)] -&gt; Maybe (Maybe Text))
+-&gt; (Runtime tx -&gt; [(Text, Maybe Text)])
+-&gt; Runtime tx
+-&gt; Maybe (Maybe Text)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">Runtime tx -&gt; [(Text, Maybe Text)]
+forall tx. Runtime tx -&gt; [(Text, Maybe Text)]
+</span><span class="hs-identifier hs-var">Coordinated.inspect</span></span><span>
+</span><span id="line-120"></span><span>
+</span><span id="line-121"></span><span class="annot"><a href="Hydra.HeadLogic.CommitPhaseSpec.html#verified"><span class="hs-identifier hs-type">verified</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Snapshot</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SimpleTx</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">VerifiedSnapshot</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SimpleTx</span></span><span class="hs-special">)</span><span>
+</span><span id="line-122"></span><span id="verified"><span class="annot"><span class="annottext">verified :: Snapshot SimpleTx -&gt; IO (VerifiedSnapshot SimpleTx)
+</span><a href="Hydra.HeadLogic.CommitPhaseSpec.html#verified"><span class="hs-identifier hs-var hs-var">verified</span></a></span></span><span> </span><span id="local-6989586621679994680"><span class="annot"><span class="annottext">Snapshot SimpleTx
+</span><a href="#local-6989586621679994680"><span class="hs-identifier hs-var">value</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-123"></span><span>  </span><span class="annot"><span class="annottext">Program
+  SimpleTx (Either VerificationError (VerifiedSnapshot SimpleTx))
+-&gt; IO (Either VerificationError (VerifiedSnapshot SimpleTx))
+forall a. Program SimpleTx a -&gt; IO a
+</span><a href="Hydra.HeadLogic.CommitPhaseSpec.html#verifyOnly"><span class="hs-identifier hs-var">verifyOnly</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[VerificationKey HydraKey]
+-&gt; Snapshot SimpleTx
+-&gt; MultiSignature (Snapshot SimpleTx)
+-&gt; Program
+     SimpleTx (Either VerificationError (VerifiedSnapshot SimpleTx))
+forall tx.
+IsTx tx =&gt;
+[VerificationKey HydraKey]
+-&gt; Snapshot tx
+-&gt; MultiSignature (Snapshot tx)
+-&gt; Program tx (Either VerificationError (VerifiedSnapshot tx))
+</span><span class="hs-identifier hs-var">verifySignedSnapshot</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Secret (SigningKey HydraKey) -&gt; VerificationKey HydraKey
+forall s k. HasVerificationKey s k =&gt; s -&gt; VerificationKey k
+</span><span class="hs-identifier hs-var">getVerificationKey</span></span><span> </span><span class="annot"><span class="annottext">Secret (SigningKey HydraKey)
+</span><span class="hs-identifier hs-var">aliceSk</span></span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">Snapshot SimpleTx
+</span><a href="#local-6989586621679994680"><span class="hs-identifier hs-var">value</span></a></span><span> </span><span class="annot"><span class="annottext">(MultiSignature (Snapshot SimpleTx)
+ -&gt; Program
+      SimpleTx (Either VerificationError (VerifiedSnapshot SimpleTx)))
+-&gt; MultiSignature (Snapshot SimpleTx)
+-&gt; Program
+     SimpleTx (Either VerificationError (VerifiedSnapshot SimpleTx))
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">[Signature (Snapshot SimpleTx)]
+-&gt; MultiSignature (Snapshot SimpleTx)
+forall a. [Signature a] -&gt; MultiSignature a
+</span><span class="hs-identifier hs-var">aggregate</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Secret (SigningKey HydraKey)
+-&gt; Snapshot SimpleTx -&gt; Signature (Snapshot SimpleTx)
+forall a.
+SignableRepresentation a =&gt;
+Secret (SigningKey HydraKey) -&gt; a -&gt; Signature a
+</span><span class="hs-identifier hs-var">sign</span></span><span> </span><span class="annot"><span class="annottext">Secret (SigningKey HydraKey)
+</span><span class="hs-identifier hs-var">aliceSk</span></span><span> </span><span class="annot"><span class="annottext">Snapshot SimpleTx
+</span><a href="#local-6989586621679994680"><span class="hs-identifier hs-var">value</span></a></span><span class="hs-special">]</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">IO (Either VerificationError (VerifiedSnapshot SimpleTx))
+-&gt; (Either VerificationError (VerifiedSnapshot SimpleTx)
+    -&gt; IO (VerifiedSnapshot SimpleTx))
+-&gt; IO (VerifiedSnapshot SimpleTx)
+forall a b. IO a -&gt; (a -&gt; IO b) -&gt; IO b
+forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3E%3E%3D"><span class="hs-operator hs-var">&gt;&gt;=</span></a></span><span> </span><span class="annot"><span class="annottext">(VerificationError -&gt; IO (VerifiedSnapshot SimpleTx))
+-&gt; (VerifiedSnapshot SimpleTx -&gt; IO (VerifiedSnapshot SimpleTx))
+-&gt; Either VerificationError (VerifiedSnapshot SimpleTx)
+-&gt; IO (VerifiedSnapshot SimpleTx)
+forall a c b. (a -&gt; c) -&gt; (b -&gt; c) -&gt; Either a b -&gt; c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#either"><span class="hs-identifier hs-var">either</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String -&gt; IO (VerifiedSnapshot SimpleTx)
+forall a. String -&gt; IO a
+forall (m :: * -&gt; *) a. MonadFail m =&gt; String -&gt; m a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.Fail.html#fail"><span class="hs-identifier hs-var">fail</span></a></span><span> </span><span class="annot"><span class="annottext">(String -&gt; IO (VerifiedSnapshot SimpleTx))
+-&gt; (VerificationError -&gt; String)
+-&gt; VerificationError
+-&gt; IO (VerifiedSnapshot SimpleTx)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">VerificationError -&gt; String
+forall b a. (Show a, IsString b) =&gt; a -&gt; b
+</span><span class="hs-identifier hs-var">show</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">VerifiedSnapshot SimpleTx -&gt; IO (VerifiedSnapshot SimpleTx)
+forall a. a -&gt; IO a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span>
+</span><span id="line-124"></span><span>
+</span><span id="line-125"></span><span class="hs-comment">-- Exercise the real verification primitive while retaining its opaque result.</span><span>
+</span><span id="line-126"></span><span id="local-6989586621679994094"><span class="annot"><a href="Hydra.HeadLogic.CommitPhaseSpec.html#verifyOnly"><span class="hs-identifier hs-type">verifyOnly</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Program</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SimpleTx</span></span><span> </span><span class="annot"><a href="#local-6989586621679994094"><span class="hs-identifier hs-type">a</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679994094"><span class="hs-identifier hs-type">a</span></a></span></span><span>
+</span><span id="line-127"></span><span id="verifyOnly"><span class="annot"><span class="annottext">verifyOnly :: forall a. Program SimpleTx a -&gt; IO a
+</span><a href="Hydra.HeadLogic.CommitPhaseSpec.html#verifyOnly"><span class="hs-identifier hs-var hs-var">verifyOnly</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(forall x. Instruction SimpleTx x -&gt; IO x)
+-&gt; Program SimpleTx a -&gt; IO a
+forall (m :: * -&gt; *) tx a.
+Monad m =&gt;
+(forall x. Instruction tx x -&gt; m x) -&gt; Program tx a -&gt; m a
+</span><span class="hs-identifier hs-var">foldProgram</span></span><span> </span><span class="annot"><span class="annottext">((forall x. Instruction SimpleTx x -&gt; IO x)
+ -&gt; Program SimpleTx a -&gt; IO a)
+-&gt; (forall x. Instruction SimpleTx x -&gt; IO x)
+-&gt; Program SimpleTx a
+-&gt; IO a
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-128"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">VerifySnapshot</span></span><span> </span><span id="local-6989586621679994685"><span class="annot"><span class="annottext">[VerificationKey HydraKey]
+</span><a href="#local-6989586621679994685"><span class="hs-identifier hs-var">parties</span></a></span></span><span> </span><span id="local-6989586621679994686"><span class="annot"><span class="annottext">MultiSignature (Snapshot SimpleTx)
+</span><a href="#local-6989586621679994686"><span class="hs-identifier hs-var">signatures</span></a></span></span><span> </span><span id="local-6989586621679994687"><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679994687"><span class="hs-identifier hs-var">bytes</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Either VerificationError () -&gt; IO (Either VerificationError ())
+forall a. a -&gt; IO a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">(Either VerificationError () -&gt; IO (Either VerificationError ()))
+-&gt; Either VerificationError () -&gt; IO (Either VerificationError ())
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">[VerificationKey HydraKey]
+-&gt; MultiSignature (Snapshot SimpleTx)
+-&gt; ByteString
+-&gt; Either VerificationError ()
+forall a.
+[VerificationKey HydraKey]
+-&gt; MultiSignature a -&gt; ByteString -&gt; Either VerificationError ()
+</span><span class="hs-identifier hs-var">verifyMultiSignatureBytes</span></span><span> </span><span class="annot"><span class="annottext">[VerificationKey HydraKey]
+</span><a href="#local-6989586621679994685"><span class="hs-identifier hs-var">parties</span></a></span><span> </span><span class="annot"><span class="annottext">MultiSignature (Snapshot SimpleTx)
+</span><a href="#local-6989586621679994686"><span class="hs-identifier hs-var">signatures</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679994687"><span class="hs-identifier hs-var">bytes</span></a></span><span>
+</span><span id="line-129"></span><span>  </span><span class="annot"><span class="annottext">Instruction SimpleTx x
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">String -&gt; IO x
+forall a. String -&gt; IO a
+forall (m :: * -&gt; *) a. MonadFail m =&gt; String -&gt; m a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.Fail.html#fail"><span class="hs-identifier hs-var">fail</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><span class="hs-string">&quot;unexpected primitive while verifying a test certificate&quot;</span></span><span>
+</span><span id="line-130"></span><span>
+</span><span id="line-131"></span><span class="annot"><a href="Hydra.HeadLogic.CommitPhaseSpec.html#open"><span class="hs-identifier hs-type">open</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">OpenState</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SimpleTx</span></span><span>
+</span><span id="line-132"></span><span id="open"><span class="annot"><span class="annottext">open :: OpenState SimpleTx
+</span><a href="Hydra.HeadLogic.CommitPhaseSpec.html#open"><span class="hs-identifier hs-var hs-var">open</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Party] -&gt; NodeState SimpleTx
+</span><a href="Hydra.HeadLogicSpec.html#inOpenState"><span class="hs-identifier hs-var">inOpenState</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Party
+</span><span class="hs-identifier hs-var">alice</span></span><span class="hs-special">]</span><span class="hs-special">)</span><span class="hs-operator">.</span><span class="hs-identifier">headState</span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-133"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">Open</span></span><span> </span><span id="local-6989586621679994688"><span class="annot"><span class="annottext">OpenState SimpleTx
+</span><a href="#local-6989586621679994688"><span class="hs-identifier hs-var">value</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">OpenState SimpleTx
+</span><a href="#local-6989586621679994688"><span class="hs-identifier hs-var">value</span></a></span><span>
+</span><span id="line-134"></span><span>  </span><span class="annot"><span class="annottext">HeadState SimpleTx
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text -&gt; OpenState SimpleTx
+forall a t. (HasCallStack, IsText t) =&gt; t -&gt; a
+</span><span class="hs-identifier hs-var">error</span></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;fixture does not open a Head&quot;</span></span><span>
+</span><span id="line-135"></span><span>
+</span><span id="line-136"></span><span class="annot"><a href="Hydra.HeadLogic.CommitPhaseSpec.html#deposited"><span class="hs-identifier hs-type">deposited</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">UTxOType</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SimpleTx</span></span><span>
+</span><span id="line-137"></span><span id="deposited"><span class="annot"><span class="annottext">deposited :: UTxOType SimpleTx
+</span><a href="Hydra.HeadLogic.CommitPhaseSpec.html#deposited"><span class="hs-identifier hs-var hs-var">deposited</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">SimpleId -&gt; UTxOType SimpleTx
+</span><span class="hs-identifier hs-var">utxoRef</span></span><span> </span><span class="annot"><span class="annottext">SimpleId
+</span><span class="hs-number">7</span></span><span>
+</span><span id="line-138"></span><span>
+</span><span id="line-139"></span><span class="annot"><a href="Hydra.HeadLogic.CommitPhaseSpec.html#snapshot"><span class="hs-identifier hs-type">snapshot</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Snapshot</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SimpleTx</span></span><span>
+</span><span id="line-140"></span><span id="snapshot"><span class="annot"><span class="annottext">snapshot :: Snapshot SimpleTx
+</span><a href="Hydra.HeadLogic.CommitPhaseSpec.html#snapshot"><span class="hs-identifier hs-var hs-var">snapshot</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Snapshot SimpleTx -&gt; Snapshot SimpleTx
+forall tx. IsTx tx =&gt; Snapshot tx -&gt; Snapshot tx
+</span><a href="Hydra.HeadLogicSpec.html#withAccumulators"><span class="hs-identifier hs-var">withAccumulators</span></a></span><span> </span><span class="annot"><span class="annottext">(Snapshot SimpleTx -&gt; Snapshot SimpleTx)
+-&gt; Snapshot SimpleTx -&gt; Snapshot SimpleTx
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SnapshotNumber
+-&gt; SnapshotVersion
+-&gt; [SimpleTx]
+-&gt; UTxOType SimpleTx
+-&gt; Snapshot SimpleTx
+forall tx.
+IsTx tx =&gt;
+SnapshotNumber
+-&gt; SnapshotVersion -&gt; [tx] -&gt; UTxOType tx -&gt; Snapshot tx
+</span><a href="Hydra.HeadLogicSpec.html#testSnapshot"><span class="hs-identifier hs-var">testSnapshot</span></a></span><span> </span><span class="annot"><span class="annottext">SnapshotNumber
+</span><span class="hs-number">1</span></span><span> </span><span class="annot"><span class="annottext">SnapshotVersion
+</span><span class="hs-number">0</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut
+UTxOType SimpleTx
+forall a. Monoid a =&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#mempty"><span class="hs-identifier hs-var">mempty</span></a></span><span class="hs-special">)</span><span class="hs-special">{</span><span class="annot"><span class="hs-identifier hs-var">utxoToCommit</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.CommitPhaseSpec.html#deposited"><span class="hs-identifier hs-type">deposited</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-var">depositTxId</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span class="annot"><span class="hs-number">7</span></span><span class="hs-special">}</span><span>
+</span><span id="line-141"></span></pre></body></html>

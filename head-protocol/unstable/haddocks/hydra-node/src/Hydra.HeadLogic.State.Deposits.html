@@ -1,0 +1,336 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE OverloadedRecordDot #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE RecordWildCards #-}</span><span>
+</span><span id="line-3"></span><span>
+</span><span id="line-4"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.HeadLogic.State.Deposits</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.State.Deposits.html#machine"><span class="hs-identifier">machine</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-5"></span><span>
+</span><span id="line-6"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Crem.BaseMachine</span></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-7"></span><span>  </span><span class="annot"><span class="hs-identifier">BaseMachineT</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-8"></span><span>  </span><span class="annot"><span class="hs-identifier">InitialState</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-9"></span><span>  </span><span class="annot"><span class="hs-identifier">pureResult</span></span><span class="hs-special">,</span><span>
+</span><span id="line-10"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-11"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Crem.StateInspection</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">describeOnly</span></span><span class="hs-special">)</span><span>
+</span><span id="line-12"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Crem.Topology</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">TrivialTopology</span></span><span class="hs-special">)</span><span>
+</span><span id="line-13"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Strict.html"><span class="hs-identifier">Data.Map.Strict</span></a></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Map</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Strict.Internal.html#alter"><span class="hs-identifier">alter</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Internal.html#lookup"><span class="hs-identifier">lookup</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Strict.Internal.html#mapMaybe"><span class="hs-identifier">mapMaybe</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-14"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Chain.ChainState</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">IsChainState</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">chainStateSlot</span></span><span class="hs-special">)</span><span>
+</span><span id="line-15"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Deposit.html"><span class="hs-identifier">Hydra.HeadLogic.Deposit</span></a></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Deposit</span></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-16"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Deposit.html#consume"><span class="hs-identifier">consume</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-17"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Deposit.html#record"><span class="hs-identifier">record</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-18"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Deposit.html#rollback"><span class="hs-identifier">rollback</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-19"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Deposit.html#update"><span class="hs-identifier">update</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-20"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-21"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html"><span class="hs-identifier">Hydra.HeadLogic.Outcome</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#StateChanged"><span class="hs-identifier">StateChanged</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-22"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.Types.html"><span class="hs-identifier">Hydra.HeadLogic.State.Types</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.State.Types.html#DepositOutput"><span class="hs-identifier">DepositOutput</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-23"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Node.State.html"><span class="hs-identifier">Hydra.Node.State</span></a></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-24"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Deposit.html#Deposit"><span class="hs-identifier">Deposit</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-25"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Deposit.html#DepositStatus"><span class="hs-identifier">DepositStatus</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.Deposit.html#Inactive"><span class="hs-identifier">Inactive</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-26"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Deposit.html#TrackedDeposit"><span class="hs-identifier">TrackedDeposit</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-27"></span><span>  </span><span class="annot"><a href="Hydra.Node.State.html#TrackedDeposits"><span class="hs-identifier">TrackedDeposits</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-28"></span><span>  </span><span class="annot"><a href="Hydra.Node.State.html#pruneConsumedDeposits"><span class="hs-identifier">pruneConsumedDeposits</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-29"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-30"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Prelude</span></span><span>
+</span><span id="line-31"></span><span>
+</span><span id="line-32"></span><span class="hs-keyword">data</span><span> </span><span id="Registry"><span class="annot"><a href="Hydra.HeadLogic.State.Deposits.html#Registry"><span class="hs-identifier hs-var">Registry</span></a></span></span><span> </span><span id="local-6989586621681032725"><span class="annot"><a href="#local-6989586621681032725"><span class="hs-identifier hs-type">tx</span></a></span></span><span> </span><span id="local-6989586621681032726"><span class="annot"><a href="#local-6989586621681032726"><span class="hs-identifier hs-type">phase</span></a></span></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-33"></span><span>  </span><span id="local-6989586621681032661"><span id="Registry"><span class="annot"><a href="Hydra.HeadLogic.State.Deposits.html#Registry"><span class="hs-identifier hs-var">Registry</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Node.State.html#TrackedDeposits"><span class="hs-identifier hs-type">TrackedDeposits</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681032661"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.Deposits.html#Registry"><span class="hs-identifier hs-type">Registry</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681032661"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-special">'</span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-34"></span><span>
+</span><span id="line-35"></span><span id="local-6989586621681032620"><span id="local-6989586621681032622"><span class="annot"><a href="Hydra.HeadLogic.State.Deposits.html#machine"><span class="hs-identifier hs-type">machine</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-36"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">IsChainState</span></span><span> </span><span class="annot"><a href="#local-6989586621681032620"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#Applicative"><span class="hs-identifier hs-type">Applicative</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681032622"><span class="hs-identifier hs-type">m</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-37"></span><span>  </span><span class="annot"><a href="Hydra.Node.State.html#TrackedDeposits"><span class="hs-identifier hs-type">TrackedDeposits</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681032620"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-38"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">BaseMachineT</span></span><span> </span><span class="annot"><a href="#local-6989586621681032622"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">TrivialTopology</span></span><span> </span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#StateChanged"><span class="hs-identifier hs-type">StateChanged</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681032620"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.State.Types.html#DepositOutput"><span class="hs-identifier hs-type">DepositOutput</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681032620"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span></span></span><span>
+</span><span id="line-39"></span><span id="machine"><span class="annot"><span class="annottext">machine :: forall tx (m :: * -&gt; *).
+(IsChainState tx, Applicative m) =&gt;
+TrackedDeposits tx
+-&gt; BaseMachineT
+     m TrivialTopology (StateChanged tx) (DepositOutput tx)
+</span><a href="Hydra.HeadLogic.State.Deposits.html#machine"><span class="hs-identifier hs-var hs-var">machine</span></a></span></span><span> </span><span id="local-6989586621681032736"><span class="annot"><span class="annottext">TrackedDeposits tx
+</span><a href="#local-6989586621681032736"><span class="hs-identifier hs-var">initial</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">InitialState (Registry tx)
+-&gt; (forall {initialVertex :: ()}.
+    Registry tx initialVertex
+    -&gt; StateChanged tx
+    -&gt; ActionResult
+         m TrivialTopology (Registry tx) initialVertex (DepositOutput tx))
+-&gt; BaseMachineT
+     m TrivialTopology (StateChanged tx) (DepositOutput tx)
+forall vertex (m :: * -&gt; *) (topology :: Topology vertex) input
+       output (state :: vertex -&gt; *).
+InitialState state
+-&gt; (forall (initialVertex :: vertex).
+    state initialVertex
+    -&gt; input -&gt; ActionResult m topology state initialVertex output)
+-&gt; BaseMachineT m topology input output
+</span><span class="hs-identifier hs-var">BaseMachineT</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">StateInspector (Registry tx)
+-&gt; Registry tx '() -&gt; InitialState (Registry tx)
+forall {vertex} (state :: vertex -&gt; *) (vertex1 :: vertex).
+StateInspector state -&gt; state vertex1 -&gt; InitialState state
+</span><span class="hs-identifier hs-var">InspectableState</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">(forall (phase :: ()). Registry tx phase -&gt; Text)
+-&gt; StateInspector (Registry tx)
+forall {vertex} (state :: vertex -&gt; *).
+(forall (phase :: vertex). state phase -&gt; Text)
+-&gt; StateInspector state
+</span><span class="hs-identifier hs-var">describeOnly</span></span><span> </span><span class="annot"><span class="annottext">((forall (phase :: ()). Registry tx phase -&gt; Text)
+ -&gt; StateInspector (Registry tx))
+-&gt; (forall (phase :: ()). Registry tx phase -&gt; Text)
+-&gt; StateInspector (Registry tx)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Text -&gt; Registry tx phase -&gt; Text
+forall a b. a -&gt; b -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#const"><span class="hs-identifier hs-var">const</span></a></span><span> </span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;TrackedDeposits&quot;</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Registry tx '() -&gt; InitialState (Registry tx))
+-&gt; Registry tx '() -&gt; InitialState (Registry tx)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">TrackedDeposits tx -&gt; Registry tx '()
+forall tx. TrackedDeposits tx -&gt; Registry tx '()
+</span><a href="Hydra.HeadLogic.State.Deposits.html#Registry"><span class="hs-identifier hs-var">Registry</span></a></span><span> </span><span class="annot"><span class="annottext">TrackedDeposits tx
+</span><a href="#local-6989586621681032736"><span class="hs-identifier hs-var">initial</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">((forall {initialVertex :: ()}.
+  Registry tx initialVertex
+  -&gt; StateChanged tx
+  -&gt; ActionResult
+       m TrivialTopology (Registry tx) initialVertex (DepositOutput tx))
+ -&gt; BaseMachineT
+      m TrivialTopology (StateChanged tx) (DepositOutput tx))
+-&gt; (forall {initialVertex :: ()}.
+    Registry tx initialVertex
+    -&gt; StateChanged tx
+    -&gt; ActionResult
+         m TrivialTopology (Registry tx) initialVertex (DepositOutput tx))
+-&gt; BaseMachineT
+     m TrivialTopology (StateChanged tx) (DepositOutput tx)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-40"></span><span>  </span><span class="hs-glyph">\</span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.State.Deposits.html#Registry"><span class="hs-identifier hs-type">Registry</span></a></span><span> </span><span id="local-6989586621681032768"><span class="annot"><span class="annottext">TrackedDeposits tx
+</span><a href="#local-6989586621681032768"><span class="hs-identifier hs-var">deposits</span></a></span></span><span class="hs-special">)</span><span> </span><span id="local-6989586621681032769"><span class="annot"><span class="annottext">StateChanged tx
+</span><a href="#local-6989586621681032769"><span class="hs-identifier hs-var">event</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-41"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621681032770"><span class="annot"><span class="annottext">settledDeposit :: UTxOType tx
+</span><a href="#local-6989586621681032770"><span class="hs-identifier hs-var hs-var">settledDeposit</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">StateChanged tx
+</span><a href="#local-6989586621681032769"><span class="hs-identifier hs-var">event</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-42"></span><span>          </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#CommitFinalized"><span class="hs-identifier hs-type">CommitFinalized</span></a></span><span class="hs-special">{</span><span id="local-6989586621681032772"><span class="annot"><span class="annottext">TxIdType tx
+depositTxId :: TxIdType tx
+$sel:depositTxId:NetworkConnected :: forall tx. StateChanged tx -&gt; TxIdType tx
+</span><a href="#local-6989586621681032772"><span class="hs-identifier hs-var hs-var">depositTxId</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">UTxOType tx
+-&gt; (Deposit tx -&gt; UTxOType tx) -&gt; Maybe (Deposit tx) -&gt; UTxOType tx
+forall b a. b -&gt; (a -&gt; b) -&gt; Maybe a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Maybe.html#maybe"><span class="hs-identifier hs-var">maybe</span></a></span><span> </span><span class="annot"><span class="annottext">UTxOType tx
+forall a. Monoid a =&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#mempty"><span class="hs-identifier hs-var">mempty</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-operator">.</span><span class="hs-identifier">deposited</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Maybe (Deposit tx) -&gt; UTxOType tx)
+-&gt; Maybe (Deposit tx) -&gt; UTxOType tx
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-43"></span><span>            </span><span id="local-6989586621681032775"><span class="annot"><span class="annottext">TrackedDeposit tx
+</span><a href="#local-6989586621681032775"><span class="hs-identifier hs-var">tracked</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">TxIdType tx -&gt; TrackedDeposits tx -&gt; Maybe (TrackedDeposit tx)
+forall k a. Ord k =&gt; k -&gt; Map k a -&gt; Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Internal.html#lookup"><span class="hs-identifier hs-var">Map.lookup</span></a></span><span> </span><span class="annot"><span class="annottext">TxIdType tx
+</span><a href="#local-6989586621681032772"><span class="hs-identifier hs-var">depositTxId</span></a></span><span> </span><span class="annot"><span class="annottext">TrackedDeposits tx
+</span><a href="#local-6989586621681032768"><span class="hs-identifier hs-var">deposits</span></a></span><span>
+</span><span id="line-44"></span><span>            </span><span class="annot"><span class="annottext">Bool -&gt; Maybe ()
+forall (f :: * -&gt; *). Alternative f =&gt; Bool -&gt; f ()
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.html#guard"><span class="hs-identifier hs-var">guard</span></a></span><span> </span><span class="annot"><span class="annottext">(Bool -&gt; Maybe ()) -&gt; Bool -&gt; Maybe ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe ChainSlot -&gt; Bool
+forall a. Maybe a -&gt; Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Maybe.html#isNothing"><span class="hs-identifier hs-var">isNothing</span></a></span><span> </span><span class="annot"><span class="annottext">TrackedDeposit tx
+</span><a href="#local-6989586621681032775"><span class="hs-identifier hs-var">tracked</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">consumedAt</span><span>
+</span><span id="line-45"></span><span>            </span><span class="annot"><span class="annottext">Deposit tx -&gt; Maybe (Deposit tx)
+forall a. a -&gt; Maybe a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">TrackedDeposit tx
+</span><a href="#local-6989586621681032775"><span class="hs-identifier hs-var">tracked</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">deposit</span><span>
+</span><span id="line-46"></span><span>          </span><span class="annot"><span class="annottext">StateChanged tx
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">UTxOType tx
+forall a. Monoid a =&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#mempty"><span class="hs-identifier hs-var">mempty</span></a></span><span>
+</span><span id="line-47"></span><span>        </span><span id="local-6989586621681032777"><span class="annot"><span class="annottext">updated :: TrackedDeposits tx
+</span><a href="#local-6989586621681032777"><span class="hs-identifier hs-var hs-var">updated</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">StateChanged tx
+</span><a href="#local-6989586621681032769"><span class="hs-identifier hs-var">event</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-48"></span><span>          </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#DepositRecorded"><span class="hs-identifier hs-type">DepositRecorded</span></a></span><span class="hs-special">{</span><span id="local-6989586621681032779"><span id="local-6989586621681032780"><span id="local-6989586621681032781"><span id="local-6989586621681032782"><span id="local-6989586621681032783"><span id="local-6989586621681032784"><span class="annot"><span class="annottext">UTCTime
+ChainStateType tx
+HeadId
+TxIdType tx
+UTxOType tx
+$sel:depositTxId:NetworkConnected :: forall tx. StateChanged tx -&gt; TxIdType tx
+chainState :: ChainStateType tx
+headId :: HeadId
+depositTxId :: TxIdType tx
+deposited :: UTxOType tx
+created :: UTCTime
+deadline :: UTCTime
+$sel:chainState:NetworkConnected :: forall tx. StateChanged tx -&gt; ChainStateType tx
+$sel:headId:NetworkConnected :: forall tx. StateChanged tx -&gt; HeadId
+$sel:deposited:NetworkConnected :: forall tx. StateChanged tx -&gt; UTxOType tx
+$sel:created:NetworkConnected :: forall tx. StateChanged tx -&gt; UTCTime
+$sel:deadline:NetworkConnected :: forall tx. StateChanged tx -&gt; UTCTime
+</span><a href="Hydra.HeadLogic.Outcome.html#%24sel%3AdepositTxId%3ANetworkConnected"><span class="hs-glyph hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">..</span></a></span></span></span></span></span></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-49"></span><span>            </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621681032790"><span class="annot"><span class="annottext">slot :: ChainSlot
+</span><a href="#local-6989586621681032790"><span class="hs-identifier hs-var hs-var">slot</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ChainStateType tx -&gt; ChainSlot
+forall tx. IsChainState tx =&gt; ChainStateType tx -&gt; ChainSlot
+</span><span class="hs-identifier hs-var">chainStateSlot</span></span><span> </span><span class="annot"><span class="annottext">ChainStateType tx
+</span><a href="#local-6989586621681032779"><span class="hs-identifier hs-var">chainState</span></a></span><span>
+</span><span id="line-50"></span><span>             </span><span class="hs-keyword">in</span><span> </span><span class="annot"><span class="annottext">(Maybe (TrackedDeposit tx) -&gt; Maybe (TrackedDeposit tx))
+-&gt; TxIdType tx -&gt; TrackedDeposits tx -&gt; TrackedDeposits tx
+forall k a.
+Ord k =&gt;
+(Maybe a -&gt; Maybe a) -&gt; k -&gt; Map k a -&gt; Map k a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Strict.Internal.html#alter"><span class="hs-identifier hs-var">Map.alter</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ChainSlot
+-&gt; Deposit tx
+-&gt; Maybe (TrackedDeposit tx)
+-&gt; Maybe (TrackedDeposit tx)
+forall tx.
+ChainSlot
+-&gt; Deposit tx
+-&gt; Maybe (TrackedDeposit tx)
+-&gt; Maybe (TrackedDeposit tx)
+</span><a href="Hydra.HeadLogic.Deposit.html#record"><span class="hs-identifier hs-var">Deposit.record</span></a></span><span> </span><span class="annot"><span class="annottext">ChainSlot
+</span><a href="#local-6989586621681032790"><span class="hs-identifier hs-var">slot</span></a></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Deposit.html#Deposit"><span class="hs-identifier hs-type">Deposit</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:status:Deposit :: DepositStatus
+</span><a href="Hydra.HeadLogic.Deposit.html#%24sel%3Astatus%3ADeposit"><span class="hs-identifier hs-var">status</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">DepositStatus
+</span><a href="Hydra.HeadLogic.Deposit.html#Inactive"><span class="hs-identifier hs-var">Inactive</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">UTCTime
+HeadId
+UTxOType tx
+headId :: HeadId
+deposited :: UTxOType tx
+created :: UTCTime
+deadline :: UTCTime
+$sel:headId:Deposit :: HeadId
+$sel:deposited:Deposit :: UTxOType tx
+$sel:created:Deposit :: UTCTime
+$sel:deadline:Deposit :: UTCTime
+</span><a href="#local-6989586621681032780"><span class="hs-glyph hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">..</span></a></span><span class="hs-special">}</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">TxIdType tx
+</span><a href="#local-6989586621681032781"><span class="hs-identifier hs-var">depositTxId</span></a></span><span> </span><span class="annot"><span class="annottext">(TrackedDeposits tx -&gt; TrackedDeposits tx)
+-&gt; TrackedDeposits tx -&gt; TrackedDeposits tx
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">ChainSlot -&gt; TrackedDeposits tx -&gt; TrackedDeposits tx
+forall tx. ChainSlot -&gt; TrackedDeposits tx -&gt; TrackedDeposits tx
+</span><a href="Hydra.Node.State.html#pruneConsumedDeposits"><span class="hs-identifier hs-var">pruneConsumedDeposits</span></a></span><span> </span><span class="annot"><span class="annottext">ChainSlot
+</span><a href="#local-6989586621681032790"><span class="hs-identifier hs-var">slot</span></a></span><span> </span><span class="annot"><span class="annottext">TrackedDeposits tx
+</span><a href="#local-6989586621681032768"><span class="hs-identifier hs-var">deposits</span></a></span><span>
+</span><span id="line-51"></span><span>          </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#DepositActivated"><span class="hs-identifier hs-type">DepositActivated</span></a></span><span class="hs-special">{</span><span id="local-6989586621681032798"><span class="annot"><span class="annottext">TxIdType tx
+$sel:depositTxId:NetworkConnected :: forall tx. StateChanged tx -&gt; TxIdType tx
+depositTxId :: TxIdType tx
+</span><a href="Hydra.HeadLogic.Outcome.html#%24sel%3AdepositTxId%3ANetworkConnected"><span class="hs-identifier hs-var hs-var">depositTxId</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681032799"><span class="annot"><span class="annottext">Deposit tx
+deposit :: Deposit tx
+$sel:deposit:NetworkConnected :: forall tx. StateChanged tx -&gt; Deposit tx
+</span><a href="#local-6989586621681032799"><span class="hs-identifier hs-var hs-var">deposit</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(Maybe (TrackedDeposit tx) -&gt; Maybe (TrackedDeposit tx))
+-&gt; TxIdType tx -&gt; TrackedDeposits tx -&gt; TrackedDeposits tx
+forall k a.
+Ord k =&gt;
+(Maybe a -&gt; Maybe a) -&gt; k -&gt; Map k a -&gt; Map k a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Strict.Internal.html#alter"><span class="hs-identifier hs-var">Map.alter</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Deposit tx
+-&gt; Maybe (TrackedDeposit tx) -&gt; Maybe (TrackedDeposit tx)
+forall tx.
+Deposit tx
+-&gt; Maybe (TrackedDeposit tx) -&gt; Maybe (TrackedDeposit tx)
+</span><a href="Hydra.HeadLogic.Deposit.html#update"><span class="hs-identifier hs-var">Deposit.update</span></a></span><span> </span><span class="annot"><span class="annottext">Deposit tx
+</span><a href="#local-6989586621681032799"><span class="hs-identifier hs-var">deposit</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">TxIdType tx
+</span><a href="#local-6989586621681032798"><span class="hs-identifier hs-var">depositTxId</span></a></span><span> </span><span class="annot"><span class="annottext">TrackedDeposits tx
+</span><a href="#local-6989586621681032768"><span class="hs-identifier hs-var">deposits</span></a></span><span>
+</span><span id="line-52"></span><span>          </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#DepositExpired"><span class="hs-identifier hs-type">DepositExpired</span></a></span><span class="hs-special">{</span><span id="local-6989586621681032802"><span class="annot"><span class="annottext">TxIdType tx
+$sel:depositTxId:NetworkConnected :: forall tx. StateChanged tx -&gt; TxIdType tx
+depositTxId :: TxIdType tx
+</span><a href="Hydra.HeadLogic.Outcome.html#%24sel%3AdepositTxId%3ANetworkConnected"><span class="hs-identifier hs-var hs-var">depositTxId</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681032803"><span class="annot"><span class="annottext">Deposit tx
+$sel:deposit:NetworkConnected :: forall tx. StateChanged tx -&gt; Deposit tx
+deposit :: Deposit tx
+</span><a href="Hydra.HeadLogic.Outcome.html#%24sel%3Adeposit%3ANetworkConnected"><span class="hs-identifier hs-var hs-var">deposit</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(Maybe (TrackedDeposit tx) -&gt; Maybe (TrackedDeposit tx))
+-&gt; TxIdType tx -&gt; TrackedDeposits tx -&gt; TrackedDeposits tx
+forall k a.
+Ord k =&gt;
+(Maybe a -&gt; Maybe a) -&gt; k -&gt; Map k a -&gt; Map k a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Strict.Internal.html#alter"><span class="hs-identifier hs-var">Map.alter</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Deposit tx
+-&gt; Maybe (TrackedDeposit tx) -&gt; Maybe (TrackedDeposit tx)
+forall tx.
+Deposit tx
+-&gt; Maybe (TrackedDeposit tx) -&gt; Maybe (TrackedDeposit tx)
+</span><a href="Hydra.HeadLogic.Deposit.html#update"><span class="hs-identifier hs-var">Deposit.update</span></a></span><span> </span><span class="annot"><span class="annottext">Deposit tx
+</span><a href="#local-6989586621681032803"><span class="hs-identifier hs-var">deposit</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">TxIdType tx
+</span><a href="#local-6989586621681032802"><span class="hs-identifier hs-var">depositTxId</span></a></span><span> </span><span class="annot"><span class="annottext">TrackedDeposits tx
+</span><a href="#local-6989586621681032768"><span class="hs-identifier hs-var">deposits</span></a></span><span>
+</span><span id="line-53"></span><span>          </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#DepositRecovered"><span class="hs-identifier hs-type">DepositRecovered</span></a></span><span class="hs-special">{</span><span id="local-6989586621681032805"><span class="annot"><span class="annottext">ChainStateType tx
+$sel:chainState:NetworkConnected :: forall tx. StateChanged tx -&gt; ChainStateType tx
+chainState :: ChainStateType tx
+</span><a href="Hydra.HeadLogic.Outcome.html#%24sel%3AchainState%3ANetworkConnected"><span class="hs-identifier hs-var hs-var">chainState</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681032806"><span class="annot"><span class="annottext">TxIdType tx
+$sel:depositTxId:NetworkConnected :: forall tx. StateChanged tx -&gt; TxIdType tx
+depositTxId :: TxIdType tx
+</span><a href="Hydra.HeadLogic.Outcome.html#%24sel%3AdepositTxId%3ANetworkConnected"><span class="hs-identifier hs-var hs-var">depositTxId</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ChainSlot -&gt; TxIdType tx -&gt; TrackedDeposits tx
+</span><a href="#local-6989586621681032807"><span class="hs-identifier hs-var">consume</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ChainStateType tx -&gt; ChainSlot
+forall tx. IsChainState tx =&gt; ChainStateType tx -&gt; ChainSlot
+</span><span class="hs-identifier hs-var">chainStateSlot</span></span><span> </span><span class="annot"><span class="annottext">ChainStateType tx
+</span><a href="#local-6989586621681032805"><span class="hs-identifier hs-var">chainState</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">TxIdType tx
+</span><a href="#local-6989586621681032806"><span class="hs-identifier hs-var">depositTxId</span></a></span><span>
+</span><span id="line-54"></span><span>          </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#CommitFinalized"><span class="hs-identifier hs-type">CommitFinalized</span></a></span><span class="hs-special">{</span><span id="local-6989586621681032808"><span class="annot"><span class="annottext">ChainStateType tx
+$sel:chainState:NetworkConnected :: forall tx. StateChanged tx -&gt; ChainStateType tx
+chainState :: ChainStateType tx
+</span><a href="Hydra.HeadLogic.Outcome.html#%24sel%3AchainState%3ANetworkConnected"><span class="hs-identifier hs-var hs-var">chainState</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681032809"><span class="annot"><span class="annottext">TxIdType tx
+$sel:depositTxId:NetworkConnected :: forall tx. StateChanged tx -&gt; TxIdType tx
+depositTxId :: TxIdType tx
+</span><a href="Hydra.HeadLogic.Outcome.html#%24sel%3AdepositTxId%3ANetworkConnected"><span class="hs-identifier hs-var hs-var">depositTxId</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ChainSlot -&gt; TxIdType tx -&gt; TrackedDeposits tx
+</span><a href="#local-6989586621681032807"><span class="hs-identifier hs-var">consume</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ChainStateType tx -&gt; ChainSlot
+forall tx. IsChainState tx =&gt; ChainStateType tx -&gt; ChainSlot
+</span><span class="hs-identifier hs-var">chainStateSlot</span></span><span> </span><span class="annot"><span class="annottext">ChainStateType tx
+</span><a href="#local-6989586621681032808"><span class="hs-identifier hs-var">chainState</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">TxIdType tx
+</span><a href="#local-6989586621681032809"><span class="hs-identifier hs-var">depositTxId</span></a></span><span>
+</span><span id="line-55"></span><span>          </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#ChainRolledBack"><span class="hs-identifier hs-type">ChainRolledBack</span></a></span><span class="hs-special">{</span><span id="local-6989586621681032811"><span class="annot"><span class="annottext">ChainStateType tx
+$sel:chainState:NetworkConnected :: forall tx. StateChanged tx -&gt; ChainStateType tx
+chainState :: ChainStateType tx
+</span><a href="Hydra.HeadLogic.Outcome.html#%24sel%3AchainState%3ANetworkConnected"><span class="hs-identifier hs-var hs-var">chainState</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">(TrackedDeposit tx -&gt; Maybe (TrackedDeposit tx))
+-&gt; TrackedDeposits tx -&gt; TrackedDeposits tx
+forall a b k. (a -&gt; Maybe b) -&gt; Map k a -&gt; Map k b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Strict.Internal.html#mapMaybe"><span class="hs-identifier hs-var">Map.mapMaybe</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ChainSlot -&gt; Maybe (TrackedDeposit tx) -&gt; Maybe (TrackedDeposit tx)
+forall tx.
+ChainSlot -&gt; Maybe (TrackedDeposit tx) -&gt; Maybe (TrackedDeposit tx)
+</span><a href="Hydra.HeadLogic.Deposit.html#rollback"><span class="hs-identifier hs-var">Deposit.rollback</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ChainStateType tx -&gt; ChainSlot
+forall tx. IsChainState tx =&gt; ChainStateType tx -&gt; ChainSlot
+</span><span class="hs-identifier hs-var">chainStateSlot</span></span><span> </span><span class="annot"><span class="annottext">ChainStateType tx
+</span><a href="#local-6989586621681032811"><span class="hs-identifier hs-var">chainState</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(Maybe (TrackedDeposit tx) -&gt; Maybe (TrackedDeposit tx))
+-&gt; (TrackedDeposit tx -&gt; Maybe (TrackedDeposit tx))
+-&gt; TrackedDeposit tx
+-&gt; Maybe (TrackedDeposit tx)
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">TrackedDeposit tx -&gt; Maybe (TrackedDeposit tx)
+forall a. a -&gt; Maybe a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-var">Just</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">TrackedDeposits tx
+</span><a href="#local-6989586621681032768"><span class="hs-identifier hs-var">deposits</span></a></span><span>
+</span><span id="line-56"></span><span>          </span><span class="annot"><span class="annottext">StateChanged tx
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">TrackedDeposits tx
+</span><a href="#local-6989586621681032768"><span class="hs-identifier hs-var">deposits</span></a></span><span>
+</span><span id="line-57"></span><span>        </span><span id="local-6989586621681032807"><span class="annot"><span class="annottext">consume :: ChainSlot -&gt; TxIdType tx -&gt; TrackedDeposits tx
+</span><a href="#local-6989586621681032807"><span class="hs-identifier hs-var hs-var">consume</span></a></span></span><span> </span><span id="local-6989586621681032813"><span class="annot"><span class="annottext">ChainSlot
+</span><a href="#local-6989586621681032813"><span class="hs-identifier hs-var">slot</span></a></span></span><span> </span><span id="local-6989586621681032814"><span class="annot"><span class="annottext">TxIdType tx
+</span><a href="#local-6989586621681032814"><span class="hs-identifier hs-var">depositId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(Maybe (TrackedDeposit tx) -&gt; Maybe (TrackedDeposit tx))
+-&gt; TxIdType tx -&gt; TrackedDeposits tx -&gt; TrackedDeposits tx
+forall k a.
+Ord k =&gt;
+(Maybe a -&gt; Maybe a) -&gt; k -&gt; Map k a -&gt; Map k a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Strict.Internal.html#alter"><span class="hs-identifier hs-var">Map.alter</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ChainSlot -&gt; Maybe (TrackedDeposit tx) -&gt; Maybe (TrackedDeposit tx)
+forall tx.
+ChainSlot -&gt; Maybe (TrackedDeposit tx) -&gt; Maybe (TrackedDeposit tx)
+</span><a href="Hydra.HeadLogic.Deposit.html#consume"><span class="hs-identifier hs-var">Deposit.consume</span></a></span><span> </span><span class="annot"><span class="annottext">ChainSlot
+</span><a href="#local-6989586621681032813"><span class="hs-identifier hs-var">slot</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">TxIdType tx
+</span><a href="#local-6989586621681032814"><span class="hs-identifier hs-var">depositId</span></a></span><span> </span><span class="annot"><span class="annottext">(TrackedDeposits tx -&gt; TrackedDeposits tx)
+-&gt; TrackedDeposits tx -&gt; TrackedDeposits tx
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">ChainSlot -&gt; TrackedDeposits tx -&gt; TrackedDeposits tx
+forall tx. ChainSlot -&gt; TrackedDeposits tx -&gt; TrackedDeposits tx
+</span><a href="Hydra.Node.State.html#pruneConsumedDeposits"><span class="hs-identifier hs-var">pruneConsumedDeposits</span></a></span><span> </span><span class="annot"><span class="annottext">ChainSlot
+</span><a href="#local-6989586621681032813"><span class="hs-identifier hs-var">slot</span></a></span><span> </span><span class="annot"><span class="annottext">TrackedDeposits tx
+</span><a href="#local-6989586621681032768"><span class="hs-identifier hs-var">deposits</span></a></span><span>
+</span><span id="line-58"></span><span>     </span><span class="hs-keyword">in</span><span> </span><span class="annot"><span class="annottext">DepositOutput tx
+-&gt; Registry tx '()
+-&gt; ActionResult
+     m ('Topology '[]) (Registry tx) initialVertex (DepositOutput tx)
+forall {vertex} (m :: * -&gt; *) (topology :: Topology vertex)
+       (initialVertex :: vertex) (finalVertex :: vertex) output
+       (state :: vertex -&gt; *).
+(Applicative m,
+ AllowedTransition topology initialVertex finalVertex) =&gt;
+output
+-&gt; state finalVertex
+-&gt; ActionResult m topology state initialVertex output
+</span><span class="hs-identifier hs-var">pureResult</span></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.Types.html#DepositOutput"><span class="hs-identifier hs-type">DepositOutput</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">StateChanged tx
+event :: StateChanged tx
+$sel:event:DepositOutput :: StateChanged tx
+</span><a href="#local-6989586621681032769"><span class="hs-identifier hs-var hs-var">event</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:deposits:DepositOutput :: TrackedDeposits tx
+</span><a href="Hydra.HeadLogic.State.Types.html#%24sel%3Adeposits%3ADepositOutput"><span class="hs-identifier hs-var">deposits</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TrackedDeposits tx
+</span><a href="#local-6989586621681032777"><span class="hs-identifier hs-var">updated</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">UTxOType tx
+settledDeposit :: UTxOType tx
+$sel:settledDeposit:DepositOutput :: UTxOType tx
+</span><a href="#local-6989586621681032770"><span class="hs-identifier hs-var hs-var">settledDeposit</span></a></span><span class="hs-special">}</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">TrackedDeposits tx -&gt; Registry tx '()
+forall tx. TrackedDeposits tx -&gt; Registry tx '()
+</span><a href="Hydra.HeadLogic.State.Deposits.html#Registry"><span class="hs-identifier hs-var">Registry</span></a></span><span> </span><span class="annot"><span class="annottext">TrackedDeposits tx
+</span><a href="#local-6989586621681032777"><span class="hs-identifier hs-var">updated</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-59"></span></pre></body></html>

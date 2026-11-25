@@ -1,0 +1,77 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE DuplicateRecordFields #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE RecordWildCards #-}</span><span>
+</span><span id="line-3"></span><span>
+</span><span id="line-4"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.HeadLogic.Rules.Environment</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-5"></span><span>
+</span><span id="line-6"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Limits.html"><span class="hs-identifier">Hydra.HeadLogic.Limits</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.Limits.html#SnapshotLimits"><span class="hs-identifier">SnapshotLimits</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-7"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Node.UnsyncedPeriod.html"><span class="hs-identifier">Hydra.Node.UnsyncedPeriod</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Node.UnsyncedPeriod.html#UnsyncedPeriod"><span class="hs-identifier">UnsyncedPeriod</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-8"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Prelude</span></span><span>
+</span><span id="line-9"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx.ContestationPeriod</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">ContestationPeriod</span></span><span class="hs-special">)</span><span>
+</span><span id="line-10"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx.DepositPeriod</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">DepositPeriod</span></span><span class="hs-special">)</span><span>
+</span><span id="line-11"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx.HeadParameters</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">HeadParameters</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-12"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx.OnChainId</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">OnChainId</span></span><span class="hs-special">)</span><span>
+</span><span id="line-13"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx.Party</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">Party</span></span><span class="hs-special">)</span><span>
+</span><span id="line-14"></span><span>
+</span><span id="line-15"></span><span class="hs-keyword">data</span><span> </span><span id="RuleEnvironment"><span class="annot"><a href="Hydra.HeadLogic.Rules.Environment.html#RuleEnvironment"><span class="hs-identifier hs-var">RuleEnvironment</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="RuleEnvironment"><span class="annot"><a href="Hydra.HeadLogic.Rules.Environment.html#RuleEnvironment"><span class="hs-identifier hs-var">RuleEnvironment</span></a></span></span><span>
+</span><span id="line-16"></span><span>  </span><span class="hs-special">{</span><span> </span><span id="%24sel%3AsnapshotLimits%3ARuleEnvironment"><span class="annot"><span class="annottext">RuleEnvironment -&gt; SnapshotLimits
+</span><a href="Hydra.HeadLogic.Rules.Environment.html#%24sel%3AsnapshotLimits%3ARuleEnvironment"><span class="hs-identifier hs-var hs-var">snapshotLimits</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Limits.html#SnapshotLimits"><span class="hs-identifier hs-type">SnapshotLimits</span></a></span><span>
+</span><span id="line-17"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3Aparty%3ARuleEnvironment"><span class="annot"><span class="annottext">RuleEnvironment -&gt; Party
+</span><a href="Hydra.HeadLogic.Rules.Environment.html#%24sel%3Aparty%3ARuleEnvironment"><span class="hs-identifier hs-var hs-var">party</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Party</span></span><span>
+</span><span id="line-18"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AotherParties%3ARuleEnvironment"><span class="annot"><span class="annottext">RuleEnvironment -&gt; [Party]
+</span><a href="Hydra.HeadLogic.Rules.Environment.html#%24sel%3AotherParties%3ARuleEnvironment"><span class="hs-identifier hs-var hs-var">otherParties</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">Party</span></span><span class="hs-special">]</span><span>
+</span><span id="line-19"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3Aparticipants%3ARuleEnvironment"><span class="annot"><span class="annottext">RuleEnvironment -&gt; [OnChainId]
+</span><a href="Hydra.HeadLogic.Rules.Environment.html#%24sel%3Aparticipants%3ARuleEnvironment"><span class="hs-identifier hs-var hs-var">participants</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">OnChainId</span></span><span class="hs-special">]</span><span>
+</span><span id="line-20"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AcontestationPeriod%3ARuleEnvironment"><span class="annot"><span class="annottext">RuleEnvironment -&gt; ContestationPeriod
+</span><a href="Hydra.HeadLogic.Rules.Environment.html#%24sel%3AcontestationPeriod%3ARuleEnvironment"><span class="hs-identifier hs-var hs-var">contestationPeriod</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ContestationPeriod</span></span><span>
+</span><span id="line-21"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AdepositPeriod%3ARuleEnvironment"><span class="annot"><span class="annottext">RuleEnvironment -&gt; DepositPeriod
+</span><a href="Hydra.HeadLogic.Rules.Environment.html#%24sel%3AdepositPeriod%3ARuleEnvironment"><span class="hs-identifier hs-var hs-var">depositPeriod</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">DepositPeriod</span></span><span>
+</span><span id="line-22"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AdepositActivation%3ARuleEnvironment"><span class="annot"><span class="annottext">RuleEnvironment -&gt; DepositPeriod
+</span><a href="Hydra.HeadLogic.Rules.Environment.html#%24sel%3AdepositActivation%3ARuleEnvironment"><span class="hs-identifier hs-var hs-var">depositActivation</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">DepositPeriod</span></span><span>
+</span><span id="line-23"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AunsyncedPeriod%3ARuleEnvironment"><span class="annot"><span class="annottext">RuleEnvironment -&gt; UnsyncedPeriod
+</span><a href="Hydra.HeadLogic.Rules.Environment.html#%24sel%3AunsyncedPeriod%3ARuleEnvironment"><span class="hs-identifier hs-var hs-var">unsyncedPeriod</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Node.UnsyncedPeriod.html#UnsyncedPeriod"><span class="hs-identifier hs-type">UnsyncedPeriod</span></a></span><span>
+</span><span id="line-24"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AconfiguredPeers%3ARuleEnvironment"><span class="annot"><span class="annottext">RuleEnvironment -&gt; Text
+</span><a href="Hydra.HeadLogic.Rules.Environment.html#%24sel%3AconfiguredPeers%3ARuleEnvironment"><span class="hs-identifier hs-var hs-var">configuredPeers</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span>
+</span><span id="line-25"></span><span>  </span><span class="hs-special">}</span><span>
+</span><span id="line-26"></span><span>
+</span><span id="line-27"></span><span class="annot"><a href="Hydra.HeadLogic.Rules.Environment.html#headParametersFor"><span class="hs-identifier hs-type">headParametersFor</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Environment.html#RuleEnvironment"><span class="hs-identifier hs-type">RuleEnvironment</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">HeadParameters</span></span><span>
+</span><span id="line-28"></span><span id="headParametersFor"><span class="annot"><span class="annottext">headParametersFor :: RuleEnvironment -&gt; HeadParameters
+</span><a href="Hydra.HeadLogic.Rules.Environment.html#headParametersFor"><span class="hs-identifier hs-var hs-var">headParametersFor</span></a></span></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Environment.html#RuleEnvironment"><span class="hs-identifier hs-type">RuleEnvironment</span></a></span><span class="hs-special">{</span><span id="local-6989586621681040863"><span id="local-6989586621681040864"><span id="local-6989586621681040865"><span id="local-6989586621681040866"><span id="local-6989586621681040867"><span id="local-6989586621681040868"><span id="local-6989586621681040869"><span id="local-6989586621681040870"><span id="local-6989586621681040871"><span class="annot"><span class="annottext">[Party]
+[OnChainId]
+Text
+Party
+ContestationPeriod
+DepositPeriod
+SnapshotLimits
+UnsyncedPeriod
+$sel:snapshotLimits:RuleEnvironment :: RuleEnvironment -&gt; SnapshotLimits
+$sel:party:RuleEnvironment :: RuleEnvironment -&gt; Party
+$sel:otherParties:RuleEnvironment :: RuleEnvironment -&gt; [Party]
+$sel:participants:RuleEnvironment :: RuleEnvironment -&gt; [OnChainId]
+$sel:contestationPeriod:RuleEnvironment :: RuleEnvironment -&gt; ContestationPeriod
+$sel:depositPeriod:RuleEnvironment :: RuleEnvironment -&gt; DepositPeriod
+$sel:depositActivation:RuleEnvironment :: RuleEnvironment -&gt; DepositPeriod
+$sel:unsyncedPeriod:RuleEnvironment :: RuleEnvironment -&gt; UnsyncedPeriod
+$sel:configuredPeers:RuleEnvironment :: RuleEnvironment -&gt; Text
+snapshotLimits :: SnapshotLimits
+party :: Party
+otherParties :: [Party]
+participants :: [OnChainId]
+contestationPeriod :: ContestationPeriod
+depositPeriod :: DepositPeriod
+depositActivation :: DepositPeriod
+unsyncedPeriod :: UnsyncedPeriod
+configuredPeers :: Text
+</span><a href="Hydra.HeadLogic.Rules.Environment.html#%24sel%3AsnapshotLimits%3ARuleEnvironment"><span class="hs-glyph hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">..</span></a></span></span></span></span></span></span></span></span></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-29"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">HeadParameters</span></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:parties:HeadParameters :: [Party]
+</span><span class="hs-identifier hs-var">parties</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Party
+</span><a href="#local-6989586621681040864"><span class="hs-identifier hs-var">party</span></a></span><span> </span><span class="annot"><span class="annottext">Party -&gt; [Party] -&gt; [Party]
+forall a. a -&gt; [a] -&gt; [a]
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#%3A"><span class="hs-glyph hs-var">:</span></a></span><span> </span><span class="annot"><span class="annottext">[Party]
+</span><a href="#local-6989586621681040865"><span class="hs-identifier hs-var">otherParties</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ContestationPeriod
+DepositPeriod
+contestationPeriod :: ContestationPeriod
+depositPeriod :: DepositPeriod
+$sel:contestationPeriod:HeadParameters :: ContestationPeriod
+$sel:depositPeriod:HeadParameters :: DepositPeriod
+</span><a href="#local-6989586621681040867"><span class="hs-glyph hs-var hs-var hs-var hs-var">..</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-30"></span></pre></body></html>

@@ -266,6 +266,12 @@
       "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H docs/dev/architecture/event-sourcing.md\n"
     }
   },
+  "docs/dev/architecture/head-logic-machines": {
+    "source": {
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI docs/dev/architecture/head-logic-machines.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H docs/dev/architecture/head-logic-machines.md\n"
+    }
+  },
   "docs/dev/architecture": {
     "source": {
       "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI docs/dev/architecture/index.md\n",

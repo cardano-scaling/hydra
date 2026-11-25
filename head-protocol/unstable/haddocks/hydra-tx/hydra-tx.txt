@@ -248,16 +248,12 @@ data HydraKey
 newtype Signature (a :: Type)
 HydraSignature :: SigDSIGN Ed25519DSIGN -> Signature (a :: Type)
 
--- | A result type for multisigs verification providing some information in
---   case of failure.
---   
---   This type is of course structurally equivalent to `Maybe
---   [VerificationKey HydraKey]` but it's much more explicit.
-data Verified
-Verified :: Verified
-FailedKeys :: [VerificationKey HydraKey] -> Verified
-[$sel:failedKeys:Verified] :: Verified -> [VerificationKey HydraKey]
-KeyNumberMismatch :: Verified
+-- | Why a multisignature fails verification. Invalid signatures identify
+--   their verification keys in the supplied order; a count mismatch
+--   prevents checking the signatures against that key list.
+data VerificationError
+InvalidSignatures :: NonEmpty (VerificationKey HydraKey) -> VerificationError
+SignatureCountMismatch :: VerificationError
 pattern HydraKeyHash :: () => Hash Blake2b_256 (VerificationKey HydraKey) -> Hash HydraKey
 pattern AsHydraKey :: () => AsType HydraKey
 pattern HydraSigningKey :: () => SignKeyDSIGN Ed25519DSIGN -> SigningKey HydraKey
@@ -310,13 +306,13 @@ aggregateInOrder :: Ord k => Map k (Signature a) -> [k] -> MultiSignature a
 --   
 --   Note that order of keys is relevant and that length of signature and
 --   multisignature list needs to be the same.
-verifyMultiSignature :: SignableRepresentation a => [VerificationKey HydraKey] -> MultiSignature a -> a -> Verified
+verifyMultiSignature :: SignableRepresentation a => [VerificationKey HydraKey] -> MultiSignature a -> a -> Either VerificationError ()
 
 -- | Like <a>verifyMultiSignature</a> but operates on pre-computed signable
 --   bytes, avoiding repeated calls to <a>getSignableRepresentation</a>.
 --   Use this when the same value would be verified multiple times (e.g.
 --   per-party in a round).
-verifyMultiSignatureBytes :: [VerificationKey HydraKey] -> MultiSignature a -> ByteString -> Verified
+verifyMultiSignatureBytes :: [VerificationKey HydraKey] -> MultiSignature a -> ByteString -> Either VerificationError ()
 
 -- | Inverse of <a>toPlutusSignatures</a>. Fails if any signature bytes are
 --   malformed.
@@ -342,9 +338,9 @@ instance GHC.Base.Semigroup (Hydra.Tx.Crypto.MultiSignature a)
 instance GHC.Generics.Generic (Hydra.Tx.Crypto.MultiSignature a)
 instance GHC.Show.Show (Hydra.Tx.Crypto.MultiSignature a)
 instance GHC.Classes.Eq (Hydra.Tx.Crypto.MultiSignature a)
-instance GHC.Generics.Generic Hydra.Tx.Crypto.Verified
-instance GHC.Show.Show Hydra.Tx.Crypto.Verified
-instance GHC.Classes.Eq Hydra.Tx.Crypto.Verified
+instance GHC.Generics.Generic Hydra.Tx.Crypto.VerificationError
+instance GHC.Show.Show Hydra.Tx.Crypto.VerificationError
+instance GHC.Classes.Eq Hydra.Tx.Crypto.VerificationError
 instance Data.String.IsString (Cardano.Api.Hash.Hash Cardano.Api.Block.BlockHeader)
 instance Data.String.IsString Cardano.Api.Tx.Internal.TxIn.TxId
 instance Data.String.IsString (Cardano.Api.Hash.Hash Cardano.Api.Plutus.Internal.ScriptData.ScriptData)
@@ -513,6 +509,16 @@ outputsOfUTxO :: IsTx tx => UTxOType tx -> [TxOutType tx]
 -- | Return the left-hand side without the right-hand side.
 withoutUTxO :: IsTx tx => UTxOType tx -> UTxOType tx -> UTxOType tx
 
+-- | Whether every input the transaction refers to is available, including
+--   reference and collateral inputs. This does not validate scripts or
+--   time.
+txInputsAvailable :: IsTx tx => tx -> UTxOType tx -> Bool
+
+-- | Remove spending inputs that are present, without adding outputs. This
+--   also works when some inputs are absent, as when retaining a
+--   reservation.
+withoutTxInputs :: IsTx tx => tx -> UTxOType tx -> UTxOType tx
+
 -- | Apply a transaction to a UTxO via pure UTxO arithmetic, returning the
 --   post-tx UTxO. Removes the tx's inputs from the given UTxO and adds the
 --   tx's outputs. Performs no ledger validation; the caller must ensure
@@ -611,22 +617,6 @@ data AccumulatorTooLarge
 AccumulatorTooLarge :: Int -> Int -> AccumulatorTooLarge
 [$sel:utxoCount:AccumulatorTooLarge] :: AccumulatorTooLarge -> Int
 [$sel:maxAllowed:AccumulatorTooLarge] :: AccumulatorTooLarge -> Int
-
--- | Check an accumulator against the capacity of the embedded G1 CRS.
---   
---   SECURITY: <a>computeG1CommitmentBytes</a> enforces this limit with
---   <a>error</a>, and it is reached through the lazy commitment thunk of
---   <a>HydraAccumulator</a> -- i.e. from wherever that thunk is first
---   forced, which includes 'ToJSON (Snapshot tx)' and
---   <tt>getSignableRepresentation</tt>. Every path that builds an
---   accumulator from data this node did not produce itself must therefore
---   check the size <i>before</i> the value can be forced, traced or
---   echoed. This check is safe to run on an over-capacity accumulator:
---   like <a>accumulatorSize</a> it only folds the element map and never
---   touches the cached commitment or hash. See <a>validateClientInput</a>
---   (the client API boundary) and <a>HeadLogic</a> (the protocol-logic
---   backstop).
-checkAccumulatorSize :: HydraAccumulator -> Either AccumulatorTooLarge ()
 
 -- | Largest subset a single fanout transaction can distribute, re-exported
 --   from <tt>KZGTrustedSetup</tt> for convenience.
@@ -1210,6 +1200,9 @@ InitObservation :: HeadId -> HeadSeed -> HeadParameters -> [OnChainId] -> InitOb
 data NotAnInitReason
 NoHeadOutput :: NotAnInitReason
 NotAHeadDatum :: NotAnInitReason
+InvalidInitialVersion :: NotAnInitReason
+InvalidInitialAccumulator :: NotAnInitReason
+InvalidInitialHeadValue :: NotAnInitReason
 InvalidPartyInDatum :: NotAnInitReason
 InvalidContestationPeriodInDatum :: Text -> NotAnInitReason
 InvalidDepositPeriodInDatum :: Text -> NotAnInitReason
@@ -1491,6 +1484,9 @@ InitObservation :: HeadId -> HeadSeed -> HeadParameters -> [OnChainId] -> InitOb
 data NotAnInitReason
 NoHeadOutput :: NotAnInitReason
 NotAHeadDatum :: NotAnInitReason
+InvalidInitialVersion :: NotAnInitReason
+InvalidInitialAccumulator :: NotAnInitReason
+InvalidInitialHeadValue :: NotAnInitReason
 InvalidPartyInDatum :: NotAnInitReason
 InvalidContestationPeriodInDatum :: Text -> NotAnInitReason
 InvalidDepositPeriodInDatum :: Text -> NotAnInitReason

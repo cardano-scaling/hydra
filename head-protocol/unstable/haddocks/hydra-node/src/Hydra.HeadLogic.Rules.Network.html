@@ -1,0 +1,374 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE DuplicateRecordFields #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE OverloadedRecordDot #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# LANGUAGE RecordWildCards #-}</span><span>
+</span><span id="line-4"></span><span class="hs-pragma">{-# OPTIONS_GHC -Wno-ambiguous-fields #-}</span><span>
+</span><span id="line-5"></span><span>
+</span><span id="line-6"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.HeadLogic.Rules.Network</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-7"></span><span>
+</span><span id="line-8"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Chain.ChainState</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">IsChainState</span></span><span class="hs-special">)</span><span>
+</span><span id="line-9"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Error.html"><span class="hs-identifier">Hydra.HeadLogic.Error</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.Error.html#LogicError"><span class="hs-identifier">LogicError</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-10"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Input.html"><span class="hs-identifier">Hydra.HeadLogic.Input</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.Input.html#Input"><span class="hs-identifier">Input</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-11"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html"><span class="hs-identifier">Hydra.HeadLogic.Outcome</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#StateChanged"><span class="hs-identifier">StateChanged</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-12"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Program.html"><span class="hs-identifier">Hydra.HeadLogic.Program</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.Program.html#Program"><span class="hs-identifier">Program</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Program.html#change"><span class="hs-identifier">change</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Program.html#reject"><span class="hs-identifier">reject</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-13"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Environment.html"><span class="hs-identifier">Hydra.HeadLogic.Rules.Environment</span></a></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-14"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Environment.html#RuleEnvironment"><span class="hs-identifier">RuleEnvironment</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.Rules.Environment.html#%24sel%3AconfiguredPeers%3ARuleEnvironment"><span class="hs-identifier">configuredPeers</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-15"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-16"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Network.AckSn.html"><span class="hs-identifier">Hydra.HeadLogic.Rules.Network.AckSn</span></a></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">AckSn</span></span><span>
+</span><span id="line-17"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Network.ReqDec.html"><span class="hs-identifier">Hydra.HeadLogic.Rules.Network.ReqDec</span></a></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">ReqDec</span></span><span>
+</span><span id="line-18"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Network.ReqSn.html"><span class="hs-identifier">Hydra.HeadLogic.Rules.Network.ReqSn</span></a></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">ReqSn</span></span><span>
+</span><span id="line-19"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Network.ReqTx.html"><span class="hs-identifier">Hydra.HeadLogic.Rules.Network.ReqTx</span></a></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">ReqTx</span></span><span>
+</span><span id="line-20"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.html"><span class="hs-identifier">Hydra.HeadLogic.State</span></a></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-21"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.html#HeadState"><span class="hs-identifier">HeadState</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.State.html#Open"><span class="hs-identifier">Open</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-22"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.html#OpenState"><span class="hs-identifier">OpenState</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.State.html#OpenState"><span class="hs-identifier">OpenState</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.html#%24sel%3AheadId%3AOpenState"><span class="hs-identifier">headId</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-23"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-24"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Workflow.html"><span class="hs-identifier">Hydra.HeadLogic.Workflow</span></a></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Workflow</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.Workflow.html#run"><span class="hs-identifier">run</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-25"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Network.html"><span class="hs-identifier">Hydra.Network</span></a></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Network</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Network.html#Connectivity"><span class="hs-identifier">Connectivity</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-26"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Network.Message.html"><span class="hs-identifier">Hydra.Network.Message</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Network.Message.html#Message"><span class="hs-identifier">Message</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Network.Message.html#NetworkEvent"><span class="hs-identifier">NetworkEvent</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-27"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Node.State.html"><span class="hs-identifier">Hydra.Node.State</span></a></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-28"></span><span>  </span><span class="annot"><a href="Hydra.Node.State.html#ChainPointTime"><span class="hs-identifier">ChainPointTime</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-29"></span><span>  </span><span class="annot"><a href="Hydra.Node.State.html#PendingDeposits"><span class="hs-identifier">PendingDeposits</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-30"></span><span>  </span><span class="annot"><a href="Hydra.Node.State.html#depositsForHead"><span class="hs-identifier">depositsForHead</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-31"></span><span>  </span><span class="annot"><a href="Hydra.Node.State.html#depositsForHeadWithoutFinalizedCommit"><span class="hs-identifier">depositsForHeadWithoutFinalizedCommit</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-32"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-33"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Prelude</span></span><span>
+</span><span id="line-34"></span><span>
+</span><span id="line-35"></span><span id="local-6989586621681043365"><span class="annot"><a href="Hydra.HeadLogic.Rules.Network.html#handleNetworkInput"><span class="hs-identifier hs-type">handleNetworkInput</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-36"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">IsChainState</span></span><span> </span><span class="annot"><a href="#local-6989586621681043365"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-37"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Environment.html#RuleEnvironment"><span class="hs-identifier hs-type">RuleEnvironment</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-38"></span><span>  </span><span class="annot"><span class="hs-comment">-- | Last known chain point time</span></span><span>
+</span><span id="line-39"></span><span>  </span><span class="annot"><a href="Hydra.Node.State.html#ChainPointTime"><span class="hs-identifier hs-type">ChainPointTime</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-40"></span><span>  </span><span class="annot"><a href="Hydra.Node.State.html#PendingDeposits"><span class="hs-identifier hs-type">PendingDeposits</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681043365"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-41"></span><span>  </span><span class="annot"><span class="hs-comment">-- | Current NodeState to validate the command against.</span></span><span>
+</span><span id="line-42"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.html#HeadState"><span class="hs-identifier hs-type">HeadState</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681043365"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-43"></span><span>  </span><span class="annot"><span class="hs-comment">-- | Input to be processed.</span></span><span>
+</span><span id="line-44"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Input.html#Input"><span class="hs-identifier hs-type">Input</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681043365"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-45"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Program.html#Program"><span class="hs-identifier hs-type">Program</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681043365"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-46"></span><span id="handleNetworkInput"><span class="annot"><span class="annottext">handleNetworkInput :: forall tx.
+IsChainState tx =&gt;
+RuleEnvironment
+-&gt; ChainPointTime
+-&gt; PendingDeposits tx
+-&gt; HeadState tx
+-&gt; Input tx
+-&gt; Program tx ()
+</span><a href="Hydra.HeadLogic.Rules.Network.html#handleNetworkInput"><span class="hs-identifier hs-var hs-var">handleNetworkInput</span></a></span></span><span> </span><span id="local-6989586621681043459"><span class="annot"><span class="annottext">RuleEnvironment
+</span><a href="#local-6989586621681043459"><span class="hs-identifier hs-var">env</span></a></span></span><span> </span><span id="local-6989586621681043460"><span class="annot"><span class="annottext">ChainPointTime
+</span><a href="#local-6989586621681043460"><span class="hs-identifier hs-var">chainPointTime</span></a></span></span><span> </span><span id="local-6989586621681043461"><span class="annot"><span class="annottext">PendingDeposits tx
+</span><a href="#local-6989586621681043461"><span class="hs-identifier hs-var">pendingDeposits</span></a></span></span><span> </span><span id="local-6989586621681043462"><span class="annot"><span class="annottext">HeadState tx
+</span><a href="#local-6989586621681043462"><span class="hs-identifier hs-var">st</span></a></span></span><span> </span><span id="local-6989586621681043463"><span class="annot"><span class="annottext">Input tx
+</span><a href="#local-6989586621681043463"><span class="hs-identifier hs-var">ev</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">HeadState tx
+</span><a href="#local-6989586621681043462"><span class="hs-identifier hs-var">st</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Input tx
+</span><a href="#local-6989586621681043463"><span class="hs-identifier hs-var">ev</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-47"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="annottext">HeadState tx
+</span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Input.html#NetworkInput"><span class="hs-identifier hs-type">NetworkInput</span></a></span><span> </span><span class="annot"><span class="annottext">TTL
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Network.Message.html#ConnectivityEvent"><span class="hs-identifier hs-type">ConnectivityEvent</span></a></span><span> </span><span id="local-6989586621681043466"><span class="annot"><span class="annottext">Connectivity
+</span><a href="#local-6989586621681043466"><span class="hs-identifier hs-var">conn</span></a></span></span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-48"></span><span>    </span><span class="annot"><span class="annottext">Text -&gt; Connectivity -&gt; Program tx ()
+forall tx. Text -&gt; Connectivity -&gt; Program tx ()
+</span><a href="Hydra.HeadLogic.Rules.Network.html#onConnectionEvent"><span class="hs-identifier hs-var">onConnectionEvent</span></a></span><span> </span><span class="annot"><span class="annottext">RuleEnvironment
+</span><a href="#local-6989586621681043459"><span class="hs-identifier hs-var">env</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">configuredPeers</span><span> </span><span class="annot"><span class="annottext">Connectivity
+</span><a href="#local-6989586621681043466"><span class="hs-identifier hs-var">conn</span></a></span><span>
+</span><span id="line-49"></span><span>  </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.State.html#Open"><span class="hs-identifier hs-type">Open</span></a></span><span> </span><span id="local-6989586621681043468"><span class="annot"><span class="annottext">OpenState tx
+</span><a href="#local-6989586621681043468"><span class="hs-identifier hs-var">openState</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Input.html#NetworkInput"><span class="hs-identifier hs-type">NetworkInput</span></a></span><span> </span><span id="local-6989586621681043469"><span class="annot"><span class="annottext">TTL
+</span><a href="#local-6989586621681043469"><span class="hs-identifier hs-var">ttl</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Network.Message.html#ReceivedMessage"><span class="hs-identifier hs-type">ReceivedMessage</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:msg:ConnectivityEvent :: forall msg. NetworkEvent msg -&gt; msg
+</span><a href="Hydra.Network.Message.html#%24sel%3Amsg%3AConnectivityEvent"><span class="hs-identifier hs-var">msg</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Hydra.Network.Message.html#ReqTx"><span class="hs-identifier hs-type">ReqTx</span></a></span><span class="hs-special">{</span><span id="local-6989586621681043473"><span class="annot"><span class="annottext">tx
+transaction :: tx
+$sel:transaction:ReqTx :: forall tx. Message tx -&gt; tx
+</span><a href="#local-6989586621681043473"><span class="hs-glyph hs-var hs-var">..</span></a></span></span><span class="hs-special">}</span><span class="hs-special">}</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-50"></span><span>    </span><span class="annot"><span class="annottext">Workflow tx ReqTxTopology () -&gt; Program tx ()
+forall {vertex} tx (topology :: Topology vertex) result.
+Workflow tx topology result -&gt; Program tx result
+</span><a href="Hydra.HeadLogic.Workflow.html#run"><span class="hs-identifier hs-var">Workflow.run</span></a></span><span> </span><span class="annot"><span class="annottext">(Workflow tx ReqTxTopology () -&gt; Program tx ())
+-&gt; Workflow tx ReqTxTopology () -&gt; Program tx ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-51"></span><span>      </span><span class="annot"><span class="annottext">Args tx -&gt; Workflow tx ReqTxTopology ()
+forall tx.
+IsChainState tx =&gt;
+Args tx -&gt; Workflow tx ReqTxTopology ()
+</span><a href="Hydra.HeadLogic.Rules.Network.ReqTx.html#workflow"><span class="hs-identifier hs-var">ReqTx.workflow</span></a></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Network.ReqTx.html#Args"><span class="hs-identifier hs-type">ReqTx.Args</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:pendingDeposits:Args :: PendingDeposits tx
+</span><a href="#local-6989586621681043477"><span class="hs-identifier hs-var">pendingDeposits</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">OpenState tx -&gt; PendingDeposits tx -&gt; PendingDeposits tx
+forall tx.
+IsTx tx =&gt;
+OpenState tx -&gt; PendingDeposits tx -&gt; PendingDeposits tx
+</span><a href="Hydra.Node.State.html#depositsForHeadWithoutFinalizedCommit"><span class="hs-identifier hs-var">depositsForHeadWithoutFinalizedCommit</span></a></span><span> </span><span class="annot"><span class="annottext">OpenState tx
+</span><a href="#local-6989586621681043468"><span class="hs-identifier hs-var">openState</span></a></span><span> </span><span class="annot"><span class="annottext">PendingDeposits tx
+</span><a href="#local-6989586621681043461"><span class="hs-identifier hs-var">pendingDeposits</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">tx
+TTL
+OpenState tx
+ChainPointTime
+RuleEnvironment
+env :: RuleEnvironment
+chainPointTime :: ChainPointTime
+openState :: OpenState tx
+ttl :: TTL
+transaction :: tx
+$sel:env:Args :: RuleEnvironment
+$sel:chainPointTime:Args :: ChainPointTime
+$sel:openState:Args :: OpenState tx
+$sel:ttl:Args :: TTL
+$sel:transaction:Args :: tx
+</span><a href="#local-6989586621681043459"><span class="hs-glyph hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">..</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-52"></span><span>  </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.State.html#Open"><span class="hs-identifier hs-type">Open</span></a></span><span> </span><span id="local-6989586621681043483"><span class="annot"><span class="annottext">openState :: OpenState tx
+</span><a href="#local-6989586621681043483"><span class="hs-identifier hs-var">openState</span></a></span></span><span class="hs-glyph">@</span><span class="annot"><a href="Hydra.HeadLogic.State.html#OpenState"><span class="hs-identifier hs-type">OpenState</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:headId:OpenState :: forall tx. OpenState tx -&gt; HeadId
+</span><a href="Hydra.HeadLogic.State.html#%24sel%3AheadId%3AOpenState"><span class="hs-identifier hs-var">headId</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="local-6989586621681043484"><span class="annot"><span class="annottext">HeadId
+</span><a href="#local-6989586621681043484"><span class="hs-identifier hs-var">ourHeadId</span></a></span></span><span class="hs-special">}</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Input.html#NetworkInput"><span class="hs-identifier hs-type">NetworkInput</span></a></span><span> </span><span id="local-6989586621681043485"><span class="annot"><span class="annottext">TTL
+</span><a href="#local-6989586621681043485"><span class="hs-identifier hs-var">ttl</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Network.Message.html#ReceivedMessage"><span class="hs-identifier hs-type">ReceivedMessage</span></a></span><span class="hs-special">{</span><span id="local-6989586621681043486"><span class="annot"><span class="annottext">Party
+sender :: Party
+$sel:sender:ConnectivityEvent :: forall msg. NetworkEvent msg -&gt; Party
+</span><a href="#local-6989586621681043486"><span class="hs-identifier hs-var hs-var">sender</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:msg:ConnectivityEvent :: forall msg. NetworkEvent msg -&gt; msg
+</span><a href="Hydra.Network.Message.html#%24sel%3Amsg%3AConnectivityEvent"><span class="hs-identifier hs-var">msg</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Hydra.Network.Message.html#ReqSn"><span class="hs-identifier hs-type">ReqSn</span></a></span><span class="hs-special">{</span><span id="local-6989586621681043489"><span id="local-6989586621681043490"><span id="local-6989586621681043491"><span id="local-6989586621681043492"><span id="local-6989586621681043493"><span class="annot"><span class="annottext">[TxIdType tx]
+Maybe tx
+Maybe (TxIdType tx)
+SnapshotNumber
+SnapshotVersion
+snapshotVersion :: SnapshotVersion
+snapshotNumber :: SnapshotNumber
+transactionIds :: [TxIdType tx]
+decommitTx :: Maybe tx
+depositTxId :: Maybe (TxIdType tx)
+$sel:snapshotVersion:ReqTx :: forall tx. Message tx -&gt; SnapshotVersion
+$sel:snapshotNumber:ReqTx :: forall tx. Message tx -&gt; SnapshotNumber
+$sel:transactionIds:ReqTx :: forall tx. Message tx -&gt; [TxIdType tx]
+$sel:decommitTx:ReqTx :: forall tx. Message tx -&gt; Maybe tx
+$sel:depositTxId:ReqTx :: forall tx. Message tx -&gt; Maybe (TxIdType tx)
+</span><a href="#local-6989586621681043489"><span class="hs-glyph hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">..</span></a></span></span></span></span></span></span><span class="hs-special">}</span><span class="hs-special">}</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-53"></span><span>    </span><span class="annot"><span class="annottext">Workflow tx ReqSnTopology () -&gt; Program tx ()
+forall {vertex} tx (topology :: Topology vertex) result.
+Workflow tx topology result -&gt; Program tx result
+</span><a href="Hydra.HeadLogic.Workflow.html#run"><span class="hs-identifier hs-var">Workflow.run</span></a></span><span> </span><span class="annot"><span class="annottext">(Workflow tx ReqSnTopology () -&gt; Program tx ())
+-&gt; Workflow tx ReqSnTopology () -&gt; Program tx ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-54"></span><span>      </span><span class="annot"><span class="annottext">Args tx -&gt; Workflow tx ReqSnTopology ()
+forall tx.
+IsChainState tx =&gt;
+Args tx -&gt; Workflow tx ReqSnTopology ()
+</span><a href="Hydra.HeadLogic.Rules.Network.ReqSn.html#workflow"><span class="hs-identifier hs-var">ReqSn.workflow</span></a></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Network.ReqSn.html#Args"><span class="hs-identifier hs-type">ReqSn.Args</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:pendingDeposits:Args :: PendingDeposits tx
+</span><a href="Hydra.HeadLogic.Rules.Network.ReqSn.html#%24sel%3ApendingDeposits%3AArgs"><span class="hs-identifier hs-var">pendingDeposits</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HeadId -&gt; PendingDeposits tx -&gt; PendingDeposits tx
+forall tx. HeadId -&gt; PendingDeposits tx -&gt; PendingDeposits tx
+</span><a href="Hydra.Node.State.html#depositsForHead"><span class="hs-identifier hs-var">depositsForHead</span></a></span><span> </span><span class="annot"><span class="annottext">HeadId
+</span><a href="#local-6989586621681043484"><span class="hs-identifier hs-var">ourHeadId</span></a></span><span> </span><span class="annot"><span class="annottext">PendingDeposits tx
+</span><a href="#local-6989586621681043461"><span class="hs-identifier hs-var">pendingDeposits</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TTL
+[TxIdType tx]
+Maybe tx
+Maybe (TxIdType tx)
+Party
+SnapshotNumber
+SnapshotVersion
+OpenState tx
+ChainPointTime
+RuleEnvironment
+env :: RuleEnvironment
+chainPointTime :: ChainPointTime
+openState :: OpenState tx
+ttl :: TTL
+sender :: Party
+snapshotVersion :: SnapshotVersion
+snapshotNumber :: SnapshotNumber
+transactionIds :: [TxIdType tx]
+decommitTx :: Maybe tx
+depositTxId :: Maybe (TxIdType tx)
+$sel:env:Args :: RuleEnvironment
+$sel:chainPointTime:Args :: ChainPointTime
+$sel:openState:Args :: OpenState tx
+$sel:ttl:Args :: TTL
+$sel:sender:Args :: Party
+$sel:snapshotVersion:Args :: SnapshotVersion
+$sel:snapshotNumber:Args :: SnapshotNumber
+$sel:transactionIds:Args :: [TxIdType tx]
+$sel:decommitTx:Args :: Maybe tx
+$sel:depositTxId:Args :: Maybe (TxIdType tx)
+</span><a href="#local-6989586621681043459"><span class="hs-glyph hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">..</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-55"></span><span>  </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.State.html#Open"><span class="hs-identifier hs-type">Open</span></a></span><span> </span><span id="local-6989586621681043512"><span class="annot"><span class="annottext">OpenState tx
+</span><a href="#local-6989586621681043512"><span class="hs-identifier hs-var">openState</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Input.html#NetworkInput"><span class="hs-identifier hs-type">NetworkInput</span></a></span><span> </span><span class="annot"><span class="annottext">TTL
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Network.Message.html#ReceivedMessage"><span class="hs-identifier hs-type">ReceivedMessage</span></a></span><span class="hs-special">{</span><span id="local-6989586621681043513"><span class="annot"><span class="annottext">Party
+$sel:sender:ConnectivityEvent :: forall msg. NetworkEvent msg -&gt; Party
+sender :: Party
+</span><a href="Hydra.Network.Message.html#%24sel%3Asender%3AConnectivityEvent"><span class="hs-identifier hs-var hs-var">sender</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:msg:ConnectivityEvent :: forall msg. NetworkEvent msg -&gt; msg
+</span><a href="Hydra.Network.Message.html#%24sel%3Amsg%3AConnectivityEvent"><span class="hs-identifier hs-var">msg</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Hydra.Network.Message.html#AckSn"><span class="hs-identifier hs-type">AckSn</span></a></span><span class="hs-special">{</span><span id="local-6989586621681043515"><span id="local-6989586621681043516"><span class="annot"><span class="annottext">SnapshotNumber
+Signature (Snapshot tx)
+$sel:snapshotNumber:ReqTx :: forall tx. Message tx -&gt; SnapshotNumber
+signed :: Signature (Snapshot tx)
+snapshotNumber :: SnapshotNumber
+$sel:signed:ReqTx :: forall tx. Message tx -&gt; Signature (Snapshot tx)
+</span><a href="Hydra.Network.Message.html#%24sel%3AsnapshotNumber%3AReqTx"><span class="hs-glyph hs-var hs-var hs-var hs-var">..</span></a></span></span></span><span class="hs-special">}</span><span class="hs-special">}</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-56"></span><span>    </span><span class="annot"><span class="annottext">Workflow tx AckTopology () -&gt; Program tx ()
+forall {vertex} tx (topology :: Topology vertex) result.
+Workflow tx topology result -&gt; Program tx result
+</span><a href="Hydra.HeadLogic.Workflow.html#run"><span class="hs-identifier hs-var">Workflow.run</span></a></span><span> </span><span class="annot"><span class="annottext">(Workflow tx AckTopology () -&gt; Program tx ())
+-&gt; Workflow tx AckTopology () -&gt; Program tx ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-57"></span><span>      </span><span class="annot"><span class="annottext">Args tx -&gt; Workflow tx AckTopology ()
+forall tx. IsChainState tx =&gt; Args tx -&gt; Workflow tx AckTopology ()
+</span><a href="Hydra.HeadLogic.Rules.Network.AckSn.html#workflow"><span class="hs-identifier hs-var">AckSn.workflow</span></a></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Network.AckSn.html#Args"><span class="hs-identifier hs-type">AckSn.Args</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:pendingDeposits:Args :: PendingDeposits tx
+</span><a href="Hydra.HeadLogic.Rules.Network.AckSn.html#%24sel%3ApendingDeposits%3AArgs"><span class="hs-identifier hs-var">pendingDeposits</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">OpenState tx -&gt; PendingDeposits tx -&gt; PendingDeposits tx
+forall tx.
+IsTx tx =&gt;
+OpenState tx -&gt; PendingDeposits tx -&gt; PendingDeposits tx
+</span><a href="Hydra.Node.State.html#depositsForHeadWithoutFinalizedCommit"><span class="hs-identifier hs-var">depositsForHeadWithoutFinalizedCommit</span></a></span><span> </span><span class="annot"><span class="annottext">OpenState tx
+</span><a href="#local-6989586621681043512"><span class="hs-identifier hs-var">openState</span></a></span><span> </span><span class="annot"><span class="annottext">PendingDeposits tx
+</span><a href="#local-6989586621681043461"><span class="hs-identifier hs-var">pendingDeposits</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Party
+SnapshotNumber
+Signature (Snapshot tx)
+OpenState tx
+ChainPointTime
+RuleEnvironment
+env :: RuleEnvironment
+chainPointTime :: ChainPointTime
+openState :: OpenState tx
+sender :: Party
+signed :: Signature (Snapshot tx)
+snapshotNumber :: SnapshotNumber
+$sel:env:Args :: RuleEnvironment
+$sel:chainPointTime:Args :: ChainPointTime
+$sel:openState:Args :: OpenState tx
+$sel:sender:Args :: Party
+$sel:signed:Args :: Signature (Snapshot tx)
+$sel:snapshotNumber:Args :: SnapshotNumber
+</span><a href="#local-6989586621681043459"><span class="hs-glyph hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">..</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-58"></span><span>  </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.State.html#Open"><span class="hs-identifier hs-type">Open</span></a></span><span> </span><span id="local-6989586621681043527"><span class="annot"><span class="annottext">OpenState tx
+</span><a href="#local-6989586621681043527"><span class="hs-identifier hs-var">openState</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Input.html#NetworkInput"><span class="hs-identifier hs-type">NetworkInput</span></a></span><span> </span><span id="local-6989586621681043528"><span class="annot"><span class="annottext">TTL
+</span><a href="#local-6989586621681043528"><span class="hs-identifier hs-var">ttl</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Network.Message.html#ReceivedMessage"><span class="hs-identifier hs-type">ReceivedMessage</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:msg:ConnectivityEvent :: forall msg. NetworkEvent msg -&gt; msg
+</span><a href="Hydra.Network.Message.html#%24sel%3Amsg%3AConnectivityEvent"><span class="hs-identifier hs-var">msg</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Hydra.Network.Message.html#ReqDec"><span class="hs-identifier hs-type">ReqDec</span></a></span><span class="hs-special">{</span><span id="local-6989586621681043530"><span class="annot"><span class="annottext">tx
+$sel:transaction:ReqTx :: forall tx. Message tx -&gt; tx
+transaction :: tx
+</span><a href="Hydra.Network.Message.html#%24sel%3Atransaction%3AReqTx"><span class="hs-glyph hs-var hs-var">..</span></a></span></span><span class="hs-special">}</span><span class="hs-special">}</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-59"></span><span>    </span><span class="annot"><span class="annottext">Workflow tx ReqDecTopology () -&gt; Program tx ()
+forall {vertex} tx (topology :: Topology vertex) result.
+Workflow tx topology result -&gt; Program tx result
+</span><a href="Hydra.HeadLogic.Workflow.html#run"><span class="hs-identifier hs-var">Workflow.run</span></a></span><span> </span><span class="annot"><span class="annottext">(Workflow tx ReqDecTopology () -&gt; Program tx ())
+-&gt; Workflow tx ReqDecTopology () -&gt; Program tx ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-60"></span><span>      </span><span class="annot"><span class="annottext">Args tx -&gt; Workflow tx ReqDecTopology ()
+forall tx.
+IsChainState tx =&gt;
+Args tx -&gt; Workflow tx ReqDecTopology ()
+</span><a href="Hydra.HeadLogic.Rules.Network.ReqDec.html#workflow"><span class="hs-identifier hs-var">ReqDec.workflow</span></a></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Network.ReqDec.html#Args"><span class="hs-identifier hs-type">ReqDec.Args</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:pendingDeposits:Args :: PendingDeposits tx
+</span><a href="Hydra.HeadLogic.Rules.Network.ReqDec.html#%24sel%3ApendingDeposits%3AArgs"><span class="hs-identifier hs-var">pendingDeposits</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">OpenState tx -&gt; PendingDeposits tx -&gt; PendingDeposits tx
+forall tx.
+IsTx tx =&gt;
+OpenState tx -&gt; PendingDeposits tx -&gt; PendingDeposits tx
+</span><a href="Hydra.Node.State.html#depositsForHeadWithoutFinalizedCommit"><span class="hs-identifier hs-var">depositsForHeadWithoutFinalizedCommit</span></a></span><span> </span><span class="annot"><span class="annottext">OpenState tx
+</span><a href="#local-6989586621681043527"><span class="hs-identifier hs-var">openState</span></a></span><span> </span><span class="annot"><span class="annottext">PendingDeposits tx
+</span><a href="#local-6989586621681043461"><span class="hs-identifier hs-var">pendingDeposits</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">tx
+TTL
+OpenState tx
+ChainPointTime
+RuleEnvironment
+env :: RuleEnvironment
+chainPointTime :: ChainPointTime
+openState :: OpenState tx
+ttl :: TTL
+transaction :: tx
+$sel:env:Args :: RuleEnvironment
+$sel:ttl:Args :: TTL
+$sel:chainPointTime:Args :: ChainPointTime
+$sel:openState:Args :: OpenState tx
+$sel:transaction:Args :: tx
+</span><a href="#local-6989586621681043459"><span class="hs-glyph hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">..</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-61"></span><span>  </span><span class="annot"><span class="annottext">(HeadState tx, Input tx)
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-62"></span><span>    </span><span class="annot"><span class="annottext">LogicError tx -&gt; Program tx ()
+forall tx a. LogicError tx -&gt; Program tx a
+</span><a href="Hydra.HeadLogic.Program.html#reject"><span class="hs-identifier hs-var">reject</span></a></span><span> </span><span class="annot"><span class="annottext">(LogicError tx -&gt; Program tx ()) -&gt; LogicError tx -&gt; Program tx ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Input tx -&gt; HeadState tx -&gt; LogicError tx
+forall tx. Input tx -&gt; HeadState tx -&gt; LogicError tx
+</span><a href="Hydra.HeadLogic.Error.html#UnhandledInput"><span class="hs-identifier hs-var">UnhandledInput</span></a></span><span> </span><span class="annot"><span class="annottext">Input tx
+</span><a href="#local-6989586621681043463"><span class="hs-identifier hs-var">ev</span></a></span><span> </span><span class="annot"><span class="annottext">HeadState tx
+</span><a href="#local-6989586621681043462"><span class="hs-identifier hs-var">st</span></a></span><span>
+</span><span id="line-63"></span><span>
+</span><span id="line-64"></span><span id="local-6989586621681043381"><span class="annot"><a href="Hydra.HeadLogic.Rules.Network.html#onConnectionEvent"><span class="hs-identifier hs-type">onConnectionEvent</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.Network.html#Connectivity"><span class="hs-identifier hs-type">Network.Connectivity</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Program.html#Program"><span class="hs-identifier hs-type">Program</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681043381"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-65"></span><span id="onConnectionEvent"><span class="annot"><span class="annottext">onConnectionEvent :: forall tx. Text -&gt; Connectivity -&gt; Program tx ()
+</span><a href="Hydra.HeadLogic.Rules.Network.html#onConnectionEvent"><span class="hs-identifier hs-var hs-var">onConnectionEvent</span></a></span></span><span> </span><span id="local-6989586621681043540"><span class="annot"><span class="annottext">Text
+</span><a href="#local-6989586621681043540"><span class="hs-identifier hs-var">misconfiguredPeers</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-66"></span><span>  </span><span class="annot"><span class="annottext">Connectivity
+</span><a href="Hydra.Network.html#NetworkConnected"><span class="hs-identifier hs-var">Network.NetworkConnected</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-67"></span><span>    </span><span class="annot"><span class="annottext">StateChanged tx -&gt; Program tx ()
+forall tx. StateChanged tx -&gt; Program tx ()
+</span><a href="Hydra.HeadLogic.Program.html#change"><span class="hs-identifier hs-var">change</span></a></span><span> </span><span class="annot"><span class="annottext">StateChanged tx
+forall tx. StateChanged tx
+</span><a href="Hydra.HeadLogic.Outcome.html#NetworkConnected"><span class="hs-identifier hs-var">NetworkConnected</span></a></span><span>
+</span><span id="line-68"></span><span>  </span><span class="annot"><span class="annottext">Connectivity
+</span><a href="Hydra.Network.html#NetworkDisconnected"><span class="hs-identifier hs-var">Network.NetworkDisconnected</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-69"></span><span>    </span><span class="annot"><span class="annottext">StateChanged tx -&gt; Program tx ()
+forall tx. StateChanged tx -&gt; Program tx ()
+</span><a href="Hydra.HeadLogic.Program.html#change"><span class="hs-identifier hs-var">change</span></a></span><span> </span><span class="annot"><span class="annottext">StateChanged tx
+forall tx. StateChanged tx
+</span><a href="Hydra.HeadLogic.Outcome.html#NetworkDisconnected"><span class="hs-identifier hs-var">NetworkDisconnected</span></a></span><span>
+</span><span id="line-70"></span><span>  </span><span class="annot"><a href="Hydra.Network.html#VersionMismatch"><span class="hs-identifier hs-type">Network.VersionMismatch</span></a></span><span class="hs-special">{</span><span id="local-6989586621681043546"><span class="annot"><span class="annottext">ProtocolVersion
+ourVersion :: ProtocolVersion
+$sel:ourVersion:PeerConnected :: Connectivity -&gt; ProtocolVersion
+</span><a href="#local-6989586621681043546"><span class="hs-identifier hs-var hs-var">ourVersion</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681043548"><span class="annot"><span class="annottext">Maybe ProtocolVersion
+theirVersion :: Maybe ProtocolVersion
+$sel:theirVersion:PeerConnected :: Connectivity -&gt; Maybe ProtocolVersion
+</span><a href="#local-6989586621681043548"><span class="hs-identifier hs-var hs-var">theirVersion</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-71"></span><span>    </span><span class="annot"><span class="annottext">StateChanged tx -&gt; Program tx ()
+forall tx. StateChanged tx -&gt; Program tx ()
+</span><a href="Hydra.HeadLogic.Program.html#change"><span class="hs-identifier hs-var">change</span></a></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#NetworkVersionMismatch"><span class="hs-identifier hs-type">NetworkVersionMismatch</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">ProtocolVersion
+ourVersion :: ProtocolVersion
+$sel:ourVersion:NetworkConnected :: ProtocolVersion
+</span><a href="#local-6989586621681043546"><span class="hs-identifier hs-var hs-var">ourVersion</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Maybe ProtocolVersion
+theirVersion :: Maybe ProtocolVersion
+$sel:theirVersion:NetworkConnected :: Maybe ProtocolVersion
+</span><a href="#local-6989586621681043548"><span class="hs-identifier hs-var hs-var">theirVersion</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-72"></span><span>  </span><span class="annot"><a href="Hydra.Network.html#ClusterIDMismatch"><span class="hs-identifier hs-type">Network.ClusterIDMismatch</span></a></span><span class="hs-special">{</span><span id="local-6989586621681043554"><span class="annot"><span class="annottext">Text
+clusterPeers :: Text
+$sel:clusterPeers:PeerConnected :: Connectivity -&gt; Text
+</span><a href="#local-6989586621681043554"><span class="hs-identifier hs-var hs-var">clusterPeers</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-73"></span><span>    </span><span class="annot"><span class="annottext">StateChanged tx -&gt; Program tx ()
+forall tx. StateChanged tx -&gt; Program tx ()
+</span><a href="Hydra.HeadLogic.Program.html#change"><span class="hs-identifier hs-var">change</span></a></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#NetworkClusterIDMismatch"><span class="hs-identifier hs-type">NetworkClusterIDMismatch</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">Text
+clusterPeers :: Text
+$sel:clusterPeers:NetworkConnected :: Text
+</span><a href="#local-6989586621681043554"><span class="hs-identifier hs-var hs-var">clusterPeers</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text
+misconfiguredPeers :: Text
+$sel:misconfiguredPeers:NetworkConnected :: Text
+</span><a href="#local-6989586621681043540"><span class="hs-identifier hs-var hs-var">misconfiguredPeers</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-74"></span><span>  </span><span class="annot"><a href="Hydra.Network.html#PeerConnected"><span class="hs-identifier hs-type">Network.PeerConnected</span></a></span><span class="hs-special">{</span><span id="local-6989586621681043560"><span class="annot"><span class="annottext">Host
+peer :: Host
+$sel:peer:PeerConnected :: Connectivity -&gt; Host
+</span><a href="#local-6989586621681043560"><span class="hs-identifier hs-var hs-var">peer</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-75"></span><span>    </span><span class="annot"><span class="annottext">StateChanged tx -&gt; Program tx ()
+forall tx. StateChanged tx -&gt; Program tx ()
+</span><a href="Hydra.HeadLogic.Program.html#change"><span class="hs-identifier hs-var">change</span></a></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#PeerConnected"><span class="hs-identifier hs-type">PeerConnected</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">Host
+peer :: Host
+$sel:peer:NetworkConnected :: Host
+</span><a href="#local-6989586621681043560"><span class="hs-identifier hs-var hs-var">peer</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-76"></span><span>  </span><span class="annot"><a href="Hydra.Network.html#PeerDisconnected"><span class="hs-identifier hs-type">Network.PeerDisconnected</span></a></span><span class="hs-special">{</span><span id="local-6989586621681043565"><span class="annot"><span class="annottext">Host
+$sel:peer:PeerConnected :: Connectivity -&gt; Host
+peer :: Host
+</span><a href="Hydra.Network.html#%24sel%3Apeer%3APeerConnected"><span class="hs-identifier hs-var hs-var">peer</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-77"></span><span>    </span><span class="annot"><span class="annottext">StateChanged tx -&gt; Program tx ()
+forall tx. StateChanged tx -&gt; Program tx ()
+</span><a href="Hydra.HeadLogic.Program.html#change"><span class="hs-identifier hs-var">change</span></a></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#PeerDisconnected"><span class="hs-identifier hs-type">PeerDisconnected</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">Host
+$sel:peer:NetworkConnected :: Host
+peer :: Host
+</span><a href="Hydra.HeadLogic.Outcome.html#%24sel%3Apeer%3ANetworkConnected"><span class="hs-identifier hs-var hs-var">peer</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-78"></span><span>  </span><span class="annot"><a href="Hydra.Network.html#BroadcastStalled"><span class="hs-identifier hs-type">Network.BroadcastStalled</span></a></span><span class="hs-special">{</span><span id="local-6989586621681043568"><span class="annot"><span class="annottext">TTL
+pendingBroadcasts :: TTL
+$sel:pendingBroadcasts:PeerConnected :: Connectivity -&gt; TTL
+</span><a href="#local-6989586621681043568"><span class="hs-identifier hs-var hs-var">pendingBroadcasts</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681043570"><span class="annot"><span class="annottext">StallReason
+stallReason :: StallReason
+$sel:stallReason:PeerConnected :: Connectivity -&gt; StallReason
+</span><a href="#local-6989586621681043570"><span class="hs-identifier hs-var hs-var">stallReason</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-79"></span><span>    </span><span class="annot"><span class="annottext">StateChanged tx -&gt; Program tx ()
+forall tx. StateChanged tx -&gt; Program tx ()
+</span><a href="Hydra.HeadLogic.Program.html#change"><span class="hs-identifier hs-var">change</span></a></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#NetworkBroadcastStalled"><span class="hs-identifier hs-type">NetworkBroadcastStalled</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">TTL
+pendingBroadcasts :: TTL
+$sel:pendingBroadcasts:NetworkConnected :: TTL
+</span><a href="#local-6989586621681043568"><span class="hs-identifier hs-var hs-var">pendingBroadcasts</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">StallReason
+stallReason :: StallReason
+$sel:stallReason:NetworkConnected :: StallReason
+</span><a href="#local-6989586621681043570"><span class="hs-identifier hs-var hs-var">stallReason</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-80"></span><span>  </span><span class="annot"><span class="annottext">Connectivity
+</span><a href="Hydra.Network.html#BroadcastResumed"><span class="hs-identifier hs-var">Network.BroadcastResumed</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-81"></span><span>    </span><span class="annot"><span class="annottext">StateChanged tx -&gt; Program tx ()
+forall tx. StateChanged tx -&gt; Program tx ()
+</span><a href="Hydra.HeadLogic.Program.html#change"><span class="hs-identifier hs-var">change</span></a></span><span> </span><span class="annot"><span class="annottext">StateChanged tx
+forall tx. StateChanged tx
+</span><a href="Hydra.HeadLogic.Outcome.html#NetworkBroadcastResumed"><span class="hs-identifier hs-var">NetworkBroadcastResumed</span></a></span><span>
+</span><span id="line-82"></span></pre></body></html>

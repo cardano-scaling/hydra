@@ -87,8 +87,8 @@ instance Test.QuickCheck.Arbitrary.ADT.ToADTArbitrary (Hydra.HeadLogic.State.Fan
 instance Test.QuickCheck.Arbitrary.ADT.ToADTArbitrary (Hydra.Node.State.NodeState Hydra.Cardano.Api.Tx)
 instance Test.QuickCheck.Arbitrary.ADT.ToADTArbitrary Hydra.Node.State.SyncedStatus
 instance Test.QuickCheck.Arbitrary.ADT.ToADTArbitrary Hydra.Network.StallReason
-instance Test.QuickCheck.Arbitrary.ADT.ToADTArbitrary Hydra.Node.State.DepositStatus
-instance Test.QuickCheck.Arbitrary.ADT.ToADTArbitrary (Hydra.Node.State.Deposit Hydra.Cardano.Api.Tx)
+instance Test.QuickCheck.Arbitrary.ADT.ToADTArbitrary Hydra.HeadLogic.Deposit.DepositStatus
+instance Test.QuickCheck.Arbitrary.ADT.ToADTArbitrary (Hydra.HeadLogic.Deposit.Deposit Hydra.Cardano.Api.Tx)
 instance Test.QuickCheck.Arbitrary.ADT.ToADTArbitrary Hydra.Network.Connectivity
 instance Test.QuickCheck.Arbitrary.ADT.ToADTArbitrary Hydra.Network.WhichEtcd
 instance Test.QuickCheck.Arbitrary.ADT.ToADTArbitrary (Hydra.HeadLogic.Error.RequirementFailure Hydra.Cardano.Api.Tx)
@@ -324,6 +324,15 @@ spec :: Spec
 genContinuousEvents :: Gen [EventId]
 
 
+-- | Tests for the <a>EventSource</a> and <a>EventSink</a> implementation
+--   in <a>SQLite</a>.
+module Hydra.Events.SQLiteBasedSpec
+spec :: Spec
+genContinuousEvents :: Gen [StateEvent SimpleTx]
+mkContinuousEvents :: [StateChanged tx] -> [UTCTime] -> [StateEvent tx]
+withEventSourceAndSink :: (EventSource (StateEvent SimpleTx) IO -> EventSink (StateEvent SimpleTx) IO -> IO b) -> IO b
+
+
 -- | Tests for the UDP example event sink.
 module Hydra.Events.UDPSpec
 spec :: Spec
@@ -338,6 +347,27 @@ spec :: Spec
 --   fails with EHOSTUNREACH on macOS.
 withUDPServerSocket :: (ListenSocket -> PortNumber -> IO a) -> IO a
 
+module Hydra.HeadLogic.CapacitySpec
+spec :: Spec
+
+module Hydra.HeadLogic.CoordinatedSpec
+spec :: Spec
+
+module Hydra.HeadLogic.DepositSpec
+spec :: Spec
+
+module Hydra.HeadLogic.IncrementalWorkflowSpec
+spec :: Spec
+
+module Hydra.HeadLogic.InputWorkflowSpec
+spec :: Spec
+
+module Hydra.HeadLogic.InterpreterSpec
+spec :: Spec
+
+module Hydra.HeadLogic.MachineSpec
+spec :: Spec
+
 
 -- | Golden and roundtrip tests for the persisted event format
 --   (<a>StateEvent</a> and its <a>StateChanged</a> payload).
@@ -347,6 +377,21 @@ withUDPServerSocket :: (ListenSocket -> PortNumber -> IO a) -> IO a
 --   JSON: a change here means older event logs may fail to load and must
 --   be treated as a **breaking** change to persistence.
 module Hydra.HeadLogic.OutcomeSpec
+spec :: Spec
+
+module Hydra.HeadLogic.RulesSpec
+spec :: Spec
+
+module Hydra.HeadLogic.SnapshotDecommitSpec
+spec :: Spec
+
+module Hydra.HeadLogic.SnapshotOwnerSpec
+spec :: Spec
+
+module Hydra.HeadLogic.SnapshotProgramSpec
+spec :: Spec
+
+module Hydra.HeadLogic.WorkflowSpec
 spec :: Spec
 
 
@@ -440,6 +485,7 @@ instance Cardano.Binary.FromCBOR.FromCBOR Cardano.Api.Value.Internal.Value
 
 module Hydra.Network.EtcdBinarySpec
 spec :: Spec
+busyExecutableSpec :: Spec
 
 module Hydra.NetworkVersionsSpec
 spec :: Spec
@@ -556,12 +602,6 @@ waitEq :: (HasCallStack, Eq a, Show a) => IO a -> NominalDiffTime -> a -> IO ()
 -- | Wait up to some time for a function to return a value that satisfies
 --   given predicate.
 waitMatch :: (HasCallStack, Show a) => IO a -> NominalDiffTime -> (a -> Maybe b) -> IO b
-
--- | Create a tracer that captures all messages and a function to retrieve
---   all traces captured. XXX: This is duplicated in MithrilSpec in
---   hydra-cluster, but can't (easily) be moved to the Test Prelude because
---   of the dependency on Control.Tracer.JSON.
-captureTracer :: Text -> IO (Tracer IO a, IO [Envelope a])
 
 -- | Check a UTxO for thunks, descending via constructors so that GADT
 --   dictionary fields (e.g. the Eq/Show context stored inside
@@ -765,9 +805,8 @@ reqDecDepositedUTxO :: UTxOType SimpleTx
 -- | An open state whose
 --   <a>$sel:currentDepositTxId:CoordinatedHeadState</a> is set, with the
 --   deposit registered at the given status. <a>Nothing</a> registers no
---   deposit at all, modelling one that has already been recovered:
---   <a>DepositRecovered</a> deletes the map entry but leaves
---   <a>$sel:currentDepositTxId:CoordinatedHeadState</a> pointing at it.
+--   deposit, modelling a checkpoint with a stale selection after recovery.
+--   Normal recovery also clears the selection.
 reqDecStateWith :: [Party] -> Maybe DepositStatus -> NodeState SimpleTx
 inOpenState' :: [Party] -> CoordinatedHeadState SimpleTx -> NodeState SimpleTx
 inClosedState :: [Party] -> NodeState SimpleTx
@@ -1021,6 +1060,11 @@ instance Data.EventSource.HasEventId Hydra.Events.RotationSpec.TrivialEvent
 
 module Hydra.Logging.MonitoringSpec
 spec :: Spec
+withTestMonitoring :: (Int -> Tracer IO (HydraLog SimpleTx) -> IO a) -> IO a
+
+-- | Occupy both wildcard addresses: Warp can fall back from IPv4 to IPv6,
+--   and a loopback listener does not exclude a wildcard listener on macOS.
+withOccupiedMonitoringPort :: (PortNumber -> IO a) -> IO a
 
 -- | The metrics <a>withMonitoring</a> always registers.
 protocolMetrics :: [Text]
@@ -1050,9 +1094,24 @@ scrapeMetrics :: Int -> IO Text
 
 module Hydra.HeadLogicSnapshotSpec
 spec :: Spec
-prop_singleMemberHeadAlwaysSnapshotOnReqTx :: ConfirmedSnapshot SimpleTx -> Property
+prop_singleMemberHeadSnapshotOnReqTx :: SnapshotNumber -> SnapshotVersion -> UTxOType SimpleTx -> Property
 prop_thereIsAlwaysALeader :: Property
 testSnapshot :: forall tx. IsTx tx => SnapshotNumber -> SnapshotVersion -> [tx] -> UTxOType tx -> Snapshot tx
+
+module Hydra.HeadLogic.ReplaySpec
+spec :: Spec
+
+module Hydra.HeadLogic.ProgramSpec
+spec :: Spec
+
+module Hydra.HeadLogic.OperationWorkflowSpec
+spec :: Spec
+
+module Hydra.HeadLogic.LifecycleSpec
+spec :: Spec
+
+module Hydra.HeadLogic.CommitPhaseSpec
+spec :: Spec
 
 module Hydra.API.ServerSpec
 spec :: Spec
@@ -1144,7 +1203,16 @@ waitForValue :: HasCallStack => PortNumber -> (Value -> Maybe ()) -> IO ()
 --   predicate.
 waitMatch :: HasCallStack => Natural -> Connection -> (Value -> Maybe a) -> IO a
 shouldSatisfyAll :: forall a. HasCallStack => Show a => [a] -> [a -> Bool] -> Expectation
-genStateEventForApi :: Gen (StateEvent SimpleTx)
+
+-- | Keep payloads small for the transport deadlines while retaining all
+--   API-visible event types. Only resize the state change: event IDs and
+--   history lengths retain their usual generators.
+genSmallStateEventForApi :: Gen (StateEvent SimpleTx)
+
+-- | Initialize the shared trusted setup before the transport deadlines
+--   start. Even an empty snapshot needs it when its accumulator hash is
+--   first encoded.
+prepareSnapshotEncoding :: IO ()
 
 
 -- | Tests for the <tt>?address=</tt> output filter applied by
@@ -1190,24 +1258,6 @@ matchCBOR :: (Eq a, Show a, FromCBOR a) => a -> MatchBody
 --   against a schema. NOTE: This raises impure exceptions, so only use it
 --   in this test suite.
 matchValidJSON :: FilePath -> SchemaSelector -> MatchBody
-
-
--- | Tests for the <a>EventSource</a> and <a>EventSink</a> implementation
---   in <a>SQLite</a>.
-module Hydra.Events.SQLiteBasedSpec
-spec :: Spec
-
--- | Create a v1 database with <tt>n</tt> JSON-encoded 'StateEvent Tx' rows
---   (as written by hydra-node versions before the CBOR switch), open it
---   (triggering the migration) and assert nothing is lost: the events load
---   back equal, and each migrated row's raw CBOR decodes to exactly the
---   event that was inserted as JSON. Uses the production event type
---   (<a>Tx</a>, the one real hydra.db files store) rather than
---   <a>SimpleTx</a>.
-migratesV1JsonToV2CBOR :: Int -> IO ()
-genContinuousEvents :: Gen [StateEvent SimpleTx]
-mkContinuousEvents :: [StateChanged tx] -> [UTCTime] -> [StateEvent tx]
-withEventSourceAndSink :: (EventSource (StateEvent SimpleTx) IO -> EventSink (StateEvent SimpleTx) IO -> IO b) -> IO b
 
 module Hydra.CryptoSpec
 spec :: Spec
@@ -1421,7 +1471,7 @@ createMockNetworkWithDelay :: (MonadAsync m, MonadDelay m) => DiffTime -> DraftH
 -- | Derive an <a>OnChainTx</a> from <a>PostChainTx</a> to simulate a
 --   "perfect" chain. NOTE: This implementation announces hard-coded
 --   contestationDeadlines. Also, all heads will have the same
---   <a>OpenState</a> and <a>OpenState</a>.
+--   <a>OnChainTx</a> and <a>OnChainTx</a>.
 toOnChainTx :: IsTx tx => UTCTime -> PostChainTx tx -> OnChainTx tx
 newDeadlineFarEnoughFromNow :: MonadTime m => m UTCTime
 nothingHappensFor :: (MonadTimer m, MonadThrow m, IsChainState tx) => TestHydraClient tx m -> NominalDiffTime -> m ()

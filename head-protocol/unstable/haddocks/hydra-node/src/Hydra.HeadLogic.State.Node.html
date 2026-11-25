@@ -1,0 +1,458 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE OverloadedRecordDot #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE RecordWildCards #-}</span><span>
+</span><span id="line-3"></span><span>
+</span><span id="line-4"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.HeadLogic.State.Node</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.State.Node.html#Runtime"><span class="hs-identifier">Runtime</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.Node.html#start"><span class="hs-identifier">start</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.Node.html#step"><span class="hs-identifier">step</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.Node.html#currentState"><span class="hs-identifier">currentState</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.Node.html#apply"><span class="hs-identifier">apply</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.Node.html#applyEvents"><span class="hs-identifier">applyEvents</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.Node.html#inspect"><span class="hs-identifier">inspect</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-5"></span><span>
+</span><span id="line-6"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Crem.Inspect</span></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Crem</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">inspectStates</span></span><span class="hs-special">)</span><span>
+</span><span id="line-7"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Crem.StateMachine</span></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-8"></span><span>  </span><span class="annot"><span class="hs-identifier">StateMachineT</span></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-9"></span><span>  </span><span class="annot"><span class="hs-identifier">run</span></span><span class="hs-special">,</span><span>
+</span><span id="line-10"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-11"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Chain.ChainState</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">IsChainState</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">chainPointSlot</span></span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">chainStateSlot</span></span><span class="hs-special">)</span><span>
+</span><span id="line-12"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html"><span class="hs-identifier">Hydra.HeadLogic.Outcome</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#StateChanged"><span class="hs-identifier">StateChanged</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#eventHeadId"><span class="hs-identifier">eventHeadId</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-13"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.html"><span class="hs-identifier">Hydra.HeadLogic.State</span></a></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-14"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.html#FinalizedState"><span class="hs-identifier">FinalizedState</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.State.html#%24sel%3AchainState%3AFinalizedState"><span class="hs-identifier">chainState</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-15"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.html#HeadState"><span class="hs-identifier">HeadState</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.State.html#Finalized"><span class="hs-identifier">Finalized</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.html#Idle"><span class="hs-identifier">Idle</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-16"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.html#IdleState"><span class="hs-identifier">IdleState</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.State.html#IdleState"><span class="hs-identifier">IdleState</span></a></span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-17"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.html#canOpenHead"><span class="hs-identifier">canOpenHead</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-18"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.html#headIdOf"><span class="hs-identifier">headIdOf</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-19"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-20"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.Deposits.html"><span class="hs-identifier">Hydra.HeadLogic.State.Deposits</span></a></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">DepositRegistry</span></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-21"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.Deposits.html#machine"><span class="hs-identifier">machine</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-22"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-23"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.Head.html"><span class="hs-identifier">Hydra.HeadLogic.State.Head</span></a></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">Lifecycle</span></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-24"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.Head.html#machine"><span class="hs-identifier">machine</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-25"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-26"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.Types.html"><span class="hs-identifier">Hydra.HeadLogic.State.Types</span></a></span><span> </span><span class="hs-keyword">qualified</span><span> </span><span class="hs-keyword">as</span><span> </span><span class="annot"><span class="hs-identifier">State</span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.State.Types.html#DepositOutput"><span class="hs-identifier">DepositOutput</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-27"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Node.State.html"><span class="hs-identifier">Hydra.Node.State</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Node.State.html#ChainPointTime"><span class="hs-identifier">ChainPointTime</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Node.State.html#NodeState"><span class="hs-identifier">NodeState</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-28"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Prelude</span></span><span>
+</span><span id="line-29"></span><span>
+</span><span id="line-30"></span><span class="hs-keyword">data</span><span> </span><span id="Runtime"><span class="annot"><a href="Hydra.HeadLogic.State.Node.html#Runtime"><span class="hs-identifier hs-var">Runtime</span></a></span></span><span> </span><span id="local-6989586621681035894"><span class="annot"><a href="#local-6989586621681035894"><span class="hs-identifier hs-type">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="Runtime"><span class="annot"><a href="Hydra.HeadLogic.State.Node.html#Runtime"><span class="hs-identifier hs-var">Runtime</span></a></span></span><span>
+</span><span id="line-31"></span><span>  </span><span class="hs-special">{</span><span> </span><span id="%24sel%3AnodeState%3ARuntime"><span class="annot"><span class="annottext">forall tx. Runtime tx -&gt; NodeState tx
+</span><a href="Hydra.HeadLogic.State.Node.html#%24sel%3AnodeState%3ARuntime"><span class="hs-identifier hs-var hs-var">nodeState</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.Node.State.html#NodeState"><span class="hs-identifier hs-type">NodeState</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681035894"><span class="hs-identifier hs-type">tx</span></a></span><span>
+</span><span id="line-32"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AdepositMachine%3ARuntime"><span class="annot"><span class="annottext">forall tx.
+Runtime tx
+-&gt; StateMachineT Identity (StateChanged tx) (DepositOutput tx)
+</span><a href="Hydra.HeadLogic.State.Node.html#%24sel%3AdepositMachine%3ARuntime"><span class="hs-identifier hs-var hs-var">depositMachine</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">StateMachineT</span></span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.Identity.html#Identity"><span class="hs-identifier hs-type">Identity</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#StateChanged"><span class="hs-identifier hs-type">StateChanged</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681035894"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.State.Types.html#DepositOutput"><span class="hs-identifier hs-type">State.DepositOutput</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681035894"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-33"></span><span>  </span><span class="hs-special">,</span><span> </span><span id="%24sel%3AheadMachine%3ARuntime"><span class="annot"><span class="annottext">forall tx.
+Runtime tx
+-&gt; StateMachineT Identity (DepositOutput tx) (HeadState tx)
+</span><a href="Hydra.HeadLogic.State.Node.html#%24sel%3AheadMachine%3ARuntime"><span class="hs-identifier hs-var hs-var">headMachine</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">StateMachineT</span></span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.Identity.html#Identity"><span class="hs-identifier hs-type">Identity</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.State.Types.html#DepositOutput"><span class="hs-identifier hs-type">State.DepositOutput</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681035894"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.State.html#HeadState"><span class="hs-identifier hs-type">HeadState</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681035894"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-34"></span><span>  </span><span class="hs-special">}</span><span>
+</span><span id="line-35"></span><span>
+</span><span id="line-36"></span><span id="local-6989586621681035905"><span class="annot"><a href="Hydra.HeadLogic.State.Node.html#start"><span class="hs-identifier hs-type">start</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IsChainState</span></span><span> </span><span class="annot"><a href="#local-6989586621681035905"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Hydra.Node.State.html#NodeState"><span class="hs-identifier hs-type">NodeState</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681035905"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.Node.html#Runtime"><span class="hs-identifier hs-type">Runtime</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681035905"><span class="hs-identifier hs-type">tx</span></a></span></span><span>
+</span><span id="line-37"></span><span id="start"><span class="annot"><span class="annottext">start :: forall tx. IsChainState tx =&gt; NodeState tx -&gt; Runtime tx
+</span><a href="Hydra.HeadLogic.State.Node.html#start"><span class="hs-identifier hs-var hs-var">start</span></a></span></span><span> </span><span id="local-6989586621681036017"><span class="annot"><span class="annottext">NodeState tx
+</span><a href="#local-6989586621681036017"><span class="hs-identifier hs-var">node</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-38"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.Node.html#Runtime"><span class="hs-identifier hs-type">Runtime</span></a></span><span>
+</span><span id="line-39"></span><span>    </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">$sel:nodeState:Runtime :: NodeState tx
+</span><a href="Hydra.HeadLogic.State.Node.html#%24sel%3AnodeState%3ARuntime"><span class="hs-identifier hs-var">nodeState</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NodeState tx
+</span><a href="#local-6989586621681036017"><span class="hs-identifier hs-var">node</span></a></span><span>
+</span><span id="line-40"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:depositMachine:Runtime :: StateMachineT Identity (StateChanged tx) (DepositOutput tx)
+</span><a href="Hydra.HeadLogic.State.Node.html#%24sel%3AdepositMachine%3ARuntime"><span class="hs-identifier hs-var">depositMachine</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">BaseMachineT
+  Identity ('Topology '[]) (StateChanged tx) (DepositOutput tx)
+-&gt; StateMachineT Identity (StateChanged tx) (DepositOutput tx)
+forall {vertex} (m :: * -&gt; *) (topology :: Topology vertex) input
+       output.
+BaseMachineT m topology input output
+-&gt; StateMachineT m input output
+</span><span class="hs-identifier hs-var">Executable</span></span><span> </span><span class="annot"><span class="annottext">(BaseMachineT
+   Identity ('Topology '[]) (StateChanged tx) (DepositOutput tx)
+ -&gt; StateMachineT Identity (StateChanged tx) (DepositOutput tx))
+-&gt; BaseMachineT
+     Identity ('Topology '[]) (StateChanged tx) (DepositOutput tx)
+-&gt; StateMachineT Identity (StateChanged tx) (DepositOutput tx)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Map (TxIdType tx) (TrackedDeposit tx)
+-&gt; BaseMachineT
+     Identity TrivialTopology (StateChanged tx) (DepositOutput tx)
+forall tx (m :: * -&gt; *).
+(IsChainState tx, Applicative m) =&gt;
+TrackedDeposits tx
+-&gt; BaseMachineT
+     m TrivialTopology (StateChanged tx) (DepositOutput tx)
+</span><a href="Hydra.HeadLogic.State.Deposits.html#machine"><span class="hs-identifier hs-var">DepositRegistry.machine</span></a></span><span> </span><span class="annot"><span class="annottext">NodeState tx
+</span><a href="#local-6989586621681036017"><span class="hs-identifier hs-var">node</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">deposits</span><span>
+</span><span id="line-41"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:headMachine:Runtime :: StateMachineT Identity (DepositOutput tx) (HeadState tx)
+</span><a href="Hydra.HeadLogic.State.Node.html#%24sel%3AheadMachine%3ARuntime"><span class="hs-identifier hs-var">headMachine</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">BaseMachineT
+  Identity
+  ('Topology
+     '[ '( 'Idle, '[ 'Open]), '( 'Open, '[ 'Open, 'Closed]),
+        '( 'Closed, '[ 'Closed, 'PartialFanout, 'Finalized]),
+        '( 'PartialFanout, '[ 'PartialFanout, 'Finalized]),
+        '( 'Finalized, '[])])
+  (DepositOutput tx)
+  (HeadState tx)
+-&gt; StateMachineT Identity (DepositOutput tx) (HeadState tx)
+forall {vertex} (m :: * -&gt; *) (topology :: Topology vertex) input
+       output.
+BaseMachineT m topology input output
+-&gt; StateMachineT m input output
+</span><span class="hs-identifier hs-var">Executable</span></span><span> </span><span class="annot"><span class="annottext">(BaseMachineT
+   Identity
+   ('Topology
+      '[ '( 'Idle, '[ 'Open]), '( 'Open, '[ 'Open, 'Closed]),
+         '( 'Closed, '[ 'Closed, 'PartialFanout, 'Finalized]),
+         '( 'PartialFanout, '[ 'PartialFanout, 'Finalized]),
+         '( 'Finalized, '[])])
+   (DepositOutput tx)
+   (HeadState tx)
+ -&gt; StateMachineT Identity (DepositOutput tx) (HeadState tx))
+-&gt; BaseMachineT
+     Identity
+     ('Topology
+        '[ '( 'Idle, '[ 'Open]), '( 'Open, '[ 'Open, 'Closed]),
+           '( 'Closed, '[ 'Closed, 'PartialFanout, 'Finalized]),
+           '( 'PartialFanout, '[ 'PartialFanout, 'Finalized]),
+           '( 'Finalized, '[])])
+     (DepositOutput tx)
+     (HeadState tx)
+-&gt; StateMachineT Identity (DepositOutput tx) (HeadState tx)
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">HeadState tx
+-&gt; BaseMachineT
+     Identity LifecycleTopology (DepositOutput tx) (HeadState tx)
+forall tx (m :: * -&gt; *).
+(IsChainState tx, Applicative m) =&gt;
+HeadState tx
+-&gt; BaseMachineT
+     m LifecycleTopology (DepositOutput tx) (HeadState tx)
+</span><a href="Hydra.HeadLogic.State.Head.html#machine"><span class="hs-identifier hs-var">Lifecycle.machine</span></a></span><span> </span><span class="annot"><span class="annottext">NodeState tx
+</span><a href="#local-6989586621681036017"><span class="hs-identifier hs-var">node</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">headState</span><span>
+</span><span id="line-42"></span><span>    </span><span class="hs-special">}</span><span>
+</span><span id="line-43"></span><span>
+</span><span id="line-44"></span><span id="local-6989586621681036019"><span class="annot"><a href="Hydra.HeadLogic.State.Node.html#currentState"><span class="hs-identifier hs-type">currentState</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.Node.html#Runtime"><span class="hs-identifier hs-type">Runtime</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681036019"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.Node.State.html#NodeState"><span class="hs-identifier hs-type">NodeState</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681036019"><span class="hs-identifier hs-type">tx</span></a></span></span><span>
+</span><span id="line-45"></span><span id="currentState"><span class="annot"><span class="annottext">currentState :: forall tx. Runtime tx -&gt; NodeState tx
+</span><a href="Hydra.HeadLogic.State.Node.html#currentState"><span class="hs-identifier hs-var hs-var">currentState</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">(</span><span class="hs-operator">.</span><span class="hs-identifier">nodeState</span><span class="hs-special">)</span><span>
+</span><span id="line-46"></span><span>
+</span><span id="line-47"></span><span id="local-6989586621681035936"><span class="annot"><a href="Hydra.HeadLogic.State.Node.html#apply"><span class="hs-identifier hs-type">apply</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IsChainState</span></span><span> </span><span class="annot"><a href="#local-6989586621681035936"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Hydra.Node.State.html#NodeState"><span class="hs-identifier hs-type">NodeState</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681035936"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#StateChanged"><span class="hs-identifier hs-type">StateChanged</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681035936"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.Node.State.html#NodeState"><span class="hs-identifier hs-type">NodeState</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681035936"><span class="hs-identifier hs-type">tx</span></a></span></span><span>
+</span><span id="line-48"></span><span id="apply"><span class="annot"><span class="annottext">apply :: forall tx.
+IsChainState tx =&gt;
+NodeState tx -&gt; StateChanged tx -&gt; NodeState tx
+</span><a href="Hydra.HeadLogic.State.Node.html#apply"><span class="hs-identifier hs-var hs-var">apply</span></a></span></span><span> </span><span id="local-6989586621681036024"><span class="annot"><span class="annottext">NodeState tx
+</span><a href="#local-6989586621681036024"><span class="hs-identifier hs-var">node</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Runtime tx -&gt; NodeState tx
+forall tx. Runtime tx -&gt; NodeState tx
+</span><a href="Hydra.HeadLogic.State.Node.html#currentState"><span class="hs-identifier hs-var">currentState</span></a></span><span> </span><span class="annot"><span class="annottext">(Runtime tx -&gt; NodeState tx)
+-&gt; (StateChanged tx -&gt; Runtime tx)
+-&gt; StateChanged tx
+-&gt; NodeState tx
+forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#."><span class="hs-operator hs-var">.</span></a></span><span> </span><span class="annot"><span class="annottext">Runtime tx -&gt; StateChanged tx -&gt; Runtime tx
+forall tx.
+IsChainState tx =&gt;
+Runtime tx -&gt; StateChanged tx -&gt; Runtime tx
+</span><a href="Hydra.HeadLogic.State.Node.html#step"><span class="hs-identifier hs-var">step</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">NodeState tx -&gt; Runtime tx
+forall tx. IsChainState tx =&gt; NodeState tx -&gt; Runtime tx
+</span><a href="Hydra.HeadLogic.State.Node.html#start"><span class="hs-identifier hs-var">start</span></a></span><span> </span><span class="annot"><span class="annottext">NodeState tx
+</span><a href="#local-6989586621681036024"><span class="hs-identifier hs-var">node</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-49"></span><span>
+</span><span id="line-50"></span><span id="local-6989586621681035942"><span class="annot"><a href="Hydra.HeadLogic.State.Node.html#applyEvents"><span class="hs-identifier hs-type">applyEvents</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IsChainState</span></span><span> </span><span class="annot"><a href="#local-6989586621681035942"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Hydra.Node.State.html#NodeState"><span class="hs-identifier hs-type">NodeState</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681035942"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#StateChanged"><span class="hs-identifier hs-type">StateChanged</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681035942"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.Node.State.html#NodeState"><span class="hs-identifier hs-type">NodeState</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681035942"><span class="hs-identifier hs-type">tx</span></a></span></span><span>
+</span><span id="line-51"></span><span id="applyEvents"><span class="annot"><span class="annottext">applyEvents :: forall tx.
+IsChainState tx =&gt;
+NodeState tx -&gt; [StateChanged tx] -&gt; NodeState tx
+</span><a href="Hydra.HeadLogic.State.Node.html#applyEvents"><span class="hs-identifier hs-var hs-var">applyEvents</span></a></span></span><span> </span><span id="local-6989586621681036031"><span class="annot"><span class="annottext">NodeState tx
+</span><a href="#local-6989586621681036031"><span class="hs-identifier hs-var">node</span></a></span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NodeState tx
+</span><a href="#local-6989586621681036031"><span class="hs-identifier hs-var">node</span></a></span><span>
+</span><span id="line-52"></span><span class="annot"><a href="Hydra.HeadLogic.State.Node.html#applyEvents"><span class="hs-identifier hs-var">applyEvents</span></a></span><span> </span><span id="local-6989586621681036032"><span class="annot"><span class="annottext">NodeState tx
+</span><a href="#local-6989586621681036032"><span class="hs-identifier hs-var">node</span></a></span></span><span> </span><span id="local-6989586621681036033"><span class="annot"><span class="annottext">[StateChanged tx]
+</span><a href="#local-6989586621681036033"><span class="hs-identifier hs-var">events</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Runtime tx -&gt; NodeState tx
+forall tx. Runtime tx -&gt; NodeState tx
+</span><a href="Hydra.HeadLogic.State.Node.html#currentState"><span class="hs-identifier hs-var">currentState</span></a></span><span> </span><span class="annot"><span class="annottext">(Runtime tx -&gt; NodeState tx) -&gt; Runtime tx -&gt; NodeState tx
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">(Runtime tx -&gt; StateChanged tx -&gt; Runtime tx)
+-&gt; Runtime tx -&gt; [StateChanged tx] -&gt; Runtime tx
+forall b a. (b -&gt; a -&gt; b) -&gt; b -&gt; [a] -&gt; b
+forall (t :: * -&gt; *) b a.
+Foldable t =&gt;
+(b -&gt; a -&gt; b) -&gt; b -&gt; t a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#foldl%27"><span class="hs-identifier hs-var">foldl'</span></a></span><span> </span><span class="annot"><span class="annottext">Runtime tx -&gt; StateChanged tx -&gt; Runtime tx
+forall tx.
+IsChainState tx =&gt;
+Runtime tx -&gt; StateChanged tx -&gt; Runtime tx
+</span><a href="Hydra.HeadLogic.State.Node.html#step"><span class="hs-identifier hs-var">step</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">NodeState tx -&gt; Runtime tx
+forall tx. IsChainState tx =&gt; NodeState tx -&gt; Runtime tx
+</span><a href="Hydra.HeadLogic.State.Node.html#start"><span class="hs-identifier hs-var">start</span></a></span><span> </span><span class="annot"><span class="annottext">NodeState tx
+</span><a href="#local-6989586621681036032"><span class="hs-identifier hs-var">node</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">[StateChanged tx]
+</span><a href="#local-6989586621681036033"><span class="hs-identifier hs-var">events</span></a></span><span>
+</span><span id="line-53"></span><span>
+</span><span id="line-54"></span><span id="local-6989586621681035941"><span class="annot"><a href="Hydra.HeadLogic.State.Node.html#step"><span class="hs-identifier hs-type">step</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IsChainState</span></span><span> </span><span class="annot"><a href="#local-6989586621681035941"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.Node.html#Runtime"><span class="hs-identifier hs-type">Runtime</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681035941"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#StateChanged"><span class="hs-identifier hs-type">StateChanged</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681035941"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.Node.html#Runtime"><span class="hs-identifier hs-type">Runtime</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681035941"><span class="hs-identifier hs-type">tx</span></a></span></span><span>
+</span><span id="line-55"></span><span id="step"><span class="annot"><span class="annottext">step :: forall tx.
+IsChainState tx =&gt;
+Runtime tx -&gt; StateChanged tx -&gt; Runtime tx
+</span><a href="Hydra.HeadLogic.State.Node.html#step"><span class="hs-identifier hs-var hs-var">step</span></a></span></span><span> </span><span id="local-6989586621681036050"><span class="annot"><span class="annottext">runtime :: Runtime tx
+</span><a href="#local-6989586621681036050"><span class="hs-identifier hs-var">runtime</span></a></span></span><span class="hs-glyph">@</span><span class="annot"><a href="Hydra.HeadLogic.State.Node.html#Runtime"><span class="hs-identifier hs-type">Runtime</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:nodeState:Runtime :: forall tx. Runtime tx -&gt; NodeState tx
+</span><a href="Hydra.HeadLogic.State.Node.html#%24sel%3AnodeState%3ARuntime"><span class="hs-identifier hs-var">nodeState</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="local-6989586621681036051"><span class="annot"><span class="annottext">NodeState tx
+</span><a href="#local-6989586621681036051"><span class="hs-identifier hs-var">node</span></a></span></span><span class="hs-special">}</span><span> </span><span id="local-6989586621681036052"><span class="annot"><span class="annottext">event :: StateChanged tx
+</span><a href="#local-6989586621681036052"><span class="hs-identifier hs-var">event</span></a></span></span><span class="hs-glyph">@</span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#HeadOpened"><span class="hs-identifier hs-type">HeadOpened</span></a></span><span class="hs-special">{</span><span id="local-6989586621681036054"><span class="annot"><span class="annottext">HeadId
+headId :: HeadId
+$sel:headId:NetworkConnected :: forall tx. StateChanged tx -&gt; HeadId
+</span><a href="#local-6989586621681036054"><span class="hs-identifier hs-var hs-var">headId</span></a></span></span><span class="hs-special">}</span><span>
+</span><span id="line-56"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#not"><span class="hs-identifier hs-var">not</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">HeadState tx -&gt; HeadId -&gt; Bool
+forall tx. HeadState tx -&gt; HeadId -&gt; Bool
+</span><a href="Hydra.HeadLogic.State.html#canOpenHead"><span class="hs-identifier hs-var">canOpenHead</span></a></span><span> </span><span class="annot"><span class="annottext">NodeState tx
+</span><a href="#local-6989586621681036051"><span class="hs-identifier hs-var">node</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">headState</span><span> </span><span class="annot"><span class="annottext">HeadId
+</span><a href="#local-6989586621681036054"><span class="hs-identifier hs-var">headId</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Runtime tx
+</span><a href="#local-6989586621681036050"><span class="hs-identifier hs-var">runtime</span></a></span><span>
+</span><span id="line-57"></span><span>  </span><span class="hs-glyph">|</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.html#Finalized"><span class="hs-identifier hs-type">Finalized</span></a></span><span> </span><span id="local-6989586621681036057"><span class="annot"><span class="annottext">FinalizedState tx
+</span><a href="#local-6989586621681036057"><span class="hs-identifier hs-var">previous</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">NodeState tx
+</span><a href="#local-6989586621681036051"><span class="hs-identifier hs-var">node</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">headState</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-58"></span><span>      </span><span class="hs-comment">-- A different identity starts a new machine. The completed Head has no</span><span>
+</span><span id="line-59"></span><span>      </span><span class="hs-comment">-- transition to Idle or Open, and keeps its identity in checkpoints.</span><span>
+</span><span id="line-60"></span><span>      </span><span class="annot"><span class="annottext">Runtime tx -&gt; StateChanged tx -&gt; Runtime tx
+forall tx.
+IsChainState tx =&gt;
+Runtime tx -&gt; StateChanged tx -&gt; Runtime tx
+</span><a href="Hydra.HeadLogic.State.Node.html#step"><span class="hs-identifier hs-var">step</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">NodeState tx -&gt; Runtime tx
+forall tx. IsChainState tx =&gt; NodeState tx -&gt; Runtime tx
+</span><a href="Hydra.HeadLogic.State.Node.html#start"><span class="hs-identifier hs-var">start</span></a></span><span> </span><span class="annot"><span class="annottext">NodeState tx
+</span><a href="#local-6989586621681036051"><span class="hs-identifier hs-var">node</span></a></span><span class="hs-special">{</span><span class="annot"><a href="Hydra.Node.State.html#%24sel%3AheadState%3ANodeInSync"><span class="hs-identifier hs-var">headState</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.html#Idle"><span class="hs-identifier hs-type">Idle</span></a></span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-type">$</span></a></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.html#IdleState"><span class="hs-identifier hs-type">IdleState</span></a></span><span> </span><span class="annot"><span class="hs-identifier">previous</span></span><span class="hs-operator">.</span><span class="hs-identifier">chainState</span><span class="hs-special">}</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">StateChanged tx
+</span><a href="#local-6989586621681036052"><span class="hs-identifier hs-var">event</span></a></span><span>
+</span><span id="line-61"></span><span class="annot"><a href="Hydra.HeadLogic.State.Node.html#step"><span class="hs-identifier hs-var">step</span></a></span><span> </span><span id="local-6989586621681036059"><span class="annot"><span class="annottext">runtime :: Runtime tx
+</span><a href="#local-6989586621681036059"><span class="hs-identifier hs-var">runtime</span></a></span></span><span class="hs-glyph">@</span><span class="annot"><a href="Hydra.HeadLogic.State.Node.html#Runtime"><span class="hs-identifier hs-type">Runtime</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:nodeState:Runtime :: forall tx. Runtime tx -&gt; NodeState tx
+</span><a href="Hydra.HeadLogic.State.Node.html#%24sel%3AnodeState%3ARuntime"><span class="hs-identifier hs-var">nodeState</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="local-6989586621681036060"><span class="annot"><span class="annottext">NodeState tx
+</span><a href="#local-6989586621681036060"><span class="hs-identifier hs-var">node</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681036061"><span id="local-6989586621681036062"><span class="annot"><span class="annottext">StateMachineT Identity (StateChanged tx) (DepositOutput tx)
+StateMachineT Identity (DepositOutput tx) (HeadState tx)
+$sel:depositMachine:Runtime :: forall tx.
+Runtime tx
+-&gt; StateMachineT Identity (StateChanged tx) (DepositOutput tx)
+$sel:headMachine:Runtime :: forall tx.
+Runtime tx
+-&gt; StateMachineT Identity (DepositOutput tx) (HeadState tx)
+depositMachine :: StateMachineT Identity (StateChanged tx) (DepositOutput tx)
+headMachine :: StateMachineT Identity (DepositOutput tx) (HeadState tx)
+</span><a href="Hydra.HeadLogic.State.Node.html#%24sel%3AdepositMachine%3ARuntime"><span class="hs-glyph hs-var hs-var hs-var hs-var">..</span></a></span></span></span><span class="hs-special">}</span><span> </span><span id="local-6989586621681036063"><span class="annot"><span class="annottext">StateChanged tx
+</span><a href="#local-6989586621681036063"><span class="hs-identifier hs-var">event</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-62"></span><span>  </span><span class="hs-keyword">case</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">HeadState tx -&gt; Maybe HeadId
+forall tx. HeadState tx -&gt; Maybe HeadId
+</span><a href="Hydra.HeadLogic.State.html#headIdOf"><span class="hs-identifier hs-var">headIdOf</span></a></span><span> </span><span class="annot"><span class="annottext">NodeState tx
+</span><a href="#local-6989586621681036060"><span class="hs-identifier hs-var">node</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">headState</span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">StateChanged tx -&gt; Maybe HeadId
+forall tx. StateChanged tx -&gt; Maybe HeadId
+</span><a href="Hydra.HeadLogic.Outcome.html#eventHeadId"><span class="hs-identifier hs-var">eventHeadId</span></a></span><span> </span><span class="annot"><span class="annottext">StateChanged tx
+</span><a href="#local-6989586621681036063"><span class="hs-identifier hs-var">event</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-63"></span><span>    </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span id="local-6989586621681036064"><span class="annot"><span class="annottext">HeadId
+</span><a href="#local-6989586621681036064"><span class="hs-identifier hs-var">ours</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span id="local-6989586621681036065"><span class="annot"><span class="annottext">HeadId
+</span><a href="#local-6989586621681036065"><span class="hs-identifier hs-var">theirs</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">HeadId
+</span><a href="#local-6989586621681036064"><span class="hs-identifier hs-var">ours</span></a></span><span> </span><span class="annot"><span class="annottext">HeadId -&gt; HeadId -&gt; Bool
+forall a. Eq a =&gt; a -&gt; a -&gt; Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%2F%3D"><span class="hs-operator hs-var">/=</span></a></span><span> </span><span class="annot"><span class="annottext">HeadId
+</span><a href="#local-6989586621681036065"><span class="hs-identifier hs-var">theirs</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Runtime tx
+</span><a href="#local-6989586621681036059"><span class="hs-identifier hs-var">runtime</span></a></span><span>
+</span><span id="line-64"></span><span>    </span><span class="annot"><span class="annottext">(Maybe HeadId, Maybe HeadId)
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">StateChanged tx
+</span><a href="#local-6989586621681036063"><span class="hs-identifier hs-var">event</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-65"></span><span>      </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#Checkpoint"><span class="hs-identifier hs-type">Checkpoint</span></a></span><span> </span><span id="local-6989586621681036068"><span class="annot"><span class="annottext">NodeState tx
+</span><a href="#local-6989586621681036068"><span class="hs-identifier hs-var">restored</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">NodeState tx -&gt; Runtime tx
+forall tx. IsChainState tx =&gt; NodeState tx -&gt; Runtime tx
+</span><a href="Hydra.HeadLogic.State.Node.html#start"><span class="hs-identifier hs-var">start</span></a></span><span> </span><span class="annot"><span class="annottext">NodeState tx
+</span><a href="#local-6989586621681036068"><span class="hs-identifier hs-var">restored</span></a></span><span>
+</span><span id="line-66"></span><span>      </span><span class="annot"><span class="annottext">StateChanged tx
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-67"></span><span>        </span><span class="hs-comment">-- Capture a settled deposit before consuming it, then update the Head.</span><span>
+</span><span id="line-68"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span class="hs-special">(</span><span id="local-6989586621681036069"><span class="annot"><span class="annottext">DepositOutput tx
+</span><a href="#local-6989586621681036069"><span class="hs-identifier hs-var">depositUpdate</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681036070"><span class="annot"><span class="annottext">StateMachineT Identity (StateChanged tx) (DepositOutput tx)
+</span><a href="#local-6989586621681036070"><span class="hs-identifier hs-var">nextDeposits</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Identity
+  (DepositOutput tx,
+   StateMachineT Identity (StateChanged tx) (DepositOutput tx))
+-&gt; (DepositOutput tx,
+    StateMachineT Identity (StateChanged tx) (DepositOutput tx))
+forall a. Identity a -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.Identity.html#runIdentity"><span class="hs-identifier hs-var">runIdentity</span></a></span><span> </span><span class="annot"><span class="annottext">(Identity
+   (DepositOutput tx,
+    StateMachineT Identity (StateChanged tx) (DepositOutput tx))
+ -&gt; (DepositOutput tx,
+     StateMachineT Identity (StateChanged tx) (DepositOutput tx)))
+-&gt; Identity
+     (DepositOutput tx,
+      StateMachineT Identity (StateChanged tx) (DepositOutput tx))
+-&gt; (DepositOutput tx,
+    StateMachineT Identity (StateChanged tx) (DepositOutput tx))
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">StateMachineT Identity (StateChanged tx) (DepositOutput tx)
+-&gt; StateChanged tx
+-&gt; Identity
+     (DepositOutput tx,
+      StateMachineT Identity (StateChanged tx) (DepositOutput tx))
+forall (m :: * -&gt; *) a b.
+Monad m =&gt;
+StateMachineT m a b -&gt; a -&gt; m (b, StateMachineT m a b)
+</span><span class="hs-identifier hs-var">run</span></span><span> </span><span class="annot"><span class="annottext">StateMachineT Identity (StateChanged tx) (DepositOutput tx)
+</span><a href="#local-6989586621681036061"><span class="hs-identifier hs-var">depositMachine</span></a></span><span> </span><span class="annot"><span class="annottext">StateChanged tx
+</span><a href="#local-6989586621681036063"><span class="hs-identifier hs-var">event</span></a></span><span>
+</span><span id="line-69"></span><span>            </span><span class="hs-special">(</span><span id="local-6989586621681036072"><span class="annot"><span class="annottext">HeadState tx
+</span><a href="#local-6989586621681036072"><span class="hs-identifier hs-var">headState</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681036073"><span class="annot"><span class="annottext">StateMachineT Identity (DepositOutput tx) (HeadState tx)
+</span><a href="#local-6989586621681036073"><span class="hs-identifier hs-var">nextHead</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Identity
+  (HeadState tx,
+   StateMachineT Identity (DepositOutput tx) (HeadState tx))
+-&gt; (HeadState tx,
+    StateMachineT Identity (DepositOutput tx) (HeadState tx))
+forall a. Identity a -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.Identity.html#runIdentity"><span class="hs-identifier hs-var">runIdentity</span></a></span><span> </span><span class="annot"><span class="annottext">(Identity
+   (HeadState tx,
+    StateMachineT Identity (DepositOutput tx) (HeadState tx))
+ -&gt; (HeadState tx,
+     StateMachineT Identity (DepositOutput tx) (HeadState tx)))
+-&gt; Identity
+     (HeadState tx,
+      StateMachineT Identity (DepositOutput tx) (HeadState tx))
+-&gt; (HeadState tx,
+    StateMachineT Identity (DepositOutput tx) (HeadState tx))
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">StateMachineT Identity (DepositOutput tx) (HeadState tx)
+-&gt; DepositOutput tx
+-&gt; Identity
+     (HeadState tx,
+      StateMachineT Identity (DepositOutput tx) (HeadState tx))
+forall (m :: * -&gt; *) a b.
+Monad m =&gt;
+StateMachineT m a b -&gt; a -&gt; m (b, StateMachineT m a b)
+</span><span class="hs-identifier hs-var">run</span></span><span> </span><span class="annot"><span class="annottext">StateMachineT Identity (DepositOutput tx) (HeadState tx)
+</span><a href="#local-6989586621681036062"><span class="hs-identifier hs-var">headMachine</span></a></span><span> </span><span class="annot"><span class="annottext">DepositOutput tx
+</span><a href="#local-6989586621681036069"><span class="hs-identifier hs-var">depositUpdate</span></a></span><span>
+</span><span id="line-70"></span><span>            </span><span id="local-6989586621681036074"><span class="annot"><span class="annottext">updated :: NodeState tx
+</span><a href="#local-6989586621681036074"><span class="hs-identifier hs-var hs-var">updated</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NodeState tx -&gt; StateChanged tx -&gt; NodeState tx
+forall tx.
+IsChainState tx =&gt;
+NodeState tx -&gt; StateChanged tx -&gt; NodeState tx
+</span><a href="Hydra.HeadLogic.State.Node.html#updateChainObservation"><span class="hs-identifier hs-var">updateChainObservation</span></a></span><span> </span><span class="annot"><span class="annottext">NodeState tx
+</span><a href="#local-6989586621681036060"><span class="hs-identifier hs-var">node</span></a></span><span class="hs-special">{</span><span class="annot"><a href="Hydra.Node.State.html#%24sel%3AheadState%3ANodeInSync"><span class="hs-identifier hs-var hs-type">headState</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Node.State.html#%24sel%3Adeposits%3ANodeInSync"><span class="hs-identifier hs-var">deposits</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier">depositUpdate</span></span><span class="hs-operator">.</span><span class="hs-identifier">deposits</span><span class="hs-special">}</span><span> </span><span class="annot"><span class="annottext">StateChanged tx
+</span><a href="#local-6989586621681036063"><span class="hs-identifier hs-var">event</span></a></span><span>
+</span><span id="line-71"></span><span>         </span><span class="hs-keyword">in</span><span> </span><span class="annot"><span class="annottext">NodeState tx
+-&gt; StateMachineT Identity (StateChanged tx) (DepositOutput tx)
+-&gt; StateMachineT Identity (DepositOutput tx) (HeadState tx)
+-&gt; Runtime tx
+forall tx.
+NodeState tx
+-&gt; StateMachineT Identity (StateChanged tx) (DepositOutput tx)
+-&gt; StateMachineT Identity (DepositOutput tx) (HeadState tx)
+-&gt; Runtime tx
+</span><a href="Hydra.HeadLogic.State.Node.html#Runtime"><span class="hs-identifier hs-var">Runtime</span></a></span><span> </span><span class="annot"><span class="annottext">NodeState tx
+</span><a href="#local-6989586621681036074"><span class="hs-identifier hs-var">updated</span></a></span><span> </span><span class="annot"><span class="annottext">StateMachineT Identity (StateChanged tx) (DepositOutput tx)
+</span><a href="#local-6989586621681036070"><span class="hs-identifier hs-var">nextDeposits</span></a></span><span> </span><span class="annot"><span class="annottext">StateMachineT Identity (DepositOutput tx) (HeadState tx)
+</span><a href="#local-6989586621681036073"><span class="hs-identifier hs-var">nextHead</span></a></span><span>
+</span><span id="line-72"></span><span>
+</span><span id="line-73"></span><span class="annot"><span class="hs-comment">-- | Remember observed chain time and synchronisation status in the node state.</span></span><span>
+</span><span id="line-74"></span><span id="local-6989586621681036077"><span class="annot"><a href="Hydra.HeadLogic.State.Node.html#updateChainObservation"><span class="hs-identifier hs-type">updateChainObservation</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IsChainState</span></span><span> </span><span class="annot"><a href="#local-6989586621681036077"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Hydra.Node.State.html#NodeState"><span class="hs-identifier hs-type">NodeState</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681036077"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#StateChanged"><span class="hs-identifier hs-type">StateChanged</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681036077"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.Node.State.html#NodeState"><span class="hs-identifier hs-type">NodeState</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681036077"><span class="hs-identifier hs-type">tx</span></a></span></span><span>
+</span><span id="line-75"></span><span id="updateChainObservation"><span class="annot"><span class="annottext">updateChainObservation :: forall tx.
+IsChainState tx =&gt;
+NodeState tx -&gt; StateChanged tx -&gt; NodeState tx
+</span><a href="Hydra.HeadLogic.State.Node.html#updateChainObservation"><span class="hs-identifier hs-var hs-var">updateChainObservation</span></a></span></span><span> </span><span id="local-6989586621681036087"><span class="annot"><span class="annottext">NodeState tx
+</span><a href="#local-6989586621681036087"><span class="hs-identifier hs-var">node</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-76"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#HeadOpened"><span class="hs-identifier hs-type">HeadOpened</span></a></span><span class="hs-special">{</span><span id="local-6989586621681036088"><span class="annot"><span class="annottext">ChainStateType tx
+chainState :: ChainStateType tx
+$sel:chainState:NetworkConnected :: forall tx. StateChanged tx -&gt; ChainStateType tx
+</span><a href="#local-6989586621681036088"><span class="hs-identifier hs-var hs-var">chainState</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-77"></span><span>    </span><span class="annot"><span class="annottext">NodeState tx
+</span><a href="#local-6989586621681036087"><span class="hs-identifier hs-var">node</span></a></span><span class="hs-special">{</span><span class="annot"><a href="Hydra.Node.State.html#%24sel%3AchainPointTime%3ANodeInSync"><span class="hs-identifier hs-var">chainPointTime</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="#local-6989586621681036091"><span class="hs-identifier hs-type">observed</span></a></span><span class="hs-special">{</span><span class="annot"><a href="Hydra.Node.State.html#%24sel%3AcurrentSlot%3AChainPointTime"><span class="hs-identifier hs-var">currentSlot</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">chainStateSlot</span></span><span> </span><span class="annot"><a href="#local-6989586621681036088"><span class="hs-identifier hs-type">chainState</span></a></span><span class="hs-special">}</span><span class="hs-special">}</span><span>
+</span><span id="line-78"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#TickObserved"><span class="hs-identifier hs-type">TickObserved</span></a></span><span class="hs-special">{</span><span id="local-6989586621681036094"><span class="annot"><span class="annottext">ChainPointType tx
+chainPoint :: ChainPointType tx
+$sel:chainPoint:NetworkConnected :: forall tx. StateChanged tx -&gt; ChainPointType tx
+</span><a href="#local-6989586621681036094"><span class="hs-identifier hs-var hs-var">chainPoint</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681036096"><span class="annot"><span class="annottext">UTCTime
+chainTime :: UTCTime
+$sel:chainTime:NetworkConnected :: forall tx. StateChanged tx -&gt; UTCTime
+</span><a href="#local-6989586621681036096"><span class="hs-identifier hs-var hs-var">chainTime</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-79"></span><span>    </span><span class="annot"><span class="annottext">NodeState tx
+</span><a href="#local-6989586621681036087"><span class="hs-identifier hs-var">node</span></a></span><span class="hs-special">{</span><span class="annot"><a href="Hydra.Node.State.html#%24sel%3AchainPointTime%3ANodeInSync"><span class="hs-identifier hs-var">chainPointTime</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="#local-6989586621681036091"><span class="hs-identifier hs-type">observed</span></a></span><span class="hs-special">{</span><span class="annot"><a href="Hydra.Node.State.html#%24sel%3AcurrentSlot%3AChainPointTime"><span class="hs-identifier hs-var">currentSlot</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">chainPointSlot</span></span><span> </span><span class="annot"><a href="#local-6989586621681036094"><span class="hs-identifier hs-type">chainPoint</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Node.State.html#%24sel%3AcurrentChainTime%3AChainPointTime"><span class="hs-identifier hs-var">currentChainTime</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="#local-6989586621681036096"><span class="hs-identifier hs-type">chainTime</span></a></span><span class="hs-special">}</span><span class="hs-special">}</span><span>
+</span><span id="line-80"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#ChainRolledBack"><span class="hs-identifier hs-type">ChainRolledBack</span></a></span><span class="hs-special">{</span><span id="local-6989586621681036100"><span class="annot"><span class="annottext">ChainStateType tx
+$sel:chainState:NetworkConnected :: forall tx. StateChanged tx -&gt; ChainStateType tx
+chainState :: ChainStateType tx
+</span><a href="Hydra.HeadLogic.Outcome.html#%24sel%3AchainState%3ANetworkConnected"><span class="hs-identifier hs-var hs-var">chainState</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-81"></span><span>    </span><span class="annot"><span class="annottext">NodeState tx
+</span><a href="#local-6989586621681036087"><span class="hs-identifier hs-var">node</span></a></span><span class="hs-special">{</span><span class="annot"><a href="Hydra.Node.State.html#%24sel%3AchainPointTime%3ANodeInSync"><span class="hs-identifier hs-var">chainPointTime</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="#local-6989586621681036091"><span class="hs-identifier hs-type">observed</span></a></span><span class="hs-special">{</span><span class="annot"><a href="Hydra.Node.State.html#%24sel%3AcurrentSlot%3AChainPointTime"><span class="hs-identifier hs-var">currentSlot</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">chainStateSlot</span></span><span> </span><span class="annot"><a href="#local-6989586621681036100"><span class="hs-identifier hs-type">chainState</span></a></span><span class="hs-special">}</span><span class="hs-special">}</span><span>
+</span><span id="line-82"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#NodeSynced"><span class="hs-identifier hs-type">NodeSynced</span></a></span><span class="hs-special">{</span><span id="local-6989586621681036102"><span class="annot"><span class="annottext">ChainSlot
+chainSlot :: ChainSlot
+$sel:chainSlot:NetworkConnected :: forall tx. StateChanged tx -&gt; ChainSlot
+</span><a href="#local-6989586621681036102"><span class="hs-identifier hs-var hs-var">chainSlot</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681036104"><span class="annot"><span class="annottext">UTCTime
+$sel:chainTime:NetworkConnected :: forall tx. StateChanged tx -&gt; UTCTime
+chainTime :: UTCTime
+</span><a href="Hydra.HeadLogic.Outcome.html#%24sel%3AchainTime%3ANetworkConnected"><span class="hs-identifier hs-var hs-var">chainTime</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681036105"><span class="annot"><span class="annottext">NominalDiffTime
+drift :: NominalDiffTime
+$sel:drift:NetworkConnected :: forall tx. StateChanged tx -&gt; NominalDiffTime
+</span><a href="#local-6989586621681036105"><span class="hs-identifier hs-var hs-var">drift</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-83"></span><span>    </span><span class="annot"><span class="annottext">HeadState tx
+-&gt; Map (TxIdType tx) (TrackedDeposit tx)
+-&gt; ChainPointTime
+-&gt; NodeState tx
+forall tx.
+HeadState tx
+-&gt; TrackedDeposits tx -&gt; ChainPointTime -&gt; NodeState tx
+</span><a href="Hydra.Node.State.html#NodeInSync"><span class="hs-identifier hs-var">NodeInSync</span></a></span><span> </span><span class="annot"><span class="annottext">NodeState tx
+</span><a href="#local-6989586621681036087"><span class="hs-identifier hs-var">node</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">headState</span><span> </span><span class="annot"><span class="annottext">NodeState tx
+</span><a href="#local-6989586621681036087"><span class="hs-identifier hs-var">node</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">deposits</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ChainSlot -&gt; UTCTime -&gt; NominalDiffTime -&gt; ChainPointTime
+</span><a href="Hydra.Node.State.html#ChainPointTime"><span class="hs-identifier hs-var">ChainPointTime</span></a></span><span> </span><span class="annot"><span class="annottext">ChainSlot
+</span><a href="#local-6989586621681036102"><span class="hs-identifier hs-var">chainSlot</span></a></span><span> </span><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621681036104"><span class="hs-identifier hs-var">chainTime</span></a></span><span> </span><span class="annot"><span class="annottext">NominalDiffTime
+</span><a href="#local-6989586621681036105"><span class="hs-identifier hs-var">drift</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-84"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#NodeUnsynced"><span class="hs-identifier hs-type">NodeUnsynced</span></a></span><span class="hs-special">{</span><span id="local-6989586621681036110"><span class="annot"><span class="annottext">ChainSlot
+$sel:chainSlot:NetworkConnected :: forall tx. StateChanged tx -&gt; ChainSlot
+chainSlot :: ChainSlot
+</span><a href="Hydra.HeadLogic.Outcome.html#%24sel%3AchainSlot%3ANetworkConnected"><span class="hs-identifier hs-var hs-var">chainSlot</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681036111"><span class="annot"><span class="annottext">UTCTime
+$sel:chainTime:NetworkConnected :: forall tx. StateChanged tx -&gt; UTCTime
+chainTime :: UTCTime
+</span><a href="Hydra.HeadLogic.Outcome.html#%24sel%3AchainTime%3ANetworkConnected"><span class="hs-identifier hs-var hs-var">chainTime</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681036112"><span class="annot"><span class="annottext">NominalDiffTime
+$sel:drift:NetworkConnected :: forall tx. StateChanged tx -&gt; NominalDiffTime
+drift :: NominalDiffTime
+</span><a href="Hydra.HeadLogic.Outcome.html#%24sel%3Adrift%3ANetworkConnected"><span class="hs-identifier hs-var hs-var">drift</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-85"></span><span>    </span><span class="annot"><span class="annottext">HeadState tx
+-&gt; Map (TxIdType tx) (TrackedDeposit tx)
+-&gt; ChainPointTime
+-&gt; NodeState tx
+forall tx.
+HeadState tx
+-&gt; TrackedDeposits tx -&gt; ChainPointTime -&gt; NodeState tx
+</span><a href="Hydra.Node.State.html#NodeCatchingUp"><span class="hs-identifier hs-var">NodeCatchingUp</span></a></span><span> </span><span class="annot"><span class="annottext">NodeState tx
+</span><a href="#local-6989586621681036087"><span class="hs-identifier hs-var">node</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">headState</span><span> </span><span class="annot"><span class="annottext">NodeState tx
+</span><a href="#local-6989586621681036087"><span class="hs-identifier hs-var">node</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">deposits</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ChainSlot -&gt; UTCTime -&gt; NominalDiffTime -&gt; ChainPointTime
+</span><a href="Hydra.Node.State.html#ChainPointTime"><span class="hs-identifier hs-var">ChainPointTime</span></a></span><span> </span><span class="annot"><span class="annottext">ChainSlot
+</span><a href="#local-6989586621681036110"><span class="hs-identifier hs-var">chainSlot</span></a></span><span> </span><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621681036111"><span class="hs-identifier hs-var">chainTime</span></a></span><span> </span><span class="annot"><span class="annottext">NominalDiffTime
+</span><a href="#local-6989586621681036112"><span class="hs-identifier hs-var">drift</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-86"></span><span>  </span><span class="annot"><span class="annottext">StateChanged tx
+</span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">NodeState tx
+</span><a href="#local-6989586621681036087"><span class="hs-identifier hs-var">node</span></a></span><span>
+</span><span id="line-87"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-88"></span><span>  </span><span id="local-6989586621681036091"><span class="annot"><span class="annottext">observed :: ChainPointTime
+</span><a href="#local-6989586621681036091"><span class="hs-identifier hs-var hs-var">observed</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">NodeState tx
+</span><a href="#local-6989586621681036087"><span class="hs-identifier hs-var">node</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">chainPointTime</span><span>
+</span><span id="line-89"></span><span>
+</span><span id="line-90"></span><span class="annot"><span class="hs-comment">-- | Inspect the retained component states without processing an event.</span></span><span>
+</span><span id="line-91"></span><span id="local-6989586621681035977"><span class="annot"><a href="Hydra.HeadLogic.State.Node.html#inspect"><span class="hs-identifier hs-type">inspect</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.Node.html#Runtime"><span class="hs-identifier hs-type">Runtime</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681035977"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span><span class="hs-special">)</span><span class="hs-special">]</span></span><span>
+</span><span id="line-92"></span><span id="inspect"><span class="annot"><span class="annottext">inspect :: forall tx. Runtime tx -&gt; [(Text, Maybe Text)]
+</span><a href="Hydra.HeadLogic.State.Node.html#inspect"><span class="hs-identifier hs-var hs-var">inspect</span></a></span></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.Node.html#Runtime"><span class="hs-identifier hs-type">Runtime</span></a></span><span class="hs-special">{</span><span id="local-6989586621681036119"><span id="local-6989586621681036120"><span id="local-6989586621681036121"><span class="annot"><span class="annottext">NodeState tx
+StateMachineT Identity (StateChanged tx) (DepositOutput tx)
+StateMachineT Identity (DepositOutput tx) (HeadState tx)
+$sel:nodeState:Runtime :: forall tx. Runtime tx -&gt; NodeState tx
+$sel:depositMachine:Runtime :: forall tx.
+Runtime tx
+-&gt; StateMachineT Identity (StateChanged tx) (DepositOutput tx)
+$sel:headMachine:Runtime :: forall tx.
+Runtime tx
+-&gt; StateMachineT Identity (DepositOutput tx) (HeadState tx)
+nodeState :: NodeState tx
+depositMachine :: StateMachineT Identity (StateChanged tx) (DepositOutput tx)
+headMachine :: StateMachineT Identity (DepositOutput tx) (HeadState tx)
+</span><a href="Hydra.HeadLogic.State.Node.html#%24sel%3AnodeState%3ARuntime"><span class="hs-glyph hs-var hs-var hs-var hs-var hs-var hs-var">..</span></a></span></span></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-93"></span><span>  </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;Deposits&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Maybe Text
+</span><a href="#local-6989586621681036122"><span class="hs-identifier hs-var">description</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">|</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Component]
+</span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681036122"><span class="annot"><span class="annottext">Maybe Text
+</span><a href="#local-6989586621681036122"><span class="hs-identifier hs-var">description</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">StateMachineT Identity (StateChanged tx) (DepositOutput tx)
+-&gt; [([Component], Maybe Text)]
+forall (m :: * -&gt; *) a b.
+StateMachineT m a b -&gt; [([Component], Maybe Text)]
+</span><span class="hs-identifier hs-var">Crem.inspectStates</span></span><span> </span><span class="annot"><span class="annottext">StateMachineT Identity (StateChanged tx) (DepositOutput tx)
+</span><a href="#local-6989586621681036120"><span class="hs-identifier hs-var">depositMachine</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-94"></span><span>    </span><span class="annot"><span class="annottext">[(Text, Maybe Text)]
+-&gt; [(Text, Maybe Text)] -&gt; [(Text, Maybe Text)]
+forall a. Semigroup a =&gt; a -&gt; a -&gt; a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="annottext">Text
+</span><span class="hs-string">&quot;Head&quot;</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Maybe Text
+</span><a href="#local-6989586621681036123"><span class="hs-identifier hs-var">description</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">|</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Component]
+</span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681036123"><span class="annot"><span class="annottext">Maybe Text
+</span><a href="#local-6989586621681036123"><span class="hs-identifier hs-var">description</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">StateMachineT Identity (DepositOutput tx) (HeadState tx)
+-&gt; [([Component], Maybe Text)]
+forall (m :: * -&gt; *) a b.
+StateMachineT m a b -&gt; [([Component], Maybe Text)]
+</span><span class="hs-identifier hs-var">Crem.inspectStates</span></span><span> </span><span class="annot"><span class="annottext">StateMachineT Identity (DepositOutput tx) (HeadState tx)
+</span><a href="#local-6989586621681036121"><span class="hs-identifier hs-var">headMachine</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-95"></span></pre></body></html>

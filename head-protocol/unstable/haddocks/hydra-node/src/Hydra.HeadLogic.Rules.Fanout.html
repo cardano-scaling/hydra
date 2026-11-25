@@ -1,0 +1,149 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><link rel="stylesheet" type="text/css" href="style.css" /><script type="text/javascript" src="highlight.js"></script></head><body><pre><span class="hs-pragma">{-# LANGUAGE DuplicateRecordFields #-}</span><span>
+</span><span id="line-2"></span><span class="hs-pragma">{-# LANGUAGE RecordWildCards #-}</span><span>
+</span><span id="line-3"></span><span class="hs-pragma">{-# OPTIONS_GHC -Wno-ambiguous-fields #-}</span><span>
+</span><span id="line-4"></span><span>
+</span><span id="line-5"></span><span class="hs-keyword">module</span><span> </span><span class="hs-identifier">Hydra.HeadLogic.Rules.Fanout</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-6"></span><span>
+</span><span id="line-7"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Fanout.Selection.html"><span class="hs-identifier">Hydra.HeadLogic.Fanout.Selection</span></a></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-8"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Fanout.Selection.html#NextFanoutStep"><span class="hs-identifier">NextFanoutStep</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-9"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Fanout.Selection.html#currentFanoutStep"><span class="hs-identifier">currentFanoutStep</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-10"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Fanout.Selection.html#fanoutTransaction"><span class="hs-identifier">fanoutTransaction</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-11"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-12"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html"><span class="hs-identifier">Hydra.HeadLogic.Outcome</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#Effect"><span class="hs-identifier">Effect</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><span id="line-13"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Program.html"><span class="hs-identifier">Hydra.HeadLogic.Program</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.Program.html#Program"><span class="hs-identifier">Program</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Program.html#emit"><span class="hs-identifier">emit</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-14"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.html"><span class="hs-identifier">Hydra.HeadLogic.State</span></a></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-15"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.html#PartialFanoutState"><span class="hs-identifier">PartialFanoutState</span></a></span><span> </span><span class="hs-special">(</span><span>
+</span><span id="line-16"></span><span>    </span><span class="annot"><a href="Hydra.HeadLogic.State.html#PartialFanoutState"><span class="hs-identifier">PartialFanoutState</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-17"></span><span>    </span><span class="annot"><a href="Hydra.HeadLogic.State.html#%24sel%3AconfirmedSnapshot%3APartialFanoutState"><span class="hs-identifier">confirmedSnapshot</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-18"></span><span>    </span><span class="annot"><a href="Hydra.HeadLogic.State.html#%24sel%3AcontestationDeadline%3APartialFanoutState"><span class="hs-identifier">contestationDeadline</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-19"></span><span>    </span><span class="annot"><a href="Hydra.HeadLogic.State.html#%24sel%3AheadSeed%3APartialFanoutState"><span class="hs-identifier">headSeed</span></a></span><span class="hs-special">,</span><span>
+</span><span id="line-20"></span><span>    </span><span class="annot"><a href="Hydra.HeadLogic.State.html#%24sel%3Aversion%3APartialFanoutState"><span class="hs-identifier">version</span></a></span><span>
+</span><span id="line-21"></span><span>  </span><span class="hs-special">)</span><span class="hs-special">,</span><span>
+</span><span id="line-22"></span><span> </span><span class="hs-special">)</span><span>
+</span><span id="line-23"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Prelude</span></span><span>
+</span><span id="line-24"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">HeadSeed</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">IsTx</span></span><span class="hs-special">)</span><span>
+</span><span id="line-25"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx.Snapshot</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">ConfirmedSnapshot</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">SnapshotVersion</span></span><span class="hs-special">)</span><span>
+</span><span id="line-26"></span><span>
+</span><span id="line-27"></span><span id="local-6989586621681036260"><span class="annot"><a href="Hydra.HeadLogic.Rules.Fanout.html#emitFanoutStep"><span class="hs-identifier hs-type">emitFanoutStep</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-28"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">IsTx</span></span><span> </span><span class="annot"><a href="#local-6989586621681036260"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-29"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Fanout.Selection.html#NextFanoutStep"><span class="hs-identifier hs-type">NextFanoutStep</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681036260"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-30"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">ConfirmedSnapshot</span></span><span> </span><span class="annot"><a href="#local-6989586621681036260"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-31"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">SnapshotVersion</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-32"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">HeadSeed</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-33"></span><span>  </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Clock.Internal.UTCTime.html#UTCTime"><span class="hs-identifier hs-type">UTCTime</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-34"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Program.html#Program"><span class="hs-identifier hs-type">Program</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681036260"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-35"></span><span id="emitFanoutStep"><span class="annot"><span class="annottext">emitFanoutStep :: forall tx.
+IsTx tx =&gt;
+NextFanoutStep tx
+-&gt; ConfirmedSnapshot tx
+-&gt; SnapshotVersion
+-&gt; HeadSeed
+-&gt; UTCTime
+-&gt; Program tx ()
+</span><a href="Hydra.HeadLogic.Rules.Fanout.html#emitFanoutStep"><span class="hs-identifier hs-var hs-var">emitFanoutStep</span></a></span></span><span> </span><span id="local-6989586621681036299"><span class="annot"><span class="annottext">NextFanoutStep tx
+</span><a href="#local-6989586621681036299"><span class="hs-identifier hs-var">step</span></a></span></span><span> </span><span id="local-6989586621681036300"><span class="annot"><span class="annottext">ConfirmedSnapshot tx
+</span><a href="#local-6989586621681036300"><span class="hs-identifier hs-var">confirmedSnapshot</span></a></span></span><span> </span><span id="local-6989586621681036301"><span class="annot"><span class="annottext">SnapshotVersion
+</span><a href="#local-6989586621681036301"><span class="hs-identifier hs-var">version</span></a></span></span><span> </span><span id="local-6989586621681036302"><span class="annot"><span class="annottext">HeadSeed
+</span><a href="#local-6989586621681036302"><span class="hs-identifier hs-var">headSeed</span></a></span></span><span> </span><span id="local-6989586621681036303"><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621681036303"><span class="hs-identifier hs-var">contestationDeadline</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-36"></span><span>  </span><span class="annot"><span class="annottext">Effect tx -&gt; Program tx ()
+forall tx. Effect tx -&gt; Program tx ()
+</span><a href="Hydra.HeadLogic.Program.html#emit"><span class="hs-identifier hs-var">emit</span></a></span><span> </span><span class="annot"><span class="annottext">(Effect tx -&gt; Program tx ()) -&gt; Effect tx -&gt; Program tx ()
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-37"></span><span>    </span><span class="annot"><span class="annottext">PostChainTx tx -&gt; Effect tx
+forall tx. PostChainTx tx -&gt; Effect tx
+</span><a href="Hydra.HeadLogic.Outcome.html#OnChainEffect"><span class="hs-identifier hs-var">OnChainEffect</span></a></span><span> </span><span class="annot"><span class="annottext">(PostChainTx tx -&gt; Effect tx) -&gt; PostChainTx tx -&gt; Effect tx
+forall a b. (a -&gt; b) -&gt; a -&gt; b
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
+</span><span id="line-38"></span><span>      </span><span class="annot"><span class="annottext">NextFanoutStep tx
+-&gt; ConfirmedSnapshot tx
+-&gt; SnapshotVersion
+-&gt; HeadSeed
+-&gt; UTCTime
+-&gt; PostChainTx tx
+forall tx.
+IsTx tx =&gt;
+NextFanoutStep tx
+-&gt; ConfirmedSnapshot tx
+-&gt; SnapshotVersion
+-&gt; HeadSeed
+-&gt; UTCTime
+-&gt; PostChainTx tx
+</span><a href="Hydra.HeadLogic.Fanout.Selection.html#fanoutTransaction"><span class="hs-identifier hs-var">fanoutTransaction</span></a></span><span> </span><span class="annot"><span class="annottext">NextFanoutStep tx
+</span><a href="#local-6989586621681036299"><span class="hs-identifier hs-var">step</span></a></span><span> </span><span class="annot"><span class="annottext">ConfirmedSnapshot tx
+</span><a href="#local-6989586621681036300"><span class="hs-identifier hs-var">confirmedSnapshot</span></a></span><span> </span><span class="annot"><span class="annottext">SnapshotVersion
+</span><a href="#local-6989586621681036301"><span class="hs-identifier hs-var">version</span></a></span><span> </span><span class="annot"><span class="annottext">HeadSeed
+</span><a href="#local-6989586621681036302"><span class="hs-identifier hs-var">headSeed</span></a></span><span> </span><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621681036303"><span class="hs-identifier hs-var">contestationDeadline</span></a></span><span>
+</span><span id="line-39"></span><span>
+</span><span id="line-40"></span><span class="hs-comment">-- | Re-post the next fanout step after a chain rollback while in</span><span>
+</span><span id="line-41"></span><span class="hs-comment">-- 'FanoutProgress', so the fanout resumes instead of stalling with the</span><span>
+</span><span id="line-42"></span><span class="hs-comment">-- rolled-back transaction gone and nothing re-posted. This mirrors the</span><span>
+</span><span id="line-43"></span><span class="hs-comment">-- Increment/Decrement re-post on rollback ('maybeRepostIncrementTx' /</span><span>
+</span><span id="line-44"></span><span class="hs-comment">-- 'maybeRepostDecrementTx'): it uses the current best-effort bookkeeping and,</span><span>
+</span><span id="line-45"></span><span class="hs-comment">-- like those re-posts, assumes the rolled-back transactions re-appear &#8212; it does</span><span>
+</span><span id="line-46"></span><span class="hs-comment">-- not attempt to reconstruct fanout progress across a divergent rollback (the</span><span>
+</span><span id="line-47"></span><span class="hs-comment">-- same limitation the general rollback handling has).</span><span>
+</span><span id="line-48"></span><span class="hs-comment">--</span><span>
+</span><span id="line-49"></span><span class="hs-comment">-- Which step that is comes from 'currentFanoutStep', the same derivation the</span><span>
+</span><span id="line-50"></span><span class="hs-comment">-- revert guard uses to tell this step's failure from a superseded one's.</span><span>
+</span><span id="line-51"></span><span id="local-6989586621681036277"><span class="annot"><a href="Hydra.HeadLogic.Rules.Fanout.html#repostFanoutStep"><span class="hs-identifier hs-type">repostFanoutStep</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IsTx</span></span><span> </span><span class="annot"><a href="#local-6989586621681036277"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.html#PartialFanoutState"><span class="hs-identifier hs-type">PartialFanoutState</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681036277"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Program.html#Program"><span class="hs-identifier hs-type">Program</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681036277"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-52"></span><span id="repostFanoutStep"><span class="annot"><span class="annottext">repostFanoutStep :: forall tx. IsTx tx =&gt; PartialFanoutState tx -&gt; Program tx ()
+</span><a href="Hydra.HeadLogic.Rules.Fanout.html#repostFanoutStep"><span class="hs-identifier hs-var hs-var">repostFanoutStep</span></a></span></span><span> </span><span id="local-6989586621681036311"><span class="annot"><span class="annottext">PartialFanoutState tx
+</span><a href="#local-6989586621681036311"><span class="hs-identifier hs-var">pfs</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-53"></span><span>  </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">PartialFanoutState tx -&gt; Maybe (NextFanoutStep tx)
+forall tx.
+IsTx tx =&gt;
+PartialFanoutState tx -&gt; Maybe (NextFanoutStep tx)
+</span><a href="Hydra.HeadLogic.Fanout.Selection.html#currentFanoutStep"><span class="hs-identifier hs-var">currentFanoutStep</span></a></span><span> </span><span class="annot"><span class="annottext">PartialFanoutState tx
+</span><a href="#local-6989586621681036311"><span class="hs-identifier hs-var">pfs</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-54"></span><span>    </span><span class="hs-comment">-- Manual mode paused on the user: nothing to re-post, wait for the next</span><span>
+</span><span id="line-55"></span><span>    </span><span class="hs-comment">-- 'PartialFanout' command.</span><span>
+</span><span id="line-56"></span><span>    </span><span class="annot"><span class="annottext">Maybe (NextFanoutStep tx)
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">() -&gt; Program tx ()
+forall a. a -&gt; Program tx a
+forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><span id="line-57"></span><span>    </span><span class="hs-comment">-- Only the transaction is re-posted: this node is the driver already, and</span><span>
+</span><span id="line-58"></span><span>    </span><span class="hs-comment">-- re-posting is not a new decision to record. So this emits no state</span><span>
+</span><span id="line-59"></span><span>    </span><span class="hs-comment">-- changes, which is what lets 'Hydra.Node.runHydraNode' apply its effects</span><span>
+</span><span id="line-60"></span><span>    </span><span class="hs-comment">-- alone at startup.</span><span>
+</span><span id="line-61"></span><span>    </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span id="local-6989586621681036312"><span class="annot"><span class="annottext">NextFanoutStep tx
+</span><a href="#local-6989586621681036312"><span class="hs-identifier hs-var">step</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-62"></span><span>      </span><span class="annot"><span class="annottext">NextFanoutStep tx
+-&gt; ConfirmedSnapshot tx
+-&gt; SnapshotVersion
+-&gt; HeadSeed
+-&gt; UTCTime
+-&gt; Program tx ()
+forall tx.
+IsTx tx =&gt;
+NextFanoutStep tx
+-&gt; ConfirmedSnapshot tx
+-&gt; SnapshotVersion
+-&gt; HeadSeed
+-&gt; UTCTime
+-&gt; Program tx ()
+</span><a href="Hydra.HeadLogic.Rules.Fanout.html#emitFanoutStep"><span class="hs-identifier hs-var">emitFanoutStep</span></a></span><span> </span><span class="annot"><span class="annottext">NextFanoutStep tx
+</span><a href="#local-6989586621681036312"><span class="hs-identifier hs-var">step</span></a></span><span> </span><span class="annot"><span class="annottext">ConfirmedSnapshot tx
+</span><a href="#local-6989586621681036313"><span class="hs-identifier hs-var">confirmedSnapshot</span></a></span><span> </span><span class="annot"><span class="annottext">SnapshotVersion
+</span><a href="#local-6989586621681036314"><span class="hs-identifier hs-var">version</span></a></span><span> </span><span class="annot"><span class="annottext">HeadSeed
+</span><a href="#local-6989586621681036315"><span class="hs-identifier hs-var">headSeed</span></a></span><span> </span><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621681036316"><span class="hs-identifier hs-var">contestationDeadline</span></a></span><span>
+</span><span id="line-63"></span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-64"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.html#PartialFanoutState"><span class="hs-identifier hs-type">PartialFanoutState</span></a></span><span class="hs-special">{</span><span id="local-6989586621681036313"><span id="local-6989586621681036314"><span id="local-6989586621681036315"><span id="local-6989586621681036316"><span class="annot"><span class="annottext">UTCTime
+HeadSeed
+ConfirmedSnapshot tx
+SnapshotVersion
+$sel:confirmedSnapshot:PartialFanoutState :: forall tx. PartialFanoutState tx -&gt; ConfirmedSnapshot tx
+$sel:contestationDeadline:PartialFanoutState :: forall tx. PartialFanoutState tx -&gt; UTCTime
+$sel:headSeed:PartialFanoutState :: forall tx. PartialFanoutState tx -&gt; HeadSeed
+$sel:version:PartialFanoutState :: forall tx. PartialFanoutState tx -&gt; SnapshotVersion
+confirmedSnapshot :: ConfirmedSnapshot tx
+version :: SnapshotVersion
+headSeed :: HeadSeed
+contestationDeadline :: UTCTime
+</span><a href="Hydra.HeadLogic.State.html#%24sel%3AconfirmedSnapshot%3APartialFanoutState"><span class="hs-glyph hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">..</span></a></span></span></span></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PartialFanoutState tx
+</span><a href="#local-6989586621681036311"><span class="hs-identifier hs-var">pfs</span></a></span><span>
+</span><span id="line-65"></span></pre></body></html>
