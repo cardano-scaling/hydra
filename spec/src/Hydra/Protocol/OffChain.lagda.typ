@@ -786,11 +786,18 @@ data _handles_↝_ : LocalState → Message → LocalState → Set where
     → st handles (reqSn v s txReq txα txω) ↝ record st { seenNumber = s }
 ```
 #dparagraph[$mono("decrementTx")$.]#h(1em) Upon observing the $mtxDecrement$
-transaction, which removed outputs $U$ from the head, the corresponding pending
-decrement transaction is cleared and the observed version $v$ is used for future
-snapshots by setting $hatv <- v$. Note that the version of the open head state
-is incremented on each $mtxDecrement$ transaction as described in
-@sec:decrement-tx. \
+transaction, which removed outputs $U$ from the head, run
+$sans("settleDecommit")(v)$. When $v > hatv$, set $hatv <- v$ and clear the
+pending decrement transaction. Before releasing an existing reservation, rebuild
+$hatmL$ from the settled base of the latest accepted candidate, or the confirmed
+snapshot if no candidate is owned, followed by the retained ordinary transactions
+in order. Use the newly observed version for that base. This restores only inputs
+that remain unspent; it neither restores inputs already spent by the candidate
+nor drops pending ordinary transactions. The rule also applies when settlement
+precedes the final acknowledgement or supplies the candidate's certificate.
+Equal or older versions preserve the ledger and any newer reservation.
+The version of the open head state is incremented on each $mtxDecrement$
+transaction as described in @sec:decrement-tx. \
 \
 #dparagraph[$mono("incrementTx")$.]#h(1em) Upon observing the $mtxIncrement$
 transaction, which added outputs $U$ to the head, the local ledger state
@@ -880,8 +887,9 @@ data _observes_↝_ : LocalState → ChainEvent → LocalState → Set where
                     (LocalState.deposits st) }
 
   -- §6 chain observations that bump the open-state version (increment/decrement). Increment adds the
-  -- committed UTxO to the local ledger (`L̂ ← L̂ ∪ U`); decrement leaves L̂ (its outputs left earlier, at
-  -- the decommit request). Each bumps v̂ and clears the matching in-flight pending (tx_α / tx_ω).
+  -- committed UTxO to the local ledger (`L̂ ← L̂ ∪ U`). Decrement projects the version and pending
+  -- action here; its optimistic-ledger reconstruction is specified by the owner refinement below
+  -- and settlementUTxORef. Each bumps v̂ and clears the matching in-flight pending (tx_α / tx_ω).
   -- NB the seen number ŝ is PRESERVED, not reset to S̄.s: an unconditional `ŝ ← S̄.s` would
   -- drop ŝ below an in-flight signature's number and break `signNumBound` (§7). The §6 figure, this
   -- model and the node agree: the seen snapshot is carried across the version bump (the node keeps an
@@ -1393,8 +1401,7 @@ blockchain sees a _rollback_ followed by rollforwards.
             ]
 
             #proc([#kw("on") $(mtxDecrement, U, v, s, xi)$ #kw("from") chain])[
-              $hatv <- v$ \
-              $tx_omega <- bot$ \
+              $sans("settleDecommit")(v)$ \
               $sans("adopt")(s, xi)$ \
               #kw("if") $hats = macron(mc(S)).s and hpLdr(macron(mc(S)).s + 1) = i and (hatmT != emptyset or sans("newDecommit")(hatv, macron(mc(S)), tx_omega))$
               #nst[
@@ -1494,7 +1501,7 @@ blockchain sees a _rollback_ followed by rollforwards.
 - Live admission and trusted replay use separate entry points. Replay does not grant extra live transitions.
 - Candidate handles bind Head, version, number, signing bytes and ordered parties; confirmation requires the currently owned handle.
 - Settlement can advance the working version while a candidate still collects signatures; its final acknowledgement remains valid.
-- Partial acknowledgements retain two identical signature events; replay is idempotent. Failed final verification discards the current staged signature.
+- Partial acknowledgements record one signature event; replay accepts older duplicates idempotently. Failed final verification discards the current staged signature.
 - AckSn increment/decrement effects combine the open Head's identity and parameters with the verified snapshot and signatures. Chained requests use the coordinated state after confirmation.
 - Duplicate transaction IDs cannot replace validated local or candidate-decommit payloads, including on retry expiry.
 - Retry expiry can require client resubmission. Invalid early acknowledgements have no automatic recovery; closing remains the protocol exit.
@@ -1611,3 +1618,13 @@ checks this boundary independently; the workflow tests compare it with both the
 returned view and event replay. The status decision itself remains
 `depositStatusRef`. Empty deposits and finalized claims remain excluded from
 new requests by their existing selection rules.
+
+Each accepted partial acknowledgement records one signature event. Replay still
+accepts older duplicate records idempotently; persistence encodings are unchanged.
+
+A fresh decrement rebuilds the optimistic ledger before releasing a reservation,
+using the owned candidate while collecting signatures, otherwise the confirmed
+snapshot. Retained ordinary transactions are reapplied in order. Repeated
+observations preserve newer reservations and do not restore spent outputs.
+The independent settlementUTxORef projection checks the local ledger given the
+reconstructed ledger; sequence tests cover both settlement orders and recovery.

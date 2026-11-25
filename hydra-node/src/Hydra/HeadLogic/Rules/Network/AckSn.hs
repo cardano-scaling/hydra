@@ -225,8 +225,6 @@ workflow Args{chainPointTime = ChainPointTime{currentChainTime}, ..} =
                   Left err -> reject err
         else continue (const Done) $ do
           void $ decide "all parties have signed" False
-          owned <- requireCandidate runtime
-          void $ Staging.stage runtime $ Coordinated.recordSignature owned sender signed
     Confirm verified runtime ->
       continue (Publish verified) $ Staging.stage runtime $ Coordinated.confirmSnapshot verified
     Publish verified confirmedRuntime -> continue (const $ Request snapshot confirmedRuntime) $ do

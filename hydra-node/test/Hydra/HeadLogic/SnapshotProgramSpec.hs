@@ -243,6 +243,23 @@ specWith runAckSn = do
       replayed <- either (fail . toString) pure $ Debug.prepare (Debug.RecordedReplies recorded.queries) (testInterpreterConfig simpleLedger) program
       Interpreter.runProgram (testInterpreterConfig simpleLedger) replayed.lowered `shouldBe` outcome
 
+    it "records a partial acknowledgement once" $ do
+      let signature = sign aliceSk snapshotFixture
+          outcome =
+            Interpreter.runProgram (testInterpreterConfig simpleLedger) $
+              runAckSn
+                AckSn.Args
+                  { env = ruleEnvironment env
+                  , chainPointTime = initial.chainPointTime
+                  , pendingDeposits = mempty
+                  , openState = Scenario.openState $ ackState CollectingSignatures []
+                  , sender = alice
+                  , signed = signature
+                  , snapshotNumber = 1
+                  }
+          event = PartySignedSnapshot 1 alice signature
+      outcome `shouldBe` Continue [event] []
+
   describe "bounded AckSn Agda agreement" $ do
     it "compares independent AckSn outcomes including rejection after staging" $ do
       forM_ [minBound .. maxBound] $ \phase ->
