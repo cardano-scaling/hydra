@@ -144,7 +144,13 @@ workflow Args{chainPointTime = ChainPointTime{currentSlot, currentChainTime}, tr
     if canRetry then suspend $ WaitOnNotApplicableDecommitTx reason else invalid reason
   selectedDeposit = selectedRequest >>= requestDepositTxId . fst
   selectedRequest =
-    buildRequest env.snapshotLimits $ currentRequestContext env.depositPeriod currentChainTime pendingDeposits coordinatedHeadState{decommitTx = Just decommitTx}
+    buildRequest env.snapshotLimits $
+      currentRequestContext
+        env.depositPeriod
+        currentChainTime
+        pendingDeposits
+        coordinatedHeadState{decommitTx = Just decommitTx}
+
   previous = getSnapshot confirmedSnapshot
   nextSn = previous.number + 1
   CoordinatedHeadState{confirmedSnapshot, seenSnapshot} = coordinatedHeadState
