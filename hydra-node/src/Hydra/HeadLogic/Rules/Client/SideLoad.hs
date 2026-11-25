@@ -18,7 +18,7 @@ import Hydra.API.ServerOutput (
 import Hydra.Chain.ChainState (IsChainState)
 import Hydra.HeadLogic.Error (SideLoadRequirementFailure (..))
 import Hydra.HeadLogic.Outcome (Effect (..))
-import Hydra.HeadLogic.Program (Program, decide, emit)
+import Hydra.HeadLogic.Program (Program, emit, traceB)
 import Hydra.HeadLogic.Rules.Coordinated qualified as Staging (
   stage,
  )
@@ -177,5 +177,5 @@ require ::
   SideLoadRequirementFailure tx ->
   ExceptT (SideLoadRequirementFailure tx) (Program tx) ()
 require decision condition failure = do
-  accepted <- lift $ decide decision condition
+  accepted <- lift $ traceB decision condition
   unless accepted $ throwE failure

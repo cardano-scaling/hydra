@@ -13,9 +13,9 @@ import Hydra.HeadLogic.Interpreter (
 import Hydra.HeadLogic.Program (
   Instruction (..),
   Program (Program),
-  decide,
   foldProgram,
   instruction,
+  traceB,
  )
 import Hydra.HeadLogic.Trace (changeLabel, effectLabel)
 import Hydra.Ledger.Simple (SimpleTx)
@@ -88,7 +88,7 @@ prepare mode config program = consume (cursor program) mode
     Reject err -> terminal "reject: discard staged changes and effects" (toJSON err)
     Change event -> continue () (Step ChangeStep ("stage: " <> changeLabel event) Nothing (toJSON event))
     Emit effect -> continue () (Step EffectStep ("buffer: " <> effectLabel effect) Nothing (toJSON effect))
-    Decide name answer -> do
+    TraceBoolean name answer -> do
       rest <- next answer remaining
       pure rest{lowered = instruction op >> lowered rest, steps = Step DecisionStep (name <> ": " <> show answer) (Just name) (toJSON answer) : steps rest}
    where
@@ -131,7 +131,7 @@ decodeVerified = \case
 -- invariant still calls the real verifier on confirmed snapshots.
 bypassVerification :: Program tx a -> Program tx a
 bypassVerification = foldProgram $ \case
-  VerifySnapshot{} -> decide "TEST ONLY: bypass multisignature verification" True >> pure (Right ())
+  VerifySnapshot{} -> traceB "TEST ONLY: bypass multisignature verification" True >> pure (Right ())
   op -> instruction op
 
 -- | Inspect a prepared instruction trace. Primitives have already been consumed;

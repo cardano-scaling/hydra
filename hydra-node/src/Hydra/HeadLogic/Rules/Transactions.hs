@@ -16,7 +16,7 @@ import Hydra.HeadLogic.Limits (SnapshotLimits)
 import Hydra.HeadLogic.Program (
   Program,
   applyTransaction,
-  decide,
+  traceB,
  )
 import Hydra.HeadLogic.Snapshot.Capacity (checkSnapshotCapacity)
 import Hydra.HeadLogic.Transaction.Outputs (namesNoneOf)
@@ -34,7 +34,7 @@ validateTransaction ::
   Program tx (Either ValidationError (ValidatedTransaction tx))
 validateTransaction decision slot before tx = do
   let collision = checkTransactionOutputs before tx
-  void $ decide decision (isRight collision)
+  void $ traceB decision (isRight collision)
   case collision of
     Left err -> pure $ Left err
     Right () -> fmap (ValidatedTransaction tx) <$> applyTransaction slot before tx
@@ -84,12 +84,12 @@ pruneTransactions limits slot commit decommit = go
       Left _ -> go utxo rest
       Right after -> do
         disjoint <-
-          decide
+          traceB
             "pending transaction outputs avoid the carried deposit"
             (namesNoneOf (utxoFromTx tx) $ fold commit)
 
         fits <-
-          decide
+          traceB
             "pending transaction fits both fanout alternatives"
             (isRight $ checkSnapshotCapacity limits after commit decommit)
 

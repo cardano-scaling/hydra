@@ -115,8 +115,8 @@ evaluateProgram observe initialTrace InterpreterConfig{transactionApplication, s
       next () (event : changes) effects (observe trace $ Changed $ changeLabel event)
     Emit effect ->
       next () changes (effect : effects) (observe trace $ Emitted $ effectLabel effect)
-    Decide label answer ->
-      next answer changes effects (observe trace $ Decided label answer)
+    TraceBoolean label answer ->
+      next answer changes effects (observe trace $ BooleanTraced label answer)
     Suspend reason ->
       (Wait reason (reverse changes), observe trace Suspended)
     Reject err ->

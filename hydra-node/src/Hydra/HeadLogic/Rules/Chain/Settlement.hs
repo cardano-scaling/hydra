@@ -16,7 +16,7 @@ module Hydra.HeadLogic.Rules.Chain.Settlement (
 import Crem.Topology (Topology (Topology))
 import Data.Map.Strict qualified as Map (delete, lookup)
 import Hydra.Chain.ChainState (IsChainState (..))
-import Hydra.HeadLogic.Program (Program, decide)
+import Hydra.HeadLogic.Program (Program, traceB)
 import Hydra.HeadLogic.Rules.Coordinated (sendSnapshot)
 import Hydra.HeadLogic.Rules.Coordinated qualified as Staging (
   stage,
@@ -147,17 +147,17 @@ workflow Args{openState = openState@OpenState{..}, ..} =
         | snapshot.number == snapshotNumber
         , snapshot.version + 1 == newVersion
         , matchesSettlement snapshot -> choose $ do
-            void $ decide "settlement matches the seen snapshot" True
+            void $ traceB "settlement matches the seen snapshot" True
             verified <- verifySeenSnapshot vkeys seenSnapshot signatures
             case verified of
               Right evidence -> do
-                void $ decide "settlement signatures verify" True
+                void $ traceB "settlement signatures verify" True
                 adopted <- Staging.stage runtime $ Coordinated.adoptSnapshot evidence
                 pure $ next $ Request adopted snapshot (LastSeenSnapshot snapshot.number)
               Left _ -> do
-                void $ decide "settlement signatures verify" False
+                void $ traceB "settlement signatures verify" False
                 pure $ next $ Request runtime previous seenSnapshot
-      _ -> continue (const $ Request runtime previous seenSnapshot) $ decide "settlement matches the seen snapshot" False
+      _ -> continue (const $ Request runtime previous seenSnapshot) $ traceB "settlement matches the seen snapshot" False
     Request runtime snapshot seen ->
       continue (const Done) $
         maybeRequestSnapshotAfterVersionBump
@@ -201,7 +201,7 @@ maybeRequestSnapshotAfterVersionBump runtime parameters party nextSn request ver
     Nothing -> pure ()
     Just proposal -> do
       eligible <-
-        decide "leader can request at the advanced version" $
+        traceB "leader can request at the advanced version" $
           isLeader parameters party nextSn && newVersion > version && not (isCollectingAcks seenSnapshot)
       when eligible $ do
         sendSnapshot runtime proposal

@@ -6,7 +6,7 @@ module Hydra.HeadLogic.Rules.Chain.Tick where
 
 import Hydra.Chain.ChainState (IsChainState (..))
 import Hydra.HeadLogic.Outcome (StateChanged (..))
-import Hydra.HeadLogic.Program (Program, change, decide)
+import Hydra.HeadLogic.Program (Program, change, traceB)
 import Hydra.HeadLogic.Rules.Chain.Deposits (
   maybeRequestDepositSnapshot,
   updateDepositStates,
@@ -64,7 +64,7 @@ handleTick env now pendingDeposits headState chainTime chainPoint syncStatus = d
  where
   notifyReadyToFanout ClosedState{..} = do
     shouldNotify <-
-      decide
+      traceB
         "fanout deadline passed and notification is unsent"
         (chainTime > contestationDeadline && not readyToFanoutSent)
 

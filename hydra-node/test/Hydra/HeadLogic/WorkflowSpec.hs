@@ -4,7 +4,7 @@ module Hydra.HeadLogic.WorkflowSpec (spec) where
 
 import Crem.Topology (Topology (Topology))
 import Hydra.HeadLogic.Interpreter (runProgram)
-import Hydra.HeadLogic.Program (applyTransaction, change, decide, reject, suspend)
+import Hydra.HeadLogic.Program (applyTransaction, change, reject, suspend, traceB)
 import Hydra.HeadLogic.Workflow qualified as Workflow
 import Hydra.Ledger (Ledger (..), ValidationError (..))
 import Hydra.Ledger.Simple (SimpleTx)
@@ -66,7 +66,7 @@ example eligible = Workflow.workflow describePhase Decide step
   step :: State phase -> Workflow.Transition SimpleTx TopologyOf State phase ()
   step = \case
     Decide -> Workflow.choose $ do
-      proceed <- decide "eligible" eligible
+      proceed <- traceB "eligible" eligible
       if proceed
         then pure $ Workflow.next Apply
         else suspend $ WaitOnSnapshotNumber 1

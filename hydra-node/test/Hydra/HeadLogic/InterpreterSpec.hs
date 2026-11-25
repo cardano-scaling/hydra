@@ -8,13 +8,13 @@ import Hydra.HeadLogic.Program (
   Program,
   applyTransaction,
   change,
-  decide,
   emit,
   foldProgram,
   instruction,
   reject,
   signSnapshot,
   suspend,
+  traceB,
   verifySnapshot,
  )
 import Hydra.HeadLogic.Trace qualified as Trace
@@ -79,11 +79,11 @@ spec = do
             reject rejection
       Interpreter.runProgram (testInterpreterConfig simpleLedger) program `shouldBe` Wait waitReason [received]
 
-    it "uses the result of a named decision to select its continuation" $ do
+    it "preserves the traced Boolean when selecting its continuation" $ do
       forM_ [False, True] $ \predicate -> do
         let program :: Program SimpleTx ()
             program = do
-              accepted <- decide "example guard" predicate
+              accepted <- traceB "example guard" predicate
               change $ if accepted then applied else received
         Interpreter.runProgram (testInterpreterConfig simpleLedger) program
           `shouldBe` Continue [if predicate then applied else received] []

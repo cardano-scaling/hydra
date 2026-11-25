@@ -20,10 +20,10 @@ import Hydra.HeadLogic.Input (Input (..))
 import Hydra.HeadLogic.Outcome (Effect (..), WaitReason (..))
 import Hydra.HeadLogic.Program (
   Program,
-  decide,
   emit,
   reject,
   suspend,
+  traceB,
  )
 import Hydra.HeadLogic.Rules.Chain (handleChainInput)
 import Hydra.HeadLogic.Rules.Client (handleClientInput)
@@ -118,16 +118,16 @@ workflow Args{..} = Workflow.workflow (show . statePhase) CheckSize step
         let sizeCheck = validateClientInputWith env.snapshotLimits clientInput
         case sizeCheck of
           Left AccumulatorTooLarge{utxoCount, maxAllowed} -> do
-            void $ decide "client input fits the accumulator" False
+            void $ traceB "client input fits the accumulator" False
             reject $ SideLoadSnapshotFailed SideLoadUTxOSetTooLarge{utxoCount, maxAllowed}
-          Right _ -> void $ decide "client input fits the accumulator" True
+          Right _ -> void $ traceB "client input fits the accumulator" True
       _ -> pure ()
     CheckSync -> case (syncStatus, input) of
       (CatchingUp, ClientInput clientInput) -> continue (const Done) $ do
-        void $ decide "node is in sync" False
+        void $ traceB "node is in sync" False
         emit $ ClientEffect $ ServerOutput.RejectedInputBecauseUnsynced clientInput chainTime.drift
       (CatchingUp, NetworkInput{}) -> continue (const Done) $ do
-        void $ decide "node is in sync" False
+        void $ traceB "node is in sync" False
         suspend WaitOnNodeInSync{currentSlot = chainTime.currentSlot}
       _ -> case nodeState.headState of
         Idle st -> continue (const $ InIdle st) admitted
@@ -143,7 +143,7 @@ workflow Args{..} = Workflow.workflow (show . statePhase) CheckSize step
     Done -> finish Done ()
 
   admitted :: Program tx ()
-  admitted = void $ decide "input is admitted while at this sync status" True
+  admitted = void $ traceB "input is admitted while at this sync status" True
   dispatch st = case input of
     ChainInput{} -> handleChainInput env now nodeState.pendingDeposits st input syncStatus
     ClientInput{} -> handleClientInput env chainTime nodeState.pendingDeposits st input

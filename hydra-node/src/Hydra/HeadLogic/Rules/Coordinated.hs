@@ -6,9 +6,9 @@ import Hydra.HeadLogic.Outcome (Effect (NetworkEffect))
 import Hydra.HeadLogic.Program (
   Program,
   change,
-  decide,
   emit,
   reject,
+  traceB,
  )
 import Hydra.HeadLogic.Snapshot.Request (
   SnapshotRequest,
@@ -36,7 +36,7 @@ sendSnapshot ::
   Program tx ()
 sendSnapshot runtime request = do
   let (events, _) = step runtime $ requestSnapshot request
-  accepted <- decide "proposal matches the current snapshot context" (not $ null events)
+  accepted <- traceB "proposal matches the current snapshot context" (not $ null events)
   when accepted $ do
     traverse_ change events
     broadcastSnapshot request

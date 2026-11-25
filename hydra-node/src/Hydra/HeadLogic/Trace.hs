@@ -12,7 +12,7 @@ data TraceStep
   | PrimitiveCalled Text
   | Changed Text
   | Emitted Text
-  | Decided Text Bool
+  | BooleanTraced Text Bool
   | Finished
   | Suspended
   | Rejected

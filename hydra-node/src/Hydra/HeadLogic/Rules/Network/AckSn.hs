@@ -35,10 +35,10 @@ import Hydra.HeadLogic.Outcome (
 import Hydra.HeadLogic.Program (
   Program,
   change,
-  decide,
   emit,
   reject,
   suspend,
+  traceB,
  )
 import Hydra.HeadLogic.Rules.Coordinated (sendSnapshot)
 import Hydra.HeadLogic.Rules.Coordinated qualified as Staging (
@@ -194,7 +194,7 @@ workflow Args{chainPointTime = ChainPointTime{currentChainTime}, ..} =
   step :: State tx from -> Transition tx AckTopology (State tx) from ()
   step = \case
     NumberCheck -> continue (const Find) $ do
-      valid <- decide "acknowledgement number is admissible" (snapshotNumber `elem` [lastSeenSn, lastSeenSn + 1])
+      valid <- traceB "acknowledgement number is admissible" (snapshotNumber `elem` [lastSeenSn, lastSeenSn + 1])
       unless valid $ reject $ RequireFailed AckSnNumberInvalid{requestedSn = snapshotNumber, ..}
     Find -> case seenSnapshot of
       LastSeenSnapshot{lastSeen} | snapshotNumber <= lastSeen -> continue (const Done) $ pure ()
@@ -205,7 +205,7 @@ workflow Args{chainPointTime = ChainPointTime{currentChainTime}, ..} =
     Collect signatories -> continue (Collected (Map.insert sender signed signatories)) $ do
       -- A retained invalid partial signature still blocks replacement. Recovery
       -- from that case is deferred; aggregate verification remains mandatory.
-      fresh <- decide "party has not signed this snapshot" (Map.notMember sender signatories)
+      fresh <- traceB "party has not signed this snapshot" (Map.notMember sender signatories)
       unless fresh $
         reject $
           RequireFailed SnapshotAlreadySigned{knownSignatures = Map.keys signatories, receivedSignature = sender}
@@ -217,14 +217,14 @@ workflow Args{chainPointTime = ChainPointTime{currentChainTime}, ..} =
         then
           let signatures = assembleCertificate allSignatures parties
            in choose $ do
-                void $ decide "all parties have signed" True
+                void $ traceB "all parties have signed" True
                 owned <- requireCandidate runtime
                 result <- verifyCandidate owned signatures
                 case result of
                   Right verified -> pure $ next $ Confirm verified runtime
                   Left err -> reject err
         else continue (const Done) $ do
-          void $ decide "all parties have signed" False
+          void $ traceB "all parties have signed" False
     Confirm verified runtime ->
       continue (Publish verified) $ Staging.stage runtime $ Coordinated.confirmSnapshot verified
     Publish verified confirmedRuntime -> continue (const $ Request snapshot confirmedRuntime) $ do

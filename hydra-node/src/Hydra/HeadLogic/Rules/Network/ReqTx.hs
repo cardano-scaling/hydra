@@ -18,8 +18,8 @@ import Hydra.Chain.ChainState (IsChainState)
 import Hydra.HeadLogic.Input (TTL)
 import Hydra.HeadLogic.Outcome (WaitReason (..))
 import Hydra.HeadLogic.Program (
-  decide,
   suspend,
+  traceB,
  )
 import Hydra.HeadLogic.Rules.Coordinated (sendSnapshot)
 import Hydra.HeadLogic.Rules.Coordinated qualified as Staging (
@@ -142,11 +142,11 @@ workflow Args{chainPointTime = ChainPointTime{currentSlot, currentChainTime}, ..
       , Just{} <- snapshot.utxoToDecommit
       , Just known <- Map.lookup (txId transaction) allTxs
       , matchesSnapshotDecommit snapshot known ->
-          continue (const Done) $ decide "transaction is retained by the candidate decommit" True
+          continue (const Done) $ traceB "transaction is retained by the candidate decommit" True
       | Map.member (txId transaction) allTxs && any ((== txId transaction) . txId) localTxs ->
-          continue (const Done) $ decide "transaction is already applied locally" True
+          continue (const Done) $ traceB "transaction is already applied locally" True
       | otherwise -> continue OutputCheck $ do
-          void $ decide "transaction is already applied locally" False
+          void $ traceB "transaction is already applied locally" False
           Staging.stage (Coordinated.start openState) $ Coordinated.receiveTransaction transaction
     OutputCheck runtime -> choose $ do
       result <- validateTransaction "outputs do not collide with the local UTxO" currentSlot localUTxO transaction
@@ -155,26 +155,26 @@ workflow Args{chainPointTime = ChainPointTime{currentSlot, currentChainTime}, ..
         Left err -> next $ Retry runtime err
     DepositCheck runtime checked
       | namesNoneOf (utxoFromTx transaction) namedByDepositsInPlay -> continue Select $ do
-          void $ decide "outputs do not collide with pending deposits" True
+          void $ traceB "outputs do not collide with pending deposits" True
           Staging.stage runtime $ Coordinated.applyTransaction checked
       | otherwise ->
           continue (const $ Retry runtime $ ValidationError "transaction creates an output a pending deposit names") $
-            decide "outputs do not collide with pending deposits" False
+            traceB "outputs do not collide with pending deposits" False
     Select runtime -> continue (const Done) $ do
-      noSnapshot <- decide "no snapshot is in flight" (not $ snapshotInFlight seenSnapshot)
+      noSnapshot <- traceB "no snapshot is in flight" (not $ snapshotInFlight seenSnapshot)
       when noSnapshot $ do
-        leader <- decide "this party leads the next snapshot" (isLeader parameters env.party nextSn)
+        leader <- traceB "this party leads the next snapshot" (isLeader parameters env.party nextSn)
         when leader $ do
           let nextRequest = chainedRequest env.snapshotLimits context
           case nextRequest of
-            Nothing -> void $ decide "snapshot request has useful work" False
+            Nothing -> void $ traceB "snapshot request has useful work" False
             Just request -> do
-              void $ decide "snapshot request has useful work" True
+              void $ traceB "snapshot request has useful work" True
               sendSnapshot runtime request
     Retry runtime err -> continue (const Done) $ do
       -- Expiry still drops the payload. A later dependency does not wake this
       -- transaction; changing that recovery policy is deferred.
-      canRetry <- decide "retry budget remains" (ttl > 0)
+      canRetry <- traceB "retry budget remains" (ttl > 0)
       if canRetry
         then suspend $ WaitOnNotApplicableTx err
         else void $ Staging.stage runtime $ Coordinated.markTransactionInvalid localUTxO transaction err

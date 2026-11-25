@@ -8,7 +8,7 @@ import Hydra.API.ClientInput qualified as Client
 import Hydra.API.ServerOutput qualified as ServerOutput (ClientMessage (CommandFailed))
 import Hydra.HeadLogic.Fanout.Plan (FanoutPlan, closedSelectionPlan, fullPlan, planChange, planTransaction, remainingSelectionPlan)
 import Hydra.HeadLogic.Outcome (Effect (ClientEffect, OnChainEffect))
-import Hydra.HeadLogic.Program (Program, change, decide, emit)
+import Hydra.HeadLogic.Program (Program, change, emit, traceB)
 import Hydra.HeadLogic.State (ClosedState, HeadState (Closed, FanoutProgress), PartialFanoutState)
 import Hydra.HeadLogic.Workflow (Transition, Workflow, choose, continue, finish, next)
 import Hydra.HeadLogic.Workflow qualified as Workflow
@@ -61,7 +61,7 @@ workflow command = Workflow.workflow (show . statePhase) Validate step
             Drain closed -> Just $ fullPlan closed
             SelectClosed closed selection -> closedSelectionPlan closed selection
             SelectRemaining progress selection -> remainingSelectionPlan progress selection
-      void $ decide "fanout selection is valid" (isJust planned)
+      void $ traceB "fanout selection is valid" (isJust planned)
       case planned of
         Just plan -> pure $ next $ Record plan
         Nothing -> do

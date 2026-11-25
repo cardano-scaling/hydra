@@ -11,7 +11,7 @@ import Data.Set qualified as Set (fromList)
 import Hydra.Chain (PostChainTx (..))
 import Hydra.Chain.ChainState (IsChainState (..))
 import Hydra.HeadLogic.Outcome (Effect (..), StateChanged (..))
-import Hydra.HeadLogic.Program (Program, change, decide, emit)
+import Hydra.HeadLogic.Program (Program, change, emit, traceB)
 import Hydra.HeadLogic.Rules.Coordinated qualified as Staging (
   stage,
  )
@@ -218,12 +218,12 @@ adoptSnapshot ::
   Program tx Bool
 adoptSnapshot parties observedNumber signatures candidate retain = case candidate of
   Just seen@SeenSnapshot{snapshot} | snapshot.number == observedNumber -> do
-    void $ decide "chain observation matches the unconfirmed snapshot number" True
+    void $ traceB "chain observation matches the unconfirmed snapshot number" True
     verified <- verifySeenSnapshot (vkey <$> parties) seen signatures
-    valid <- decide "observed snapshot signatures verify" (isRight verified)
+    valid <- traceB "observed snapshot signatures verify" (isRight verified)
     traverse_ retain verified
     pure valid
-  _ -> decide "chain observation matches the unconfirmed snapshot number" False
+  _ -> traceB "chain observation matches the unconfirmed snapshot number" False
 
 postNewerSnapshot ::
   IsTx tx =>
@@ -235,7 +235,7 @@ postNewerSnapshot ::
   Program tx ()
 postNewerSnapshot headId headParameters openVersion confirmedSnapshot observedNumber = do
   newer <-
-    decide
+    traceB
       "confirmed snapshot is newer than the on-chain snapshot"
       ((getSnapshot confirmedSnapshot).number > observedNumber)
 

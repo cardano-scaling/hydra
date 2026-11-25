@@ -1,4 +1,3 @@
-{-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
@@ -24,7 +23,6 @@ import Crem.BaseMachine (
   pureResult,
   withStateInspector,
  )
-import Crem.Render.RenderableVertices (AllVertices (..), RenderableVertices)
 import Crem.StateInspection (describeOnly)
 import Crem.Topology (AllowedTransition, Topology (Topology))
 import Data.Map.Strict qualified as Map (
@@ -34,7 +32,7 @@ import Data.Map.Strict qualified as Map (
   lookup,
  )
 import Data.Sequence qualified as Seq (take, (|>))
-import Data.Singletons.Base.TH (genSingletons)
+import Data.Singletons.Base.TH (genDefunSymbols)
 import Hydra.API.ServerOutput (
   DecommitInvalidReason (DecommitTxInvalid),
  )
@@ -78,7 +76,7 @@ data DecommitPhase
   | DecommitPending
   | AwaitingDecommitSettlement
 
-$(genSingletons [''DecommitPhase])
+$(genDefunSymbols [''DecommitPhase])
 
 type DecommitTopology =
   'Topology
@@ -91,7 +89,6 @@ deriving stock instance Eq DecommitPhase
 deriving stock instance Show DecommitPhase
 deriving stock instance Enum DecommitPhase
 deriving stock instance Bounded DecommitPhase
-deriving via AllVertices DecommitPhase instance RenderableVertices DecommitPhase
 
 -- | A certificate can establish a decommit before the local ReqDec arrives.
 transitionLabels :: [((DecommitPhase, DecommitPhase), String)]

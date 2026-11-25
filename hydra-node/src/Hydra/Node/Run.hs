@@ -11,7 +11,7 @@ import Control.Tracer (emit)
 import Control.Tracer.JSON (Tracer (..), nullTracer, traceWith, withTracer)
 import Data.EventSource (EventSink)
 import Data.EventSource.Rotation (EventStore (..), RotationConfig (..), newRotatedEventStore)
-import Data.EventSource.SQLite (withSQLiteEventStore)
+import Data.EventSource.SQLite (PersistenceException, withSQLiteEventStore)
 import Hydra.API.Server (APIServerConfig (..), withAPIServer)
 import Hydra.API.ServerOutputFilter (serverOutputFilter)
 import Hydra.Cardano.Api (EraHistory (EraHistory), GenesisParameters (..), LedgerEra, PParams, ProtocolParametersConversionError, ShelleyEra, SystemStart (..), Tx, toShelleyNetwork)
@@ -68,6 +68,7 @@ data ConfigurationException
     ConfigurationException ProtocolParametersConversionError
   | InvalidOptionException InvalidOptions
   | TrustedSetupException KZG.KZGSetupError
+  | PersistenceFormatException PersistenceException
   deriving stock (Show)
 
 instance Exception ConfigurationException where
@@ -80,6 +81,10 @@ instance Exception ConfigurationException where
       "Incorrect protocol parameters configuration provided: " <> show err
     TrustedSetupException err ->
       "Embedded KZG trusted setup could not be loaded: " <> show err
+    PersistenceFormatException err ->
+      displayException err
+        <> " Close and fan out existing Heads using the hydra-node version that created this store before upgrading."
+        <> " Keep the original persistence directory for recovery, and use a fresh --persistence-dir for new Heads."
 
 run :: RunOptions -> IO ()
 run opts = do
@@ -103,7 +108,7 @@ run opts = do
         -- Hydrate with event source and sinks
         let stateFile = persistenceDir </> "state"
             dbFile = persistenceDir </> "hydra.db"
-        withSQLiteEventStore (contramap SQLite tracer) dbFile stateFile $ \store -> do
+        handle (throwIO . PersistenceFormatException) $ withSQLiteEventStore (contramap SQLite tracer) dbFile stateFile $ \store -> do
           eventStore@EventStore{eventSource} <- prepareEventStore store
           -- NOTE: Add any custom sinks here
           let eventSinks :: [EventSink (StateEvent Tx) IO] = []

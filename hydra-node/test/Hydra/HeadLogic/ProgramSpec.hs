@@ -188,7 +188,7 @@ specWith runReqTx = do
                 }
           (outcome, trace) = Interpreter.traceProgram (testInterpreterConfig rejectingLedger) program
       outcome `shouldBe` Wait (WaitOnNotApplicableTx ledgerFailure) [received]
-      trace `shouldNotContain` [Trace.Decided "outputs do not collide with pending deposits" False]
+      trace `shouldNotContain` [Trace.BooleanTraced "outputs do not collide with pending deposits" False]
 
     it "tracing preserves successful, suspended, and timed-out outcomes" $ do
       forM_ [simpleLedger, rejectingLedger] $ \ledger ->
@@ -386,7 +386,7 @@ pauseAtLedger fuel view
       Debug.Await op resume -> case op of
         Program.ApplyTransaction slot utxo tx -> Just $ LedgerPause slot utxo tx resume
         Program.Change{} -> pauseAtLedger (fuel - 1) (resume ())
-        Program.Decide _ answer -> pauseAtLedger (fuel - 1) (resume answer)
+        Program.TraceBoolean _ answer -> pauseAtLedger (fuel - 1) (resume answer)
         _ -> Nothing
       Debug.Done{} -> Nothing
 

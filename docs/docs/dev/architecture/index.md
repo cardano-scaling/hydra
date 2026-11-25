@@ -60,6 +60,8 @@ Decrement finalization events preserve the observed L1 output references; snapsh
 verification and the local ledger continue to use the signed snapshot contents.
 
 Rules import `Program` primitives explicitly and call them without qualification.
+`traceB` (trace Boolean) labels a condition for diagnostic traces and returns its
+value unchanged; the caller determines whether to continue, wait, or reject.
 State destructuring uses `RecordWildCards`, with aliases where request and state
 fields overlap. Complex `case` subjects use named, lazy intermediate results.
 

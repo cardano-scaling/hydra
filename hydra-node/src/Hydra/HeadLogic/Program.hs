@@ -7,7 +7,7 @@ module Hydra.HeadLogic.Program (
   instruction,
   change,
   emit,
-  decide,
+  traceB,
   applyTransaction,
   signSnapshot,
   verifySnapshot,
@@ -62,7 +62,7 @@ data Instruction tx a where
   Emit ::
     Effect tx ->
     Instruction tx ()
-  Decide ::
+  TraceBoolean ::
     Text ->
     Bool ->
     Instruction tx Bool
@@ -101,9 +101,10 @@ emit :: Effect tx -> Program tx ()
 emit = instruction . Emit
 {-# INLINE emit #-}
 
-decide :: Text -> Bool -> Program tx Bool
-decide label = instruction . Decide label
-{-# INLINE decide #-}
+-- | Trace a labelled Boolean and return it unchanged.
+traceB :: Text -> Bool -> Program tx Bool
+traceB label = instruction . TraceBoolean label
+{-# INLINE traceB #-}
 
 applyTransaction ::
   ChainSlot ->

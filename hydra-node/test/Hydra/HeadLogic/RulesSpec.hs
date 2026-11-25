@@ -3,7 +3,7 @@
 
 module Hydra.HeadLogic.RulesSpec (spec) where
 
-import Hydra.HeadLogic.Program (decide)
+import Hydra.HeadLogic.Program (traceB)
 import Hydra.Prelude
 import Test.Hydra.HeadLogic.Interpreter (testInterpreterConfig)
 import Test.Hydra.Prelude (Spec, describe, it, prop, shouldBe, shouldSatisfy)
@@ -14,7 +14,7 @@ import Crem.StateMachine qualified as Crem
 import Data.Map.Strict qualified as Map
 import Hydra.HeadLogic.Interpreter qualified as Interpreter
 import Hydra.HeadLogic.Rules.Network.ReqTx qualified as ReqTx
-import Hydra.HeadLogic.Trace (TraceStep (Decided))
+import Hydra.HeadLogic.Trace (TraceStep (BooleanTraced))
 import Hydra.Ledger.Simple (simpleLedger)
 import Hydra.Network.Message (Message (ReqTx), NetworkEvent (ReceivedMessage))
 import Hydra.Node.Environment (Environment (party))
@@ -44,9 +44,9 @@ spec = describe "free programs and crem phases" $ do
             program = do
               (_, outputCheck) <- Crem.run machine ()
               (_, selected) <- Crem.run outputCheck ()
-              void $ decide "selected phase" (inspectStates selected == [([], Just phase)])
+              void $ traceB "selected phase" (inspectStates selected == [([], Just phase)])
             (_, steps) = Interpreter.traceProgram (testInterpreterConfig simpleLedger) program
-        steps `shouldSatisfy` elem (Decided "selected phase" True)
+        steps `shouldSatisfy` elem (BooleanTraced "selected phase" True)
         checks <- checkStates [] machine
         checks `shouldSatisfy` \case
           [([], NotInspected)] -> True

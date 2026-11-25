@@ -1,13 +1,8 @@
-{-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Hydra.HeadLogic.State.Coordinated.Snapshots.Topology where
 
-import Crem.Render.RenderableVertices (
-  AllVertices (..),
-  RenderableVertices,
- )
 import Crem.Topology (
   STopology (STopology),
   Topology (Topology),
@@ -44,7 +39,6 @@ deriving stock instance Eq SnapshotPhase
 deriving stock instance Show SnapshotPhase
 deriving stock instance Enum SnapshotPhase
 deriving stock instance Bounded SnapshotPhase
-deriving via AllVertices SnapshotPhase instance RenderableVertices SnapshotPhase
 
 -- | These edges include administrative recovery, which can discard a candidate.
 transitionLabels :: [((SnapshotPhase, SnapshotPhase), String)]

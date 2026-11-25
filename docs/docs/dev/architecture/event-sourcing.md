@@ -29,7 +29,7 @@ signature verification.
 
 The default event source and sink used by the `hydra-node` is `SQLiteBased`, which persists events in a SQLite database file named `hydra.db`. This file is located in the `hydra-node` persistence directory, which is specified by the `--persistence-dir` command line option.
 
-If a legacy `state` file from a previous file-based installation is found in the persistence directory on startup, its events are migrated into `hydra.db` if the current version can decode them, and the original file is renamed to `state.migrated`.
+A legacy `state` file or an incompatible database version causes startup to fail before replay. No automatic migration is available; see [upgrading persistence](/how-to/operating-hydra#upgrading-persistence).
 
 As explained in the consequences of [ADR29](/adr/29), the API server of the `hydra-node` is also an event sink, which means that all events are sent to the API server and may be further submitted as [`ServerOutput`](pathname:///haddocks/hydra-node/Hydra-API-ServerOutput.html#t:ServerOutput) to clients of the API server. See [`mkTimedServerOutputFromStateEvent`](pathname:///haddocks/hydra-node/Hydra-API-Server.html#v:mkTimedServerOutputFromStateEvent) for which events are mapped to server outputs.
 
@@ -93,25 +93,27 @@ is checked in the same STM transaction as enqueueing.
 Startup streams replay to custom sinks in batches of at most 1,000 events.
 When there are no custom sinks, it skips that replay pass entirely.
 
-#### Schema versioning
+#### Persistence compatibility
 
-The database schema is versioned using SQLite's built-in `PRAGMA user_version`. On startup, `initSchema` reads the current version and applies any pending migration steps incrementally up to `nextVersion`. Each step runs together with its version bump in a single transaction, so a crash or failure mid-migration rolls back to a well-defined version. The steps are defined as cases in `migrateStep`:
+The database schema and event format are versioned together using SQLite's
+`PRAGMA user_version`. The current version is **3**, which includes the
+HeadLogic checkpoint layouts. Versions 1 (JSON) and 2 (earlier CBOR layouts),
+unversioned databases containing tables, and newer versions are rejected before
+replay. Their schema version and event data are left unchanged.
 
-```haskell
-migrateStep conn reencodeRow = \case
-  0 -> -- create the events table
-  1 -> -- re-encode all JSON event payloads to CBOR
-```
+Only an empty, unversioned database is initialised as a new version 3 store.
+The events table and version are written in one transaction. A legacy `state`
+file is rejected before opening or creating `hydra.db`.
 
-A fresh database starts at version 0 (SQLite default). After all migrations run, `user_version` is set to `nextVersion`. If the database has a version higher than `nextVersion` (e.g. from a newer release), the node refuses to start to prevent silent data corruption on downgrade.
+There is no automatic migration across this boundary. Operators must close and
+fan out existing Heads with the version that created their persistence, retain
+that directory for recovery, and use a fresh `--persistence-dir` for new Heads.
+Older releases also reject version 3 databases, preventing an accidental
+downgrade. See [upgrading persistence](/how-to/operating-hydra#upgrading-persistence).
 
-Version 1 databases (written by earlier hydra-node releases) store event payloads as JSON. Opening one automatically re-encodes every row to CBOR and runs `VACUUM` afterwards to reclaim the freed space. A row that fails to decode aborts the migration — and thereby node startup — leaving the database untouched at version 1, still usable by the previous hydra-node version. Note that after a successful migration there is no downgrade path: older releases refuse to open a version 2 database. The legacy `state` file migration also inserts CBOR (the file itself remains JSON lines).
-
-To add a new migration:
-
-1. Bump `nextVersion` in `Data.EventSource.SQLite`
-2. Add a new case to `migrateStep` for the previous version number
-3. Add tests in `SQLiteBasedSpec` to verify the migration
+Future changes to persisted layouts must update `nextVersion` in
+`Data.EventSource.SQLite`, define whether migration is supported, and test the
+compatibility boundary in `SQLiteBasedSpec`.
 
 ## Examples
 

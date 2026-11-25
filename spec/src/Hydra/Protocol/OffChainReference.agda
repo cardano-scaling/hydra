@@ -27,24 +27,6 @@
 -- strictness are outside this projection too.
 -- Haskell serialization tests cover the current checkpoint layouts. Historical
 -- checkpoint compatibility is unsupported and is not modeled by this reference.
--- Haskell input handlers live in Rules, state evolution in State, and shared
--- protocol operations in domain modules. State.Types holds shared machine
--- commands, updates and outputs; Rules.Coordinated stages updates and broadcasts
--- snapshot requests. The decommit topology lives beside its transaction machine
--- in State.Coordinated.Transactions. Module placement does not change the
--- decisions or retained-event projections defined here.
--- State.Node assembles the deposit registry, Head lifecycle and observed time;
--- time and synchronisation are plain node-state updates, without a clock machine.
--- Deposit settlement carries the value read before consumption. State.Coordinated
--- routes ordinary transactions directly to their owner. Snapshot changes precede
--- transaction reconciliation and commit selection; this routing preserves the
--- phase and ordered-outcome projections below. Rejected commands retain none of
--- the tentative component updates; replay restores snapshots without admission.
--- Rules expose workflows taking named, lazy Args records; their callers use
--- Workflow.run. Argument packaging preserves the decisions and event order
--- projected here and does not add guards or primitive calls.
--- Record wildcards, named lazy branch inputs and unqualified primitive imports
--- preserve the same decisions and ordered changes/effects.
 module Hydra.Protocol.OffChainReference where
 
 open import Agda.Builtin.Bool
@@ -88,18 +70,16 @@ _&&_ : Bool → Bool → Bool
 true  && b = b
 false && _ = false
 
--- The §6 reqSn signing-eligibility check (`require v = v̂ ∧ s = ŝ + 1 ∧ leader(s) = j`), as a pure
+-- The §6 reqSn signing-eligibility check (`v = v̂ ∧ s = ŝ + 1 ∧ leader(s) = j`), as a pure
 -- decision over the version/number inputs with the leader test resolved to a Bool by the caller
 -- (the leader function needs the party set, supplied Haskell-side). `_==_` is the
 -- `Agda.Builtin.Nat` Bool equality.
 --
 -- `true` means the party goes on to sign, which is what the differential compares. It does NOT say
 -- which outcome a `false` produces: the node splits these three conjuncts across two outcome kinds.
--- `requireReqSn` errors out on the number (`ReqSnNumberInvalid`) and on the leader
--- (`ReqSnNotLeader`), but the version conjunct is `waitOnSnapshotVersion`, a WAIT: a follower can see
--- a ReqSn for the bumped version before its own chain handler has processed the increment/decrement
--- that bumps it, and an error would drop the message permanently (see the NOTE in HeadLogic.hs). The
--- spec figure writes all three as `require`; the wait is a deliberate implementation refinement.
+-- An invalid number or leader rejects the request. A different version waits:
+-- a follower can receive ReqSn before observing the increment/decrement that
+-- advances its version. The figure preserves that distinction.
 signEligibleRef : Nat → Nat → Nat → Nat → Bool → Bool
 signEligibleRef v vHat s sHat leaderOk = (v == vHat) && ((s == suc sHat) && leaderOk)
 
@@ -461,7 +441,7 @@ coordinationPhaseRef phase _ _ _ _ = phase
 
 -- The tracked deposit has a status and a separate consuming observation. A
 -- rollback restores the stored status; it does not recompute it from time.
--- These are projections of independent fields, not vertices of a Crem graph.
+-- These are projections of independent fields.
 data TrackedPhaseᶜ : Set where
   missingDepositᶜ inactiveDepositᶜ activeDepositᶜ expiredDepositᶜ consumedDepositᶜ : TrackedPhaseᶜ
 {-# FOREIGN GHC data HsTrackedPhase = MissingDeposit | InactiveDeposit | ActiveDeposit | ExpiredDeposit | ConsumedDeposit deriving (Eq, Show, Enum, Bounded) #-}
@@ -826,9 +806,8 @@ missing-carried-payload-blocks-request = refl
 {-# COMPILE GHC carriedDecommitPayloadRef as hsCarriedDecommitPayloadRef #-}
 {-# COMPILE GHC carriedDecommitRequestRef as hsCarriedDecommitRequestRef #-}
 
--- Reply-handling Crem phases are internal to Haskell. Removing them must not
--- change these observable terminal boundaries. These are concrete bounded
--- equations, not a proof about the Haskell interpreter or primitive effects.
+-- These are concrete bounded equations for observable terminal outcomes,
+-- not a proof about the Haskell interpreter or primitive effects.
 reqTx-wait-retains-receipt :
   reqTxOutcomeRef false 1 false 2 1 0 ≡
     reqTxOutcomeᶜ reqTxWaitingᶜ (reqTxReceivedᶜ ∷ []) []
@@ -930,18 +909,11 @@ data CommitPhaseᶜ : Set where
 {-# FOREIGN GHC data HsCommitPhase = NoCommit | CommitSelected | AwaitingCommitSettlement deriving (Eq, Show) #-}
 {-# COMPILE GHC CommitPhaseᶜ = data HsCommitPhase (NoCommit | CommitSelected | AwaitingCommitSettlement) #-}
 
--- RecomputeCommitPhase applies this projection with the existing selection.
--- SelectDepositIfUnselected, SetDepositSelection and DeselectDeposit apply it
--- after updating selection. CommitUnchanged preserves both selection and phase.
 -- Registry eligibility and signed approval remain separate from selection.
 commitPhaseRef : Bool → Nat → Nat → Bool → CommitPhaseᶜ
 commitPhaseRef selected version signedVersion claimsCommit =
   if (version == signedVersion) && claimsCommit then awaitingCommitSettlementᶜ
   else if selected then selectedCommitᶜ else noCommitᶜ
-
--- Every commit phase pair is reachable. Haskell keeps this projection in an
--- ordinary reducer within a single Crem state; there is no restrictive graph.
--- Snapshot and decommit owners retain constraints on starting new live work.
 
 adoption-without-selection-awaits : commitPhaseRef false 0 0 true ≡ awaitingCommitSettlementᶜ
 adoption-without-selection-awaits = refl

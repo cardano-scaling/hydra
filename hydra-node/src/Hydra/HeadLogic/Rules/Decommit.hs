@@ -15,7 +15,7 @@ import Crem.Topology (Topology (Topology))
 import Hydra.API.ServerOutput (DecommitInvalidReason (..))
 import Hydra.Chain.ChainState (ChainSlot)
 import Hydra.HeadLogic.Limits (SnapshotLimits)
-import Hydra.HeadLogic.Program (Program, applyTransaction, decide)
+import Hydra.HeadLogic.Program (Program, applyTransaction, traceB)
 import Hydra.HeadLogic.Snapshot.Capacity (checkDecommitCapacity)
 import Hydra.HeadLogic.Snapshot.Settlement (settledUTxO, settlingDecommit)
 import Hydra.HeadLogic.State (CoordinatedHeadState (..))
@@ -94,12 +94,12 @@ workflow limits slot state tx = Workflow.workflow (show . stateStage) Pending st
     Pending -> case state.decommitTx of
       Just existing ->
         continue (const $ Refuse $ NotApplicable DecommitAlreadyInFlight{otherDecommitTxId = txId existing}) $
-          decide "no decommit is in flight" False
+          traceB "no decommit is in flight" False
       Nothing
         | settlingDecommit state.version state.confirmedSnapshot ->
             continue (const $ Refuse $ NotApplicable $ invalid "confirmed decommit awaits settlement") $
-              decide "no decommit is in flight" False
-      Nothing -> continue (const Apply) $ decide "no decommit is in flight" True
+              traceB "no decommit is in flight" False
+      Nothing -> continue (const Apply) $ traceB "no decommit is in flight" True
     Apply -> choose $ do
       applied <- applyTransaction slot state.localUTxO tx
       pure $ case applied of
@@ -108,15 +108,15 @@ workflow limits slot state tx = Workflow.workflow (show . stateStage) Pending st
     Outputs after
       | utxoFromTx tx == mempty ->
           continue (const $ Refuse $ Invalid $ invalid "decommit transaction has no outputs") $
-            decide "decommit produces outputs" False
-      | otherwise -> continue (const $ Capacity after) $ decide "decommit produces outputs" True
+            traceB "decommit produces outputs" False
+      | otherwise -> continue (const $ Capacity after) $ traceB "decommit produces outputs" True
     Capacity after ->
       let capacity = checkDecommitCapacity limits after (settledUTxO state.version $ getSnapshot state.confirmedSnapshot) tx
        in case capacity of
             Left validationError ->
               continue (const $ Refuse $ Invalid DecommitTxInvalid{localUTxO = state.localUTxO, validationError}) $
-                decide "decommit fits local and confirmed capacity" False
-            Right () -> continue (const Accept) $ decide "decommit fits local and confirmed capacity" True
+                traceB "decommit fits local and confirmed capacity" False
+            Right () -> continue (const Accept) $ traceB "decommit fits local and confirmed capacity" True
     Accept -> finish Accept $ Right $ ValidatedDecommit tx
     Refuse failure -> finish (Refuse failure) $ Left failure
 

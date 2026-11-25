@@ -21,7 +21,7 @@ evaluateResult config = foldProgram $ \case
   ApplyTransaction slot utxo tx -> pure $ transactionApplication config slot utxo tx
   SignSnapshot snapshot -> pure $ signOne (snapshotSigner config) snapshot
   VerifySnapshot parties signatures bytes -> pure $ snapshotVerifier config parties signatures bytes
-  Decide _ answer -> pure answer
+  TraceBoolean _ answer -> pure answer
   Suspend reason -> Left $ Wait reason []
   Reject err -> Left $ Error err
   Change event -> Left $ Continue [event] []

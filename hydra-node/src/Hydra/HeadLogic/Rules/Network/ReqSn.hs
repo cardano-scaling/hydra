@@ -33,11 +33,11 @@ import Hydra.HeadLogic.Outcome (Effect (..), WaitReason (..))
 import Hydra.HeadLogic.Program (
   Program,
   applyTransaction,
-  decide,
   emit,
   reject,
   signSnapshot,
   suspend,
+  traceB,
  )
 import Hydra.HeadLogic.Rules.Coordinated qualified as Staging (
   stage,
@@ -174,14 +174,14 @@ validationWorkflow Args{chainPointTime = ChainPointTime{currentSlot, currentChai
   step :: ValidationState tx from -> Transition tx ValidationTopology (ValidationState tx) from (ValidatedSnapshot tx)
   step = \case
     Request -> continue (const Checked) $ do
-      validNumber <- decide "request is the next snapshot" (snapshotNumber == seenSn + 1)
+      validNumber <- traceB "request is the next snapshot" (snapshotNumber == seenSn + 1)
       unless validNumber $ reject $ RequireFailed ReqSnNumberInvalid{requestedSn = snapshotNumber, lastSeenSn = seenSn}
-      leader <- decide "sender leads this snapshot" (isLeader parameters sender snapshotNumber)
+      leader <- traceB "sender leads this snapshot" (isLeader parameters sender snapshotNumber)
       unless leader $ reject $ RequireFailed ReqSnNotLeader{requestedSn = snapshotNumber, leader = sender}
-      confirmed <- decide "previous snapshot is confirmed" (confSn == seenSn)
+      confirmed <- traceB "previous snapshot is confirmed" (confSn == seenSn)
       unless confirmed $ suspend $ WaitOnSnapshotNumber seenSn
       -- A follower may still be waiting for the increment/decrement observation.
-      matches <- decide "snapshot version matches" (version == snapshotVersion)
+      matches <- traceB "snapshot version matches" (version == snapshotVersion)
       unless matches $ suspend $ WaitOnSnapshotVersion snapshotVersion
     Checked -> continue (uncurry DecommitResolved) resolveDecommit
     DecommitResolved active decommit -> continue (\commit -> DepositResolved active commit decommit) resolveDeposit
@@ -259,7 +259,7 @@ validationWorkflow Args{chainPointTime = ChainPointTime{currentSlot, currentChai
   checkSize :: Text -> Accumulator.HydraAccumulator -> Program tx ()
   checkSize decision accumulator = do
     let result = checkCommitmentCapacity env.snapshotLimits accumulator
-    void $ decide decision (isRight result)
+    void $ traceB decision (isRight result)
     case result of
       Left AccumulatorTooLarge{..} -> reject $ RequireFailed ReqSnUTxOSetTooLarge{..}
       Right () -> pure ()

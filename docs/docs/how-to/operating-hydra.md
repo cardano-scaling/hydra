@@ -15,6 +15,22 @@ This page guides Hydra users on troubleshooting issues when running their instan
 We offer sample node configurations that will help you get started with hosting a Hydra node on virtual machines in the cloud. These configurations are available in the [`sample-node-config/` directory](https://github.com/cardano-scaling/hydra/tree/master/sample-node-config/).
 
 
+## Upgrading persistence
+
+The HeadLogic refactor changes the persisted checkpoint format. The current
+`hydra-node` uses database version **3** and rejects older `hydra.db` databases
+and legacy `state` files. There is no automatic migration.
+
+Before upgrading, close and fan out existing Heads using the `hydra-node`
+version that created their persistence. Keep the original persistence directory
+for recovery. Use a fresh `--persistence-dir` when starting new Heads with the
+new version.
+
+If startup reports an incompatible persistence format, return to the previous
+node version and its original directory to complete that process. Do not delete
+an active Head's persistence or change the database version manually: chain
+replay cannot recover its off-chain signing history and confirmed state.
+
 ## Logs
 
 Following the principles outlined in [ADR-9](/adr/9), the `hydra-node` emits [JSON](https://json.org) formatted logs to the `stdout` stream, with one log item per line.

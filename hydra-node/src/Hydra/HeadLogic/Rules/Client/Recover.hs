@@ -10,9 +10,9 @@ import Hydra.HeadLogic.Error (
 import Hydra.HeadLogic.Outcome (Effect (..))
 import Hydra.HeadLogic.Program (
   Program,
-  decide,
   emit,
   reject,
+  traceB,
  )
 import Hydra.Node.State (Deposit (..), PendingDeposits)
 import Hydra.Prelude hiding (State, state)
@@ -30,13 +30,13 @@ handleRecover ::
 handleRecover currentSlot pendingDeposits finalizedDeposit recoverTxId = do
   let found = Map.lookup recoverTxId pendingDeposits
 
-  void $ decide "deposit is registered" (isJust found)
+  void $ traceB "deposit is registered" (isJust found)
 
   deposit <- case found of
     Nothing -> reject $ RequireFailed NoMatchingDeposit
     Just deposit -> do
       unclaimed <-
-        decide
+        traceB
           "deposit is not claimed by a finalized increment"
           (finalizedDeposit /= Just recoverTxId)
 

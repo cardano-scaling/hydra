@@ -19,8 +19,8 @@ import Hydra.HeadLogic.Outcome (StateChanged (..), WaitReason (..))
 import Hydra.HeadLogic.Program (
   Program,
   change,
-  decide,
   suspend,
+  traceB,
  )
 import Hydra.HeadLogic.Rules.Coordinated (broadcastSnapshot)
 import Hydra.HeadLogic.Rules.Coordinated qualified as Staging (
@@ -114,12 +114,12 @@ workflow Args{chainPointTime = ChainPointTime{currentSlot, currentChainTime}, tr
     CommitCheck
       | Just depositTxId <- selectedDeposit
       , Just Deposit{deposited = commitUTxO} <- Map.lookup depositTxId pendingDeposits -> continue (const Done) $ do
-          void $ decide "next snapshot carries a deposit" True
-          canRetry <- decide "retry budget remains" (ttl > 0)
+          void $ traceB "next snapshot carries a deposit" True
+          canRetry <- traceB "retry budget remains" (ttl > 0)
           if canRetry
             then suspend WaitOnUnresolvedCommit{commitUTxO}
             else invalid DepositInFlight{depositTxId, commitUTxO}
-      | otherwise -> continue (const Validate) $ decide "next snapshot carries a deposit" False
+      | otherwise -> continue (const Validate) $ traceB "next snapshot carries a deposit" False
     Validate -> choose $ do
       result <- Admission.validate env.snapshotLimits currentSlot coordinatedHeadState decommitTx
       case result of
@@ -128,11 +128,11 @@ workflow Args{chainPointTime = ChainPointTime{currentSlot, currentChainTime}, tr
         Left (Admission.Invalid reason) -> invalid reason $> next Done
     Record checked -> continue (const Done) $ do
       void $ Staging.stage (Coordinated.start openState) $ Coordinated.recordDecommit checked
-      noSnapshot <- decide "no snapshot is in flight" (not $ snapshotInFlight seenSnapshot)
+      noSnapshot <- traceB "no snapshot is in flight" (not $ snapshotInFlight seenSnapshot)
       when noSnapshot $ do
-        leader <- decide "this party leads the next snapshot" (isLeader parameters env.party nextSn)
+        leader <- traceB "this party leads the next snapshot" (isLeader parameters env.party nextSn)
         when leader $ do
-          void $ decide "snapshot request has useful work" (maybe False snd selectedRequest)
+          void $ traceB "snapshot request has useful work" (maybe False snd selectedRequest)
           forM_ selectedRequest $ \(request, useful) -> when useful $ broadcastSnapshot request
     Done -> finish Done ()
 
@@ -140,7 +140,7 @@ workflow Args{chainPointTime = ChainPointTime{currentSlot, currentChainTime}, tr
   invalid decommitInvalidReason = change DecommitInvalid{..}
   notApplicable :: DecommitInvalidReason tx -> Program tx ()
   notApplicable reason = do
-    canRetry <- decide "retry budget remains" (ttl > 0)
+    canRetry <- traceB "retry budget remains" (ttl > 0)
     if canRetry then suspend $ WaitOnNotApplicableDecommitTx reason else invalid reason
   selectedDeposit = selectedRequest >>= requestDepositTxId . fst
   selectedRequest =

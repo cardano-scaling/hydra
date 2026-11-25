@@ -289,7 +289,6 @@ prepareRegistry backend = do
           SQLiteWriteStarted -> set sqliteInflight 1
           SQLiteWriteCompleted{writeSeconds} -> set sqliteInflight 0 >> observe sqliteDuration writeSeconds
           SQLiteWriteFailed -> set sqliteInflight 0
-          _ -> pure ()
         _ -> pure ()
   pure (handle, registry, refresh)
 

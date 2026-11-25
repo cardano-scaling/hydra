@@ -38,7 +38,7 @@ workflow describe initial step =
 -- | Let a program decide which state to go to; i.e.
 --
 -- choose $ do
---    okay <- decide "okay?" condition
+--    okay <- traceB "okay?" condition
 --    if okay
 --       then pure $ next NextThing
 --       else suspend waitReason

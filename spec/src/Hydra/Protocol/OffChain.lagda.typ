@@ -216,8 +216,7 @@ request; this is a construction policy, not a limit imposed on received requests
 These prefix checks reserve already-settling incremental actions. A fresh deposit
 is chosen after selecting the ordinary prefix, and must fit alongside its final
 UTxO; it does not impose another check on that prefix's intermediate states.
-Otherwise the deposit is deferred. The figure's $sans("depositFits")(D)$ checks
-the selected ledger and $D.U$. Write $sans("outputs")(bot)=emptyset$.
+Otherwise the deposit is deferred. Write $sans("outputs")(bot)=emptyset$.
 A settling commit stays in the request. Pending transactions
 justify either a non-empty request or an empty pruning snapshot; a settling
 incremental action alone does not repeatedly trigger empty snapshots.
@@ -694,7 +693,9 @@ message $(hpAS,hats,msSig_i)$.
 - Same-version requests must carry the authorised decommit and no deposit. Missing payload means no request and no request marker.
 - `TransactionReceived` retains the payload before `SnapshotRequested`; `SnapshotConfirmed` promotes it to $tx_omega$.
 - Current-version decommit authority blocks a new `ReqDec`, even without a local payload; settlement retires that authority.
-- Ticks and settlement observations also request newly eligible work when this party leads and no round is in flight.
+- Ticks request newly eligible work when this party leads and no round is in flight.
+- Increment/Decrement observations request further useful work only when the observed version advances; selection uses the state after settlement and any candidate adoption.
+- An invalid early acknowledgement has no automatic recovery; closing remains the protocol exit.
 - The bounded reference covers these refinements; `_handles_↝_`'s `ackSn-confirm` only projects the certificate update.
 
 The network-message handlers above are transcribed as the relation
@@ -708,6 +709,9 @@ relations formalise exactly the arms those results consume - the four network
 handlers here and the deposit/tick/increment/decrement/initialTx chain
 observations below - while the close/contest/fanout observations and the
 leader-multicast effects are not modelled at this level.
+Bounded reference tests do not establish complete cryptographic correctness or
+unbounded liveness. Administrative snapshot side-loading can reset signing
+history and is outside the honest-signing theorem.
 
 ```
 -- Handling a network message updates a party's local state (spec §6.4); together with `_observes_↝_`
@@ -1199,6 +1203,8 @@ blockchain sees a _rollback_ followed by rollforwards.
 - Close/Contest adoption checks the candidate number and certificate. Failed adoption does not undo the chain observation.
 - Increment consumes the deposit observation every time, but adds its value only at a fresh version; repeated settlement clears only matching selection.
 
+#show <fig:off-chain-prot>: set block(breakable: true)
+
 #figure(
   {
     set text(size: 6.5pt)
@@ -1251,11 +1257,11 @@ blockchain sees a _rollback_ followed by rollforwards.
                 $hatmT <- hatmT union {tx}$ \
                 #kw("if") $hats = macron(mc(S)).s and hpLdr(macron(mc(S)).s + 1) = i$
                 #nst[
-                  #kw("if") $tx_alpha = bot and tx_omega = bot and macron(mc(S)).U_alpha = emptyset$
+                  $(T,a,w) <- sans("selectRequest")()$ \
+                  #kw("if") $(T,a,w) != bot and sans("useful")$
                   #nst[
-                    $tx_alpha <-$ oldest $D in mc(D)$ with $D.sans("status") = sans("Active") and D.U inter macron(mc(S)).U = emptyset and D.U inter sans("outputs")(hatmT) = emptyset and sans("depositFits")(D)$
+                    #kw("multicast") $(hpRS, hatv, macron(mc(S)).s + 1, T, a, w)$
                   ]
-                  #kw("multicast") $(hpRS, hatv, macron(mc(S)).s + 1, sans("requestable")(hatmT, tx_alpha, sans("requestDecommit")(hatv, macron(mc(S)), tx_omega)), tx_alpha, sans("requestDecommit")(hatv, macron(mc(S)), tx_omega))$
                 ]
               ]
             ]
@@ -1269,13 +1275,10 @@ blockchain sees a _rollback_ followed by rollforwards.
                 $tx_omega <- tx$ \
                 #kw("if") $hats = macron(mc(S)).s and hpLdr(macron(mc(S)).s + 1) = i$
                 #nst[
-                  #kw("if") $tx_alpha != bot$ #text(size: 0.8em)[(a settling commit is carried on; the decommit waits for it)]
+                  $(T,a,w) <- sans("selectRequest")()$ \
+                  #kw("if") $(T,a,w) != bot and sans("useful")$
                   #nst[
-                    #kw("multicast") $(hpRS, hatv, macron(mc(S)).s + 1, sans("requestable")(hatmT, tx_alpha, bot), tx_alpha, bot)$
-                  ]
-                  #kw("else if") $hatmT != emptyset or sans("newDecommit")(hatv, macron(mc(S)), tx_omega)$
-                  #nst[
-                    #kw("multicast") $(hpRS, hatv, macron(mc(S)).s + 1, sans("requestable")(hatmT, bot, sans("requestDecommit")(hatv, macron(mc(S)), tx_omega)), bot, sans("requestDecommit")(hatv, macron(mc(S)), tx_omega))$
+                    #kw("multicast") $(hpRS, hatv, macron(mc(S)).s + 1, T, a, w)$
                   ]
                 ]
               ]
@@ -1401,15 +1404,21 @@ blockchain sees a _rollback_ followed by rollforwards.
             ]
 
             #proc([#kw("on") $(mtxDecrement, U, v, s, xi)$ #kw("from") chain])[
+              $v_(sans("old")) <- hatv$ \
               $sans("settleDecommit")(v)$ \
               $sans("adopt")(s, xi)$ \
-              #kw("if") $hats = macron(mc(S)).s and hpLdr(macron(mc(S)).s + 1) = i and (hatmT != emptyset or sans("newDecommit")(hatv, macron(mc(S)), tx_omega))$
+              #kw("if") $v > v_(sans("old")) and hats = macron(mc(S)).s and hpLdr(macron(mc(S)).s + 1) = i$
               #nst[
-                #kw("multicast") $(hpRS, hatv, macron(mc(S)).s + 1, sans("requestable")(hatmT, tx_alpha, bot), tx_alpha, bot)$
+                $(T,a,w) <- sans("selectRequest")()$ \
+                #kw("if") $(T,a,w) != bot and sans("useful")$
+                #nst[
+                  #kw("multicast") $(hpRS, hatv, macron(mc(S)).s + 1, T, a, w)$
+                ]
               ]
             ]
 
             #proc([#kw("on") $(mtxIncrement, tx_alpha^(sans("obs")), U, v, s, xi)$ #kw("from") chain])[
+              $v_(sans("old")) <- hatv$ \
               $mc(D) <- mc(D) without (tx_alpha^(sans("obs")), dot.c)$ \
               #kw("if") $v > hatv$
               #nst[
@@ -1422,9 +1431,13 @@ blockchain sees a _rollback_ followed by rollforwards.
                 $tx_alpha <- bot$
               ]
               $sans("adopt")(s, xi)$ \
-              #kw("if") $hats = macron(mc(S)).s and hpLdr(macron(mc(S)).s + 1) = i and (hatmT != emptyset or sans("newDecommit")(hatv, macron(mc(S)), tx_omega))$
+              #kw("if") $v > v_(sans("old")) and hats = macron(mc(S)).s and hpLdr(macron(mc(S)).s + 1) = i$
               #nst[
-                #kw("multicast") $(hpRS, hatv, macron(mc(S)).s + 1, sans("requestable")(hatmT, bot, sans("requestDecommit")(hatv, macron(mc(S)), tx_omega)), bot, sans("requestDecommit")(hatv, macron(mc(S)), tx_omega))$
+                $(T,a,w) <- sans("selectRequest")()$ \
+                #kw("if") $(T,a,w) != bot and sans("useful")$
+                #nst[
+                  #kw("multicast") $(hpRS, hatv, macron(mc(S)).s + 1, T, a, w)$
+                ]
               ]
             ]
 
@@ -1486,145 +1499,3 @@ blockchain sees a _rollback_ followed by rollforwards.
   },
   caption: [Head-protocol machine for the _coordinated head_ from the perspective of party $party_i$.],
 ) <fig:off-chain-prot>
-
-== Implementation notes
-
-- `Program` exposes ledger application, signing and verification as primitives; rules choose state changes and effects.
-- Complete commits changes and releases effects; Wait retains the change prefix but discards effects; Reject discards both.
-- Each input/retry starts a fresh workflow. Signing keys stay in interpreter configuration, outside traces.
-- Callers supply named, lazy `Args` records and execute workflows with `Workflow.run`; argument packaging preserves guards, primitive calls and event order.
-- Record wildcards and named, lazy branch inputs preserve these decisions; explicit imports refer to the same `Program` primitives.
-- ReqDec keeps the incoming transaction distinct from the pending decommit in coordinated state; DecommitInvalid events identify the incoming transaction.
-- ReqSn constructs the snapshot from the applied UTxO, resolved commit/decommit sets and ordered transactions; the snapshot number and deposit ID come from the request, and its version matches coordinated state.
-- Verification returns success, a signature-count mismatch, or the nonempty list of invalid signers in party order.
-- Crem constrains phase transitions and payloads; guards and primitive answers need separate checks. Diagram edge labels do not affect these transitions.
-- Live admission and trusted replay use separate entry points. Replay does not grant extra live transitions.
-- Candidate handles bind Head, version, number, signing bytes and ordered parties; confirmation requires the currently owned handle.
-- Settlement can advance the working version while a candidate still collects signatures; its final acknowledgement remains valid.
-- Partial acknowledgements record one signature event; replay accepts older duplicates idempotently. Failed final verification discards the current staged signature.
-- AckSn increment/decrement effects combine the open Head's identity and parameters with the verified snapshot and signatures. Chained requests use the coordinated state after confirmation.
-- Duplicate transaction IDs cannot replace validated local or candidate-decommit payloads, including on retry expiry.
-- Retry expiry can require client resubmission. Invalid early acknowledgements have no automatic recovery; closing remains the protocol exit.
-- Agda projections and Haskell sequence tests cover bounded outcomes and replay, not complete cryptographic correctness or unbounded liveness.
-
-=== State and replay
-
-- `Rules` chooses actions; `State` owns updates and recovery; shared types live in `State.Types`.
-- Node state contains the deposit registry, Head lifecycle, and observed time and synchronisation status. State.Node applies retained events and updates time and synchronisation directly in NodeState, without a separate clock machine.
-- An open Head contains snapshots, local transactions and decommit reservations, and commit selection. These are state components, not successive protocol stages.
-- Increment settlement supplies the deposited UTxO to the Head before the registry marks it consumed.
-- Replay trusts retained events; it does not repeat admission or signature checks. Foreign-Head events are filtered first, except node-level deposit recovery.
-- `Nothing` from coordinated replay means no coordinated update; other owners still process the event.
-- Tick order: record chain time, update sync status, refresh deposits, then perform Head-specific work. Wall-clock time measures sync lag only.
-- `depositsForHead` includes all pending deposits for that Head; `depositsForHeadWithoutFinalizedCommit` additionally excludes its retained finalized increment. Eligibility is checked separately.
-- Head lifecycle: Idle → Open → Closed → Finalized, or Closed → PartialFanout → Finalized.
-- Increment/Decrement stay Open; Contest stays Closed. Readiness and pending fanout requests do not change the protocol phase.
-- PartialFanout starts on chain observation, even without locally matching outputs; it cannot reopen or return to Closed/Idle.
-- Local fanout requests preserve chain state; partial distribution observations supply updated chain state before conversion to fanout state.
-- Finalized retains Head identity and chain state. The node can start a different Head; API Idle reports that availability.
-- Fanout checkpoints retain the observed datum, candidate and readiness flag separately from matched outputs.
-- Persistence is breaking: current generic CBOR layouts only, no migration. Cached signing bytes are reconstructed from snapshot contents.
-- Deposit eligibility, recording and consumption are independent of snapshot selection; ordinary reducers handle their updates and rollback.
-- Raw retained state can contain both a selected commit and pending decommit; live mutual-exclusion guards remain necessary.
-- Approval events are notifications, not a second application of incremental changes. Expiry alone does not erase signed authority.
-- Chain rollback has the limits in @sec:rollbacks; checkpoint recovery resets every owner.
-
-=== Input handling
-
-- Check client accumulator bounds before echoing inputs, then apply the sync gate.
-- While catching up: accept chain inputs, reject client inputs and wait on network inputs.
-- Record settlement before attempted adoption; failed verification retains the settlement observation.
-- Decrement observations retain the produced L1 output references. These differ from the signed snapshot references and do not become the local ledger base.
-- Adoption checks snapshot number, successor version, incremental action and signatures. Close/Contest can also adopt a matching signed candidate.
-- Side-loading checks number and L1-relevant fields before signatures; failure reports to the client without staging changes.
-- Administrative side-loading can reset signing history; it is outside the Agda honest-signing theorem.
-
-=== Coordinated state
-
-- Snapshots owns candidates, signatures and certificates; Transactions owns the registry, local ledger and decommit; Commits owns deposit selection and phase.
-- State.Coordinated routes ordinary transaction commands directly to Transactions. Snapshot commands update Snapshots before transaction reconciliation and commit selection; settlement preserves this ordering.
-- Snapshot commands exclude ordinary transaction commands. Components exchange typed updates; owner refusal rejects the whole Program attempt without retaining any component update.
-- Rebuilding from a snapshot preserves pending decommit reservations and the order of retained transactions.
-- Clearing local work empties the registry/sequence. A confirmed snapshot restores the spendable base and approved decommit, clearing deposit selection; an initial snapshot leaves selection/reservation unchanged.
-- Fresh settlement advances the version and applies value once. Repetition cannot restore spent outputs or release a newer reservation.
-- Repeated commit settlement still clears a matching selection; repeated decommit settlement leaves transaction state unchanged.
-- Coordinators retain their component states across commands and event batches; checkpoints reset them. Continuations are not persisted.
-
-=== Decommit phases
-
-- Phases: NoDecommit → DecommitPending → AwaitingDecommitSettlement → NoDecommit.
-- `RecordPending` reserves spending inputs; confirmation authorises settlement. Conflicting confirmation can release the reservation.
-- Adoption can enter AwaitingDecommitSettlement without a local transaction; signed authority still blocks a new decommit.
-- AwaitingDecommitSettlement cannot become DecommitPending directly; guards also prevent replacement within a phase.
-- Fresh settlement retires authority; repeated observations and rollback do not reinstate old work.
-
-=== Commit phases
-
-- Phases: NoCommit, CommitSelected, AwaitingCommitSettlement. Current-version signed authority takes precedence over local selection.
-- Selection does not make funds spendable. Clearing selection, expiry or recovery does not erase the certificate.
-- Fresh increment advances the version, adds deposited outputs once and clears selection; late confirmation does not revive settled authority.
-- A claim can be dropped after recovery or deadline plus rollback margin; authority remains until the replacement snapshot confirms.
-- All commit phase pairs are reachable: use an ordinary value inside one Crem state. Eligibility and mutual exclusion remain rule checks.
-
-=== Checked validation results
-
-Workflows return typed results. Shared decommit admission checks existing intent
-or unsettled authority, ledger applicability, nonempty outputs and both fanout
-capacities. Client refusal is immediate; network requests retain deposit
-precedence and retry availability or ledger failures while their TTL is positive.
-
-Live transaction application, decommit recording and snapshot acceptance consume
-opaque validation results. Snapshot validation finishes before signing,
-acknowledgement emission and pruning. The checked snapshot supplies its deposit
-identifier. Results are local to an input invocation, not persisted or linear-use
-proofs; owner checks still bind acceptance to the live Head, version and round.
-Trusted replay imports retained facts without repeating validation.
-
-
-=== Operation workflows
-
-
-
-=== Operation workflows and shared request context
-
-Client fanout validates a selection before recording intent, then posts the
-transaction bound to that same checked plan. Full fanout, subset selection and
-final distribution share the transaction constructor with chain continuation
-and reposting. Observations still record progress independently; passive
-observers do not become drivers, an empty local remainder cannot justify an
-empty final partial-fanout batch, and reposts emit only effects. Current-step correlation still decides whether a
-failed post can revert optimistic intent.
-
-Side-loading checks compatibility before certificate verification, then adopts
-before clearing local work. An identical initial snapshot needs no certificate.
-A failed requirement emits a client refusal and makes no state change. Close and
-contest observations attempt adoption before recording the chain fact, even
-when verification fails. Close compares the pre-adoption confirmed snapshot;
-contest does not post another contest after adopting the observed candidate.
-Settlement deliberately keeps its different order: record finalization first.
-
-Acknowledgement processing confirms the verified candidate, publishes commit or
-decommit approval and its chain effect, then considers another request. Shared
-request contexts assemble the version, snapshot, local transactions, deposits,
-selection and incremental statuses. Each caller retains its scheduling policy:
-ticks may drop expired commits through an empty round; chained requests require
-useful work; `reqDec` broadcasts without retaining a local request marker.
-
-Tick handling computes one effective deposit view for status events and request
-selection. Activation events precede expiry events, each in identifier order.
-A computed inactive status produces no event and preserves a retained active or
-expired status after backwards time movement. `effectiveDepositStatusRef`
-checks this boundary independently; the workflow tests compare it with both the
-returned view and event replay. The status decision itself remains
-`depositStatusRef`. Empty deposits and finalized claims remain excluded from
-new requests by their existing selection rules.
-
-Each accepted partial acknowledgement records one signature event. Replay still
-accepts older duplicate records idempotently; persistence encodings are unchanged.
-
-A fresh decrement rebuilds the optimistic ledger before releasing a reservation,
-using the owned candidate while collecting signatures, otherwise the confirmed
-snapshot. Retained ordinary transactions are reapplied in order. Repeated
-observations preserve newer reservations and do not restore spent outputs.
-The independent settlementUTxORef projection checks the local ledger given the
-reconstructed ledger; sequence tests cover both settlement orders and recovery.
