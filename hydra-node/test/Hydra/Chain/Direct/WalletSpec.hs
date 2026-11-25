@@ -11,12 +11,12 @@ import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Alonzo.Scripts (AsIx (..))
 import Cardano.Ledger.Alonzo.Tx (ScriptIntegrity (..), hashScriptIntegrity)
 import Cardano.Ledger.Alonzo.TxWits (Redeemers (..))
-import Cardano.Ledger.Api (AlonzoEraTxWits (rdmrsTxWitsL), ConwayEra, EraTx (getMinFeeTx, witsTxL), EraTxBody (feeTxBodyL, inputsTxBodyL), PParams, TxBody, bodyTxL, coinTxOutL, datsTxWitsL, hashScript, outputsTxBodyL, referenceInputsTxBodyL, scriptIntegrityHashTxBodyL, scriptTxWitsL, pattern SpendingPurpose)
+import Cardano.Ledger.Api (AlonzoEraTxWits (rdmrsTxWitsL), ConwayEra, EraTx (getMinFeeTx, mkBasicTx, witsTxL), EraTxBody (feeTxBodyL, inputsTxBodyL), PParams, TxBody, bodyTxL, coinTxOutL, datsTxWitsL, getMinCoinTxOut, hashScript, mkBasicTxBody, outputsTxBodyL, referenceInputsTxBodyL, scriptIntegrityHashTxBodyL, scriptTxWitsL, setMinCoinTxOut, pattern SpendingPurpose)
 import Cardano.Ledger.Api.PParams (getLanguageView)
 import Cardano.Ledger.Babbage.TxBody (BabbageTxOut (..))
 import Cardano.Ledger.BaseTypes qualified as Ledger
 import Cardano.Ledger.Coin (Coin (..))
-import Cardano.Ledger.Core (Tx, TxLevel (..), Value)
+import Cardano.Ledger.Core (Tx, TxLevel (..), Value, ppTxFeeFixedL)
 import Cardano.Ledger.Hashes (hashAnnotated)
 import Cardano.Ledger.Plutus (Data, ExUnits (..))
 import Cardano.Ledger.Plutus.Language (Language (PlutusV3))
@@ -61,9 +61,10 @@ import Hydra.Chain.Direct.Wallet (
   findLargestUTxO,
   newTinyWallet,
  )
+import Hydra.Chain.Direct.Wallet qualified as Wallet
 import Hydra.Contract.Dummy (dummyValidatorScript)
 import Test.Hydra.Tx.Fixture qualified as Fixture
-import Test.Hydra.Tx.Gen (genKeyPair, genOneUTxOFor, genTxOut)
+import Test.Hydra.Tx.Gen (genKeyPair, genOneUTxOFor, genTxOut, genTxOutAdaOnly)
 import Test.QuickCheck (
   Discard (..),
   Property,
@@ -97,6 +98,7 @@ spec = parallel $ do
 
   describe "coverFee" $ do
     prop "sets min utxo values" prop_setsMinUTxOValue
+    prop "rejects wallet change below the minimum" prop_rejectsBelowMinUTxOChange
     prop "balances transaction with fees" prop_balanceTransaction
     prop "prefers largest utxo" prop_picksLargestUTxOToPayTheFees
     prop "reports ErrMissingScript when script witness is missing" prop_detectsMissingScript
@@ -233,6 +235,37 @@ prop_setsMinUTxOValue =
  where
   -- Generate a deliberately "under-valued" TxOut
   genTxOutWithoutADA = arbitrary <&> coinTxOutL .~ mempty
+
+prop_rejectsBelowMinUTxOChange :: Property
+prop_rejectsBelowMinUTxOChange =
+  forAll (genTxOutAdaOnly =<< arbitrary) $ \out -> do
+    let paymentOutput = setMinCoinTxOut pparams $ Api.toLedgerTxOut out
+        paymentValue = paymentOutput ^. coinTxOutL
+        minimumChange = getMinCoinTxOut pparams paymentOutput
+        change = minimumChange - Coin 1
+        changeOutput = paymentOutput & coinTxOutL .~ change
+        lookupUTxO = Map.singleton paymentInput paymentOutput
+        walletUTxO = Map.singleton walletInput (paymentOutput & coinTxOutL .~ (fee <> change))
+        tx =
+          mkBasicTx $
+            mkBasicTxBody
+              & inputsTxBodyL .~ Set.singleton paymentInput
+              & outputsTxBodyL .~ StrictSeq.singleton paymentOutput
+    change `shouldSatisfy` (> Coin 0)
+    getMinCoinTxOut pparams changeOutput `shouldBe` minimumChange
+    case coverFee_ pparams Fixture.systemStart Fixture.epochInfo lookupUTxO walletUTxO tx of
+      Left (ErrNotEnoughFunds (Wallet.ChangeError totalIn totalOut)) -> do
+        totalOut `shouldBe` paymentValue <> fee
+        totalIn - totalOut `shouldBe` change
+      Left err -> expectationFailure $ "Unexpected coverFee error: " <> show err
+      Right _ -> expectationFailure "Expected below-minimum wallet change to be rejected"
+ where
+  -- A fixed fee makes the remaining change independent of transaction size.
+  pparams = Fixture.defaultPParams & ppTxFeeFixedL .~ fee
+  fee = Coin 200_000
+  Ledger.TxIn seedId _ = toLedgerTxIn Fixture.testSeedInput
+  paymentInput = Ledger.TxIn seedId (Ledger.TxIx 0)
+  walletInput = Ledger.TxIn seedId (Ledger.TxIx 1)
 
 prop_balanceTransaction :: Property
 prop_balanceTransaction =

@@ -10,12 +10,20 @@ changes.
 
 ## [UNRELEASED]
 
+- Internal wallet outputs bellow min ADA are now rejected on tx construction.
+
 - **BREAKING** Switched to a new trusted CRS which bumps the maximum UTxO in the snapshot
   from 4,095 to 32,767! [#2932](https://github.com/cardano-scaling/hydra/pull/2932)
 
 - Fixed the Blockfrost backend crashing on tokens with an empty asset name.
   A null `asset_name` in asset details is now decoded as an empty name.
   [#2923](https://github.com/cardano-scaling/hydra/issues/2923)
+
+- Prevent transactions exceeding the accumulator's maximum output capacity from
+  stalling snapshot confirmation. Snapshot capacity checks reserve pending commit and
+  decommit outputs, reject oversized decommits, and defer deposits that do not
+  fit alongside the requested transactions.
+  [#2924](https://github.com/cardano-scaling/hydra/issues/2924)
 
 ## [2.4.2] - 2026.10.22
 

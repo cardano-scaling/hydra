@@ -32,6 +32,12 @@ module Hydra.Agda.OffChainReference (
 
   -- * round-robin leader (bound to the real 'Hydra.HeadLogic.isLeader')
   leaderRef,
+
+  -- * accumulator capacity and pruning
+  accumulatorCapacityRef,
+  snapshotCapacityRef,
+  decommitCapacityRef,
+  pendingTxFitsRef,
 ) where
 
 import MAlonzo.Code.Hydra.Protocol.OffChainReference (HsDepositStatus (..), HsPendingCommit (..))
@@ -129,3 +135,19 @@ contestEligibleRef = M.hsContestEligibleRef
 -- the hydra-node off-chain differential.
 leaderRef :: Integer -> Integer -> Integer -> Bool
 leaderRef = M.hsLeaderRef
+
+-- | Capacity of the deployed accumulator setup, in output references.
+accumulatorCapacityRef :: Integer
+accumulatorCapacityRef = M.hsAccumulatorCapacityRef
+
+-- | Counts of the active set united with owed decommit and commit outputs.
+snapshotCapacityRef :: Integer -> Integer -> Bool
+snapshotCapacityRef = M.hsSnapshotCapacityRef
+
+-- | Output count and post-application local/confirmed counts before exclusion.
+decommitCapacityRef :: Integer -> Integer -> Integer -> Bool
+decommitCapacityRef = M.hsDecommitCapacityRef
+
+-- | Ledger applicability, held-output disjointness and both fanout counts.
+pendingTxFitsRef :: Bool -> Bool -> Integer -> Integer -> Bool
+pendingTxFitsRef = M.hsPendingTxFitsRef

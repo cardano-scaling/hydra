@@ -22,7 +22,7 @@
 #           equal, and the solvency theorem vacuous, all while still typechecking.
 #
 # It also forbids the escape hatches that are not postulates at all. Agda's own `--safe` would be the
-# obvious tool and is not available: `--safe` BANS postulates, and this specification is built on 65
+# obvious tool and is not available: `--safe` BANS postulates, and this specification is built on 66
 # of them by design (verified: adding the pragma to Prelude fails with "Cannot postulate +ᵛ-assoc
 # with safe flag"), and `--safe` is contagious through imports, so no module downstream of Prelude
 # could carry it either. The enumerated list below is what `--safe` would have bought us here: the
@@ -137,10 +137,13 @@ expected_postulates=$(printf '%s\n' \
 # ── MODEL layer ──────────────────────────────────────────────────────────────────────────────────
 # Every postulate of the model modules, as a name set: a new axiom cannot enter the abstract model
 # silently either.
+# applyUTxO is the arithmetic map update used to count a decommit against
+# confirmed UTxO even when its inputs are only present in the optimistic ledger.
+# Like outputs and the map operations, it is an interface, without added laws.
 actual_model=$(postulate_names "${MODEL_FILES[@]}")
 expected_model=$(printf '%s\n' \
   AccCommitment accUTxO accUTxO-∅ accVerify accVerifyExclude accVerify-full accVerify-complete accVerify-sound \
-  AccWitness adaOf adaOf-+ᵛ aggKey AggSig aggSigOf aggSound applyTxs applyTxs-compose \
+  AccWitness adaOf adaOf-+ᵛ aggKey AggSig aggSigOf aggSound applyUTxO applyTxs applyTxs-compose \
   applyTxs-nil burnedCount burnedValue bytes canonicalCRS# concat crsDatumHashAt Data \
   depositDatumCommitsHash emptyWitness G₁ _≟ℍ_ ℍ hash headTokenCount Liveness mintedCount msVfy noCommitHash \
   nonAdaOf nonAdaOf-+ᵛ noTxId outputs outsOf PartySig PartyVerified quantityOf quantityOfᴺ \

@@ -235,3 +235,42 @@ d_leaderRef_152 v0 v1 v2
   = coe
       eqInt (coe d_modSuc_146 (coe addInt (coe v0) (coe v1)) (coe v0))
       (coe v2)
+-- Hydra.Protocol.OffChainReference.accumulatorCapacityRef
+hsAccumulatorCapacityRef :: Integer
+hsAccumulatorCapacityRef = coe d_accumulatorCapacityRef_160
+d_accumulatorCapacityRef_160 :: Integer
+d_accumulatorCapacityRef_160 = coe (32767 :: Integer)
+-- Hydra.Protocol.OffChainReference.snapshotCapacityRef
+hsSnapshotCapacityRef :: Integer -> Integer -> Bool
+hsSnapshotCapacityRef = coe d_snapshotCapacityRef_162
+d_snapshotCapacityRef_162 :: Integer -> Integer -> Bool
+d_snapshotCapacityRef_162 v0 v1
+  = coe
+      d__'38''38'__34
+      (coe
+         ltInt (coe v0)
+         (coe
+            addInt (coe (1 :: Integer)) (coe d_accumulatorCapacityRef_160)))
+      (coe
+         ltInt (coe v1)
+         (coe
+            addInt (coe (1 :: Integer)) (coe d_accumulatorCapacityRef_160)))
+-- Hydra.Protocol.OffChainReference.decommitCapacityRef
+hsDecommitCapacityRef :: Integer -> Integer -> Integer -> Bool
+hsDecommitCapacityRef = coe d_decommitCapacityRef_168
+d_decommitCapacityRef_168 :: Integer -> Integer -> Integer -> Bool
+d_decommitCapacityRef_168 v0 v1 v2
+  = coe
+      d__'38''38'__34 (coe ltInt (coe (0 :: Integer)) (coe v0))
+      (coe d_snapshotCapacityRef_162 (coe v1) (coe v2))
+-- Hydra.Protocol.OffChainReference.pendingTxFitsRef
+hsPendingTxFitsRef :: Bool -> Bool -> Integer -> Integer -> Bool
+hsPendingTxFitsRef = coe d_pendingTxFitsRef_176
+d_pendingTxFitsRef_176 ::
+  Bool -> Bool -> Integer -> Integer -> Bool
+d_pendingTxFitsRef_176 v0 v1 v2 v3
+  = coe
+      d__'38''38'__34 (coe v0)
+      (coe
+         d__'38''38'__34 (coe v1)
+         (coe d_snapshotCapacityRef_162 (coe v2) (coe v3)))

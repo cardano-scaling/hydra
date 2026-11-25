@@ -56,3 +56,22 @@ cat tx-signed.json | jq -c '{tag: "NewTx", transaction: .}' | websocat "ws://127
 ```
 
 `Greetings` message will be displayed as always when calling the web socket api and the transaction will be validated by all connected `hydra-node` instances. It will result in either a `TxInvalid` message, providing a reason for rejection, or a `TxValid` message followed by a `SnapshotConfirmed`, updating the UTXO available in the head shortly after that.
+
+## Transactions executing Plutus scripts
+
+Transactions executing Plutus scripts inside a head require at least one
+collateral input, even when transaction fees are zero. Hydra uses Cardano's
+ledger validation, which checks that collateral inputs are present separately
+from checking the required collateral amount. Omitting them results in
+`TxInvalid` with a validation error containing `NoCollateralInputs`.
+
+Select an ADA-only, key-controlled UTxO from the head as collateral. If the
+transaction already spends a suitable input, the same input can also serve as
+collateral; a separate UTxO is unnecessary. With `cardano-cli`, pass its reference
+using `--tx-in-collateral`, then sign the transaction with the key controlling
+that input. Rebuild and re-sign any existing transaction after adding collateral.
+
+The [withdraw-zero example](./withdraw-zero.md#withdraw-zero-transaction)
+demonstrates using the same input for spending and collateral. This collateral
+must exist inside the head; the node's layer 1 [fuel](../configuration.md#fuel-vs-funds)
+does not provide it.
