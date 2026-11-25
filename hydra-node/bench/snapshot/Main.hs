@@ -4,7 +4,8 @@
 -- | Measure transaction receipt, snapshot requests and partial/final
 -- acknowledgements with reproducible Cardano transactions. Each comparison
 -- demands the same outcome before optionally aggregating its events. The API
--- projection also folds those events individually, as 'Hydra.API.Server' does.
+-- projection retains its runtime while folding events, as 'Hydra.API.Server'
+-- does. A separate comparison reconstructs its machines after each event.
 -- Networking, persistence and output encoding remain outside these timings.
 module Main where
 
@@ -18,6 +19,7 @@ import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Cardano.Api (Tx)
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot))
 import Hydra.Chain.Direct.State (initialChainState)
+import Hydra.HeadLogic.State.Node qualified as NodeMachine
 import Hydra.Ledger (Ledger (..))
 import Hydra.Ledger.Cardano (cardanoLedger)
 import Hydra.Network.Message (Message (AckSn, ReqSn, ReqTx))
@@ -201,12 +203,17 @@ inputBenches name expected env st input =
       , bench "update-and-aggregate-and-api" $ whnf withAPI input
       , bench "aggregate-only" $ whnf (aggregateState st) outcome
       , bench "api-projection-only" $ whnf projectAPI outcome
+      , bench "api-projection-restarted" $ whnf projectRestartedAPI outcome
       ]
  where
   run = update env ledger now st
   outcome = run input
-  projectAPI = \case
+  projectRestartedAPI = \case
     Continue{stateChanges} -> foldl' aggregateNodeState st stateChanges
+    other -> error $ "unexpected outcome: " <> show other
+  runtime = NodeMachine.start st
+  projectAPI = \case
+    Continue{stateChanges} -> NodeMachine.currentState $ foldl' NodeMachine.step runtime stateChanges
     other -> error $ "unexpected outcome: " <> show other
   withAPI i =
     let result = run i

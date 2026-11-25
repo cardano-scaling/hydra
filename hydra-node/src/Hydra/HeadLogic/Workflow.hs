@@ -5,13 +5,11 @@ import Crem.BaseMachine (
   ActionResult (..),
   BaseMachineT (..),
   InitialState (InspectableState),
+  runActionResult,
+  withInitialState,
  )
 import Crem.BaseMachine qualified as Base (Transition (..))
 import Crem.StateInspection (describeOnly)
-import Crem.StateMachine qualified as Crem (
-  StateMachineT (Executable),
-  run,
- )
 import Crem.Topology (AllowedTransition, Topology)
 import Hydra.HeadLogic.Program (Program)
 import Hydra.Prelude hiding (state)
@@ -69,11 +67,16 @@ finish ::
   Transition tx topology state phase result
 finish state result = ActionResult $ pure (Just result, state)
 
--- | Run a Crem program and get a `Program` out.
+-- | Drive the typed transitions directly. Intermediate machine wrappers and
+-- inspectors are unnecessary when the workflow runs to its terminal result.
 run :: Workflow tx topology result -> Program tx result
-run = drive . Crem.Executable
+run (BaseMachineT initial action) =
+  withInitialState initial $ \state _ -> drive action state
  where
-  drive :: Monad m => Crem.StateMachineT m () (Maybe a) -> m a
-  drive machine = do
-    (result, remaining) <- Crem.run machine ()
-    maybe (drive remaining) pure result
+  drive ::
+    (forall phase. state phase -> () -> ActionResult (Program tx) topology state phase (Maybe result)) ->
+    state from ->
+    Program tx result
+  drive step state = do
+    Base.Transition result nextState <- runActionResult $ step state ()
+    maybe (drive step nextState) pure result

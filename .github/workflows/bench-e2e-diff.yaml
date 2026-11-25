@@ -23,6 +23,11 @@ on:
       base_ref:
         description: "Baseline ref or SHA (default: head_ref, i.e. an A/A null run)"
         required: false
+      pairs_per_runner:
+        description: "Same-machine pairs, reversing order after each pair"
+        type: choice
+        options: ["1", "2", "4"]
+        default: "1"
 
 # Superseded runs measure dead code; non-PR runs key on run_id so they never
 # cancel each other.
@@ -127,7 +132,7 @@ jobs:
 
   # Four jobs, each measuring one same-machine pair; slot order alternates so
   # slot-position effects (cold caches in slot 1) cancel across the fleet.
-  # More pairs per machine is a one-line change to `order`.
+  # Manual runs can repeat pairs, reversing the order on each runner.
   benchmark:
     name: Benchmark (${{ matrix.machine }})
     needs: generate-datasets
@@ -149,6 +154,7 @@ jobs:
     env:
       BRANCH_FLAKE: ".#hydra-cluster-bench"
       MASTER_FLAKE: "github:cardano-scaling/hydra/${{ needs.generate-datasets.outputs.base_sha }}#hydra-cluster-bench"
+      PAIRS_PER_RUNNER: ${{ inputs.pairs_per_runner || '1' }}
     steps:
     - name: Checkout
       uses: actions/checkout@v4
@@ -238,24 +244,32 @@ jobs:
       run: |
         mkdir -p "$TMPDIR"
         slot=0
-        for side in ${{ matrix.order }}; do
-          slot=$((slot+1))
-          case "$side" in
-            branch) flake="$BRANCH_FLAKE" ;;
-            master) flake="$MASTER_FLAKE" ;;
-          esac
-          out="$PWD/../results/rep-$slot-$side"
-          rm -rf "${TMPDIR:?}"/*
-          nix develop "$flake" --command bench-e2e single \
-            "$PWD/../bench-datasets/sustained-3nodes.json" \
-            "$PWD/../bench-datasets/plateau-1k.json" \
-            --output-directory "$out/open" --timeout 1800s \
-            +RTS -N2 -RTS || true
-          nix develop "$flake" --command bench-e2e single \
-            "$PWD/../bench-datasets/closed-loop-3nodes.json" \
-            --wait-for-tx-valid \
-            --output-directory "$out/closed" --timeout 1800s \
-            +RTS -N2 -RTS || true
+        case "$PAIRS_PER_RUNNER" in
+          1|2|4) ;;
+          *) echo "Unsupported pair count: $PAIRS_PER_RUNNER" >&2; exit 1 ;;
+        esac
+        order=(${{ matrix.order }})
+        for ((pair=0; pair<PAIRS_PER_RUNNER; pair++)); do
+          for side in "${order[@]}"; do
+            slot=$((slot+1))
+            case "$side" in
+              branch) flake="$BRANCH_FLAKE" ;;
+              master) flake="$MASTER_FLAKE" ;;
+            esac
+            out="$PWD/../results/rep-$slot-$side"
+            rm -rf "${TMPDIR:?}"/*
+            nix develop "$flake" --command bench-e2e single \
+              "$PWD/../bench-datasets/sustained-3nodes.json" \
+              "$PWD/../bench-datasets/plateau-1k.json" \
+              --output-directory "$out/open" --timeout 1800s \
+              +RTS -N2 -RTS || true
+            nix develop "$flake" --command bench-e2e single \
+              "$PWD/../bench-datasets/closed-loop-3nodes.json" \
+              --wait-for-tx-valid \
+              --output-directory "$out/closed" --timeout 1800s \
+              +RTS -N2 -RTS || true
+          done
+          order=("${order[1]}" "${order[0]}")
         done
         du -sh "$TMPDIR" || true
         df -h /dev/shm || true

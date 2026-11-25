@@ -253,6 +253,21 @@ class Parsing(unittest.TestCase):
 
 
 class PairingAndRendering(unittest.TestCase):
+    def test_repeated_pairs_reverse_order_without_cross_pairing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for slot, side, tps in ((1, "branch", 550), (2, "master", 500),
+                                    (3, "master", 1000), (4, "branch", 1100)):
+                write_rep(root, "m1", slot, side, report_md(tps=tps))
+            machines, _ = diff.collect_results(root)
+            pairs = diff.build_pairs(machines)
+            self.assertEqual([(p["old"]["slot"], p["new"]["slot"]) for p in pairs],
+                             [(2, 1), (3, 4)])
+            out, regressions = render_dir(root)
+            row = next(r for r in out if r.startswith("| End-to-end TPS"))
+            self.assertIn("+10.0%", row)
+            self.assertEqual(regressions, [])
+
     def test_aa_run_is_all_noise(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

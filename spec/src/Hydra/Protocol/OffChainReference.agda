@@ -1027,3 +1027,11 @@ repeated-settlement-preserves-new-reservation : ∀ current rebuilt →
 repeated-settlement-preserves-new-reservation _ _ = refl
 
 {-# COMPILE GHC settlementUTxORef as hsSettlementUTxORef #-}
+
+-- The Haskell workflow driver executes the same typed transitions directly;
+-- intermediate machine wrappers are outside this reference. Differential tests
+-- compare its complete instruction trace and outcome with the generic Crem
+-- runner, including suspension and rejection.
+-- The API retains state owners across events. MachineSpec checks every prefix
+-- against reconstruction and CBOR recovery, including the phase projections
+-- above. Retention changes neither event order nor checkpoint restoration.

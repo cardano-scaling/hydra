@@ -1196,6 +1196,12 @@ blockchain sees a _rollback_ followed by rollforwards.
 - Limits: no undo of Init, Close, Contest or fanout; no reconciliation of arbitrary settlement histories or divergent fanout progress.
 - Expiry can prevent reposting. Recovery can require external intervention; closing requires the on-chain Head still to be Open.
 - Checkpoint recovery restores complete saved node state and replays later events; chain rollback does not.
+- The API read model retains the typed state owners between events and exposes their node-state projection. Continuous execution, reconstruction after each event and checkpoint recovery agree at every event prefix.
+
+Rule workflows execute their typed transitions directly until completion,
+suspension or rejection. Intermediate machine wrappers are not retained. This
+changes neither the transition topology nor the order of primitive operations,
+state changes, effects and decision traces.
 
 #dparagraph[Snapshot candidate in the algorithm.]
 

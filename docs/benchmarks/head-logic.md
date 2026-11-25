@@ -46,8 +46,11 @@ Every input has `full-update`, `update-and-aggregate`, and
 and demand its network payload, including the actual signature for `ReqSn`.
 The latter two additionally force the resulting node state to WHNF, matching
 the strict state update in the node and API projection. The API case includes
-its separate fold of individual events. `aggregate-only` and
-`api-projection-only` operate on a prepared outcome.
+its separate fold of individual events through a retained typed runtime.
+`aggregate-only` and `api-projection-only` operate on a prepared outcome;
+`api-projection-restarted` compares reconstructing the API's machines for each
+event. The retained runtime is prepared outside the measurement, as it survives
+between inputs in the server.
 
 These projections deliberately exclude networking, persistence, output
 encoding and the other API read models. Differences between timings are useful
@@ -79,3 +82,12 @@ options and storage location in each pair. Inspect snapshot counts and batch
 sizes alongside elapsed time, throughput and latency; open-loop batch boundaries
 can move percentiles substantially. See the [metrics reference](./metrics.md)
 for the meaning and limits of each reported value.
+
+To confirm a small difference in CI, dispatch `bench-e2e-diff.yaml` with exact
+`head_ref` and `base_ref` commits and `pairs_per_runner=2` or `4`. Each runner
+reverses order after every pair. Compare an optimization against its immediate
+parent to isolate it, then compare the combined changes against the merged
+baseline. An A/A run with both refs equal estimates variation without a code
+change. Keep machine identities when interpreting repeated pairs: repeated runs
+on one VM are not independent machines, and an uncolored row does not prove
+that performance is unchanged.

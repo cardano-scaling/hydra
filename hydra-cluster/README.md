@@ -316,6 +316,10 @@ other people's merges cannot appear as PR deltas):
   run; `scripts/bench-e2e-diff.py --calibrate <dir>` prints suggested
   per-metric values to land in the script. Draft PRs are skipped unless the
   PR carries the `bench` label (applies from the next push).
+* Manual runs can set `pairs_per_runner` to `2` or `4` to repeat the comparison
+  on each runner, reversing execution order after every pair. Ordinary PR runs
+  keep one pair per runner. Repeated pairs help expose order effects and timing
+  variation within a machine; they are not additional independent machines.
 
 A new summary metric only shows a difference once both sides emit it, and
 must be registered in the script's `METRICS` table.
