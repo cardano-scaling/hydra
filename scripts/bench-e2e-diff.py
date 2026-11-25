@@ -9,8 +9,9 @@
 # Paired mode layout, produced by .github/workflows/bench-e2e-diff.yaml:
 #   DIR/<machine>/fingerprint.json                                (optional)
 #   DIR/<machine>/rep-<slot>-<side>/**/end-to-end-benchmarks.md
-# Every benchmark job measures BOTH sides on its own runner, so adjacent slots
-# form a same-machine pair and machine identity cancels in the pair delta
+# Every benchmark job measures BOTH sides on its own runner. Original slots
+# 1-2, 3-4, etc. form same-machine pairs; incomplete pairs are skipped without
+# shifting subsequent slots. Machine identity cancels in the pair delta
 # (GitHub's fleet mixes CPU models with a large performance spread; unpaired
 # cross-machine numbers mostly measure which VMs the jobs landed on).
 #
@@ -301,9 +302,11 @@ def collect_results(results_dir):
 def build_pairs(machines):
     pairs = []
     for machine in machines.values():
-        reps = machine["reps"]
-        for i in range(0, len(reps) - 1, 2):
-            a, b = reps[i], reps[i + 1]
+        reps = {rep["slot"]: rep for rep in machine["reps"]}
+        for slot in sorted(reps):
+            if slot % 2 == 0 or slot + 1 not in reps:
+                continue
+            a, b = reps[slot], reps[slot + 1]
             if {a["side"], b["side"]} != {"branch", "master"}:
                 print(f"WARNING: slots {a['slot']},{b['slot']} on {machine['name']} are not a branch/master pair; skipped", file=sys.stderr)
                 continue

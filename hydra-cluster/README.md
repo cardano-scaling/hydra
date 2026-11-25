@@ -320,6 +320,8 @@ other people's merges cannot appear as PR deltas):
   on each runner, reversing execution order after every pair. Ordinary PR runs
   keep one pair per runner. Repeated pairs help expose order effects and timing
   variation within a machine; they are not additional independent machines.
+  Results are paired by their original slots (1–2, 3–4, etc.); a missing results
+  directory discards only its incomplete pair, leaving later pairs intact.
 
 A new summary metric only shows a difference once both sides emit it, and
 must be registered in the script's `METRICS` table.
