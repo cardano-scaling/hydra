@@ -38,6 +38,7 @@ import Hydra.API.ServerOutput (
  )
 import Hydra.HeadLogic.Deposit (Deposit (..))
 import Hydra.HeadLogic.Outcome (StateChanged (..))
+import Hydra.HeadLogic.Snapshot.Cached qualified as Cached
 import Hydra.HeadLogic.Snapshot.Request (maxTxsPerSnapshot)
 import Hydra.HeadLogic.Snapshot.Settlement (
   finalizedDepositTxId,
@@ -311,7 +312,7 @@ machine headId snapshots0 initial initialDecommit =
     confirmedLocal = maybe local (\tx -> local{allTxs = Map.delete (txId tx) local.allTxs}) payload
 
     requestUTxO = settledUTxO snapshots.version $ case snapshots.seen of
-      SeenSnapshot{snapshot} -> snapshot
+      SeenSnapshot{cachedSnapshot} -> Cached.snapshot cachedSnapshot
       _ -> getSnapshot snapshots.confirmed
 
     unchanged = changeCommit CommitUnchanged

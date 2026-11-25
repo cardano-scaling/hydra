@@ -22,7 +22,7 @@ import Hydra.HeadLogic.Outcome (Outcome (Continue, Error, Wait), StateChanged (.
 import Hydra.HeadLogic.Program qualified as Program
 import Hydra.HeadLogic.Snapshot.Request (DecommitStatus (..), chainedSnapshotRequest, decommitStatus, nextSnapshotRequest)
 import Hydra.HeadLogic.Snapshot.Verification (candidateEvidence, verifyCandidate)
-import Hydra.HeadLogic.State (CoordinatedHeadState (..), OpenState (..), SeenSnapshot (SeenSnapshot), mkSeenSnapshot)
+import Hydra.HeadLogic.State (CoordinatedHeadState (..), OpenState (..), mkSeenSnapshot)
 import Hydra.HeadLogic.State.Coordinated qualified as Coordinated
 import Hydra.Ledger (Ledger (..))
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), simpleLedger)
@@ -147,10 +147,16 @@ spec = describe "coordinated state owners" $ do
       actual.localUTxO `shouldBe` fromList (fromInteger <$> Agda.settlementUTxORef pending old new available [1])
 
   it "does not demand signing bytes when replaying a retained confirmation" $ do
-    let before = open{coordinatedHeadState = open.coordinatedHeadState{seenSnapshot = SeenSnapshot candidate mempty (error "replay computes signing bytes")}}
+    let poisoned = candidate{accumulator = error "replay computes signing bytes", appliedAccumulator = error "replay computes signing bytes"}
+        before = open{coordinatedHeadState = open.coordinatedHeadState{seenSnapshot = mkSeenSnapshot poisoned mempty}}
         event = SnapshotConfirmed testHeadId Nothing signatures
     let next = Coordinated.replayEvent mempty event (Coordinated.start before)
-    (Coordinated.currentState next).confirmedSnapshot `shouldBe` ConfirmedSnapshot candidate signatures
+    case (Coordinated.currentState next).confirmedSnapshot of
+      ConfirmedSnapshot retained proof -> do
+        retained.number `shouldBe` candidate.number
+        retained.utxo `shouldBe` candidate.utxo
+        proof `shouldBe` signatures
+      _ -> fail "replay did not retain the confirmed snapshot"
 
   it "retains a staged signature on wait and discards it on failed verification" $ do
     let runtime = Coordinated.start open{coordinatedHeadState = open.coordinatedHeadState{seenSnapshot = seen}}

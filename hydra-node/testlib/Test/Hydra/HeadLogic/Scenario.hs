@@ -10,6 +10,7 @@ import Data.List ((!!))
 import Data.Map.Strict qualified as Map
 import Data.Set qualified as Set
 import Hydra.HeadLogic.Input (TTL)
+import Hydra.HeadLogic.Snapshot.Cached qualified as Cached
 import Hydra.HeadLogic.State (
   CoordinatedHeadState (
     CoordinatedHeadState,
@@ -26,7 +27,7 @@ import Hydra.HeadLogic.State (
   ),
   HeadState (Open),
   OpenState (..),
-  SeenSnapshot (LastSeenSnapshot, NoSeenSnapshot, SeenSnapshot, snapshot),
+  SeenSnapshot (LastSeenSnapshot, NoSeenSnapshot, SeenSnapshot, cachedSnapshot),
  )
 import Hydra.Ledger.Simple (SimpleTx (SimpleTx))
 import Hydra.Network.Message (Message (..))
@@ -271,7 +272,7 @@ validateWorld world = do
       validateSnapshot world.originSnapshot
       validateSnapshot $ getSnapshot c.confirmedSnapshot
       case c.seenSnapshot of
-        SeenSnapshot{snapshot} -> validateSnapshot snapshot
+        SeenSnapshot{cachedSnapshot} -> validateSnapshot $ Cached.snapshot cachedSnapshot
         _ -> pure ()
     _ -> Left "scenario supports only open heads"
   forM_ world.confirmations validateSnapshot

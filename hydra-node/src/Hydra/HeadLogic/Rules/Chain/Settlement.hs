@@ -24,6 +24,7 @@ import Hydra.HeadLogic.Rules.Coordinated qualified as Staging (
 import Hydra.HeadLogic.Rules.Environment (
   RuleEnvironment (party, snapshotLimits),
  )
+import Hydra.HeadLogic.Snapshot.Cached qualified as Cached
 import Hydra.HeadLogic.Snapshot.Request (
   SnapshotRequest,
   chainedRequest,
@@ -40,7 +41,7 @@ import Hydra.HeadLogic.State (
     version
   ),
   OpenState (OpenState, coordinatedHeadState, parameters),
-  SeenSnapshot (LastSeenSnapshot, SeenSnapshot, snapshot),
+  SeenSnapshot (LastSeenSnapshot, SeenSnapshot, cachedSnapshot),
   isCollectingAcks,
  )
 import Hydra.HeadLogic.State.Coordinated qualified as Coordinated (
@@ -143,7 +144,7 @@ workflow Args{openState = openState@OpenState{..}, ..} =
           newVersion
           distributed
     Candidate runtime -> case seenSnapshot of
-      SeenSnapshot{snapshot}
+      SeenSnapshot{cachedSnapshot = (Cached.snapshot -> snapshot)}
         | snapshot.number == snapshotNumber
         , snapshot.version + 1 == newVersion
         , matchesSettlement snapshot -> choose $ do

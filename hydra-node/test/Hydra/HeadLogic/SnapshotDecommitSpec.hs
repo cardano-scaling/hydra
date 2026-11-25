@@ -4,6 +4,7 @@
 module Hydra.HeadLogic.SnapshotDecommitSpec (spec) where
 
 import Hydra.HeadLogic.Cardano (cardanoSnapshotLimits)
+import Hydra.HeadLogic.Snapshot.Cached qualified as Cached
 import Hydra.Prelude
 import Test.Hydra.Prelude (Spec, describe, it, shouldBe, shouldSatisfy)
 
@@ -235,7 +236,7 @@ accept node = \case
 
 candidateOf :: NodeState SimpleTx -> IO (Snapshot SimpleTx)
 candidateOf node = case (Scenario.openState node).coordinatedHeadState.seenSnapshot of
-  SeenSnapshot candidate _ _ -> pure candidate
+  SeenSnapshot cached _ -> pure $ Cached.snapshot cached
   _ -> fail "no candidate snapshot"
 
 confirm :: NodeState SimpleTx -> IO (NodeState SimpleTx)

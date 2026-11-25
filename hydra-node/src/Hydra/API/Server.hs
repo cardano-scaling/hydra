@@ -42,6 +42,7 @@ import Hydra.HeadLogic (
   SeenSnapshot (..),
  )
 import Hydra.HeadLogic.Outcome qualified as StateChanged
+import Hydra.HeadLogic.Snapshot.Cached qualified as Cached
 import Hydra.HeadLogic.State.Node qualified as NodeMachine
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.Network (IP, PortNumber, StallReason)
@@ -324,7 +325,7 @@ updateSeenSnapshot mSn _ = mSn
 -- | Extract the snapshot currently in 'SeenSnapshot' from a 'NodeState', if any.
 seenSnapshotOf :: NodeState tx -> Maybe (Snapshot tx)
 seenSnapshotOf ns = case headState ns of
-  Open OpenState{coordinatedHeadState = CoordinatedHeadState{seenSnapshot = SeenSnapshot sn _ _}} -> Just sn
+  Open OpenState{coordinatedHeadState = CoordinatedHeadState{seenSnapshot = SeenSnapshot cached _}} -> Just $ Cached.snapshot cached
   _ -> Nothing
 
 -- | Projection to obtain 'CommitInfo' needed to draft commit transactions.

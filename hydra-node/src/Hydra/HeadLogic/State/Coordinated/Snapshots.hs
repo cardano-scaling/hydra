@@ -17,6 +17,7 @@ import Crem.Topology (AllowedTransition)
 import Data.Map.Strict qualified as Map (lookup)
 import Hydra.Chain.ChainState (IsChainState, chainStateSlot)
 import Hydra.HeadLogic.Outcome (StateChanged (..))
+import Hydra.HeadLogic.Snapshot.Cached qualified as Cached
 import Hydra.HeadLogic.Snapshot.Candidate (
   Candidate (..),
   sameCandidate,
@@ -81,7 +82,7 @@ import Hydra.Tx.Snapshot (
 -- "Collecting" phase and we've got a head ID match.
 candidate :: HeadId -> InitialState (State tx) -> Maybe (Candidate tx)
 candidate headId initial = withInitialState initial $ \state _ -> case state of
-  Collecting _ owned _ | owned.snapshot.headId == headId -> Just owned
+  Collecting _ owned _ | (Cached.snapshot owned.cachedSnapshot).headId == headId -> Just owned
   _ -> Nothing
 
 machine ::
@@ -119,7 +120,7 @@ machine headId parties initial =
         | sameCandidate owned supplied
         , party.vkey `elem` parties
         , maybe True (== signature) (Map.lookup party signatures) ->
-            transition $ State.recordSignature state owned.snapshot.number party signature
+            transition $ State.recordSignature state (Cached.snapshot owned.cachedSnapshot).number party signature
         | otherwise -> refuse state "signature does not belong to this candidate or replaces a retained signature"
       ConfirmSnapshot evidence
         | sameCandidate owned (verifiedCandidate evidence)

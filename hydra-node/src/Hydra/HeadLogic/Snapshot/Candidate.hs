@@ -2,21 +2,25 @@
 
 module Hydra.HeadLogic.Snapshot.Candidate (Candidate (..), sameCandidate) where
 
+import Hydra.HeadLogic.Snapshot.Cached (CachedSnapshot)
+import Hydra.HeadLogic.Snapshot.Cached qualified as Cached
 import Hydra.Prelude
 import Hydra.Tx.Crypto (HydraKey, VerificationKey)
 import Hydra.Tx.Snapshot (Snapshot (..))
 
 data Candidate tx = Candidate
-  { snapshot :: Snapshot tx
+  { cachedSnapshot :: CachedSnapshot tx
   , parties :: [VerificationKey HydraKey]
-  , representation :: ~ByteString
   }
 
 -- | Check whether the candidate snapshot and the expected snapshot agree.
 sameCandidate :: Candidate tx -> Candidate tx -> Bool
 sameCandidate expected supplied =
-  expected.snapshot.headId == supplied.snapshot.headId
-    && expected.snapshot.version == supplied.snapshot.version
-    && expected.snapshot.number == supplied.snapshot.number
+  expectedSnapshot.headId == suppliedSnapshot.headId
+    && expectedSnapshot.version == suppliedSnapshot.version
+    && expectedSnapshot.number == suppliedSnapshot.number
     && expected.parties == supplied.parties
-    && expected.representation == supplied.representation
+    && Cached.signingBytes expected.cachedSnapshot == Cached.signingBytes supplied.cachedSnapshot
+ where
+  expectedSnapshot = Cached.snapshot expected.cachedSnapshot
+  suppliedSnapshot = Cached.snapshot supplied.cachedSnapshot

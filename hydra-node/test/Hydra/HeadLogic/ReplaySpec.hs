@@ -11,6 +11,7 @@ import Control.Monad (foldM)
 import Data.List qualified as List
 import Data.Map.Strict qualified as Map
 import Hydra.HeadLogic.Outcome (StateChanged (..))
+import Hydra.HeadLogic.Snapshot.Cached qualified as Cached
 import Hydra.HeadLogic.State (CoordinatedHeadState (..), FinalizedSnapshot (..), HeadState (..), OpenState (..), SeenSnapshot (..))
 import Hydra.HeadLogic.State.Coordinated qualified as Coordinated
 import Hydra.HeadLogic.State.Node qualified as Machine
@@ -50,7 +51,7 @@ spec = describe "commit and deposit replay" $ do
                   , \node -> do
                       checkSettled node
                       case (coordinated node).seenSnapshot of
-                        SeenSnapshot{snapshot = candidate} -> candidate `shouldBe` snapshot
+                        SeenSnapshot{cachedSnapshot} -> Cached.snapshot cachedSnapshot `shouldBe` snapshot
                         seen -> fail $ "expected a snapshot collecting signatures, got " <> show seen
                   )
                 , (SnapshotConfirmed testHeadId (Just snapshot) signatures, checkFinalized)

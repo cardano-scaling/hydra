@@ -7,7 +7,8 @@ module Hydra.HeadLogic.State where
 import Data.Aeson (object, withObject, (.:), (.=))
 import Data.Map.Strict qualified as Map (Map)
 import Hydra.Chain.ChainState (ChainSlot, IsChainState (..))
-import Hydra.HeadLogic.Cardano (snapshotSigningBytes)
+import Hydra.HeadLogic.Snapshot.Cached (CachedSnapshot, cacheSnapshot)
+import Hydra.HeadLogic.Snapshot.Cached qualified as Cached
 import Hydra.Prelude
 import Hydra.Tx (
   HeadId,
@@ -207,25 +208,18 @@ data SeenSnapshot tx
       }
   | -- | ReqSn for given snapshot was received.
     SeenSnapshot
-      { snapshot :: Snapshot tx
+      { cachedSnapshot :: CachedSnapshot tx
+      -- ^ The snapshot and its lazy signing bytes, shared with its live owner.
       , signatories :: Map Party (Signature (Snapshot tx))
       -- ^ Collected signatures so far.
-      , signableBytes :: ~ByteString
-      -- ^ Trusted result of 'snapshotSigningBytes snapshot', shared across
-      -- owner restoration, signature collection and event aggregation. New
-      -- candidates and decoding derive their own cache. Explicitly lazy under
-      -- StrictData: state hydration folds
-      -- every historical 'NodeState' to WHNF, and a strict field here would
-      -- force one full accumulator commitment per replayed SnapshotRequested
-      -- event. At runtime it is forced once, on the first AckSn.
       }
   deriving stock (Generic)
 
 deriving stock instance IsTx tx => Eq (SeenSnapshot tx)
 deriving stock instance IsTx tx => Show (SeenSnapshot tx)
 
--- Manual instances that exclude 'signableBytes' from JSON (it is derived from
--- 'snapshot' and recomputed on deserialisation).
+-- Manual instances preserve the snapshot's JSON format and omit its derived
+-- signing bytes. Decoding reconstructs the lazy cache.
 instance IsTx tx => ToJSON (SeenSnapshot tx) where
   toJSON = \case
     NoSeenSnapshot ->
@@ -238,10 +232,10 @@ instance IsTx tx => ToJSON (SeenSnapshot tx) where
         , "lastSeen" .= lastSeen
         , "requested" .= requested
         ]
-    SeenSnapshot{snapshot, signatories} ->
+    SeenSnapshot{cachedSnapshot, signatories} ->
       object
         [ "tag" .= ("SeenSnapshot" :: Text)
-        , "snapshot" .= snapshot
+        , "snapshot" .= Cached.snapshot cachedSnapshot
         , "signatories" .= signatories
         ]
 
@@ -261,8 +255,8 @@ instance IsTx tx => FromJSON (SeenSnapshot tx) where
         pure $ mkSeenSnapshot snapshot signatories
       other -> fail $ "unknown SeenSnapshot tag: " <> toString other
 
--- Manual instances that exclude 'signableBytes' from CBOR (it is derived from
--- 'snapshot' and recomputed on deserialisation), like the JSON instances above.
+-- Preserve the snapshot's CBOR format and omit its derived signing bytes, as
+-- in the JSON instances above.
 instance IsTx tx => ToCBOR (SeenSnapshot tx) where
   toCBOR = \case
     NoSeenSnapshot ->
@@ -271,8 +265,8 @@ instance IsTx tx => ToCBOR (SeenSnapshot tx) where
       toCBOR ("LastSeenSnapshot" :: Text) <> toCBOR lastSeen
     RequestedSnapshot{lastSeen, requested} ->
       toCBOR ("RequestedSnapshot" :: Text) <> toCBOR lastSeen <> toCBOR requested
-    SeenSnapshot{snapshot, signatories} ->
-      toCBOR ("SeenSnapshot" :: Text) <> toCBOR snapshot <> toCBOR signatories
+    SeenSnapshot{cachedSnapshot, signatories} ->
+      toCBOR ("SeenSnapshot" :: Text) <> toCBOR (Cached.snapshot cachedSnapshot) <> toCBOR signatories
 
 instance IsTx tx => FromCBOR (SeenSnapshot tx) where
   fromCBOR =
@@ -283,15 +277,14 @@ instance IsTx tx => FromCBOR (SeenSnapshot tx) where
       "SeenSnapshot" -> mkSeenSnapshot <$> fromCBOR <*> fromCBOR
       tag -> fail $ show tag <> " is not a proper CBOR-encoded SeenSnapshot"
 
--- | Smart constructor for 'SeenSnapshot' that computes and caches
--- 'signableBytes' from 'snapshot', enforcing the invariant that they stay in sync.
+-- | Retain a snapshot with its signatures and a fresh lazy signing cache.
 mkSeenSnapshot ::
   IsTx tx =>
   Snapshot tx ->
   Map Party (Signature (Snapshot tx)) ->
   SeenSnapshot tx
 mkSeenSnapshot snapshot signatories =
-  SeenSnapshot{snapshot, signatories, signableBytes = snapshotSigningBytes snapshot}
+  SeenSnapshot{cachedSnapshot = cacheSnapshot snapshot, signatories}
 
 -- | Get the last seen snapshot number given a 'SeenSnapshot'.
 seenSnapshotNumber :: SeenSnapshot tx -> SnapshotNumber
@@ -299,7 +292,7 @@ seenSnapshotNumber = \case
   NoSeenSnapshot -> 0
   LastSeenSnapshot{lastSeen} -> lastSeen
   RequestedSnapshot{lastSeen} -> lastSeen
-  SeenSnapshot{snapshot = Snapshot{number}} -> number
+  SeenSnapshot{cachedSnapshot = (Cached.snapshot -> Snapshot{number})} -> number
 
 -- | Whether a snapshot is currently in-flight (requested or being signed).
 snapshotInFlight :: SeenSnapshot tx -> Bool

@@ -28,6 +28,7 @@ import Hydra.Cardano.Api (ChainPoint (..), SlotNo (..))
 import Hydra.Chain.Direct.Handlers qualified as ChainLog
 import Hydra.HeadLogic (Input (..))
 import Hydra.HeadLogic.Outcome (Effect (ClientEffect), Outcome (..), StateChanged (..), WaitReason (..))
+import Hydra.HeadLogic.Snapshot.Cached qualified as Cached
 import Hydra.HeadLogic.State qualified as Head
 import Hydra.Logging.Messages (HydraLog (..))
 import Hydra.Logging.Monitoring.Accounting qualified as Accounting
@@ -135,7 +136,7 @@ prepareRegistry backend = do
       seed ns = do
         let (confirmed, pending) = case NodeState.headState ns of
               Head.Open Head.OpenState{coordinatedHeadState = Head.CoordinatedHeadState{confirmedSnapshot, seenSnapshot}} ->
-                (Just $ getSnapshot confirmedSnapshot, case seenSnapshot of Head.SeenSnapshot{snapshot} -> Just snapshot; _ -> Nothing)
+                (Just $ getSnapshot confirmedSnapshot, case seenSnapshot of Head.SeenSnapshot{cachedSnapshot} -> Just $ Cached.snapshot cachedSnapshot; _ -> Nothing)
               Head.Closed Head.ClosedState{confirmedSnapshot} -> (Just $ getSnapshot confirmedSnapshot, Nothing)
               Head.FanoutProgress Head.PartialFanoutState{confirmedSnapshot} -> (Just $ getSnapshot confirmedSnapshot, Nothing)
               Head.Idle{} -> (Nothing, Nothing)

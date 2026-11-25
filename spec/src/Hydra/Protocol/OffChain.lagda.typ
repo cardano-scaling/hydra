@@ -680,7 +680,7 @@ message $(hpAS,hats,msSig_i)$.
 
 - Require snapshot number $hats$ or $hats + 1$; wait for the corresponding $hpRS$ and reject duplicate signatures.
 - Collect signatures in $hatSigma$; when all parties have signed, verify the aggregate $msCSig$.
-- The implementation caches the canonical signing bytes of $mc(C)$ and trusts this derived value. Restoring the live owner and collecting signatures preserve the same cache; constructing or decoding a different candidate derives its own bytes. The cache is lazy and is not persisted.
+- The implementation pairs $mc(C)$ with its canonical signing bytes in an opaque `CachedSnapshot`. Only its smart constructor derives the trusted bytes; read-only accessors prevent replacing either part independently. The retained state and live owner share this value through restoration and signature collection; constructing or decoding a different candidate derives its own bytes. The cache is lazy and is omitted from the unchanged JSON/CBOR formats.
 - Candidate ownership still compares the Head identity, signed version, number, ordered parties and signing bytes. Cache reuse does not replace aggregate signature verification.
 - Confirm the retained candidate: $macron(mc(S)) <- mc(C)$, preserving its signed version and payload, and attach $msCSig$.
 - Submit the corresponding $mtxDecrement$ or $mono("incrementTx")$ using the confirmed snapshot and accumulator commitment $eta'$.

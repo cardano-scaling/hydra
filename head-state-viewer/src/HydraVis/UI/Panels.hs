@@ -29,6 +29,7 @@ import Data.Vector qualified as V
 import Hydra.Chain.ChainState (ChainSlot (..), IsChainState)
 import Hydra.HeadLogic.Input (Input)
 import Hydra.HeadLogic.Outcome (StateChanged (..))
+import Hydra.HeadLogic.Snapshot.Cached qualified as Cached
 import Hydra.HeadLogic.State qualified as HS
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.Network (Host)
@@ -183,7 +184,7 @@ seenSnapshotRows = \case
       , row "requested #" (show requested :: Text)
       , row "in flight" "ReqSn sent, awaiting acks"
       ]
-  HS.SeenSnapshot{HS.snapshot = snap, HS.signatories} ->
+  HS.SeenSnapshot{HS.cachedSnapshot = (Cached.snapshot -> snap), HS.signatories} ->
     div_
       []
       [ row "in flight #" (show (number snap) :: Text)

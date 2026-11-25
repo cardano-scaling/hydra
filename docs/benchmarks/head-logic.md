@@ -67,11 +67,14 @@ pairs (baseline/change, then change/baseline), retain the JSON, and compute
 within-pair changes before taking medians. Measure signing-byte reuse separately
 from skipping request selection at followers.
 
-The signing-byte cache is a trusted derivation of its exact snapshot. Owner
-restoration and event aggregation preserve it; new candidates and JSON/CBOR
-decoding derive a new cache. Candidate identity and ordered-party checks still
-apply, and final acknowledgement still verifies the aggregate signature. The
-cache stays lazy so historical replay does not force unused commitments.
+The opaque `CachedSnapshot` pairs a snapshot with its trusted signing-byte cache.
+Its smart constructor derives the bytes, and read-only accessors prevent updating
+either part independently. `SeenSnapshot` and the live `Candidate` share this
+value through owner restoration and event aggregation. New candidates and
+JSON/CBOR decoding derive a new cache; serialization keeps the existing format
+and omits the cache. Candidate identity and ordered-party checks still apply,
+and final acknowledgement still verifies the aggregate signature. The cache
+stays lazy so historical replay does not force unused commitments.
 
 For end-to-end confirmation, use the three workloads and dataset seeds in
 `.github/workflows/bench-e2e-diff.yaml`: three-node closed loop (750 transactions,
@@ -84,8 +87,9 @@ can move percentiles substantially. See the [metrics reference](./metrics.md)
 for the meaning and limits of each reported value.
 
 To confirm a small difference in CI, dispatch `bench-e2e-diff.yaml` with exact
-`head_ref` and `base_ref` commits and `pairs_per_runner=2` or `4`. Each runner
-reverses order after every pair. Compare an optimization against its immediate
+`head_ref` and `base_ref` commits. `pairs_per_runner` accepts `1` through `4`;
+each runner reverses order after every pair. Use `2` or `4` to balance both
+execution orders on each runner. Compare an optimization against its immediate
 parent to isolate it, then compare the combined changes against the merged
 baseline. An A/A run with both refs equal estimates variation without a code
 change. Keep machine identities when interpreting repeated pairs: repeated runs

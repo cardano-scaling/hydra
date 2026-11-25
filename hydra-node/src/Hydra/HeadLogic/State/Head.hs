@@ -45,6 +45,7 @@ import Data.Singletons.Base.TH (
 import Hydra.Chain.ChainState (IsChainState (..))
 import Hydra.HeadLogic.Fanout.Selection (recordedSelectionMode)
 import Hydra.HeadLogic.Outcome (StateChanged (..))
+import Hydra.HeadLogic.Snapshot.Cached qualified as Cached
 import Hydra.HeadLogic.State qualified as Head (
   ClosedState (..),
   CoordinatedHeadState (
@@ -82,7 +83,7 @@ import Hydra.HeadLogic.State qualified as Head (
     readyToFanoutSent,
     remainingOutputs
   ),
-  SeenSnapshot (NoSeenSnapshot, SeenSnapshot, snapshot),
+  SeenSnapshot (NoSeenSnapshot, SeenSnapshot, cachedSnapshot),
  )
 import Hydra.HeadLogic.State.Coordinated qualified as Coordinated (
   Runtime,
@@ -189,7 +190,7 @@ machine initial = BaseMachineT (withStateInspector (describeOnly (show . statePh
                   , headSeed = os.headSeed
                   , version = chs.version
                   , unconfirmedSnapshot = case chs.seenSnapshot of
-                      Head.SeenSnapshot{snapshot} -> Just snapshot
+                      Head.SeenSnapshot{cachedSnapshot} -> Just $ Cached.snapshot cachedSnapshot
                       _ -> Nothing
                   }
       _ -> output $ OpenHead $ stepOpen runtime input

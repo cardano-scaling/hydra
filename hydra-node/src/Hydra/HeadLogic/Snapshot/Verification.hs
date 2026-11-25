@@ -22,9 +22,10 @@ import Hydra.HeadLogic.Program (
   suspend,
   verifySnapshot,
  )
+import Hydra.HeadLogic.Snapshot.Cached qualified as Cached
 import Hydra.HeadLogic.Snapshot.Candidate (Candidate (..))
 import Hydra.HeadLogic.State (
-  SeenSnapshot (SeenSnapshot, snapshot),
+  SeenSnapshot (SeenSnapshot, cachedSnapshot),
  )
 import Hydra.Prelude
 import Hydra.Tx (HeadId, IsTx)
@@ -82,8 +83,8 @@ verifyCandidate ::
   Candidate tx ->
   MultiSignature (Snapshot tx) ->
   Program tx (Either (LogicError tx) (VerifiedCandidate tx))
-verifyCandidate candidate@Candidate{snapshot, parties, representation} signatures = do
-  result <- verify parties snapshot representation signatures
+verifyCandidate candidate@Candidate{cachedSnapshot, parties} signatures = do
+  result <- verify parties (Cached.snapshot cachedSnapshot) (Cached.signingBytes cachedSnapshot) signatures
   pure $ VerifiedCandidate candidate <$> first (verificationError parties signatures) result
 
 verifySeenSnapshot ::
@@ -93,7 +94,7 @@ verifySeenSnapshot ::
   MultiSignature (Snapshot tx) ->
   Program tx (Either (LogicError tx) (VerifiedSnapshot tx))
 verifySeenSnapshot parties seen signatures = case seen of
-  SeenSnapshot{snapshot} -> first (verificationError parties signatures) <$> verifySignedSnapshot parties snapshot signatures
+  SeenSnapshot{cachedSnapshot} -> first (verificationError parties signatures) <$> verifySignedSnapshot parties (Cached.snapshot cachedSnapshot) signatures
   _ -> suspend WaitOnSeenSnapshot
 
 verificationError ::

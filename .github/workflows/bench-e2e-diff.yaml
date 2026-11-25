@@ -26,7 +26,7 @@ on:
       pairs_per_runner:
         description: "Same-machine pairs, reversing order after each pair"
         type: choice
-        options: ["1", "2", "4"]
+        options: ["1", "2", "3", "4"]
         default: "1"
 
 # Superseded runs measure dead code; non-PR runs key on run_id so they never
@@ -245,7 +245,7 @@ jobs:
         mkdir -p "$TMPDIR"
         slot=0
         case "$PAIRS_PER_RUNNER" in
-          1|2|4) ;;
+          1|2|3|4) ;;
           *) echo "Unsupported pair count: $PAIRS_PER_RUNNER" >&2; exit 1 ;;
         esac
         order=(${{ matrix.order }})

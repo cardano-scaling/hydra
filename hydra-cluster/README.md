@@ -316,10 +316,11 @@ other people's merges cannot appear as PR deltas):
   run; `scripts/bench-e2e-diff.py --calibrate <dir>` prints suggested
   per-metric values to land in the script. Draft PRs are skipped unless the
   PR carries the `bench` label (applies from the next push).
-* Manual runs can set `pairs_per_runner` to `2` or `4` to repeat the comparison
-  on each runner, reversing execution order after every pair. Ordinary PR runs
-  keep one pair per runner. Repeated pairs help expose order effects and timing
-  variation within a machine; they are not additional independent machines.
+* Manual runs can set `pairs_per_runner` to `1` through `4`, reversing execution
+  order after every pair. Use `2` or `4` to balance both orders on each runner.
+  Ordinary PR runs keep one pair per runner. Repeated pairs help expose order
+  effects and timing variation within a machine; they are not additional
+  independent machines.
   Results are paired by their original slots (1–2, 3–4, etc.); a missing results
   directory discards only its incomplete pair, leaving later pairs intact.
 

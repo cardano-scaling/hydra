@@ -21,6 +21,7 @@ import Data.Vector (Vector)
 import Data.Vector qualified as V
 import Hydra.Chain.ChainState (IsChainState)
 import Hydra.HeadLogic.Outcome (StateChanged (..))
+import Hydra.HeadLogic.Snapshot.Cached qualified as Cached
 import Hydra.HeadLogic.State qualified as HS
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.Node.State (NodeState, headState)
@@ -152,7 +153,7 @@ nodeSummary steps t = case stepAt steps t of
             HS.NoSeenSnapshot -> ("-", "0", "none")
             HS.LastSeenSnapshot{HS.lastSeen} -> (show lastSeen, "0", "last seen #" <> show lastSeen)
             HS.RequestedSnapshot{HS.requested} -> (show requested, "0", "ReqSn sent, awaiting acks")
-            HS.SeenSnapshot{HS.snapshot = s, HS.signatories} ->
+            HS.SeenSnapshot{HS.cachedSnapshot = (Cached.snapshot -> s), HS.signatories} ->
               (show (number s), show (Map.size signatories), "in flight #" <> show (number s))
        in (show (number snap), reqN, sigs, seenPhase, balanceText (Snap.utxo snap))
     HS.Closed HS.ClosedState{HS.confirmedSnapshot = cs} ->

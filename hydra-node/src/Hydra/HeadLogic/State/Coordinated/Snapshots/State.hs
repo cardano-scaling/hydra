@@ -12,8 +12,8 @@ import Crem.BaseMachine (
  )
 import Data.Map.Strict qualified as Map (insert)
 import Hydra.Chain.ChainState (ChainSlot)
-import Hydra.HeadLogic.Cardano (snapshotSigningBytes)
 import Hydra.HeadLogic.Outcome (StateChanged (..))
+import Hydra.HeadLogic.Snapshot.Cached qualified as Cached
 import Hydra.HeadLogic.Snapshot.Candidate (Candidate (..))
 import Hydra.HeadLogic.Snapshot.Settlement (
   retainConfirmedSettlement,
@@ -113,17 +113,17 @@ restore parties Port.SnapshotState{..} =
           InitialState $ Idle context (Just number)
         RequestedSnapshot lastSeen requested ->
           InitialState $ Requested context lastSeen requested
-        SeenSnapshot{snapshot, signatories, signableBytes} ->
+        SeenSnapshot{cachedSnapshot, signatories} ->
           -- This trusted cache belongs to the retained snapshot. Sharing it
           -- through restoration and projection avoids encoding on every AckSn.
-          InitialState $ Collecting context (Candidate snapshot parties signableBytes) signatories
+          InitialState $ Collecting context (Candidate cachedSnapshot parties) signatories
 
 issue ::
   IsTx tx =>
   [VerificationKey HydraKey] ->
   Snapshot tx ->
   Candidate tx
-issue parties snapshot = Candidate snapshot parties (snapshotSigningBytes snapshot)
+issue parties snapshot = Candidate (Cached.cacheSnapshot snapshot) parties
 
 request ::
   State tx from ->
@@ -168,7 +168,7 @@ confirm ::
   MultiSignature (Snapshot tx) ->
   Update tx 'AwaitingRequest
 confirm headId (Collecting context candidate _) signatures =
-  let snapshot = candidate.snapshot
+  let snapshot = Cached.snapshot candidate.cachedSnapshot
    in Update
         (Idle (adopt context snapshot signatures) $ Just snapshot.number)
         ReconcileConfirmedSnapshot
@@ -239,8 +239,8 @@ view state = Port.SnapshotState{..}
       maybe NoSeenSnapshot LastSeenSnapshot number
     Requested _ lastSeen requested ->
       RequestedSnapshot lastSeen requested
-    Collecting _ Candidate{snapshot, representation} signatories ->
-      SeenSnapshot{snapshot, signatories, signableBytes = representation}
+    Collecting _ Candidate{cachedSnapshot} signatories ->
+      SeenSnapshot{cachedSnapshot, signatories}
 
 viewInitial :: InitialState (State tx) -> SnapshotState tx
 viewInitial initial = withInitialState initial $ \state _ -> view state

@@ -12,17 +12,19 @@ import Test.Hydra.HeadLogic.Validated (checkedSnapshot)
 import Test.Hydra.Prelude (Spec, describe, it, shouldBe, shouldSatisfy)
 
 import Cardano.Binary (decodeFull', serialize')
+import Codec.CBOR.Write (toStrictByteString)
 import Control.Monad (foldM)
 import Crem.Topology (Topology (Topology))
-import Data.Aeson (eitherDecode, encode)
+import Data.Aeson (eitherDecode, encode, object, (.=))
 import Data.Map.Strict qualified as Map
 import Hydra.Agda.OffChainReference qualified as Agda
 import Hydra.HeadLogic.Error (LogicError (AssertionFailed, RequireFailed), RequirementFailure (InvalidMultisignature))
 import Hydra.HeadLogic.Interpreter qualified as Interpreter
 import Hydra.HeadLogic.Outcome (Outcome (Continue, Error), StateChanged (DecommitFinalized, PartySignedSnapshot, SnapshotConfirmed, SnapshotRequestDecided, SnapshotRequested))
 import Hydra.HeadLogic.Program qualified as Program
+import Hydra.HeadLogic.Snapshot.Cached qualified as Cached
 import Hydra.HeadLogic.Snapshot.Verification (verifyCandidate, verifySeenSnapshot)
-import Hydra.HeadLogic.State (CoordinatedHeadState (..), HeadState (Open), OpenState (..), SeenSnapshot (RequestedSnapshot, SeenSnapshot, signableBytes), mkSeenSnapshot)
+import Hydra.HeadLogic.State (CoordinatedHeadState (..), HeadState (Open), OpenState (..), SeenSnapshot (RequestedSnapshot, SeenSnapshot, cachedSnapshot, signatories), mkSeenSnapshot)
 import Hydra.HeadLogic.State.Coordinated qualified as Owner
 import Hydra.HeadLogic.State.Coordinated.Snapshots.Topology (SnapshotPhase, snapshotTopology)
 import Hydra.HeadLogic.Workflow qualified as Workflow
@@ -128,25 +130,29 @@ spec = describe "live snapshot ownership" $ do
     outcome `shouldSatisfy` invalidSignatures
     Head.aggregateState before outcome `shouldBe` before
 
-  it "shares signing bytes through restoration, partial acknowledgements and aggregation" $ do
+  it "shares the cached snapshot through restoration, partial acknowledgements and aggregation" $ do
     let before = node snapshot
-        bytes st = case (Scenario.openState st).coordinatedHeadState.seenSnapshot of
-          SeenSnapshot{signableBytes} -> signableBytes
+        cache st = case (Scenario.openState st).coordinatedHeadState.seenSnapshot of
+          SeenSnapshot{cachedSnapshot} -> cachedSnapshot
           _ -> error "expected a collecting snapshot"
-    cached <- evaluate (bytes before) >>= makeStableName
+    cached <- evaluate (cache before) >>= makeStableName
+    bytes <- evaluate (Cached.signingBytes $ cache before) >>= makeStableName
+    let checkCache retained = do
+          retainedName <- evaluate retained >>= makeStableName
+          (retainedName == cached) `shouldBe` True
+          representation <- evaluate (Cached.signingBytes retained) >>= makeStableName
+          (representation == bytes) `shouldBe` True
     after <-
       foldM
         ( \st (party, sk) -> do
             let runtime = Owner.start $ Scenario.openState st
                 (events, staged) = Owner.step runtime $ Owner.recordSignature (owned runtime) party (sign sk snapshot)
             events `shouldBe` [PartySignedSnapshot 1 party (sign sk snapshot)]
-            restored <- evaluate (Owner.currentState staged).seenSnapshot.signableBytes >>= makeStableName
-            (restored == cached) `shouldBe` True
+            checkCache (Owner.currentState staged).seenSnapshot.cachedSnapshot
             let outcome = Head.update (Scenario.environment 0) simpleLedger initialChainTime st $ Head.NetworkInput 0 $ ReceivedMessage party $ AckSn (sign sk snapshot) 1
             outcome `shouldBe` Continue [PartySignedSnapshot 1 party (sign sk snapshot)] []
             let next = Head.aggregateState st outcome
-            retained <- evaluate (bytes next) >>= makeStableName
-            (retained == cached) `shouldBe` True
+            checkCache $ cache next
             pure next
         )
         before
@@ -162,10 +168,23 @@ spec = describe "live snapshot ownership" $ do
     (Scenario.openState $ Head.aggregateState after outcome).coordinatedHeadState.confirmedSnapshot
       `shouldBe` ConfirmedSnapshot snapshot (signatures snapshot)
 
-  it "reconstructs canonical signing bytes when decoding JSON and CBOR" $ do
-    let seen = SeenSnapshot snapshot mempty (error "the derived cache must not be serialized")
-    eitherDecode (encode seen) `shouldBe` Right (mkSeenSnapshot snapshot mempty)
-    decodeFull' (serialize' seen) `shouldBe` Right (mkSeenSnapshot snapshot mempty)
+  it "preserves JSON and CBOR layouts and reconstructs canonical signing bytes" $ do
+    let signatories = Map.singleton alice (sign aliceSk snapshot)
+        seen = mkSeenSnapshot snapshot signatories
+        json = object ["tag" .= ("SeenSnapshot" :: Text), "snapshot" .= snapshot, "signatories" .= signatories]
+        cbor = toStrictByteString $ toCBOR ("SeenSnapshot" :: Text) <> toCBOR snapshot <> toCBOR signatories
+    toJSON seen `shouldBe` json
+    serialize' seen `shouldBe` cbor
+    forM_ [eitherDecode (encode json), first show $ decodeFull' cbor] $ \case
+      Right SeenSnapshot{cachedSnapshot, signatories = retained} -> do
+        Cached.snapshot cachedSnapshot `shouldBe` snapshot
+        Cached.signingBytes cachedSnapshot `shouldBe` getSignableRepresentation snapshot
+        retained `shouldBe` signatories
+      other -> fail $ "failed to decode a collecting snapshot: " <> show other
+
+  it "does not demand signing bytes when persisting a snapshot to CBOR" $ do
+    let poisoned = snapshot{accumulator = error "CBOR forces signing bytes", appliedAccumulator = error "CBOR forces signing bytes"}
+    decodeFull' (serialize' $ mkSeenSnapshot poisoned mempty) `shouldBe` Right (mkSeenSnapshot snapshot mempty)
 
   it "confirms the owned contents using their cached signing bytes" $ do
     let before = withSignatures snapshot
@@ -198,8 +217,8 @@ spec = describe "live snapshot ownership" $ do
       Continue [PartySignedSnapshot{}, SnapshotConfirmed{}] [] -> True
       _ -> False
 
-  it "chain adoption also verifies contents rather than a supplied byte cache" $ do
-    let supplied = SeenSnapshot snapshot mempty (getSignableRepresentation different)
+  it "chain adoption rejects another snapshot's signatures" $ do
+    let supplied = mkSeenSnapshot snapshot mempty
         program :: Program.Program SimpleTx ()
         program = verifySeenSnapshot (vkey <$> Scenario.scenarioParties) supplied (signatures different) >>= either reject (const $ pure ())
     run program `shouldSatisfy` invalidSignatures

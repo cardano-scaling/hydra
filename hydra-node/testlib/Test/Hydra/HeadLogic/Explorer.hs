@@ -15,6 +15,7 @@ import Hydra.HeadLogic.Retry (
   retryDecision,
  )
 import Hydra.HeadLogic.Rules.Input qualified as Input
+import Hydra.HeadLogic.Snapshot.Cached qualified as Cached
 import Hydra.HeadLogic.Workflow qualified as Workflow
 import Hydra.Ledger.Simple (
   SimpleTx (txInputs, txOutputs),
@@ -34,7 +35,7 @@ import Hydra.Node.HeadLogic (
   Input (NetworkInput),
   OpenState (coordinatedHeadState),
   Outcome (Continue, Wait, effects, reason),
-  SeenSnapshot (SeenSnapshot, snapshot),
+  SeenSnapshot (SeenSnapshot, cachedSnapshot),
   aggregateState,
   ruleEnvironment,
  )
@@ -179,7 +180,7 @@ safetyFailure world
     let c = (openState st).coordinatedHeadState
         snapshots =
           getSnapshot c.confirmedSnapshot : case c.seenSnapshot of
-            SeenSnapshot{snapshot} -> [snapshot]
+            SeenSnapshot{cachedSnapshot} -> [Cached.snapshot cachedSnapshot]
             _ -> []
      in any (\s -> any ((> maxAccumulatorSize) . Set.size . (s.utxo <>)) [fold s.utxoToCommit, fold s.utxoToDecommit]) snapshots
   missingLocalTransaction st =
@@ -188,7 +189,7 @@ safetyFailure world
   inconsistentLocalUTxO st =
     let c = (openState st).coordinatedHeadState
         base = case c.seenSnapshot of
-          SeenSnapshot{snapshot} -> snapshot
+          SeenSnapshot{cachedSnapshot} -> Cached.snapshot cachedSnapshot
           _ -> getSnapshot c.confirmedSnapshot
      in foldlM apply base.utxo c.localTxs /= Just c.localUTxO
   invalidSignature st = case (openState st).coordinatedHeadState.confirmedSnapshot of

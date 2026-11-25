@@ -868,9 +868,11 @@ liveSnapshotEdgeRef 2 2 = true
 liveSnapshotEdgeRef _ _ = false
 
 -- Identities contain exactly Head, version, number and signing-content token.
--- The token abstracts canonical bytes. The implementation trusts its lazy,
--- derived cache and retains it across owner restoration and acknowledgements;
--- decoding derives it again from the snapshot. Canonical cache contents and
+-- The token abstracts canonical bytes. Haskell's opaque CachedSnapshot binds
+-- its snapshot to a trusted lazy cache through a smart constructor and read-only
+-- accessors. State and live owners share this value across restoration and
+-- acknowledgements; decoding derives it again from the snapshot without
+-- changing the serialized format. Canonical cache contents and
 -- valid signatures are premises, not properties proved by this projection.
 candidateIdentityRef : List Nat → List Nat → Bool
 candidateIdentityRef (h ∷ v ∷ n ∷ b ∷ []) (h′ ∷ v′ ∷ n′ ∷ b′ ∷ []) =

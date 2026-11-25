@@ -30,6 +30,7 @@ import Hydra.HeadLogic.Rules.Transactions (
   ValidatedTransaction,
   validateTransaction,
  )
+import Hydra.HeadLogic.Snapshot.Cached qualified as Cached
 import Hydra.HeadLogic.Snapshot.Request (
   SettlingCommit (..),
   chainedRequest,
@@ -138,7 +139,7 @@ workflow Args{chainPointTime = ChainPointTime{currentSlot, currentChainTime}, ..
   step :: State tx from -> Transition tx ReqTxTopology (State tx) from ()
   step = \case
     DuplicateCheck
-      | SeenSnapshot snapshot _ _ <- seenSnapshot
+      | SeenSnapshot (Cached.snapshot -> snapshot) _ <- seenSnapshot
       , Just{} <- snapshot.utxoToDecommit
       , Just known <- Map.lookup (txId transaction) allTxs
       , matchesSnapshotDecommit snapshot known ->

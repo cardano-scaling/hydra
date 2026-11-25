@@ -84,13 +84,13 @@ spec = do
     describe "SeenSnapshot" $ do
       it "forcing to WHNF does not compute the signable bytes" $ do
         -- State hydration folds every historical NodeState to WHNF; a strict
-        -- signableBytes field would recompute one accumulator commitment per
+        -- signing-byte cache would recompute one accumulator commitment per
         -- replayed SnapshotRequested event. This throws if the field ever
         -- loses its laziness annotation.
         let poisoned =
               (testSnapshot 1 0 [] mempty :: Snapshot SimpleTx)
-                { accumulator = error "signableBytes forced during WHNF"
-                , appliedAccumulator = error "signableBytes forced during WHNF"
+                { accumulator = error "signing bytes forced during WHNF"
+                , appliedAccumulator = error "signing bytes forced during WHNF"
                 }
         mkSeenSnapshot poisoned mempty `seq` pure @IO ()
 

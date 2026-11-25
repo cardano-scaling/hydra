@@ -19,6 +19,7 @@ import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Cardano.Api (Tx)
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot))
 import Hydra.Chain.Direct.State (initialChainState)
+import Hydra.HeadLogic.Snapshot.Cached qualified as Cached
 import Hydra.HeadLogic.State.Node qualified as NodeMachine
 import Hydra.Ledger (Ledger (..))
 import Hydra.Ledger.Cardano (cardanoLedger)
@@ -120,7 +121,7 @@ benchCell seed n m = do
       reqSn = mkNetworkInput leader (ReqSn 0 2 (txId <$> txs) Nothing Nothing)
       requested = advance Request testEnvironment st reqSn
       snapshot = case (coordinated requested).seenSnapshot of
-        SeenSnapshot candidate _ _ -> candidate
+        SeenSnapshot cached _ -> Cached.snapshot cached
         _ -> error "ReqSn did not retain its candidate"
       acks = [mkNetworkInput p $ AckSn (sign sk snapshot) 2 | (p, sk) <- [(alice, aliceSk), (bob, bobSk), (carol, carolSk)]]
       (firstAck, secondAck, finalAck) = case acks of
