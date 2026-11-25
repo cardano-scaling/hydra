@@ -32,6 +32,7 @@ nodeStats :: IsTx tx => Natural -> Int -> NodeState tx -> NodeStats
 nodeStats queuedInputs parkedInputs ns =
   case headState ns of
     Idle{} -> base
+    Finalized{} -> base{phase = "finalized"}
     Open OpenState{parameters = HeadParameters{parties}, coordinatedHeadState = CoordinatedHeadState{confirmedSnapshot, seenSnapshot, allTxs, decommitTx, version = coordinatedVersion}} ->
       let snap@Snapshot{version = snapshotVersion} = getSnapshot confirmedSnapshot
           missing = case seenSnapshot of

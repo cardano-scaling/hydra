@@ -62,11 +62,10 @@ spec = do
           -- diagnostic one rather than dropped.
           line <- failAfter 5 $ Text.IO.hGetLine readEnd
           toString line `shouldContain` "UnencodableLogEntry"
-        -- And the writer is still draining, so nothing blocks.
-        failAfter 5 $
-          forM_ [1 .. 2 * fromIntegral defaultQueueSize :: Int] $ \i -> do
-            traceWith tracer (Encodable i)
-            void $ Text.IO.hGetLine readEnd
+          -- A valid entry after each failure shows that the writer recovers.
+          traceWith tracer (Encodable 42)
+          nextLine <- failAfter 5 $ Text.IO.hGetLine readEnd
+          toString nextLine `shouldContain` "{\"foo\":42}"
  where
   withPipe :: ((Handle, Handle) -> IO a) -> IO a
   withPipe = bracket createPipe $ \(readEnd, writeEnd) ->

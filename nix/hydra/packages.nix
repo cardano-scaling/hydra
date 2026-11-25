@@ -93,7 +93,7 @@
           hydraw-static = musl64Pkgs.hydraw.components.exes.hydraw;
         };
 
-        # The six suites that also run as cached `checks.test-*`; their tools
+        # The suites that also run as cached `checks.test-*`; their tools
         # and env come from nix/hydra/test-runtime.nix so the shell and the
         # check cannot drift. hydra-cluster and hydra-tui are spelled out
         # below instead: they have no run check, and they need the
@@ -129,6 +129,7 @@
         '';
 
         inherit (nativePkgs.hydra-node.components.benchmarks) tx-cost;
+        inherit (nativePkgs.hydra-node.components.exes) head-logic-diagrams;
 
         hydra-tui =
           embedRevision
@@ -141,6 +142,7 @@
 
         inherit (nativePkgs.hydraw.components.exes) hydraw;
 
+        head-state-viewer-tests = mkTestShell "head-state-viewer";
         hydra-agda-tests = mkTestShell "hydra-agda";
         hydra-plutus-tests = mkTestShell "hydra-plutus";
         hydra-plutus-extras-tests = mkTestShell "hydra-plutus-extras";

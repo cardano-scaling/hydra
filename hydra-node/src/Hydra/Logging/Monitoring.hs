@@ -5,6 +5,7 @@
 module Hydra.Logging.Monitoring (
   withMonitoring,
   withMonitoringForBackend,
+  withMonitoringOnSocket,
   prepareRegistry,
   isMetricSample,
 ) where
@@ -41,8 +42,9 @@ import Hydra.Node.State qualified as NodeState
 import Hydra.Node.Stats qualified as Stats
 import Hydra.Tx (HeadId, IsTx (..), Snapshot (..), getSnapshot)
 import Network.HTTP.Types (status200, status404)
-import Network.Wai (pathInfo, responseLBS)
-import Network.Wai.Handler.Warp (defaultSettings, runSettings, setBeforeMainLoop, setPort)
+import Network.Socket (Socket)
+import Network.Wai (Application, pathInfo, responseLBS)
+import Network.Wai.Handler.Warp (Settings, defaultSettings, runSettings, runSettingsSocket, setBeforeMainLoop, setPort)
 import System.Metrics.Prometheus.Metric.Counter qualified as Counter
 import System.Metrics.Prometheus.Metric.Gauge qualified as Gauge
 import System.Metrics.Prometheus.Metric.Histogram qualified as Histogram
@@ -52,19 +54,29 @@ withMonitoring = withMonitoringForBackend "unknown"
 
 withMonitoringForBackend :: IsTx tx => Text -> Maybe PortNumber -> Tracer IO (HydraLog tx) -> (Tracer IO (HydraLog tx) -> IO a) -> IO a
 withMonitoringForBackend _ Nothing tracer action = action tracer
-withMonitoringForBackend backend (Just port) tracer action = do
+withMonitoringForBackend backend (Just port) tracer action =
+  withMonitoringUsing (runSettings . setPort (fromIntegral port)) backend tracer action
+
+-- | Serve metrics on an already-bound socket, without releasing its port
+-- between allocation and server startup.
+withMonitoringOnSocket :: IsTx tx => Text -> Socket -> Tracer IO (HydraLog tx) -> (Tracer IO (HydraLog tx) -> IO a) -> IO a
+withMonitoringOnSocket backend socket =
+  withMonitoringUsing (`runSettingsSocket` socket) backend
+
+withMonitoringUsing :: IsTx tx => (Settings -> Application -> IO ()) -> Text -> Tracer IO (HydraLog tx) -> (Tracer IO (HydraLog tx) -> IO a) -> IO a
+withMonitoringUsing runServer backend tracer action = do
   (traceMetric, registry, refresh) <- prepareRegistry backend
   refreshRuntime <- registerRtsMetrics registry
   scrapeLock <- MVar.newMVar ()
   listening <- newLabelledEmptyTMVarIO "monitoring-listening"
-  let settings = setPort (fromIntegral port) $ setBeforeMainLoop (atomically $ putTMVar listening ()) defaultSettings
+  let settings = setBeforeMainLoop (atomically $ putTMVar listening ()) defaultSettings
       app request respond
         | pathInfo request == ["metrics"] = do
             body <- MVar.withMVar scrapeLock $ \_ -> refresh >> refreshRuntime >> Registry.sample registry
             respond $ responseLBS status200 [("Content-Type", "text/plain; version=0.0.4; charset=utf-8")] body
         | otherwise = respond $ responseLBS status404 [] "Not found"
       wrapped = Tracer . emit $ \msg -> traceMetric msg >> traceWith tracer msg
-  withAsyncLabelled ("monitoring-server", runSettings settings app) $ \server -> do
+  withAsyncLabelled ("monitoring-server", runServer settings app) $ \server -> do
     -- Bind errors and later server failures are fatal, and callers may scrape
     -- as soon as their continuation starts.
     link server
@@ -127,6 +139,7 @@ prepareRegistry backend = do
               Head.Closed Head.ClosedState{confirmedSnapshot} -> (Just $ getSnapshot confirmedSnapshot, Nothing)
               Head.FanoutProgress Head.PartialFanoutState{confirmedSnapshot} -> (Just $ getSnapshot confirmedSnapshot, Nothing)
               Head.Idle{} -> (Nothing, Nothing)
+              Head.Finalized{} -> (Nothing, Nothing)
         MVar.modifyMVar_ accounting $ \state ->
           pure $
             (Accounting.clearPending state)
@@ -276,7 +289,6 @@ prepareRegistry backend = do
           SQLiteWriteStarted -> set sqliteInflight 1
           SQLiteWriteCompleted{writeSeconds} -> set sqliteInflight 0 >> observe sqliteDuration writeSeconds
           SQLiteWriteFailed -> set sqliteInflight 0
-          _ -> pure ()
         _ -> pure ()
   pure (handle, registry, refresh)
 

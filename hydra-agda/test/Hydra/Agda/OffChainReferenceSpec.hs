@@ -7,27 +7,73 @@
 -- taking a single period could not distinguish.
 module Hydra.Agda.OffChainReferenceSpec where
 
+import Control.Monad (forM_)
+import Hydra.Agda.OffChainReference qualified as Agda
 import Test.Hspec (Spec, describe, it, shouldBe)
 
 import Hydra.Agda.OffChainReference (
   HsDepositStatus (..),
   HsPendingCommit (..),
+  HsRecoverOutcome (..),
+  HsReqDecOutcome (..),
+  HsReqTxChange (..),
+  HsReqTxEffect (..),
+  HsReqTxOutcome (..),
+  HsReqTxTerminal (..),
+  HsSnapshotChange (..),
+  HsSnapshotEffect (..),
+  HsSnapshotOutcome (..),
+  HsSnapshotPhase (..),
+  HsSnapshotRejection (..),
+  HsSnapshotWait (..),
+  ackSnOutcomeRef,
   allSignedRef,
   contestEligibleRef,
   depositStatusRef,
   leaderRef,
   notAlreadySignedRef,
+  recoverOutcomeRef,
   reqDecEligibleRef,
+  reqDecOutcomeRef,
   reqSnDecommitOutputsRef,
   reqSnDecommitSettledRef,
   reqSnDepositDisjointRef,
   reqSnDepositSettledRef,
   reqSnNotBothRef,
+  reqSnOutcomeRef,
+  reqTxOutcomeRef,
   signEligibleRef,
  )
 
 spec :: Spec
 spec = do
+  describe "lifecyclePhaseRef" $ do
+    it "opens only Idle and preserves every other phase" $
+      map (`Agda.lifecyclePhaseRef` Agda.Opened) [minBound .. maxBound]
+        `shouldBe` [Agda.OpenHead, Agda.OpenHead, Agda.ClosedHead, Agda.FanoutProgress, Agda.FinalizedHead]
+    it "keeps local fanout requests and their cancellation in Closed" $ do
+      Agda.lifecyclePhaseRef Agda.ClosedHead Agda.FanoutStarted `shouldBe` Agda.ClosedHead
+      Agda.lifecyclePhaseRef Agda.ClosedHead Agda.FanoutReverted `shouldBe` Agda.ClosedHead
+      Agda.lifecyclePhaseRef Agda.FanoutProgress Agda.FanoutReverted `shouldBe` Agda.FanoutProgress
+    it "enters partial fanout only after observing distribution" $ do
+      Agda.lifecyclePhaseRef Agda.ClosedHead Agda.PartialObserved `shouldBe` Agda.FanoutProgress
+    it "keeps contest in Closed" $
+      Agda.lifecyclePhaseRef Agda.ClosedHead Agda.Contested `shouldBe` Agda.ClosedHead
+    it "ends both fanout paths in Finalized" $ do
+      Agda.lifecyclePhaseRef Agda.ClosedHead Agda.FannedOut `shouldBe` Agda.FinalizedHead
+      Agda.lifecyclePhaseRef Agda.FanoutProgress Agda.FannedOut `shouldBe` Agda.FinalizedHead
+    it "preserves Finalized for every retained event" $
+      forM_ [minBound .. maxBound] $ \event ->
+        Agda.lifecyclePhaseRef Agda.FinalizedHead event `shouldBe` Agda.FinalizedHead
+  describe "incremental workflow outcomes" $ do
+    it "gives a selected commit priority over a pending decommit and ledger failure" $ do
+      reqDecOutcomeRef True True False False 1 False 2 1 0 `shouldBe` ReqDecWaitCommit
+      reqDecOutcomeRef False False True False 1 False 2 1 0 `shouldBe` ReqDecEmptyOutputs
+      reqDecOutcomeRef False False True True 1 False 2 1 0 `shouldBe` ReqDecRequested
+    it "checks deposit registration before finalized ownership" $ do
+      recoverOutcomeRef False True `shouldBe` RecoveryMissing
+      recoverOutcomeRef True True `shouldBe` RecoveryBlocked
+      recoverOutcomeRef True False `shouldBe` RecoveryPosted
   -- created deadline T_deposit T_activate t
   describe "depositStatusRef" $ do
     let status = depositStatusRef 1_000 100_000
@@ -146,3 +192,33 @@ spec = do
       leaderRef 2 0 0 `shouldBe` False
     it "elects exactly one party in a single-party head" $
       leaderRef 0 7 0 `shouldBe` True
+
+  describe "reqTxOutcomeRef" $ do
+    it "retains receipt when an inapplicable transaction waits" $
+      reqTxOutcomeRef False 1 False 2 1 0
+        `shouldBe` HsReqTxOutcome ReqTxWaiting [ReqTxReceived] []
+    it "finishes with an invalid transaction when its budget is exhausted" $
+      reqTxOutcomeRef False 0 False 2 1 0
+        `shouldBe` HsReqTxOutcome ReqTxFinished [ReqTxReceived, ReqTxInvalid] []
+    it "applies before requesting a snapshot as the next leader" $
+      reqTxOutcomeRef True 0 False 2 1 0
+        `shouldBe` HsReqTxOutcome ReqTxFinished [ReqTxReceived, ReqTxApplied, ReqTxSnapshotDecided] [ReqTxRequestSnapshot]
+    it "applies without proposing when another snapshot is in flight" $
+      reqTxOutcomeRef True 1 True 2 1 0
+        `shouldBe` HsReqTxOutcome ReqTxFinished [ReqTxReceived, ReqTxApplied] []
+    it "applies without proposing as a follower" $
+      reqTxOutcomeRef True 1 False 2 1 1
+        `shouldBe` HsReqTxOutcome ReqTxFinished [ReqTxReceived, ReqTxApplied] []
+    it "computes the next leader from snapshot number and party index" $
+      reqTxOutcomeRef True 1 False 2 2 1
+        `shouldBe` HsReqTxOutcome ReqTxFinished [ReqTxReceived, ReqTxApplied, ReqTxSnapshotDecided] [ReqTxRequestSnapshot]
+
+  describe "snapshot outcome references" $ do
+    it "distinguishes version and transaction waits" $ do
+      reqSnOutcomeRef 0 0 0 1 1 2 0 1 True `shouldBe` SnapshotWaiting VersionMismatch
+      reqSnOutcomeRef 0 0 0 0 1 2 0 1 True `shouldBe` SnapshotWaiting MissingTransactions
+    it "retains partial signature ordering and discards rejected prefixes" $ do
+      ackSnOutcomeRef CollectingSignatures 1 1 [] 0 2 True False 0 `shouldBe` SnapshotCompleted [RecordSignature] []
+      ackSnOutcomeRef CollectingSignatures 1 1 [0, 1] 2 2 False True 1 `shouldBe` SnapshotRejected InvalidSignatureSet
+    it "confirms and requests the next round as its leader" $
+      ackSnOutcomeRef CollectingSignatures 1 1 [0, 1] 2 2 True True 1 `shouldBe` SnapshotCompleted [RecordSignature, ConfirmSnapshot, DecideNextSnapshot] [SendSnapshotRequest]

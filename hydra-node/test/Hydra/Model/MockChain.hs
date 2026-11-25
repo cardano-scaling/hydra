@@ -367,6 +367,7 @@ mockChainAndNetwork tr seedKeys networkLatencySeed = do
                   }
             Closed ClosedState{} -> error "Cannot post Close tx when in Closed state"
             FanoutProgress{} -> error "Cannot post Close tx when in FanoutProgress state"
+            Finalized{} -> error "Cannot post Close tx when in Finalized state"
 
   matchingParty :: Party -> MockHydraNode m -> Bool
   matchingParty us MockHydraNode{node = HydraNode{env = Environment{party}}} =

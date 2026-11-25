@@ -3,19 +3,30 @@
 
 module Hydra.HeadLogic.Outcome where
 
-import Hydra.Prelude
-
 import Data.Aeson (Value (..), defaultOptions, genericParseJSON)
-import Data.Aeson.KeyMap qualified as KeyMap
-import Hydra.API.ServerOutput (ClientMessage, DecommitInvalidReason)
+import Data.Aeson.KeyMap qualified as KeyMap (
+  insert,
+  lookup,
+  member,
+ )
+import Hydra.API.ServerOutput (
+  ClientMessage,
+  DecommitInvalidReason,
+ )
 import Hydra.Chain (PostChainTx)
-import Hydra.Chain.ChainState (ChainPointType, ChainSlot, ChainStateType, IsChainState)
+import Hydra.Chain.ChainState (
+  ChainPointType,
+  ChainSlot,
+  ChainStateType,
+  IsChainState,
+ )
 import Hydra.HeadLogic.Error (LogicError)
 import Hydra.HeadLogic.State (FanoutMode (..))
 import Hydra.Ledger (ValidationError)
 import Hydra.Network (Host, ProtocolVersion, StallReason)
 import Hydra.Network.Message (Message)
 import Hydra.Node.State (Deposit, NodeState)
+import Hydra.Prelude
 import Hydra.Tx (
   HeadId,
   HeadParameters,
@@ -129,7 +140,7 @@ data StateChanged tx
   | HeadContested {headId :: HeadId, chainState :: ChainStateType tx, contestationDeadline :: UTCTime, snapshotNumber :: SnapshotNumber}
   | HeadIsReadyToFanout {headId :: HeadId}
   | -- | This node initiated a full automatic fanout ('Fanout' command). It
-    -- transitions 'Closed' → 'PartialFanout' in 'AutoDrain' mode so that this
+    -- records pending work within Closed in 'AutoDrain' mode so that this
     -- node (the driver) auto-continues draining as chunks are observed. Other
     -- parties that merely observe the resulting partial fanout do NOT auto-drive
     -- (they go to 'AwaitingSelection'). No chain state change (client command).
@@ -138,25 +149,25 @@ data StateChanged tx
       , remainingOutputs :: UTxOType tx
       }
   | -- | A user initiated or updated a selective partial fanout. From 'Closed'
-    -- this transitions into the 'PartialFanout' state (using 'remainingOutputs'
-    -- as the initial remaining set); from 'PartialFanout' it just updates the
-    -- active selection. No chain state change (driven by a client command).
+    -- this records pending work within Closed with 'remainingOutputs' as the initial set;
+    -- during pending or observed fanout it updates the active selection without
+    -- changing phase. No chain state change (driven by a client command).
     HeadPartialFanoutSelected
       { headId :: HeadId
       , remainingOutputs :: UTxOType tx
       , selection :: UTxOType tx
       }
-  | -- | Revert an optimistic 'Closed' → 'PartialFanout' transition back to
-    -- 'Closed'. Emitted when posting the initiating fanout transaction fails
-    -- terminally /before/ any partial fanout has landed on chain (i.e. while the
-    -- off-chain state is 'PartialFanout' but the on-chain datum is still
-    -- 'Closed'). Without this the head would wedge in 'PartialFanout' with
-    -- 'Fanout' rejected. No chain state change.
+  | -- | Clear pending work within Closed when posting the initiating fanout
+    -- transaction fails terminally before any output is distributed on chain.
+    -- The lifecycle owner ignores this once it reaches PartialFanout.
+    -- No chain state change.
     HeadFanoutReverted {headId :: HeadId}
   | HeadFannedOut {headId :: HeadId, finalizedOutputs :: UTxOType tx, chainState :: ChainStateType tx}
   | HeadPartialFannedOut
       { headId :: HeadId
       , distributedOutputs :: UTxOType tx
+      -- ^ Locally matched outputs; the event records an observed partial fanout
+      -- even when this set is empty.
       , remainingOutputs :: UTxOType tx
       , chainState :: ChainStateType tx
       , mode :: FanoutMode tx
@@ -215,13 +226,6 @@ data Outcome tx
     Error {error :: LogicError tx}
   deriving stock (Generic)
 
-instance Semigroup (Outcome tx) where
-  e@Error{} <> _ = e
-  _ <> e@Error{} = e
-  Continue scA _ <> Wait r scB = Wait r (scA <> scB)
-  Wait r scA <> _ = Wait r scA
-  Continue scA efA <> Continue scB efB = Continue (scA <> scB) (efA <> efB)
-
 deriving stock instance IsChainState tx => Eq (Outcome tx)
 deriving stock instance IsChainState tx => Show (Outcome tx)
 deriving anyclass instance IsChainState tx => ToJSON (Outcome tx)
@@ -229,20 +233,11 @@ deriving anyclass instance IsChainState tx => ToJSON (Outcome tx)
 noop :: Outcome tx
 noop = Continue [] []
 
-wait :: WaitReason tx -> Outcome tx
-wait reason = Wait reason []
-
 newState :: StateChanged tx -> Outcome tx
 newState change = Continue [change] []
 
 cause :: Effect tx -> Outcome tx
 cause e = Continue [] [e]
-
-causes :: [Effect tx] -> Outcome tx
-causes = Continue []
-
-changes :: [StateChanged tx] -> Outcome tx
-changes stateChanges = Continue stateChanges []
 
 data WaitReason tx
   = WaitOnNotApplicableTx {validationError :: ValidationError}
@@ -262,3 +257,51 @@ data WaitReason tx
 deriving stock instance IsTx tx => Eq (WaitReason tx)
 deriving stock instance IsTx tx => Show (WaitReason tx)
 deriving anyclass instance IsTx tx => ToJSON (WaitReason tx)
+
+-- | Extract the 'HeadId' from a 'StateChanged' event, if the event carries one.
+-- Events that do not carry a 'HeadId' always pass through 'aggregateNodeState' unchanged.
+eventHeadId :: StateChanged tx -> Maybe HeadId
+eventHeadId = \case
+  HeadOpened{headId} -> Just headId
+  TransactionAppliedToLocalUTxO{headId} -> Just headId
+  SnapshotConfirmed{headId} -> Just headId
+  LocalStateCleared{headId} -> Just headId
+  DepositRecorded{headId} -> Just headId
+  DepositRecovered{} -> Nothing
+  CommitApproved{headId} -> Just headId
+  CommitFinalized{headId} -> Just headId
+  DecommitRecorded{headId} -> Just headId
+  DecommitApproved{headId} -> Just headId
+  DecommitInvalid{headId} -> Just headId
+  DecommitFinalized{headId} -> Just headId
+  HeadIsReadyToFanout{headId} -> Just headId
+  HeadClosed{headId} -> Just headId
+  HeadContested{headId} -> Just headId
+  HeadFannedOut{headId} -> Just headId
+  TxInvalid{headId} -> Just headId
+  HeadPartialFannedOut{headId} -> Just headId
+  HeadFanoutInitiated{headId} -> Just headId
+  HeadPartialFanoutSelected{headId} -> Just headId
+  HeadFanoutReverted{headId} -> Just headId
+  -- The headId in IgnoredHeadInitializing is the OTHER head's id (not ours),
+  -- so it must not be used to filter against the current head state.
+  IgnoredHeadInitializing{} -> Nothing
+  TransactionReceived{} -> Nothing
+  SnapshotRequestDecided{} -> Nothing
+  SnapshotRequested{} -> Nothing
+  PartySignedSnapshot{} -> Nothing
+  DepositActivated{} -> Nothing
+  DepositExpired{} -> Nothing
+  ChainRolledBack{} -> Nothing
+  TickObserved{} -> Nothing
+  NetworkDisconnected -> Nothing
+  NetworkConnected -> Nothing
+  PeerConnected{} -> Nothing
+  PeerDisconnected{} -> Nothing
+  NetworkVersionMismatch{} -> Nothing
+  NetworkClusterIDMismatch{} -> Nothing
+  NetworkBroadcastStalled{} -> Nothing
+  NetworkBroadcastResumed -> Nothing
+  Checkpoint{} -> Nothing
+  NodeUnsynced{} -> Nothing
+  NodeSynced{} -> Nothing

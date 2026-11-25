@@ -519,6 +519,22 @@
         "type": "github"
       }
     },
+    "crem": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1794164656,
+        "narHash": "sha256-W9J9we25Xq3m25y5KkCh3Rs8kTsSRNmMgH+7DeFajJg=",
+        "owner": "cardano-scaling",
+        "repo": "crem",
+        "rev": "29057be288a80e8ca4dfab42b20b7c67498d6b90",
+        "type": "github"
+      },
+      "original": {
+        "owner": "cardano-scaling",
+        "repo": "crem",
+        "type": "github"
+      }
+    },
     "customConfig": {
       "locked": {
         "lastModified": 1630400035,
@@ -3460,6 +3476,7 @@
         "CHaP": "CHaP",
         "aiken": "aiken",
         "cardano-node": "cardano-node",
+        "crem": "crem",
         "flake-parts": "flake-parts_2",
         "haskellNix": "haskellNix_3",
         "hydra-coding-standards": "hydra-coding-standards",

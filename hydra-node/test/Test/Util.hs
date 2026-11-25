@@ -18,7 +18,6 @@ import Control.Monad.IOSim (
   traceResult,
  )
 import Control.Tracer (Tracer (Tracer), emit)
-import Control.Tracer.JSON (Envelope (..), traceInTVar)
 import Data.Aeson (encode)
 import Data.Aeson qualified as Aeson
 import Data.Text qualified as Text
@@ -149,16 +148,6 @@ waitMatch waitNext delay match = do
 
   align _ [] = []
   align n (h : q) = h : fmap (Text.replicate n " " <>) q
-
--- | Create a tracer that captures all messages and a function to retrieve all
--- traces captured.
--- XXX: This is duplicated in MithrilSpec in hydra-cluster, but can't (easily)
--- be moved to the Test Prelude because of the dependency on Control.Tracer.JSON.
-captureTracer :: Text -> IO (Tracer IO a, IO [Envelope a])
-captureTracer namespace = do
-  traces <- newLabelledTVarIO "capture-tracer" []
-  let tracer = traceInTVar traces namespace
-  pure (tracer, readTVarIO traces)
 
 -- | Check a UTxO for thunks, descending via constructors so that GADT
 -- dictionary fields (e.g. the Eq/Show context stored inside

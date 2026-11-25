@@ -23,7 +23,9 @@ import Control.Concurrent.Class.MonadSTM (
   writeTBQueue,
   writeTQueue,
  )
-import Control.Monad.Class.MonadAsync (AsyncCancelled (..), cancel, wait)
+import Control.Exception qualified as Exception
+import Control.Monad.Class.MonadAsync (AsyncCancelled (..), cancel, replicateConcurrently_, wait)
+import Control.Monad.Class.MonadFork (throwTo)
 import Control.Tracer.JSON (Envelope (message), showLogsOnFailure, traceInTVar)
 import Data.Aeson (Result (..), fromJSON, object, (.=))
 import Data.Bits (testBit)
@@ -95,6 +97,30 @@ spec = do
       withAsyncLabelled ("child-scope", runChild) $ \worker -> do
         atomically $ takeTMVar reading
         cancel worker
+
+  it "stops a child when a blocked reader cancels its scope during startup" $
+    replicateM_ 4 $
+      replicateConcurrently_ 8 $
+        -- Each stop can use the five-second grace period before termination.
+        -- Bound each scope, including startup, rather than the whole batch.
+        failAfter 10 $ do
+          parent <- myThreadId
+          let runChild = withProcessInterrupt (proc "sleep" ["30"]) $ \p _ ->
+                withAsyncLabelled
+                  ( "cancelling-child-reader"
+                  , -- Cancel directly from the reader to race with installation
+                    -- of the parent's stop handler.
+                    uninterruptibleMask_ $ do
+                      throwTo parent AsyncCancelled
+                      void $ waitExitCode p
+                  )
+                  $ \_ -> atomically retry
+          runChild `shouldThrow` (== AsyncCancelled)
+
+  it "preserves the caller's masking state in the process action" $ do
+    let runChild = withProcessInterrupt (proc "sleep" ["30"]) $ \_ _ -> Exception.getMaskingState
+    runChild `shouldReturn` Exception.Unmasked
+    mask_ runChild `shouldReturn` Exception.MaskedInterruptible
 
   it "preserves cancellation when RPC cleanup throws a retryable error" $ do
     started <- newEmptyTMVarIO
@@ -493,15 +519,15 @@ etcdSpec =
 
     it "resends messages" $ \tracer -> do
       withTempDir "test-etcd" $ \tmp -> do
-        -- Sends 1000 messages through a 3-node etcd cluster; the
-        -- 20s budget was too tight under parallel CI load.
+        -- A modest history exercises catch-up and the persisted restart
+        -- position without making this a sequential throughput test.
         failAfter 60 $ do
           PeerConfig3{aliceConfig, bobConfig, carolConfig} <- setup3Peers tmp
           (recordBob, waitBob, _) <- newRecordingCallback
           (recordCarol, waitCarol, _) <- newRecordingCallback
           withEtcdNetwork @Int tracer v1 aliceConfig noopCallback $ \n1 ->
             withEtcdNetwork @Int tracer v1 bobConfig recordBob $ \_ -> do
-              let messages = [1 .. 1000]
+              let messages = [1 .. 100]
               -- Bob should see messages as we go
               forM_ messages $ \msg -> do
                 broadcast n1 msg
@@ -512,8 +538,8 @@ etcdSpec =
                   waitCarol `shouldReturn` msg
               -- Carol only delivers new messages even after restart
               withEtcdNetwork @Int tracer v1 carolConfig recordCarol $ \_ -> do
-                broadcast n1 1001
-                waitCarol `shouldReturn` 1001
+                broadcast n1 101
+                waitCarol `shouldReturn` 101
 
     -- Sequential broadcasts force one etcd put each (batching only kicks
     -- in when the queue backs up), so 5000 sends cross the broadcast

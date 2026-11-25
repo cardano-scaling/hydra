@@ -150,6 +150,7 @@ lint PKG="all":
   rc=0
   nix fmt || rc=1
   python3 scripts/test_bench_e2e_diff.py || rc=1
+  python3 demo/test_prepare_devnet.py || rc=1
   python3 demo/lifecycle/test_record.py || rc=1
   bash spec/check-error-codes.sh || rc=1
   cabal build {{PKG}} \
@@ -169,7 +170,8 @@ lint PKG="all":
 # serve the documentation locally. Generates the (git-ignored) transaction-cost
 # benchmark page first, so it renders locally exactly like it does in CI (which
 # generates it from nix/hydra/docs.nix). Uses cabal to build tx-cost since the
-# nix benchmark exe does not run on darwin.
+# nix benchmark exe does not run on darwin. The yarn start hook also generates
+# the HeadLogic Mermaid page from the current Crem topologies.
 [doc("serve the documentation locally (generates the tx-cost benchmark page first)")]
 docs:
   #!/usr/bin/env bash

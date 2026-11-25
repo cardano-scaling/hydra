@@ -8,15 +8,12 @@
 -- @synchronous=NORMAL@ to avoid per-write fsyncs while still syncing at WAL
 -- checkpoints.
 --
--- == Schema migrations
+-- == Persistence compatibility
 --
--- The schema version is tracked in @PRAGMA user_version@ and migrated on open
--- (see 'applyMigrations'). Version 1 stored event data as JSON; opening a
--- version 1 database re-encodes every row to CBOR in one transaction and runs
--- @VACUUM@ afterwards to reclaim the freed space. A row that fails to decode
--- aborts the migration (and thereby startup) with 'EventDecodingException',
--- rolling back to an intact version 1 database. The legacy file-based store
--- (JSON lines) is migrated by decoding each line as JSON and inserting CBOR.
+-- @PRAGMA user_version@ identifies both the schema and event format. Version 3
+-- uses the current HeadLogic checkpoint layouts. Older databases and legacy
+-- state files are rejected before replay, without migration. A row that fails
+-- to decode in a supported database aborts replay with 'EventDecodingException'.
 --
 -- == Async write-behind
 --
@@ -63,7 +60,7 @@
 module Data.EventSource.SQLite where
 
 import Cardano.Binary (FromCBOR, ToCBOR, decodeFull', serialize')
-import Conduit (ConduitT, ResourceT, bracketP, runConduitRes, sourceFile, yield, (.|))
+import Conduit (ConduitT, ResourceT, bracketP, yield)
 import Control.Concurrent (threadDelay)
 import Control.Concurrent.Class.Labelled (newLabelledTVarIO)
 import Control.Concurrent.Class.MonadSTM (
@@ -81,30 +78,23 @@ import Control.Concurrent.Class.MonadSTM (
   writeTBQueue,
   writeTVar,
  )
-import Control.Exception (Exception, finally, onException, throwIO)
-import Control.Monad (forM, forM_, forever, unless, when)
+import Control.Exception (Exception (displayException), finally, onException, throwIO)
+import Control.Monad (forM_, forever, unless, when)
 import Control.Monad.Class.MonadAsync (async, cancel, link)
 import Control.Monad.IO.Class (liftIO)
 import Control.Tracer (Tracer, traceWith)
-import Data.Aeson (FromJSON, ToJSON)
-import Data.Aeson qualified as Aeson
+import Data.Aeson (ToJSON)
 import Data.Bifunctor (second)
 import Data.ByteString (ByteString)
-import Data.ByteString qualified as BS
-import Data.Conduit.Combinators (linesUnboundedAscii)
-import Data.Conduit.Combinators qualified as C
 import Data.Either (partitionEithers)
 import Data.EventSource (EventSink (..), EventSource (..), HasEventId (..))
 import Data.EventSource.Rotation (EventStore (..))
-import Data.List.NonEmpty (nonEmpty)
-import Data.List.NonEmpty qualified as NE
-import Data.Proxy (Proxy (..))
 import Data.String (fromString)
 import Data.Word (Word64)
-import Database.SQLite.Simple (Connection, Only (..), Statement, close, closeStatement, execute, executeMany, execute_, nextRow, open, openStatement, query, query_, withTransaction)
+import Database.SQLite.Simple (Connection, Only (..), Statement, close, closeStatement, execute, executeMany, execute_, nextRow, open, openStatement, query_, withTransaction)
 import GHC.Clock (getMonotonicTimeNSec)
 import GHC.Generics (Generic)
-import System.Directory (createDirectoryIfMissing, doesFileExist, removeFile, renameFile)
+import System.Directory (createDirectoryIfMissing, doesFileExist, removeFile)
 import System.FilePath (takeBaseName, takeDirectory, takeExtension, (</>))
 
 -- | Exception thrown when a persisted event cannot be decoded.
@@ -116,11 +106,26 @@ data EventDecodingException = EventDecodingException
 
 instance Exception EventDecodingException
 
+data PersistenceException
+  = IncompatibleDatabase FilePath Int
+  | LegacyStateFile FilePath
+  deriving stock (Eq, Show)
+
+instance Exception PersistenceException where
+  displayException = \case
+    IncompatibleDatabase path version ->
+      "Incompatible persistence format in "
+        <> show path
+        <> ": database version "
+        <> show version
+        <> ", expected "
+        <> show nextVersion
+        <> ". No automatic migration is available."
+    LegacyStateFile path ->
+      "Incompatible legacy state file " <> show path <> ". No automatic migration is available."
+
 data SQLiteLog
-  = MigratingFromFileBased {legacyFile :: FilePath}
-  | MigrationSkipped {legacyFile :: FilePath}
-  | MigrationComplete {legacyFile :: FilePath}
-  | SQLiteStats {queueDepth :: Int}
+  = SQLiteStats {queueDepth :: Int}
   | SQLiteWriteStarted
   | SQLiteWriteCompleted {writeSeconds :: Double}
   | SQLiteWriteFailed
@@ -144,44 +149,37 @@ writeQueueCapacity = 1000
 -- cancels the writer thread on exit. The writer thread is 'link'ed so that
 -- crashes surface immediately in the calling thread.
 --
--- If a legacy state file exists at @legacyStateFile@, events are migrated into
--- SQLite automatically before the callback runs.
+-- A legacy state file is rejected before opening the database.
 withSQLiteEventStore ::
   forall e a.
-  (ToCBOR e, FromCBOR e, FromJSON e, HasEventId e) =>
+  (ToCBOR e, FromCBOR e, HasEventId e) =>
   Tracer IO SQLiteLog ->
   FilePath ->
   FilePath ->
   (EventStore e IO -> IO a) ->
   IO a
 withSQLiteEventStore tracer dbFile legacyStateFile callback = do
-  (conn, store, flush, reinitLastSeen, cleanup) <- mkSQLiteEventStore tracer dbFile
-  migrateFromFileBased (Proxy @e) tracer legacyStateFile conn reinitLastSeen
+  legacyExists <- doesFileExist legacyStateFile
+  when legacyExists $ throwIO $ LegacyStateFile legacyStateFile
+  (conn, store, flush, cleanup) <- mkSQLiteEventStore tracer dbFile
   callback store
     `finally` (flush >> cleanup >> close conn)
 
 -- | Create an 'EventStore' backed by a SQLite database at the given file path.
 -- The database and schema are created on first use if they do not exist.
--- Returns @(conn, store, flush, reinitLastSeen, cleanup)@. Internal —
--- prefer 'withSQLiteEventStore' which handles cleanup, migration, and flushing
+-- Returns @(conn, store, flush, cleanup)@. Internal —
+-- prefer 'withSQLiteEventStore' which handles cleanup and flushing
 -- automatically.
 mkSQLiteEventStore ::
   forall e.
-  (ToCBOR e, FromCBOR e, FromJSON e, HasEventId e) =>
+  (ToCBOR e, FromCBOR e, HasEventId e) =>
   Tracer IO SQLiteLog ->
   FilePath ->
-  IO (Connection, EventStore e IO, IO (), IO (), IO ())
+  IO (Connection, EventStore e IO, IO (), IO ())
 mkSQLiteEventStore tracer dbFile = do
   createDirectoryIfMissing True (takeDirectory dbFile)
   conn <- open dbFile
-  -- Rows of a version 1 database are JSON-encoded and get re-encoded to CBOR
-  -- by the schema migration; a row that fails to decode aborts startup.
-  let reencodeRow :: Word64 -> ByteString -> IO ByteString
-      reencodeRow eid bytes =
-        case Aeson.eitherDecodeStrict' @e bytes of
-          Right evt -> pure $ serialize' evt
-          Left err -> throwIO EventDecodingException{eventId = eid, decodeError = err}
-  initSchema conn reencodeRow
+  initSchema dbFile conn `onException` close conn
   -- Dedicated connection for 'sourceEvents' streams, so concurrent history
   -- replay cannot hold statements open on the connection rotation runs
   -- VACUUM INTO on (see module header).
@@ -261,12 +259,6 @@ mkSQLiteEventStore tracer dbFile = do
         insertEvent conn (getEventId checkpointEvent, evData)
       atomically $ setLastSeenEventId checkpointEvent
 
-  let reinitLastSeen = do
-        latestRows <- selectLastEventId conn
-        case latestRows of
-          [Only lastId] -> atomically $ writeTVar eventIdV (Just lastId)
-          _ -> pure ()
-
   pure
     ( conn
     , EventStore
@@ -275,7 +267,6 @@ mkSQLiteEventStore tracer dbFile = do
         , rotate
         }
     , flushWriteQueue writeQueue
-    , reinitLastSeen
     , cancel statsThread >> cancel writerThread >> close readConn
     )
 
@@ -310,76 +301,27 @@ flushWriteQueue queue = do
   atomically $ writeTBQueue queue (Left mv)
   atomically $ takeTMVar mv
 
--- | Migrate events from a legacy newline-delimited JSON file into SQLite.
--- Writes directly to the database, bypassing the async write queue (migration
--- runs at startup before inputs are processed). After inserting, calls
--- @reinitLastSeen@ to sync the in-memory event id TVar with the database.
---
--- Safe to call when the legacy file does not exist (no-op). Not safe to re-run:
--- duplicate event ids will cause a primary key constraint violation.
---
--- On success the legacy file is renamed to @<path>.migrated@ so that
--- subsequent restarts skip the migration step automatically.
-migrateFromFileBased ::
-  forall e.
-  (FromJSON e, ToCBOR e, HasEventId e) =>
-  Proxy e ->
-  Tracer IO SQLiteLog ->
-  FilePath ->
-  Connection ->
-  IO () ->
-  IO ()
-migrateFromFileBased _proxy tracer legacyFile conn reinitLastSeen = do
-  exists <- doesFileExist legacyFile
-  if not exists
-    then traceWith tracer MigrationSkipped{legacyFile}
-    else do
-      traceWith tracer MigratingFromFileBased{legacyFile}
-      rawLines <-
-        runConduitRes $
-          sourceFile legacyFile
-            .| linesUnboundedAscii
-            .| C.filter (not . BS.null)
-            .| C.sinkList
-      -- Decode each JSON line (legacy files are always JSON) and store the
-      -- event re-encoded as CBOR. Invalid JSON is caught here so corrupt
-      -- files fail at migration.
-      rowParams <- forM (zip [1 ..] rawLines) $ \(lineNo :: Int, line) ->
-        case Aeson.eitherDecodeStrict' @e line of
-          Right evt -> pure (getEventId evt, serialize' evt)
-          Left err -> throwIO EventDecodingException{eventId = fromIntegral lineNo, decodeError = err}
-      unless (null rowParams) $
-        withTransaction conn $
-          insertEvents conn rowParams
-      -- Re-read the last event id from the database so the in-memory
-      -- de-duplication TVar is consistent with the migrated rows.
-      reinitLastSeen
-      renameFile legacyFile (legacyFile <> ".migrated")
-      traceWith tracer MigrationComplete{legacyFile}
-
 -- Internal
 
--- | Current schema version. Bump this and add a migration step to
--- 'migrateStep' whenever the schema changes.
+-- | Current schema and event format. Older formats have no migration.
 nextVersion :: Int
-nextVersion = 2
+nextVersion = 3
 
--- | Re-encode a single event row given its event id and stored bytes, used by
--- the version 1 (JSON) to version 2 (CBOR) migration. Must throw when the row
--- cannot be decoded.
-type ReencodeRow = Word64 -> ByteString -> IO ByteString
-
--- | Initialise connection pragmas, then create or migrate the schema to
--- 'nextVersion' using SQLite's built-in @user_version@ pragma.
-initSchema :: Connection -> ReencodeRow -> IO ()
-initSchema conn reencodeRow = do
-  configurePragmas conn
-  v <- getSchemaVersion conn
-  applyMigrations conn reencodeRow v
-  -- Reclaim the space freed by the JSON -> CBOR re-encode. VACUUM cannot run
-  -- inside a transaction and is a space optimization only: a crash between
-  -- the migration commit and here costs disk space, not correctness.
-  when (v == 1) $ execute_ conn "VACUUM"
+-- | Reject incompatible stores before changing pragmas or reading events.
+-- Only an empty, unversioned database can be initialised as a new store.
+initSchema :: FilePath -> Connection -> IO ()
+initSchema dbFile conn = do
+  version <- getSchemaVersion conn
+  case version of
+    0 -> do
+      tables :: [Only String] <- query_ conn "SELECT name FROM sqlite_master WHERE type = 'table'"
+      unless (null tables) $ throwIO $ IncompatibleDatabase dbFile version
+      configurePragmas conn
+      withTransaction conn $ do
+        createEventsTable conn
+        setSchemaVersion conn nextVersion
+    _ | version == nextVersion -> configurePragmas conn
+    _ -> throwIO $ IncompatibleDatabase dbFile version
 
 configurePragmas :: Connection -> IO ()
 configurePragmas conn =
@@ -405,51 +347,6 @@ setSchemaVersion conn v =
   -- PRAGMA doesn't support parameter binding, so we use show directly.
   -- The value is an Int we control, not user input.
   execute_ conn $ fromString $ "PRAGMA user_version = " <> show v
-
--- | Apply all pending migrations from version @v@ up to 'nextVersion'.
--- Each step runs together with its version bump in one transaction
--- (@PRAGMA user_version@ is transactional), so a crash or decoding failure
--- mid-migration rolls back to a well-defined version.
-applyMigrations :: Connection -> ReencodeRow -> Int -> IO ()
-applyMigrations conn reencodeRow v
-  | v > nextVersion =
-      error $ "Database schema version " <> show v <> " is newer than supported " <> show nextVersion <> ", cannot downgrade"
-  | v == nextVersion = pure ()
-  | otherwise = do
-      withTransaction conn $ do
-        migrateStep conn reencodeRow v
-        setSchemaVersion conn (v + 1)
-      applyMigrations conn reencodeRow (v + 1)
-
--- | Individual migration steps. Pattern-match on the /source/ version.
-migrateStep :: Connection -> ReencodeRow -> Int -> IO ()
-migrateStep conn reencodeRow = \case
-  0 -> createEventsTable conn
-  1 -> reencodeAllEvents conn reencodeRow
-  unknown ->
-    error $ "Unknown schema version " <> show unknown <> ", cannot migrate"
-
--- | Re-encode all event rows using the given 'ReencodeRow' function (the
--- version 1 JSON to version 2 CBOR migration). Rows are processed in batches
--- of ascending event id so memory stays bounded for large databases. Runs
--- inside the caller's transaction.
-reencodeAllEvents :: Connection -> ReencodeRow -> IO ()
-reencodeAllEvents conn reencodeRow = go 0
- where
-  batchSize = 1000 :: Int
-
-  go :: Word64 -> IO ()
-  go startId = do
-    rows :: [(Word64, ByteString)] <-
-      query conn "SELECT event_id, event_data FROM events WHERE event_id >= ? ORDER BY event_id LIMIT ?" (startId, batchSize)
-    case nonEmpty rows of
-      Nothing -> pure ()
-      Just neRows -> do
-        updates <- forM rows $ \(eid, evData) -> do
-          encoded <- reencodeRow eid evData
-          pure (encoded, eid)
-        executeMany conn "UPDATE events SET event_data = ? WHERE event_id = ?" updates
-        go (fst (NE.last neRows) + 1)
 
 -- SQL queries
 

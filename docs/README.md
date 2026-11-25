@@ -6,6 +6,10 @@ Sources for the [user manual 📖](https://hydra.family/head-protocol/docs).
 
 The user-manual is built using [Docusaurus 3](https://docusaurus.io/), which combines React components and markdown into a customisable static website. Docusaurus supports a set of plugins and basic features (coming in the form of _'presets'_). We use it to create the actual user manual (docs), documenting our [architectural decision records](https://hydra.family/head-protocol/adr), a custom page for the [API reference](https://hydra.family/head-protocol/api-reference), and various other documentation pages around the Hydra Head protocol.
 
+
+> [!NOTE]
+> You need to enter a `nix develop` shell before building the docs.
+
 Run the Yarn commands below from the `docs/` directory.
 
 #### Installation
@@ -27,6 +31,9 @@ This command starts a local development server and opens up a browser window. Mo
 ```console
 $ yarn build
 ```
+
+> [!NOTE]
+> This now builds the Haskell source code; so may result in long compilation time.
 
 This command generates static content into the `build` directory and can be served using any static contents hosting service.
 
@@ -83,3 +90,8 @@ the same terms and sequence.
 Use descriptive alternative text for diagrams and explain their meaning in
 the surrounding prose. Prefer copyable commands to screenshots of terminal
 output. Keep screenshots only when they explain an interface that text cannot.
+
+### Head-logic diagrams
+
+Run `yarn head-logic-diagrams` after any relevant code changes to get new
+pictures of the crem workflows.

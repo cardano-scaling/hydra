@@ -47,6 +47,34 @@ The Hydra node maintains an internal wallet using the Cardano signing key provid
 
 This component is at the core of the Hydra node, implementing the protocol's _state machine_. It is structured around the concepts of `Input`s and `Effect`s. `Input`s from the outside world are interpreted against the current state, potentially resulting in internal `Event`s, which are aggregated into an updated state. This can then produce `Effect`s, leading to 'side effects' on the outside world. The state available to the _head logic_ consists of the head's content (eg, current ledger, pending transactions) _and_ the data from layer 1 needed to observe and trigger on-chain transitions.
 
+Input admission, network requests, client decommit, and chain settlement expose
+a `workflow` with a named `Args` record. Callers assemble these inputs and use
+`Workflow.run` to obtain the rule's `Program`. Argument fields remain lazy, and
+each workflow retains its own topology. Diagram edge labels describe operations
+without affecting execution. Network dispatch selects the deposit
+view explicitly: `ReqSn` keeps all pending deposits for the head; the other
+network workflows exclude the deposit claimed by the retained finalized commit.
+`ReqDec` distinguishes the incoming transaction from any pending decommit;
+its failure events identify the incoming transaction.
+Decrement finalization events preserve the observed L1 output references; snapshot
+verification and the local ledger continue to use the signed snapshot contents.
+
+Rules import `Program` primitives explicitly and call them without qualification.
+`traceB` (trace Boolean) labels a condition for diagnostic traces and returns its
+value unchanged; the caller determines whether to continue, wait, or reject.
+State destructuring uses `RecordWildCards`, with aliases where request and state
+fields overlap. Complex `case` subjects use named, lazy intermediate results.
+
+`ReqSn` constructs the snapshot from the applied UTxO, resolved commit/decommit
+sets, and ordered transactions. The snapshot number and deposit ID come from
+the request; the version is checked against the current coordinated state.
+
+When `AckSn` confirms a snapshot, increment and decrement effects use the open
+head's identity and parameters together with the verified snapshot and signatures.
+Any chained snapshot request uses the coordinated state after confirmation.
+
+The [Head logic machines](./head-logic-machines.md) page renders the Crem topologies and compositions directly from the source during each documentation build.
+
 ### Hydra smart contracts
 
 This component represents all the Hydra smart contracts needed for the Hydra Head protocol operation. The head, minting, and CRS contracts use PlutusTx; the deposit validator uses Aiken. The implementation uses a KZG accumulator for UTxO commitments and fanout proofs, with native support in `rust-accumulator`.

@@ -390,14 +390,12 @@ aggregateInOrder signatures = HydraMultiSignature . foldr appendSignature []
       Nothing -> sigs
       Just sig -> sig : sigs
 
--- | A result type for multisigs verification providing some information
--- in case of failure.
---
--- This type is of course structurally equivalent to `Maybe [VerificationKey HydraKey]` but it's much more explicit.
-data Verified
-  = Verified
-  | FailedKeys {failedKeys :: [VerificationKey HydraKey]}
-  | KeyNumberMismatch
+-- | Why a multisignature fails verification. Invalid signatures identify their
+-- verification keys in the supplied order; a count mismatch prevents checking
+-- the signatures against that key list.
+data VerificationError
+  = InvalidSignatures (NonEmpty (VerificationKey HydraKey))
+  | SignatureCountMismatch
   deriving stock (Eq, Show, Generic)
 
 -- | Verify a given 'MultiSignature a' and value 'a' provided a list of
@@ -410,7 +408,7 @@ verifyMultiSignature ::
   [VerificationKey HydraKey] ->
   MultiSignature a ->
   a ->
-  Verified
+  Either VerificationError ()
 verifyMultiSignature vks multisig a =
   verifyMultiSignatureBytes vks multisig (getSignableRepresentation a)
 
@@ -421,7 +419,7 @@ verifyMultiSignatureBytes ::
   [VerificationKey HydraKey] ->
   MultiSignature a ->
   ByteString ->
-  Verified
+  Either VerificationError ()
 verifyMultiSignatureBytes vks HydraMultiSignature{multiSignature} bs
   | length vks == length multiSignature =
       let ctx = () :: ContextDSIGN Ed25519DSIGN
@@ -433,10 +431,10 @@ verifyMultiSignatureBytes vks HydraMultiSignature{multiSignature} bs
                     Left _ -> Just vk
               )
               (zip vks multiSignature)
-       in if null failures
-            then Verified
-            else FailedKeys failures
-  | otherwise = KeyNumberMismatch
+       in case failures of
+            [] -> Right ()
+            failed : rest -> Left $ InvalidSignatures (failed :| rest)
+  | otherwise = Left SignatureCountMismatch
 
 toPlutusSignatures :: MultiSignature a -> [OnChain.Signature]
 toPlutusSignatures (HydraMultiSignature sigs) =

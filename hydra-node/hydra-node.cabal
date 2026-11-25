@@ -74,11 +74,60 @@ library
     Hydra.Chain.ScriptRegistry
     Hydra.Config
     Hydra.HeadLogic
+    Hydra.HeadLogic.Cardano
+    Hydra.HeadLogic.Deposit
+    Hydra.HeadLogic.Diagrams
     Hydra.HeadLogic.Error
+    Hydra.HeadLogic.Fanout.Outputs
+    Hydra.HeadLogic.Fanout.Plan
+    Hydra.HeadLogic.Fanout.Selection
     Hydra.HeadLogic.Input
+    Hydra.HeadLogic.Interpreter
+    Hydra.HeadLogic.Limits
     Hydra.HeadLogic.Outcome
+    Hydra.HeadLogic.Program
+    Hydra.HeadLogic.Retry
+    Hydra.HeadLogic.Rules.Chain
+    Hydra.HeadLogic.Rules.Chain.Deposits
+    Hydra.HeadLogic.Rules.Chain.Fanout
+    Hydra.HeadLogic.Rules.Chain.Lifecycle
+    Hydra.HeadLogic.Rules.Chain.Rollback
+    Hydra.HeadLogic.Rules.Chain.Settlement
+    Hydra.HeadLogic.Rules.Chain.Synchronisation
+    Hydra.HeadLogic.Rules.Chain.Tick
+    Hydra.HeadLogic.Rules.Client
+    Hydra.HeadLogic.Rules.Client.Decommit
+    Hydra.HeadLogic.Rules.Client.Fanout
+    Hydra.HeadLogic.Rules.Client.Recover
+    Hydra.HeadLogic.Rules.Client.SideLoad
+    Hydra.HeadLogic.Rules.Coordinated
+    Hydra.HeadLogic.Rules.Decommit
+    Hydra.HeadLogic.Rules.Environment
+    Hydra.HeadLogic.Rules.Fanout
+    Hydra.HeadLogic.Rules.Input
+    Hydra.HeadLogic.Rules.Network
+    Hydra.HeadLogic.Rules.Network.AckSn
+    Hydra.HeadLogic.Rules.Network.ReqDec
+    Hydra.HeadLogic.Rules.Network.ReqSn
+    Hydra.HeadLogic.Rules.Network.ReqTx
+    Hydra.HeadLogic.Rules.Transactions
+    Hydra.HeadLogic.Snapshot.Capacity
+    Hydra.HeadLogic.Snapshot.Request
+    Hydra.HeadLogic.Snapshot.Settlement
+    Hydra.HeadLogic.Snapshot.Verification
     Hydra.HeadLogic.State
+    Hydra.HeadLogic.State.ChainHistory
+    Hydra.HeadLogic.State.Coordinated
+    Hydra.HeadLogic.State.Coordinated.Snapshots.Topology
+    Hydra.HeadLogic.State.Deposits
+    Hydra.HeadLogic.State.Fanout
+    Hydra.HeadLogic.State.Head
+    Hydra.HeadLogic.State.Node
+    Hydra.HeadLogic.State.Types
     Hydra.HeadLogic.StateEvent
+    Hydra.HeadLogic.Trace
+    Hydra.HeadLogic.Transaction.Outputs
+    Hydra.HeadLogic.Workflow
     Hydra.Ledger
     Hydra.Ledger.Cardano
     Hydra.Ledger.Simple
@@ -97,6 +146,8 @@ library
     Hydra.Node.ApiTransactionTimeout
     Hydra.Node.EmbedTH
     Hydra.Node.Environment
+    Hydra.Node.HeadLogic
+    Hydra.Node.HeadLogic.Configuration
     Hydra.Node.InputQueue
     Hydra.Node.Network
     Hydra.Node.Outbox
@@ -109,7 +160,17 @@ library
     Hydra.Options
     Hydra.Utils
 
-  other-modules:      Paths_hydra_node
+  other-modules:
+    Hydra.HeadLogic.Diagrams.TH
+    Hydra.HeadLogic.Snapshot.Candidate
+    Hydra.HeadLogic.State.Coordinated.Commits
+    Hydra.HeadLogic.State.Coordinated.Replay
+    Hydra.HeadLogic.State.Coordinated.Snapshots
+    Hydra.HeadLogic.State.Coordinated.Snapshots.State
+    Hydra.HeadLogic.State.Coordinated.Transactions
+    Hydra.HeadLogic.Validation
+    Paths_hydra_node
+
   build-depends:
     , aeson
     , base
@@ -136,6 +197,7 @@ library
     , containers
     , contra-tracer
     , contra-tracer-json
+    , crem                         ==0.1.1.0
     , crypton
     , data-default
     , directory
@@ -168,6 +230,7 @@ library
     , safe-money
     , secret
     , serialise
+    , singletons-base
     , sop-extras
     , stm
     , template-haskell
@@ -189,6 +252,16 @@ library
   if !os(windows)
     build-depends: unix
 
+executable head-logic-diagrams
+  import:         project-config
+  hs-source-dirs: doc/head-logic-diagrams
+  main-is:        Main.hs
+  build-depends:
+    , directory
+    , filepath
+    , hydra-node
+    , hydra-prelude
+
 library testlib
   import:          project-config
   visibility:      public
@@ -202,10 +275,28 @@ library testlib
     Test.Hydra.Chain
     Test.Hydra.Chain.Direct.State
     Test.Hydra.Chain.Direct.TimeHandle
+    Test.Hydra.HeadLogic.Capacity
+    Test.Hydra.HeadLogic.ConflictingDecommit
+    Test.Hydra.HeadLogic.CoordinatedAudit
+    Test.Hydra.HeadLogic.Debugger
+    Test.Hydra.HeadLogic.DecommitDependency
+    Test.Hydra.HeadLogic.DecommitSequences
+    Test.Hydra.HeadLogic.Explorer
     Test.Hydra.HeadLogic.Input
+    Test.Hydra.HeadLogic.InputFixtures
+    Test.Hydra.HeadLogic.Interpreter
     Test.Hydra.HeadLogic.Outcome
+    Test.Hydra.HeadLogic.Projection.Incremental
+    Test.Hydra.HeadLogic.Projection.Lifecycle
+    Test.Hydra.HeadLogic.Projection.OffChain
+    Test.Hydra.HeadLogic.Recovery
+    Test.Hydra.HeadLogic.Registry
+    Test.Hydra.HeadLogic.Replay
+    Test.Hydra.HeadLogic.Scenario
+    Test.Hydra.HeadLogic.Settlement
     Test.Hydra.HeadLogic.State
     Test.Hydra.HeadLogic.StateEvent
+    Test.Hydra.HeadLogic.Validated
     Test.Hydra.Ledger
     Test.Hydra.Ledger.Cardano
     Test.Hydra.Ledger.Simple
@@ -401,7 +492,24 @@ test-suite tests
     Hydra.Events.S3Spec
     Hydra.Events.SQLiteBasedSpec
     Hydra.Events.UDPSpec
+    Hydra.HeadLogic.CapacitySpec
+    Hydra.HeadLogic.CommitPhaseSpec
+    Hydra.HeadLogic.CoordinatedSpec
+    Hydra.HeadLogic.DepositSpec
+    Hydra.HeadLogic.IncrementalWorkflowSpec
+    Hydra.HeadLogic.InputWorkflowSpec
+    Hydra.HeadLogic.InterpreterSpec
+    Hydra.HeadLogic.LifecycleSpec
+    Hydra.HeadLogic.MachineSpec
+    Hydra.HeadLogic.OperationWorkflowSpec
     Hydra.HeadLogic.OutcomeSpec
+    Hydra.HeadLogic.ProgramSpec
+    Hydra.HeadLogic.ReplaySpec
+    Hydra.HeadLogic.RulesSpec
+    Hydra.HeadLogic.SnapshotDecommitSpec
+    Hydra.HeadLogic.SnapshotOwnerSpec
+    Hydra.HeadLogic.SnapshotProgramSpec
+    Hydra.HeadLogic.WorkflowSpec
     Hydra.HeadLogicSnapshotSpec
     Hydra.HeadLogicSpec
     Hydra.JSONSchemaSpec
@@ -461,6 +569,7 @@ test-suite tests
     , containers
     , contra-tracer
     , contra-tracer-json
+    , crem
     , directory
     , event-sourcing
     , filepath

@@ -19,7 +19,11 @@ import Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import Hydra.Cardano.Api (Tx)
 import Hydra.Chain.ChainState (ChainSlot (ChainSlot))
 import Hydra.Chain.Direct.State (initialChainState)
-import Hydra.HeadLogic (
+import Hydra.Ledger (Ledger (..))
+import Hydra.Ledger.Cardano (cardanoLedger)
+import Hydra.Network.Message (Message (AckSn, ReqSn))
+import Hydra.Node (mkNetworkInput)
+import Hydra.Node.HeadLogic (
   CoordinatedHeadState (..),
   Effect (NetworkEffect),
   HeadState (Open),
@@ -30,10 +34,6 @@ import Hydra.HeadLogic (
   isLeader,
   update,
  )
-import Hydra.Ledger (Ledger (..))
-import Hydra.Ledger.Cardano (cardanoLedger)
-import Hydra.Network.Message (Message (AckSn, ReqSn))
-import Hydra.Node (mkNetworkInput)
 import Hydra.Node.State (ChainPointTime (..), NodeState (..))
 import Hydra.Tx (HeadParameters (..), Snapshot (..), txId)
 import Hydra.Tx.Accumulator (buildFromUTxO, getAccumulatorHash, maxAccumulatorSize)

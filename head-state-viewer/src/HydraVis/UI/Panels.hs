@@ -73,6 +73,8 @@ peersBody mctx = \case
   HS.Open HS.OpenState{HS.parameters = ps, HS.headId = hid} -> openClosed ps hid
   HS.Closed HS.ClosedState{HS.parameters = ps, HS.headId = hid} -> openClosed ps hid
   HS.FanoutProgress HS.PartialFanoutState{HS.parameters = ps, HS.headId = hid} -> openClosed ps hid
+  HS.Finalized HS.FinalizedState{HS.headId = hid} ->
+    div_ [] [row "head id" (jsonStringy hid), italic "head is Finalized; participant details are no longer retained."]
  where
   me = Env.party . ctxEnvironment <$> mctx
 
@@ -126,6 +128,8 @@ snapshotBody :: forall tx. IsChainState tx => HS.HeadState tx -> View (Action tx
 snapshotBody = \case
   HS.Idle _ ->
     italic "head is Idle; no snapshot yet."
+  HS.Finalized{} ->
+    italic "head is Finalized; no current snapshot."
   HS.Open HS.OpenState{HS.coordinatedHeadState = chs} ->
     let HS.CoordinatedHeadState{HS.seenSnapshot = seen, HS.confirmedSnapshot = cs} = chs
         snap = getSnapshot @tx cs
@@ -477,13 +481,14 @@ viewMessages m = case currentStep m of
       [styleInline_ "font-family: ui-monospace, monospace; font-weight: 600; font-variant-numeric: tabular-nums;"]
       [text (ms (show n :: Text))]
 
--- | Parties (peers) in the head, from the head parameters; empty before open.
+-- | Parties from the head parameters; empty before open and after finalization.
 headParties :: HS.HeadState tx -> [Party]
 headParties = \case
   HS.Open HS.OpenState{HS.parameters = ps} -> HP.parties ps
   HS.Closed HS.ClosedState{HS.parameters = ps} -> HP.parties ps
   HS.FanoutProgress HS.PartialFanoutState{HS.parameters = ps} -> HP.parties ps
   HS.Idle _ -> []
+  HS.Finalized{} -> []
 
 -- | Render the currently-connected peer set as @host:port@, comma separated.
 connectedPeersText :: Set Host -> Text

@@ -84,6 +84,9 @@ instance IsTx SimpleTx where
   outputsOfUTxO = toList
   withoutUTxO = Set.difference
 
+  txInputsAvailable (SimpleTx _ ins _) utxo = ins `Set.isSubsetOf` utxo
+  withoutTxInputs (SimpleTx _ ins _) utxo = utxo `Set.difference` ins
+
   applyTxTo (SimpleTx _ ins outs) utxo = (utxo `Set.difference` ins) <> outs
 
   txSpendingUTxO utxo =

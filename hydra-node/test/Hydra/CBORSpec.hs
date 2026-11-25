@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -Wno-ambiguous-fields #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 -- | Tests for the 'ToCBOR' / 'FromCBOR' codecs of hydra-node types.
@@ -26,6 +27,7 @@ import Test.Hydra.Prelude
 
 import Cardano.Binary (decodeFull', serialize')
 import Codec.CBOR.Write (toStrictByteString)
+import Data.Aeson qualified as Aeson
 import Data.ByteString qualified as BS
 import Hydra.API.ClientInput (ClientInput)
 import Hydra.API.HTTPServer (
@@ -57,7 +59,7 @@ import Hydra.Chain.ChainState (ChainSlot)
 import Hydra.Chain.Direct.State (ChainStateAt)
 import Hydra.HeadLogic.Error (RequirementFailure, SideLoadRequirementFailure)
 import Hydra.HeadLogic.Outcome (StateChanged)
-import Hydra.HeadLogic.State (ClosedState (..), CoordinatedHeadState (..), FanoutMode, HeadState, SeenSnapshot, closedStateCBORTag, closedStateCBORTagV1, coordinatedHeadStateCBORTag, coordinatedHeadStateCBORTagV1)
+import Hydra.HeadLogic.State (FanoutMode, FinalizedState, HeadState (Finalized), OnChainFanoutDatum (..), PartialFanoutState (..), SeenSnapshot)
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.Ledger (ValidationError)
 import Hydra.Ledger.Cardano (Tx)
@@ -67,7 +69,7 @@ import Hydra.Network.Authenticate (Signed)
 import Hydra.Network.Message (Message)
 import Hydra.Node.ApiTransactionTimeout (ApiTransactionTimeout)
 import Hydra.Node.Environment (Environment)
-import Hydra.Node.State (ChainPointTime, Deposit, DepositStatus, NodeState (..), SyncedStatus, TrackedDeposit, nodeCatchingUpCBORTag, nodeInSyncCBORTag, nodeInSyncCBORTagV1, pendingDeposits, trackedFromPending)
+import Hydra.Node.State (ChainPointTime, Deposit, DepositStatus, NodeState, SyncedStatus, TrackedDeposit)
 import Hydra.Node.UnsyncedPeriod (UnsyncedPeriod)
 import Hydra.Tx (ConfirmedSnapshot, HeadId, HeadParameters, HeadSeed, Party, Snapshot (..), SnapshotNumber, SnapshotVersion)
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)
@@ -224,79 +226,18 @@ spec = parallel $ do
                 <> toCBOR utxoToDecommit
       decodeFull' legacy `shouldBe` Right snapshot{depositTxId = Nothing}
 
-  -- 'CoordinatedHeadState' gained 'finalizedCommit' and 'finalizedDecommit'
-  -- between two released layouts, same situation as 'Snapshot' above.
-  describe "CoordinatedHeadState layouts" $ do
-    let chs = generateWith (resize 3 arbitrary) 42 :: CoordinatedHeadState Tx
-        CoordinatedHeadState{localUTxO, localTxs, allTxs, confirmedSnapshot, seenSnapshot, currentDepositTxId, decommitTx, version} = chs
-
-    it "writes the current layout under a tag of its own" $
-      serialize' chs `shouldSatisfy` BS.isPrefixOf (serialize' coordinatedHeadStateCBORTag)
-
-    it "decodes the layout written before finalizedCommit/finalizedDecommit existed" $ do
-      let legacy =
-            toStrictByteString $
-              toCBOR coordinatedHeadStateCBORTagV1
-                <> toCBOR localUTxO
-                <> toCBOR localTxs
-                <> toCBOR allTxs
-                <> toCBOR confirmedSnapshot
-                <> toCBOR seenSnapshot
-                <> toCBOR currentDepositTxId
-                <> toCBOR decommitTx
-                <> toCBOR version
-      decodeFull' legacy `shouldBe` Right chs{finalizedCommit = Nothing, finalizedDecommit = Nothing}
-
-  -- 'ClosedState' gained 'unconfirmedSnapshot' between two released layouts,
-  -- same situation as 'Snapshot' above. The legacy layout is the one the
-  -- generic encoding wrote: the constructor name followed by the fields.
-  describe "ClosedState layouts" $ do
-    let closedState = generateWith (resize 3 arbitrary) 42 :: ClosedState Tx
-        ClosedState{parameters, confirmedSnapshot, contestationDeadline, readyToFanoutSent, chainState, headId, headSeed, version} = closedState
-
-    it "writes the current layout under a tag of its own" $
-      serialize' closedState `shouldSatisfy` BS.isPrefixOf (serialize' closedStateCBORTag)
-
-    it "decodes the layout written before unconfirmedSnapshot existed" $ do
-      let legacy =
-            toStrictByteString $
-              toCBOR closedStateCBORTagV1
-                <> toCBOR parameters
-                <> toCBOR confirmedSnapshot
-                <> toCBOR contestationDeadline
-                <> toCBOR readyToFanoutSent
-                <> toCBOR chainState
-                <> toCBOR headId
-                <> toCBOR headSeed
-                <> toCBOR version
-      decodeFull' legacy `shouldBe` Right closedState{unconfirmedSnapshot = Nothing}
-
-  -- 'NodeState' gained deposit lifecycle tracking between two released
-  -- layouts, same situation as 'Snapshot' above. The legacy layout carries a
-  -- plain pending deposit map, lifted into fresh lifecycles on decode,
-  -- mirroring the 'FromJSON' instance.
-  describe "NodeState layouts" $ do
-    let nodeState = generateWith (resize 3 arbitrary) 42 :: NodeState Tx
-
-    it "writes the current layout under a tag of its own" $
-      serialize' nodeState `shouldSatisfy` \bytes ->
-        BS.isPrefixOf (serialize' nodeInSyncCBORTag) bytes
-          || BS.isPrefixOf (serialize' nodeCatchingUpCBORTag) bytes
-
-    it "decodes the layout written before deposit lifecycle tracking existed" $ do
-      let legacy =
-            toStrictByteString $
-              toCBOR nodeInSyncCBORTagV1
-                <> toCBOR (headState nodeState)
-                <> toCBOR (pendingDeposits nodeState)
-                <> toCBOR (chainPointTime nodeState)
-      decodeFull' legacy
-        `shouldBe` Right
-          NodeInSync
-            { headState = headState nodeState
-            , deposits = trackedFromPending (pendingDeposits nodeState)
-            , chainPointTime = chainPointTime nodeState
+  describe "PartialFanoutState" $ do
+    let progress =
+          (generateWith (resize 3 arbitrary) 42 :: PartialFanoutState Tx)
+            { distributedOutputs = mempty
+            , readyToFanoutSent = False
+            , unconfirmedSnapshot = Just $ generateWith (resize 3 arbitrary) 43
             }
+    forM_ [("pending request", DatumClosed), ("observed progress", DatumFanoutProgress)] $ \(name, datum) ->
+      it ("roundtrips " <> name <> " with no locally matching outputs and retained Closed context") $ do
+        let fanoutState = progress{fanoutDatum = datum}
+        decodeFull' (serialize' fanoutState) `shouldBe` Right fanoutState
+        Aeson.fromJSON (toJSON fanoutState) `shouldBe` Aeson.Success fanoutState
 
   describe "protocol types" $ do
     roundtripCBOR $ Proxy @(Snapshot Tx)
@@ -367,6 +308,8 @@ spec = parallel $ do
     goldenCBOR "PostTxError Tx" "golden/PostTxError.cbor" (genGoldenSamples @(PostTxError Tx))
     goldenCBOR "ChainEvent Tx" "golden/ChainEvent.cbor" (genGoldenSamples @(ChainEvent Tx))
     goldenCBOR "HeadState Tx" "golden/HeadState.cbor" (genGoldenSamples @(HeadState Tx))
+    -- Pin the terminal tag separately.
+    goldenCBOR "Finalized HeadState Tx" "golden/FinalizedHeadState.cbor" (map Finalized <$> genGoldenSample @(FinalizedState Tx))
     goldenCBOR "SeenSnapshot Tx" "golden/SeenSnapshot.cbor" (genGoldenSamples @(SeenSnapshot Tx))
     goldenCBOR "FanoutMode Tx" "golden/FanoutMode.cbor" (genGoldenSamples @(FanoutMode Tx))
     goldenCBOR "NodeState Tx" "golden/NodeState.cbor" (genGoldenSamples @(NodeState Tx))

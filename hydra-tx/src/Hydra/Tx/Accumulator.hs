@@ -9,7 +9,6 @@ module Hydra.Tx.Accumulator (
   accumulatorSize,
   maxAccumulatorSize,
   AccumulatorTooLarge (..),
-  checkAccumulatorSize,
   deployedFanoutBatchSize,
   build,
   buildFromUTxO,
@@ -265,25 +264,6 @@ maxAccumulatorSize = KZG.maxAccumulatorSize
 -- | An accumulator over more elements than the embedded G1 CRS can commit to.
 data AccumulatorTooLarge = AccumulatorTooLarge {utxoCount :: Int, maxAllowed :: Int}
   deriving stock (Eq, Show)
-
--- | Check an accumulator against the capacity of the embedded G1 CRS.
---
--- SECURITY: 'computeG1CommitmentBytes' enforces this limit with 'error', and it
--- is reached through the lazy commitment thunk of 'HydraAccumulator' -- i.e.
--- from wherever that thunk is first forced, which includes 'ToJSON (Snapshot
--- tx)' and 'getSignableRepresentation'. Every path that builds an accumulator
--- from data this node did not produce itself must therefore check the size
--- /before/ the value can be forced, traced or echoed. This check is safe to run
--- on an over-capacity accumulator: like 'accumulatorSize' it only folds the
--- element map and never touches the cached commitment or hash. See
--- 'Hydra.API.ClientInput.validateClientInput' (the client API boundary) and
--- 'Hydra.HeadLogic' (the protocol-logic backstop).
-checkAccumulatorSize :: HydraAccumulator -> Either AccumulatorTooLarge ()
-checkAccumulatorSize acc
-  | n > maxAccumulatorSize = Left AccumulatorTooLarge{utxoCount = n, maxAllowed = maxAccumulatorSize}
-  | otherwise = Right ()
- where
-  n = accumulatorSize acc
 
 -- | Largest subset a single fanout transaction can distribute, re-exported from
 -- 'KZGTrustedSetup' for convenience.

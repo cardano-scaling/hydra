@@ -8,7 +8,10 @@
   perSystem = { pkgs, hsPkgs, system, ... }:
     let
       compiler = "ghc967";
-      inputMap = { "https://intersectmbo.github.io/cardano-haskell-packages" = inputs.CHaP; };
+      inputMap = {
+        "https://intersectmbo.github.io/cardano-haskell-packages" = inputs.CHaP;
+        "https://github.com/cardano-scaling/crem" = inputs.crem;
+      };
       pkgs-2411 = import inputs.nixpkgs-2411 { inherit system; };
       pkgs-2511 = import inputs.nixpkgs-2511 { inherit system; };
     in

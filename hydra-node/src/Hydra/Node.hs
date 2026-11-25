@@ -30,7 +30,17 @@ import Hydra.Cardano.Api (
  )
 import Hydra.Chain (Chain (..), ChainEvent (..), ChainStateHistory (lastKnown), PostTxError, initHistory, postChainTxName)
 import Hydra.Chain.ChainState (IsChainState (..))
-import Hydra.HeadLogic (
+import Hydra.HeadLogic.Outcome (StateChanged (..))
+import Hydra.HeadLogic.Retry (RetryDecision (..), retryDecision)
+import Hydra.HeadLogic.State (getHeadParameters)
+import Hydra.HeadLogic.StateEvent (StateEvent (..))
+import Hydra.Ledger (Ledger)
+import Hydra.Network (Host (..), Network (..), NetworkCallback (..))
+import Hydra.Network qualified as Network
+import Hydra.Network.Authenticate (Authenticated (..))
+import Hydra.Network.Message (Message (..), NetworkEvent (..))
+import Hydra.Node.Environment (Environment (..))
+import Hydra.Node.HeadLogic (
   Effect (..),
   HeadState (..),
   Input (..),
@@ -40,16 +50,7 @@ import Hydra.HeadLogic (
   aggregateNodeState,
   aggregateState,
  )
-import Hydra.HeadLogic qualified as HeadLogic
-import Hydra.HeadLogic.Outcome (StateChanged (..), WaitReason (..))
-import Hydra.HeadLogic.State (getHeadParameters)
-import Hydra.HeadLogic.StateEvent (StateEvent (..))
-import Hydra.Ledger (Ledger)
-import Hydra.Network (Host (..), Network (..), NetworkCallback (..))
-import Hydra.Network qualified as Network
-import Hydra.Network.Authenticate (Authenticated (..))
-import Hydra.Network.Message (Message (..), NetworkEvent (..))
-import Hydra.Node.Environment (Environment (..))
+import Hydra.Node.HeadLogic qualified as HeadLogic
 import Hydra.Node.InputQueue (InputQueue (..), Queued (..), createInputQueue)
 import Hydra.Node.Outbox (Outbox (..), StallBounds (..), newOutbox)
 import Hydra.Node.ParameterMismatch (ParamMismatch (..), ParameterMismatch (..))
@@ -420,7 +421,7 @@ runHydraNode ::
   ) =>
   HydraNode tx m ->
   m ()
-runHydraNode node@HydraNode{tracer, networkOutbox, nodeStateHandler = NodeStateHandler{queryNodeState}} = flip finally reportDiscarded . withNetworkOutbox node . raceLabelled_ ("node-health", monitorNodeHealth node) . ("node-loop",) $ do
+runHydraNode node@HydraNode{tracer, env, ledger, networkOutbox, nodeStateHandler = NodeStateHandler{queryNodeState}} = flip finally reportDiscarded . withNetworkOutbox node . raceLabelled_ ("node-health", monitorNodeHealth node) . ("node-loop",) $ do
   -- On startup, resume an interrupted fanout: if the node is mid-fanout
   -- ('FanoutProgress'), re-emit the next fanout step so an auto-drain whose
   -- driver crashed after its last observed chunk continues instead of stalling
@@ -435,7 +436,7 @@ runHydraNode node@HydraNode{tracer, networkOutbox, nodeStateHandler = NodeStateH
   -- computes an outcome, and this calls 'repostFanoutStep' directly rather than
   -- going through an input.
   atomically queryNodeState >>= \ns -> case headState ns of
-    FanoutProgress pfs -> case HeadLogic.repostFanoutStep pfs of
+    FanoutProgress pfs -> case HeadLogic.repostFanoutStep (HeadLogic.interpreterConfig env ledger) pfs of
       Continue{effects} -> processEffects node tracer 0 effects
       _ -> pure ()
     _ -> pure ()
@@ -530,23 +531,10 @@ stepHydraNode now node = do
     _ -> pure Nothing
 
   maybeReenqueue reason q@Queued{queuedId, queuedItem} =
-    case queuedItem of
-      -- While the node is catching up it can't process any network message
-      -- yet, so re-enqueuing here would just spin (and never terminate if the
-      -- node stays out of sync). Park the message instead and replay it once
-      -- the node is in sync (see 'releaseParkedWhenSynced'). This also avoids
-      -- burning the message's retry budget during sync, which would otherwise
-      -- drop e.g. ReqTx before catch-up completes.
-      NetworkInput _ _
-        | WaitOnNodeInSync{} <- reason -> park q
-      -- Keep a snapshot request waiting for a settling commit beyond its ttl: it
-      -- resolves once this node's chain time catches up, and dropping it would
-      -- stall the leader.
-      NetworkInput _ ReceivedMessage{msg = ReqSn{}}
-        | WaitOnUnresolvedCommit{} <- reason -> reenqueue waitDelay q
-      NetworkInput ttl msg
-        | ttl > 0 -> reenqueue waitDelay q{queuedItem = NetworkInput (ttl - 1) msg}
-      _ -> traceWith tracer $ DroppedFromQueue{inputId = queuedId, input = queuedItem}
+    case retryDecision reason queuedItem of
+      ParkUntilSynced -> park q
+      RetryInput next -> reenqueue waitDelay q{queuedItem = next}
+      DropInput -> traceWith tracer $ DroppedFromQueue{inputId = queuedId, input = queuedItem}
 
   -- Replay parked network inputs once the node transitions into sync, so
   -- messages received during catch-up are processed rather than lost.
