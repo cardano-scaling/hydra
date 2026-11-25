@@ -25,6 +25,15 @@ changes.
   fit alongside the requested transactions.
   [#2924](https://github.com/cardano-scaling/hydra/issues/2924)
 
+- **BREAKING** Large refactor of the head-logic
+  [#2962](https://github.com/cardano-scaling/hydra/pull/2962). It was
+  refactored into typed state machines and composable rule logic; giving
+  helpful diagrams, more ability to debug and inspect, and a strong foundation
+  to build upon. It's a breaking release as the CBOR changes break
+  persistence. There's no migration you need to close and fan out existing
+  heads and use a fresh persistence directory.
+
+
 ## [2.4.2] - 2026.10.22
 
 - Numerous fixes to the docs [#2917](https://github.com/cardano-scaling/hydra/pull/2917)
