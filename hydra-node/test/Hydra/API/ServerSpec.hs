@@ -66,13 +66,13 @@ import Test.Hydra.Ledger.Simple (aValidTx, utxoRefs)
 import Test.Hydra.Node.Fixture (testEnvironment)
 import Test.Hydra.Tx.Fixture (alice, defaultPParams, testHeadId)
 import Test.Hydra.Tx.Gen ()
-import Test.QuickCheck (checkCoverage, cover, forAllShrink, generate, listOf, suchThat)
+import Test.QuickCheck (checkCoverage, cover, forAllShrink, generate, listOf, resize, suchThat)
 import Test.QuickCheck.Arbitrary.ADT (ADTArbitrary (..), ConstructorArbitraryPair (..), toADTArbitrary)
 import Test.QuickCheck.Monadic (monadicIO, monitor, pick, run)
 
 spec :: Spec
 spec =
-  do
+  beforeAll_ prepareSnapshotEncoding $ do
     it "should fail on port in use" $ do
       showLogsOnFailure "ServerSpec" $ \tracer -> failAfter 5 $
         -- The first server serves a socket bound since allocation, so nothing
@@ -151,7 +151,7 @@ spec =
                   atomically (replicateM 2 (readTQueue queue))
                     >>= (`shouldSatisfyAll` [matchGreetings, matchGreetings])
 
-                arbitraryEvent <- generate genStateEventForApi
+                arbitraryEvent <- generate genSmallStateEventForApi
                 let expectedMessage =
                       toJSON $
                         fromMaybe (error "failed to convert stateEvent") $
@@ -162,7 +162,7 @@ spec =
 
     it "sends server output history to all connected clients (using given event source)" $ do
       showLogsOnFailure "ServerSpec" $ \tracer -> failAfter 5 $ do
-        stateEvent <- generate genStateEventForApi
+        stateEvent <- generate genSmallStateEventForApi
         let expectedMessage =
               toJSON $
                 fromMaybe (error "failed to convert stateEvent") $
@@ -190,7 +190,7 @@ spec =
                   atomically (readTQueue queue2) >>= (`shouldSatisfy` matchGreetings)
 
     it "echoes history (past outputs) to client upon reconnection" $
-      forAllShrink (listOf genStateEventForApi) shrink $ \events -> do
+      forAllShrink (listOf genSmallStateEventForApi) shrink $ \events -> do
         let expectedMessages = map toJSON $ mapMaybe (mkTimedServerOutputFromStateEvent Nothing) events
         checkCoverage . monadicIO $ do
           monitor $ cover 0.1 (null events) "no message when reconnecting"
@@ -211,7 +211,7 @@ spec =
 
     it "does not echo history if client says no" $
       checkCoverage . monadicIO $ do
-        history <- pick $ listOf genStateEventForApi
+        history <- pick $ listOf genSmallStateEventForApi
         monitor $ cover 0.1 (null history) "no message when reconnecting"
         monitor $ cover 0.1 (length history == 1) "only one message when reconnecting"
         monitor $ cover 1 (length history > 1) "more than one message when reconnecting"
@@ -239,7 +239,7 @@ spec =
                     Left{} -> failure $ "Failed to decode greeting:\n" <> show greeting
                     Right (v :: Value) -> v `shouldSatisfy` matchGreetings
 
-                  notHistoryMessage :: StateEvent SimpleTx <- generate genStateEventForApi
+                  notHistoryMessage :: StateEvent SimpleTx <- generate genSmallStateEventForApi
                   putEvent notHistoryMessage
 
                   -- Receive one more message. The messages we sent
@@ -273,7 +273,7 @@ spec =
                 guard $ isNothing $ v ^? key "utxo"
 
     it "sequence numbers on history are based on the event id" $
-      forAllShrink (listOf genStateEventForApi) shrink $ \events -> do
+      forAllShrink (listOf genSmallStateEventForApi) shrink $ \events -> do
         monadicIO $ do
           run $
             -- NOTE: 20s, matching the similar property test above, so the
@@ -431,7 +431,7 @@ spec =
               withTestAPIServer sock port alice (mockSource []) tracer $ \(EventSink{putEvent}, _) ->
                 withClient port "/?encoding=cbor&history=no" $ \conn -> do
                   _greeting :: ByteString <- receiveData conn
-                  arbitraryEvent <- generate genStateEventForApi
+                  arbitraryEvent <- generate genSmallStateEventForApi
                   let expectedMessage =
                         fromMaybe (error "failed to convert stateEvent") $
                           mkTimedServerOutputFromStateEvent Nothing arbitraryEvent
@@ -477,7 +477,7 @@ spec =
     describe "address filtering" $ do
       it "consults the filter with the address from the query string" $
         showLogsOnFailure "ServerSpec" $ \tracer -> failAfter 20 $ do
-          event <- generate genStateEventForApi
+          event <- generate genSmallStateEventForApi
           withFreeServerSocket $ \sock port ->
             withTestAPIServerWithFilter sock port alice (mockSource []) (onlyAddress "addr_test1vp") tracer $ \(EventSink{putEvent}, _) ->
               withClient port "/?address=addr_test1vp" $ \matching ->
@@ -490,7 +490,7 @@ spec =
 
       it "drops rejected outputs from the live stream" $
         showLogsOnFailure "ServerSpec" $ \tracer -> failAfter 20 $ do
-          event <- generate genStateEventForApi
+          event <- generate genSmallStateEventForApi
           withFreeServerSocket $ \sock port ->
             withTestAPIServerWithFilter sock port alice (mockSource []) rejectEverything tracer $ \(EventSink{putEvent}, _) ->
               withClient port "/?address=addr_test1vp" $ \con -> do
@@ -506,7 +506,7 @@ spec =
       -- trap noted for "does not echo history if client says no").
       it "applies the filter to replayed history" $
         showLogsOnFailure "ServerSpec" $ \tracer -> failAfter 20 $ do
-          event <- generate genStateEventForApi
+          event <- generate genSmallStateEventForApi
           withFreeServerSocket $ \sock port ->
             withTestAPIServerWithFilter sock port alice (mockSource [event]) allowEverythingServerOutputFilter tracer $ \_ ->
               withClient port "/?history=yes&address=addr_test1vp" $ \con ->
@@ -520,7 +520,7 @@ spec =
       -- the branch every ordinary client takes.
       it "does not filter a client that gave no address" $
         showLogsOnFailure "ServerSpec" $ \tracer -> failAfter 20 $ do
-          event <- generate genStateEventForApi
+          event <- generate genSmallStateEventForApi
           withFreeServerSocket $ \sock port ->
             withTestAPIServerWithFilter sock port alice (mockSource []) rejectEverything tracer $ \(EventSink{putEvent}, _) ->
               withClient port "/" $ \con -> do
@@ -1085,6 +1085,16 @@ shouldSatisfyAll = go
     v `shouldSatisfy` p
     go vs ps
 
-genStateEventForApi :: Gen (StateEvent SimpleTx)
-genStateEventForApi =
-  arbitrary `suchThat` (isJust . mkTimedServerOutputFromStateEvent Nothing)
+-- | Keep payloads small for the transport deadlines while retaining all
+-- API-visible event types. Only resize the state change: event IDs and history
+-- lengths retain their usual generators.
+genSmallStateEventForApi :: Gen (StateEvent SimpleTx)
+genSmallStateEventForApi =
+  (resize 1 arbitrary >>= genStateEvent)
+    `suchThat` (isJust . mkTimedServerOutputFromStateEvent Nothing)
+
+-- | Initialize the shared trusted setup before the transport deadlines start.
+-- Even an empty snapshot needs it when its accumulator hash is first encoded.
+prepareSnapshotEncoding :: IO ()
+prepareSnapshotEncoding =
+  void $ evaluate $ force $ Accumulator.getAccumulatorHash (Accumulator.build [])

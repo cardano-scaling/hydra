@@ -15,8 +15,10 @@ cp -af "$BASEDIR/hydra-cluster/config/credentials" "$TARGETDIR"
 chmod -R u+w "$TARGETDIR"
 
 echo '{"localRoots": [], "publicRoots": []}' > "$TARGETDIR/topology.json"
-sed -i.bak "s/\"startTime\": [0-9]*/\"startTime\": $(date +%s)/" "$TARGETDIR/genesis-byron.json" && \
-sed -i.bak "s/\"systemStart\": \".*\"/\"systemStart\": \"$(date -u +%FT%TZ)\"/" "$TARGETDIR/genesis-shelley.json"
+# Both eras must share one start time so slot conversions and Plutus deadlines agree.
+read -r genesisStartSeconds genesisStartUtc <<< "$(date -u '+%s %FT%TZ')"
+sed -i.bak "s/\"startTime\": [0-9]*/\"startTime\": $genesisStartSeconds/" "$TARGETDIR/genesis-byron.json" && \
+sed -i.bak "s/\"systemStart\": \".*\"/\"systemStart\": \"$genesisStartUtc\"/" "$TARGETDIR/genesis-shelley.json"
 
 find $TARGETDIR -type f -name '*.skey' -exec chmod 0400 {} \;
 

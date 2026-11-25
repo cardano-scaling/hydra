@@ -83,7 +83,7 @@ import Hydra.Network (
   NetworkConfiguration (..),
   ProtocolVersion,
  )
-import Hydra.Network.EtcdBinary (getEtcdBinary)
+import Hydra.Network.EtcdBinary (getEtcdBinary, retryOnBusyExecutable)
 import Network.GRPC.Client (
   Address (..),
   ConnParams (..),
@@ -894,7 +894,7 @@ withProcessInterrupt ::
   (Process stdin stdout stderr -> IO () -> IO a) ->
   IO a
 withProcessInterrupt config action =
-  bracket (startProcess $ config & setCreateGroup True) stopProcess $ \p -> do
+  bracket (retryOnBusyExecutable $ startProcess $ config & setCreateGroup True) stopProcess $ \p -> do
     stopping <- newMVar ()
     let stop = withMVar stopping $ \_ -> do
           exited <- getExitCode p
@@ -910,8 +910,11 @@ withProcessInterrupt config action =
                   terminateProcess (unsafeProcessHandle p)
                   void $ waitExitCode p
               )
-    withAsyncLabelled ("etcd-network", action p stop) $ \worker ->
-      wait worker `finally` stop
+    -- Install the stop handler before cancellation can enter withAsync's
+    -- cleanup, which waits for the action and its blocked readers.
+    mask $ \restore ->
+      withAsyncLabelled ("etcd-network", restore $ action p stop) $ \worker ->
+        restore (wait worker) `finally` stop
 
 -- * Tracing
 
