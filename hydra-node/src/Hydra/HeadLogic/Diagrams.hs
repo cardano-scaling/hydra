@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE TemplateHaskell #-}
 
--- | Generate diagrams of all the Crem machines.
+-- | Generate diagrams of HeadLogic machines and workflows.
 module Hydra.HeadLogic.Diagrams (page) where
 
 import Crem.Topology (Topology (..))
@@ -102,6 +102,7 @@ primitives =
       , ('Snapshots.machine, 'SnapshotsTopology.transitionLabels)
       , ('Transactions.machine, 'Transactions.transitionLabels)
       ]
+      [('ReqSn.workflow, 'ReqSn.validationWorkflow)]
       [
         ( "Head lifecycle"
         , 'Head.machine
@@ -123,14 +124,12 @@ primitives =
         , "Check competing incremental work and transaction validity before recording a pending decommit."
         )
       ,
-        ( "Snapshot validation"
-        , 'ReqSn.validationWorkflow
-        , "Resolve incremental work, apply transactions and check commitment capacity before issuing a checked snapshot."
-        )
-      ,
         ( "ReqSn: Receive a snapshot request"
         , 'ReqSn.workflow
-        , "Resolve any incremental work and transactions before building, signing and retaining the snapshot."
+        , "The `ValidateRequest` stage runs `validationWorkflow` to check the request\
+          \, resolve incremental work, apply transactions and check commitment capacity. \
+          \The remaining stages sign and acknowledge the snapshot, prune local transactions \
+          \and retain the snapshot."
         )
       ,
         ( "AckSn: Receive a snapshot acknowledgement"
@@ -138,9 +137,9 @@ primitives =
         , "Collect a signature for the owned candidate; a complete certificate permits confirmation and continuation."
         )
       ,
-        ( "Decommit admission"
+        ( "Decommit rules"
         , 'DecommitAdmission.workflow
-        , "Check availability, ledger applicability, nonempty outputs and capacity once. Client and network callers retain distinct refusal and retry policies."
+        , "Check availability, ledger applicability, nonempty outputs and capacity."
         )
       ,
         ( "Client decommit"
