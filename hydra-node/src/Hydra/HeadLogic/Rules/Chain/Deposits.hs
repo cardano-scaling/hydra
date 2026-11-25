@@ -120,8 +120,6 @@ updateDepositStates ::
 updateDepositStates env pendingDeposits chainTime =
   mkDepositActivated newActive *> mkDepositExpired newExpired $> (nextActive <> nextExpired <> pendingDeposits)
  where
-  -- Only activation and expiry produce events. A computed Inactive status
-  -- leaves the retained status intact, including after time moves backwards.
   newActive = Map.difference nextActive pendingActive
 
   newExpired = Map.difference nextExpired pendingExpired
@@ -171,8 +169,6 @@ maybeRequestDepositSnapshot env chainTime pendingDeposits st
   context = currentRequestContext env.depositPeriod chainTime deposits coordinatedHeadState
   decommit = contextDecommit context
 
-  -- Statuses already reflect this tick's emitted events. Ignore empty deposits:
-  -- an increment carrying no outputs cannot be posted.
   deposits = Map.filter (\Deposit{deposited} -> deposited /= mempty) pendingDeposits
 
   Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
