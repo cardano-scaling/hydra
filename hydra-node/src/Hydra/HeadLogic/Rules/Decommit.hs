@@ -1,9 +1,15 @@
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE UndecidableInstances #-}
 
--- | Shared decommit admission. Callers choose how to report or retry a refusal;
--- the order and meaning of the validation checks are the same for both inputs.
-module Hydra.HeadLogic.Rules.Decommit (Stage (..), AdmissionTopology, Failure (..), ValidatedDecommit, transaction, validate, workflow) where
+module Hydra.HeadLogic.Rules.Decommit (
+  Stage (..),
+  AdmissionTopology,
+  Failure (..),
+  ValidatedDecommit,
+  transaction,
+  validate,
+  workflow,
+) where
 
 import Crem.Topology (Topology (Topology))
 import Hydra.API.ServerOutput (DecommitInvalidReason (..))
@@ -21,11 +27,15 @@ import Hydra.Prelude hiding (State, state)
 import Hydra.Tx (IsTx, UTxOType, txId, utxoFromTx)
 import Hydra.Tx.Snapshot (getSnapshot)
 
--- | Only availability and ledger applicability can become valid on retry.
--- Empty outputs and capacity failures are reported immediately by both callers.
 data Failure tx = NotApplicable (DecommitInvalidReason tx) | Invalid (DecommitInvalidReason tx)
 
-data Stage = CheckPending | ApplyLedger | CheckOutputs | CheckCapacity | Accepted | Refused
+data Stage
+  = CheckPending
+  | ApplyLedger
+  | CheckOutputs
+  | CheckCapacity
+  | Accepted
+  | Refused
 
 type AdmissionTopology =
   'Topology
@@ -60,10 +70,23 @@ stateStage = \case
 transaction :: ValidatedDecommit tx -> tx
 transaction (ValidatedDecommit tx) = tx
 
-validate :: IsTx tx => SnapshotLimits -> ChainSlot -> CoordinatedHeadState tx -> tx -> Program tx (Either (Failure tx) (ValidatedDecommit tx))
+validate ::
+  IsTx tx =>
+  SnapshotLimits ->
+  ChainSlot ->
+  CoordinatedHeadState tx ->
+  tx ->
+  Program tx (Either (Failure tx) (ValidatedDecommit tx))
 validate limits slot state tx = Workflow.run $ workflow limits slot state tx
 
-workflow :: forall tx. IsTx tx => SnapshotLimits -> ChainSlot -> CoordinatedHeadState tx -> tx -> Workflow tx AdmissionTopology (Either (Failure tx) (ValidatedDecommit tx))
+workflow ::
+  forall tx.
+  IsTx tx =>
+  SnapshotLimits ->
+  ChainSlot ->
+  CoordinatedHeadState tx ->
+  tx ->
+  Workflow tx AdmissionTopology (Either (Failure tx) (ValidatedDecommit tx))
 workflow limits slot state tx = Workflow.workflow (show . stateStage) Pending step
  where
   step :: State tx from -> Transition tx AdmissionTopology (State tx) from (Either (Failure tx) (ValidatedDecommit tx))
@@ -98,4 +121,5 @@ workflow limits slot state tx = Workflow.workflow (show . stateStage) Pending st
     Refuse failure -> finish (Refuse failure) $ Left failure
 
   invalid :: Text -> DecommitInvalidReason tx
-  invalid message = DecommitTxInvalid{localUTxO = state.localUTxO, validationError = ValidationError message}
+  invalid message =
+    DecommitTxInvalid{localUTxO = state.localUTxO, validationError = ValidationError message}
