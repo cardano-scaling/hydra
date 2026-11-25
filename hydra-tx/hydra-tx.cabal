@@ -197,6 +197,7 @@ test-suite tests
     Hydra.Tx.DepositPeriodSpec
     Hydra.Tx.HeadIdSpec
     Hydra.Tx.HeadValidatorAgreementSpec
+    Hydra.Tx.InitSpec
     Hydra.Tx.IsTxSpec
     Hydra.Tx.KZGTrustedSetupSpec
     Hydra.Tx.SecretNegativeSpec

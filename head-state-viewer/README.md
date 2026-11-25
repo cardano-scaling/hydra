@@ -7,6 +7,11 @@ snapshots and network activity evolve. It can also replay several nodes side by
 side to spot divergence, follow a live node, and overlay a node's JSON trace log
 to surface the `Wait` reasons the event store does not persist.
 
+The flow chart follows the observed on-chain state: a pending fanout request
+stays Closed until a partial fanout is observed. Completed Heads appear as
+Final, including when replay starts from a checkpoint. Their Head ID remains
+visible; snapshot and participant details are no longer retained in that state.
+
 The UI is a [Miso](https://haskell-miso.org/) app served from native GHC over a
 local Warp server (via `jsaddle-warp`): the binary opens a port and you point a
 browser at it.
@@ -127,6 +132,10 @@ nix run .#head-state-viewer -- --db /tmp/example.db
 ```
 
 ## Developing the UI
+
+Run the rendering regression tests with `just test head-state-viewer`.
+These render the single-node and comparison views without a browser, including
+finalized Heads and checkpoint recovery during partial fanout.
 
 The served HTML is an empty shell whose DOM is built over a websocket, so a
 one-shot headless screenshot captures a blank page. A dedicated dev shell

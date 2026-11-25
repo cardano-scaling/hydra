@@ -3843,6 +3843,30 @@ components:
               enum: ["FanoutProgress"]
             contents:
               $ref: "api.yaml#/components/schemas/PartialFanoutState"
+        - title: "Finalized"
+          additionalProperties: false
+          required:
+            - tag
+            - contents
+          properties:
+            tag:
+              type: string
+              enum: ["Finalized"]
+            contents:
+              $ref: "api.yaml#/components/schemas/FinalizedState"
+
+    FinalizedState:
+      description: Terminal identity and chain position of a completed Head.
+      type: object
+      additionalProperties: false
+      required:
+        - headId
+        - chainState
+      properties:
+        headId:
+          $ref: "api.yaml#/components/schemas/HeadId"
+        chainState:
+          $ref: "api.yaml#/components/schemas/ChainState"
 
     IdleState:
       type: object
@@ -3926,6 +3950,9 @@ components:
         - remainingOutputs
         - distributedOutputs
         - mode
+        - fanoutDatum
+        - readyToFanoutSent
+        - unconfirmedSnapshot
       properties:
         parameters:
           $ref: "api.yaml#/components/schemas/HeadParameters"
@@ -3947,6 +3974,19 @@ components:
           $ref: "api.yaml#/components/schemas/UTxO"
         mode:
           $ref: "api.yaml#/components/schemas/FanoutMode"
+        readyToFanoutSent:
+          type: boolean
+          description: Whether readiness was announced while the on-chain Head is Closed.
+        unconfirmedSnapshot:
+          oneOf:
+            - type: "null"
+            - $ref: "api.yaml#/components/schemas/Snapshot"
+          description: Candidate retained for a contest while a local fanout request is pending.
+        fanoutDatum:
+          type: string
+          enum: ["DatumClosed", "DatumFanoutProgress"]
+          description: >-
+            Observed on-chain datum, independent of locally matched distributed outputs.
 
     FanoutMode:
       oneOf:

@@ -22,28 +22,30 @@ When new blocks become available, the `ChainSync` client receives a `RollForward
 
 ## How do rollbacks impact the Hydra node?
 
-Rollbacks pose challenges because when a transaction is observed on-chain, it can alter the state of the head in several stages: opening it via `Init`, observing deposits (`CommitRecorded`/`CommitFinalized`), and ultimately _closing_ it and _fanning out_ the head's final UTXO.
+Rollbacks pose challenges because when a transaction is observed on-chain, it can alter the state of the head in several stages: opening it via `Init`, observing deposits and increments (`DepositRecorded`/`CommitFinalized`), and ultimately _closing_ it and _fanning out_ the head's final UTXO.
 
 The following diagram shows an increment being re-posted after a rollback,
 while the node retains its signed L2 state:
 
 [![An increment disappears in a rollback and is re-posted on the replacement chain; the signed L2 snapshot remains valid.](rollbacks-3.svg)](rollbacks-3.svg)
 
-If the head does not properly handle the rollback, it risks becoming inconsistent with other nodes participating in the head. Therefore, any rollback observed at the `Direct` chain component level must be promptly communicated to the `HeadLogic`. This ensures that the `HeadLogic` can reset its state to maintain consistency with the changes on layer 1.
-
-The consequences of a rollback on the head's state vary depending on when the rollback occurs:
-
-1. If the rollback occurs before or after the head is opened – for example, before the `Init` transaction or after the `Close` – the resolution is relatively straightforward: the head's state can be reset to the point it was at before the rolled-back transaction was observed.
-
-2. If the rollback occurs while the head is open – for instance, if a deposit or `Close` transaction is rolled back – it poses greater challenges. At this point, the node has already begun exchanging messages with its peers, and its state no longer depends solely on the blockchain.
+The `Direct` chain component forwards rollbacks to `HeadLogic`. The node restores
+its chain observer state and rewinds deposit recording/consumption slots. It does
+not restore a historical Head state: lifecycle phases, signed snapshots and
+snapshot versions remain unchanged. In particular, undoing a `Close` observation
+does not reopen the Head in the node.
 
 ## How do we handle them?
 
-The guiding principle is that layer 2 state never rolls back: snapshots and their signatures are irrevocable, so the node instead makes sure layer 1 eventually converges with what layer 2 already agreed on. Only layer 1 derived state is rewound.
+The guiding principle is that layer 2 state never rolls back: snapshots and their signatures are irrevocable, so the node instead makes sure layer 1 eventually converges with what layer 2 already agreed on. The chain observer view and deposit recording/consumption slots are rewound. This does not cover every state change caused by a chain observation.
 
 For deposits and incremental commits/decommits while the head is open, this works as follows:
 
 - The node tracks each deposit with the slots its deposit transaction and (once settled or recovered) its consuming transaction were observed at. On a rollback it rewinds this view to the rolled-back slot: a deposit whose deposit transaction was rolled back stops being tracked (until re-observed on the new chain), and a deposit whose consuming transaction (increment or recover) was rolled back becomes pending again.
+
+- Once a deposit becomes Active or Expired, receiving a chain tick with an earlier timestamp does not reset it to Inactive.
+  - If a rollback removes the deposit transaction itself, the node removes the deposit from its records.
+  - If the transaction appears on-chain again, the node records it as Inactive and waits for its activation delay before making it Active.
 
 - When an increment or decrement transaction settles on-chain (`CommitFinalized`/`DecommitFinalized`), the node retains the signed snapshot that authorized it, together with the slot the settlement was observed at. If a later rollback reaches past that slot, the settling transaction was erased from the chain and the node re-posts it from the retained snapshot. This also covers the case where newer snapshots were confirmed in the meantime (see [#2741](https://github.com/cardano-scaling/hydra/issues/2741)).
 
@@ -55,7 +57,17 @@ If the settling transaction is re-observed on the new chain — whether it survi
 
 :::warning
 
-🛠 Some rollback scenarios while the head is open remain out of scope of this mechanism: a rollback spanning more than one finalized increment, an increment that can no longer be re-posted because the deposit deadline passed (the deposit period must be sized to cover worst-case rollback depth plus re-posting time), or a rollback of the `Init` itself. These can lead to a head becoming stale, and the head will need to be closed.
+The node retains only the latest finalized settlement of each kind. A rollback
+spanning older settlements, an increment whose deposit deadline prevents
+re-posting, or a rollback of `Init` can leave it unable to recover automatically.
+The deposit period must cover the assumed rollback depth and re-posting time.
+
+Close, Contest and partial/final fanout observations are not undone. In
+particular, the node does not reconstruct fanout progress against a divergent
+chain. A retained Finalized Head stays Finalized. These cases need recovery
+outside this mechanism; closing is only an option while the on-chain Head is
+still Open. Checkpoint recovery after a restart restores persisted state and is
+separate from chain rollback handling.
 :::
 
 For the earlier design decisions, see [ADR-23](/adr/23). The behavior above describes the current implementation.

@@ -42,12 +42,12 @@ import Hydra.API.ServerOutputFilter (
 import Hydra.API.WireFormat (decodeWire, describeWire)
 import Hydra.Chain (Chain (..))
 import Hydra.Chain.ChainState (IsChainState)
+import Hydra.HeadLogic (ClosedState (ClosedState, readyToFanoutSent), HeadState, OpenState (..), PartialFanoutState (..), StateChanged)
 import Hydra.HeadLogic.Error (SideLoadRequirementFailure (..))
 import Hydra.HeadLogic.State qualified as HeadState
 import Hydra.Network (StallReason)
 import Hydra.NetworkVersions qualified as NetworkVersions
 import Hydra.Node.Environment (Environment (..))
-import Hydra.Node.HeadLogic (ClosedState (ClosedState, readyToFanoutSent), HeadState, OpenState (..), PartialFanoutState (..), StateChanged)
 import Hydra.Node.State (ChainPointTime (..), NodeState (..), syncedStatus)
 import Hydra.Tx (HeadId, Party)
 import Hydra.Tx.Accumulator (AccumulatorTooLarge (..))
@@ -255,6 +255,8 @@ wsApp env party tracer chain history callback nodeStateP networkInfoP queryBroad
   getHeadStatus :: HeadState tx -> HeadStatus
   getHeadStatus = \case
     HeadState.Idle{} -> Idle
+    -- The node is available for a new Head; its completed Head stays terminal.
+    HeadState.Finalized{} -> Idle
     HeadState.Open{} -> Open
     HeadState.Closed ClosedState{readyToFanoutSent}
       | readyToFanoutSent -> FanoutPossible
@@ -264,6 +266,7 @@ wsApp env party tracer chain history callback nodeStateP networkInfoP queryBroad
   getHeadId :: HeadState tx -> Maybe HeadId
   getHeadId = \case
     HeadState.Idle{} -> Nothing
+    HeadState.Finalized{} -> Nothing
     HeadState.Open OpenState{headId} -> Just headId
     HeadState.Closed ClosedState{headId} -> Just headId
     HeadState.FanoutProgress PartialFanoutState{headId} -> Just headId

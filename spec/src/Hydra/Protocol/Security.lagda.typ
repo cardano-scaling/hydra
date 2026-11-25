@@ -259,6 +259,9 @@ _own_ confirmed snapshot, and since signing advances $hats$, the invariant
 `signNumBound` bounds every prior signature strictly below the new number, so
 at-most-one-signature-per-number (`sigDedup`) is proved rather than assumed.
 
+- Administrative side-loading can discard a candidate and reset the seen number; this transition system excludes that operation.
+- `sigDedup` does not justify resuming signing after an arbitrary administrative reset.
+
 The other three guards are _premises_ of the `signHonest` constructor -
 assumptions about honest behaviour, not derived from the off-chain handlers:
 

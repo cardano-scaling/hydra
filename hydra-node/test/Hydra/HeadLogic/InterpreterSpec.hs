@@ -30,7 +30,7 @@ import Hydra.Node.HeadLogic (
  )
 import Hydra.Prelude hiding (trace)
 import Hydra.Prelude qualified as Prelude
-import Hydra.Tx.Crypto (Verified (..), aggregate, getSignableRepresentation, getVerificationKey, sign)
+import Hydra.Tx.Crypto (VerificationError (..), aggregate, getSignableRepresentation, getVerificationKey, sign)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (InitialSnapshot), Snapshot, getSnapshot)
 import Test.Hydra.HeadLogic.Interpreter (testInterpreterConfig)
 import Test.Hydra.Ledger.Simple (aValidTx, utxoRef)
@@ -133,29 +133,33 @@ spec = do
               , Interpreter.snapshotSigner = Interpreter.SnapshotSigner (sign aliceSk) key
               , Interpreter.snapshotVerifier = \vkeys signatures contents ->
                   if vkeys == [key] && signatures == aggregate [signature] && contents == bytes
-                    then Verified
-                    else FailedKeys [key]
+                    then Right ()
+                    else Left $ InvalidSignatures (key :| [])
               }
           program :: Program SimpleTx ()
           program = do
             signed <- signSnapshot snapshot
             result <- verifySnapshot [key] (aggregate [signed]) bytes
             case result of
-              Verified -> change received
-              _ -> reject rejection
+              Right () -> change received
+              Left _ -> reject rejection
       Interpreter.runExecution (Interpreter.Execution config program) `shouldBe` Continue [received] []
       Interpreter.signingIdentity config.snapshotSigner `shouldBe` key
 
-    it "uses the configured verifier" $ do
-      let program :: Program SimpleTx ()
-          program = do
-            result <- verifySnapshot [] (aggregate []) "contents"
-            case result of
-              FailedKeys [] -> change received
-              _ -> reject rejection
-          config :: Interpreter.InterpreterConfig SimpleTx
-          config = (testInterpreterConfig simpleLedger){Interpreter.snapshotVerifier = \_ _ _ -> FailedKeys []}
-      Interpreter.runProgram config program `shouldBe` Continue [received] []
+    it "returns configured verification failures to the rule without rejecting the attempt" $ do
+      let key = getVerificationKey aliceSk
+          snapshot = getSnapshot (InitialSnapshot testHeadId) :: Snapshot SimpleTx
+          signatures = aggregate [sign aliceSk snapshot]
+      forM_ [InvalidSignatures (key :| []), SignatureCountMismatch] $ \failure -> do
+        let program :: Program SimpleTx ()
+            program = do
+              result <- verifySnapshot [key] signatures (getSignableRepresentation snapshot)
+              if result == Left failure
+                then change received
+                else reject rejection
+            config :: Interpreter.InterpreterConfig SimpleTx
+            config = (testInterpreterConfig simpleLedger){Interpreter.snapshotVerifier = \_ _ _ -> Left failure}
+        Interpreter.runProgram config program `shouldBe` Continue [received] []
 
     it "can replace a ledger reply while preserving the program continuation" $ do
       let program :: Program SimpleTx ()

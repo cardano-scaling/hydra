@@ -7,6 +7,8 @@
 -- taking a single period could not distinguish.
 module Hydra.Agda.OffChainReferenceSpec where
 
+import Control.Monad (forM_)
+import Hydra.Agda.OffChainReference qualified as Agda
 import Test.Hspec (Spec, describe, it, shouldBe)
 
 import Hydra.Agda.OffChainReference (
@@ -28,6 +30,24 @@ import Hydra.Agda.OffChainReference (
 
 spec :: Spec
 spec = do
+  describe "lifecyclePhaseRef" $ do
+    it "opens only Idle and preserves every other phase" $
+      map (`Agda.lifecyclePhaseRef` Agda.Opened) [minBound .. maxBound]
+        `shouldBe` [Agda.OpenHead, Agda.OpenHead, Agda.ClosedHead, Agda.FanoutProgress, Agda.FinalizedHead]
+    it "keeps local fanout requests and their cancellation in Closed" $ do
+      Agda.lifecyclePhaseRef Agda.ClosedHead Agda.FanoutStarted `shouldBe` Agda.ClosedHead
+      Agda.lifecyclePhaseRef Agda.ClosedHead Agda.FanoutReverted `shouldBe` Agda.ClosedHead
+      Agda.lifecyclePhaseRef Agda.FanoutProgress Agda.FanoutReverted `shouldBe` Agda.FanoutProgress
+    it "enters partial fanout only after observing distribution" $ do
+      Agda.lifecyclePhaseRef Agda.ClosedHead Agda.PartialObserved `shouldBe` Agda.FanoutProgress
+    it "keeps contest in Closed" $
+      Agda.lifecyclePhaseRef Agda.ClosedHead Agda.Contested `shouldBe` Agda.ClosedHead
+    it "ends both fanout paths in Finalized" $ do
+      Agda.lifecyclePhaseRef Agda.ClosedHead Agda.FannedOut `shouldBe` Agda.FinalizedHead
+      Agda.lifecyclePhaseRef Agda.FanoutProgress Agda.FannedOut `shouldBe` Agda.FinalizedHead
+    it "preserves Finalized for every retained event" $
+      forM_ [minBound .. maxBound] $ \event ->
+        Agda.lifecyclePhaseRef Agda.FinalizedHead event `shouldBe` Agda.FinalizedHead
   -- created deadline T_deposit T_activate t
   describe "depositStatusRef" $ do
     let status = depositStatusRef 1_000 100_000

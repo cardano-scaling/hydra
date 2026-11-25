@@ -4,11 +4,22 @@ The `hydra-node` is an event sourced application. This means that the main logic
 
 On application startup, the [`hydrate`](pathname:///haddocks/hydra-node/Hydra-Node.html#v:hydrate) function is called to load all events using a given [`EventSource`](pathname:///haddocks/event-sourcing/Data-EventSource.html#t:EventSource) and while doing so, re-emits those events to all provided [`EventSink`](pathname:///haddocks/event-sourcing/Data-EventSource.html#t:EventSink) instances. The resulting [`HydraNode`](pathname:///haddocks/hydra-node/Hydra-Node.html#t:HydraNode) will then enter the main loop of `hydra-node` and process inputs into state changes and effects via function [`stepHydraNode`](pathname:///haddocks/hydra-node/Hydra-Node.html#v:stepHydraNode). All state changes of a Hydra node are based on [`StateEvent`](pathname:///haddocks/hydra-node/Hydra-HeadLogic-StateEvent.html#t:StateEvent) values and consequently get emitted to all `eventSinks` of the `HydraNode` handle. Also, the `eventSource` of the same may be used later to to load events on-demand, for example to produce a history of server outputs.
 
+## Head state evolution
+
+`Hydra.HeadLogic.State.Node` composes the deposit registry, Head lifecycle and
+clock machines to apply retained events. `Hydra.HeadLogic.State.Types` defines
+their shared commands, updates and output records; persisted Head state lives
+in `Hydra.HeadLogic.State`. The Head lifecycle module, `State.Head`, contains
+the open-head context and delegates its updates to the coordinated machines.
+`State.Coordinated.Transactions` defines both the decommit topology and the
+transaction machine that follows it. Input rules stage coordinated updates and
+broadcast snapshot requests through `Hydra.HeadLogic.Rules.Coordinated`.
+
 ## Default event source and sinks
 
 The default event source and sink used by the `hydra-node` is `SQLiteBased`, which persists events in a SQLite database file named `hydra.db`. This file is located in the `hydra-node` persistence directory, which is specified by the `--persistence-dir` command line option.
 
-If a legacy `state` file from a previous file-based installation is found in the persistence directory on startup, its events are automatically migrated into `hydra.db` and the original file is renamed to `state.migrated`.
+If a legacy `state` file from a previous file-based installation is found in the persistence directory on startup, its events are migrated into `hydra.db` if the current version can decode them, and the original file is renamed to `state.migrated`.
 
 As explained in the consequences of [ADR29](/adr/29), the API server of the `hydra-node` is also an event sink, which means that all events are sent to the API server and may be further submitted as [`ServerOutput`](pathname:///haddocks/hydra-node/Hydra-API-ServerOutput.html#t:ServerOutput) to clients of the API server. See [`mkTimedServerOutputFromStateEvent`](pathname:///haddocks/hydra-node/Hydra-API-Server.html#v:mkTimedServerOutputFromStateEvent) for which events are mapped to server outputs.
 
@@ -32,7 +43,7 @@ generically via `genericToCBOR` / `genericFromCBOR` from
 `Codec.CBOR.Generic.Tagged` (cborg-generic-tagged, re-exported by
 `Hydra.Prelude`), which makes the data type declaration itself the on-disk
 format: changing the order or types of an existing constructor's fields is a
-breaking change that requires a schema migration, while adding or
+breaking change that requires a migration or fresh persistence, while adding or
 reordering constructors preserves the tags of existing constructors. Removing a
 constructor requires a compatibility decoder or migration for stored values
 that use it; older software cannot decode newly added constructors.
@@ -112,11 +123,11 @@ When implementing an event source or sink, you might want to consider testing th
 - [ ] Event sink only
   - [ ] Whether `putEvent` results in desired effect
   - [ ] Concurrent use of `putEvent` is possible
-  
+
 - [ ] Event source only
   - [ ] Whether previously "primed" events are loaded by `sourceEvents`
   - [ ] Concurrent use of `sourceEvents` is possible
-  
+
 - [ ] General: allocated resources are released (use with/bracket pattern)
 
 ### Event Log Rotation
