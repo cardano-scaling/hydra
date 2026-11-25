@@ -26,9 +26,9 @@ import Hydra.HeadLogic.Rules.Environment (
  )
 import Hydra.HeadLogic.Snapshot.Request (
   SnapshotRequest,
-  chainedSnapshotRequest,
-  decommitStatus,
+  chainedRequest,
   isLeader,
+  settledRequestContext,
  )
 import Hydra.HeadLogic.Snapshot.Verification (verifySeenSnapshot)
 import Hydra.HeadLogic.State (
@@ -36,8 +36,6 @@ import Hydra.HeadLogic.State (
     CoordinatedHeadState,
     confirmedSnapshot,
     currentDepositTxId,
-    decommitTx,
-    localTxs,
     seenSnapshot,
     version
   ),
@@ -179,28 +177,9 @@ workflow Args{openState = openState@OpenState{..}, ..} =
     Decrement{} -> isJust snapshot.utxoToDecommit
   requestOn runtime snapshot =
     let current = Coordinated.currentState runtime
-        decommit = decommitStatus newVersion snapshot current.decommitTx
      in case settlement of
-          Increment depositId ->
-            chainedSnapshotRequest
-              env.snapshotLimits
-              newVersion
-              snapshot
-              current.localTxs
-              (Map.delete depositId pendingDeposits)
-              Nothing
-              decommit
-              Nothing
-          Decrement{} ->
-            chainedSnapshotRequest
-              env.snapshotLimits
-              newVersion
-              snapshot
-              current.localTxs
-              pendingDeposits
-              current.currentDepositTxId
-              decommit
-              Nothing
+          Increment depositId -> chainedRequest env.snapshotLimits $ settledRequestContext newVersion snapshot (Map.delete depositId pendingDeposits) current{currentDepositTxId = Nothing}
+          Decrement{} -> chainedRequest env.snapshotLimits $ settledRequestContext newVersion snapshot pendingDeposits current
 
   previous = getSnapshot confirmedSnapshot
   vkeys = vkey <$> parameters.parties

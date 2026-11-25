@@ -46,10 +46,9 @@ import Hydra.HeadLogic.Rules.Coordinated qualified as Staging (
  )
 import Hydra.HeadLogic.Rules.Environment (RuleEnvironment (..))
 import Hydra.HeadLogic.Snapshot.Request (
-  chainedSnapshotRequest,
-  decommitStatus,
+  chainedRequest,
+  currentRequestContext,
   isLeader,
-  settlingCommitAtPeriod,
  )
 import Hydra.HeadLogic.Snapshot.Verification (
   VerifiedCandidate,
@@ -61,11 +60,8 @@ import Hydra.HeadLogic.Snapshot.Verification (
 import Hydra.HeadLogic.State (
   CoordinatedHeadState (
     CoordinatedHeadState,
-    currentDepositTxId,
     decommitTx,
-    localTxs,
-    seenSnapshot,
-    version
+    seenSnapshot
   ),
   OpenState (
     OpenState,
@@ -123,7 +119,9 @@ data Stage
   | FindSnapshot
   | CollectSignature
   | CheckComplete
-  | ConfirmAndContinue
+  | ConfirmSnapshot
+  | PublishIncrementalEffects
+  | RequestNext
   | Finished
 
 type AckTopology =
@@ -131,8 +129,10 @@ type AckTopology =
     '[ '( 'CheckNumber, '[ 'FindSnapshot])
      , '( 'FindSnapshot, '[ 'CollectSignature, 'Finished])
      , '( 'CollectSignature, '[ 'CheckComplete])
-     , '( 'CheckComplete, '[ 'ConfirmAndContinue, 'Finished])
-     , '( 'ConfirmAndContinue, '[ 'Finished])
+     , '( 'CheckComplete, '[ 'ConfirmSnapshot, 'Finished])
+     , '( 'ConfirmSnapshot, '[ 'PublishIncrementalEffects])
+     , '( 'PublishIncrementalEffects, '[ 'RequestNext])
+     , '( 'RequestNext, '[ 'Finished])
      ]
 
 deriving stock instance Eq Stage
@@ -153,7 +153,13 @@ data State tx phase where
   Confirm ::
     VerifiedCandidate tx ->
     Coordinated.Runtime tx ->
-    State tx 'ConfirmAndContinue
+    State tx 'ConfirmSnapshot
+  Publish ::
+    VerifiedCandidate tx ->
+    Coordinated.Runtime tx ->
+    State tx 'PublishIncrementalEffects
+  Request ::
+    Snapshot tx -> Coordinated.Runtime tx -> State tx 'RequestNext
   Done :: State tx 'Finished
 
 statePhase :: State tx phase -> Stage
@@ -162,7 +168,9 @@ statePhase = \case
   Find -> FindSnapshot
   Collect{} -> CollectSignature
   Collected{} -> CheckComplete
-  Confirm{} -> ConfirmAndContinue
+  Confirm{} -> ConfirmSnapshot
+  Publish{} -> PublishIncrementalEffects
+  Request{} -> RequestNext
   Done -> Finished
 
 data Args tx = Args
@@ -175,7 +183,11 @@ data Args tx = Args
   , snapshotNumber :: ~SnapshotNumber
   }
 
-workflow :: forall tx. IsChainState tx => Args tx -> Workflow tx AckTopology ()
+workflow ::
+  forall tx.
+  IsChainState tx =>
+  Args tx ->
+  Workflow tx AckTopology ()
 workflow Args{chainPointTime = ChainPointTime{currentChainTime}, ..} =
   Workflow.workflow (show . statePhase) NumberCheck step
  where
@@ -215,10 +227,10 @@ workflow Args{chainPointTime = ChainPointTime{currentChainTime}, ..} =
           void $ decide "all parties have signed" False
           owned <- requireCandidate runtime
           void $ Staging.stage runtime $ Coordinated.recordSignature owned sender signed
-    Confirm verified runtime -> continue (const Done) $ do
-      confirmedRuntime <- Staging.stage runtime $ Coordinated.confirmSnapshot verified
-      let snapshot = verifiedSnapshot $ candidateEvidence verified
-          signatures = verifiedSignatures $ candidateEvidence verified
+    Confirm verified runtime ->
+      continue (Publish verified) $ Staging.stage runtime $ Coordinated.confirmSnapshot verified
+    Publish verified confirmedRuntime -> continue (const $ Request snapshot confirmedRuntime) $ do
+      let signatures = verifiedSignatures $ candidateEvidence verified
           current = Coordinated.currentState confirmedRuntime
       case (snapshot.depositTxId, snapshot.utxoToCommit) of
         (Just depositTxId, Just _)
@@ -231,17 +243,12 @@ workflow Args{chainPointTime = ChainPointTime{currentChainTime}, ..} =
           change DecommitApproved{decommitTxId = txId tx, ..}
           emit OnChainEffect{postChainTx = DecrementTx{decrementingSnapshot = ConfirmedSnapshot{..}, ..}}
         _ -> pure ()
+     where
+      snapshot = verifiedSnapshot $ candidateEvidence verified
+    Request snapshot confirmedRuntime -> continue (const Done) $ do
       let nextSn = snapshot.number + 1
-          req =
-            chainedSnapshotRequest
-              env.snapshotLimits
-              current.version
-              snapshot
-              current.localTxs
-              pendingDeposits
-              current.currentDepositTxId
-              (decommitStatus current.version snapshot current.decommitTx)
-              (settlingCommitAtPeriod env.depositPeriod current.version currentChainTime pendingDeposits snapshot)
+          current = Coordinated.currentState confirmedRuntime
+          req = chainedRequest env.snapshotLimits $ currentRequestContext env.depositPeriod currentChainTime pendingDeposits current
       case req of
         Just request | isLeader headParameters env.party nextSn -> sendSnapshot confirmedRuntime request
         _ -> pure ()
@@ -251,5 +258,8 @@ workflow Args{chainPointTime = ChainPointTime{currentChainTime}, ..} =
   CoordinatedHeadState{seenSnapshot} = coordinatedHeadState
   lastSeenSn = seenSnapshotNumber seenSnapshot
 
-  requireCandidate :: Coordinated.Runtime tx -> Program tx (Coordinated.Candidate tx)
-  requireCandidate = maybe (reject $ AssertionFailed "snapshot owner has no current candidate") pure . Coordinated.candidate
+  requireCandidate ::
+    Coordinated.Runtime tx ->
+    Program tx (Coordinated.Candidate tx)
+  requireCandidate =
+    maybe (reject $ AssertionFailed "snapshot owner has no current candidate") pure . Coordinated.candidate

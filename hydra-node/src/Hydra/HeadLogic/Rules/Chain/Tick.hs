@@ -50,16 +50,14 @@ handleTick env now pendingDeposits headState chainTime chainPoint syncStatus = d
   change TickObserved{chainPoint, chainTime}
   handleOutOfSync env now chainPoint chainTime syncStatus
   -- Deposits remain recoverable after their Head closes, so update all of them.
-  updateDepositStates env pendingDeposits chainTime
+  depositsAtTick <- updateDepositStates env pendingDeposits chainTime
   case headState of
-    -- Snapshot selection uses only this Head's deposits. The arguments still
-    -- describe the state before this tick: 'change' records events, so
-    -- 'onOpenChainTick' computes deposit eligibility at 'chainTime' itself.
+    -- Snapshot selection uses this Head's deposits after activation and expiry.
     Open open ->
       maybeRequestDepositSnapshot
         env
         chainTime
-        (depositsForHeadWithoutFinalizedCommit open pendingDeposits)
+        (depositsForHeadWithoutFinalizedCommit open depositsAtTick)
         open
     -- A pending local fanout still counts as Closed until observed on chain.
     _ -> forM_ (getClosedState headState) notifyReadyToFanout

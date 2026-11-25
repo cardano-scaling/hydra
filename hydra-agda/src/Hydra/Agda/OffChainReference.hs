@@ -9,6 +9,7 @@
 -- As there, every 'Integer' stands for an Agda ℕ and callers must pass non-negative values; see that
 -- module's header for what a negative one does.
 module Hydra.Agda.OffChainReference (
+  effectiveDepositStatusRef,
   accumulatorCapacityRef,
   snapshotCapacityRef,
   decommitCapacityRef,
@@ -363,3 +364,7 @@ carriedDecommitPayloadRef = M.hsCarriedDecommitPayloadRef
 -- | A same-version certificate requires a matching carried transaction.
 carriedDecommitRequestRef :: Bool -> Bool -> Bool -> Bool
 carriedDecommitRequestRef = M.hsCarriedDecommitRequestRef
+
+-- | The effective status after applying this tick's activation/expiry events.
+effectiveDepositStatusRef :: HsDepositStatus -> HsDepositStatus -> HsDepositStatus
+effectiveDepositStatusRef = M.hsEffectiveDepositStatusRef

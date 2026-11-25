@@ -51,11 +51,12 @@ import Hydra.HeadLogic.Rules.Environment (
 import Hydra.HeadLogic.Snapshot.Request (
   DecommitStatus (ReadyToDecommit),
   SettlingCommit (ContinueCommit, DropCommit),
-  decommitStatus,
+  buildRequest,
+  contextDecommit,
+  contextSettlingCommit,
+  currentRequestContext,
   isLeader,
-  nextSnapshotRequest,
   requestDepositTxId,
-  settlingCommitAtPeriod,
  )
 import Hydra.HeadLogic.Snapshot.Settlement (finalizedDepositTxId)
 import Hydra.HeadLogic.State (
@@ -63,12 +64,9 @@ import Hydra.HeadLogic.State (
   CoordinatedHeadState (
     CoordinatedHeadState,
     confirmedSnapshot,
-    currentDepositTxId,
     decommitTx,
     finalizedCommit,
-    localTxs,
-    seenSnapshot,
-    version
+    seenSnapshot
   ),
   FinalizedSnapshot (FinalizedSnapshot, snapshot),
   HeadState (..),
@@ -118,11 +116,10 @@ updateDepositStates ::
   RuleEnvironment ->
   PendingDeposits tx ->
   UTCTime ->
-  Program tx ()
+  Program tx (PendingDeposits tx)
 updateDepositStates env pendingDeposits chainTime =
-  mkDepositActivated newActive *> mkDepositExpired newExpired
+  mkDepositActivated newActive *> mkDepositExpired newExpired $> (nextActive <> nextExpired <> pendingDeposits)
  where
-  -- XXX: This is a bit messy
   newActive = Map.difference nextActive pendingActive
 
   newExpired = Map.difference nextExpired pendingExpired
@@ -155,8 +152,8 @@ maybeRequestDepositSnapshot ::
 maybeRequestDepositSnapshot env chainTime pendingDeposits st
   | snapshotInFlight seenSnapshot || not (isLeader parameters party nextSn) = pure ()
   | otherwise =
-      let settling = settlingCommitAtPeriod env.depositPeriod version chainTime deposits confirmed
-          built = nextSnapshotRequest env.snapshotLimits version confirmed localTxs deposits currentDepositTxId decommit settling
+      let settling = contextSettlingCommit context
+          built = fst <$> buildRequest env.snapshotLimits context
        in case (settling, built) of
             -- The commit is still settling; requests carrying txs continue it.
             (Just (ContinueCommit _), _) -> pure ()
@@ -169,18 +166,12 @@ maybeRequestDepositSnapshot env chainTime pendingDeposits st
               | ReadyToDecommit{} <- decommit -> sendSnapshot (Coordinated.start st) request
             _ -> pure ()
  where
-  decommit = decommitStatus version confirmed decommitTx
-  nextDeposits = determineNextDepositStatus env pendingDeposits chainTime
+  context = currentRequestContext env.depositPeriod chainTime deposits coordinatedHeadState
+  decommit = contextDecommit context
 
-  newActive = Map.filter (\Deposit{status} -> status == Active) nextDeposits
+  deposits = Map.filter (\Deposit{deposited} -> deposited /= mempty) pendingDeposits
 
-  newExpired = Map.filter (\Deposit{status} -> status == Expired) nextDeposits
-
-  -- All deposits, with their status updated to this tick's time. Empty
-  -- deposits are ignored, because an empty increment cannot be posted.
-  deposits = Map.filter (\Deposit{deposited} -> deposited /= mempty) (newActive <> newExpired <> pendingDeposits)
-
-  confirmed@Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
+  Snapshot{number = confirmedSn} = getSnapshot confirmedSnapshot
 
   nextSn = confirmedSn + 1
 

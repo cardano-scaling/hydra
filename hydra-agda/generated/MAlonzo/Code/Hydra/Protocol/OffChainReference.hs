@@ -1908,3 +1908,26 @@ d_reqDec'45'expired'45'ledger'45'failure'45'is'45'invalid_918 ::
   MAlonzo.Code.Agda.Builtin.Equality.T__'8801'__12
 d_reqDec'45'expired'45'ledger'45'failure'45'is'45'invalid_918
   = erased
+-- Hydra.Protocol.OffChainReference.effectiveDepositStatusRef
+hsEffectiveDepositStatusRef ::
+  T_DepositStatus'7580'_6 ->
+  T_DepositStatus'7580'_6 -> T_DepositStatus'7580'_6
+hsEffectiveDepositStatusRef = coe d_effectiveDepositStatusRef_920
+d_effectiveDepositStatusRef_920 ::
+  T_DepositStatus'7580'_6 ->
+  T_DepositStatus'7580'_6 -> T_DepositStatus'7580'_6
+d_effectiveDepositStatusRef_920 v0 v1
+  = case coe v1 of
+      C_inactive'7580'_8 -> coe v0
+      C_active'7580'_10 -> coe v1
+      C_expired'7580'_12 -> coe v1
+      _ -> MAlonzo.RTE.mazUnreachableError
+-- Hydra.Protocol.OffChainReference.tick-does-not-erase-retained-activation
+d_tick'45'does'45'not'45'erase'45'retained'45'activation_924 ::
+  MAlonzo.Code.Agda.Builtin.Equality.T__'8801'__12
+d_tick'45'does'45'not'45'erase'45'retained'45'activation_924
+  = erased
+-- Hydra.Protocol.OffChainReference.tick-does-not-erase-retained-expiry
+d_tick'45'does'45'not'45'erase'45'retained'45'expiry_926 ::
+  MAlonzo.Code.Agda.Builtin.Equality.T__'8801'__12
+d_tick'45'does'45'not'45'erase'45'retained'45'expiry_926 = erased

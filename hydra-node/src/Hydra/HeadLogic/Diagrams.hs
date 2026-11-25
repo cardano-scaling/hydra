@@ -12,12 +12,15 @@ import Data.Text qualified as Text (
   unlines,
  )
 import Hydra.HeadLogic.Diagrams.TH (machineDiagrams, stateSources)
+import Hydra.HeadLogic.Rules.Chain.Lifecycle qualified as Lifecycle (maybeContestWorkflow)
 import Hydra.HeadLogic.Rules.Chain.Settlement qualified as Settlement (
   workflow,
  )
 import Hydra.HeadLogic.Rules.Client.Decommit qualified as Decommit (
   workflow,
  )
+import Hydra.HeadLogic.Rules.Client.Fanout qualified as Fanout (workflow)
+import Hydra.HeadLogic.Rules.Client.SideLoad qualified as SideLoad (workflow)
 import Hydra.HeadLogic.Rules.Decommit qualified as DecommitAdmission (workflow)
 import Hydra.HeadLogic.Rules.Input qualified as Input (workflow)
 import Hydra.HeadLogic.Rules.Network.AckSn qualified as AckSn (
@@ -147,6 +150,21 @@ primitives =
         , "Validate a client decommit before broadcasting it."
         )
       ,
+        ( "Client fanout"
+        , 'Fanout.workflow
+        , "Validate a selection, retain its matching intent and post the planned transaction."
+        )
+      ,
+        ( "Side-load a snapshot"
+        , 'SideLoad.workflow
+        , "Check compatibility, verify a signed snapshot, adopt and clear local work."
+        )
+      ,
+        ( "Observe close or contest"
+        , 'Lifecycle.maybeContestWorkflow
+        , "Attempt adoption, record the observed chain fact even when verification fails, then consider contesting with a newer certificate."
+        )
+      ,
         ( "Observe incremental settlement"
         , 'Settlement.workflow
         , "Record the chain observation, reconcile a matching candidate and consider requesting the next snapshot."
@@ -184,6 +202,9 @@ page =
       , "---"
       , ""
       , "This page is generated from the Haskell machine signatures. The overview diagrams show state ownership; arrows in the individual machine diagrams show permitted phase transitions."
+      , ""
+      , "A validation workflow returns a typed result to its caller for the current input; these results are not persisted state."
+      , ""
       , "## Node state updates"
       , ""
       , "The node owns the Head state, deposit registry, and observed chain time and synchronisation status. Deposits remain recoverable after their Head closes. Tick inputs trigger time-dependent work in the rules."
