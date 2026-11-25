@@ -48,7 +48,13 @@ import Hydra.Tx.Snapshot (
   getSnapshot,
  )
 
-data Stage = CheckCompatibility | VerifyCertificate | AdoptSnapshot | ClearLocalState | ReportRefusal | Finished
+data Stage
+  = CheckCompatibility
+  | VerifyCertificate
+  | AdoptSnapshot
+  | ClearLocalState
+  | ReportRefusal
+  | Finished
 
 type SideLoadTopology =
   'Topology
@@ -81,7 +87,12 @@ statePhase = \case
   Refuse{} -> ReportRefusal
   Done -> Finished
 
-workflow :: forall tx. IsChainState tx => OpenState tx -> ConfirmedSnapshot tx -> Workflow tx SideLoadTopology ()
+workflow ::
+  forall tx.
+  IsChainState tx =>
+  OpenState tx ->
+  ConfirmedSnapshot tx ->
+  Workflow tx SideLoadTopology ()
 workflow os@OpenState{parameters, coordinatedHeadState} requested = Workflow.workflow (show . statePhase) Check step
  where
   step :: State tx from -> Transition tx SideLoadTopology (State tx) from ()
@@ -92,21 +103,46 @@ workflow os@OpenState{parameters, coordinatedHeadState} requested = Workflow.wor
         pure $ either (next . Refuse) (const $ next $ Clear runtime) result
       ConfirmedSnapshot{snapshot, signatures} -> do
         result <- runExceptT $ do
-          require "side-loaded snapshot number does not go backwards" (requestedSn >= lastSeenSn) SideLoadSnNumberInvalid{requestedSn, lastSeenSn}
-          require "side-loaded version matches" (requestedSv == lastSeenSv) SideLoadSvNumberInvalid{requestedSv, lastSeenSv}
-          require "side-loaded commit matches" (requestedSc == lastSeenSc) SideLoadUTxOToCommitInvalid{requestedSc, lastSeenSc}
-          require "side-loaded deposit matches" (requestedDeposit == lastSeenDeposit) SideLoadDepositTxIdInvalid{requestedDeposit, lastSeenDeposit}
-          require "side-loaded decommit matches" (requestedSd == lastSeenSd) SideLoadUTxOToDecommitInvalid{requestedSd, lastSeenSd}
+          require
+            "side-loaded snapshot number does not go backwards"
+            (requestedSn >= lastSeenSn)
+            SideLoadSnNumberInvalid{requestedSn, lastSeenSn}
+
+          require
+            "side-loaded version matches"
+            (requestedSv == lastSeenSv)
+            SideLoadSvNumberInvalid{requestedSv, lastSeenSv}
+
+          require
+            "side-loaded commit matches"
+            (requestedSc == lastSeenSc)
+            SideLoadUTxOToCommitInvalid{requestedSc, lastSeenSc}
+
+          require
+            "side-loaded deposit matches"
+            (requestedDeposit == lastSeenDeposit)
+            SideLoadDepositTxIdInvalid{requestedDeposit, lastSeenDeposit}
+
+          require
+            "side-loaded decommit matches"
+            (requestedSd == lastSeenSd)
+            SideLoadUTxOToDecommitInvalid{requestedSd, lastSeenSd}
+
         pure $ either (next . Refuse) (const $ next $ Verify snapshot signatures) result
     Verify snapshot signatures -> choose $ do
       verified <- verifySignedSnapshot vkeys snapshot signatures
       pure $ case verified of
-        Left (InvalidSignatures failures) -> next $ Refuse SideLoadInvalidMultisignature{multisig = show signatures, vkeys = toList failures}
-        Left _ -> next $ Refuse SideLoadInvalidMultisignature{multisig = show signatures, vkeys}
+        Left (InvalidSignatures failures) ->
+          next $ Refuse SideLoadInvalidMultisignature{multisig = show signatures, vkeys = toList failures}
+        Left _ ->
+          next $ Refuse SideLoadInvalidMultisignature{multisig = show signatures, vkeys}
         Right evidence -> next $ Adopt evidence
-    Adopt evidence -> continue Clear $ Staging.stage runtime $ Coordinated.adoptSnapshot evidence
-    Clear adopted -> continue (const Done) $ void $ Staging.stage adopted $ Coordinated.clearLocalState requestedSn
-    Refuse requirementFailure -> continue (const Done) $ emit $ ClientEffect SideLoadSnapshotRejected{clientInput = SideLoadSnapshot requested, requirementFailure}
+    Adopt evidence ->
+      continue Clear $ Staging.stage runtime $ Coordinated.adoptSnapshot evidence
+    Clear adopted ->
+      continue (const Done) $ void $ Staging.stage adopted $ Coordinated.clearLocalState requestedSn
+    Refuse requirementFailure ->
+      continue (const Done) $ emit $ ClientEffect SideLoadSnapshotRejected{clientInput = SideLoadSnapshot requested, requirementFailure}
     Done -> finish Done ()
 
   runtime = Coordinated.start os
@@ -128,10 +164,18 @@ workflow os@OpenState{parameters, coordinatedHeadState} requested = Workflow.wor
     , utxoToDecommit = requestedSd
     } = getSnapshot requested
 
-onOpenClientSideLoadSnapshot :: IsChainState tx => OpenState tx -> ConfirmedSnapshot tx -> Program tx ()
+onOpenClientSideLoadSnapshot ::
+  IsChainState tx =>
+  OpenState tx ->
+  ConfirmedSnapshot tx ->
+  Program tx ()
 onOpenClientSideLoadSnapshot os requested = Workflow.run $ workflow os requested
 
-require :: Text -> Bool -> SideLoadRequirementFailure tx -> ExceptT (SideLoadRequirementFailure tx) (Program tx) ()
+require ::
+  Text ->
+  Bool ->
+  SideLoadRequirementFailure tx ->
+  ExceptT (SideLoadRequirementFailure tx) (Program tx) ()
 require decision condition failure = do
   accepted <- lift $ decide decision condition
   unless accepted $ throwE failure
