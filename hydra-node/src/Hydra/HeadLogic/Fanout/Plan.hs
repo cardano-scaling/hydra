@@ -55,8 +55,9 @@ closedSelectionPlan ::
 closedSelectionPlan closed selection = do
   let remaining = computeFullFanoutUTxO closed
   step <- select closed.confirmedSnapshot closed.version selection remaining DatumClosed
-  pure . plan $
-    closed.headId
+  pure $
+    plan
+      closed.headId
       closed.confirmedSnapshot
       closed.version
       closed.headSeed
@@ -71,8 +72,9 @@ remainingSelectionPlan ::
   Maybe (FanoutPlan tx)
 remainingSelectionPlan progress selection = do
   step <- select progress.confirmedSnapshot progress.version selection progress.remainingOutputs progress.fanoutDatum
-  pure . plan $
-    progress.headId
+  pure $
+    plan
+      progress.headId
       progress.confirmedSnapshot
       progress.version
       progress.headSeed

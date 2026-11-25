@@ -207,8 +207,8 @@ s2 --> s3
 
 Collect a signature for the owned candidate; a complete certificate permits confirmation and continuation.
 
-- Machine: [`Hydra.HeadLogic.Rules.Network.AckSn.workflow`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Network/AckSn.hs#L166).
-- Topology: [`Hydra.HeadLogic.Rules.Network.AckSn.AckTopology`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Network/AckSn.hs#L119).
+- Machine: [`Hydra.HeadLogic.Rules.Network.AckSn.workflow`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Network/AckSn.hs#L186).
+- Topology: [`Hydra.HeadLogic.Rules.Network.AckSn.AckTopology`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Network/AckSn.hs#L127).
 
 ```mermaid
 stateDiagram-v2
@@ -234,7 +234,7 @@ s6 --> s7
 
 ## Decommit admission
 
-Check availability, ledger applicability, nonempty outputs and capacity once. Client and network callers retain distinct refusal and retry policies.
+Check availability, ledger applicability, nonempty outputs and capacity once.
 
 - Machine: [`Hydra.HeadLogic.Rules.Decommit.workflow`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Decommit.hs#L66).
 - Topology: [`Hydra.HeadLogic.Rules.Decommit.AdmissionTopology`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Decommit.hs#L30).
@@ -278,10 +278,10 @@ s1 --> s2
 
 ## Client fanout
 
-Validate a selection, retain its matching intent and post the planned transaction. Chain continuations and reposts do not create new intent.
+Validate a selection, retain its matching intent and post the planned transaction.
 
-- Machine: [`Hydra.HeadLogic.Rules.Client.Fanout.workflow`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Client/Fanout.hs#L48).
-- Topology: [`Hydra.HeadLogic.Rules.Client.Fanout.FanoutTopology`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Client/Fanout.hs#L23).
+- Machine: [`Hydra.HeadLogic.Rules.Client.Fanout.workflow`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Client/Fanout.hs#L54).
+- Topology: [`Hydra.HeadLogic.Rules.Client.Fanout.FanoutTopology`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Client/Fanout.hs#L29).
 
 ```mermaid
 stateDiagram-v2
@@ -298,10 +298,10 @@ s2 --> s3
 
 ## Side-load a snapshot
 
-Check compatibility, verify a signed snapshot, adopt and clear local work. Refusals notify the client.
+Check compatibility, verify a signed snapshot, adopt and clear local work.
 
-- Machine: [`Hydra.HeadLogic.Rules.Client.SideLoad.workflow`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Client/SideLoad.hs#L84).
-- Topology: [`Hydra.HeadLogic.Rules.Client.SideLoad.SideLoadTopology`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Client/SideLoad.hs#L53).
+- Machine: [`Hydra.HeadLogic.Rules.Client.SideLoad.workflow`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Client/SideLoad.hs#L90).
+- Topology: [`Hydra.HeadLogic.Rules.Client.SideLoad.SideLoadTopology`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Client/SideLoad.hs#L59).
 
 ```mermaid
 stateDiagram-v2
@@ -326,8 +326,8 @@ s4 --> s5
 
 Attempt adoption, record the observed chain fact even when verification fails, then consider contesting with a newer certificate.
 
-- Machine: [`Hydra.HeadLogic.Rules.Chain.Lifecycle.workflow`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Chain/Lifecycle.hs#L173).
-- Topology: [`Hydra.HeadLogic.Rules.Chain.Lifecycle.ObservationTopology`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Chain/Lifecycle.hs#L145).
+- Machine: [`Hydra.HeadLogic.Rules.Chain.Lifecycle.maybeContestWorkflow`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Chain/Lifecycle.hs#L195).
+- Topology: [`Hydra.HeadLogic.Rules.Chain.Lifecycle.ObservationTopology`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Chain/Lifecycle.hs#L78).
 
 ```mermaid
 stateDiagram-v2

@@ -12,7 +12,7 @@ import Data.Text qualified as Text (
   unlines,
  )
 import Hydra.HeadLogic.Diagrams.TH (machineDiagrams, stateSources)
-import Hydra.HeadLogic.Rules.Chain.Lifecycle qualified as Lifecycle (workflow)
+import Hydra.HeadLogic.Rules.Chain.Lifecycle qualified as Lifecycle (maybeContestWorkflow)
 import Hydra.HeadLogic.Rules.Chain.Settlement qualified as Settlement (
   workflow,
  )
@@ -152,16 +152,16 @@ primitives =
       ,
         ( "Client fanout"
         , 'Fanout.workflow
-        , "Validate a selection, retain its matching intent and post the planned transaction. Chain continuations and reposts do not create new intent."
+        , "Validate a selection, retain its matching intent and post the planned transaction."
         )
       ,
         ( "Side-load a snapshot"
         , 'SideLoad.workflow
-        , "Check compatibility, verify a signed snapshot, adopt and clear local work. Refusals notify the client."
+        , "Check compatibility, verify a signed snapshot, adopt and clear local work."
         )
       ,
         ( "Observe close or contest"
-        , 'Lifecycle.workflow
+        , 'Lifecycle.maybeContestWorkflow
         , "Attempt adoption, record the observed chain fact even when verification fails, then consider contesting with a newer certificate."
         )
       ,

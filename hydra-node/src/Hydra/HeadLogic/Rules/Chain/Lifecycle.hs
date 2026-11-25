@@ -164,7 +164,7 @@ onOpenChainCloseTx os@OpenState{..} newChainState closedNumber contestationDeadl
           candidate
           (void . Staging.stage (Coordinated.start os) . Coordinated.adoptSnapshot)
    in Workflow.run $
-        workflow
+        maybeContestWorkflow
           sn
           (change HeadClosed{headId, snapshotNumber = closedNumber, chainState = newChainState, contestationDeadline})
           -- Close compares the confirmed snapshot from before possible adoption.
@@ -185,15 +185,21 @@ onClosedChainContestTx ::
   Program tx ()
 onClosedChainContestTx ClosedState{..} newChainState snapshotNumber contestationDeadline signatures =
   Workflow.run $
-    workflow
+    maybeContestWorkflow
       ( adoptSnapshot parameters.parties snapshotNumber signatures ((`mkSeenSnapshot` mempty) <$> unconfirmedSnapshot) $ \evidence ->
           change SnapshotConfirmed{headId, snapshot = Just $ verifiedSnapshot evidence, signatures}
       )
       (change HeadContested{headId, chainState = newChainState, contestationDeadline, snapshotNumber})
       (\adopted -> unless adopted $ postNewerSnapshot headId parameters version confirmedSnapshot snapshotNumber)
 
-workflow :: forall tx. Program tx Bool -> Program tx () -> (Bool -> Program tx ()) -> Workflow tx ObservationTopology ()
-workflow tryAdopt recordObservation contestNewer = Workflow.workflow (show . statePhase) Adopt step
+maybeContestWorkflow ::
+  forall tx.
+  Program tx Bool ->
+  Program tx () ->
+  (Bool -> Program tx ()) ->
+  Workflow tx ObservationTopology ()
+maybeContestWorkflow tryAdopt recordObservation contestNewer =
+  Workflow.workflow (show . statePhase) Adopt step
  where
   step :: State from -> Transition tx ObservationTopology State from ()
   step = \case
