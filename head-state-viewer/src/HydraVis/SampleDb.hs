@@ -13,11 +13,11 @@ import Hydra.Prelude
 import Cardano.Binary (serialize')
 import Data.EventSource (EventId)
 import Database.SQLite.Simple (close, execute, execute_, open)
-import Hydra.HeadLogic (aggregateState, update)
 import Hydra.HeadLogic.Input (Input)
 import Hydra.HeadLogic.Outcome (Outcome (..), StateChanged)
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.Ledger.Simple (SimpleTx)
+import Hydra.Node.HeadLogic (aggregateState, update)
 import Hydra.Node.State (NodeState)
 import HydraVis.Sample (
   sampleEnvironment,

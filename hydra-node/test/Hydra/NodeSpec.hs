@@ -21,8 +21,6 @@ import Hydra.API.ServerOutput qualified as ServerOutput
 import Hydra.Cardano.Api (SigningKey)
 import Hydra.Chain (Chain (..), ChainEvent (..), OnChainTx (..), PostChainTx (..), PostTxError (..))
 import Hydra.Chain.ChainState (ChainSlot (..), IsChainState (..))
-import Hydra.HeadLogic (Input (..), StateChanged (..), TTL)
-import Hydra.HeadLogic qualified as Head
 import Hydra.HeadLogic.StateEvent (StateEvent (..))
 import Hydra.HeadLogicSpec (inOpenState, receiveMessage, receiveMessageFrom, testSnapshot)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx (..), simpleLedger)
@@ -43,6 +41,8 @@ import Hydra.Node (
   withNetworkOutbox,
  )
 import Hydra.Node.Environment as Environment
+import Hydra.Node.HeadLogic (Input (..), StateChanged (..), TTL)
+import Hydra.Node.HeadLogic qualified as Head
 import Hydra.Node.InputQueue (InputQueue (..), Queued (queuedItem))
 import Hydra.Node.Outbox (Outbox (..), StallBounds (..), newOutbox)
 import Hydra.Node.ParameterMismatch (ParameterMismatch (..))
