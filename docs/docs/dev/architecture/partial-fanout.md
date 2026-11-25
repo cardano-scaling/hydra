@@ -254,12 +254,13 @@ Checkpoints persist the current `PartialFanoutState` record, including its datum
 readiness notification flag, and candidate snapshot. Earlier checkpoint layouts
 are unsupported; see the [checkpoint format change](./event-sourcing.md#schema).
 
-The datum is independent of `distributedOutputs`, which records only outputs
-matched against the local snapshot. A valid observed distribution can match none
-when the snapshot closed on-chain differs from the local one. It still enters
-PartialFanout, and subsequent transaction selection must spend that datum.
-This does not reconstruct the correct remainder from a mismatching snapshot or
-provide recovery from divergent-chain fanout after a rollback.
+The datum is independent of `distributedOutputs`.  `distributedOutputs` tracks
+outputs matched by content against the node’s local snapshot. It can remain
+empty after a valid partial fanout observation if the on-chain snapshot differs
+from that local snapshot. The node still records `DatumFanoutProgress` and uses
+it to choose subsequent transaction types. This keeps the observed phase; it
+does not recover the correct remaining UTxO set. Recovery from a mismatching
+snapshot or a rollback onto a divergent chain remains unsupported.
 
 ## Caveats
 
