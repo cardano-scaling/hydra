@@ -47,8 +47,10 @@ choose ::
   Transition tx topology state from result
 choose = ChooseTransition
 
--- | Move to the next transition.
-next :: AllowedTransition topology from to => state to -> Destination topology state from result
+next ::
+  AllowedTransition topology from to =>
+  state to ->
+  Destination topology state from result
 next = Base.Transition Nothing
 
 -- | Perform some operation and head to the next state.
@@ -57,7 +59,8 @@ continue ::
   (reply -> state to) ->
   Program tx reply ->
   Transition tx topology state from result
-continue destination operation = ActionResult $ (\reply -> (Nothing, destination reply)) <$> operation
+continue destination operation =
+  ActionResult $ (\reply -> (Nothing, destination reply)) <$> operation
 
 -- | Complete the state transformations.
 finish ::
