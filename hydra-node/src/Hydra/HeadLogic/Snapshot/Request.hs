@@ -2,7 +2,6 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# OPTIONS_GHC -Wno-ambiguous-fields #-}
 
--- | Shared snapshot and deposit selection for leaders and followers.
 module Hydra.HeadLogic.Snapshot.Request (
   SnapshotRequest,
   RequestContext,
@@ -73,6 +72,31 @@ import Hydra.Tx.Snapshot (
   getSnapshot,
  )
 
+data DecommitStatus tx
+  = NoDecommit
+  | AwaitingInputs tx
+  | ReadyToDecommit tx
+  | CarryDecommit tx
+
+pendingDecommit :: DecommitStatus tx -> Maybe tx
+pendingDecommit = \case
+  NoDecommit -> Nothing
+  AwaitingInputs tx -> Just tx
+  ReadyToDecommit tx -> Just tx
+  CarryDecommit tx -> Just tx
+
+-- | Inputs for one selection decision. The caller still decides when to request
+-- a round, whether empty work is useful, and whether to retain a request marker.
+data RequestContext tx = RequestContext
+  { contextVersion :: SnapshotVersion
+  , contextSnapshot :: Snapshot tx
+  , contextTransactions :: ~(Seq tx)
+  , contextDeposits :: ~(PendingDeposits tx)
+  , contextSelectedDeposit :: Maybe (TxIdType tx)
+  , contextDecommit :: ~(DecommitStatus tx)
+  , contextSettlingCommit :: ~(Maybe (SettlingCommit tx))
+  }
+
 isLeader :: HeadParameters -> Party -> SnapshotNumber -> Bool
 isLeader HeadParameters{parties} p sn =
   case p `elemIndex` parties of
@@ -83,7 +107,11 @@ isLeader HeadParameters{parties} p sn =
 
 -- | A selected deposit must still be registered and unexpired. Expiry retains
 -- the entry for recovery, so the selected identifier alone is not enough.
-existingDeposit :: IsTx tx => PendingDeposits tx -> Maybe (TxIdType tx) -> Maybe (TxIdType tx, Deposit tx)
+existingDeposit ::
+  IsTx tx =>
+  PendingDeposits tx ->
+  Maybe (TxIdType tx) ->
+  Maybe (TxIdType tx, Deposit tx)
 existingDeposit pendingDeposits currentDeposit =
   case currentDeposit of
     Nothing -> Nothing
@@ -97,7 +125,11 @@ existingDeposit pendingDeposits currentDeposit =
 -- | Find the oldest non-empty active deposit the request being built can
 -- absorb ('absorbable'), if any. Deposits are selected in FIFO order by their
 -- 'created' timestamp.
-nextActiveDepositId :: IsTx tx => (UTxOType tx -> Bool) -> PendingDeposits tx -> Maybe (TxIdType tx)
+nextActiveDepositId ::
+  IsTx tx =>
+  (UTxOType tx -> Bool) ->
+  PendingDeposits tx ->
+  Maybe (TxIdType tx)
 nextActiveDepositId absorbableHere deposits =
   let eligibleDeposits =
         filter
@@ -128,7 +160,8 @@ selectNextDeposit absorbableHere pendingDeposits currentDepositTxId mDecommitTx 
   (existingDeposit pendingDeposits currentDepositTxId >>= tracked)
     <|> (guard (isNothing mDecommitTx) *> nextActiveDepositId absorbableHere pendingDeposits)
  where
-  tracked (depositTxId, Deposit{deposited}) = depositTxId <$ guard (deposited /= mempty && absorbableHere deposited)
+  tracked (depositTxId, Deposit{deposited}) =
+    depositTxId <$ guard (deposited /= mempty && absorbableHere deposited)
 
 -- | A capacity-checked proposal for a particular snapshot version and number.
 -- The selector is the only constructor; callers cannot change its contents.
@@ -152,15 +185,12 @@ requestDecommitTx = selectedDecommit
 requestDepositTxId :: SnapshotRequest tx -> Maybe (TxIdType tx)
 requestDepositTxId = selectedDeposit
 
--- | Acceptance against the optimistic local ledger is distinct from readiness
--- against the confirmed base. A carried decommit needs no new ledger application.
-data DecommitStatus tx
-  = NoDecommit
-  | AwaitingInputs tx
-  | ReadyToDecommit tx
-  | CarryDecommit tx
-
-decommitStatus :: IsTx tx => SnapshotVersion -> Snapshot tx -> Maybe tx -> DecommitStatus tx
+decommitStatus ::
+  IsTx tx =>
+  SnapshotVersion ->
+  Snapshot tx ->
+  Maybe tx ->
+  DecommitStatus tx
 decommitStatus headVersion snapshot = \case
   Nothing -> NoDecommit
   Just tx
@@ -168,26 +198,13 @@ decommitStatus headVersion snapshot = \case
     | txInputsAvailable tx (settledUTxO headVersion snapshot) -> ReadyToDecommit tx
     | otherwise -> AwaitingInputs tx
 
-pendingDecommit :: DecommitStatus tx -> Maybe tx
-pendingDecommit = \case
-  NoDecommit -> Nothing
-  AwaitingInputs tx -> Just tx
-  ReadyToDecommit tx -> Just tx
-  CarryDecommit tx -> Just tx
-
--- | Inputs for one selection decision. The caller still decides when to request
--- a round, whether empty work is useful, and whether to retain a request marker.
-data RequestContext tx = RequestContext
-  { contextVersion :: SnapshotVersion
-  , contextSnapshot :: Snapshot tx
-  , contextTransactions :: ~(Seq tx)
-  , contextDeposits :: ~(PendingDeposits tx)
-  , contextSelectedDeposit :: Maybe (TxIdType tx)
-  , contextDecommit :: ~(DecommitStatus tx)
-  , contextSettlingCommit :: ~(Maybe (SettlingCommit tx))
-  }
-
-currentRequestContext :: IsTx tx => DepositPeriod -> UTCTime -> PendingDeposits tx -> CoordinatedHeadState tx -> RequestContext tx
+currentRequestContext ::
+  IsTx tx =>
+  DepositPeriod ->
+  UTCTime ->
+  PendingDeposits tx ->
+  CoordinatedHeadState tx ->
+  RequestContext tx
 currentRequestContext period now deposits state =
   (settledRequestContext state.version previous deposits state)
     { contextSettlingCommit = settlingCommitAtPeriod period state.version now deposits previous
@@ -195,17 +212,40 @@ currentRequestContext period now deposits state =
  where
   previous = getSnapshot state.confirmedSnapshot
 
--- | Settlement supplies the observed version and the snapshot chosen after
--- possible adoption. Its next request cannot carry the just-settled commit.
-settledRequestContext :: IsTx tx => SnapshotVersion -> Snapshot tx -> PendingDeposits tx -> CoordinatedHeadState tx -> RequestContext tx
+settledRequestContext ::
+  IsTx tx =>
+  SnapshotVersion ->
+  Snapshot tx ->
+  PendingDeposits tx ->
+  CoordinatedHeadState tx ->
+  RequestContext tx
 settledRequestContext version previous deposits state =
-  RequestContext version previous state.localTxs deposits state.currentDepositTxId (decommitStatus version previous state.decommitTx) Nothing
+  RequestContext
+    version
+    previous
+    state.localTxs
+    deposits
+    state.currentDepositTxId
+    (decommitStatus version previous state.decommitTx)
+    Nothing
 
 buildRequest :: IsTx tx => SnapshotLimits -> RequestContext tx -> Maybe (SnapshotRequest tx, Bool)
 buildRequest limits RequestContext{..} =
-  buildSnapshotRequest limits contextVersion contextSnapshot contextTransactions contextDeposits contextSelectedDeposit contextDecommit contextSettlingCommit
+  buildSnapshotRequest
+    limits
+    contextVersion
+    contextSnapshot
+    contextTransactions
+    contextDeposits
+    contextSelectedDeposit
+    contextDecommit
+    contextSettlingCommit
 
-chainedRequest :: IsTx tx => SnapshotLimits -> RequestContext tx -> Maybe (SnapshotRequest tx)
+chainedRequest ::
+  IsTx tx =>
+  SnapshotLimits ->
+  RequestContext tx ->
+  Maybe (SnapshotRequest tx)
 chainedRequest limits context = usefulRequest $ buildRequest limits context
 
 usefulRequest :: Maybe (SnapshotRequest tx, Bool) -> Maybe (SnapshotRequest tx)
