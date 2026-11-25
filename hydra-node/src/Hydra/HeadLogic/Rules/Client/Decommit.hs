@@ -15,17 +15,11 @@ import Hydra.HeadLogic.Limits (SnapshotLimits)
 import Hydra.HeadLogic.Outcome (Effect (..), StateChanged (..))
 import Hydra.HeadLogic.Program (
   Program,
-  applyTransaction,
   change,
-  decide,
   emit,
  )
-import Hydra.HeadLogic.Snapshot.Capacity (checkDecommitCapacity)
-import Hydra.HeadLogic.Snapshot.Settlement (
-  settledUTxO,
-  settlingDecommit,
- )
-import Hydra.HeadLogic.State (CoordinatedHeadState (..))
+import Hydra.HeadLogic.Rules.Decommit qualified as Admission
+import Hydra.HeadLogic.State (CoordinatedHeadState)
 import Hydra.HeadLogic.Workflow (
   Transition,
   Workflow,
@@ -37,24 +31,15 @@ import Hydra.HeadLogic.Workflow (
 import Hydra.HeadLogic.Workflow qualified as Workflow (
   workflow,
  )
-import Hydra.Ledger (ValidationError (..))
 import Hydra.Network.Message (Message (..))
-import Hydra.Prelude hiding (State, state)
-import Hydra.Tx (HeadId, IsTx, UTxOType, txId, utxoFromTx)
-import Hydra.Tx.Snapshot (getSnapshot)
+import Hydra.Prelude hiding (State, handle, state)
+import Hydra.Tx (HeadId, IsTx)
 
-data Stage
-  = CheckPending
-  | CheckOutputs
-  | CheckCapacity
-  | Broadcast
-  | Finished
+data Stage = ValidateDecommit | Broadcast | Finished
 
 type DecommitTopology =
   'Topology
-    '[ '( 'CheckPending, '[ 'CheckOutputs, 'Finished])
-     , '( 'CheckOutputs, '[ 'CheckCapacity, 'Finished])
-     , '( 'CheckCapacity, '[ 'Broadcast, 'Finished])
+    '[ '( 'ValidateDecommit, '[ 'Broadcast, 'Finished])
      , '( 'Broadcast, '[ 'Finished])
      ]
 deriving stock instance Eq Stage
@@ -63,18 +48,14 @@ deriving stock instance Enum Stage
 deriving stock instance Bounded Stage
 
 data State tx phase where
-  Pending :: State tx 'CheckPending
-  Outputs :: ~(UTxOType tx) -> State tx 'CheckOutputs
-  Capacity :: ~(UTxOType tx) -> State tx 'CheckCapacity
-  Send :: State tx 'Broadcast
+  Validate :: State tx 'ValidateDecommit
+  Send :: Admission.ValidatedDecommit tx -> State tx 'Broadcast
   Done :: State tx 'Finished
 
 statePhase :: State tx phase -> Stage
 statePhase = \case
-  Pending -> CheckPending
-  Outputs{} -> CheckOutputs
-  Capacity{} -> CheckCapacity
-  Send -> Broadcast
+  Validate -> ValidateDecommit
+  Send{} -> Broadcast
   Done -> Finished
 
 data Args tx = Args
@@ -85,41 +66,20 @@ data Args tx = Args
   , decommitTx :: ~tx
   }
 
-workflow :: forall tx. IsTx tx => Args tx -> Workflow tx DecommitTopology
-workflow Args{coordinatedHeadState = CoordinatedHeadState{decommitTx = pending, ..}, ..} =
-  Workflow.workflow (show . statePhase) Pending step
+workflow :: forall tx. IsTx tx => Args tx -> Workflow tx DecommitTopology ()
+workflow Args{..} =
+  Workflow.workflow (show . statePhase) Validate step
  where
-  step :: State tx from -> Transition tx DecommitTopology (State tx) from
+  step :: State tx from -> Transition tx DecommitTopology (State tx) from ()
   step = \case
-    Pending -> case pending of
-      Just existing -> continue (const Done) $ do
-        void $ decide "no decommit is in flight" False
-        invalid DecommitAlreadyInFlight{otherDecommitTxId = txId existing}
-      Nothing | settlingDecommit version confirmedSnapshot -> continue (const Done) $ do
-        void $ decide "no decommit is in flight" False
-        invalid DecommitTxInvalid{localUTxO, validationError = ValidationError "confirmed decommit awaits settlement"}
-      Nothing -> choose $ do
-        void $ decide "no decommit is in flight" True
-        result <- applyTransaction currentSlot localUTxO decommitTx
-        case result of
-          Right after -> pure $ next $ Outputs after
-          Left validationError -> do
-            invalid DecommitTxInvalid{localUTxO, validationError}
-            pure $ next Done
-    Outputs after
-      | utxoFromTx decommitTx == mempty -> continue (const Done) $ do
-          void $ decide "decommit produces outputs" False
-          invalid DecommitTxInvalid{localUTxO, validationError = ValidationError "decommit transaction has no outputs"}
-      | otherwise -> continue (const $ Capacity after) $ decide "decommit produces outputs" True
-    Capacity after ->
-      let capacityCheck = checkDecommitCapacity snapshotLimits after (settledUTxO version $ getSnapshot confirmedSnapshot) decommitTx
-       in case capacityCheck of
-            Left validationError -> continue (const Done) $ do
-              void $ decide "decommit fits local and confirmed capacity" False
-              invalid DecommitTxInvalid{localUTxO, validationError}
-            Right () -> continue (const Send) $ decide "decommit fits local and confirmed capacity" True
-    Send -> continue (const Done) $ emit $ NetworkEffect ReqDec{transaction = decommitTx}
-    Done -> finish Done
+    Validate -> choose $ do
+      result <- Admission.validate snapshotLimits currentSlot coordinatedHeadState decommitTx
+      case result of
+        Right checked -> pure $ next $ Send checked
+        Left (Admission.NotApplicable reason) -> invalid reason $> next Done
+        Left (Admission.Invalid reason) -> invalid reason $> next Done
+    Send checked -> continue (const Done) $ emit $ NetworkEffect ReqDec{transaction = Admission.transaction checked}
+    Done -> finish Done ()
 
   invalid :: DecommitInvalidReason tx -> Program tx ()
   invalid reason = change DecommitInvalid{headId, decommitTx, decommitInvalidReason = reason}

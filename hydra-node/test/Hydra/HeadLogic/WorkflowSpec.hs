@@ -38,6 +38,13 @@ spec = describe "workflow execution" $ do
     let ledger :: Ledger SimpleTx
         ledger = Ledger $ \_ utxo _ -> Right utxo
     runProgram (testInterpreterConfig ledger) (Workflow.run $ example True) `shouldBe` Continue [TransactionReceived transaction] []
+  it "returns a typed value to the enclosing program before continuing" $ do
+    let ledger :: Ledger SimpleTx
+        ledger = Ledger $ \_ _ _ -> error "completed workflow queries the ledger"
+        completed :: Workflow.Workflow SimpleTx TopologyOf SimpleTx
+        completed = Workflow.workflow (const "completed") Complete (`Workflow.finish` transaction)
+        program = Workflow.run completed >>= change . TransactionReceived
+    runProgram (testInterpreterConfig ledger) program `shouldBe` Continue [TransactionReceived transaction] []
   it "suspends without evaluating a later primitive" $ do
     let ledger :: Ledger SimpleTx
         ledger = Ledger $ \_ _ _ -> error "unreachable ledger query"
@@ -47,7 +54,7 @@ spec = describe "workflow execution" $ do
         ledger = Ledger $ \_ _ _ -> Left (transaction, ValidationError "controlled rejection")
     runProgram (testInterpreterConfig ledger) (Workflow.run $ example True) `shouldBe` Error (AssertionFailed "ledger rejected")
 
-example :: Bool -> Workflow.Workflow SimpleTx TopologyOf
+example :: Bool -> Workflow.Workflow SimpleTx TopologyOf ()
 example eligible = Workflow.workflow describePhase Decide step
  where
   describePhase :: State phase -> Text
@@ -56,7 +63,7 @@ example eligible = Workflow.workflow describePhase Decide step
     Apply -> "applying"
     Complete -> "completed"
 
-  step :: State phase -> Workflow.Transition SimpleTx TopologyOf State phase
+  step :: State phase -> Workflow.Transition SimpleTx TopologyOf State phase ()
   step = \case
     Decide -> Workflow.choose $ do
       proceed <- decide "eligible" eligible
@@ -69,7 +76,7 @@ example eligible = Workflow.workflow describePhase Decide step
         (const $ reject $ AssertionFailed "ledger rejected")
         (const $ change $ TransactionReceived transaction)
         result
-    Complete -> Workflow.finish Complete
+    Complete -> Workflow.finish Complete ()
 
 transaction :: SimpleTx
 transaction = aValidTx 42

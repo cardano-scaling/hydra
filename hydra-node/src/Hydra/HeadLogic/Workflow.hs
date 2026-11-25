@@ -16,22 +16,22 @@ import Crem.Topology (AllowedTransition, Topology)
 import Hydra.HeadLogic.Program (Program)
 import Hydra.Prelude hiding (state)
 
-type Workflow tx (topology :: Topology vertex) =
-  BaseMachineT (Program tx) topology () (Maybe ())
+type Workflow tx (topology :: Topology vertex) result =
+  BaseMachineT (Program tx) topology () (Maybe result)
 
-type Transition tx topology state from =
-  ActionResult (Program tx) topology state from (Maybe ())
+type Transition tx topology state from result =
+  ActionResult (Program tx) topology state from (Maybe result)
 
-type Destination topology state from =
-  Base.Transition topology state from (Maybe ())
+type Destination topology state from result =
+  Base.Transition topology state from (Maybe result)
 
 -- | A workflow is a description, a starting state, and a function advancing
 -- to the next state.
 workflow ::
   (forall phase. state phase -> Text) ->
   state initial ->
-  (forall from. state from -> Transition tx topology state from) ->
-  Workflow tx topology
+  (forall from. state from -> Transition tx topology state from result) ->
+  Workflow tx topology result
 workflow describe initial step =
   BaseMachineT (InspectableState (describeOnly describe) initial) $ \state () -> step state
 
@@ -43,12 +43,14 @@ workflow describe initial step =
 --       then pure $ next NextThing
 --       else suspend waitReason
 choose ::
-  Program tx (Destination topology state from) ->
-  Transition tx topology state from
+  Program tx (Destination topology state from result) ->
+  Transition tx topology state from result
 choose = ChooseTransition
 
--- | Move to the next transition.
-next :: AllowedTransition topology from to => state to -> Destination topology state from
+next ::
+  AllowedTransition topology from to =>
+  state to ->
+  Destination topology state from result
 next = Base.Transition Nothing
 
 -- | Perform some operation and head to the next state.
@@ -56,17 +58,19 @@ continue ::
   AllowedTransition topology from to =>
   (reply -> state to) ->
   Program tx reply ->
-  Transition tx topology state from
-continue destination operation = ActionResult $ (\reply -> (Nothing, destination reply)) <$> operation
+  Transition tx topology state from result
+continue destination operation =
+  ActionResult $ (\reply -> (Nothing, destination reply)) <$> operation
 
 -- | Complete the state transformations.
 finish ::
   state phase ->
-  Transition tx topology state phase
-finish state = ActionResult $ pure (Just (), state)
+  result ->
+  Transition tx topology state phase result
+finish state result = ActionResult $ pure (Just result, state)
 
 -- | Run a Crem program and get a `Program` out.
-run :: Workflow tx topology -> Program tx ()
+run :: Workflow tx topology result -> Program tx result
 run = drive . Crem.Executable
  where
   drive :: Monad m => Crem.StateMachineT m () (Maybe a) -> m a

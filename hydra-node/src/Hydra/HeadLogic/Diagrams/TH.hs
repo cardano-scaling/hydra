@@ -50,9 +50,16 @@ import System.FilePath (
  )
 import Prelude qualified as String (lines, unlines, words)
 
-machineDiagrams :: Name -> [(Name, Name)] -> [(String, Name, String)] -> Q Exp
-machineDiagrams render annotations entries = do
-  checkCoverage [name | (_, name, _) <- entries]
+-- | Helpers are paired with their enclosing workflow. They remain in the
+-- inventory and link from that workflow's diagram instead of having their own.
+machineDiagrams :: Name -> [(Name, Name)] -> [(Name, Name)] -> [(String, Name, String)] -> Q Exp
+machineDiagrams render annotations helpers entries = do
+  let registered = [name | (_, name, _) <- entries]
+  forM_ helpers $ \(parent, _) ->
+    unless (parent `elem` registered) $
+      fail $
+        "HeadLogic helper has no enclosing diagram: " <> qualifiedName parent
+  checkCoverage $ registered <> fmap snd helpers
   listE $ flip fmap entries $ \(title, name, description) -> do
     topology <- reifyType name >>= topologyOf . resultType
     value <- case topology of
@@ -62,7 +69,14 @@ machineDiagrams render annotations entries = do
           _ -> pure $ AppTypeE (VarE 'demote) topology
       _ -> pure $ AppTypeE (VarE 'demote) topology
     (machine, topologySource) <- machineSources name topology
-    let sources = "- Machine: " <> machine <> ".\n- Topology: " <> topologySource <> "."
+    helperSources <- traverse sourceLink [helper | (parent, helper) <- helpers, parent == name]
+    let sources =
+          "- Machine: "
+            <> machine
+            <> ".\n- Topology: "
+            <> topologySource
+            <> "."
+            <> concatMap (\helper -> "\n- Includes: " <> helper <> ".") helperSources
         labels = maybe (ListE []) VarE $ List.lookup name annotations
     [|$(varE render) $(lift title) $(lift sources) $(lift description) $(pure labels) $(pure value)|]
 
@@ -83,7 +97,7 @@ resultType = \case
 
 topologyOf :: Type -> Q Type
 topologyOf = \case
-  AppT (AppT (ConT name) _) topology | name == ''Workflow -> pure topology
+  AppT (AppT (AppT (ConT name) _) topology) _ | name == ''Workflow -> pure topology
   AppT (AppT (AppT (AppT (ConT name) _) topology) _) _ | name == ''BaseMachineT -> pure topology
   unexpected -> fail $ "Expected a concrete Crem machine, got " <> pprint unexpected
 

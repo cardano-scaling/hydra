@@ -57,7 +57,6 @@ import Hydra.HeadLogic.Rules.Client (openFinalizedDeposit)
 import Hydra.HeadLogic.Rules.Environment (RuleEnvironment)
 import Hydra.HeadLogic.Rules.Transactions (
   applyTransactionsProgram,
-  applyTransactionsWithoutCollision,
   checkTransactionOutputs,
  )
 import Hydra.HeadLogic.Snapshot.Request (

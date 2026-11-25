@@ -1558,3 +1558,17 @@ blockchain sees a _rollback_ followed by rollforwards.
 - Fresh increment advances the version, adds deposited outputs once and clears selection; late confirmation does not revive settled authority.
 - A claim can be dropped after recovery or deadline plus rollback margin; authority remains until the replacement snapshot confirms.
 - All commit phase pairs are reachable: use an ordinary value inside one Crem state. Eligibility and mutual exclusion remain rule checks.
+
+=== Checked validation results
+
+Workflows return typed results. Shared decommit admission checks existing intent
+or unsettled authority, ledger applicability, nonempty outputs and both fanout
+capacities. Client refusal is immediate; network requests retain deposit
+precedence and retry availability or ledger failures while their TTL is positive.
+
+Live transaction application, decommit recording and snapshot acceptance consume
+opaque validation results. Snapshot validation finishes before signing,
+acknowledgement emission and pruning. The checked snapshot supplies its deposit
+identifier. Results are local to an input invocation, not persisted or linear-use
+proofs; owner checks still bind acceptance to the live Head, version and round.
+Trusted replay imports retained facts without repeating validation.

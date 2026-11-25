@@ -14,7 +14,9 @@ module Hydra.HeadLogicSpec where
 
 import Data.Secret (Secret, mkSecret)
 import Hydra.HeadLogic.Cardano (cardanoSnapshotLimits)
+import Hydra.HeadLogic.Rules.Transactions (applyTransactionsProgram)
 import Hydra.Prelude
+import Test.Hydra.HeadLogic.Interpreter (evaluateResult, testInterpreterConfig)
 import Test.Hydra.Prelude (
   Arbitrary (arbitrary, shrink),
   Gen,
@@ -71,7 +73,7 @@ import Hydra.Network (Connectivity)
 import Hydra.Network.Message (Message (..), NetworkEvent (..))
 import Hydra.Node (mkNetworkInput)
 import Hydra.Node.Environment (Environment (..))
-import Hydra.Node.HeadLogic (ClosedState (..), CoordinatedHeadState (..), Effect (..), FanoutMode (..), HeadState (..), Input (..), LogicError (..), OnChainFanoutDatum (..), OpenState (..), Outcome (..), PartialFanoutState (..), RequirementFailure (..), SettlingCommit (..), SideLoadRequirementFailure (..), SnapshotRequest, StateChanged (..), TTL, WaitReason (..), absorbable, aggregateState, applyTransactionsWithoutCollision, cause, chainedSnapshotRequest, existingDeposit, maxTxsPerSnapshot, namesNoneOf, newState, nextSnapshotRequest, noop, requestDecommitTx, requestDepositTxId, requestTxs, settlingCommitAt, update)
+import Hydra.Node.HeadLogic (ClosedState (..), CoordinatedHeadState (..), Effect (..), FanoutMode (..), HeadState (..), Input (..), LogicError (..), OnChainFanoutDatum (..), OpenState (..), Outcome (..), PartialFanoutState (..), RequirementFailure (..), SettlingCommit (..), SideLoadRequirementFailure (..), SnapshotRequest, StateChanged (..), TTL, WaitReason (..), absorbable, aggregateState, cause, chainedSnapshotRequest, existingDeposit, maxTxsPerSnapshot, namesNoneOf, newState, nextSnapshotRequest, noop, requestDecommitTx, requestDepositTxId, requestTxs, settlingCommitAt, update)
 import Hydra.Node.State (ChainPointTime (..), Deposit (..), DepositStatus (Active, Expired, Inactive), NodeState (..), SyncedStatus (..), initNodeState, initialChainTime, trackedFromPending)
 import Hydra.Node.UnsyncedPeriod (UnsyncedPeriod (..), unsyncedPeriodToNominalDiffTime)
 import Hydra.Options (defaultContestationPeriod, defaultDepositActivation, defaultDepositPeriod, defaultUnsyncedPeriod)
@@ -1738,10 +1740,10 @@ spec =
 
           it "refuses a transaction re-creating an output the ledger holds" $ do
             let u = utxoRefs [1, 2]
-            applyTransactionsWithoutCollision ledger (ChainSlot 0) u [SimpleTx 3 (utxoRef 1) (utxoRef 3)]
-              `shouldBe` Right (utxoRefs [2, 3])
-            applyTransactionsWithoutCollision ledger (ChainSlot 0) u [SimpleTx 2 (utxoRef 1) (utxoRef 2)]
-              `shouldBe` Left (SimpleTx 2 (utxoRef 1) (utxoRef 2), ValidationError "transaction creates an output the head already holds")
+            evaluateResult (testInterpreterConfig ledger) (applyTransactionsProgram (ChainSlot 0) u [SimpleTx 3 (utxoRef 1) (utxoRef 3)])
+              `shouldBe` Right (Right (utxoRefs [2, 3]))
+            evaluateResult (testInterpreterConfig ledger) (applyTransactionsProgram (ChainSlot 0) u [SimpleTx 2 (utxoRef 1) (utxoRef 2)])
+              `shouldBe` Right (Left (SimpleTx 2 (utxoRef 1) (utxoRef 2), ValidationError "transaction creates an output the head already holds"))
 
           it "chains useful work, including a newly eligible decommit" $ do
             now <- getCurrentTime

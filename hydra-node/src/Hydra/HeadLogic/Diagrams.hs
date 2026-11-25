@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedRecordDot #-}
 {-# LANGUAGE TemplateHaskell #-}
 
--- | Generate diagrams of all the Crem machines.
+-- | Generate diagrams of HeadLogic machines and workflows.
 module Hydra.HeadLogic.Diagrams (page) where
 
 import Crem.Topology (Topology (..))
@@ -18,6 +18,7 @@ import Hydra.HeadLogic.Rules.Chain.Settlement qualified as Settlement (
 import Hydra.HeadLogic.Rules.Client.Decommit qualified as Decommit (
   workflow,
  )
+import Hydra.HeadLogic.Rules.Decommit qualified as DecommitAdmission (workflow)
 import Hydra.HeadLogic.Rules.Input qualified as Input (workflow)
 import Hydra.HeadLogic.Rules.Network.AckSn qualified as AckSn (
   workflow,
@@ -26,6 +27,7 @@ import Hydra.HeadLogic.Rules.Network.ReqDec qualified as ReqDec (
   workflow,
  )
 import Hydra.HeadLogic.Rules.Network.ReqSn qualified as ReqSn (
+  validationWorkflow,
   workflow,
  )
 import Hydra.HeadLogic.Rules.Network.ReqTx qualified as ReqTx (
@@ -100,6 +102,7 @@ primitives =
       , ('Snapshots.machine, 'SnapshotsTopology.transitionLabels)
       , ('Transactions.machine, 'Transactions.transitionLabels)
       ]
+      [('ReqSn.workflow, 'ReqSn.validationWorkflow)]
       [
         ( "Head lifecycle"
         , 'Head.machine
@@ -123,12 +126,20 @@ primitives =
       ,
         ( "ReqSn: Receive a snapshot request"
         , 'ReqSn.workflow
-        , "Resolve any incremental work and transactions before building, signing and retaining the snapshot."
+        , "The `ValidateRequest` stage runs `validationWorkflow` to check the request\
+          \, resolve incremental work, apply transactions and check commitment capacity. \
+          \The remaining stages sign and acknowledge the snapshot, prune local transactions \
+          \and retain the snapshot."
         )
       ,
         ( "AckSn: Receive a snapshot acknowledgement"
         , 'AckSn.workflow
         , "Collect a signature for the owned candidate; a complete certificate permits confirmation and continuation."
+        )
+      ,
+        ( "Decommit rules"
+        , 'DecommitAdmission.workflow
+        , "Check availability, ledger applicability, nonempty outputs and capacity."
         )
       ,
         ( "Client decommit"

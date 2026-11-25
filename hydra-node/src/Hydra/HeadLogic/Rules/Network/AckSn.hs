@@ -175,11 +175,11 @@ data Args tx = Args
   , snapshotNumber :: ~SnapshotNumber
   }
 
-workflow :: forall tx. IsChainState tx => Args tx -> Workflow tx AckTopology
+workflow :: forall tx. IsChainState tx => Args tx -> Workflow tx AckTopology ()
 workflow Args{chainPointTime = ChainPointTime{currentChainTime}, ..} =
   Workflow.workflow (show . statePhase) NumberCheck step
  where
-  step :: State tx from -> Transition tx AckTopology (State tx) from
+  step :: State tx from -> Transition tx AckTopology (State tx) from ()
   step = \case
     NumberCheck -> continue (const Find) $ do
       valid <- decide "acknowledgement number is admissible" (snapshotNumber `elem` [lastSeenSn, lastSeenSn + 1])
@@ -245,7 +245,7 @@ workflow Args{chainPointTime = ChainPointTime{currentChainTime}, ..} =
       case req of
         Just request | isLeader headParameters env.party nextSn -> sendSnapshot confirmedRuntime request
         _ -> pure ()
-    Done -> finish Done
+    Done -> finish Done ()
 
   OpenState{parameters = headParameters@HeadParameters{parties}, ..} = openState
   CoordinatedHeadState{seenSnapshot} = coordinatedHeadState
