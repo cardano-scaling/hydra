@@ -12,7 +12,7 @@ import Crem.Inspect (Component (LeftComponent, RightComponent), inspectStates)
 import Crem.StateMachine qualified as Crem
 import Data.List qualified as List
 import Hydra.API.ClientInput qualified as Client
-import Hydra.Chain (ChainEvent (PostTxError, Tick), OnChainTx (OnContestTx, OnInitTx, OnPartialFanoutTx), PostChainTx (FinalPartialFanoutTx, InitTx), PostTxError (FailedToConstructFanoutTx))
+import Hydra.Chain (ChainEvent (PostTxError, Tick), OnChainTx (OnContestTx, OnInitTx, OnPartialFanoutTx), PostChainTx (FinalPartialFanoutTx, InitTx, PartialFanoutTx, utxoForProof, utxoToDistribute), PostTxError (FailedToConstructFanoutTx, FailedToConstructPartialFanoutTx))
 import Hydra.HeadLogic.Input qualified as Input
 import Hydra.HeadLogic.Outcome (Effect (OnChainEffect), Outcome (Continue), StateChanged (..))
 import Hydra.HeadLogic.State (ClosedState (..), FanoutMode (..), FinalizedState (..), HeadState (..), OnChainFanoutDatum (..), OpenState (..), PartialFanoutState (..), headIdOf)
@@ -115,26 +115,40 @@ spec = describe "head lifecycle" $ do
     checkProgress partial (utxoRef 1) (utxoRefs [2, 3]) AwaitingSelection
 
   forM_ [("observer", closed, AwaitingSelection), ("pending request", pending, AutoDrain)] $ \(name, initial, expectedMode) ->
-    it ("retains observed fanout with no locally matching outputs after " <> name) $ do
-      let observation = observeTx $ OnPartialFanoutTx testHeadId (utxoRef 999)
-          observedNode = applyInput initial observation
-      restored <- either (fail . show) pure $ decodeFull' $ serialize' observedNode
-      restored `shouldBe` observedNode
-      restoredPhase restored `shouldBe` Just "PartialFanout"
-      checkProgress restored mempty (utxoRefs [1, 2, 3]) expectedMode
-      case restored.headState of
-        FanoutProgress st -> st.fanoutDatum `shouldBe` DatumFanoutProgress
-        _ -> fail "expected observed fanout progress"
-      let selection = ClientInput $ Client.PartialFanout $ utxoRefs [1, 2, 3]
-          outcome = update testEnvironment simpleLedger initialChainTime restored selection
-          selectedNode = aggregateState restored outcome
-      case outcome of
-        Continue _ [OnChainEffect tx@FinalPartialFanoutTx{}] -> do
-          let failed = applyInput selectedNode $ Input.ChainInput $ PostTxError tx FailedToConstructFanoutTx Nothing
-          failed `shouldBe` selectedNode
-          restoredPhase failed `shouldBe` Just "PartialFanout"
-        _ -> fail $ "expected a final partial fanout transaction, got " <> show outcome
-      checkSteps restored [(reverted, "PartialFanout"), (finished, "Finalized")]
+    forM_ [("the whole remainder", utxoRefs [1, 2, 3], True), ("a strict subset", utxoRef 1, False)] $ \(selectionName, selection, isFinal) ->
+      it ("retains observed fanout with no locally matching outputs after " <> name <> " when selecting " <> selectionName) $ do
+        let remaining = utxoRefs [1, 2, 3]
+            observation = observeTx $ OnPartialFanoutTx testHeadId (utxoRef 999)
+            observedNode = applyInput initial observation
+        restored <- either (fail . show) pure $ decodeFull' $ serialize' observedNode
+        restored `shouldBe` observedNode
+        restoredPhase restored `shouldBe` Just "PartialFanout"
+        checkProgress restored mempty remaining expectedMode
+        case restored.headState of
+          FanoutProgress st -> st.fanoutDatum `shouldBe` DatumFanoutProgress
+          _ -> fail "expected observed fanout progress"
+        let command = ClientInput $ Client.PartialFanout selection
+            outcome = update testEnvironment simpleLedger initialChainTime restored command
+            selectedNode = aggregateState restored outcome
+        checkProgress selectedNode mempty remaining (DistributingSelection selection)
+        case selectedNode.headState of
+          FanoutProgress st -> st.fanoutDatum `shouldBe` DatumFanoutProgress
+          _ -> fail "expected observed fanout progress after selection"
+        case outcome of
+          Continue _ [OnChainEffect tx] -> do
+            case (isFinal, tx) of
+              (True, FinalPartialFanoutTx{utxoToDistribute}) ->
+                utxoToDistribute `shouldBe` selection
+              (False, PartialFanoutTx{utxoToDistribute, utxoForProof}) -> do
+                utxoToDistribute `shouldBe` selection
+                utxoForProof `shouldBe` remaining
+              _ -> fail $ "unexpected fanout transaction for " <> selectionName <> ": " <> show tx
+            let constructionError = if isFinal then FailedToConstructFanoutTx else FailedToConstructPartialFanoutTx
+                failed = applyInput selectedNode $ Input.ChainInput $ PostTxError tx constructionError Nothing
+            failed `shouldBe` selectedNode
+            restoredPhase failed `shouldBe` Just "PartialFanout"
+          _ -> fail $ "expected one fanout transaction, got " <> show outcome
+        checkSteps restored [(reverted, "PartialFanout"), (finished, "Finalized")]
 
   forM_ [("automatic", AutoDrain), ("selective", DistributingSelection $ utxoRef 2), ("waiting", AwaitingSelection)] $ \(name, mode) ->
     it ("does not revert observed partial fanout while " <> name) $ do
