@@ -69,6 +69,37 @@ import Hydra.Tx.Snapshot (
   getSnapshot,
  )
 
+data Stage
+  = AdoptCandidate
+  | RecordObservation
+  | ContestNewer
+  | Finished
+
+type ObservationTopology =
+  'Topology
+    '[ '( 'AdoptCandidate, '[ 'RecordObservation])
+     , '( 'RecordObservation, '[ 'ContestNewer])
+     , '( 'ContestNewer, '[ 'Finished])
+     ]
+
+deriving stock instance Eq Stage
+deriving stock instance Show Stage
+deriving stock instance Enum Stage
+deriving stock instance Bounded Stage
+
+data State phase where
+  Adopt :: State 'AdoptCandidate
+  Record :: Bool -> State 'RecordObservation
+  Contest :: Bool -> State 'ContestNewer
+  Done :: State 'Finished
+
+statePhase :: State phase -> Stage
+statePhase = \case
+  Adopt -> AdoptCandidate
+  Record{} -> RecordObservation
+  Contest{} -> ContestNewer
+  Done -> Finished
+
 -- | Observe an init transaction and initialize parameters in an 'OpenState'.
 onIdleChainInitTx ::
   RuleEnvironment ->
@@ -116,21 +147,42 @@ onIdleChainInitTx env newChainState headId headSeed headParameters participants
     , participants = configuredParticipants
     } = env
 
-onOpenChainCloseTx :: IsChainState tx => OpenState tx -> ChainStateType tx -> SnapshotNumber -> UTCTime -> MultiSignature (Snapshot tx) -> Program tx ()
+onOpenChainCloseTx ::
+  IsChainState tx =>
+  OpenState tx ->
+  ChainStateType tx ->
+  SnapshotNumber ->
+  UTCTime ->
+  MultiSignature (Snapshot tx) ->
+  Program tx ()
 onOpenChainCloseTx os@OpenState{..} newChainState closedNumber contestationDeadline signatures =
-  Workflow.run $
-    workflow
-      (adoptSnapshot parameters.parties closedNumber signatures candidate (void . Staging.stage (Coordinated.start os) . Coordinated.adoptSnapshot))
-      (change HeadClosed{headId, snapshotNumber = closedNumber, chainState = newChainState, contestationDeadline})
-      -- Close compares the confirmed snapshot from before possible adoption.
-      (const $ postNewerSnapshot headId parameters version confirmedSnapshot closedNumber)
+  let sn =
+        adoptSnapshot
+          parameters.parties
+          closedNumber
+          signatures
+          candidate
+          (void . Staging.stage (Coordinated.start os) . Coordinated.adoptSnapshot)
+   in Workflow.run $
+        workflow
+          sn
+          (change HeadClosed{headId, snapshotNumber = closedNumber, chainState = newChainState, contestationDeadline})
+          -- Close compares the confirmed snapshot from before possible adoption.
+          (const $ postNewerSnapshot headId parameters version confirmedSnapshot closedNumber)
  where
   CoordinatedHeadState{..} = coordinatedHeadState
   candidate = case seenSnapshot of
     seen@SeenSnapshot{} -> Just seen
     _ -> Nothing
 
-onClosedChainContestTx :: IsTx tx => ClosedState tx -> ChainStateType tx -> SnapshotNumber -> UTCTime -> MultiSignature (Snapshot tx) -> Program tx ()
+onClosedChainContestTx ::
+  IsTx tx =>
+  ClosedState tx ->
+  ChainStateType tx ->
+  SnapshotNumber ->
+  UTCTime ->
+  MultiSignature (Snapshot tx) ->
+  Program tx ()
 onClosedChainContestTx ClosedState{..} newChainState snapshotNumber contestationDeadline signatures =
   Workflow.run $
     workflow
@@ -140,36 +192,6 @@ onClosedChainContestTx ClosedState{..} newChainState snapshotNumber contestation
       (change HeadContested{headId, chainState = newChainState, contestationDeadline, snapshotNumber})
       (\adopted -> unless adopted $ postNewerSnapshot headId parameters version confirmedSnapshot snapshotNumber)
 
-data Stage = AdoptCandidate | RecordObservation | ContestNewer | Finished
-
-type ObservationTopology =
-  'Topology
-    '[ '( 'AdoptCandidate, '[ 'RecordObservation])
-     , '( 'RecordObservation, '[ 'ContestNewer])
-     , '( 'ContestNewer, '[ 'Finished])
-     ]
-
-deriving stock instance Eq Stage
-deriving stock instance Show Stage
-deriving stock instance Enum Stage
-deriving stock instance Bounded Stage
-
-data State phase where
-  Adopt :: State 'AdoptCandidate
-  Record :: Bool -> State 'RecordObservation
-  Contest :: Bool -> State 'ContestNewer
-  Done :: State 'Finished
-
-statePhase :: State phase -> Stage
-statePhase = \case
-  Adopt -> AdoptCandidate
-  Record{} -> RecordObservation
-  Contest{} -> ContestNewer
-  Done -> Finished
-
--- | Attempt certificate adoption, retain the observed chain fact even if
--- verification fails, then consider contesting. Settlement uses its own workflow:
--- there the chain fact must be retained before adoption.
 workflow :: forall tx. Program tx Bool -> Program tx () -> (Bool -> Program tx ()) -> Workflow tx ObservationTopology ()
 workflow tryAdopt recordObservation contestNewer = Workflow.workflow (show . statePhase) Adopt step
  where
@@ -206,5 +228,10 @@ postNewerSnapshot ::
   SnapshotNumber ->
   Program tx ()
 postNewerSnapshot headId headParameters openVersion confirmedSnapshot observedNumber = do
-  newer <- decide "confirmed snapshot is newer than the on-chain snapshot" ((getSnapshot confirmedSnapshot).number > observedNumber)
-  when newer $ emit $ OnChainEffect ContestTx{headId, headParameters, openVersion, contestingSnapshot = confirmedSnapshot}
+  newer <-
+    decide
+      "confirmed snapshot is newer than the on-chain snapshot"
+      ((getSnapshot confirmedSnapshot).number > observedNumber)
+
+  when newer . emit $
+    OnChainEffect ContestTx{headId, headParameters, openVersion, contestingSnapshot = confirmedSnapshot}
