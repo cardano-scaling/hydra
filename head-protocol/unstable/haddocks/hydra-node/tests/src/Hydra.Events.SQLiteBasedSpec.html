@@ -41,8 +41,8 @@ t a -&gt; (a -&gt; m b) -&gt; m ()
 </span><span class="hs-number">1001</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Int
 </span><span class="hs-number">2501</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">((Int -&gt; Spec) -&gt; Spec) -&gt; (Int -&gt; Spec) -&gt; Spec
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679945417"><span class="annot"><span class="annottext">Int
-</span><a href="#local-6989586621679945417"><span class="hs-identifier hs-var">count</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679946621"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679946621"><span class="hs-identifier hs-var">count</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-29"></span><span>      </span><span class="annot"><span class="annottext">String -&gt; IO () -&gt; SpecWith (Arg (IO ()))
 forall a.
 (HasCallStack, Example a) =&gt;
@@ -53,7 +53,7 @@ forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; String
 forall b a. (Show a, IsString b) =&gt; a -&gt; b
 </span><span class="hs-identifier hs-var">show</span></span><span> </span><span class="annot"><span class="annottext">Int
-</span><a href="#local-6989586621679945417"><span class="hs-identifier hs-var">count</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; String -&gt; String
+</span><a href="#local-6989586621679946621"><span class="hs-identifier hs-var">count</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; String -&gt; String
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot; events&quot;</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; SpecWith (Arg (IO ())))
@@ -82,26 +82,26 @@ forall b.
     -&gt; EventSink (StateEvent SimpleTx) IO -&gt; IO ())
 -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679945422"><span class="annot"><span class="annottext">EventSource (StateEvent SimpleTx) IO
-</span><a href="#local-6989586621679945422"><span class="hs-identifier hs-var">source</span></a></span></span><span> </span><span id="local-6989586621679945423"><span class="annot"><span class="annottext">EventSink (StateEvent SimpleTx) IO
-</span><a href="#local-6989586621679945423"><span class="hs-identifier hs-var">sink</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-32"></span><span>            </span><span id="local-6989586621679945424"><span class="annot"><span class="annottext">UTCTime
-</span><a href="#local-6989586621679945424"><span class="hs-identifier hs-var">now</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO UTCTime
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679946626"><span class="annot"><span class="annottext">EventSource (StateEvent SimpleTx) IO
+</span><a href="#local-6989586621679946626"><span class="hs-identifier hs-var">source</span></a></span></span><span> </span><span id="local-6989586621679946627"><span class="annot"><span class="annottext">EventSink (StateEvent SimpleTx) IO
+</span><a href="#local-6989586621679946627"><span class="hs-identifier hs-var">sink</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-32"></span><span>            </span><span id="local-6989586621679946628"><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621679946628"><span class="hs-identifier hs-var">now</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO UTCTime
 forall (m :: * -&gt; *). MonadTime m =&gt; m UTCTime
 </span><span class="hs-identifier hs-var">getCurrentTime</span></span><span>
-</span><span id="line-33"></span><span>            </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679945426"><span class="annot"><span class="annottext">events :: [StateEvent SimpleTx]
-</span><a href="#local-6989586621679945426"><span class="hs-identifier hs-var hs-var">events</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">EventId -&gt; StateChanged SimpleTx -&gt; UTCTime -&gt; StateEvent SimpleTx
+</span><span id="line-33"></span><span>            </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679946630"><span class="annot"><span class="annottext">events :: [StateEvent SimpleTx]
+</span><a href="#local-6989586621679946630"><span class="hs-identifier hs-var hs-var">events</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">EventId -&gt; StateChanged SimpleTx -&gt; UTCTime -&gt; StateEvent SimpleTx
 forall tx. EventId -&gt; StateChanged tx -&gt; UTCTime -&gt; StateEvent tx
 </span><span class="hs-identifier hs-var">StateEvent</span></span><span> </span><span class="annot"><span class="annottext">EventId
-</span><a href="#local-6989586621679945428"><span class="hs-identifier hs-var">i</span></a></span><span> </span><span class="annot"><span class="annottext">StateChanged SimpleTx
+</span><a href="#local-6989586621679946632"><span class="hs-identifier hs-var">i</span></a></span><span> </span><span class="annot"><span class="annottext">StateChanged SimpleTx
 forall tx. StateChanged tx
 </span><span class="hs-identifier hs-var">NetworkConnected</span></span><span> </span><span class="annot"><span class="annottext">UTCTime
-</span><a href="#local-6989586621679945424"><span class="hs-identifier hs-var">now</span></a></span><span> </span><span class="hs-glyph">|</span><span> </span><span id="local-6989586621679945428"><span class="annot"><span class="annottext">EventId
-</span><a href="#local-6989586621679945428"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">EventId
+</span><a href="#local-6989586621679946628"><span class="hs-identifier hs-var">now</span></a></span><span> </span><span class="hs-glyph">|</span><span> </span><span id="local-6989586621679946632"><span class="annot"><span class="annottext">EventId
+</span><a href="#local-6989586621679946632"><span class="hs-identifier hs-var">i</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">EventId
 </span><span class="hs-number">0</span></span><span> </span><span class="hs-glyph">..</span><span> </span><span class="annot"><span class="annottext">Int -&gt; EventId
 forall a b. (Integral a, Num b) =&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Real.html#fromIntegral"><span class="hs-identifier hs-var">fromIntegral</span></a></span><span> </span><span class="annot"><span class="annottext">Int
-</span><a href="#local-6989586621679945417"><span class="hs-identifier hs-var">count</span></a></span><span> </span><span class="annot"><span class="annottext">EventId -&gt; EventId -&gt; EventId
+</span><a href="#local-6989586621679946621"><span class="hs-identifier hs-var">count</span></a></span><span> </span><span class="annot"><span class="annottext">EventId -&gt; EventId -&gt; EventId
 forall a. Num a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#-"><span class="hs-glyph hs-var">-</span></a></span><span> </span><span class="annot"><span class="annottext">EventId
 </span><span class="hs-number">1</span></span><span class="hs-special">]</span><span class="hs-special">]</span><span>
@@ -111,25 +111,25 @@ forall a. Num a =&gt; a -&gt; a -&gt; a
 forall e (m :: * -&gt; *).
 EventSink e m -&gt; HasEventId e =&gt; [e] -&gt; m ()
 </span><span class="hs-identifier hs-var">putEvents</span></span><span> </span><span class="annot"><span class="annottext">EventSink (StateEvent SimpleTx) IO
-</span><a href="#local-6989586621679945423"><span class="hs-identifier hs-var">sink</span></a></span><span> </span><span class="annot"><span class="annottext">[StateEvent SimpleTx]
-</span><a href="#local-6989586621679945426"><span class="hs-identifier hs-var">events</span></a></span><span>
+</span><a href="#local-6989586621679946627"><span class="hs-identifier hs-var">sink</span></a></span><span> </span><span class="annot"><span class="annottext">[StateEvent SimpleTx]
+</span><a href="#local-6989586621679946630"><span class="hs-identifier hs-var">events</span></a></span><span>
 </span><span id="line-35"></span><span>            </span><span class="annot"><span class="annottext">EventSink (StateEvent SimpleTx) IO
 -&gt; HasEventId (StateEvent SimpleTx) =&gt;
    [StateEvent SimpleTx] -&gt; IO ()
 forall e (m :: * -&gt; *).
 EventSink e m -&gt; HasEventId e =&gt; [e] -&gt; m ()
 </span><span class="hs-identifier hs-var">putEvents</span></span><span> </span><span class="annot"><span class="annottext">EventSink (StateEvent SimpleTx) IO
-</span><a href="#local-6989586621679945423"><span class="hs-identifier hs-var">sink</span></a></span><span> </span><span class="annot"><span class="annottext">[StateEvent SimpleTx]
-</span><a href="#local-6989586621679945426"><span class="hs-identifier hs-var">events</span></a></span><span>
+</span><a href="#local-6989586621679946627"><span class="hs-identifier hs-var">sink</span></a></span><span> </span><span class="annot"><span class="annottext">[StateEvent SimpleTx]
+</span><a href="#local-6989586621679946630"><span class="hs-identifier hs-var">events</span></a></span><span>
 </span><span id="line-36"></span><span>            </span><span class="annot"><span class="annottext">EventSource (StateEvent SimpleTx) IO -&gt; IO [StateEvent SimpleTx]
 forall e (m :: * -&gt; *).
 (HasEventId e, MonadUnliftIO m) =&gt;
 EventSource e m -&gt; m [e]
 </span><span class="hs-identifier hs-var">getEvents</span></span><span> </span><span class="annot"><span class="annottext">EventSource (StateEvent SimpleTx) IO
-</span><a href="#local-6989586621679945422"><span class="hs-identifier hs-var">source</span></a></span><span> </span><span class="annot"><span class="annottext">IO [StateEvent SimpleTx] -&gt; [StateEvent SimpleTx] -&gt; IO ()
+</span><a href="#local-6989586621679946626"><span class="hs-identifier hs-var">source</span></a></span><span> </span><span class="annot"><span class="annottext">IO [StateEvent SimpleTx] -&gt; [StateEvent SimpleTx] -&gt; IO ()
 forall a. (HasCallStack, Show a, Eq a) =&gt; IO a -&gt; a -&gt; IO ()
 </span><span class="hs-operator hs-var">`shouldReturn`</span></span><span> </span><span class="annot"><span class="annottext">[StateEvent SimpleTx]
-</span><a href="#local-6989586621679945426"><span class="hs-identifier hs-var">events</span></a></span><span>
+</span><a href="#local-6989586621679946630"><span class="hs-identifier hs-var">events</span></a></span><span>
 </span><span id="line-37"></span><span>
 </span><span id="line-38"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; IO () -&gt; SpecWith (Arg (IO ()))
 forall a.
@@ -155,32 +155,32 @@ String -&gt; (String -&gt; m r) -&gt; m r
 </span><span class="hs-identifier hs-var">withTempDir</span></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;sqlite-completion&quot;</span></span><span> </span><span class="annot"><span class="annottext">((String -&gt; IO ()) -&gt; IO ()) -&gt; (String -&gt; IO ()) -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679945432"><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679945432"><span class="hs-identifier hs-var">dir</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-41"></span><span>        </span><span id="local-6989586621679945433"><span class="annot"><span class="annottext">TMVar ()
-</span><a href="#local-6989586621679945433"><span class="hs-identifier hs-var">started</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">String -&gt; IO (TMVar IO ())
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679946636"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679946636"><span class="hs-identifier hs-var">dir</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-41"></span><span>        </span><span id="local-6989586621679946637"><span class="annot"><span class="annottext">TMVar ()
+</span><a href="#local-6989586621679946637"><span class="hs-identifier hs-var">started</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">String -&gt; IO (TMVar IO ())
 forall (m :: * -&gt; *) a.
 MonadLabelledSTM m =&gt;
 String -&gt; m (TMVar m a)
 </span><span class="hs-identifier hs-var">newLabelledEmptyTMVarIO</span></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;write-started&quot;</span></span><span>
-</span><span id="line-42"></span><span>        </span><span id="local-6989586621679945435"><span class="annot"><span class="annottext">TMVar ()
-</span><a href="#local-6989586621679945435"><span class="hs-identifier hs-var">allowCommit</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">String -&gt; IO (TMVar IO ())
+</span><span id="line-42"></span><span>        </span><span id="local-6989586621679946639"><span class="annot"><span class="annottext">TMVar ()
+</span><a href="#local-6989586621679946639"><span class="hs-identifier hs-var">allowCommit</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">String -&gt; IO (TMVar IO ())
 forall (m :: * -&gt; *) a.
 MonadLabelledSTM m =&gt;
 String -&gt; m (TMVar m a)
 </span><span class="hs-identifier hs-var">newLabelledEmptyTMVarIO</span></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;allow-commit&quot;</span></span><span>
-</span><span id="line-43"></span><span>        </span><span id="local-6989586621679945436"><span class="annot"><span class="annottext">IORef [SQLiteLog]
-</span><a href="#local-6989586621679945436"><span class="hs-identifier hs-var">observations</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[SQLiteLog] -&gt; IO (IORef [SQLiteLog])
+</span><span id="line-43"></span><span>        </span><span id="local-6989586621679946640"><span class="annot"><span class="annottext">IORef [SQLiteLog]
+</span><a href="#local-6989586621679946640"><span class="hs-identifier hs-var">observations</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[SQLiteLog] -&gt; IO (IORef [SQLiteLog])
 forall (m :: * -&gt; *) a. MonadIO m =&gt; a -&gt; m (IORef a)
 </span><span class="hs-identifier hs-var">newIORef</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
-</span><span id="line-44"></span><span>        </span><span id="local-6989586621679945438"><span class="annot"><span class="annottext">UTCTime
-</span><a href="#local-6989586621679945438"><span class="hs-identifier hs-var">now</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO UTCTime
+</span><span id="line-44"></span><span>        </span><span id="local-6989586621679946642"><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621679946642"><span class="hs-identifier hs-var">now</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO UTCTime
 forall (m :: * -&gt; *). MonadTime m =&gt; m UTCTime
 </span><span class="hs-identifier hs-var">getCurrentTime</span></span><span>
-</span><span id="line-45"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679945439"><span class="annot"><span class="annottext">tracer :: Tracer IO SQLiteLog
-</span><a href="#local-6989586621679945439"><span class="hs-identifier hs-var hs-var">tracer</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TracerA IO SQLiteLog () -&gt; Tracer IO SQLiteLog
+</span><span id="line-45"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679946643"><span class="annot"><span class="annottext">tracer :: Tracer IO SQLiteLog
+</span><a href="#local-6989586621679946643"><span class="hs-identifier hs-var hs-var">tracer</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TracerA IO SQLiteLog () -&gt; Tracer IO SQLiteLog
 forall (m :: * -&gt; *) a. TracerA m a () -&gt; Tracer m a
 </span><span class="hs-identifier hs-var">Tracer</span></span><span> </span><span class="annot"><span class="annottext">(TracerA IO SQLiteLog () -&gt; Tracer IO SQLiteLog)
 -&gt; ((SQLiteLog -&gt; IO ()) -&gt; TracerA IO SQLiteLog ())
@@ -194,24 +194,24 @@ Applicative m =&gt;
 </span><span class="hs-identifier hs-var">emit</span></span><span> </span><span class="annot"><span class="annottext">((SQLiteLog -&gt; IO ()) -&gt; Tracer IO SQLiteLog)
 -&gt; (SQLiteLog -&gt; IO ()) -&gt; Tracer IO SQLiteLog
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679945442"><span class="annot"><span class="annottext">SQLiteLog
-</span><a href="#local-6989586621679945442"><span class="hs-identifier hs-var">message</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679946646"><span class="annot"><span class="annottext">SQLiteLog
+</span><a href="#local-6989586621679946646"><span class="hs-identifier hs-var">message</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
 </span><span id="line-46"></span><span>              </span><span class="annot"><span class="annottext">IORef [SQLiteLog] -&gt; ([SQLiteLog] -&gt; ([SQLiteLog], ())) -&gt; IO ()
 forall (m :: * -&gt; *) a b.
 MonadIO m =&gt;
 IORef a -&gt; (a -&gt; (a, b)) -&gt; m b
 </span><span class="hs-identifier hs-var">atomicModifyIORef'</span></span><span> </span><span class="annot"><span class="annottext">IORef [SQLiteLog]
-</span><a href="#local-6989586621679945436"><span class="hs-identifier hs-var">observations</span></a></span><span> </span><span class="annot"><span class="annottext">(([SQLiteLog] -&gt; ([SQLiteLog], ())) -&gt; IO ())
+</span><a href="#local-6989586621679946640"><span class="hs-identifier hs-var">observations</span></a></span><span> </span><span class="annot"><span class="annottext">(([SQLiteLog] -&gt; ([SQLiteLog], ())) -&gt; IO ())
 -&gt; ([SQLiteLog] -&gt; ([SQLiteLog], ())) -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679945444"><span class="annot"><span class="annottext">[SQLiteLog]
-</span><a href="#local-6989586621679945444"><span class="hs-identifier hs-var">events</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SQLiteLog
-</span><a href="#local-6989586621679945442"><span class="hs-identifier hs-var">message</span></a></span><span> </span><span class="annot"><span class="annottext">SQLiteLog -&gt; [SQLiteLog] -&gt; [SQLiteLog]
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679946648"><span class="annot"><span class="annottext">[SQLiteLog]
+</span><a href="#local-6989586621679946648"><span class="hs-identifier hs-var">events</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SQLiteLog
+</span><a href="#local-6989586621679946646"><span class="hs-identifier hs-var">message</span></a></span><span> </span><span class="annot"><span class="annottext">SQLiteLog -&gt; [SQLiteLog] -&gt; [SQLiteLog]
 forall a. a -&gt; [a] -&gt; [a]
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#%3A"><span class="hs-glyph hs-var">:</span></a></span><span> </span><span class="annot"><span class="annottext">[SQLiteLog]
-</span><a href="#local-6989586621679945444"><span class="hs-identifier hs-var">events</span></a></span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679946648"><span class="hs-identifier hs-var">events</span></a></span><span class="hs-special">,</span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
 </span><span id="line-47"></span><span>              </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">SQLiteLog
-</span><a href="#local-6989586621679945442"><span class="hs-identifier hs-var">message</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><a href="#local-6989586621679946646"><span class="hs-identifier hs-var">message</span></a></span><span> </span><span class="hs-keyword">of</span><span>
 </span><span id="line-48"></span><span>                </span><span class="annot"><span class="annottext">SQLiteLog
 </span><span class="hs-identifier hs-var">SQLiteWriteStarted</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">STM IO () -&gt; IO ()
 forall a. HasCallStack =&gt; STM IO a -&gt; IO a
@@ -223,7 +223,7 @@ forall a. TMVar IO a -&gt; a -&gt; STM IO ()
 forall (m :: * -&gt; *) a. MonadSTM m =&gt; TMVar m a -&gt; a -&gt; STM m ()
 </span><span class="hs-identifier hs-var">putTMVar</span></span><span> </span><span class="annot"><span class="annottext">TMVar ()
 TMVar IO ()
-</span><a href="#local-6989586621679945433"><span class="hs-identifier hs-var">started</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">IO () -&gt; IO () -&gt; IO ()
+</span><a href="#local-6989586621679946637"><span class="hs-identifier hs-var">started</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">IO () -&gt; IO () -&gt; IO ()
 forall a b. IO a -&gt; IO b -&gt; IO b
 forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; m b -&gt; m b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3E%3E"><span class="hs-operator hs-var">&gt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">STM IO () -&gt; IO ()
@@ -236,20 +236,20 @@ forall a. TMVar IO a -&gt; STM IO a
 forall (m :: * -&gt; *) a. MonadSTM m =&gt; TMVar m a -&gt; STM m a
 </span><span class="hs-identifier hs-var">takeTMVar</span></span><span> </span><span class="annot"><span class="annottext">TMVar ()
 TMVar IO ()
-</span><a href="#local-6989586621679945435"><span class="hs-identifier hs-var">allowCommit</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679946639"><span class="hs-identifier hs-var">allowCommit</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-49"></span><span>                </span><span class="annot"><span class="annottext">SQLiteLog
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">() -&gt; IO ()
 forall a. a -&gt; IO a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
-</span><span id="line-50"></span><span>            </span><span id="local-6989586621679945447"><span class="annot"><span class="annottext">event :: StateEvent SimpleTx
-</span><a href="#local-6989586621679945447"><span class="hs-identifier hs-var hs-var">event</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">EventId -&gt; StateChanged SimpleTx -&gt; UTCTime -&gt; StateEvent SimpleTx
+</span><span id="line-50"></span><span>            </span><span id="local-6989586621679946651"><span class="annot"><span class="annottext">event :: StateEvent SimpleTx
+</span><a href="#local-6989586621679946651"><span class="hs-identifier hs-var hs-var">event</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">EventId -&gt; StateChanged SimpleTx -&gt; UTCTime -&gt; StateEvent SimpleTx
 forall tx. EventId -&gt; StateChanged tx -&gt; UTCTime -&gt; StateEvent tx
 </span><span class="hs-identifier hs-var">StateEvent</span></span><span> </span><span class="annot"><span class="annottext">EventId
 </span><span class="hs-number">0</span></span><span> </span><span class="annot"><span class="annottext">StateChanged SimpleTx
 forall tx. StateChanged tx
 </span><span class="hs-identifier hs-var">NetworkConnected</span></span><span> </span><span class="annot"><span class="annottext">UTCTime
-</span><a href="#local-6989586621679945438"><span class="hs-identifier hs-var">now</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">StateEvent</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SimpleTx</span></span><span>
+</span><a href="#local-6989586621679946642"><span class="hs-identifier hs-var">now</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">StateEvent</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SimpleTx</span></span><span>
 </span><span id="line-51"></span><span>        </span><span class="annot"><span class="annottext">Tracer IO SQLiteLog
 -&gt; String
 -&gt; String
@@ -260,30 +260,30 @@ forall e a.
 Tracer IO SQLiteLog
 -&gt; String -&gt; String -&gt; (EventStore e IO -&gt; IO a) -&gt; IO a
 </span><span class="hs-identifier hs-var">withSQLiteEventStore</span></span><span> </span><span class="annot"><span class="annottext">Tracer IO SQLiteLog
-</span><a href="#local-6989586621679945439"><span class="hs-identifier hs-var">tracer</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679945432"><span class="hs-identifier hs-var">dir</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; String -&gt; String
+</span><a href="#local-6989586621679946643"><span class="hs-identifier hs-var">tracer</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679946636"><span class="hs-identifier hs-var">dir</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; String -&gt; String
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;/hydra.db&quot;</span></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679945432"><span class="hs-identifier hs-var">dir</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; String -&gt; String
+</span><a href="#local-6989586621679946636"><span class="hs-identifier hs-var">dir</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; String -&gt; String
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;/state&quot;</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">((EventStore (StateEvent SimpleTx) IO -&gt; IO ()) -&gt; IO ())
 -&gt; (EventStore (StateEvent SimpleTx) IO -&gt; IO ()) -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="annot"><span class="hs-identifier hs-type">EventStore</span></span><span class="hs-special">{</span><span id="local-6989586621679945449"><span class="annot"><span class="annottext">EventSink (StateEvent SimpleTx) IO
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="annot"><span class="hs-identifier hs-type">EventStore</span></span><span class="hs-special">{</span><span id="local-6989586621679946653"><span class="annot"><span class="annottext">EventSink (StateEvent SimpleTx) IO
 eventSink :: EventSink (StateEvent SimpleTx) IO
 eventSink :: forall e (m :: * -&gt; *). EventStore e m -&gt; EventSink e m
-</span><a href="#local-6989586621679945449"><span class="hs-identifier hs-var hs-var">eventSink</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679945451"><span class="annot"><span class="annottext">EventSource (StateEvent SimpleTx) IO
+</span><a href="#local-6989586621679946653"><span class="hs-identifier hs-var hs-var">eventSink</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679946655"><span class="annot"><span class="annottext">EventSource (StateEvent SimpleTx) IO
 eventSource :: EventSource (StateEvent SimpleTx) IO
 eventSource :: forall e (m :: * -&gt; *). EventStore e m -&gt; EventSource e m
-</span><a href="#local-6989586621679945451"><span class="hs-identifier hs-var hs-var">eventSource</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><a href="#local-6989586621679946655"><span class="hs-identifier hs-var hs-var">eventSource</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
 </span><span id="line-52"></span><span>          </span><span class="annot"><span class="annottext">EventSink (StateEvent SimpleTx) IO
 -&gt; HasEventId (StateEvent SimpleTx) =&gt; StateEvent SimpleTx -&gt; IO ()
 forall e (m :: * -&gt; *). EventSink e m -&gt; HasEventId e =&gt; e -&gt; m ()
 </span><span class="hs-identifier hs-var">putEvent</span></span><span> </span><span class="annot"><span class="annottext">EventSink (StateEvent SimpleTx) IO
-</span><a href="#local-6989586621679945449"><span class="hs-identifier hs-var">eventSink</span></a></span><span> </span><span class="annot"><span class="annottext">StateEvent SimpleTx
-</span><a href="#local-6989586621679945447"><span class="hs-identifier hs-var">event</span></a></span><span>
+</span><a href="#local-6989586621679946653"><span class="hs-identifier hs-var">eventSink</span></a></span><span> </span><span class="annot"><span class="annottext">StateEvent SimpleTx
+</span><a href="#local-6989586621679946651"><span class="hs-identifier hs-var">event</span></a></span><span>
 </span><span id="line-53"></span><span>          </span><span class="annot"><span class="annottext">IO () -&gt; IO () -&gt; IO () -&gt; IO ()
 forall a b c. IO a -&gt; IO b -&gt; IO c -&gt; IO c
 forall (m :: * -&gt; *) a b c.
@@ -302,7 +302,7 @@ forall a. TMVar IO a -&gt; STM IO a
 forall (m :: * -&gt; *) a. MonadSTM m =&gt; TMVar m a -&gt; STM m a
 </span><span class="hs-identifier hs-var">takeTMVar</span></span><span> </span><span class="annot"><span class="annottext">TMVar ()
 TMVar IO ()
-</span><a href="#local-6989586621679945433"><span class="hs-identifier hs-var">started</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679946637"><span class="hs-identifier hs-var">started</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-55"></span><span>            </span><span class="hs-special">(</span><span class="annot"><span class="annottext">IO Bool -&gt; IO ()
 forall (f :: * -&gt; *) a. Functor f =&gt; f a -&gt; f ()
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#void"><span class="hs-identifier hs-var">void</span></a></span><span> </span><span class="annot"><span class="annottext">(IO Bool -&gt; IO ()) -&gt; (STM Bool -&gt; IO Bool) -&gt; STM Bool -&gt; IO ()
@@ -320,19 +320,19 @@ forall a. TMVar IO a -&gt; a -&gt; STM IO Bool
 forall (m :: * -&gt; *) a. MonadSTM m =&gt; TMVar m a -&gt; a -&gt; STM m Bool
 </span><span class="hs-identifier hs-var">tryPutTMVar</span></span><span> </span><span class="annot"><span class="annottext">TMVar ()
 TMVar IO ()
-</span><a href="#local-6989586621679945435"><span class="hs-identifier hs-var">allowCommit</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679946639"><span class="hs-identifier hs-var">allowCommit</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
 </span><span id="line-56"></span><span>            </span><span class="hs-special">(</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-57"></span><span>                </span><span id="local-6989586621679945455"><span class="annot"><span class="annottext">[SQLiteLog]
-</span><a href="#local-6989586621679945455"><span class="hs-identifier hs-var">samples</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IORef [SQLiteLog] -&gt; IO [SQLiteLog]
+</span><span id="line-57"></span><span>                </span><span id="local-6989586621679946659"><span class="annot"><span class="annottext">[SQLiteLog]
+</span><a href="#local-6989586621679946659"><span class="hs-identifier hs-var">samples</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IORef [SQLiteLog] -&gt; IO [SQLiteLog]
 forall (m :: * -&gt; *) a. MonadIO m =&gt; IORef a -&gt; m a
 </span><span class="hs-identifier hs-var">readIORef</span></span><span> </span><span class="annot"><span class="annottext">IORef [SQLiteLog]
-</span><a href="#local-6989586621679945436"><span class="hs-identifier hs-var">observations</span></a></span><span>
+</span><a href="#local-6989586621679946640"><span class="hs-identifier hs-var">observations</span></a></span><span>
 </span><span id="line-58"></span><span>                </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Double
-</span><a href="#local-6989586621679945457"><span class="hs-identifier hs-var">writeSeconds</span></a></span><span> </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SQLiteWriteCompleted</span></span><span class="hs-special">{</span><span id="local-6989586621679945457"><span class="annot"><span class="annottext">Double
+</span><a href="#local-6989586621679946661"><span class="hs-identifier hs-var">writeSeconds</span></a></span><span> </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SQLiteWriteCompleted</span></span><span class="hs-special">{</span><span id="local-6989586621679946661"><span class="annot"><span class="annottext">Double
 writeSeconds :: Double
 writeSeconds :: SQLiteLog -&gt; Double
-</span><a href="#local-6989586621679945457"><span class="hs-identifier hs-var hs-var">writeSeconds</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[SQLiteLog]
-</span><a href="#local-6989586621679945455"><span class="hs-identifier hs-var">samples</span></a></span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">[Double] -&gt; [Double] -&gt; IO ()
+</span><a href="#local-6989586621679946661"><span class="hs-identifier hs-var hs-var">writeSeconds</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[SQLiteLog]
+</span><a href="#local-6989586621679946659"><span class="hs-identifier hs-var">samples</span></a></span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">[Double] -&gt; [Double] -&gt; IO ()
 forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; IO ()
 </span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
 </span><span id="line-59"></span><span>            </span><span class="hs-special">)</span><span>
@@ -341,24 +341,24 @@ forall e (m :: * -&gt; *).
 (HasEventId e, MonadUnliftIO m) =&gt;
 EventSource e m -&gt; m [e]
 </span><span class="hs-identifier hs-var">getEvents</span></span><span> </span><span class="annot"><span class="annottext">EventSource (StateEvent SimpleTx) IO
-</span><a href="#local-6989586621679945451"><span class="hs-identifier hs-var">eventSource</span></a></span><span> </span><span class="annot"><span class="annottext">IO [StateEvent SimpleTx] -&gt; [StateEvent SimpleTx] -&gt; IO ()
+</span><a href="#local-6989586621679946655"><span class="hs-identifier hs-var">eventSource</span></a></span><span> </span><span class="annot"><span class="annottext">IO [StateEvent SimpleTx] -&gt; [StateEvent SimpleTx] -&gt; IO ()
 forall a. (HasCallStack, Show a, Eq a) =&gt; IO a -&gt; a -&gt; IO ()
 </span><span class="hs-operator hs-var">`shouldReturn`</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">StateEvent SimpleTx
-</span><a href="#local-6989586621679945447"><span class="hs-identifier hs-var">event</span></a></span><span class="hs-special">]</span><span>
-</span><span id="line-61"></span><span>          </span><span id="local-6989586621679945461"><span class="annot"><span class="annottext">[SQLiteLog]
-</span><a href="#local-6989586621679945461"><span class="hs-identifier hs-var">samples</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IORef [SQLiteLog] -&gt; IO [SQLiteLog]
+</span><a href="#local-6989586621679946651"><span class="hs-identifier hs-var">event</span></a></span><span class="hs-special">]</span><span>
+</span><span id="line-61"></span><span>          </span><span id="local-6989586621679946665"><span class="annot"><span class="annottext">[SQLiteLog]
+</span><a href="#local-6989586621679946665"><span class="hs-identifier hs-var">samples</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IORef [SQLiteLog] -&gt; IO [SQLiteLog]
 forall (m :: * -&gt; *) a. MonadIO m =&gt; IORef a -&gt; m a
 </span><span class="hs-identifier hs-var">readIORef</span></span><span> </span><span class="annot"><span class="annottext">IORef [SQLiteLog]
-</span><a href="#local-6989586621679945436"><span class="hs-identifier hs-var">observations</span></a></span><span>
+</span><a href="#local-6989586621679946640"><span class="hs-identifier hs-var">observations</span></a></span><span>
 </span><span id="line-62"></span><span>          </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Double
-</span><a href="#local-6989586621679945462"><span class="hs-identifier hs-var">writeSeconds</span></a></span><span> </span><span class="annot"><span class="annottext">Double -&gt; Double -&gt; Bool
+</span><a href="#local-6989586621679946666"><span class="hs-identifier hs-var">writeSeconds</span></a></span><span> </span><span class="annot"><span class="annottext">Double -&gt; Double -&gt; Bool
 forall a. Ord a =&gt; a -&gt; a -&gt; Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3E%3D"><span class="hs-operator hs-var">&gt;=</span></a></span><span> </span><span class="annot"><span class="annottext">Double
-</span><span class="hs-number">0</span></span><span> </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SQLiteWriteCompleted</span></span><span class="hs-special">{</span><span id="local-6989586621679945462"><span class="annot"><span class="annottext">Double
+</span><span class="hs-number">0</span></span><span> </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="hs-identifier hs-type">SQLiteWriteCompleted</span></span><span class="hs-special">{</span><span id="local-6989586621679946666"><span class="annot"><span class="annottext">Double
 writeSeconds :: SQLiteLog -&gt; Double
 writeSeconds :: Double
 </span><span class="hs-identifier hs-var hs-var">writeSeconds</span></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[SQLiteLog]
-</span><a href="#local-6989586621679945461"><span class="hs-identifier hs-var">samples</span></a></span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">[Bool] -&gt; [Bool] -&gt; IO ()
+</span><a href="#local-6989586621679946665"><span class="hs-identifier hs-var">samples</span></a></span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">[Bool] -&gt; [Bool] -&gt; IO ()
 forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; IO ()
 </span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#True"><span class="hs-identifier hs-var">True</span></a></span><span class="hs-special">]</span><span>
@@ -390,8 +390,8 @@ forall a. Arbitrary a =&gt; a -&gt; [a]
 </span><span class="hs-identifier hs-var">shrink</span></span><span> </span><span class="annot"><span class="annottext">(([StateEvent SimpleTx] -&gt; Property) -&gt; Property)
 -&gt; ([StateEvent SimpleTx] -&gt; Property) -&gt; Property
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679945466"><span class="annot"><span class="annottext">[StateEvent SimpleTx]
-</span><a href="#local-6989586621679945466"><span class="hs-identifier hs-var">events</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679946670"><span class="annot"><span class="annottext">[StateEvent SimpleTx]
+</span><a href="#local-6989586621679946670"><span class="hs-identifier hs-var">events</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-67"></span><span>        </span><span class="annot"><span class="annottext">IO Property -&gt; Property
 forall prop. Testable prop =&gt; IO prop -&gt; Property
 </span><span class="hs-identifier hs-var">ioProperty</span></span><span> </span><span class="annot"><span class="annottext">(IO Property -&gt; Property) -&gt; IO Property -&gt; Property
@@ -411,13 +411,13 @@ forall b.
     -&gt; EventSink (StateEvent SimpleTx) IO -&gt; IO Property)
 -&gt; IO Property
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="annot"><span class="hs-identifier hs-type">EventSource</span></span><span class="hs-special">{</span><span id="local-6989586621679945467"><span class="annot"><span class="annottext">HasEventId (StateEvent SimpleTx) =&gt;
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="annot"><span class="hs-identifier hs-type">EventSource</span></span><span class="hs-special">{</span><span id="local-6989586621679946671"><span class="annot"><span class="annottext">HasEventId (StateEvent SimpleTx) =&gt;
 ConduitT () (StateEvent SimpleTx) (ResourceT IO) ()
 sourceEvents :: HasEventId (StateEvent SimpleTx) =&gt;
 ConduitT () (StateEvent SimpleTx) (ResourceT IO) ()
 sourceEvents :: forall e (m :: * -&gt; *).
 EventSource e m -&gt; HasEventId e =&gt; ConduitT () e (ResourceT m) ()
-</span><a href="#local-6989586621679945467"><span class="hs-identifier hs-var hs-var">sourceEvents</span></a></span></span><span class="hs-special">}</span><span> </span><span class="annot"><span class="hs-identifier hs-type">EventSink</span></span><span class="hs-special">{</span><span id="local-6989586621679945469"><span class="annot"><span class="annottext">HasEventId (StateEvent SimpleTx) =&gt; StateEvent SimpleTx -&gt; IO ()
+</span><a href="#local-6989586621679946671"><span class="hs-identifier hs-var hs-var">sourceEvents</span></a></span></span><span class="hs-special">}</span><span> </span><span class="annot"><span class="hs-identifier hs-type">EventSink</span></span><span class="hs-special">{</span><span id="local-6989586621679946673"><span class="annot"><span class="annottext">HasEventId (StateEvent SimpleTx) =&gt; StateEvent SimpleTx -&gt; IO ()
 putEvent :: forall e (m :: * -&gt; *). EventSink e m -&gt; HasEventId e =&gt; e -&gt; m ()
 putEvent :: HasEventId (StateEvent SimpleTx) =&gt; StateEvent SimpleTx -&gt; IO ()
 </span><span class="hs-identifier hs-var hs-var">putEvent</span></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
@@ -426,12 +426,12 @@ forall (t :: * -&gt; *) (m :: * -&gt; *) a b.
 (Foldable t, Monad m) =&gt;
 t a -&gt; (a -&gt; m b) -&gt; m ()
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#forM_"><span class="hs-identifier hs-var">forM_</span></a></span><span> </span><span class="annot"><span class="annottext">[StateEvent SimpleTx]
-</span><a href="#local-6989586621679945466"><span class="hs-identifier hs-var">events</span></a></span><span> </span><span class="annot"><span class="annottext">StateEvent SimpleTx -&gt; IO ()
+</span><a href="#local-6989586621679946670"><span class="hs-identifier hs-var">events</span></a></span><span> </span><span class="annot"><span class="annottext">StateEvent SimpleTx -&gt; IO ()
 HasEventId (StateEvent SimpleTx) =&gt; StateEvent SimpleTx -&gt; IO ()
-</span><a href="#local-6989586621679945469"><span class="hs-identifier hs-var">putEvent</span></a></span><span>
+</span><a href="#local-6989586621679946673"><span class="hs-identifier hs-var">putEvent</span></a></span><span>
 </span><span id="line-70"></span><span>            </span><span class="hs-comment">-- XXX: Should assert while streaming</span><span>
-</span><span id="line-71"></span><span>            </span><span id="local-6989586621679945470"><span class="annot"><span class="annottext">[StateEvent SimpleTx]
-</span><a href="#local-6989586621679945470"><span class="hs-identifier hs-var">streamedEvents</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">EventSource (StateEvent SimpleTx) IO -&gt; IO [StateEvent SimpleTx]
+</span><span id="line-71"></span><span>            </span><span id="local-6989586621679946674"><span class="annot"><span class="annottext">[StateEvent SimpleTx]
+</span><a href="#local-6989586621679946674"><span class="hs-identifier hs-var">streamedEvents</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">EventSource (StateEvent SimpleTx) IO -&gt; IO [StateEvent SimpleTx]
 forall e (m :: * -&gt; *).
 (HasEventId e, MonadUnliftIO m) =&gt;
 EventSource e m -&gt; m [e]
@@ -443,7 +443,7 @@ forall e (m :: * -&gt; *).
 </span><span class="hs-identifier hs-var">EventSource</span></span><span> </span><span class="annot"><span class="annottext">ConduitT () (StateEvent SimpleTx) (ResourceT IO) ()
 HasEventId (StateEvent SimpleTx) =&gt;
 ConduitT () (StateEvent SimpleTx) (ResourceT IO) ()
-</span><a href="#local-6989586621679945467"><span class="hs-identifier hs-var">sourceEvents</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679946671"><span class="hs-identifier hs-var">sourceEvents</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-72"></span><span>            </span><span class="annot"><span class="annottext">Property -&gt; IO Property
 forall a. a -&gt; IO a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
@@ -451,10 +451,10 @@ forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
 </span><span id="line-73"></span><span>              </span><span class="annot"><span class="annottext">[StateEvent SimpleTx]
-</span><a href="#local-6989586621679945470"><span class="hs-identifier hs-var">streamedEvents</span></a></span><span> </span><span class="annot"><span class="annottext">[StateEvent SimpleTx] -&gt; [StateEvent SimpleTx] -&gt; Property
+</span><a href="#local-6989586621679946674"><span class="hs-identifier hs-var">streamedEvents</span></a></span><span> </span><span class="annot"><span class="annottext">[StateEvent SimpleTx] -&gt; [StateEvent SimpleTx] -&gt; Property
 forall a. (Eq a, Show a) =&gt; a -&gt; a -&gt; Property
 </span><span class="hs-operator hs-var">===</span></span><span> </span><span class="annot"><span class="annottext">[StateEvent SimpleTx]
-</span><a href="#local-6989586621679945466"><span class="hs-identifier hs-var">events</span></a></span><span>
+</span><a href="#local-6989586621679946670"><span class="hs-identifier hs-var">events</span></a></span><span>
 </span><span id="line-74"></span><span>
 </span><span id="line-75"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; Property -&gt; Spec
 forall prop.
@@ -477,8 +477,8 @@ forall a. Arbitrary a =&gt; a -&gt; [a]
 </span><span class="hs-identifier hs-var">shrink</span></span><span> </span><span class="annot"><span class="annottext">(([StateEvent SimpleTx] -&gt; Property) -&gt; Property)
 -&gt; ([StateEvent SimpleTx] -&gt; Property) -&gt; Property
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679945473"><span class="annot"><span class="annottext">[StateEvent SimpleTx]
-</span><a href="#local-6989586621679945473"><span class="hs-identifier hs-var">events</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679946677"><span class="annot"><span class="annottext">[StateEvent SimpleTx]
+</span><a href="#local-6989586621679946677"><span class="hs-identifier hs-var">events</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-77"></span><span>        </span><span class="annot"><span class="annottext">IO Property -&gt; Property
 forall prop. Testable prop =&gt; IO prop -&gt; Property
 </span><span class="hs-identifier hs-var">ioProperty</span></span><span> </span><span class="annot"><span class="annottext">(IO Property -&gt; Property) -&gt; IO Property -&gt; Property
@@ -498,8 +498,8 @@ forall b.
     -&gt; EventSink (StateEvent SimpleTx) IO -&gt; IO Property)
 -&gt; IO Property
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679945474"><span class="annot"><span class="annottext">EventSource (StateEvent SimpleTx) IO
-</span><a href="#local-6989586621679945474"><span class="hs-identifier hs-var">src</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">EventSink</span></span><span class="hs-special">{</span><span id="local-6989586621679945475"><span class="annot"><span class="annottext">HasEventId (StateEvent SimpleTx) =&gt; StateEvent SimpleTx -&gt; IO ()
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679946678"><span class="annot"><span class="annottext">EventSource (StateEvent SimpleTx) IO
+</span><a href="#local-6989586621679946678"><span class="hs-identifier hs-var">src</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">EventSink</span></span><span class="hs-special">{</span><span id="local-6989586621679946679"><span class="annot"><span class="annottext">HasEventId (StateEvent SimpleTx) =&gt; StateEvent SimpleTx -&gt; IO ()
 putEvent :: forall e (m :: * -&gt; *). EventSink e m -&gt; HasEventId e =&gt; e -&gt; m ()
 putEvent :: HasEventId (StateEvent SimpleTx) =&gt; StateEvent SimpleTx -&gt; IO ()
 </span><span class="hs-identifier hs-var hs-var">putEvent</span></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
@@ -508,16 +508,16 @@ forall (t :: * -&gt; *) (m :: * -&gt; *) a b.
 (Foldable t, Monad m) =&gt;
 t a -&gt; (a -&gt; m b) -&gt; m ()
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#forM_"><span class="hs-identifier hs-var">forM_</span></a></span><span> </span><span class="annot"><span class="annottext">[StateEvent SimpleTx]
-</span><a href="#local-6989586621679945473"><span class="hs-identifier hs-var">events</span></a></span><span> </span><span class="annot"><span class="annottext">StateEvent SimpleTx -&gt; IO ()
+</span><a href="#local-6989586621679946677"><span class="hs-identifier hs-var">events</span></a></span><span> </span><span class="annot"><span class="annottext">StateEvent SimpleTx -&gt; IO ()
 HasEventId (StateEvent SimpleTx) =&gt; StateEvent SimpleTx -&gt; IO ()
-</span><a href="#local-6989586621679945475"><span class="hs-identifier hs-var">putEvent</span></a></span><span>
-</span><span id="line-80"></span><span>            </span><span id="local-6989586621679945476"><span class="annot"><span class="annottext">[StateEvent SimpleTx]
-</span><a href="#local-6989586621679945476"><span class="hs-identifier hs-var">loadedEvents</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">EventSource (StateEvent SimpleTx) IO -&gt; IO [StateEvent SimpleTx]
+</span><a href="#local-6989586621679946679"><span class="hs-identifier hs-var">putEvent</span></a></span><span>
+</span><span id="line-80"></span><span>            </span><span id="local-6989586621679946680"><span class="annot"><span class="annottext">[StateEvent SimpleTx]
+</span><a href="#local-6989586621679946680"><span class="hs-identifier hs-var">loadedEvents</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">EventSource (StateEvent SimpleTx) IO -&gt; IO [StateEvent SimpleTx]
 forall e (m :: * -&gt; *).
 (HasEventId e, MonadUnliftIO m) =&gt;
 EventSource e m -&gt; m [e]
 </span><span class="hs-identifier hs-var">getEvents</span></span><span> </span><span class="annot"><span class="annottext">EventSource (StateEvent SimpleTx) IO
-</span><a href="#local-6989586621679945474"><span class="hs-identifier hs-var">src</span></a></span><span>
+</span><a href="#local-6989586621679946678"><span class="hs-identifier hs-var">src</span></a></span><span>
 </span><span id="line-81"></span><span>            </span><span class="annot"><span class="annottext">Property -&gt; IO Property
 forall a. a -&gt; IO a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
@@ -525,10 +525,10 @@ forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
 </span><span id="line-82"></span><span>              </span><span class="annot"><span class="annottext">[StateEvent SimpleTx]
-</span><a href="#local-6989586621679945476"><span class="hs-identifier hs-var">loadedEvents</span></a></span><span> </span><span class="annot"><span class="annottext">[StateEvent SimpleTx] -&gt; [StateEvent SimpleTx] -&gt; Property
+</span><a href="#local-6989586621679946680"><span class="hs-identifier hs-var">loadedEvents</span></a></span><span> </span><span class="annot"><span class="annottext">[StateEvent SimpleTx] -&gt; [StateEvent SimpleTx] -&gt; Property
 forall a. (Eq a, Show a) =&gt; a -&gt; a -&gt; Property
 </span><span class="hs-operator hs-var">===</span></span><span> </span><span class="annot"><span class="annottext">[StateEvent SimpleTx]
-</span><a href="#local-6989586621679945473"><span class="hs-identifier hs-var">events</span></a></span><span>
+</span><a href="#local-6989586621679946677"><span class="hs-identifier hs-var">events</span></a></span><span>
 </span><span id="line-83"></span><span>
 </span><span id="line-84"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; Property -&gt; Spec
 forall prop.
@@ -556,8 +556,8 @@ forall a. Arbitrary a =&gt; a -&gt; [a]
 </span><span class="hs-identifier hs-var">shrink</span></span><span> </span><span class="annot"><span class="annottext">(([StateEvent SimpleTx] -&gt; Property) -&gt; Property)
 -&gt; ([StateEvent SimpleTx] -&gt; Property) -&gt; Property
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679945478"><span class="annot"><span class="annottext">[StateEvent SimpleTx]
-</span><a href="#local-6989586621679945478"><span class="hs-identifier hs-var">events</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679946682"><span class="annot"><span class="annottext">[StateEvent SimpleTx]
+</span><a href="#local-6989586621679946682"><span class="hs-identifier hs-var">events</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-86"></span><span>        </span><span class="annot"><span class="annottext">IO Property -&gt; Property
 forall prop. Testable prop =&gt; IO prop -&gt; Property
 </span><span class="hs-identifier hs-var">ioProperty</span></span><span> </span><span class="annot"><span class="annottext">(IO Property -&gt; Property) -&gt; IO Property -&gt; Property
@@ -577,8 +577,8 @@ forall b.
     -&gt; EventSink (StateEvent SimpleTx) IO -&gt; IO Property)
 -&gt; IO Property
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679945479"><span class="annot"><span class="annottext">EventSource (StateEvent SimpleTx) IO
-</span><a href="#local-6989586621679945479"><span class="hs-identifier hs-var">src</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">EventSink</span></span><span class="hs-special">{</span><span id="local-6989586621679945480"><span class="annot"><span class="annottext">HasEventId (StateEvent SimpleTx) =&gt; StateEvent SimpleTx -&gt; IO ()
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679946683"><span class="annot"><span class="annottext">EventSource (StateEvent SimpleTx) IO
+</span><a href="#local-6989586621679946683"><span class="hs-identifier hs-var">src</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">EventSink</span></span><span class="hs-special">{</span><span id="local-6989586621679946684"><span class="annot"><span class="annottext">HasEventId (StateEvent SimpleTx) =&gt; StateEvent SimpleTx -&gt; IO ()
 putEvent :: forall e (m :: * -&gt; *). EventSink e m -&gt; HasEventId e =&gt; e -&gt; m ()
 putEvent :: HasEventId (StateEvent SimpleTx) =&gt; StateEvent SimpleTx -&gt; IO ()
 </span><span class="hs-identifier hs-var hs-var">putEvent</span></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
@@ -587,16 +587,16 @@ forall (t :: * -&gt; *) (m :: * -&gt; *) a b.
 (Foldable t, Monad m) =&gt;
 t a -&gt; (a -&gt; m b) -&gt; m ()
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#forM_"><span class="hs-identifier hs-var">forM_</span></a></span><span> </span><span class="annot"><span class="annottext">[StateEvent SimpleTx]
-</span><a href="#local-6989586621679945478"><span class="hs-identifier hs-var">events</span></a></span><span> </span><span class="annot"><span class="annottext">StateEvent SimpleTx -&gt; IO ()
+</span><a href="#local-6989586621679946682"><span class="hs-identifier hs-var">events</span></a></span><span> </span><span class="annot"><span class="annottext">StateEvent SimpleTx -&gt; IO ()
 HasEventId (StateEvent SimpleTx) =&gt; StateEvent SimpleTx -&gt; IO ()
-</span><a href="#local-6989586621679945480"><span class="hs-identifier hs-var">putEvent</span></a></span><span>
-</span><span id="line-89"></span><span>            </span><span id="local-6989586621679945481"><span class="annot"><span class="annottext">[StateEvent SimpleTx]
-</span><a href="#local-6989586621679945481"><span class="hs-identifier hs-var">loadedEvents</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">EventSource (StateEvent SimpleTx) IO -&gt; IO [StateEvent SimpleTx]
+</span><a href="#local-6989586621679946684"><span class="hs-identifier hs-var">putEvent</span></a></span><span>
+</span><span id="line-89"></span><span>            </span><span id="local-6989586621679946685"><span class="annot"><span class="annottext">[StateEvent SimpleTx]
+</span><a href="#local-6989586621679946685"><span class="hs-identifier hs-var">loadedEvents</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">EventSource (StateEvent SimpleTx) IO -&gt; IO [StateEvent SimpleTx]
 forall e (m :: * -&gt; *).
 (HasEventId e, MonadUnliftIO m) =&gt;
 EventSource e m -&gt; m [e]
 </span><span class="hs-identifier hs-var">getEvents</span></span><span> </span><span class="annot"><span class="annottext">EventSource (StateEvent SimpleTx) IO
-</span><a href="#local-6989586621679945479"><span class="hs-identifier hs-var">src</span></a></span><span>
+</span><a href="#local-6989586621679946683"><span class="hs-identifier hs-var">src</span></a></span><span>
 </span><span id="line-90"></span><span>            </span><span class="annot"><span class="annottext">Property -&gt; IO Property
 forall a. a -&gt; IO a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
@@ -604,10 +604,10 @@ forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
 </span><span id="line-91"></span><span>              </span><span class="annot"><span class="annottext">[StateEvent SimpleTx]
-</span><a href="#local-6989586621679945481"><span class="hs-identifier hs-var">loadedEvents</span></a></span><span> </span><span class="annot"><span class="annottext">[StateEvent SimpleTx] -&gt; [StateEvent SimpleTx] -&gt; Property
+</span><a href="#local-6989586621679946685"><span class="hs-identifier hs-var">loadedEvents</span></a></span><span> </span><span class="annot"><span class="annottext">[StateEvent SimpleTx] -&gt; [StateEvent SimpleTx] -&gt; Property
 forall a. (Eq a, Show a) =&gt; a -&gt; a -&gt; Property
 </span><span class="hs-operator hs-var">===</span></span><span> </span><span class="annot"><span class="annottext">[StateEvent SimpleTx]
-</span><a href="#local-6989586621679945478"><span class="hs-identifier hs-var">events</span></a></span><span>
+</span><a href="#local-6989586621679946682"><span class="hs-identifier hs-var">events</span></a></span><span>
 </span><span id="line-92"></span><span>
 </span><span id="line-93"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; Property -&gt; Spec
 forall prop.
@@ -630,8 +630,8 @@ forall a. Arbitrary a =&gt; a -&gt; [a]
 </span><span class="hs-identifier hs-var">shrink</span></span><span> </span><span class="annot"><span class="annottext">(([StateEvent SimpleTx] -&gt; Property) -&gt; Property)
 -&gt; ([StateEvent SimpleTx] -&gt; Property) -&gt; Property
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679945482"><span class="annot"><span class="annottext">[StateEvent SimpleTx]
-</span><a href="#local-6989586621679945482"><span class="hs-identifier hs-var">events</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679946686"><span class="annot"><span class="annottext">[StateEvent SimpleTx]
+</span><a href="#local-6989586621679946686"><span class="hs-identifier hs-var">events</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-95"></span><span>        </span><span class="annot"><span class="annottext">IO Property -&gt; Property
 forall prop. Testable prop =&gt; IO prop -&gt; Property
 </span><span class="hs-identifier hs-var">ioProperty</span></span><span> </span><span class="annot"><span class="annottext">(IO Property -&gt; Property) -&gt; IO Property -&gt; Property
@@ -651,8 +651,8 @@ forall b.
     -&gt; EventSink (StateEvent SimpleTx) IO -&gt; IO Property)
 -&gt; IO Property
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679945483"><span class="annot"><span class="annottext">EventSource (StateEvent SimpleTx) IO
-</span><a href="#local-6989586621679945483"><span class="hs-identifier hs-var">src</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">EventSink</span></span><span class="hs-special">{</span><span id="local-6989586621679945484"><span class="annot"><span class="annottext">HasEventId (StateEvent SimpleTx) =&gt; StateEvent SimpleTx -&gt; IO ()
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679946687"><span class="annot"><span class="annottext">EventSource (StateEvent SimpleTx) IO
+</span><a href="#local-6989586621679946687"><span class="hs-identifier hs-var">src</span></a></span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">EventSink</span></span><span class="hs-special">{</span><span id="local-6989586621679946688"><span class="annot"><span class="annottext">HasEventId (StateEvent SimpleTx) =&gt; StateEvent SimpleTx -&gt; IO ()
 putEvent :: forall e (m :: * -&gt; *). EventSink e m -&gt; HasEventId e =&gt; e -&gt; m ()
 putEvent :: HasEventId (StateEvent SimpleTx) =&gt; StateEvent SimpleTx -&gt; IO ()
 </span><span class="hs-identifier hs-var hs-var">putEvent</span></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
@@ -661,32 +661,32 @@ forall (t :: * -&gt; *) (m :: * -&gt; *) a b.
 (Foldable t, Monad m) =&gt;
 t a -&gt; (a -&gt; m b) -&gt; m ()
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#forM_"><span class="hs-identifier hs-var">forM_</span></a></span><span> </span><span class="annot"><span class="annottext">[StateEvent SimpleTx]
-</span><a href="#local-6989586621679945482"><span class="hs-identifier hs-var">events</span></a></span><span> </span><span class="annot"><span class="annottext">StateEvent SimpleTx -&gt; IO ()
+</span><a href="#local-6989586621679946686"><span class="hs-identifier hs-var">events</span></a></span><span> </span><span class="annot"><span class="annottext">StateEvent SimpleTx -&gt; IO ()
 HasEventId (StateEvent SimpleTx) =&gt; StateEvent SimpleTx -&gt; IO ()
-</span><a href="#local-6989586621679945484"><span class="hs-identifier hs-var">putEvent</span></a></span><span>
-</span><span id="line-98"></span><span>            </span><span id="local-6989586621679945485"><span class="annot"><span class="annottext">[StateEvent SimpleTx]
-</span><a href="#local-6989586621679945485"><span class="hs-identifier hs-var">loadedEvents</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">EventSource (StateEvent SimpleTx) IO -&gt; IO [StateEvent SimpleTx]
+</span><a href="#local-6989586621679946688"><span class="hs-identifier hs-var">putEvent</span></a></span><span>
+</span><span id="line-98"></span><span>            </span><span id="local-6989586621679946689"><span class="annot"><span class="annottext">[StateEvent SimpleTx]
+</span><a href="#local-6989586621679946689"><span class="hs-identifier hs-var">loadedEvents</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">EventSource (StateEvent SimpleTx) IO -&gt; IO [StateEvent SimpleTx]
 forall e (m :: * -&gt; *).
 (HasEventId e, MonadUnliftIO m) =&gt;
 EventSource e m -&gt; m [e]
 </span><span class="hs-identifier hs-var">getEvents</span></span><span> </span><span class="annot"><span class="annottext">EventSource (StateEvent SimpleTx) IO
-</span><a href="#local-6989586621679945483"><span class="hs-identifier hs-var">src</span></a></span><span>
+</span><a href="#local-6989586621679946687"><span class="hs-identifier hs-var">src</span></a></span><span>
 </span><span id="line-99"></span><span>            </span><span class="hs-comment">-- Put the loaded events again (as the node would do)</span><span>
 </span><span id="line-100"></span><span>            </span><span class="annot"><span class="annottext">[StateEvent SimpleTx] -&gt; (StateEvent SimpleTx -&gt; IO ()) -&gt; IO ()
 forall (t :: * -&gt; *) (m :: * -&gt; *) a b.
 (Foldable t, Monad m) =&gt;
 t a -&gt; (a -&gt; m b) -&gt; m ()
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#forM_"><span class="hs-identifier hs-var">forM_</span></a></span><span> </span><span class="annot"><span class="annottext">[StateEvent SimpleTx]
-</span><a href="#local-6989586621679945485"><span class="hs-identifier hs-var">loadedEvents</span></a></span><span> </span><span class="annot"><span class="annottext">StateEvent SimpleTx -&gt; IO ()
+</span><a href="#local-6989586621679946689"><span class="hs-identifier hs-var">loadedEvents</span></a></span><span> </span><span class="annot"><span class="annottext">StateEvent SimpleTx -&gt; IO ()
 HasEventId (StateEvent SimpleTx) =&gt; StateEvent SimpleTx -&gt; IO ()
-</span><a href="#local-6989586621679945484"><span class="hs-identifier hs-var">putEvent</span></a></span><span>
-</span><span id="line-101"></span><span>            </span><span id="local-6989586621679945486"><span class="annot"><span class="annottext">[StateEvent SimpleTx]
-</span><a href="#local-6989586621679945486"><span class="hs-identifier hs-var">allEvents</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">EventSource (StateEvent SimpleTx) IO -&gt; IO [StateEvent SimpleTx]
+</span><a href="#local-6989586621679946688"><span class="hs-identifier hs-var">putEvent</span></a></span><span>
+</span><span id="line-101"></span><span>            </span><span id="local-6989586621679946690"><span class="annot"><span class="annottext">[StateEvent SimpleTx]
+</span><a href="#local-6989586621679946690"><span class="hs-identifier hs-var">allEvents</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">EventSource (StateEvent SimpleTx) IO -&gt; IO [StateEvent SimpleTx]
 forall e (m :: * -&gt; *).
 (HasEventId e, MonadUnliftIO m) =&gt;
 EventSource e m -&gt; m [e]
 </span><span class="hs-identifier hs-var">getEvents</span></span><span> </span><span class="annot"><span class="annottext">EventSource (StateEvent SimpleTx) IO
-</span><a href="#local-6989586621679945483"><span class="hs-identifier hs-var">src</span></a></span><span>
+</span><a href="#local-6989586621679946687"><span class="hs-identifier hs-var">src</span></a></span><span>
 </span><span id="line-102"></span><span>            </span><span class="annot"><span class="annottext">Property -&gt; IO Property
 forall a. a -&gt; IO a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
@@ -694,10 +694,10 @@ forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span>
 </span><span id="line-103"></span><span>              </span><span class="annot"><span class="annottext">[StateEvent SimpleTx]
-</span><a href="#local-6989586621679945486"><span class="hs-identifier hs-var">allEvents</span></a></span><span> </span><span class="annot"><span class="annottext">[StateEvent SimpleTx] -&gt; [StateEvent SimpleTx] -&gt; Property
+</span><a href="#local-6989586621679946690"><span class="hs-identifier hs-var">allEvents</span></a></span><span> </span><span class="annot"><span class="annottext">[StateEvent SimpleTx] -&gt; [StateEvent SimpleTx] -&gt; Property
 forall a. (Eq a, Show a) =&gt; a -&gt; a -&gt; Property
 </span><span class="hs-operator hs-var">===</span></span><span> </span><span class="annot"><span class="annottext">[StateEvent SimpleTx]
-</span><a href="#local-6989586621679945485"><span class="hs-identifier hs-var">loadedEvents</span></a></span><span>
+</span><a href="#local-6989586621679946689"><span class="hs-identifier hs-var">loadedEvents</span></a></span><span>
 </span><span id="line-104"></span><span>
 </span><span id="line-105"></span><span>    </span><span class="annot"><span class="annottext">String -&gt; IO () -&gt; SpecWith (Arg (IO ()))
 forall a.
@@ -715,17 +715,17 @@ String -&gt; (String -&gt; m r) -&gt; m r
 </span><span class="hs-identifier hs-var">withTempDir</span></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;hydra-sqlite-persistence&quot;</span></span><span> </span><span class="annot"><span class="annottext">((String -&gt; IO ()) -&gt; IO ()) -&gt; (String -&gt; IO ()) -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679945487"><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679945487"><span class="hs-identifier hs-var">tmpDir</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-107"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679945488"><span class="annot"><span class="annottext">dbFile :: String
-</span><a href="#local-6989586621679945488"><span class="hs-identifier hs-var hs-var">dbFile</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679945487"><span class="hs-identifier hs-var">tmpDir</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; String -&gt; String
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679946691"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679946691"><span class="hs-identifier hs-var">tmpDir</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-107"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679946692"><span class="annot"><span class="annottext">dbFile :: String
+</span><a href="#local-6989586621679946692"><span class="hs-identifier hs-var hs-var">dbFile</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679946691"><span class="hs-identifier hs-var">tmpDir</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; String -&gt; String
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;/hydra.db&quot;</span></span><span>
-</span><span id="line-108"></span><span>            </span><span id="local-6989586621679945489"><span class="annot"><span class="annottext">stateFile :: String
-</span><a href="#local-6989586621679945489"><span class="hs-identifier hs-var hs-var">stateFile</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679945487"><span class="hs-identifier hs-var">tmpDir</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; String -&gt; String
+</span><span id="line-108"></span><span>            </span><span id="local-6989586621679946693"><span class="annot"><span class="annottext">stateFile :: String
+</span><a href="#local-6989586621679946693"><span class="hs-identifier hs-var hs-var">stateFile</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679946691"><span class="hs-identifier hs-var">tmpDir</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; String -&gt; String
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;/state&quot;</span></span><span>
@@ -736,12 +736,12 @@ Tracer IO SQLiteLog
 </span><span class="hs-identifier hs-var">withSQLiteEventStore</span></span><span> </span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">StateEvent</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SimpleTx</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Tracer IO SQLiteLog
 forall (m :: * -&gt; *) a. Monad m =&gt; Tracer m a
 </span><span class="hs-identifier hs-var">nullTracer</span></span><span> </span><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679945488"><span class="hs-identifier hs-var">dbFile</span></a></span><span> </span><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679945489"><span class="hs-identifier hs-var">stateFile</span></a></span><span> </span><span class="annot"><span class="annottext">((EventStore (StateEvent SimpleTx) IO -&gt; IO ()) -&gt; IO ())
+</span><a href="#local-6989586621679946692"><span class="hs-identifier hs-var">dbFile</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679946693"><span class="hs-identifier hs-var">stateFile</span></a></span><span> </span><span class="annot"><span class="annottext">((EventStore (StateEvent SimpleTx) IO -&gt; IO ()) -&gt; IO ())
 -&gt; (EventStore (StateEvent SimpleTx) IO -&gt; IO ()) -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679945490"><span class="annot"><span class="annottext">EventStore (StateEvent SimpleTx) IO
-</span><a href="#local-6989586621679945490"><span class="hs-identifier hs-var">store</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679946694"><span class="annot"><span class="annottext">EventStore (StateEvent SimpleTx) IO
+</span><a href="#local-6989586621679946694"><span class="hs-identifier hs-var">store</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
 </span><span id="line-110"></span><span>          </span><span class="hs-comment">-- Insert a row with undecodable data directly via a separate connection</span><span>
 </span><span id="line-111"></span><span>          </span><span class="annot"><span class="annottext">IO Connection
 -&gt; (Connection -&gt; IO ()) -&gt; (Connection -&gt; IO ()) -&gt; IO ()
@@ -751,15 +751,15 @@ MonadThrow m =&gt;
 m a -&gt; (a -&gt; m b) -&gt; (a -&gt; m c) -&gt; m c
 </span><span class="hs-identifier hs-var">bracket</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String -&gt; IO Connection
 </span><span class="hs-identifier hs-var">open</span></span><span> </span><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679945488"><span class="hs-identifier hs-var">dbFile</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Connection -&gt; IO ()
+</span><a href="#local-6989586621679946692"><span class="hs-identifier hs-var">dbFile</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Connection -&gt; IO ()
 </span><span class="hs-identifier hs-var">close</span></span><span> </span><span class="annot"><span class="annottext">((Connection -&gt; IO ()) -&gt; IO ()) -&gt; (Connection -&gt; IO ()) -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679945492"><span class="annot"><span class="annottext">Connection
-</span><a href="#local-6989586621679945492"><span class="hs-identifier hs-var">conn</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679946696"><span class="annot"><span class="annottext">Connection
+</span><a href="#local-6989586621679946696"><span class="hs-identifier hs-var">conn</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-112"></span><span>            </span><span class="annot"><span class="annottext">Connection -&gt; Query -&gt; (EventId, ByteString) -&gt; IO ()
 forall q. ToRow q =&gt; Connection -&gt; Query -&gt; q -&gt; IO ()
 </span><span class="hs-identifier hs-var">execute</span></span><span> </span><span class="annot"><span class="annottext">Connection
-</span><a href="#local-6989586621679945492"><span class="hs-identifier hs-var">conn</span></a></span><span> </span><span class="annot"><span class="annottext">Query
+</span><a href="#local-6989586621679946696"><span class="hs-identifier hs-var">conn</span></a></span><span> </span><span class="annot"><span class="annottext">Query
 </span><span class="hs-string">&quot;INSERT INTO events (event_id, event_data) VALUES (?, ?)&quot;</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">EventId
 </span><span class="hs-number">1</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Word.html#Word64"><span class="hs-identifier hs-type">Word64</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ByteString
 </span><span class="hs-string">&quot;not valid cbor&quot;</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/bytestring-0.11.5.4/src/Data.ByteString.Internal.Type.html#ByteString"><span class="hs-identifier hs-type">ByteString</span></a></span><span class="hs-special">)</span><span>
@@ -771,7 +771,7 @@ EventSource e m -&gt; m [e]
 -&gt; EventSource (StateEvent SimpleTx) IO
 forall e (m :: * -&gt; *). EventStore e m -&gt; EventSource e m
 </span><span class="hs-identifier hs-var">eventSource</span></span><span> </span><span class="annot"><span class="annottext">EventStore (StateEvent SimpleTx) IO
-</span><a href="#local-6989586621679945490"><span class="hs-identifier hs-var">store</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679946694"><span class="hs-identifier hs-var">store</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-114"></span><span>            </span><span class="annot"><span class="annottext">IO [StateEvent SimpleTx]
 -&gt; Selector EventDecodingException -&gt; IO ()
 forall e a.
@@ -797,17 +797,17 @@ String -&gt; (String -&gt; m r) -&gt; m r
 </span><span class="hs-identifier hs-var">withTempDir</span></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;hydra-sqlite-persistence&quot;</span></span><span> </span><span class="annot"><span class="annottext">((String -&gt; IO ()) -&gt; IO ()) -&gt; (String -&gt; IO ()) -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679945494"><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679945494"><span class="hs-identifier hs-var">tmpDir</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-118"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679945495"><span class="annot"><span class="annottext">dbFile :: String
-</span><a href="#local-6989586621679945495"><span class="hs-identifier hs-var hs-var">dbFile</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679945494"><span class="hs-identifier hs-var">tmpDir</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; String -&gt; String
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679946698"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679946698"><span class="hs-identifier hs-var">tmpDir</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-118"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679946699"><span class="annot"><span class="annottext">dbFile :: String
+</span><a href="#local-6989586621679946699"><span class="hs-identifier hs-var hs-var">dbFile</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679946698"><span class="hs-identifier hs-var">tmpDir</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; String -&gt; String
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;/hydra.db&quot;</span></span><span>
-</span><span id="line-119"></span><span>            </span><span id="local-6989586621679945496"><span class="annot"><span class="annottext">stateFile :: String
-</span><a href="#local-6989586621679945496"><span class="hs-identifier hs-var hs-var">stateFile</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679945494"><span class="hs-identifier hs-var">tmpDir</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; String -&gt; String
+</span><span id="line-119"></span><span>            </span><span id="local-6989586621679946700"><span class="annot"><span class="annottext">stateFile :: String
+</span><a href="#local-6989586621679946700"><span class="hs-identifier hs-var hs-var">stateFile</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679946698"><span class="hs-identifier hs-var">tmpDir</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; String -&gt; String
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;/state&quot;</span></span><span>
@@ -818,14 +818,14 @@ Tracer IO SQLiteLog
 </span><span class="hs-identifier hs-var">withSQLiteEventStore</span></span><span> </span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">StateEvent</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SimpleTx</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Tracer IO SQLiteLog
 forall (m :: * -&gt; *) a. Monad m =&gt; Tracer m a
 </span><span class="hs-identifier hs-var">nullTracer</span></span><span> </span><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679945495"><span class="hs-identifier hs-var">dbFile</span></a></span><span> </span><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679945496"><span class="hs-identifier hs-var">stateFile</span></a></span><span> </span><span class="annot"><span class="annottext">((EventStore (StateEvent SimpleTx) IO -&gt; IO ()) -&gt; IO ())
+</span><a href="#local-6989586621679946699"><span class="hs-identifier hs-var">dbFile</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679946700"><span class="hs-identifier hs-var">stateFile</span></a></span><span> </span><span class="annot"><span class="annottext">((EventStore (StateEvent SimpleTx) IO -&gt; IO ()) -&gt; IO ())
 -&gt; (EventStore (StateEvent SimpleTx) IO -&gt; IO ()) -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="annot"><span class="annottext">EventStore (StateEvent SimpleTx) IO
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-121"></span><span>          </span><span id="local-6989586621679945497"><span class="annot"><span class="annottext">Int
-</span><a href="#local-6989586621679945497"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO Connection
+</span><span id="line-121"></span><span>          </span><span id="local-6989586621679946701"><span class="annot"><span class="annottext">Int
+</span><a href="#local-6989586621679946701"><span class="hs-identifier hs-var">v</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO Connection
 -&gt; (Connection -&gt; IO ()) -&gt; (Connection -&gt; IO Int) -&gt; IO Int
 forall a b c. IO a -&gt; (a -&gt; IO b) -&gt; (a -&gt; IO c) -&gt; IO c
 forall (m :: * -&gt; *) a b c.
@@ -833,11 +833,11 @@ MonadThrow m =&gt;
 m a -&gt; (a -&gt; m b) -&gt; (a -&gt; m c) -&gt; m c
 </span><span class="hs-identifier hs-var">bracket</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String -&gt; IO Connection
 </span><span class="hs-identifier hs-var">open</span></span><span> </span><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679945495"><span class="hs-identifier hs-var">dbFile</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Connection -&gt; IO ()
+</span><a href="#local-6989586621679946699"><span class="hs-identifier hs-var">dbFile</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Connection -&gt; IO ()
 </span><span class="hs-identifier hs-var">close</span></span><span> </span><span class="annot"><span class="annottext">Connection -&gt; IO Int
 </span><span class="hs-identifier hs-var">getSchemaVersion</span></span><span>
 </span><span id="line-122"></span><span>          </span><span class="annot"><span class="annottext">Int
-</span><a href="#local-6989586621679945497"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; IO ()
+</span><a href="#local-6989586621679946701"><span class="hs-identifier hs-var">v</span></a></span><span> </span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; IO ()
 forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; IO ()
 </span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">Int
 </span><span class="hs-identifier hs-var">nextVersion</span></span><span>
@@ -858,22 +858,22 @@ String -&gt; (String -&gt; m r) -&gt; m r
 </span><span class="hs-identifier hs-var">withTempDir</span></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;hydra-sqlite-persistence&quot;</span></span><span> </span><span class="annot"><span class="annottext">((String -&gt; IO ()) -&gt; IO ()) -&gt; (String -&gt; IO ()) -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679945498"><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679945498"><span class="hs-identifier hs-var">tmpDir</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-126"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679945499"><span class="annot"><span class="annottext">dbFile :: String
-</span><a href="#local-6989586621679945499"><span class="hs-identifier hs-var hs-var">dbFile</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679945498"><span class="hs-identifier hs-var">tmpDir</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; String -&gt; String
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679946702"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679946702"><span class="hs-identifier hs-var">tmpDir</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-126"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679946703"><span class="annot"><span class="annottext">dbFile :: String
+</span><a href="#local-6989586621679946703"><span class="hs-identifier hs-var hs-var">dbFile</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679946702"><span class="hs-identifier hs-var">tmpDir</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; String -&gt; String
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;/hydra.db&quot;</span></span><span>
-</span><span id="line-127"></span><span>            </span><span id="local-6989586621679945500"><span class="annot"><span class="annottext">stateFile :: String
-</span><a href="#local-6989586621679945500"><span class="hs-identifier hs-var hs-var">stateFile</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679945498"><span class="hs-identifier hs-var">tmpDir</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; String -&gt; String
+</span><span id="line-127"></span><span>            </span><span id="local-6989586621679946704"><span class="annot"><span class="annottext">stateFile :: String
+</span><a href="#local-6989586621679946704"><span class="hs-identifier hs-var hs-var">stateFile</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679946702"><span class="hs-identifier hs-var">tmpDir</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; String -&gt; String
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;/state&quot;</span></span><span>
-</span><span id="line-128"></span><span>        </span><span id="local-6989586621679945501"><span class="annot"><span class="annottext">StateEvent SimpleTx
-</span><a href="#local-6989586621679945501"><span class="hs-identifier hs-var">event</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">StateEvent</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SimpleTx</span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Gen (StateEvent SimpleTx) -&gt; IO (StateEvent SimpleTx)
+</span><span id="line-128"></span><span>        </span><span id="local-6989586621679946705"><span class="annot"><span class="annottext">StateEvent SimpleTx
+</span><a href="#local-6989586621679946705"><span class="hs-identifier hs-var">event</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">StateEvent</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SimpleTx</span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Gen (StateEvent SimpleTx) -&gt; IO (StateEvent SimpleTx)
 forall a. Gen a -&gt; IO a
 </span><span class="hs-identifier hs-var">generate</span></span><span> </span><span class="annot"><span class="annottext">Gen (StateEvent SimpleTx)
 forall a. Arbitrary a =&gt; Gen a
@@ -890,11 +890,11 @@ Tracer IO SQLiteLog
 </span><span class="hs-identifier hs-var">withSQLiteEventStore</span></span><span> </span><span class="annot"><span class="annottext">Tracer IO SQLiteLog
 forall (m :: * -&gt; *) a. Monad m =&gt; Tracer m a
 </span><span class="hs-identifier hs-var">nullTracer</span></span><span> </span><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679945499"><span class="hs-identifier hs-var">dbFile</span></a></span><span> </span><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679945500"><span class="hs-identifier hs-var">stateFile</span></a></span><span> </span><span class="annot"><span class="annottext">((EventStore (StateEvent SimpleTx) IO -&gt; IO ()) -&gt; IO ())
+</span><a href="#local-6989586621679946703"><span class="hs-identifier hs-var">dbFile</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679946704"><span class="hs-identifier hs-var">stateFile</span></a></span><span> </span><span class="annot"><span class="annottext">((EventStore (StateEvent SimpleTx) IO -&gt; IO ()) -&gt; IO ())
 -&gt; (EventStore (StateEvent SimpleTx) IO -&gt; IO ()) -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="annot"><span class="hs-identifier hs-type">EventStore</span></span><span class="hs-special">{</span><span id="local-6989586621679945503"><span class="annot"><span class="annottext">EventSink (StateEvent SimpleTx) IO
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="annot"><span class="hs-identifier hs-type">EventStore</span></span><span class="hs-special">{</span><span id="local-6989586621679946707"><span class="annot"><span class="annottext">EventSink (StateEvent SimpleTx) IO
 eventSink :: forall e (m :: * -&gt; *). EventStore e m -&gt; EventSink e m
 eventSink :: EventSink (StateEvent SimpleTx) IO
 </span><span class="hs-identifier hs-var hs-var">eventSink</span></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span>
@@ -902,8 +902,8 @@ eventSink :: EventSink (StateEvent SimpleTx) IO
 -&gt; HasEventId (StateEvent SimpleTx) =&gt; StateEvent SimpleTx -&gt; IO ()
 forall e (m :: * -&gt; *). EventSink e m -&gt; HasEventId e =&gt; e -&gt; m ()
 </span><span class="hs-identifier hs-var">putEvent</span></span><span> </span><span class="annot"><span class="annottext">EventSink (StateEvent SimpleTx) IO
-</span><a href="#local-6989586621679945503"><span class="hs-identifier hs-var">eventSink</span></a></span><span> </span><span class="annot"><span class="annottext">StateEvent SimpleTx
-</span><a href="#local-6989586621679945501"><span class="hs-identifier hs-var">event</span></a></span><span>
+</span><a href="#local-6989586621679946707"><span class="hs-identifier hs-var">eventSink</span></a></span><span> </span><span class="annot"><span class="annottext">StateEvent SimpleTx
+</span><a href="#local-6989586621679946705"><span class="hs-identifier hs-var">event</span></a></span><span>
 </span><span id="line-131"></span><span>        </span><span class="annot"><span class="annottext">Tracer IO SQLiteLog
 -&gt; String
 -&gt; String
@@ -916,11 +916,11 @@ Tracer IO SQLiteLog
 </span><span class="hs-identifier hs-var">withSQLiteEventStore</span></span><span> </span><span class="annot"><span class="annottext">Tracer IO SQLiteLog
 forall (m :: * -&gt; *) a. Monad m =&gt; Tracer m a
 </span><span class="hs-identifier hs-var">nullTracer</span></span><span> </span><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679945499"><span class="hs-identifier hs-var">dbFile</span></a></span><span> </span><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679945500"><span class="hs-identifier hs-var">stateFile</span></a></span><span> </span><span class="annot"><span class="annottext">((EventStore (StateEvent SimpleTx) IO -&gt; IO ()) -&gt; IO ())
+</span><a href="#local-6989586621679946703"><span class="hs-identifier hs-var">dbFile</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679946704"><span class="hs-identifier hs-var">stateFile</span></a></span><span> </span><span class="annot"><span class="annottext">((EventStore (StateEvent SimpleTx) IO -&gt; IO ()) -&gt; IO ())
 -&gt; (EventStore (StateEvent SimpleTx) IO -&gt; IO ()) -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="annot"><span class="hs-identifier hs-type">EventStore</span></span><span class="hs-special">{</span><span id="local-6989586621679945504"><span class="annot"><span class="annottext">EventSource (StateEvent SimpleTx) IO
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="annot"><span class="hs-identifier hs-type">EventStore</span></span><span class="hs-special">{</span><span id="local-6989586621679946708"><span class="annot"><span class="annottext">EventSource (StateEvent SimpleTx) IO
 eventSource :: forall e (m :: * -&gt; *). EventStore e m -&gt; EventSource e m
 eventSource :: EventSource (StateEvent SimpleTx) IO
 </span><span class="hs-identifier hs-var hs-var">eventSource</span></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
@@ -929,10 +929,10 @@ forall e (m :: * -&gt; *).
 (HasEventId e, MonadUnliftIO m) =&gt;
 EventSource e m -&gt; m [e]
 </span><span class="hs-identifier hs-var">getEvents</span></span><span> </span><span class="annot"><span class="annottext">EventSource (StateEvent SimpleTx) IO
-</span><a href="#local-6989586621679945504"><span class="hs-identifier hs-var">eventSource</span></a></span><span> </span><span class="annot"><span class="annottext">IO [StateEvent SimpleTx] -&gt; [StateEvent SimpleTx] -&gt; IO ()
+</span><a href="#local-6989586621679946708"><span class="hs-identifier hs-var">eventSource</span></a></span><span> </span><span class="annot"><span class="annottext">IO [StateEvent SimpleTx] -&gt; [StateEvent SimpleTx] -&gt; IO ()
 forall a. (HasCallStack, Show a, Eq a) =&gt; IO a -&gt; a -&gt; IO ()
 </span><span class="hs-operator hs-var">`shouldReturn`</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">StateEvent SimpleTx
-</span><a href="#local-6989586621679945501"><span class="hs-identifier hs-var">event</span></a></span><span class="hs-special">]</span><span>
+</span><a href="#local-6989586621679946705"><span class="hs-identifier hs-var">event</span></a></span><span class="hs-special">]</span><span>
 </span><span id="line-133"></span><span>          </span><span class="annot"><span class="annottext">IO Connection
 -&gt; (Connection -&gt; IO ()) -&gt; (Connection -&gt; IO Int) -&gt; IO Int
 forall a b c. IO a -&gt; (a -&gt; IO b) -&gt; (a -&gt; IO c) -&gt; IO c
@@ -941,7 +941,7 @@ MonadThrow m =&gt;
 m a -&gt; (a -&gt; m b) -&gt; (a -&gt; m c) -&gt; m c
 </span><span class="hs-identifier hs-var">bracket</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">String -&gt; IO Connection
 </span><span class="hs-identifier hs-var">open</span></span><span> </span><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679945499"><span class="hs-identifier hs-var">dbFile</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Connection -&gt; IO ()
+</span><a href="#local-6989586621679946703"><span class="hs-identifier hs-var">dbFile</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Connection -&gt; IO ()
 </span><span class="hs-identifier hs-var">close</span></span><span> </span><span class="annot"><span class="annottext">Connection -&gt; IO Int
 </span><span class="hs-identifier hs-var">getSchemaVersion</span></span><span> </span><span class="annot"><span class="annottext">IO Int -&gt; Int -&gt; IO ()
 forall a. (HasCallStack, Show a, Eq a) =&gt; IO a -&gt; a -&gt; IO ()
@@ -964,22 +964,22 @@ String -&gt; (String -&gt; m r) -&gt; m r
 </span><span class="hs-identifier hs-var">withTempDir</span></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;hydra-sqlite-persistence&quot;</span></span><span> </span><span class="annot"><span class="annottext">((String -&gt; IO ()) -&gt; IO ()) -&gt; (String -&gt; IO ()) -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679945505"><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679945505"><span class="hs-identifier hs-var">tmpDir</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-137"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679945506"><span class="annot"><span class="annottext">dbFile :: String
-</span><a href="#local-6989586621679945506"><span class="hs-identifier hs-var hs-var">dbFile</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679945505"><span class="hs-identifier hs-var">tmpDir</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; String -&gt; String
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679946709"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679946709"><span class="hs-identifier hs-var">tmpDir</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-137"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679946710"><span class="annot"><span class="annottext">dbFile :: String
+</span><a href="#local-6989586621679946710"><span class="hs-identifier hs-var hs-var">dbFile</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679946709"><span class="hs-identifier hs-var">tmpDir</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; String -&gt; String
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;/hydra.db&quot;</span></span><span>
-</span><span id="line-138"></span><span>            </span><span id="local-6989586621679945507"><span class="annot"><span class="annottext">stateFile :: String
-</span><a href="#local-6989586621679945507"><span class="hs-identifier hs-var hs-var">stateFile</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679945505"><span class="hs-identifier hs-var">tmpDir</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; String -&gt; String
+</span><span id="line-138"></span><span>            </span><span id="local-6989586621679946711"><span class="annot"><span class="annottext">stateFile :: String
+</span><a href="#local-6989586621679946711"><span class="hs-identifier hs-var hs-var">stateFile</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679946709"><span class="hs-identifier hs-var">tmpDir</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; String -&gt; String
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;/state&quot;</span></span><span>
-</span><span id="line-139"></span><span>        </span><span id="local-6989586621679945508"><span class="annot"><span class="annottext">[StateEvent SimpleTx]
-</span><a href="#local-6989586621679945508"><span class="hs-identifier hs-var">events</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Gen [StateEvent SimpleTx] -&gt; IO [StateEvent SimpleTx]
+</span><span id="line-139"></span><span>        </span><span id="local-6989586621679946712"><span class="annot"><span class="annottext">[StateEvent SimpleTx]
+</span><a href="#local-6989586621679946712"><span class="hs-identifier hs-var">events</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Gen [StateEvent SimpleTx] -&gt; IO [StateEvent SimpleTx]
 forall a. Gen a -&gt; IO a
 </span><span class="hs-identifier hs-var">generate</span></span><span> </span><span class="annot"><span class="annottext">(Gen [StateEvent SimpleTx] -&gt; IO [StateEvent SimpleTx])
 -&gt; Gen [StateEvent SimpleTx] -&gt; IO [StateEvent SimpleTx]
@@ -996,19 +996,19 @@ forall b c a. (b -&gt; c) -&gt; (a -&gt; b) -&gt; a -&gt; c
 forall a. [a] -&gt; Bool
 forall (t :: * -&gt; *) a. Foldable t =&gt; t a -&gt; Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#null"><span class="hs-identifier hs-var">null</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-140"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679945511"><span class="annot"><span class="annottext">lastId :: EventId
-</span><a href="#local-6989586621679945511"><span class="hs-identifier hs-var hs-var">lastId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">StateEvent SimpleTx -&gt; EventId
+</span><span id="line-140"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679946715"><span class="annot"><span class="annottext">lastId :: EventId
+</span><a href="#local-6989586621679946715"><span class="hs-identifier hs-var hs-var">lastId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">StateEvent SimpleTx -&gt; EventId
 forall tx. StateEvent tx -&gt; EventId
 </span><span class="hs-identifier hs-var">eventId</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[StateEvent SimpleTx] -&gt; StateEvent SimpleTx
 forall a. HasCallStack =&gt; [a] -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.List.html#last"><span class="hs-identifier hs-var">List.last</span></a></span><span> </span><span class="annot"><span class="annottext">[StateEvent SimpleTx]
-</span><a href="#local-6989586621679945508"><span class="hs-identifier hs-var">events</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679946712"><span class="hs-identifier hs-var">events</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-141"></span><span>            </span><span class="hs-comment">-- content is irrelevant here; we only assert on the archived events</span><span>
-</span><span id="line-142"></span><span>            </span><span id="local-6989586621679945514"><span class="annot"><span class="annottext">checkpointEvent :: StateEvent SimpleTx
-</span><a href="#local-6989586621679945514"><span class="hs-identifier hs-var hs-var">checkpointEvent</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[StateEvent SimpleTx] -&gt; StateEvent SimpleTx
+</span><span id="line-142"></span><span>            </span><span id="local-6989586621679946718"><span class="annot"><span class="annottext">checkpointEvent :: StateEvent SimpleTx
+</span><a href="#local-6989586621679946718"><span class="hs-identifier hs-var hs-var">checkpointEvent</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[StateEvent SimpleTx] -&gt; StateEvent SimpleTx
 forall a. HasCallStack =&gt; [a] -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.List.html#last"><span class="hs-identifier hs-var">List.last</span></a></span><span> </span><span class="annot"><span class="annottext">[StateEvent SimpleTx]
-</span><a href="#local-6989586621679945508"><span class="hs-identifier hs-var">events</span></a></span><span>
+</span><a href="#local-6989586621679946712"><span class="hs-identifier hs-var">events</span></a></span><span>
 </span><span id="line-143"></span><span>        </span><span class="annot"><span class="annottext">forall e a.
 (ToCBOR e, FromCBOR e, HasEventId e) =&gt;
 Tracer IO SQLiteLog
@@ -1016,50 +1016,50 @@ Tracer IO SQLiteLog
 </span><span class="hs-identifier hs-var">withSQLiteEventStore</span></span><span> </span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">StateEvent</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SimpleTx</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Tracer IO SQLiteLog
 forall (m :: * -&gt; *) a. Monad m =&gt; Tracer m a
 </span><span class="hs-identifier hs-var">nullTracer</span></span><span> </span><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679945506"><span class="hs-identifier hs-var">dbFile</span></a></span><span> </span><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679945507"><span class="hs-identifier hs-var">stateFile</span></a></span><span> </span><span class="annot"><span class="annottext">((EventStore (StateEvent SimpleTx) IO -&gt; IO ()) -&gt; IO ())
+</span><a href="#local-6989586621679946710"><span class="hs-identifier hs-var">dbFile</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679946711"><span class="hs-identifier hs-var">stateFile</span></a></span><span> </span><span class="annot"><span class="annottext">((EventStore (StateEvent SimpleTx) IO -&gt; IO ()) -&gt; IO ())
 -&gt; (EventStore (StateEvent SimpleTx) IO -&gt; IO ()) -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="annot"><span class="hs-identifier hs-type">EventStore</span></span><span class="hs-special">{</span><span class="annot"><span class="annottext">eventSink :: forall e (m :: * -&gt; *). EventStore e m -&gt; EventSink e m
-</span><span class="hs-identifier hs-var">eventSink</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">EventSink</span></span><span class="hs-special">{</span><span id="local-6989586621679945515"><span class="annot"><span class="annottext">HasEventId (StateEvent SimpleTx) =&gt; StateEvent SimpleTx -&gt; IO ()
+</span><span class="hs-identifier hs-var">eventSink</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="hs-identifier hs-type">EventSink</span></span><span class="hs-special">{</span><span id="local-6989586621679946719"><span class="annot"><span class="annottext">HasEventId (StateEvent SimpleTx) =&gt; StateEvent SimpleTx -&gt; IO ()
 putEvent :: forall e (m :: * -&gt; *). EventSink e m -&gt; HasEventId e =&gt; e -&gt; m ()
 putEvent :: HasEventId (StateEvent SimpleTx) =&gt; StateEvent SimpleTx -&gt; IO ()
-</span><span class="hs-identifier hs-var hs-var">putEvent</span></span></span><span class="hs-special">}</span><span class="hs-special">,</span><span> </span><span id="local-6989586621679945516"><span class="annot"><span class="annottext">EventSource (StateEvent SimpleTx) IO
+</span><span class="hs-identifier hs-var hs-var">putEvent</span></span></span><span class="hs-special">}</span><span class="hs-special">,</span><span> </span><span id="local-6989586621679946720"><span class="annot"><span class="annottext">EventSource (StateEvent SimpleTx) IO
 eventSource :: forall e (m :: * -&gt; *). EventStore e m -&gt; EventSource e m
 eventSource :: EventSource (StateEvent SimpleTx) IO
-</span><span class="hs-identifier hs-var hs-var">eventSource</span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679945517"><span class="annot"><span class="annottext">EventId -&gt; StateEvent SimpleTx -&gt; IO ()
+</span><span class="hs-identifier hs-var hs-var">eventSource</span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679946721"><span class="annot"><span class="annottext">EventId -&gt; StateEvent SimpleTx -&gt; IO ()
 rotate :: EventId -&gt; StateEvent SimpleTx -&gt; IO ()
 rotate :: forall e (m :: * -&gt; *). EventStore e m -&gt; EventId -&gt; e -&gt; m ()
-</span><a href="#local-6989586621679945517"><span class="hs-identifier hs-var hs-var">rotate</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><a href="#local-6989586621679946721"><span class="hs-identifier hs-var hs-var">rotate</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
 </span><span id="line-144"></span><span>          </span><span class="annot"><span class="annottext">[StateEvent SimpleTx] -&gt; (StateEvent SimpleTx -&gt; IO ()) -&gt; IO ()
 forall (t :: * -&gt; *) (m :: * -&gt; *) a b.
 (Foldable t, Monad m) =&gt;
 t a -&gt; (a -&gt; m b) -&gt; m ()
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#forM_"><span class="hs-identifier hs-var">forM_</span></a></span><span> </span><span class="annot"><span class="annottext">[StateEvent SimpleTx]
-</span><a href="#local-6989586621679945508"><span class="hs-identifier hs-var">events</span></a></span><span> </span><span class="annot"><span class="annottext">StateEvent SimpleTx -&gt; IO ()
+</span><a href="#local-6989586621679946712"><span class="hs-identifier hs-var">events</span></a></span><span> </span><span class="annot"><span class="annottext">StateEvent SimpleTx -&gt; IO ()
 HasEventId (StateEvent SimpleTx) =&gt; StateEvent SimpleTx -&gt; IO ()
-</span><a href="#local-6989586621679945515"><span class="hs-identifier hs-var">putEvent</span></a></span><span>
+</span><a href="#local-6989586621679946719"><span class="hs-identifier hs-var">putEvent</span></a></span><span>
 </span><span id="line-145"></span><span>          </span><span class="annot"><span class="annottext">EventId -&gt; StateEvent SimpleTx -&gt; IO ()
-</span><a href="#local-6989586621679945517"><span class="hs-identifier hs-var">rotate</span></a></span><span> </span><span class="annot"><span class="annottext">EventId
-</span><a href="#local-6989586621679945511"><span class="hs-identifier hs-var">lastId</span></a></span><span> </span><span class="annot"><span class="annottext">StateEvent SimpleTx
-</span><a href="#local-6989586621679945514"><span class="hs-identifier hs-var">checkpointEvent</span></a></span><span>
+</span><a href="#local-6989586621679946721"><span class="hs-identifier hs-var">rotate</span></a></span><span> </span><span class="annot"><span class="annottext">EventId
+</span><a href="#local-6989586621679946715"><span class="hs-identifier hs-var">lastId</span></a></span><span> </span><span class="annot"><span class="annottext">StateEvent SimpleTx
+</span><a href="#local-6989586621679946718"><span class="hs-identifier hs-var">checkpointEvent</span></a></span><span>
 </span><span id="line-146"></span><span>          </span><span class="hs-comment">-- the active store holds only the checkpoint after rotation</span><span>
-</span><span id="line-147"></span><span>          </span><span id="local-6989586621679945519"><span class="annot"><span class="annottext">[StateEvent SimpleTx]
-</span><a href="#local-6989586621679945519"><span class="hs-identifier hs-var">active</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">EventSource (StateEvent SimpleTx) IO -&gt; IO [StateEvent SimpleTx]
+</span><span id="line-147"></span><span>          </span><span id="local-6989586621679946723"><span class="annot"><span class="annottext">[StateEvent SimpleTx]
+</span><a href="#local-6989586621679946723"><span class="hs-identifier hs-var">active</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">EventSource (StateEvent SimpleTx) IO -&gt; IO [StateEvent SimpleTx]
 forall e (m :: * -&gt; *).
 (HasEventId e, MonadUnliftIO m) =&gt;
 EventSource e m -&gt; m [e]
 </span><span class="hs-identifier hs-var">getEvents</span></span><span> </span><span class="annot"><span class="annottext">EventSource (StateEvent SimpleTx) IO
-</span><a href="#local-6989586621679945516"><span class="hs-identifier hs-var">eventSource</span></a></span><span>
+</span><a href="#local-6989586621679946720"><span class="hs-identifier hs-var">eventSource</span></a></span><span>
 </span><span id="line-148"></span><span>          </span><span class="annot"><span class="annottext">[StateEvent SimpleTx]
-</span><a href="#local-6989586621679945519"><span class="hs-identifier hs-var">active</span></a></span><span> </span><span class="annot"><span class="annottext">[StateEvent SimpleTx] -&gt; [StateEvent SimpleTx] -&gt; IO ()
+</span><a href="#local-6989586621679946723"><span class="hs-identifier hs-var">active</span></a></span><span> </span><span class="annot"><span class="annottext">[StateEvent SimpleTx] -&gt; [StateEvent SimpleTx] -&gt; IO ()
 forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; IO ()
 </span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">StateEvent SimpleTx
-</span><a href="#local-6989586621679945514"><span class="hs-identifier hs-var">checkpointEvent</span></a></span><span class="hs-special">]</span><span>
+</span><a href="#local-6989586621679946718"><span class="hs-identifier hs-var">checkpointEvent</span></a></span><span class="hs-special">]</span><span>
 </span><span id="line-149"></span><span>        </span><span class="hs-comment">-- the pre-rotation events are retained in the numbered backup</span><span>
-</span><span id="line-150"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679945520"><span class="annot"><span class="annottext">backupPath :: String
-</span><a href="#local-6989586621679945520"><span class="hs-identifier hs-var hs-var">backupPath</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679945505"><span class="hs-identifier hs-var">tmpDir</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; String -&gt; String
+</span><span id="line-150"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679946724"><span class="annot"><span class="annottext">backupPath :: String
+</span><a href="#local-6989586621679946724"><span class="hs-identifier hs-var hs-var">backupPath</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679946709"><span class="hs-identifier hs-var">tmpDir</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; String -&gt; String
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;/old-state/hydra-&quot;</span></span><span> </span><span class="annot"><span class="annottext">String -&gt; String -&gt; String
@@ -1067,13 +1067,13 @@ forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">EventId -&gt; String
 forall b a. (Show a, IsString b) =&gt; a -&gt; b
 </span><span class="hs-identifier hs-var">show</span></span><span> </span><span class="annot"><span class="annottext">EventId
-</span><a href="#local-6989586621679945511"><span class="hs-identifier hs-var">lastId</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; String -&gt; String
+</span><a href="#local-6989586621679946715"><span class="hs-identifier hs-var">lastId</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; String -&gt; String
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;.db&quot;</span></span><span>
 </span><span id="line-151"></span><span>        </span><span class="annot"><span class="annottext">String -&gt; IO Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/directory-1.3.8.5/src/System.Directory.html#doesFileExist"><span class="hs-identifier hs-var">doesFileExist</span></a></span><span> </span><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679945520"><span class="hs-identifier hs-var">backupPath</span></a></span><span> </span><span class="annot"><span class="annottext">IO Bool -&gt; Bool -&gt; IO ()
+</span><a href="#local-6989586621679946724"><span class="hs-identifier hs-var">backupPath</span></a></span><span> </span><span class="annot"><span class="annottext">IO Bool -&gt; Bool -&gt; IO ()
 forall a. (HasCallStack, Show a, Eq a) =&gt; IO a -&gt; a -&gt; IO ()
 </span><span class="hs-operator hs-var">`shouldReturn`</span></span><span> </span><span class="annot"><span class="annottext">Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#True"><span class="hs-identifier hs-var">True</span></a></span><span>
@@ -1084,26 +1084,26 @@ Tracer IO SQLiteLog
 </span><span class="hs-identifier hs-var">withSQLiteEventStore</span></span><span> </span><span class="hs-glyph">@</span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">StateEvent</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SimpleTx</span></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Tracer IO SQLiteLog
 forall (m :: * -&gt; *) a. Monad m =&gt; Tracer m a
 </span><span class="hs-identifier hs-var">nullTracer</span></span><span> </span><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679945520"><span class="hs-identifier hs-var">backupPath</span></a></span><span> </span><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679945507"><span class="hs-identifier hs-var">stateFile</span></a></span><span> </span><span class="annot"><span class="annottext">((EventStore (StateEvent SimpleTx) IO -&gt; IO ()) -&gt; IO ())
+</span><a href="#local-6989586621679946724"><span class="hs-identifier hs-var">backupPath</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679946711"><span class="hs-identifier hs-var">stateFile</span></a></span><span> </span><span class="annot"><span class="annottext">((EventStore (StateEvent SimpleTx) IO -&gt; IO ()) -&gt; IO ())
 -&gt; (EventStore (StateEvent SimpleTx) IO -&gt; IO ()) -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="annot"><span class="hs-identifier hs-type">EventStore</span></span><span class="hs-special">{</span><span id="local-6989586621679945521"><span class="annot"><span class="annottext">EventSource (StateEvent SimpleTx) IO
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="annot"><span class="hs-identifier hs-type">EventStore</span></span><span class="hs-special">{</span><span id="local-6989586621679946725"><span class="annot"><span class="annottext">EventSource (StateEvent SimpleTx) IO
 eventSource :: forall e (m :: * -&gt; *). EventStore e m -&gt; EventSource e m
 eventSource :: EventSource (StateEvent SimpleTx) IO
 </span><span class="hs-identifier hs-var hs-var">eventSource</span></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-153"></span><span>          </span><span id="local-6989586621679945522"><span class="annot"><span class="annottext">[StateEvent SimpleTx]
-</span><a href="#local-6989586621679945522"><span class="hs-identifier hs-var">backedUp</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">EventSource (StateEvent SimpleTx) IO -&gt; IO [StateEvent SimpleTx]
+</span><span id="line-153"></span><span>          </span><span id="local-6989586621679946726"><span class="annot"><span class="annottext">[StateEvent SimpleTx]
+</span><a href="#local-6989586621679946726"><span class="hs-identifier hs-var">backedUp</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">EventSource (StateEvent SimpleTx) IO -&gt; IO [StateEvent SimpleTx]
 forall e (m :: * -&gt; *).
 (HasEventId e, MonadUnliftIO m) =&gt;
 EventSource e m -&gt; m [e]
 </span><span class="hs-identifier hs-var">getEvents</span></span><span> </span><span class="annot"><span class="annottext">EventSource (StateEvent SimpleTx) IO
-</span><a href="#local-6989586621679945521"><span class="hs-identifier hs-var">eventSource</span></a></span><span>
+</span><a href="#local-6989586621679946725"><span class="hs-identifier hs-var">eventSource</span></a></span><span>
 </span><span id="line-154"></span><span>          </span><span class="annot"><span class="annottext">[StateEvent SimpleTx]
-</span><a href="#local-6989586621679945522"><span class="hs-identifier hs-var">backedUp</span></a></span><span> </span><span class="annot"><span class="annottext">[StateEvent SimpleTx] -&gt; [StateEvent SimpleTx] -&gt; IO ()
+</span><a href="#local-6989586621679946726"><span class="hs-identifier hs-var">backedUp</span></a></span><span> </span><span class="annot"><span class="annottext">[StateEvent SimpleTx] -&gt; [StateEvent SimpleTx] -&gt; IO ()
 forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; IO ()
 </span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">[StateEvent SimpleTx]
-</span><a href="#local-6989586621679945508"><span class="hs-identifier hs-var">events</span></a></span><span>
+</span><a href="#local-6989586621679946712"><span class="hs-identifier hs-var">events</span></a></span><span>
 </span><span id="line-155"></span><span>
 </span><span id="line-156"></span><span class="annot"><a href="Hydra.Events.SQLiteBasedSpec.html#genContinuousEvents"><span class="hs-identifier hs-type">genContinuousEvents</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Gen</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">StateEvent</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SimpleTx</span></span><span class="hs-special">]</span><span>
 </span><span id="line-157"></span><span id="genContinuousEvents"><span class="annot"><span class="annottext">genContinuousEvents :: Gen [StateEvent SimpleTx]
@@ -1128,7 +1128,7 @@ forall a. Gen a -&gt; Gen [a]
 forall a. Arbitrary a =&gt; Gen a
 </span><span class="hs-identifier hs-var">arbitrary</span></span><span>
 </span><span id="line-159"></span><span>
-</span><span id="line-160"></span><span id="local-6989586621679944954"><span class="annot"><a href="Hydra.Events.SQLiteBasedSpec.html#mkContinuousEvents"><span class="hs-identifier hs-type">mkContinuousEvents</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">StateChanged</span></span><span> </span><span class="annot"><a href="#local-6989586621679944954"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Clock.Internal.UTCTime.html#UTCTime"><span class="hs-identifier hs-type">UTCTime</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">StateEvent</span></span><span> </span><span class="annot"><a href="#local-6989586621679944954"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">]</span></span><span>
+</span><span id="line-160"></span><span id="local-6989586621679946158"><span class="annot"><a href="Hydra.Events.SQLiteBasedSpec.html#mkContinuousEvents"><span class="hs-identifier hs-type">mkContinuousEvents</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">StateChanged</span></span><span> </span><span class="annot"><a href="#local-6989586621679946158"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Clock.Internal.UTCTime.html#UTCTime"><span class="hs-identifier hs-type">UTCTime</span></a></span><span class="hs-special">]</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="hs-identifier hs-type">StateEvent</span></span><span> </span><span class="annot"><a href="#local-6989586621679946158"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">]</span></span><span>
 </span><span id="line-161"></span><span id="mkContinuousEvents"><span class="annot"><span class="annottext">mkContinuousEvents :: forall tx. [StateChanged tx] -&gt; [UTCTime] -&gt; [StateEvent tx]
 </span><a href="Hydra.Events.SQLiteBasedSpec.html#mkContinuousEvents"><span class="hs-identifier hs-var hs-var">mkContinuousEvents</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(EventId -&gt; StateChanged tx -&gt; UTCTime -&gt; StateEvent tx)
 -&gt; [EventId] -&gt; [StateChanged tx] -&gt; [UTCTime] -&gt; [StateEvent tx]
@@ -1138,14 +1138,14 @@ forall tx. EventId -&gt; StateChanged tx -&gt; UTCTime -&gt; StateEvent tx
 </span><span class="hs-identifier hs-var">StateEvent</span></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">EventId
 </span><span class="hs-number">0</span></span><span> </span><span class="hs-glyph">..</span><span class="hs-special">]</span><span>
 </span><span id="line-162"></span><span>
-</span><span id="line-163"></span><span id="local-6989586621679944855"><span class="annot"><a href="Hydra.Events.SQLiteBasedSpec.html#withEventSourceAndSink"><span class="hs-identifier hs-type">withEventSourceAndSink</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">EventSource</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">StateEvent</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SimpleTx</span></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">EventSink</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">StateEvent</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SimpleTx</span></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679944855"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679944855"><span class="hs-identifier hs-type">b</span></a></span></span><span>
+</span><span id="line-163"></span><span id="local-6989586621679946059"><span class="annot"><a href="Hydra.Events.SQLiteBasedSpec.html#withEventSourceAndSink"><span class="hs-identifier hs-type">withEventSourceAndSink</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">EventSource</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">StateEvent</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SimpleTx</span></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">EventSink</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier hs-type">StateEvent</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SimpleTx</span></span><span class="hs-special">)</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679946059"><span class="hs-identifier hs-type">b</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#IO"><span class="hs-identifier hs-type">IO</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679946059"><span class="hs-identifier hs-type">b</span></a></span></span><span>
 </span><span id="line-164"></span><span id="withEventSourceAndSink"><span class="annot"><span class="annottext">withEventSourceAndSink :: forall b.
 (EventSource (StateEvent SimpleTx) IO
  -&gt; EventSink (StateEvent SimpleTx) IO -&gt; IO b)
 -&gt; IO b
-</span><a href="Hydra.Events.SQLiteBasedSpec.html#withEventSourceAndSink"><span class="hs-identifier hs-var hs-var">withEventSourceAndSink</span></a></span></span><span> </span><span id="local-6989586621679945537"><span class="annot"><span class="annottext">EventSource (StateEvent SimpleTx) IO
+</span><a href="Hydra.Events.SQLiteBasedSpec.html#withEventSourceAndSink"><span class="hs-identifier hs-var hs-var">withEventSourceAndSink</span></a></span></span><span> </span><span id="local-6989586621679946741"><span class="annot"><span class="annottext">EventSource (StateEvent SimpleTx) IO
 -&gt; EventSink (StateEvent SimpleTx) IO -&gt; IO b
-</span><a href="#local-6989586621679945537"><span class="hs-identifier hs-var">action</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="#local-6989586621679946741"><span class="hs-identifier hs-var">action</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-165"></span><span>  </span><span class="annot"><span class="annottext">String -&gt; (String -&gt; IO b) -&gt; IO b
 forall (m :: * -&gt; *) r.
 (MonadIO m, MonadMask m) =&gt;
@@ -1153,17 +1153,17 @@ String -&gt; (String -&gt; m r) -&gt; m r
 </span><span class="hs-identifier hs-var">withTempDir</span></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;hydra-sqlite-persistence&quot;</span></span><span> </span><span class="annot"><span class="annottext">((String -&gt; IO b) -&gt; IO b) -&gt; (String -&gt; IO b) -&gt; IO b
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679945538"><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679945538"><span class="hs-identifier hs-var">tmpDir</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-166"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679945539"><span class="annot"><span class="annottext">dbFile :: String
-</span><a href="#local-6989586621679945539"><span class="hs-identifier hs-var hs-var">dbFile</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679945538"><span class="hs-identifier hs-var">tmpDir</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; String -&gt; String
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679946742"><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679946742"><span class="hs-identifier hs-var">tmpDir</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-166"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679946743"><span class="annot"><span class="annottext">dbFile :: String
+</span><a href="#local-6989586621679946743"><span class="hs-identifier hs-var hs-var">dbFile</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679946742"><span class="hs-identifier hs-var">tmpDir</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; String -&gt; String
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;/hydra.db&quot;</span></span><span>
-</span><span id="line-167"></span><span>        </span><span id="local-6989586621679945540"><span class="annot"><span class="annottext">stateFile :: String
-</span><a href="#local-6989586621679945540"><span class="hs-identifier hs-var hs-var">stateFile</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679945538"><span class="hs-identifier hs-var">tmpDir</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; String -&gt; String
+</span><span id="line-167"></span><span>        </span><span id="local-6989586621679946744"><span class="annot"><span class="annottext">stateFile :: String
+</span><a href="#local-6989586621679946744"><span class="hs-identifier hs-var hs-var">stateFile</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679946742"><span class="hs-identifier hs-var">tmpDir</span></a></span><span> </span><span class="annot"><span class="annottext">String -&gt; String -&gt; String
 forall a. Semigroup a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3C%3E"><span class="hs-operator hs-var">&lt;&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">String
 </span><span class="hs-string">&quot;/state&quot;</span></span><span>
@@ -1179,20 +1179,20 @@ Tracer IO SQLiteLog
 </span><span class="hs-identifier hs-var">withSQLiteEventStore</span></span><span> </span><span class="annot"><span class="annottext">Tracer IO SQLiteLog
 forall (m :: * -&gt; *) a. Monad m =&gt; Tracer m a
 </span><span class="hs-identifier hs-var">nullTracer</span></span><span> </span><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679945539"><span class="hs-identifier hs-var">dbFile</span></a></span><span> </span><span class="annot"><span class="annottext">String
-</span><a href="#local-6989586621679945540"><span class="hs-identifier hs-var">stateFile</span></a></span><span> </span><span class="annot"><span class="annottext">((EventStore (StateEvent SimpleTx) IO -&gt; IO b) -&gt; IO b)
+</span><a href="#local-6989586621679946743"><span class="hs-identifier hs-var">dbFile</span></a></span><span> </span><span class="annot"><span class="annottext">String
+</span><a href="#local-6989586621679946744"><span class="hs-identifier hs-var">stateFile</span></a></span><span> </span><span class="annot"><span class="annottext">((EventStore (StateEvent SimpleTx) IO -&gt; IO b) -&gt; IO b)
 -&gt; (EventStore (StateEvent SimpleTx) IO -&gt; IO b) -&gt; IO b
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="annot"><span class="hs-identifier hs-type">EventStore</span></span><span class="hs-special">{</span><span id="local-6989586621679945541"><span class="annot"><span class="annottext">EventSource (StateEvent SimpleTx) IO
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="annot"><span class="hs-identifier hs-type">EventStore</span></span><span class="hs-special">{</span><span id="local-6989586621679946745"><span class="annot"><span class="annottext">EventSource (StateEvent SimpleTx) IO
 eventSource :: forall e (m :: * -&gt; *). EventStore e m -&gt; EventSource e m
 eventSource :: EventSource (StateEvent SimpleTx) IO
-</span><span class="hs-identifier hs-var hs-var">eventSource</span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679945542"><span class="annot"><span class="annottext">EventSink (StateEvent SimpleTx) IO
+</span><span class="hs-identifier hs-var hs-var">eventSource</span></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679946746"><span class="annot"><span class="annottext">EventSink (StateEvent SimpleTx) IO
 eventSink :: forall e (m :: * -&gt; *). EventStore e m -&gt; EventSink e m
 eventSink :: EventSink (StateEvent SimpleTx) IO
 </span><span class="hs-identifier hs-var hs-var">eventSink</span></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-169"></span><span>      </span><span class="annot"><span class="annottext">EventSource (StateEvent SimpleTx) IO
 -&gt; EventSink (StateEvent SimpleTx) IO -&gt; IO b
-</span><a href="#local-6989586621679945537"><span class="hs-identifier hs-var">action</span></a></span><span> </span><span class="annot"><span class="annottext">EventSource (StateEvent SimpleTx) IO
-</span><a href="#local-6989586621679945541"><span class="hs-identifier hs-var">eventSource</span></a></span><span> </span><span class="annot"><span class="annottext">EventSink (StateEvent SimpleTx) IO
-</span><a href="#local-6989586621679945542"><span class="hs-identifier hs-var">eventSink</span></a></span><span>
+</span><a href="#local-6989586621679946741"><span class="hs-identifier hs-var">action</span></a></span><span> </span><span class="annot"><span class="annottext">EventSource (StateEvent SimpleTx) IO
+</span><a href="#local-6989586621679946745"><span class="hs-identifier hs-var">eventSource</span></a></span><span> </span><span class="annot"><span class="annottext">EventSink (StateEvent SimpleTx) IO
+</span><a href="#local-6989586621679946746"><span class="hs-identifier hs-var">eventSink</span></a></span><span>
 </span><span id="line-170"></span></pre></body></html>

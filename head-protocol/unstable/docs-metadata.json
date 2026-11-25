@@ -206,6 +206,12 @@
       "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H adr/2026-07-16_034-binary-cbor-api.md\n"
     }
   },
+  "benchmarks/head-logic": {
+    "source": {
+      "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI benchmarks/head-logic.md\n",
+      "commitHash": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%H benchmarks/head-logic.md\n"
+    }
+  },
   "benchmarks": {
     "source": {
       "lastUpdatedAt": "Pure Git Command Not Implemented: --no-pager log -1 --pretty=format:%aI benchmarks/index.md\n",

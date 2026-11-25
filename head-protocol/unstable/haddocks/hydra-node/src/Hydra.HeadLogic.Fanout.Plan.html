@@ -28,26 +28,26 @@
 </span><span id="line-28"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">HeadId</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">HeadSeed</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">IsTx</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">UTxOType</span></span><span class="hs-special">)</span><span>
 </span><span id="line-29"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Tx.Snapshot</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="hs-identifier">ConfirmedSnapshot</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier">SnapshotVersion</span></span><span class="hs-special">)</span><span>
 </span><span id="line-30"></span><span>
-</span><span id="line-31"></span><span class="hs-keyword">data</span><span> </span><span id="FanoutPlan"><span class="annot"><a href="Hydra.HeadLogic.Fanout.Plan.html#FanoutPlan"><span class="hs-identifier hs-var">FanoutPlan</span></a></span></span><span> </span><span id="local-6989586621681038057"><span class="annot"><a href="#local-6989586621681038057"><span class="hs-identifier hs-type">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="FanoutPlan"><span class="annot"><a href="Hydra.HeadLogic.Fanout.Plan.html#FanoutPlan"><span class="hs-identifier hs-var">FanoutPlan</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#StateChanged"><span class="hs-identifier hs-type">StateChanged</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681038057"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">~</span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Chain.html#PostChainTx"><span class="hs-identifier hs-type">PostChainTx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681038057"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span>
+</span><span id="line-31"></span><span class="hs-keyword">data</span><span> </span><span id="FanoutPlan"><span class="annot"><a href="Hydra.HeadLogic.Fanout.Plan.html#FanoutPlan"><span class="hs-identifier hs-var">FanoutPlan</span></a></span></span><span> </span><span id="local-6989586621681039786"><span class="annot"><a href="#local-6989586621681039786"><span class="hs-identifier hs-type">tx</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="FanoutPlan"><span class="annot"><a href="Hydra.HeadLogic.Fanout.Plan.html#FanoutPlan"><span class="hs-identifier hs-var">FanoutPlan</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#StateChanged"><span class="hs-identifier hs-type">StateChanged</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681039786"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">~</span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Chain.html#PostChainTx"><span class="hs-identifier hs-type">PostChainTx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681039786"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-32"></span><span>
-</span><span id="line-33"></span><span id="local-6989586621681038017"><span class="annot"><a href="Hydra.HeadLogic.Fanout.Plan.html#planChange"><span class="hs-identifier hs-type">planChange</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Fanout.Plan.html#FanoutPlan"><span class="hs-identifier hs-type">FanoutPlan</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681038017"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#StateChanged"><span class="hs-identifier hs-type">StateChanged</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681038017"><span class="hs-identifier hs-type">tx</span></a></span></span><span>
+</span><span id="line-33"></span><span id="local-6989586621681039746"><span class="annot"><a href="Hydra.HeadLogic.Fanout.Plan.html#planChange"><span class="hs-identifier hs-type">planChange</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Fanout.Plan.html#FanoutPlan"><span class="hs-identifier hs-type">FanoutPlan</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681039746"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#StateChanged"><span class="hs-identifier hs-type">StateChanged</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681039746"><span class="hs-identifier hs-type">tx</span></a></span></span><span>
 </span><span id="line-34"></span><span id="planChange"><span class="annot"><span class="annottext">planChange :: forall tx. FanoutPlan tx -&gt; StateChanged tx
-</span><a href="Hydra.HeadLogic.Fanout.Plan.html#planChange"><span class="hs-identifier hs-var hs-var">planChange</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.Fanout.Plan.html#FanoutPlan"><span class="hs-identifier hs-type">FanoutPlan</span></a></span><span> </span><span id="local-6989586621681038071"><span class="annot"><span class="annottext">StateChanged tx
-</span><a href="#local-6989586621681038071"><span class="hs-identifier hs-var">decision</span></a></span></span><span> </span><span class="annot"><span class="annottext">PostChainTx tx
+</span><a href="Hydra.HeadLogic.Fanout.Plan.html#planChange"><span class="hs-identifier hs-var hs-var">planChange</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.Fanout.Plan.html#FanoutPlan"><span class="hs-identifier hs-type">FanoutPlan</span></a></span><span> </span><span id="local-6989586621681039800"><span class="annot"><span class="annottext">StateChanged tx
+</span><a href="#local-6989586621681039800"><span class="hs-identifier hs-var">decision</span></a></span></span><span> </span><span class="annot"><span class="annottext">PostChainTx tx
 </span><span class="hs-identifier">_</span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">StateChanged tx
-</span><a href="#local-6989586621681038071"><span class="hs-identifier hs-var">decision</span></a></span><span>
+</span><a href="#local-6989586621681039800"><span class="hs-identifier hs-var">decision</span></a></span><span>
 </span><span id="line-35"></span><span>
-</span><span id="line-36"></span><span id="local-6989586621681038022"><span class="annot"><a href="Hydra.HeadLogic.Fanout.Plan.html#planTransaction"><span class="hs-identifier hs-type">planTransaction</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Fanout.Plan.html#FanoutPlan"><span class="hs-identifier hs-type">FanoutPlan</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681038022"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.Chain.html#PostChainTx"><span class="hs-identifier hs-type">PostChainTx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681038022"><span class="hs-identifier hs-type">tx</span></a></span></span><span>
+</span><span id="line-36"></span><span id="local-6989586621681039751"><span class="annot"><a href="Hydra.HeadLogic.Fanout.Plan.html#planTransaction"><span class="hs-identifier hs-type">planTransaction</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Fanout.Plan.html#FanoutPlan"><span class="hs-identifier hs-type">FanoutPlan</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681039751"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.Chain.html#PostChainTx"><span class="hs-identifier hs-type">PostChainTx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681039751"><span class="hs-identifier hs-type">tx</span></a></span></span><span>
 </span><span id="line-37"></span><span id="planTransaction"><span class="annot"><span class="annottext">planTransaction :: forall tx. FanoutPlan tx -&gt; PostChainTx tx
 </span><a href="Hydra.HeadLogic.Fanout.Plan.html#planTransaction"><span class="hs-identifier hs-var hs-var">planTransaction</span></a></span></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.Fanout.Plan.html#FanoutPlan"><span class="hs-identifier hs-type">FanoutPlan</span></a></span><span> </span><span class="annot"><span class="annottext">StateChanged tx
-</span><span class="hs-identifier">_</span></span><span> </span><span id="local-6989586621681038072"><span class="annot"><span class="annottext">PostChainTx tx
-</span><a href="#local-6989586621681038072"><span class="hs-identifier hs-var">transaction</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PostChainTx tx
-</span><a href="#local-6989586621681038072"><span class="hs-identifier hs-var">transaction</span></a></span><span>
+</span><span class="hs-identifier">_</span></span><span> </span><span id="local-6989586621681039801"><span class="annot"><span class="annottext">PostChainTx tx
+</span><a href="#local-6989586621681039801"><span class="hs-identifier hs-var">transaction</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PostChainTx tx
+</span><a href="#local-6989586621681039801"><span class="hs-identifier hs-var">transaction</span></a></span><span>
 </span><span id="line-38"></span><span>
-</span><span id="line-39"></span><span id="local-6989586621681038024"><span class="annot"><a href="Hydra.HeadLogic.Fanout.Plan.html#fullPlan"><span class="hs-identifier hs-type">fullPlan</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IsTx</span></span><span> </span><span class="annot"><a href="#local-6989586621681038024"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.html#ClosedState"><span class="hs-identifier hs-type">ClosedState</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681038024"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Fanout.Plan.html#FanoutPlan"><span class="hs-identifier hs-type">FanoutPlan</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681038024"><span class="hs-identifier hs-type">tx</span></a></span></span><span>
+</span><span id="line-39"></span><span id="local-6989586621681039753"><span class="annot"><a href="Hydra.HeadLogic.Fanout.Plan.html#fullPlan"><span class="hs-identifier hs-type">fullPlan</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IsTx</span></span><span> </span><span class="annot"><a href="#local-6989586621681039753"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.html#ClosedState"><span class="hs-identifier hs-type">ClosedState</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681039753"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Fanout.Plan.html#FanoutPlan"><span class="hs-identifier hs-type">FanoutPlan</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681039753"><span class="hs-identifier hs-type">tx</span></a></span></span><span>
 </span><span id="line-40"></span><span id="fullPlan"><span class="annot"><span class="annottext">fullPlan :: forall tx. IsTx tx =&gt; ClosedState tx -&gt; FanoutPlan tx
-</span><a href="Hydra.HeadLogic.Fanout.Plan.html#fullPlan"><span class="hs-identifier hs-var hs-var">fullPlan</span></a></span></span><span> </span><span id="local-6989586621681038081"><span class="annot"><span class="annottext">ClosedState tx
-</span><a href="#local-6989586621681038081"><span class="hs-identifier hs-var">closed</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="Hydra.HeadLogic.Fanout.Plan.html#fullPlan"><span class="hs-identifier hs-var hs-var">fullPlan</span></a></span></span><span> </span><span id="local-6989586621681039810"><span class="annot"><span class="annottext">ClosedState tx
+</span><a href="#local-6989586621681039810"><span class="hs-identifier hs-var">closed</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-41"></span><span>  </span><span class="annot"><span class="annottext">HeadId
 -&gt; ConfirmedSnapshot tx
 -&gt; SnapshotVersion
@@ -68,41 +68,41 @@ HeadId
 -&gt; FanoutPlan tx
 </span><a href="Hydra.HeadLogic.Fanout.Plan.html#plan"><span class="hs-identifier hs-var">plan</span></a></span><span>
 </span><span id="line-42"></span><span>    </span><span class="annot"><span class="annottext">ClosedState tx
-</span><a href="#local-6989586621681038081"><span class="hs-identifier hs-var">closed</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">headId</span><span>
+</span><a href="#local-6989586621681039810"><span class="hs-identifier hs-var">closed</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">headId</span><span>
 </span><span id="line-43"></span><span>    </span><span class="annot"><span class="annottext">ClosedState tx
-</span><a href="#local-6989586621681038081"><span class="hs-identifier hs-var">closed</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">confirmedSnapshot</span><span>
+</span><a href="#local-6989586621681039810"><span class="hs-identifier hs-var">closed</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">confirmedSnapshot</span><span>
 </span><span id="line-44"></span><span>    </span><span class="annot"><span class="annottext">ClosedState tx
-</span><a href="#local-6989586621681038081"><span class="hs-identifier hs-var">closed</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">version</span><span>
+</span><a href="#local-6989586621681039810"><span class="hs-identifier hs-var">closed</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">version</span><span>
 </span><span id="line-45"></span><span>    </span><span class="annot"><span class="annottext">ClosedState tx
-</span><a href="#local-6989586621681038081"><span class="hs-identifier hs-var">closed</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">headSeed</span><span>
+</span><a href="#local-6989586621681039810"><span class="hs-identifier hs-var">closed</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">headSeed</span><span>
 </span><span id="line-46"></span><span>    </span><span class="annot"><span class="annottext">ClosedState tx
-</span><a href="#local-6989586621681038081"><span class="hs-identifier hs-var">closed</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">contestationDeadline</span><span>
+</span><a href="#local-6989586621681039810"><span class="hs-identifier hs-var">closed</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">contestationDeadline</span><span>
 </span><span id="line-47"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ClosedState tx -&gt; UTxOType tx
 forall tx. IsTx tx =&gt; ClosedState tx -&gt; UTxOType tx
 </span><a href="Hydra.HeadLogic.Fanout.Selection.html#computeFullFanoutUTxO"><span class="hs-identifier hs-var">computeFullFanoutUTxO</span></a></span><span> </span><span class="annot"><span class="annottext">ClosedState tx
-</span><a href="#local-6989586621681038081"><span class="hs-identifier hs-var">closed</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621681039810"><span class="hs-identifier hs-var">closed</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-48"></span><span>    </span><span class="annot"><span class="annottext">NextFanoutStep tx
 forall tx. NextFanoutStep tx
 </span><a href="Hydra.HeadLogic.Fanout.Selection.html#FullFanoutStep"><span class="hs-identifier hs-var">FullFanoutStep</span></a></span><span>
 </span><span id="line-49"></span><span>
-</span><span id="line-50"></span><span id="local-6989586621681038038"><span class="annot"><a href="Hydra.HeadLogic.Fanout.Plan.html#closedSelectionPlan"><span class="hs-identifier hs-type">closedSelectionPlan</span></a></span><span> </span><span class="hs-glyph">::</span><span>
-</span><span id="line-51"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">IsTx</span></span><span> </span><span class="annot"><a href="#local-6989586621681038038"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span>
-</span><span id="line-52"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.html#ClosedState"><span class="hs-identifier hs-type">ClosedState</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681038038"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-53"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">UTxOType</span></span><span> </span><span class="annot"><a href="#local-6989586621681038038"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-54"></span><span>  </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.Fanout.Plan.html#FanoutPlan"><span class="hs-identifier hs-type">FanoutPlan</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681038038"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span></span><span>
+</span><span id="line-50"></span><span id="local-6989586621681039767"><span class="annot"><a href="Hydra.HeadLogic.Fanout.Plan.html#closedSelectionPlan"><span class="hs-identifier hs-type">closedSelectionPlan</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-51"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">IsTx</span></span><span> </span><span class="annot"><a href="#local-6989586621681039767"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-52"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.html#ClosedState"><span class="hs-identifier hs-type">ClosedState</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681039767"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-53"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">UTxOType</span></span><span> </span><span class="annot"><a href="#local-6989586621681039767"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-54"></span><span>  </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.Fanout.Plan.html#FanoutPlan"><span class="hs-identifier hs-type">FanoutPlan</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681039767"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span></span><span>
 </span><span id="line-55"></span><span id="closedSelectionPlan"><span class="annot"><span class="annottext">closedSelectionPlan :: forall tx.
 IsTx tx =&gt;
 ClosedState tx -&gt; UTxOType tx -&gt; Maybe (FanoutPlan tx)
-</span><a href="Hydra.HeadLogic.Fanout.Plan.html#closedSelectionPlan"><span class="hs-identifier hs-var hs-var">closedSelectionPlan</span></a></span></span><span> </span><span id="local-6989586621681038099"><span class="annot"><span class="annottext">ClosedState tx
-</span><a href="#local-6989586621681038099"><span class="hs-identifier hs-var">closed</span></a></span></span><span> </span><span id="local-6989586621681038100"><span class="annot"><span class="annottext">UTxOType tx
-</span><a href="#local-6989586621681038100"><span class="hs-identifier hs-var">selection</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-56"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621681038101"><span class="annot"><span class="annottext">remaining :: UTxOType tx
-</span><a href="#local-6989586621681038101"><span class="hs-identifier hs-var hs-var">remaining</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ClosedState tx -&gt; UTxOType tx
+</span><a href="Hydra.HeadLogic.Fanout.Plan.html#closedSelectionPlan"><span class="hs-identifier hs-var hs-var">closedSelectionPlan</span></a></span></span><span> </span><span id="local-6989586621681039828"><span class="annot"><span class="annottext">ClosedState tx
+</span><a href="#local-6989586621681039828"><span class="hs-identifier hs-var">closed</span></a></span></span><span> </span><span id="local-6989586621681039829"><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621681039829"><span class="hs-identifier hs-var">selection</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-56"></span><span>  </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621681039830"><span class="annot"><span class="annottext">remaining :: UTxOType tx
+</span><a href="#local-6989586621681039830"><span class="hs-identifier hs-var hs-var">remaining</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ClosedState tx -&gt; UTxOType tx
 forall tx. IsTx tx =&gt; ClosedState tx -&gt; UTxOType tx
 </span><a href="Hydra.HeadLogic.Fanout.Selection.html#computeFullFanoutUTxO"><span class="hs-identifier hs-var">computeFullFanoutUTxO</span></a></span><span> </span><span class="annot"><span class="annottext">ClosedState tx
-</span><a href="#local-6989586621681038099"><span class="hs-identifier hs-var">closed</span></a></span><span>
-</span><span id="line-57"></span><span>  </span><span id="local-6989586621681038102"><span class="annot"><span class="annottext">NextFanoutStep tx
-</span><a href="#local-6989586621681038102"><span class="hs-identifier hs-var">step</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">ConfirmedSnapshot tx
+</span><a href="#local-6989586621681039828"><span class="hs-identifier hs-var">closed</span></a></span><span>
+</span><span id="line-57"></span><span>  </span><span id="local-6989586621681039831"><span class="annot"><span class="annottext">NextFanoutStep tx
+</span><a href="#local-6989586621681039831"><span class="hs-identifier hs-var">step</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">ConfirmedSnapshot tx
 -&gt; SnapshotVersion
 -&gt; UTxOType tx
 -&gt; UTxOType tx
@@ -117,10 +117,10 @@ ConfirmedSnapshot tx
 -&gt; OnChainFanoutDatum
 -&gt; Maybe (NextFanoutStep tx)
 </span><a href="Hydra.HeadLogic.Fanout.Plan.html#select"><span class="hs-identifier hs-var">select</span></a></span><span> </span><span class="annot"><span class="annottext">ClosedState tx
-</span><a href="#local-6989586621681038099"><span class="hs-identifier hs-var">closed</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">confirmedSnapshot</span><span> </span><span class="annot"><span class="annottext">ClosedState tx
-</span><a href="#local-6989586621681038099"><span class="hs-identifier hs-var">closed</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">version</span><span> </span><span class="annot"><span class="annottext">UTxOType tx
-</span><a href="#local-6989586621681038100"><span class="hs-identifier hs-var">selection</span></a></span><span> </span><span class="annot"><span class="annottext">UTxOType tx
-</span><a href="#local-6989586621681038101"><span class="hs-identifier hs-var">remaining</span></a></span><span> </span><span class="annot"><span class="annottext">OnChainFanoutDatum
+</span><a href="#local-6989586621681039828"><span class="hs-identifier hs-var">closed</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">confirmedSnapshot</span><span> </span><span class="annot"><span class="annottext">ClosedState tx
+</span><a href="#local-6989586621681039828"><span class="hs-identifier hs-var">closed</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">version</span><span> </span><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621681039829"><span class="hs-identifier hs-var">selection</span></a></span><span> </span><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621681039830"><span class="hs-identifier hs-var">remaining</span></a></span><span> </span><span class="annot"><span class="annottext">OnChainFanoutDatum
 </span><a href="Hydra.HeadLogic.State.html#DatumClosed"><span class="hs-identifier hs-var">DatumClosed</span></a></span><span>
 </span><span id="line-58"></span><span>  </span><span class="annot"><span class="annottext">FanoutPlan tx -&gt; Maybe (FanoutPlan tx)
 forall a. a -&gt; Maybe a
@@ -149,33 +149,33 @@ HeadId
 -&gt; FanoutPlan tx
 </span><a href="Hydra.HeadLogic.Fanout.Plan.html#plan"><span class="hs-identifier hs-var">plan</span></a></span><span>
 </span><span id="line-60"></span><span>      </span><span class="annot"><span class="annottext">ClosedState tx
-</span><a href="#local-6989586621681038099"><span class="hs-identifier hs-var">closed</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">headId</span><span>
+</span><a href="#local-6989586621681039828"><span class="hs-identifier hs-var">closed</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">headId</span><span>
 </span><span id="line-61"></span><span>      </span><span class="annot"><span class="annottext">ClosedState tx
-</span><a href="#local-6989586621681038099"><span class="hs-identifier hs-var">closed</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">confirmedSnapshot</span><span>
+</span><a href="#local-6989586621681039828"><span class="hs-identifier hs-var">closed</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">confirmedSnapshot</span><span>
 </span><span id="line-62"></span><span>      </span><span class="annot"><span class="annottext">ClosedState tx
-</span><a href="#local-6989586621681038099"><span class="hs-identifier hs-var">closed</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">version</span><span>
+</span><a href="#local-6989586621681039828"><span class="hs-identifier hs-var">closed</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">version</span><span>
 </span><span id="line-63"></span><span>      </span><span class="annot"><span class="annottext">ClosedState tx
-</span><a href="#local-6989586621681038099"><span class="hs-identifier hs-var">closed</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">headSeed</span><span>
+</span><a href="#local-6989586621681039828"><span class="hs-identifier hs-var">closed</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">headSeed</span><span>
 </span><span id="line-64"></span><span>      </span><span class="annot"><span class="annottext">ClosedState tx
-</span><a href="#local-6989586621681038099"><span class="hs-identifier hs-var">closed</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">contestationDeadline</span><span>
+</span><a href="#local-6989586621681039828"><span class="hs-identifier hs-var">closed</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">contestationDeadline</span><span>
 </span><span id="line-65"></span><span>      </span><span class="annot"><span class="annottext">UTxOType tx
-</span><a href="#local-6989586621681038101"><span class="hs-identifier hs-var">remaining</span></a></span><span>
+</span><a href="#local-6989586621681039830"><span class="hs-identifier hs-var">remaining</span></a></span><span>
 </span><span id="line-66"></span><span>      </span><span class="annot"><span class="annottext">NextFanoutStep tx
-</span><a href="#local-6989586621681038102"><span class="hs-identifier hs-var">step</span></a></span><span>
+</span><a href="#local-6989586621681039831"><span class="hs-identifier hs-var">step</span></a></span><span>
 </span><span id="line-67"></span><span>
-</span><span id="line-68"></span><span id="local-6989586621681038047"><span class="annot"><a href="Hydra.HeadLogic.Fanout.Plan.html#remainingSelectionPlan"><span class="hs-identifier hs-type">remainingSelectionPlan</span></a></span><span> </span><span class="hs-glyph">::</span><span>
-</span><span id="line-69"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">IsTx</span></span><span> </span><span class="annot"><a href="#local-6989586621681038047"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span>
-</span><span id="line-70"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.html#PartialFanoutState"><span class="hs-identifier hs-type">PartialFanoutState</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681038047"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-71"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">UTxOType</span></span><span> </span><span class="annot"><a href="#local-6989586621681038047"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-72"></span><span>  </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.Fanout.Plan.html#FanoutPlan"><span class="hs-identifier hs-type">FanoutPlan</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681038047"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span></span><span>
+</span><span id="line-68"></span><span id="local-6989586621681039776"><span class="annot"><a href="Hydra.HeadLogic.Fanout.Plan.html#remainingSelectionPlan"><span class="hs-identifier hs-type">remainingSelectionPlan</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-69"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">IsTx</span></span><span> </span><span class="annot"><a href="#local-6989586621681039776"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-70"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.html#PartialFanoutState"><span class="hs-identifier hs-type">PartialFanoutState</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681039776"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-71"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">UTxOType</span></span><span> </span><span class="annot"><a href="#local-6989586621681039776"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-72"></span><span>  </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.Fanout.Plan.html#FanoutPlan"><span class="hs-identifier hs-type">FanoutPlan</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681039776"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span></span><span>
 </span><span id="line-73"></span><span id="remainingSelectionPlan"><span class="annot"><span class="annottext">remainingSelectionPlan :: forall tx.
 IsTx tx =&gt;
 PartialFanoutState tx -&gt; UTxOType tx -&gt; Maybe (FanoutPlan tx)
-</span><a href="Hydra.HeadLogic.Fanout.Plan.html#remainingSelectionPlan"><span class="hs-identifier hs-var hs-var">remainingSelectionPlan</span></a></span></span><span> </span><span id="local-6989586621681038120"><span class="annot"><span class="annottext">PartialFanoutState tx
-</span><a href="#local-6989586621681038120"><span class="hs-identifier hs-var">progress</span></a></span></span><span> </span><span id="local-6989586621681038121"><span class="annot"><span class="annottext">UTxOType tx
-</span><a href="#local-6989586621681038121"><span class="hs-identifier hs-var">selection</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-74"></span><span>  </span><span id="local-6989586621681038122"><span class="annot"><span class="annottext">NextFanoutStep tx
-</span><a href="#local-6989586621681038122"><span class="hs-identifier hs-var">step</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">ConfirmedSnapshot tx
+</span><a href="Hydra.HeadLogic.Fanout.Plan.html#remainingSelectionPlan"><span class="hs-identifier hs-var hs-var">remainingSelectionPlan</span></a></span></span><span> </span><span id="local-6989586621681039849"><span class="annot"><span class="annottext">PartialFanoutState tx
+</span><a href="#local-6989586621681039849"><span class="hs-identifier hs-var">progress</span></a></span></span><span> </span><span id="local-6989586621681039850"><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621681039850"><span class="hs-identifier hs-var">selection</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-74"></span><span>  </span><span id="local-6989586621681039851"><span class="annot"><span class="annottext">NextFanoutStep tx
+</span><a href="#local-6989586621681039851"><span class="hs-identifier hs-var">step</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">ConfirmedSnapshot tx
 -&gt; SnapshotVersion
 -&gt; UTxOType tx
 -&gt; UTxOType tx
@@ -190,11 +190,11 @@ ConfirmedSnapshot tx
 -&gt; OnChainFanoutDatum
 -&gt; Maybe (NextFanoutStep tx)
 </span><a href="Hydra.HeadLogic.Fanout.Plan.html#select"><span class="hs-identifier hs-var">select</span></a></span><span> </span><span class="annot"><span class="annottext">PartialFanoutState tx
-</span><a href="#local-6989586621681038120"><span class="hs-identifier hs-var">progress</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">confirmedSnapshot</span><span> </span><span class="annot"><span class="annottext">PartialFanoutState tx
-</span><a href="#local-6989586621681038120"><span class="hs-identifier hs-var">progress</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">version</span><span> </span><span class="annot"><span class="annottext">UTxOType tx
-</span><a href="#local-6989586621681038121"><span class="hs-identifier hs-var">selection</span></a></span><span> </span><span class="annot"><span class="annottext">PartialFanoutState tx
-</span><a href="#local-6989586621681038120"><span class="hs-identifier hs-var">progress</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">remainingOutputs</span><span> </span><span class="annot"><span class="annottext">PartialFanoutState tx
-</span><a href="#local-6989586621681038120"><span class="hs-identifier hs-var">progress</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">fanoutDatum</span><span>
+</span><a href="#local-6989586621681039849"><span class="hs-identifier hs-var">progress</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">confirmedSnapshot</span><span> </span><span class="annot"><span class="annottext">PartialFanoutState tx
+</span><a href="#local-6989586621681039849"><span class="hs-identifier hs-var">progress</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">version</span><span> </span><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621681039850"><span class="hs-identifier hs-var">selection</span></a></span><span> </span><span class="annot"><span class="annottext">PartialFanoutState tx
+</span><a href="#local-6989586621681039849"><span class="hs-identifier hs-var">progress</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">remainingOutputs</span><span> </span><span class="annot"><span class="annottext">PartialFanoutState tx
+</span><a href="#local-6989586621681039849"><span class="hs-identifier hs-var">progress</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">fanoutDatum</span><span>
 </span><span id="line-75"></span><span>  </span><span class="annot"><span class="annottext">FanoutPlan tx -&gt; Maybe (FanoutPlan tx)
 forall a. a -&gt; Maybe a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
@@ -222,28 +222,28 @@ HeadId
 -&gt; FanoutPlan tx
 </span><a href="Hydra.HeadLogic.Fanout.Plan.html#plan"><span class="hs-identifier hs-var">plan</span></a></span><span>
 </span><span id="line-77"></span><span>      </span><span class="annot"><span class="annottext">PartialFanoutState tx
-</span><a href="#local-6989586621681038120"><span class="hs-identifier hs-var">progress</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">headId</span><span>
+</span><a href="#local-6989586621681039849"><span class="hs-identifier hs-var">progress</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">headId</span><span>
 </span><span id="line-78"></span><span>      </span><span class="annot"><span class="annottext">PartialFanoutState tx
-</span><a href="#local-6989586621681038120"><span class="hs-identifier hs-var">progress</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">confirmedSnapshot</span><span>
+</span><a href="#local-6989586621681039849"><span class="hs-identifier hs-var">progress</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">confirmedSnapshot</span><span>
 </span><span id="line-79"></span><span>      </span><span class="annot"><span class="annottext">PartialFanoutState tx
-</span><a href="#local-6989586621681038120"><span class="hs-identifier hs-var">progress</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">version</span><span>
+</span><a href="#local-6989586621681039849"><span class="hs-identifier hs-var">progress</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">version</span><span>
 </span><span id="line-80"></span><span>      </span><span class="annot"><span class="annottext">PartialFanoutState tx
-</span><a href="#local-6989586621681038120"><span class="hs-identifier hs-var">progress</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">headSeed</span><span>
+</span><a href="#local-6989586621681039849"><span class="hs-identifier hs-var">progress</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">headSeed</span><span>
 </span><span id="line-81"></span><span>      </span><span class="annot"><span class="annottext">PartialFanoutState tx
-</span><a href="#local-6989586621681038120"><span class="hs-identifier hs-var">progress</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">contestationDeadline</span><span>
+</span><a href="#local-6989586621681039849"><span class="hs-identifier hs-var">progress</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">contestationDeadline</span><span>
 </span><span id="line-82"></span><span>      </span><span class="annot"><span class="annottext">PartialFanoutState tx
-</span><a href="#local-6989586621681038120"><span class="hs-identifier hs-var">progress</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">remainingOutputs</span><span>
+</span><a href="#local-6989586621681039849"><span class="hs-identifier hs-var">progress</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">remainingOutputs</span><span>
 </span><span id="line-83"></span><span>      </span><span class="annot"><span class="annottext">NextFanoutStep tx
-</span><a href="#local-6989586621681038122"><span class="hs-identifier hs-var">step</span></a></span><span>
+</span><a href="#local-6989586621681039851"><span class="hs-identifier hs-var">step</span></a></span><span>
 </span><span id="line-84"></span><span>
-</span><span id="line-85"></span><span id="local-6989586621681038041"><span class="annot"><a href="Hydra.HeadLogic.Fanout.Plan.html#select"><span class="hs-identifier hs-type">select</span></a></span><span> </span><span class="hs-glyph">::</span><span>
-</span><span id="line-86"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">IsTx</span></span><span> </span><span class="annot"><a href="#local-6989586621681038041"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span>
-</span><span id="line-87"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">ConfirmedSnapshot</span></span><span> </span><span class="annot"><a href="#local-6989586621681038041"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-85"></span><span id="local-6989586621681039770"><span class="annot"><a href="Hydra.HeadLogic.Fanout.Plan.html#select"><span class="hs-identifier hs-type">select</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-86"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">IsTx</span></span><span> </span><span class="annot"><a href="#local-6989586621681039770"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-87"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">ConfirmedSnapshot</span></span><span> </span><span class="annot"><a href="#local-6989586621681039770"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-88"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">SnapshotVersion</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-89"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">UTxOType</span></span><span> </span><span class="annot"><a href="#local-6989586621681038041"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-90"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">UTxOType</span></span><span> </span><span class="annot"><a href="#local-6989586621681038041"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-89"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">UTxOType</span></span><span> </span><span class="annot"><a href="#local-6989586621681039770"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-90"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">UTxOType</span></span><span> </span><span class="annot"><a href="#local-6989586621681039770"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-91"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.html#OnChainFanoutDatum"><span class="hs-identifier hs-type">OnChainFanoutDatum</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-92"></span><span>  </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.Fanout.Selection.html#NextFanoutStep"><span class="hs-identifier hs-type">NextFanoutStep</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681038041"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span></span><span>
+</span><span id="line-92"></span><span>  </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.Fanout.Selection.html#NextFanoutStep"><span class="hs-identifier hs-type">NextFanoutStep</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681039770"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span></span><span>
 </span><span id="line-93"></span><span id="select"><span class="annot"><span class="annottext">select :: forall tx.
 IsTx tx =&gt;
 ConfirmedSnapshot tx
@@ -252,12 +252,12 @@ ConfirmedSnapshot tx
 -&gt; UTxOType tx
 -&gt; OnChainFanoutDatum
 -&gt; Maybe (NextFanoutStep tx)
-</span><a href="Hydra.HeadLogic.Fanout.Plan.html#select"><span class="hs-identifier hs-var hs-var">select</span></a></span></span><span> </span><span id="local-6989586621681038131"><span class="annot"><span class="annottext">ConfirmedSnapshot tx
-</span><a href="#local-6989586621681038131"><span class="hs-identifier hs-var">snapshot</span></a></span></span><span> </span><span id="local-6989586621681038132"><span class="annot"><span class="annottext">SnapshotVersion
-</span><a href="#local-6989586621681038132"><span class="hs-identifier hs-var">version</span></a></span></span><span> </span><span id="local-6989586621681038133"><span class="annot"><span class="annottext">UTxOType tx
-</span><a href="#local-6989586621681038133"><span class="hs-identifier hs-var">selection</span></a></span></span><span> </span><span id="local-6989586621681038134"><span class="annot"><span class="annottext">UTxOType tx
-</span><a href="#local-6989586621681038134"><span class="hs-identifier hs-var">remaining</span></a></span></span><span> </span><span id="local-6989586621681038135"><span class="annot"><span class="annottext">OnChainFanoutDatum
-</span><a href="#local-6989586621681038135"><span class="hs-identifier hs-var">datum</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><a href="Hydra.HeadLogic.Fanout.Plan.html#select"><span class="hs-identifier hs-var hs-var">select</span></a></span></span><span> </span><span id="local-6989586621681039860"><span class="annot"><span class="annottext">ConfirmedSnapshot tx
+</span><a href="#local-6989586621681039860"><span class="hs-identifier hs-var">snapshot</span></a></span></span><span> </span><span id="local-6989586621681039861"><span class="annot"><span class="annottext">SnapshotVersion
+</span><a href="#local-6989586621681039861"><span class="hs-identifier hs-var">version</span></a></span></span><span> </span><span id="local-6989586621681039862"><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621681039862"><span class="hs-identifier hs-var">selection</span></a></span></span><span> </span><span id="local-6989586621681039863"><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621681039863"><span class="hs-identifier hs-var">remaining</span></a></span></span><span> </span><span id="local-6989586621681039864"><span class="annot"><span class="annottext">OnChainFanoutDatum
+</span><a href="#local-6989586621681039864"><span class="hs-identifier hs-var">datum</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
 </span><span id="line-94"></span><span>  </span><span class="annot"><span class="annottext">Bool -&gt; Maybe ()
 forall (f :: * -&gt; *). Alternative f =&gt; Bool -&gt; f ()
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.html#guard"><span class="hs-identifier hs-var">guard</span></a></span><span> </span><span class="annot"><span class="annottext">(Bool -&gt; Maybe ()) -&gt; Bool -&gt; Maybe ()
@@ -266,12 +266,12 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#not"><span class="hs-identifier hs-var">not</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">UTxOType tx -&gt; Bool
 forall tx. IsTx tx =&gt; UTxOType tx -&gt; Bool
 </span><a href="Hydra.HeadLogic.Fanout.Outputs.html#nullOutputs"><span class="hs-identifier hs-var">nullOutputs</span></a></span><span> </span><span class="annot"><span class="annottext">UTxOType tx
-</span><a href="#local-6989586621681038133"><span class="hs-identifier hs-var">selection</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
+</span><a href="#local-6989586621681039862"><span class="hs-identifier hs-var">selection</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Bool -&gt; Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%26%26"><span class="hs-operator hs-var">&amp;&amp;</span></a></span><span> </span><span class="annot"><span class="annottext">UTxOType tx
-</span><a href="#local-6989586621681038133"><span class="hs-identifier hs-var">selection</span></a></span><span> </span><span class="annot"><span class="annottext">UTxOType tx -&gt; UTxOType tx -&gt; Bool
+</span><a href="#local-6989586621681039862"><span class="hs-identifier hs-var">selection</span></a></span><span> </span><span class="annot"><span class="annottext">UTxOType tx -&gt; UTxOType tx -&gt; Bool
 forall tx. IsTx tx =&gt; UTxOType tx -&gt; UTxOType tx -&gt; Bool
 </span><a href="Hydra.HeadLogic.Fanout.Outputs.html#isSubMultisetOf"><span class="hs-operator hs-var">`isSubMultisetOf`</span></a></span><span> </span><span class="annot"><span class="annottext">UTxOType tx
-</span><a href="#local-6989586621681038134"><span class="hs-identifier hs-var">remaining</span></a></span><span>
+</span><a href="#local-6989586621681039863"><span class="hs-identifier hs-var">remaining</span></a></span><span>
 </span><span id="line-95"></span><span>  </span><span class="annot"><span class="annottext">NextFanoutStep tx -&gt; Maybe (NextFanoutStep tx)
 forall a. a -&gt; Maybe a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
@@ -293,22 +293,22 @@ ConfirmedSnapshot tx
 -&gt; OnChainFanoutDatum
 -&gt; NextFanoutStep tx
 </span><a href="Hydra.HeadLogic.Fanout.Selection.html#nextFanoutStep"><span class="hs-identifier hs-var">nextFanoutStep</span></a></span><span> </span><span class="annot"><span class="annottext">ConfirmedSnapshot tx
-</span><a href="#local-6989586621681038131"><span class="hs-identifier hs-var">snapshot</span></a></span><span> </span><span class="annot"><span class="annottext">SnapshotVersion
-</span><a href="#local-6989586621681038132"><span class="hs-identifier hs-var">version</span></a></span><span> </span><span class="annot"><span class="annottext">UTxOType tx
-</span><a href="#local-6989586621681038133"><span class="hs-identifier hs-var">selection</span></a></span><span> </span><span class="annot"><span class="annottext">UTxOType tx
-</span><a href="#local-6989586621681038134"><span class="hs-identifier hs-var">remaining</span></a></span><span> </span><span class="annot"><span class="annottext">OnChainFanoutDatum
-</span><a href="#local-6989586621681038135"><span class="hs-identifier hs-var">datum</span></a></span><span>
+</span><a href="#local-6989586621681039860"><span class="hs-identifier hs-var">snapshot</span></a></span><span> </span><span class="annot"><span class="annottext">SnapshotVersion
+</span><a href="#local-6989586621681039861"><span class="hs-identifier hs-var">version</span></a></span><span> </span><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621681039862"><span class="hs-identifier hs-var">selection</span></a></span><span> </span><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621681039863"><span class="hs-identifier hs-var">remaining</span></a></span><span> </span><span class="annot"><span class="annottext">OnChainFanoutDatum
+</span><a href="#local-6989586621681039864"><span class="hs-identifier hs-var">datum</span></a></span><span>
 </span><span id="line-96"></span><span>
-</span><span id="line-97"></span><span id="local-6989586621681038035"><span class="annot"><a href="Hydra.HeadLogic.Fanout.Plan.html#plan"><span class="hs-identifier hs-type">plan</span></a></span><span> </span><span class="hs-glyph">::</span><span>
-</span><span id="line-98"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">IsTx</span></span><span> </span><span class="annot"><a href="#local-6989586621681038035"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-97"></span><span id="local-6989586621681039764"><span class="annot"><a href="Hydra.HeadLogic.Fanout.Plan.html#plan"><span class="hs-identifier hs-type">plan</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-98"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">IsTx</span></span><span> </span><span class="annot"><a href="#local-6989586621681039764"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span>
 </span><span id="line-99"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">HeadId</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-100"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">ConfirmedSnapshot</span></span><span> </span><span class="annot"><a href="#local-6989586621681038035"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-100"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">ConfirmedSnapshot</span></span><span> </span><span class="annot"><a href="#local-6989586621681039764"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-101"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">SnapshotVersion</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-102"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">HeadSeed</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-103"></span><span>  </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Clock.Internal.UTCTime.html#UTCTime"><span class="hs-identifier hs-type">UTCTime</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-104"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">UTxOType</span></span><span> </span><span class="annot"><a href="#local-6989586621681038035"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-105"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Fanout.Selection.html#NextFanoutStep"><span class="hs-identifier hs-type">NextFanoutStep</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681038035"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-106"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Fanout.Plan.html#FanoutPlan"><span class="hs-identifier hs-type">FanoutPlan</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681038035"><span class="hs-identifier hs-type">tx</span></a></span></span><span>
+</span><span id="line-104"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">UTxOType</span></span><span> </span><span class="annot"><a href="#local-6989586621681039764"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-105"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Fanout.Selection.html#NextFanoutStep"><span class="hs-identifier hs-type">NextFanoutStep</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681039764"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-106"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Fanout.Plan.html#FanoutPlan"><span class="hs-identifier hs-type">FanoutPlan</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681039764"><span class="hs-identifier hs-type">tx</span></a></span></span><span>
 </span><span id="line-107"></span><span id="plan"><span class="annot"><span class="annottext">plan :: forall tx.
 IsTx tx =&gt;
 HeadId
@@ -319,18 +319,18 @@ HeadId
 -&gt; UTxOType tx
 -&gt; NextFanoutStep tx
 -&gt; FanoutPlan tx
-</span><a href="Hydra.HeadLogic.Fanout.Plan.html#plan"><span class="hs-identifier hs-var hs-var">plan</span></a></span></span><span> </span><span id="local-6989586621681038140"><span class="annot"><span class="annottext">HeadId
-</span><a href="#local-6989586621681038140"><span class="hs-identifier hs-var">headId</span></a></span></span><span> </span><span id="local-6989586621681038141"><span class="annot"><span class="annottext">ConfirmedSnapshot tx
-</span><a href="#local-6989586621681038141"><span class="hs-identifier hs-var">snapshot</span></a></span></span><span> </span><span id="local-6989586621681038142"><span class="annot"><span class="annottext">SnapshotVersion
-</span><a href="#local-6989586621681038142"><span class="hs-identifier hs-var">version</span></a></span></span><span> </span><span id="local-6989586621681038143"><span class="annot"><span class="annottext">HeadSeed
-</span><a href="#local-6989586621681038143"><span class="hs-identifier hs-var">seed</span></a></span></span><span> </span><span id="local-6989586621681038144"><span class="annot"><span class="annottext">UTCTime
-</span><a href="#local-6989586621681038144"><span class="hs-identifier hs-var">deadline</span></a></span></span><span> </span><span id="local-6989586621681038145"><span class="annot"><span class="annottext">UTxOType tx
-</span><a href="#local-6989586621681038145"><span class="hs-identifier hs-var">remainingOutputs</span></a></span></span><span> </span><span id="local-6989586621681038146"><span class="annot"><span class="annottext">NextFanoutStep tx
-</span><a href="#local-6989586621681038146"><span class="hs-identifier hs-var">step</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="Hydra.HeadLogic.Fanout.Plan.html#plan"><span class="hs-identifier hs-var hs-var">plan</span></a></span></span><span> </span><span id="local-6989586621681039869"><span class="annot"><span class="annottext">HeadId
+</span><a href="#local-6989586621681039869"><span class="hs-identifier hs-var">headId</span></a></span></span><span> </span><span id="local-6989586621681039870"><span class="annot"><span class="annottext">ConfirmedSnapshot tx
+</span><a href="#local-6989586621681039870"><span class="hs-identifier hs-var">snapshot</span></a></span></span><span> </span><span id="local-6989586621681039871"><span class="annot"><span class="annottext">SnapshotVersion
+</span><a href="#local-6989586621681039871"><span class="hs-identifier hs-var">version</span></a></span></span><span> </span><span id="local-6989586621681039872"><span class="annot"><span class="annottext">HeadSeed
+</span><a href="#local-6989586621681039872"><span class="hs-identifier hs-var">seed</span></a></span></span><span> </span><span id="local-6989586621681039873"><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621681039873"><span class="hs-identifier hs-var">deadline</span></a></span></span><span> </span><span id="local-6989586621681039874"><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621681039874"><span class="hs-identifier hs-var">remainingOutputs</span></a></span></span><span> </span><span id="local-6989586621681039875"><span class="annot"><span class="annottext">NextFanoutStep tx
+</span><a href="#local-6989586621681039875"><span class="hs-identifier hs-var">step</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-108"></span><span>  </span><span class="annot"><span class="annottext">StateChanged tx -&gt; PostChainTx tx -&gt; FanoutPlan tx
 forall tx. StateChanged tx -&gt; PostChainTx tx -&gt; FanoutPlan tx
 </span><a href="Hydra.HeadLogic.Fanout.Plan.html#FanoutPlan"><span class="hs-identifier hs-var">FanoutPlan</span></a></span><span> </span><span class="annot"><span class="annottext">StateChanged tx
-</span><a href="#local-6989586621681038147"><span class="hs-identifier hs-var">decision</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">NextFanoutStep tx
+</span><a href="#local-6989586621681039876"><span class="hs-identifier hs-var">decision</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">NextFanoutStep tx
 -&gt; ConfirmedSnapshot tx
 -&gt; SnapshotVersion
 -&gt; HeadSeed
@@ -345,45 +345,45 @@ NextFanoutStep tx
 -&gt; UTCTime
 -&gt; PostChainTx tx
 </span><a href="Hydra.HeadLogic.Fanout.Selection.html#fanoutTransaction"><span class="hs-identifier hs-var">fanoutTransaction</span></a></span><span> </span><span class="annot"><span class="annottext">NextFanoutStep tx
-</span><a href="#local-6989586621681038146"><span class="hs-identifier hs-var">step</span></a></span><span> </span><span class="annot"><span class="annottext">ConfirmedSnapshot tx
-</span><a href="#local-6989586621681038141"><span class="hs-identifier hs-var">snapshot</span></a></span><span> </span><span class="annot"><span class="annottext">SnapshotVersion
-</span><a href="#local-6989586621681038142"><span class="hs-identifier hs-var">version</span></a></span><span> </span><span class="annot"><span class="annottext">HeadSeed
-</span><a href="#local-6989586621681038143"><span class="hs-identifier hs-var">seed</span></a></span><span> </span><span class="annot"><span class="annottext">UTCTime
-</span><a href="#local-6989586621681038144"><span class="hs-identifier hs-var">deadline</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621681039875"><span class="hs-identifier hs-var">step</span></a></span><span> </span><span class="annot"><span class="annottext">ConfirmedSnapshot tx
+</span><a href="#local-6989586621681039870"><span class="hs-identifier hs-var">snapshot</span></a></span><span> </span><span class="annot"><span class="annottext">SnapshotVersion
+</span><a href="#local-6989586621681039871"><span class="hs-identifier hs-var">version</span></a></span><span> </span><span class="annot"><span class="annottext">HeadSeed
+</span><a href="#local-6989586621681039872"><span class="hs-identifier hs-var">seed</span></a></span><span> </span><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621681039873"><span class="hs-identifier hs-var">deadline</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-109"></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-110"></span><span>  </span><span id="local-6989586621681038147"><span class="annot"><span class="annottext">decision :: StateChanged tx
-</span><a href="#local-6989586621681038147"><span class="hs-identifier hs-var hs-var">decision</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">NextFanoutStep tx
-</span><a href="#local-6989586621681038146"><span class="hs-identifier hs-var">step</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-110"></span><span>  </span><span id="local-6989586621681039876"><span class="annot"><span class="annottext">decision :: StateChanged tx
+</span><a href="#local-6989586621681039876"><span class="hs-identifier hs-var hs-var">decision</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">NextFanoutStep tx
+</span><a href="#local-6989586621681039875"><span class="hs-identifier hs-var">step</span></a></span><span> </span><span class="hs-keyword">of</span><span>
 </span><span id="line-111"></span><span>    </span><span class="annot"><span class="annottext">NextFanoutStep tx
 </span><a href="Hydra.HeadLogic.Fanout.Selection.html#FullFanoutStep"><span class="hs-identifier hs-var">FullFanoutStep</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#HeadFanoutInitiated"><span class="hs-identifier hs-type">HeadFanoutInitiated</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">HeadId
 headId :: HeadId
 $sel:headId:NetworkConnected :: HeadId
-</span><a href="#local-6989586621681038140"><span class="hs-identifier hs-var hs-var">headId</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621681039869"><span class="hs-identifier hs-var hs-var">headId</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">UTxOType tx
 remainingOutputs :: UTxOType tx
 $sel:remainingOutputs:NetworkConnected :: UTxOType tx
-</span><a href="#local-6989586621681038145"><span class="hs-identifier hs-var hs-var">remainingOutputs</span></a></span><span class="hs-special">}</span><span>
-</span><span id="line-112"></span><span>    </span><span class="annot"><a href="Hydra.HeadLogic.Fanout.Selection.html#FinalStep"><span class="hs-identifier hs-type">FinalStep</span></a></span><span class="hs-special">{</span><span id="local-6989586621681038152"><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621681039874"><span class="hs-identifier hs-var hs-var">remainingOutputs</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-112"></span><span>    </span><span class="annot"><a href="Hydra.HeadLogic.Fanout.Selection.html#FinalStep"><span class="hs-identifier hs-type">FinalStep</span></a></span><span class="hs-special">{</span><span id="local-6989586621681039881"><span class="annot"><span class="annottext">UTxOType tx
 stepDistribute :: UTxOType tx
 $sel:stepDistribute:FinalStep :: forall tx. NextFanoutStep tx -&gt; UTxOType tx
-</span><a href="#local-6989586621681038152"><span class="hs-identifier hs-var hs-var">stepDistribute</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#HeadPartialFanoutSelected"><span class="hs-identifier hs-type">HeadPartialFanoutSelected</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">HeadId
+</span><a href="#local-6989586621681039881"><span class="hs-identifier hs-var hs-var">stepDistribute</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#HeadPartialFanoutSelected"><span class="hs-identifier hs-type">HeadPartialFanoutSelected</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">HeadId
 headId :: HeadId
 $sel:headId:NetworkConnected :: HeadId
-</span><a href="#local-6989586621681038140"><span class="hs-identifier hs-var hs-var">headId</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621681039869"><span class="hs-identifier hs-var hs-var">headId</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">UTxOType tx
 remainingOutputs :: UTxOType tx
 $sel:remainingOutputs:NetworkConnected :: UTxOType tx
-</span><a href="#local-6989586621681038145"><span class="hs-identifier hs-var hs-var">remainingOutputs</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:selection:NetworkConnected :: UTxOType tx
+</span><a href="#local-6989586621681039874"><span class="hs-identifier hs-var hs-var">remainingOutputs</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:selection:NetworkConnected :: UTxOType tx
 </span><a href="Hydra.HeadLogic.Outcome.html#%24sel%3Aselection%3ANetworkConnected"><span class="hs-identifier hs-var">selection</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UTxOType tx
-</span><a href="#local-6989586621681038152"><span class="hs-identifier hs-var">stepDistribute</span></a></span><span class="hs-special">}</span><span>
-</span><span id="line-113"></span><span>    </span><span class="annot"><a href="Hydra.HeadLogic.Fanout.Selection.html#PartialStep"><span class="hs-identifier hs-type">PartialStep</span></a></span><span class="hs-special">{</span><span id="local-6989586621681038157"><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621681039881"><span class="hs-identifier hs-var">stepDistribute</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-113"></span><span>    </span><span class="annot"><a href="Hydra.HeadLogic.Fanout.Selection.html#PartialStep"><span class="hs-identifier hs-type">PartialStep</span></a></span><span class="hs-special">{</span><span id="local-6989586621681039886"><span class="annot"><span class="annottext">UTxOType tx
 $sel:stepDistribute:FinalStep :: forall tx. NextFanoutStep tx -&gt; UTxOType tx
 stepDistribute :: UTxOType tx
 </span><a href="Hydra.HeadLogic.Fanout.Selection.html#%24sel%3AstepDistribute%3AFinalStep"><span class="hs-identifier hs-var hs-var">stepDistribute</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#HeadPartialFanoutSelected"><span class="hs-identifier hs-type">HeadPartialFanoutSelected</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">HeadId
 headId :: HeadId
 $sel:headId:NetworkConnected :: HeadId
-</span><a href="#local-6989586621681038140"><span class="hs-identifier hs-var hs-var">headId</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621681039869"><span class="hs-identifier hs-var hs-var">headId</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">UTxOType tx
 remainingOutputs :: UTxOType tx
 $sel:remainingOutputs:NetworkConnected :: UTxOType tx
-</span><a href="#local-6989586621681038145"><span class="hs-identifier hs-var hs-var">remainingOutputs</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:selection:NetworkConnected :: UTxOType tx
+</span><a href="#local-6989586621681039874"><span class="hs-identifier hs-var hs-var">remainingOutputs</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:selection:NetworkConnected :: UTxOType tx
 </span><a href="Hydra.HeadLogic.Outcome.html#%24sel%3Aselection%3ANetworkConnected"><span class="hs-identifier hs-var">selection</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UTxOType tx
-</span><a href="#local-6989586621681038157"><span class="hs-identifier hs-var">stepDistribute</span></a></span><span class="hs-special">}</span><span>
+</span><a href="#local-6989586621681039886"><span class="hs-identifier hs-var">stepDistribute</span></a></span><span class="hs-special">}</span><span>
 </span><span id="line-114"></span></pre></body></html>

@@ -36,8 +36,8 @@ forall (m :: * -&gt; *) r.
 </span><span class="hs-identifier hs-var">withTempDir</span></span><span> </span><span class="annot"><span class="annottext">[Char]
 </span><span class="hs-string">&quot;embedded-etcd&quot;</span></span><span> </span><span class="annot"><span class="annottext">(([Char] -&gt; IO ()) -&gt; IO ()) -&gt; ([Char] -&gt; IO ()) -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679959026"><span class="annot"><span class="annottext">[Char]
-</span><a href="#local-6989586621679959026"><span class="hs-identifier hs-var">tmp</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679960746"><span class="annot"><span class="annottext">[Char]
+</span><a href="#local-6989586621679960746"><span class="hs-identifier hs-var">tmp</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-24"></span><span>      </span><span class="hs-comment">-- Exercise installation while unrelated children fork and execute.</span><span>
 </span><span id="line-25"></span><span>      </span><span class="annot"><span class="annottext">([Char], IO Any) -&gt; (Async IO Any -&gt; IO ()) -&gt; IO ()
 forall (m :: * -&gt; *) a b.
@@ -63,13 +63,13 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="annot"><span class="annottext">Async IO Any
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-26"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679959029"><span class="annot"><span class="annottext">persistenceDir :: [Char]
-</span><a href="#local-6989586621679959029"><span class="hs-identifier hs-var hs-var">persistenceDir</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Char]
-</span><a href="#local-6989586621679959026"><span class="hs-identifier hs-var">tmp</span></a></span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; [Char] -&gt; [Char]
+</span><span id="line-26"></span><span>        </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679960749"><span class="annot"><span class="annottext">persistenceDir :: [Char]
+</span><a href="#local-6989586621679960749"><span class="hs-identifier hs-var hs-var">persistenceDir</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Char]
+</span><a href="#local-6989586621679960746"><span class="hs-identifier hs-var">tmp</span></a></span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; [Char] -&gt; [Char]
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/filepath-1.4.301.0/src/System.FilePath.Posix.html#%3C%2F%3E"><span class="hs-operator hs-var">&lt;/&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">[Char]
 </span><span class="hs-string">&quot;node state with spaces&quot;</span></span><span>
-</span><span id="line-27"></span><span>            </span><span id="local-6989586621679959030"><span class="annot"><span class="annottext">checkExecutable :: IO ()
-</span><a href="#local-6989586621679959030"><span class="hs-identifier hs-var hs-var">checkExecutable</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-27"></span><span>            </span><span id="local-6989586621679960750"><span class="annot"><span class="annottext">checkExecutable :: IO ()
+</span><a href="#local-6989586621679960750"><span class="hs-identifier hs-var hs-var">checkExecutable</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-28"></span><span>              </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; IO () -&gt; IO ()
 forall (m :: * -&gt; *) a.
 (HasCallStack, MonadTimer m, MonadThrow m) =&gt;
@@ -78,13 +78,13 @@ NominalDiffTime -&gt; m a -&gt; m a
 </span><span class="hs-number">10</span></span><span> </span><span class="annot"><span class="annottext">(IO () -&gt; IO ()) -&gt; IO () -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-29"></span><span>                </span><span id="local-6989586621679959032"><span class="annot"><span class="annottext">[Char]
-</span><a href="#local-6989586621679959032"><span class="hs-identifier hs-var">executable</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; WhichEtcd -&gt; IO [Char]
+</span><span id="line-29"></span><span>                </span><span id="local-6989586621679960752"><span class="annot"><span class="annottext">[Char]
+</span><a href="#local-6989586621679960752"><span class="hs-identifier hs-var">executable</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; WhichEtcd -&gt; IO [Char]
 </span><span class="hs-identifier hs-var">getEtcdBinary</span></span><span> </span><span class="annot"><span class="annottext">[Char]
-</span><a href="#local-6989586621679959029"><span class="hs-identifier hs-var">persistenceDir</span></a></span><span> </span><span class="annot"><span class="annottext">WhichEtcd
+</span><a href="#local-6989586621679960749"><span class="hs-identifier hs-var">persistenceDir</span></a></span><span> </span><span class="annot"><span class="annottext">WhichEtcd
 </span><span class="hs-identifier hs-var">EmbeddedEtcd</span></span><span>
-</span><span id="line-30"></span><span>                </span><span id="local-6989586621679959033"><span class="annot"><span class="annottext">ByteString
-</span><a href="#local-6989586621679959033"><span class="hs-identifier hs-var">output</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO ByteString -&gt; IO ByteString
+</span><span id="line-30"></span><span>                </span><span id="local-6989586621679960753"><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679960753"><span class="hs-identifier hs-var">output</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO ByteString -&gt; IO ByteString
 forall a. IO a -&gt; IO a
 </span><span class="hs-identifier hs-var">retryOnBusyExecutable</span></span><span> </span><span class="annot"><span class="annottext">(IO ByteString -&gt; IO ByteString) -&gt; IO ByteString -&gt; IO ByteString
 forall a b. (a -&gt; b) -&gt; a -&gt; b
@@ -97,11 +97,11 @@ ProcessConfig stdin stdoutIgnored stderr -&gt; m ByteString
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; [[Char]] -&gt; ProcessConfig () () ()
 </span><span class="hs-identifier hs-var">proc</span></span><span> </span><span class="annot"><span class="annottext">[Char]
-</span><a href="#local-6989586621679959032"><span class="hs-identifier hs-var">executable</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">[Char]
+</span><a href="#local-6989586621679960752"><span class="hs-identifier hs-var">executable</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">[Char]
 </span><span class="hs-string">&quot;--version&quot;</span></span><span class="hs-special">]</span><span>
 </span><span id="line-31"></span><span>                </span><span class="annot"><span class="annottext">ByteString -&gt; [Char]
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/bytestring-0.11.5.4/src/Data.ByteString.Lazy.Char8.html#unpack"><span class="hs-identifier hs-var">LBS.unpack</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString
-</span><a href="#local-6989586621679959033"><span class="hs-identifier hs-var">output</span></a></span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; [Char] -&gt; IO ()
+</span><a href="#local-6989586621679960753"><span class="hs-identifier hs-var">output</span></a></span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; [Char] -&gt; IO ()
 forall a. (HasCallStack, Show a, Eq a) =&gt; [a] -&gt; [a] -&gt; IO ()
 </span><span class="hs-operator hs-var">`shouldContain`</span></span><span> </span><span class="annot"><span class="annottext">[Char]
 </span><span class="hs-string">&quot;etcd Version:&quot;</span></span><span>
@@ -109,7 +109,7 @@ forall a. (HasCallStack, Show a, Eq a) =&gt; [a] -&gt; [a] -&gt; IO ()
 forall (m :: * -&gt; *) a. Applicative m =&gt; Int -&gt; m a -&gt; m ()
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Control.Monad.html#replicateM_"><span class="hs-identifier hs-var">replicateM_</span></a></span><span> </span><span class="annot"><span class="annottext">Int
 </span><span class="hs-number">50</span></span><span> </span><span class="annot"><span class="annottext">IO ()
-</span><a href="#local-6989586621679959030"><span class="hs-identifier hs-var">checkExecutable</span></a></span><span>
+</span><a href="#local-6989586621679960750"><span class="hs-identifier hs-var">checkExecutable</span></a></span><span>
 </span><span id="line-33"></span><span>
 </span><span id="line-34"></span><span>  </span><span class="annot"><span class="annottext">[Char] -&gt; IO () -&gt; SpecWith (Arg (IO ()))
 forall a.
@@ -135,10 +135,10 @@ forall (m :: * -&gt; *) r.
 </span><span class="hs-identifier hs-var">withTempDir</span></span><span> </span><span class="annot"><span class="annottext">[Char]
 </span><span class="hs-string">&quot;embedded-etcd-missing&quot;</span></span><span> </span><span class="annot"><span class="annottext">(([Char] -&gt; IO ()) -&gt; IO ()) -&gt; ([Char] -&gt; IO ()) -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679959037"><span class="annot"><span class="annottext">[Char]
-</span><a href="#local-6989586621679959037"><span class="hs-identifier hs-var">tmp</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-37"></span><span>        </span><span id="local-6989586621679959038"><span class="annot"><span class="annottext">IORef Int
-</span><a href="#local-6989586621679959038"><span class="hs-identifier hs-var">attempts</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Int -&gt; IO (IORef Int)
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679960757"><span class="annot"><span class="annottext">[Char]
+</span><a href="#local-6989586621679960757"><span class="hs-identifier hs-var">tmp</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-37"></span><span>        </span><span id="local-6989586621679960758"><span class="annot"><span class="annottext">IORef Int
+</span><a href="#local-6989586621679960758"><span class="hs-identifier hs-var">attempts</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Int -&gt; IO (IORef Int)
 forall (m :: * -&gt; *) a. MonadIO m =&gt; a -&gt; m (IORef a)
 </span><span class="hs-identifier hs-var">newIORef</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
 </span><span class="hs-number">0</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span class="hs-special">)</span><span>
@@ -149,7 +149,7 @@ forall a. IO a -&gt; IO a
 </span><span id="line-40"></span><span>              </span><span class="annot"><span class="annottext">IORef Int -&gt; (Int -&gt; Int) -&gt; IO ()
 forall (m :: * -&gt; *) a. MonadIO m =&gt; IORef a -&gt; (a -&gt; a) -&gt; m ()
 </span><span class="hs-identifier hs-var">modifyIORef'</span></span><span> </span><span class="annot"><span class="annottext">IORef Int
-</span><a href="#local-6989586621679959038"><span class="hs-identifier hs-var">attempts</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+</span><a href="#local-6989586621679960758"><span class="hs-identifier hs-var">attempts</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
 forall a. Num a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#%2B"><span class="hs-operator hs-var">+</span></a></span><span> </span><span class="annot"><span class="annottext">Int
 </span><span class="hs-number">1</span></span><span class="hs-special">)</span><span>
@@ -162,7 +162,7 @@ ProcessConfig stdin stdout stderr -&gt; m ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; [[Char]] -&gt; ProcessConfig () () ()
 </span><span class="hs-identifier hs-var">proc</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Char]
-</span><a href="#local-6989586621679959037"><span class="hs-identifier hs-var">tmp</span></a></span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; [Char] -&gt; [Char]
+</span><a href="#local-6989586621679960757"><span class="hs-identifier hs-var">tmp</span></a></span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; [Char] -&gt; [Char]
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/filepath-1.4.301.0/src/System.FilePath.Posix.html#%3C%2F%3E"><span class="hs-operator hs-var">&lt;/&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">[Char]
 </span><span class="hs-string">&quot;missing&quot;</span></span><span class="hs-special">)</span><span> </span><span class="hs-special">[</span><span class="hs-special">]</span><span>
 </span><span id="line-42"></span><span>          </span><span class="hs-special">)</span><span>
@@ -175,7 +175,7 @@ IO a -&gt; Selector e -&gt; IO ()
 </span><span id="line-44"></span><span>        </span><span class="annot"><span class="annottext">IORef Int -&gt; IO Int
 forall (m :: * -&gt; *) a. MonadIO m =&gt; IORef a -&gt; m a
 </span><span class="hs-identifier hs-var">readIORef</span></span><span> </span><span class="annot"><span class="annottext">IORef Int
-</span><a href="#local-6989586621679959038"><span class="hs-identifier hs-var">attempts</span></a></span><span> </span><span class="annot"><span class="annottext">IO Int -&gt; Int -&gt; IO ()
+</span><a href="#local-6989586621679960758"><span class="hs-identifier hs-var">attempts</span></a></span><span> </span><span class="annot"><span class="annottext">IO Int -&gt; Int -&gt; IO ()
 forall a. (HasCallStack, Show a, Eq a) =&gt; IO a -&gt; a -&gt; IO ()
 </span><span class="hs-operator hs-var">`shouldReturn`</span></span><span> </span><span class="annot"><span class="annottext">Int
 </span><span class="hs-number">1</span></span><span>
@@ -211,30 +211,30 @@ forall (m :: * -&gt; *) r.
 </span><span class="hs-identifier hs-var">withTempDir</span></span><span> </span><span class="annot"><span class="annottext">[Char]
 </span><span class="hs-string">&quot;embedded-etcd-busy&quot;</span></span><span> </span><span class="annot"><span class="annottext">(([Char] -&gt; IO ()) -&gt; IO ()) -&gt; ([Char] -&gt; IO ()) -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679959046"><span class="annot"><span class="annottext">[Char]
-</span><a href="#local-6989586621679959046"><span class="hs-identifier hs-var">tmp</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-54"></span><span>        </span><span id="local-6989586621679959047"><span class="annot"><span class="annottext">[Char]
-</span><a href="#local-6989586621679959047"><span class="hs-identifier hs-var">executable</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; WhichEtcd -&gt; IO [Char]
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679960766"><span class="annot"><span class="annottext">[Char]
+</span><a href="#local-6989586621679960766"><span class="hs-identifier hs-var">tmp</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-54"></span><span>        </span><span id="local-6989586621679960767"><span class="annot"><span class="annottext">[Char]
+</span><a href="#local-6989586621679960767"><span class="hs-identifier hs-var">executable</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; WhichEtcd -&gt; IO [Char]
 </span><span class="hs-identifier hs-var">getEtcdBinary</span></span><span> </span><span class="annot"><span class="annottext">[Char]
-</span><a href="#local-6989586621679959046"><span class="hs-identifier hs-var">tmp</span></a></span><span> </span><span class="annot"><span class="annottext">WhichEtcd
+</span><a href="#local-6989586621679960766"><span class="hs-identifier hs-var">tmp</span></a></span><span> </span><span class="annot"><span class="annottext">WhichEtcd
 </span><span class="hs-identifier hs-var">EmbeddedEtcd</span></span><span>
-</span><span id="line-55"></span><span>        </span><span id="local-6989586621679959048"><span class="annot"><span class="annottext">IORef Int
-</span><a href="#local-6989586621679959048"><span class="hs-identifier hs-var">attempts</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Int -&gt; IO (IORef Int)
+</span><span id="line-55"></span><span>        </span><span id="local-6989586621679960768"><span class="annot"><span class="annottext">IORef Int
+</span><a href="#local-6989586621679960768"><span class="hs-identifier hs-var">attempts</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Int -&gt; IO (IORef Int)
 forall (m :: * -&gt; *) a. MonadIO m =&gt; a -&gt; m (IORef a)
 </span><span class="hs-identifier hs-var">newIORef</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
 </span><span class="hs-number">0</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-56"></span><span>        </span><span class="annot"><span class="annottext">[Char] -&gt; IOMode -&gt; (Handle -&gt; IO ()) -&gt; IO ()
 forall r. [Char] -&gt; IOMode -&gt; (Handle -&gt; IO r) -&gt; IO r
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.IO.StdHandles.html#withBinaryFile"><span class="hs-identifier hs-var">withBinaryFile</span></a></span><span> </span><span class="annot"><span class="annottext">[Char]
-</span><a href="#local-6989586621679959047"><span class="hs-identifier hs-var">executable</span></a></span><span> </span><span class="annot"><span class="annottext">IOMode
+</span><a href="#local-6989586621679960767"><span class="hs-identifier hs-var">executable</span></a></span><span> </span><span class="annot"><span class="annottext">IOMode
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.IO.IOMode.html#ReadWriteMode"><span class="hs-identifier hs-var">ReadWriteMode</span></a></span><span> </span><span class="annot"><span class="annottext">((Handle -&gt; IO ()) -&gt; IO ()) -&gt; (Handle -&gt; IO ()) -&gt; IO ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679959050"><span class="annot"><span class="annottext">Handle
-</span><a href="#local-6989586621679959050"><span class="hs-identifier hs-var">writer</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679960770"><span class="annot"><span class="annottext">Handle
+</span><a href="#local-6989586621679960770"><span class="hs-identifier hs-var">writer</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
 </span><span id="line-57"></span><span>          </span><span class="hs-comment">-- The first exec fails deterministically; releasing the descriptor</span><span>
 </span><span id="line-58"></span><span>          </span><span class="hs-comment">-- then models the unrelated child's close-on-exec cleanup.</span><span>
-</span><span id="line-59"></span><span>          </span><span id="local-6989586621679959051"><span class="annot"><span class="annottext">ByteString
-</span><a href="#local-6989586621679959051"><span class="hs-identifier hs-var">output</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO ByteString -&gt; IO ByteString
+</span><span id="line-59"></span><span>          </span><span id="local-6989586621679960771"><span class="annot"><span class="annottext">ByteString
+</span><a href="#local-6989586621679960771"><span class="hs-identifier hs-var">output</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">IO ByteString -&gt; IO ByteString
 forall a. IO a -&gt; IO a
 </span><span class="hs-identifier hs-var">retryOnBusyExecutable</span></span><span> </span><span class="annot"><span class="annottext">(IO ByteString -&gt; IO ByteString) -&gt; IO ByteString -&gt; IO ByteString
 forall a b. (a -&gt; b) -&gt; a -&gt; b
@@ -242,7 +242,7 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><span id="line-60"></span><span>            </span><span class="annot"><span class="annottext">IORef Int -&gt; (Int -&gt; Int) -&gt; IO ()
 forall (m :: * -&gt; *) a. MonadIO m =&gt; IORef a -&gt; (a -&gt; a) -&gt; m ()
 </span><span class="hs-identifier hs-var">modifyIORef'</span></span><span> </span><span class="annot"><span class="annottext">IORef Int
-</span><a href="#local-6989586621679959048"><span class="hs-identifier hs-var">attempts</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+</span><a href="#local-6989586621679960768"><span class="hs-identifier hs-var">attempts</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
 forall a. Num a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#%2B"><span class="hs-operator hs-var">+</span></a></span><span> </span><span class="annot"><span class="annottext">Int
 </span><span class="hs-number">1</span></span><span class="hs-special">)</span><span>
@@ -252,24 +252,24 @@ MonadIO m =&gt;
 ProcessConfig stdin stdoutIgnored stderr -&gt; m ByteString
 </span><span class="hs-identifier hs-var">readProcessStdout_</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">[Char] -&gt; [[Char]] -&gt; ProcessConfig () () ()
 </span><span class="hs-identifier hs-var">proc</span></span><span> </span><span class="annot"><span class="annottext">[Char]
-</span><a href="#local-6989586621679959047"><span class="hs-identifier hs-var">executable</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">[Char]
+</span><a href="#local-6989586621679960767"><span class="hs-identifier hs-var">executable</span></a></span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">[Char]
 </span><span class="hs-string">&quot;--version&quot;</span></span><span class="hs-special">]</span><span class="hs-special">)</span><span>
 </span><span id="line-62"></span><span>              </span><span class="annot"><span class="annottext">IO ByteString -&gt; IO () -&gt; IO ByteString
 forall a b. IO a -&gt; IO b -&gt; IO a
 forall (m :: * -&gt; *) a b. MonadCatch m =&gt; m a -&gt; m b -&gt; m a
 </span><span class="hs-operator hs-var">`onException`</span></span><span> </span><span class="annot"><span class="annottext">Handle -&gt; IO ()
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.IO.Handle.html#hClose"><span class="hs-identifier hs-var">hClose</span></a></span><span> </span><span class="annot"><span class="annottext">Handle
-</span><a href="#local-6989586621679959050"><span class="hs-identifier hs-var">writer</span></a></span><span>
+</span><a href="#local-6989586621679960770"><span class="hs-identifier hs-var">writer</span></a></span><span>
 </span><span id="line-63"></span><span>          </span><span class="annot"><span class="annottext">ByteString -&gt; [Char]
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/bytestring-0.11.5.4/src/Data.ByteString.Lazy.Char8.html#unpack"><span class="hs-identifier hs-var">LBS.unpack</span></a></span><span> </span><span class="annot"><span class="annottext">ByteString
-</span><a href="#local-6989586621679959051"><span class="hs-identifier hs-var">output</span></a></span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; [Char] -&gt; IO ()
+</span><a href="#local-6989586621679960771"><span class="hs-identifier hs-var">output</span></a></span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; [Char] -&gt; IO ()
 forall a. (HasCallStack, Show a, Eq a) =&gt; [a] -&gt; [a] -&gt; IO ()
 </span><span class="hs-operator hs-var">`shouldContain`</span></span><span> </span><span class="annot"><span class="annottext">[Char]
 </span><span class="hs-string">&quot;etcd Version:&quot;</span></span><span>
 </span><span id="line-64"></span><span>        </span><span class="annot"><span class="annottext">IORef Int -&gt; IO Int
 forall (m :: * -&gt; *) a. MonadIO m =&gt; IORef a -&gt; m a
 </span><span class="hs-identifier hs-var">readIORef</span></span><span> </span><span class="annot"><span class="annottext">IORef Int
-</span><a href="#local-6989586621679959048"><span class="hs-identifier hs-var">attempts</span></a></span><span> </span><span class="annot"><span class="annottext">IO Int -&gt; (Int -&gt; IO ()) -&gt; IO ()
+</span><a href="#local-6989586621679960768"><span class="hs-identifier hs-var">attempts</span></a></span><span> </span><span class="annot"><span class="annottext">IO Int -&gt; (Int -&gt; IO ()) -&gt; IO ()
 forall a b. IO a -&gt; (a -&gt; IO b) -&gt; IO b
 forall (m :: * -&gt; *) a b. Monad m =&gt; m a -&gt; (a -&gt; m b) -&gt; m b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%3E%3E%3D"><span class="hs-operator hs-var">&gt;&gt;=</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; (Int -&gt; Bool) -&gt; IO ()
@@ -298,8 +298,8 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
 </span><span id="line-68"></span><span>      </span><span class="hs-comment">-- Use a fixed ETXTBSY error to exercise retry exhaustion with constant</span><span>
 </span><span id="line-69"></span><span>      </span><span class="hs-comment">-- work per attempt.</span><span>
-</span><span id="line-70"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679959055"><span class="annot"><span class="annottext">busyException :: IOException
-</span><a href="#local-6989586621679959055"><span class="hs-identifier hs-var hs-var">busyException</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; Errno -&gt; Maybe Handle -&gt; Maybe [Char] -&gt; IOException
+</span><span id="line-70"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span id="local-6989586621679960775"><span class="annot"><span class="annottext">busyException :: IOException
+</span><a href="#local-6989586621679960775"><span class="hs-identifier hs-var hs-var">busyException</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">[Char] -&gt; Errno -&gt; Maybe Handle -&gt; Maybe [Char] -&gt; IOException
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Foreign.C.Error.html#errnoToIOError"><span class="hs-identifier hs-var">errnoToIOError</span></a></span><span> </span><span class="annot"><span class="annottext">[Char]
 </span><span class="hs-string">&quot;startProcess&quot;</span></span><span> </span><span class="annot"><span class="annottext">Errno
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Foreign.C.Error.html#eTXTBSY"><span class="hs-identifier hs-var">eTXTBSY</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe Handle
@@ -307,8 +307,8 @@ forall a. Maybe a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe [Char]
 forall a. Maybe a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Nothing"><span class="hs-identifier hs-var">Nothing</span></a></span><span>
-</span><span id="line-71"></span><span>      </span><span id="local-6989586621679959056"><span class="annot"><span class="annottext">IORef Int
-</span><a href="#local-6989586621679959056"><span class="hs-identifier hs-var">attempts</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Int -&gt; IO (IORef Int)
+</span><span id="line-71"></span><span>      </span><span id="local-6989586621679960776"><span class="annot"><span class="annottext">IORef Int
+</span><a href="#local-6989586621679960776"><span class="hs-identifier hs-var">attempts</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Int -&gt; IO (IORef Int)
 forall (m :: * -&gt; *) a. MonadIO m =&gt; a -&gt; m (IORef a)
 </span><span class="hs-identifier hs-var">newIORef</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int
 </span><span class="hs-number">0</span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Int"><span class="hs-identifier hs-type">Int</span></a></span><span class="hs-special">)</span><span>
@@ -319,7 +319,7 @@ forall a. IO a -&gt; IO a
 </span><span id="line-74"></span><span>            </span><span class="annot"><span class="annottext">IORef Int -&gt; (Int -&gt; Int) -&gt; IO ()
 forall (m :: * -&gt; *) a. MonadIO m =&gt; IORef a -&gt; (a -&gt; a) -&gt; m ()
 </span><span class="hs-identifier hs-var">modifyIORef'</span></span><span> </span><span class="annot"><span class="annottext">IORef Int
-</span><a href="#local-6989586621679959056"><span class="hs-identifier hs-var">attempts</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
+</span><a href="#local-6989586621679960776"><span class="hs-identifier hs-var">attempts</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Int -&gt; Int -&gt; Int
 forall a. Num a =&gt; a -&gt; a -&gt; a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Num.html#%2B"><span class="hs-operator hs-var">+</span></a></span><span> </span><span class="annot"><span class="annottext">Int
 </span><span class="hs-number">1</span></span><span class="hs-special">)</span><span>
@@ -327,19 +327,19 @@ forall a. Num a =&gt; a -&gt; a -&gt; a
 forall e a. Exception e =&gt; e -&gt; IO a
 forall (m :: * -&gt; *) e a. (MonadThrow m, Exception e) =&gt; e -&gt; m a
 </span><span class="hs-identifier hs-var">throwIO</span></span><span> </span><span class="annot"><span class="annottext">IOException
-</span><a href="#local-6989586621679959055"><span class="hs-identifier hs-var">busyException</span></a></span><span>
+</span><a href="#local-6989586621679960775"><span class="hs-identifier hs-var">busyException</span></a></span><span>
 </span><span id="line-76"></span><span>        </span><span class="hs-special">)</span><span>
 </span><span id="line-77"></span><span>        </span><span class="annot"><span class="annottext">IO Any -&gt; Selector IOException -&gt; IO ()
 forall e a.
 (HasCallStack, Exception e) =&gt;
 IO a -&gt; Selector e -&gt; IO ()
-</span><span class="hs-operator hs-var">`shouldThrow`</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679959058"><span class="annot"><span class="annottext">IOException
-</span><a href="#local-6989586621679959058"><span class="hs-identifier hs-var">exception</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">CInt -&gt; Errno
+</span><span class="hs-operator hs-var">`shouldThrow`</span></span><span> </span><span class="hs-glyph">\</span><span id="local-6989586621679960778"><span class="annot"><span class="annottext">IOException
+</span><a href="#local-6989586621679960778"><span class="hs-identifier hs-var">exception</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">CInt -&gt; Errno
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Foreign.C.Error.html#Errno"><span class="hs-identifier hs-var">Errno</span></a></span><span> </span><span class="annot"><span class="annottext">(CInt -&gt; Errno) -&gt; Maybe CInt -&gt; Maybe Errno
 forall (f :: * -&gt; *) a b. Functor f =&gt; (a -&gt; b) -&gt; f a -&gt; f b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Functor.html#%3C%24%3E"><span class="hs-operator hs-var">&lt;$&gt;</span></a></span><span> </span><span class="annot"><span class="annottext">IOException -&gt; Maybe CInt
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.IO.Exception.html#ioe_errno"><span class="hs-identifier hs-var">ioe_errno</span></a></span><span> </span><span class="annot"><span class="annottext">IOException
-</span><a href="#local-6989586621679959058"><span class="hs-identifier hs-var">exception</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Maybe Errno -&gt; Maybe Errno -&gt; Bool
+</span><a href="#local-6989586621679960778"><span class="hs-identifier hs-var">exception</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Maybe Errno -&gt; Maybe Errno -&gt; Bool
 forall a. Eq a =&gt; a -&gt; a -&gt; Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3D%3D"><span class="hs-operator hs-var">==</span></a></span><span> </span><span class="annot"><span class="annottext">Errno -&gt; Maybe Errno
 forall a. a -&gt; Maybe a
@@ -348,7 +348,7 @@ forall a. a -&gt; Maybe a
 </span><span id="line-78"></span><span>      </span><span class="annot"><span class="annottext">IORef Int -&gt; IO Int
 forall (m :: * -&gt; *) a. MonadIO m =&gt; IORef a -&gt; m a
 </span><span class="hs-identifier hs-var">readIORef</span></span><span> </span><span class="annot"><span class="annottext">IORef Int
-</span><a href="#local-6989586621679959056"><span class="hs-identifier hs-var">attempts</span></a></span><span> </span><span class="annot"><span class="annottext">IO Int -&gt; Int -&gt; IO ()
+</span><a href="#local-6989586621679960776"><span class="hs-identifier hs-var">attempts</span></a></span><span> </span><span class="annot"><span class="annottext">IO Int -&gt; Int -&gt; IO ()
 forall a. (HasCallStack, Show a, Eq a) =&gt; IO a -&gt; a -&gt; IO ()
 </span><span class="hs-operator hs-var">`shouldReturn`</span></span><span> </span><span class="annot"><span class="annottext">Int
 </span><span class="hs-number">21</span></span><span class="hs-cpp">

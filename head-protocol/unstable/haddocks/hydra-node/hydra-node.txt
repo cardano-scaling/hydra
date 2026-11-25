@@ -1346,6 +1346,20 @@ instance Hydra.Tx.IsTx.IsTx tx => Data.Aeson.Types.FromJSON.FromJSON (Hydra.API.
 instance Hydra.Tx.IsTx.IsTx tx => Cardano.Binary.ToCBOR.ToCBOR (Hydra.API.ClientInput.ClientInput tx)
 instance Hydra.Tx.IsTx.IsTx tx => Cardano.Binary.FromCBOR.FromCBOR (Hydra.API.ClientInput.ClientInput tx)
 
+
+-- | A snapshot paired with its lazy canonical signing bytes.
+module Hydra.HeadLogic.Snapshot.Cached
+data CachedSnapshot tx
+
+-- | Derive the signing bytes once, when first demanded. The cache stays
+--   lazy under StrictData so replay does not compute unused accumulator
+--   commitments.
+cacheSnapshot :: IsTx tx => Snapshot tx -> CachedSnapshot tx
+snapshot :: CachedSnapshot tx -> Snapshot tx
+signingBytes :: CachedSnapshot tx -> ByteString
+instance Hydra.Tx.IsTx.IsTx tx => GHC.Classes.Eq (Hydra.HeadLogic.Snapshot.Cached.CachedSnapshot tx)
+instance Hydra.Tx.IsTx.IsTx tx => GHC.Show.Show (Hydra.HeadLogic.Snapshot.Cached.CachedSnapshot tx)
+
 module Hydra.HeadLogic.State
 
 -- | The main state of the Hydra protocol state machine. It holds both, the
@@ -1463,23 +1477,15 @@ RequestedSnapshot :: SnapshotNumber -> SnapshotNumber -> SeenSnapshot tx
 [$sel:requested:NoSeenSnapshot] :: SeenSnapshot tx -> SnapshotNumber
 
 -- | ReqSn for given snapshot was received.
-SeenSnapshot :: Snapshot tx -> Map Party (Signature (Snapshot tx)) -> ~ByteString -> SeenSnapshot tx
-[$sel:snapshot:NoSeenSnapshot] :: SeenSnapshot tx -> Snapshot tx
+SeenSnapshot :: CachedSnapshot tx -> Map Party (Signature (Snapshot tx)) -> SeenSnapshot tx
+
+-- | The snapshot and its lazy signing bytes, shared with its live owner.
+[$sel:cachedSnapshot:NoSeenSnapshot] :: SeenSnapshot tx -> CachedSnapshot tx
 
 -- | Collected signatures so far.
 [$sel:signatories:NoSeenSnapshot] :: SeenSnapshot tx -> Map Party (Signature (Snapshot tx))
 
--- | Pre-computed result of 'snapshotSigningBytes snapshot', cached to
---   avoid recomputing the expensive UTxO hash on every AckSn verification.
---   Explicitly lazy under StrictData: state hydration folds every
---   historical <tt>NodeState</tt> to WHNF, and a strict field here would
---   force one full accumulator commitment per replayed SnapshotRequested
---   event. At runtime it is forced once, on the first AckSn.
-[$sel:signableBytes:NoSeenSnapshot] :: SeenSnapshot tx -> ~ByteString
-
--- | Smart constructor for <a>SeenSnapshot</a> that computes and caches
---   <a>$sel:signableBytes:NoSeenSnapshot</a> from <a>SeenSnapshot</a>,
---   enforcing the invariant that they stay in sync.
+-- | Retain a snapshot with its signatures and a fresh lazy signing cache.
 mkSeenSnapshot :: IsTx tx => Snapshot tx -> Map Party (Signature (Snapshot tx)) -> SeenSnapshot tx
 
 -- | Get the last seen snapshot number given a <a>SeenSnapshot</a>.
@@ -4527,7 +4533,9 @@ continue :: AllowedTransition topology from to => (reply -> state to) -> Program
 -- | Complete the state transformations.
 finish :: state phase -> result -> Transition tx topology state phase result
 
--- | Run a Crem program and get a <a>Program</a> out.
+-- | Drive the typed transitions directly. Intermediate machine wrappers
+--   and inspectors are unnecessary when the workflow runs to its terminal
+--   result.
 run :: Workflow tx topology result -> Program tx result
 
 module Hydra.HeadLogic.Snapshot.Verification
@@ -5541,19 +5549,13 @@ RequestedSnapshot :: SnapshotNumber -> SnapshotNumber -> SeenSnapshot tx
 [$sel:requested:NoSeenSnapshot] :: SeenSnapshot tx -> SnapshotNumber
 
 -- | ReqSn for given snapshot was received.
-SeenSnapshot :: Snapshot tx -> Map Party (Signature (Snapshot tx)) -> ~ByteString -> SeenSnapshot tx
-[$sel:snapshot:NoSeenSnapshot] :: SeenSnapshot tx -> Snapshot tx
+SeenSnapshot :: CachedSnapshot tx -> Map Party (Signature (Snapshot tx)) -> SeenSnapshot tx
+
+-- | The snapshot and its lazy signing bytes, shared with its live owner.
+[$sel:cachedSnapshot:NoSeenSnapshot] :: SeenSnapshot tx -> CachedSnapshot tx
 
 -- | Collected signatures so far.
 [$sel:signatories:NoSeenSnapshot] :: SeenSnapshot tx -> Map Party (Signature (Snapshot tx))
-
--- | Pre-computed result of 'snapshotSigningBytes snapshot', cached to
---   avoid recomputing the expensive UTxO hash on every AckSn verification.
---   Explicitly lazy under StrictData: state hydration folds every
---   historical <tt>NodeState</tt> to WHNF, and a strict field here would
---   force one full accumulator commitment per replayed SnapshotRequested
---   event. At runtime it is forced once, on the first AckSn.
-[$sel:signableBytes:NoSeenSnapshot] :: SeenSnapshot tx -> ~ByteString
 
 -- | An <a>Closed</a> head with an current candidate
 --   <a>ConfirmedSnapshot</a>, which may be contested before the
@@ -5679,9 +5681,7 @@ headIdOf :: HeadState tx -> Maybe HeadId
 --   should not block a fresh request with the new version.
 isCollectingAcks :: SeenSnapshot tx -> Bool
 
--- | Smart constructor for <a>SeenSnapshot</a> that computes and caches
---   <a>$sel:signableBytes:NoSeenSnapshot</a> from <a>SeenSnapshot</a>,
---   enforcing the invariant that they stay in sync.
+-- | Retain a snapshot with its signatures and a fresh lazy signing cache.
 mkSeenSnapshot :: IsTx tx => Snapshot tx -> Map Party (Signature (Snapshot tx)) -> SeenSnapshot tx
 
 -- | Get the last seen snapshot number given a <a>SeenSnapshot</a>.
@@ -7101,8 +7101,8 @@ setupServerNotification :: IO (NotifyServerRunning, WaitForServer)
 --   <a>TimedServerOutput</a> to clients. The 'Maybe (Snapshot tx)'
 --   argument carries the snapshot currently being confirmed (from the
 --   preceding <tt>SnapshotRequested</tt> event), needed to reconstruct
---   <a>SnapshotConfirmed</a> outputs when <a>ServerOutput</a> is absent
---   from the event.
+--   <a>SnapshotConfirmed</a> outputs when
+--   <a>$sel:snapshot:NetworkConnected</a> is absent from the event.
 mkTimedServerOutputFromStateEvent :: IsChainState tx => Maybe (Snapshot tx) -> StateEvent tx -> Maybe (TimedServerOutput tx)
 
 -- | Advance the seen-snapshot state as events are processed sequentially.
