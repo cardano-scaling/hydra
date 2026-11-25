@@ -114,7 +114,15 @@ import Hydra.Tx.Snapshot (
   SnapshotNumber,
  )
 
-data Stage = CheckNumber | FindSnapshot | CollectSignature | CheckComplete | ConfirmSnapshot | PublishIncrementalEffects | RequestNext | Finished
+data Stage
+  = CheckNumber
+  | FindSnapshot
+  | CollectSignature
+  | CheckComplete
+  | ConfirmSnapshot
+  | PublishIncrementalEffects
+  | RequestNext
+  | Finished
 
 type AckTopology =
   'Topology
@@ -135,11 +143,23 @@ deriving stock instance Bounded Stage
 data State tx phase where
   NumberCheck :: State tx 'CheckNumber
   Find :: State tx 'FindSnapshot
-  Collect :: Map Party (Signature (Snapshot tx)) -> State tx 'CollectSignature
-  Collected :: Map Party (Signature (Snapshot tx)) -> Coordinated.Runtime tx -> State tx 'CheckComplete
-  Confirm :: VerifiedCandidate tx -> Coordinated.Runtime tx -> State tx 'ConfirmSnapshot
-  Publish :: VerifiedCandidate tx -> Coordinated.Runtime tx -> State tx 'PublishIncrementalEffects
-  Request :: Snapshot tx -> Coordinated.Runtime tx -> State tx 'RequestNext
+  Collect ::
+    Map Party (Signature (Snapshot tx)) ->
+    State tx 'CollectSignature
+  Collected ::
+    Map Party (Signature (Snapshot tx)) ->
+    Coordinated.Runtime tx ->
+    State tx 'CheckComplete
+  Confirm ::
+    VerifiedCandidate tx ->
+    Coordinated.Runtime tx ->
+    State tx 'ConfirmSnapshot
+  Publish ::
+    VerifiedCandidate tx ->
+    Coordinated.Runtime tx ->
+    State tx 'PublishIncrementalEffects
+  Request ::
+    Snapshot tx -> Coordinated.Runtime tx -> State tx 'RequestNext
   Done :: State tx 'Finished
 
 statePhase :: State tx phase -> Stage
@@ -163,7 +183,11 @@ data Args tx = Args
   , snapshotNumber :: ~SnapshotNumber
   }
 
-workflow :: forall tx. IsChainState tx => Args tx -> Workflow tx AckTopology ()
+workflow ::
+  forall tx.
+  IsChainState tx =>
+  Args tx ->
+  Workflow tx AckTopology ()
 workflow Args{chainPointTime = ChainPointTime{currentChainTime}, ..} =
   Workflow.workflow (show . statePhase) NumberCheck step
  where
@@ -203,7 +227,8 @@ workflow Args{chainPointTime = ChainPointTime{currentChainTime}, ..} =
           void $ decide "all parties have signed" False
           owned <- requireCandidate runtime
           void $ Staging.stage runtime $ Coordinated.recordSignature owned sender signed
-    Confirm verified runtime -> continue (Publish verified) $ Staging.stage runtime $ Coordinated.confirmSnapshot verified
+    Confirm verified runtime ->
+      continue (Publish verified) $ Staging.stage runtime $ Coordinated.confirmSnapshot verified
     Publish verified confirmedRuntime -> continue (const $ Request snapshot confirmedRuntime) $ do
       let signatures = verifiedSignatures $ candidateEvidence verified
           current = Coordinated.currentState confirmedRuntime
@@ -233,5 +258,8 @@ workflow Args{chainPointTime = ChainPointTime{currentChainTime}, ..} =
   CoordinatedHeadState{seenSnapshot} = coordinatedHeadState
   lastSeenSn = seenSnapshotNumber seenSnapshot
 
-  requireCandidate :: Coordinated.Runtime tx -> Program tx (Coordinated.Candidate tx)
-  requireCandidate = maybe (reject $ AssertionFailed "snapshot owner has no current candidate") pure . Coordinated.candidate
+  requireCandidate ::
+    Coordinated.Runtime tx ->
+    Program tx (Coordinated.Candidate tx)
+  requireCandidate =
+    maybe (reject $ AssertionFailed "snapshot owner has no current candidate") pure . Coordinated.candidate
