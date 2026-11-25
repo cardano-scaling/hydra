@@ -24,11 +24,18 @@ import Hydra.Prelude
 import Hydra.Tx (HeadSeed, IsTx)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot, SnapshotVersion)
 
--- | Post the step derived from the retained or observed fanout state. Client
--- decisions use a checked FanoutPlan before recording their intent.
-emitFanoutStep :: IsTx tx => NextFanoutStep tx -> ConfirmedSnapshot tx -> SnapshotVersion -> HeadSeed -> UTCTime -> Program tx ()
+emitFanoutStep ::
+  IsTx tx =>
+  NextFanoutStep tx ->
+  ConfirmedSnapshot tx ->
+  SnapshotVersion ->
+  HeadSeed ->
+  UTCTime ->
+  Program tx ()
 emitFanoutStep step confirmedSnapshot version headSeed contestationDeadline =
-  emit $ OnChainEffect $ fanoutTransaction step confirmedSnapshot version headSeed contestationDeadline
+  emit $
+    OnChainEffect $
+      fanoutTransaction step confirmedSnapshot version headSeed contestationDeadline
 
 -- | Re-post the next fanout step after a chain rollback while in
 -- 'FanoutProgress', so the fanout resumes instead of stalling with the
