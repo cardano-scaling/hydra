@@ -24,8 +24,8 @@ import Hydra.HeadLogic.State.Coordinated.Snapshots.State qualified as State (
   request,
  )
 import Hydra.HeadLogic.State.Types (
-  Command (..),
   LocalTransactionCommand (..),
+  SnapshotCommand (..),
   TransactionUpdate (..),
  )
 import Hydra.Prelude hiding (State, state)
@@ -70,9 +70,9 @@ replay headId parties initial deposited event = withInitialState initial $ \stat
     ChainRolledBack{chainState} ->
       Just $ mkSnapshotOutput $ Update (withContext (contextOf state){State.chainSlot = chainStateSlot chainState} state) TransactionsUnchanged []
     TransactionReceived tx ->
-      Just $ live $ Transactions $ ReceiveTransaction tx
+      Just $ mkSnapshotOutput $ Update state (RunLocalTransactionCommand $ ReceiveTransaction tx) []
     TxInvalid{utxo, transaction = tx, validationError = err} ->
-      Just $ live $ Transactions $ MarkTransactionInvalid utxo tx err
+      Just $ mkSnapshotOutput $ Update state (RunLocalTransactionCommand $ MarkTransactionInvalid utxo tx err) []
     LocalStateCleared{snapshotNumber = number} ->
       Just $ live $ ClearLocalState number
     DepositActivated depositId chainTime deposit ->
@@ -112,7 +112,7 @@ replay headId parties initial deposited event = withInitialState initial $ \stat
     HeadFannedOut{} -> Nothing
     HeadPartialFannedOut{} -> Nothing
     IgnoredHeadInitializing{} -> Nothing
-    -- The clock owner applies time and synchronization changes.
+    -- State.Node applies time and synchronisation changes.
     TickObserved{} -> Nothing
     NodeUnsynced{} -> Nothing
     NodeSynced{} -> Nothing

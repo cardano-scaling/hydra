@@ -1,7 +1,7 @@
 module Hydra.HeadLogic.State.Types (
   DepositOutput (..),
-  HeadOutput (..),
   Command (..),
+  SnapshotCommand (..),
   LocalTransactionCommand (..),
   TransactionUpdate (..),
   VersionChange (..),
@@ -21,7 +21,7 @@ import Hydra.HeadLogic.Snapshot.Verification (
   VerifiedCandidate,
   VerifiedSnapshot,
  )
-import Hydra.HeadLogic.State (FinalizedSnapshot, HeadState, SeenSnapshot)
+import Hydra.HeadLogic.State (FinalizedSnapshot, SeenSnapshot)
 import Hydra.Ledger (ValidationError)
 import Hydra.Node.State (TrackedDeposits)
 import Hydra.Prelude
@@ -41,16 +41,14 @@ data DepositOutput tx = DepositOutput
   , settledDeposit :: ~(UTxOType tx)
   }
 
-data HeadOutput tx = HeadOutput
-  { event :: StateChanged tx
-  , deposits :: TrackedDeposits tx
-  , headState :: HeadState tx
-  }
-
--- | All the things that can occur in relation to a snapshot.
+-- | Commands routed by the off-chain state coordinator.
 data Command tx
   = Transactions (LocalTransactionCommand tx)
-  | RequestSnapshot (SnapshotRequest tx)
+  | Snapshots (SnapshotCommand tx)
+
+-- | Snapshot rounds and changes to their settlement context.
+data SnapshotCommand tx
+  = RequestSnapshot (SnapshotRequest tx)
   | AcceptSnapshot (Snapshot tx) (Seq tx) (Maybe (TxIdType tx))
   | RecordSignature (Candidate tx) Party (Signature (Snapshot tx))
   | ConfirmSnapshot (VerifiedCandidate tx)

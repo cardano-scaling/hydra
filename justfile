@@ -170,7 +170,8 @@ lint PKG="all":
 # serve the documentation locally. Generates the (git-ignored) transaction-cost
 # benchmark page first, so it renders locally exactly like it does in CI (which
 # generates it from nix/hydra/docs.nix). Uses cabal to build tx-cost since the
-# nix benchmark exe does not run on darwin.
+# nix benchmark exe does not run on darwin. The yarn start hook also generates
+# the HeadLogic Mermaid page from the current Crem topologies.
 [doc("serve the documentation locally (generates the tx-cost benchmark page first)")]
 docs:
   #!/usr/bin/env bash

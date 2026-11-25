@@ -6,14 +6,24 @@ On application startup, the [`hydrate`](pathname:///haddocks/hydra-node/Hydra-No
 
 ## Head state evolution
 
-`Hydra.HeadLogic.State.Node` composes the deposit registry, Head lifecycle and
-clock machines to apply retained events. `Hydra.HeadLogic.State.Types` defines
-their shared commands, updates and output records; persisted Head state lives
-in `Hydra.HeadLogic.State`. The Head lifecycle module, `State.Head`, contains
-the open-head context and delegates its updates to the coordinated machines.
-`State.Coordinated.Transactions` defines both the decommit topology and the
-transaction machine that follows it. Input rules stage coordinated updates and
-broadcast snapshot requests through `Hydra.HeadLogic.Rules.Coordinated`.
+`Hydra.HeadLogic.State.Node` owns the deposit registry, Head lifecycle and
+observed chain time and synchronisation status. It applies state-change events
+to these components and assembles `NodeState`. Increment settlement reads the
+deposit's value before its registry entry is consumed. Chain time and
+synchronisation are updated directly in `NodeState`, without a separate machine.
+
+An open Head owns `CoordinatedHeadState`. `State.Coordinated` routes ordinary
+transaction commands directly to `Transactions`; snapshot commands go to
+`Snapshots`. Snapshot changes are applied before transaction reconciliation and
+commit selection. These dependencies are explicit in the coordinator. The
+[overview diagrams](./head-logic-machines.md) show ownership, while each
+machine's diagram shows its permitted phase transitions.
+
+`Hydra.HeadLogic.State.Types` defines the shared commands and updates. The
+snapshot command type excludes ordinary transaction commands. Persisted state
+lives in `Hydra.HeadLogic.State`. Retained events use the same transaction and
+commit updates, restoring snapshot state without repeating live admission or
+signature verification.
 
 ## Default event source and sinks
 

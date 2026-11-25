@@ -1503,7 +1503,9 @@ blockchain sees a _rollback_ followed by rollforwards.
 === State and replay
 
 - `Rules` chooses actions; `State` owns updates and recovery; shared types live in `State.Types`.
-- Retained events flow through Deposits → Head → Clock; Open contains Snapshots → Transactions → Commits.
+- Node state contains the deposit registry, Head lifecycle, and observed time and synchronisation status. State.Node applies retained events and updates time and synchronisation directly in NodeState, without a separate clock machine.
+- An open Head contains snapshots, local transactions and decommit reservations, and commit selection. These are state components, not successive protocol stages.
+- Increment settlement supplies the deposited UTxO to the Head before the registry marks it consumed.
 - Replay trusts retained events; it does not repeat admission or signature checks. Foreign-Head events are filtered first, except node-level deposit recovery.
 - `Nothing` from coordinated replay means no coordinated update; other owners still process the event.
 - Tick order: record chain time, update sync status, refresh deposits, then perform Head-specific work. Wall-clock time measures sync lag only.
@@ -1533,12 +1535,13 @@ blockchain sees a _rollback_ followed by rollforwards.
 === Coordinated state
 
 - Snapshots owns candidates, signatures and certificates; Transactions owns the registry, local ledger and decommit; Commits owns deposit selection and phase.
-- Components exchange typed updates, not mutable NodeState. Owner refusal rejects the whole Program attempt.
+- State.Coordinated routes ordinary transaction commands directly to Transactions. Snapshot commands update Snapshots before transaction reconciliation and commit selection; settlement preserves this ordering.
+- Snapshot commands exclude ordinary transaction commands. Components exchange typed updates; owner refusal rejects the whole Program attempt without retaining any component update.
 - Rebuilding from a snapshot preserves pending decommit reservations and the order of retained transactions.
 - Clearing local work empties the registry/sequence. A confirmed snapshot restores the spendable base and approved decommit, clearing deposit selection; an initial snapshot leaves selection/reservation unchanged.
 - Fresh settlement advances the version and applies value once. Repetition cannot restore spent outputs or release a newer reservation.
 - Repeated commit settlement still clears a matching selection; repeated decommit settlement leaves transaction state unchanged.
-- One runtime handles each retained event batch; checkpoints reset it. Continuations are not persisted.
+- Coordinators retain their component states across commands and event batches; checkpoints reset them. Continuations are not persisted.
 
 === Decommit phases
 

@@ -8,7 +8,6 @@ import Test.Hydra.Prelude (Expectation, Spec, describe, it, shouldBe)
 
 import Cardano.Binary (decodeFull', serialize')
 import Control.Monad (foldM)
-import Crem.Inspect (Component (RightComponent), inspectStates)
 import Data.List qualified as List
 import Data.Map.Strict qualified as Map
 import Hydra.HeadLogic.Outcome (StateChanged (..))
@@ -130,7 +129,7 @@ spec = describe "commit and deposit replay" $ do
         replacement = testSnapshot 2 0 [] mempty
         phase :: Text -> NodeState SimpleTx -> Expectation
         phase expected node = case node.headState of
-          Open open -> join (List.lookup [RightComponent] $ inspectStates $ Coordinated.components open) `shouldBe` Just expected
+          Open open -> join (List.lookup "Commits" $ Coordinated.inspect $ Coordinated.start open) `shouldBe` Just expected
           _ -> fail "expected an open Head"
         awaiting = phase "AwaitingCommitSettlement"
     checkReplay

@@ -76,6 +76,7 @@ library
     Hydra.HeadLogic
     Hydra.HeadLogic.Cardano
     Hydra.HeadLogic.Deposit
+    Hydra.HeadLogic.Diagrams
     Hydra.HeadLogic.Error
     Hydra.HeadLogic.Fanout.Outputs
     Hydra.HeadLogic.Fanout.Selection
@@ -114,7 +115,6 @@ library
     Hydra.HeadLogic.Snapshot.Verification
     Hydra.HeadLogic.State
     Hydra.HeadLogic.State.ChainHistory
-    Hydra.HeadLogic.State.Clock
     Hydra.HeadLogic.State.Coordinated
     Hydra.HeadLogic.State.Coordinated.Snapshots.Topology
     Hydra.HeadLogic.State.Deposits
@@ -159,6 +159,7 @@ library
     Hydra.Utils
 
   other-modules:
+    Hydra.HeadLogic.Diagrams.TH
     Hydra.HeadLogic.Snapshot.Candidate
     Hydra.HeadLogic.State.Coordinated.Commits
     Hydra.HeadLogic.State.Coordinated.Replay
@@ -247,6 +248,17 @@ library
 
   if !os(windows)
     build-depends: unix
+
+executable head-logic-diagrams
+  import:         project-config
+  hs-source-dirs: doc/head-logic-diagrams
+  main-is:        Main.hs
+  build-depends:
+    , directory
+    , filepath
+    , hydra-node
+    , hydra-prelude
+    , text
 
 library testlib
   import:          project-config

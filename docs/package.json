@@ -5,11 +5,11 @@
   "scripts": {
     "docusaurus": "docusaurus",
     "prepare": "yarn enrich-document-metadata",
-    "preview-build": "docusaurus build",
+    "preview-build": "yarn head-logic-diagrams && docusaurus build",
     "preview-install": "docusaurus install",
-    "build": "yarn prepare && docusaurus build",
-    "build-dev": "yarn prepare && docusaurus build --no-minify -l en",
-    "start": "yarn dummy-spec && docusaurus start",
+    "build": "yarn head-logic-diagrams && yarn prepare && docusaurus build",
+    "build-dev": "yarn head-logic-diagrams && yarn prepare && docusaurus build --no-minify -l en",
+    "start": "yarn head-logic-diagrams && yarn dummy-spec && docusaurus start",
     "swizzle": "docusaurus swizzle",
     "deploy": "docusaurus deploy",
     "clear": "docusaurus clear",
@@ -17,7 +17,8 @@
     "write-translations": "docusaurus write-translations",
     "write-heading-ids": "docusaurus write-heading-ids",
     "enrich-document-metadata": "node ./scripts/enrich-document-metadata.js",
-    "dummy-spec": "[ -e static/hydra-spec.pdf ] || echo 'Do a nix build .#spec and put this instead here' > static/hydra-spec.pdf"
+    "dummy-spec": "[ -e static/hydra-spec.pdf ] || echo 'Do a nix build .#spec and put this instead here' > static/hydra-spec.pdf",
+    "head-logic-diagrams": "node ./scripts/head-logic-diagrams.js"
   },
   "dependencies": {
     "@asyncapi/specs": "4.2.1",
@@ -39,7 +40,11 @@
     "@asyncapi/specs": "4.2.1"
   },
   "browserslist": {
-    "production": [">0.5%", "not dead", "not op_mini all"],
+    "production": [
+      ">0.5%",
+      "not dead",
+      "not op_mini all"
+    ],
     "development": [
       "last 1 chrome version",
       "last 1 firefox version",

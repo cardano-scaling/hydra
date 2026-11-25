@@ -8,7 +8,7 @@ import Test.Hydra.Prelude (Expectation, Spec, arbitrary, describe, generateWith,
 
 import Cardano.Binary (decodeFull', serialize')
 import Control.Monad (foldM)
-import Crem.Inspect (Component (LeftComponent, RightComponent), inspectStates)
+import Crem.Inspect (inspectStates)
 import Crem.StateMachine qualified as Crem
 import Data.List qualified as List
 import Hydra.API.ClientInput qualified as Client
@@ -18,12 +18,12 @@ import Hydra.HeadLogic.Outcome (Effect (OnChainEffect), Outcome (Continue), Stat
 import Hydra.HeadLogic.State (ClosedState (..), FanoutMode (..), FinalizedState (..), HeadState (..), OnChainFanoutDatum (..), OpenState (..), PartialFanoutState (..), headIdOf)
 import Hydra.HeadLogic.State.Head qualified as Head
 import Hydra.HeadLogic.State.Node qualified as Machine
-import Hydra.HeadLogic.State.Types (DepositOutput (..), HeadOutput (..))
+import Hydra.HeadLogic.State.Types (DepositOutput (..))
 import Hydra.HeadLogicSpec (inClosedState', inIdleState, inOpenState, observeTx, testSnapshot)
 import Hydra.Ledger.Simple (SimpleChainState (..), SimpleTx, simpleLedger)
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.HeadLogic (Input (ClientInput), aggregateState, update)
-import Hydra.Node.State (NodeState (..), initialChainTime)
+import Hydra.Node.State (ChainPointTime (..), NodeState (..), SyncedStatus (..), initialChainTime, syncedStatus)
 import Hydra.Tx (UTxOType)
 import Hydra.Tx.Crypto (aggregate, sign)
 import Hydra.Tx.HeadId (HeadId (UnsafeHeadId))
@@ -189,7 +189,7 @@ spec = describe "head lifecycle" $ do
   it "does not reopen a finalized Head even for a different identity" $ do
     let input = DepositOutput{event = nextOpenEvent, deposits = mempty, settledDeposit = mempty}
         (result, next) = runIdentity $ Crem.run (Crem.Basic $ Head.machine finalized.headState) input
-    result.headState `shouldBe` finalized.headState
+    result `shouldBe` finalized.headState
     inspectStates next `shouldBe` [([], Just "Finalized")]
 
   it "starts a separate Head at the node boundary and preserves tracked deposits" $ do
@@ -222,28 +222,60 @@ spec = describe "head lifecycle" $ do
       `shouldBe` Machine.apply opened (SnapshotRequestDecided 2)
     checkSteps opened [(SnapshotRequestDecided 2, "Open")]
 
--- Retain and inspect the Crem continuation, comparing its output with the node
--- runtime and serialized recovery after each event. Checkpoints and new-Head
+  forM_ [("Idle", inIdleState), ("Open", opened), ("Closed", closed), ("PartialFanout", partial), ("Finalized", finalized)] $ \(phase, initial) ->
+    it ("preserves Head and deposits across chain-time and sync updates in " <> phase) $ do
+      let before :: NodeState SimpleTx
+          before = initial{deposits = generateWith arbitrary 42}
+          nextTime = addUTCTime 10 initialChainTime
+          unsynced :: StateChanged SimpleTx
+          unsynced = NodeUnsynced 5 initialChainTime 60
+          tick = TickObserved 6 nextTime
+          synced :: StateChanged SimpleTx
+          synced = NodeSynced 6 nextTime 2
+          catchingUp = Machine.applyEvents before [unsynced, tick]
+          caughtUp = Machine.apply catchingUp synced
+      catchingUp `shouldBe` NodeCatchingUp before.headState before.deposits (ChainPointTime 6 nextTime 60)
+      caughtUp `shouldBe` NodeInSync before.headState before.deposits (ChainPointTime 6 nextTime 2)
+      checkSteps before [(event, toText phase) | event <- [unsynced, tick, synced]]
+
+  it "preserves observed time across opening and rollback and restores it from a checkpoint" $ do
+    let before = NodeCatchingUp inIdleState.headState mempty (ChainPointTime 10 initialChainTime 15)
+        opening :: StateChanged SimpleTx
+        opening = openEvent{chainState = SimpleChainState 8}
+        rollback = ChainRolledBack $ SimpleChainState 4
+        tick = TickObserved 12 $ addUTCTime 10 initialChainTime
+        newHead = Machine.apply before opening
+        rewound = Machine.apply newHead rollback
+        advanced = Machine.apply rewound tick
+        restored = Machine.applyEvents advanced [Checkpoint rewound, SnapshotRequestDecided 1]
+    newHead.chainPointTime `shouldBe` ChainPointTime 8 initialChainTime 15
+    rewound.chainPointTime `shouldBe` ChainPointTime 4 initialChainTime 15
+    restored.chainPointTime `shouldBe` rewound.chainPointTime
+    syncedStatus restored `shouldBe` CatchingUp
+    restored `shouldBe` Machine.apply rewound (SnapshotRequestDecided 1)
+    checkSteps before [(opening, "Open"), (rollback, "Open"), (tick, "Open")]
+
+-- Retain the node runtime and inspect its component states, comparing with
+-- serialized recovery after each event. Checkpoints and new-Head
 -- resets belong to the separate node-boundary tests above.
 checkSteps :: NodeState SimpleTx -> [(StateChanged SimpleTx, Text)] -> Expectation
-checkSteps initial = void . foldM step (Machine.components initial, Machine.start initial)
+checkSteps initial = void . foldM step (Machine.start initial)
  where
-  step (machine, runtime) (event, expected) = do
+  step runtime (event, expected) = do
     restored <- either (fail . show) pure $ decodeFull' $ serialize' $ Machine.currentState runtime
     retained <- either (fail . show) pure $ decodeFull' $ serialize' event
-    let (node, next) = runIdentity $ Crem.run machine event
-        updated = Machine.step runtime event
-    node `shouldBe` Machine.currentState updated
+    let updated = Machine.step runtime event
+        node = Machine.currentState updated
     Machine.applyEvents initial [Checkpoint restored, retained] `shouldBe` node
-    machinePhase next `shouldBe` Just expected
-    inspectStates next `shouldBe` inspectStates (Machine.components node)
-    pure (next, updated)
+    machinePhase updated `shouldBe` Just expected
+    Machine.inspect updated `shouldBe` Machine.inspect (Machine.start node)
+    pure updated
 
-machinePhase :: Crem.StateMachineT m input output -> Maybe Text
-machinePhase = join . List.lookup [LeftComponent, RightComponent] . inspectStates
+machinePhase :: Machine.Runtime tx -> Maybe Text
+machinePhase = join . List.lookup "Head" . Machine.inspect
 
 restoredPhase :: NodeState SimpleTx -> Maybe Text
-restoredPhase = machinePhase . Machine.components
+restoredPhase = machinePhase . Machine.start
 
 checkProgress :: NodeState SimpleTx -> UTxOType SimpleTx -> UTxOType SimpleTx -> FanoutMode SimpleTx -> Expectation
 checkProgress node distributed remaining mode = case node.headState of

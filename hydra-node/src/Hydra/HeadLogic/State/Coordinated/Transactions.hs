@@ -14,6 +14,7 @@ module Hydra.HeadLogic.State.Coordinated.Transactions (
   DecommitPendingSym0,
   AwaitingDecommitSettlementSym0,
   machine,
+  transitionLabels,
 ) where
 
 import Crem.BaseMachine (
@@ -90,6 +91,16 @@ deriving stock instance Show DecommitPhase
 deriving stock instance Enum DecommitPhase
 deriving stock instance Bounded DecommitPhase
 deriving via AllVertices DecommitPhase instance RenderableVertices DecommitPhase
+
+-- | A certificate can establish a decommit before the local ReqDec arrives.
+transitionLabels :: [((DecommitPhase, DecommitPhase), String)]
+transitionLabels =
+  [ ((NoDecommit, DecommitPending), "Record pending request")
+  , ((NoDecommit, AwaitingDecommitSettlement), "Confirm / adopt decommit")
+  , ((DecommitPending, AwaitingDecommitSettlement), "Confirm / adopt decommit")
+  , ((DecommitPending, NoDecommit), "Release / settle / administrative reset")
+  , ((AwaitingDecommitSettlement, NoDecommit), "Settle / administrative reset")
+  ]
 
 data TransactionState tx = TransactionState
   { localUTxO :: UTxOType tx

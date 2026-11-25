@@ -8,8 +8,6 @@ import Test.Hydra.Prelude (Expectation, Spec, describe, it, shouldBe)
 
 import Cardano.Binary (decodeFull', serialize')
 import Control.Monad (foldM)
-import Crem.Inspect (Component (RightComponent), inspectStates)
-import Crem.StateMachine qualified as Crem
 import Data.List qualified as List
 import Data.Sequence qualified as Seq
 import Hydra.Agda.OffChainReference qualified as Agda
@@ -33,7 +31,7 @@ spec = describe "commit ownership phases" $ do
       let signed = snapshot{version = fromInteger signedVersion, utxoToCommit = claim, depositTxId = depositIdentity}
           before = open{coordinatedHeadState = open.coordinatedHeadState{version = fromInteger version, currentDepositTxId = selected, confirmedSnapshot = ConfirmedSnapshot signed mempty}}
           expected = Agda.commitPhaseRef (isJust selected) version signedVersion (isJust claim)
-      commitPhase (Coordinated.components before) `shouldBe` Just (show expected)
+      commitPhase (Coordinated.start before) `shouldBe` Just (show expected)
 
   forM_ [False, True] $ \settleFirst ->
     it (if settleFirst then "retires authority when settlement precedes confirmation" else "confirms selection and retires authority on settlement") $ do
@@ -96,29 +94,28 @@ spec = describe "commit ownership phases" $ do
       ]
 
   it "does not force the transaction ledger to advance or inspect commit selection" $ do
-    let (_, next) = runIdentity $ Crem.run (Coordinated.components open) $ Coordinated.acceptSnapshot snapshot (Seq.singleton $ error "commit phase demands transactions") (Just 7)
+    let (_, next) = Coordinated.step (Coordinated.start open) $ Coordinated.acceptSnapshot snapshot (Seq.singleton $ error "commit phase demands transactions") (Just 7)
     commitPhase next `shouldBe` Just "CommitSelected"
 
 -- Compare the live continuation, retained events and checkpoint reconstruction
 -- after every command, including the selected pointer and spendable ledger.
 checkSteps :: OpenState SimpleTx -> [(Coordinated.Command SimpleTx, Maybe Integer, Text, UTxOType SimpleTx)] -> Expectation
-checkSteps initial = void . foldM step (Coordinated.components initial, Coordinated.start initial)
+checkSteps initial = void . foldM step (Coordinated.start initial)
  where
-  step (machine, runtime) (command, selected, phase, utxo) = do
-    let (_, next) = runIdentity $ Crem.run machine command
-        (events, updated) = Coordinated.step runtime command
+  step runtime (command, selected, phase, utxo) = do
+    let (events, updated) = Coordinated.step runtime command
         current = Coordinated.currentState updated
         replayed = foldl' (flip $ Coordinated.replayEvent deposited) runtime events
     current.currentDepositTxId `shouldBe` selected
     current.localUTxO `shouldBe` utxo
     Coordinated.currentState replayed `shouldBe` current
     restored <- either (fail . show) pure $ decodeFull' $ serialize' current
-    inspectStates next `shouldBe` inspectStates (Coordinated.components initial{coordinatedHeadState = restored})
-    commitPhase next `shouldBe` Just phase
-    pure (next, updated)
+    Coordinated.inspect updated `shouldBe` Coordinated.inspect (Coordinated.start initial{coordinatedHeadState = restored})
+    commitPhase updated `shouldBe` Just phase
+    pure updated
 
-commitPhase :: Crem.StateMachineT m input output -> Maybe Text
-commitPhase = join . List.lookup [RightComponent] . inspectStates
+commitPhase :: Coordinated.Runtime tx -> Maybe Text
+commitPhase = join . List.lookup "Commits" . Coordinated.inspect
 
 verified :: Snapshot SimpleTx -> IO (VerifiedSnapshot SimpleTx)
 verified value =
