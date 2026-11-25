@@ -73,11 +73,21 @@ nextFanoutStep confirmedSnapshot version target remaining onChainDatum
 
 -- | Construct the transaction for a derived step. Client intent, observed
 -- continuation and rollback reposting share this mapping.
-fanoutTransaction :: IsTx tx => NextFanoutStep tx -> ConfirmedSnapshot tx -> SnapshotVersion -> HeadSeed -> UTCTime -> PostChainTx tx
+fanoutTransaction ::
+  IsTx tx =>
+  NextFanoutStep tx ->
+  ConfirmedSnapshot tx ->
+  SnapshotVersion ->
+  HeadSeed ->
+  UTCTime ->
+  PostChainTx tx
 fanoutTransaction step confirmedSnapshot version headSeed contestationDeadline = case step of
-  FullFanoutStep -> mkFullFanoutTx confirmedSnapshot version headSeed contestationDeadline
-  FinalStep{stepDistribute} -> FinalPartialFanoutTx{utxoToDistribute = stepDistribute, headSeed, contestationDeadline}
-  PartialStep{stepDistribute, stepProof} -> PartialFanoutTx{utxoToDistribute = stepDistribute, utxoForProof = stepProof, headSeed, contestationDeadline}
+  FullFanoutStep ->
+    mkFullFanoutTx confirmedSnapshot version headSeed contestationDeadline
+  FinalStep{stepDistribute} ->
+    FinalPartialFanoutTx{utxoToDistribute = stepDistribute, headSeed, contestationDeadline}
+  PartialStep{stepDistribute, stepProof} ->
+    PartialFanoutTx{utxoToDistribute = stepDistribute, utxoForProof = stepProof, headSeed, contestationDeadline}
 
 -- | Given the on-chain @version@ and a snapshot's own version, decide which of a
 -- pending commit / decommit is still to be distributed on fanout. Equal versions
@@ -162,7 +172,12 @@ currentFanoutStep PartialFanoutState{..}
 -- Compares the distributed set, not just the transaction shape, since two
 -- selections can both be non-final steps. By content, because naming the same
 -- outputs under other inputs is a valid way to ask for the same set.
-matchesFanoutStep :: IsTx tx => PartialFanoutState tx -> NextFanoutStep tx -> PostChainTx tx -> Bool
+matchesFanoutStep ::
+  IsTx tx =>
+  PartialFanoutState tx ->
+  NextFanoutStep tx ->
+  PostChainTx tx ->
+  Bool
 matchesFanoutStep PartialFanoutState{..} step postChainTx =
   case (step, postChainTx) of
     -- A contest can replace the deadline or snapshot before a failure arrives.
