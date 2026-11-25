@@ -1,7 +1,6 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-ambiguous-fields #-}
 
--- | Validate a fanout decision, retain the matching intent, then post its step.
 module Hydra.HeadLogic.Rules.Client.Fanout where
 
 import Crem.Topology (Topology (Topology))
@@ -16,9 +15,16 @@ import Hydra.HeadLogic.Workflow qualified as Workflow
 import Hydra.Prelude hiding (State, state)
 import Hydra.Tx (IsTx, UTxOType)
 
-data Command tx = Drain (ClosedState tx) | SelectClosed (ClosedState tx) (UTxOType tx) | SelectRemaining (PartialFanoutState tx) (UTxOType tx)
+data Command tx
+  = Drain (ClosedState tx)
+  | SelectClosed (ClosedState tx) (UTxOType tx)
+  | SelectRemaining (PartialFanoutState tx) (UTxOType tx)
 
-data Stage = ValidateSelection | RecordIntent | PostStep | Finished
+data Stage
+  = ValidateSelection
+  | RecordIntent
+  | PostStep
+  | Finished
 
 type FanoutTopology =
   'Topology
@@ -69,11 +75,24 @@ workflow command = Workflow.workflow (show . statePhase) Validate step
     Post plan -> continue (const Done) $ emit $ OnChainEffect $ planTransaction plan
     Done -> finish Done ()
 
-onClosedClientFanout :: IsTx tx => ClosedState tx -> Program tx ()
+onClosedClientFanout ::
+  IsTx tx =>
+  ClosedState tx ->
+  Program tx ()
 onClosedClientFanout = Workflow.run . workflow . Drain
 
-onClosedClientPartialFanout :: IsTx tx => ClosedState tx -> UTxOType tx -> Program tx ()
-onClosedClientPartialFanout closed selection = Workflow.run $ workflow $ SelectClosed closed selection
+onClosedClientPartialFanout ::
+  IsTx tx =>
+  ClosedState tx ->
+  UTxOType tx ->
+  Program tx ()
+onClosedClientPartialFanout closed selection =
+  Workflow.run $ workflow $ SelectClosed closed selection
 
-onPartialFanoutClientPartialFanout :: IsTx tx => PartialFanoutState tx -> UTxOType tx -> Program tx ()
-onPartialFanoutClientPartialFanout progress selection = Workflow.run $ workflow $ SelectRemaining progress selection
+onPartialFanoutClientPartialFanout ::
+  IsTx tx =>
+  PartialFanoutState tx ->
+  UTxOType tx ->
+  Program tx ()
+onPartialFanoutClientPartialFanout progress selection =
+  Workflow.run $ workflow $ SelectRemaining progress selection
