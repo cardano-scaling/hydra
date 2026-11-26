@@ -79,6 +79,18 @@ spec = parallel $
     it "parses with default values" $
       [] `shouldParse` Run defaultRunOptions
 
+    it "parses a policy file path without requiring the file to exist" $ do
+      ["--policy", "policy.yaml"] `shouldParse` Run defaultRunOptions{policy = Just "policy.yaml"}
+      ["--policy=policies/head policy.yaml"] `shouldParse` Run defaultRunOptions{policy = Just "policies/head policy.yaml"}
+
+    it "requires a file argument for --policy" $ do
+      shouldNotParse ["--policy"]
+      shouldNotParse ["--policy", "--node-id", "alice"]
+
+    it "preserves the policy path through command-line rendering" $ do
+      let opts = defaultRunOptions{policy = Just "policies/head policy.yaml"}
+      toArgs opts `shouldParse` Run opts
+
     it "parses --listen option given valid IPv4 and IPv6 addresses and ports" $ do
       ["--listen", "127.0.0.1:5001"]
         `shouldParse` Run defaultRunOptions{listen = Host "127.0.0.1" 5001}

@@ -675,6 +675,7 @@ prepareHydraNode chainConfig workDir hydraNodeId hydraSKey hydraVKeys nodePorts 
             { cardanoLedgerProtocolParametersFile
             }
       , apiTransactionTimeout = 100000
+      , policy = Nothing
       }
  where
   -- NOTE: See comment above about 0.0.0.0 vs 127.0.0.1

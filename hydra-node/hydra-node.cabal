@@ -141,6 +141,7 @@ library
     Hydra.Network.Etcd
     Hydra.Network.EtcdBinary
     Hydra.Network.Message
+    Hydra.Network.Policy
     Hydra.NetworkVersions
     Hydra.Node
     Hydra.Node.ApiTransactionTimeout
@@ -158,6 +159,8 @@ library
     Hydra.Node.UnsyncedPeriod
     Hydra.Node.Util
     Hydra.Options
+    Hydra.UserValidation.IncrementalValidation
+    Hydra.UserValidationRules
     Hydra.Utils
 
   other-modules:
@@ -304,6 +307,7 @@ library testlib
     Test.Hydra.Network
     Test.Hydra.Network.Authenticate
     Test.Hydra.Network.Message
+    Test.Hydra.Network.Policy
     Test.Hydra.Node.ApiTransactionTimeout
     Test.Hydra.Node.Environment
     Test.Hydra.Node.Fixture
@@ -526,6 +530,7 @@ test-suite tests
     Hydra.ModelSpec
     Hydra.Network.AuthenticateSpec
     Hydra.Network.EtcdBinarySpec
+    Hydra.Network.PolicySpec
     Hydra.NetworkSpec
     Hydra.NetworkVersionsSpec
     Hydra.Node.InputQueueSpec
@@ -538,6 +543,7 @@ test-suite tests
     Hydra.OptionsSpec
     Hydra.PartySpec
     Hydra.PersistentQueueSpec
+    Hydra.UserValidationRulesSpec
     Hydra.UtilsSpec
     Paths_hydra_node
     Test.Util
@@ -627,5 +633,6 @@ test-suite tests
     , typed-process
     , warp
     , websockets
+    , yaml
 
   ghc-options:    -threaded -rtsopts

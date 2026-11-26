@@ -6,8 +6,9 @@ import Hydra.Prelude
 import Test.Hydra.Prelude
 
 import Control.Tracer.JSON (Verbosity (..))
+import Data.Yaml qualified as Yaml
 import Hydra.Cardano.Api (NetworkId (..), NetworkMagic (..))
-import Hydra.Config (isSelfAddress, loadConfig, resolvePaths)
+import Hydra.Config (isSelfAddress, loadConfig, renderConfig, resolvePaths)
 import Hydra.Network (Host (..))
 import Hydra.Options (
   CardanoChainConfig (..),
@@ -31,6 +32,34 @@ import System.IO.Temp (withSystemTempFile)
 spec :: Spec
 spec = do
   describe "loadConfig" $ do
+    it "resolves a policy path relative to the node configuration file" $
+      withYaml "policy: policies/head.yaml\n" $ \path dir -> do
+        opts <- loadConfig path
+        policy opts `shouldBe` Just (dir </> "policies/head.yaml")
+
+    it "preserves an absolute policy path" $
+      withYaml "policy: /policies/head.yaml\n" $ \path _ -> do
+        opts <- loadConfig path
+        policy opts `shouldBe` Just "/policies/head.yaml"
+
+    forM_ ["{}", "policy: null"] $ \config ->
+      it ("disables policy configuration for " <> config) $
+        withYaml config $ \path _ -> do
+          opts <- loadConfig path
+          policy opts `shouldBe` Nothing
+
+    forM_ ["true", "42", "[]", "{}"] $ \value ->
+      it ("rejects a policy path set to " <> value) $
+        withYaml ("policy: " <> value) $ \path _ ->
+          loadConfig path `shouldThrow` anyException
+
+    it "preserves the configured policy when rendering and reloading config" $
+      withYaml "policy: policies/head.yaml\n" $ \path _ -> do
+        opts <- loadConfig path
+        withYaml (decodeUtf8 $ Yaml.encode $ renderConfig opts) $ \renderedPath _ -> do
+          restored <- loadConfig renderedPath
+          policy restored `shouldBe` policy opts
+
     it "loads a minimal YAML file and uses defaults" $ do
       withYaml "{}\n" $ \path dir -> do
         opts <- loadConfig path
@@ -343,6 +372,18 @@ spec = do
         `shouldBe` False
 
   describe "RunOptions Semigroup (config file <> CLI overrides)" $ do
+    it "keeps the YAML policy when the CLI does not specify one" $
+      withYaml "policy: policies/head.yaml\n" $ \path dir -> do
+        base <- loadConfig path
+        cli <- parseRunOptions []
+        policy (base <> cli) `shouldBe` Just (dir </> "policies/head.yaml")
+
+    it "uses the CLI policy path without resolving it relative to the YAML file" $
+      withYaml "policy: policies/head.yaml\n" $ \path _ -> do
+        base <- loadConfig path
+        cli <- parseRunOptions ["--policy", "cli-policy.yaml"]
+        policy (base <> cli) `shouldBe` Just "cli-policy.yaml"
+
     it "CLI flag overrides YAML value" $ do
       withYaml "node-id: from-yaml\n" $ \path _dir -> do
         base <- loadConfig path

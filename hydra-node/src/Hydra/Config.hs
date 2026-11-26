@@ -117,6 +117,7 @@ resolvePaths dir opts =
     { hydraSigningKey = resolve opts.hydraSigningKey
     , hydraVerificationKeys = map resolve opts.hydraVerificationKeys
     , persistenceDir = resolve opts.persistenceDir
+    , policy = resolve <$> opts.policy
     , ledgerConfig = resolveLedgerConfig opts.ledgerConfig
     , chainConfig = resolveChainConfig opts.chainConfig
     }
@@ -186,6 +187,7 @@ parseRunOptions = withObject "RunOptions" $ \o -> do
     , "ledger-protocol-parameters"
     , "use-system-etcd"
     , "api-transaction-timeout"
+    , "policy"
     ]
     o
   quiet <- o .:? "quiet" .!= False
@@ -219,6 +221,7 @@ parseRunOptions = withObject "RunOptions" $ \o -> do
   useSystemEtcd <- o .:? "use-system-etcd" .!= False
   let whichEtcd = if useSystemEtcd then SystemEtcd else EmbeddedEtcd
   apiTransactionTimeout <- o .:? "api-transaction-timeout" .!= ApiTransactionTimeout 300
+  policy <- o .:? "policy"
   pure
     RunOptions
       { verbosity
@@ -239,6 +242,7 @@ parseRunOptions = withObject "RunOptions" $ \o -> do
       , ledgerConfig
       , whichEtcd
       , apiTransactionTimeout
+      , policy
       }
 
 -- ---------------------------------------------------------------------------
@@ -534,6 +538,7 @@ renderConfig opts =
         , ("tls-cert" .=) <$> opts.tlsCertPath
         , ("tls-key" .=) <$> opts.tlsKeyPath
         , ("persistence-rotate-after" .=) <$> opts.persistenceRotateAfter
+        , ("policy" .=) <$> opts.policy
         ]
  where
   ledgerParamsFile (CardanoLedgerConfig f) = f
