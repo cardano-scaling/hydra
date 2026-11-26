@@ -52,6 +52,7 @@ instance ArbitraryIsTx tx => Arbitrary (SeenSnapshot tx) where
       [ pure NoSeenSnapshot
       , LastSeenSnapshot <$> arbitrary
       , RequestedSnapshot <$> arbitrary <*> arbitrary
+      , AwaitingSnapshotTransactions <$> arbitrary <*> arbitrary <*> arbitrary
       , mkSeenSnapshot <$> arbitrary <*> arbitrary
       ]
 

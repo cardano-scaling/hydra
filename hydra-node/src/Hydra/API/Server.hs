@@ -307,6 +307,7 @@ mkTimedServerOutputFromStateEvent mSeenSnapshot event =
     StateChanged.PeerDisconnected{..} -> Just PeerDisconnected{..}
     StateChanged.TransactionReceived{} -> Nothing
     StateChanged.SnapshotRequested{} -> Nothing
+    StateChanged.SnapshotTransactionsRequested{} -> Nothing
     StateChanged.SnapshotRequestDecided{} -> Nothing
     StateChanged.PartySignedSnapshot{} -> Nothing
     StateChanged.ChainRolledBack{} -> Nothing

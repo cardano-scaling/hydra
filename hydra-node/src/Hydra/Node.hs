@@ -643,6 +643,7 @@ processEffects node tracer inputId effects = do
       -- NOTE: from here on 'EndEffect' means the effect was accepted for
       -- execution, not that it completed.
       NetworkEffect msg -> submit networkOutbox $ broadcast hn msg
+      NetworkRetransmission messages -> submitRetry networkOutbox $ traverse_ (broadcast hn) messages
       -- NOTE: still inline, and 'postTx' can block - the direct backend waits
       -- on the tx-submission response. So a stalled chain backend still stops
       -- this loop, which is the sibling advisory on the L1 submission queue,

@@ -67,6 +67,7 @@ genStateChanged env =
     , HeadOpened (mkHeadParameters env) <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
     , TransactionReceived <$> arbitrary
     , TransactionAppliedToLocalUTxO <$> arbitrary <*> arbitrary
+    , SnapshotTransactionsRequested <$> arbitrary <*> arbitrary
     , SnapshotRequestDecided <$> arbitrary
     , SnapshotRequested <$> arbitrary <*> arbitrary <*> arbitrary
     , PartySignedSnapshot <$> arbitrary <*> arbitrary <*> arbitrary

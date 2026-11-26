@@ -31,7 +31,7 @@ import Hydra.Node.HeadLogic (
     localUTxO,
     seenSnapshot
   ),
-  Effect (NetworkEffect),
+  Effect (NetworkEffect, NetworkRetransmission),
   Input (NetworkInput),
   OpenState (coordinatedHeadState),
   Outcome (Continue, Wait, effects, reason),
@@ -149,7 +149,7 @@ installOutcome world d outcome =
   snapshot = getSnapshot (openState next).coordinatedHeadState.confirmedSnapshot
   oldSnapshot = getSnapshot (openState st).coordinatedHeadState.confirmedSnapshot
   emitted = case outcome of
-    Continue{effects} -> [Delivery d.recipientIndex recipient 2 message | NetworkEffect message <- effects, recipient <- [0 .. 2]]
+    Continue{effects} -> [Delivery d.recipientIndex recipient 2 message | effect <- effects, message <- broadcastMessages effect, recipient <- [0 .. 2]]
     _ -> []
   rescheduled = case outcome of
     Wait{reason} -> case retryDecision reason (NetworkInput d.remainingTTL $ ReceivedMessage (scenarioParties !! d.senderIndex) d.message) of
@@ -308,3 +308,10 @@ orderActions RetriesFirst choices = filter urgent choices <> filter (not . urgen
  where
   urgent = \case Retry{} -> True; Duplicate{} -> True; Corrupt{} -> True; _ -> False
 orderActions _ choices = choices
+
+-- | Expand bounded retransmissions into the same delivery schedule as broadcasts.
+broadcastMessages :: Effect tx -> [Message tx]
+broadcastMessages = \case
+  NetworkEffect message -> [message]
+  NetworkRetransmission messages -> messages
+  _ -> []

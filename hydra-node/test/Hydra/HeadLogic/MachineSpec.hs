@@ -51,6 +51,7 @@ import Hydra.HeadLogic (
     SnapshotConfirmed,
     SnapshotRequestDecided,
     SnapshotRequested,
+    SnapshotTransactionsRequested,
     TransactionAppliedToLocalUTxO,
     TxInvalid,
     newVersion,
@@ -245,6 +246,8 @@ coordinationReference before event after =
     -- Coordination starts only after the lifecycle accepts an opening.
     HeadOpened{} | Lifecycle.phase before.headState == Lifecycle.Idle || startsNewHead before event -> Agda.HeadOpened
     HeadClosed{} -> Agda.HeadClosed
+    -- Pinning missing bodies and sending a request share the RequestSent phase.
+    SnapshotTransactionsRequested{} -> Agda.RequestDecided
     SnapshotRequestDecided{} -> Agda.RequestDecided
     SnapshotRequested{} -> Agda.SnapshotRequested
     SnapshotConfirmed{} -> Agda.SnapshotConfirmed

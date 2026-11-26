@@ -18,6 +18,7 @@ module Hydra.HeadLogic.State.Coordinated (
   recordSignature,
   confirmSnapshot,
   requestSnapshot,
+  awaitSnapshotTransactions,
   receiveTransaction,
   retainSnapshotDecommit,
   applyTransaction,
@@ -201,6 +202,9 @@ project Commits.Output{transactions = Output{snapshots = owned, transactions, de
  where
   SnapshotState{..} = State.viewInitial owned
   TransactionState{..} = transactions
+
+awaitSnapshotTransactions :: SnapshotNumber -> [TxIdType tx] -> Command tx
+awaitSnapshotTransactions number ids = Snapshots $ AwaitSnapshotTransactions number ids
 
 receiveTransaction :: tx -> Command tx
 receiveTransaction = Transactions . ReceiveTransaction

@@ -29,6 +29,7 @@ aggregateChainStateHistory history = \case
   PeerDisconnected{} -> history
   HeadOpened{chainState} -> pushNewState chainState history
   TransactionAppliedToLocalUTxO{} -> history
+  SnapshotTransactionsRequested{} -> history
   SnapshotRequestDecided{} -> history
   SnapshotRequested{} -> history
   TransactionReceived{} -> history

@@ -50,6 +50,7 @@ data Command tx
 -- | Snapshot rounds and changes to their settlement context.
 data SnapshotCommand tx
   = RequestSnapshot (SnapshotRequest tx)
+  | AwaitSnapshotTransactions SnapshotNumber [TxIdType tx]
   | AcceptSnapshot (ValidatedSnapshot tx) (Seq tx)
   | RecordSignature (Candidate tx) Party (Signature (Snapshot tx))
   | ConfirmSnapshot (VerifiedCandidate tx)
