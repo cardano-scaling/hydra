@@ -26,6 +26,7 @@ import Hydra.HeadLogic.Rules.Coordinated qualified as Staging (
   stage,
  )
 import Hydra.HeadLogic.Rules.Environment (RuleEnvironment (..))
+import Hydra.HeadLogic.Rules.Policy (checkTransactionPolicy, checkTransactionUTxO)
 import Hydra.HeadLogic.Rules.Transactions (
   ValidatedTransaction,
   validateTransaction,
@@ -55,6 +56,7 @@ import Hydra.HeadLogic.State (
  )
 import Hydra.HeadLogic.State.Coordinated qualified as Coordinated (
   Runtime,
+  currentState,
   applyTransaction,
   markTransactionInvalid,
   receiveTransaction,
@@ -145,14 +147,27 @@ workflow Args{chainPointTime = ChainPointTime{currentSlot, currentChainTime}, ..
           continue (const Done) $ traceB "transaction is retained by the candidate decommit" True
       | Map.member (txId transaction) allTxs && any ((== txId transaction) . txId) localTxs ->
           continue (const Done) $ traceB "transaction is already applied locally" True
-      | otherwise -> continue OutputCheck $ do
+      | otherwise -> choose $ do
           void $ traceB "transaction is already applied locally" False
-          Staging.stage (Coordinated.start openState) $ Coordinated.receiveTransaction transaction
+          eviolation <- checkTransactionPolicy transaction
+          case eviolation of
+            Left violation -> do
+              void $
+                Staging.stage (Coordinated.start openState) $
+                  Coordinated.markTransactionInvalid localUTxO transaction (PolicyValidationError violation)
+              pure $ next Done
+            Right _ -> do
+              runtime <- Staging.stage (Coordinated.start openState) $ Coordinated.receiveTransaction transaction
+              pure $ next (OutputCheck runtime)
     OutputCheck runtime -> choose $ do
-      result <- validateTransaction "outputs do not collide with the local UTxO" currentSlot localUTxO transaction
-      pure $ case result of
-        Right checked -> next $ DepositCheck runtime checked
-        Left err -> next $ Retry runtime err
+      eviolation <- checkTransactionUTxO (Coordinated.currentState runtime) transaction
+      case eviolation of
+        Left violation -> pure $ next $ Retry runtime (PolicyValidationError violation)
+        Right _ -> do
+          result <- validateTransaction "outputs do not collide with the local UTxO" currentSlot localUTxO transaction
+          pure $ case result of
+            Right checked -> next $ DepositCheck runtime checked
+            Left err -> next $ Retry runtime err
     DepositCheck runtime checked
       | namesNoneOf (utxoFromTx transaction) namedByDepositsInPlay -> continue Select $ do
           void $ traceB "outputs do not collide with pending deposits" True

@@ -28,6 +28,7 @@ import Hydra.Tx.Crypto (
   verifyMultiSignatureBytes,
  )
 import Hydra.Tx.Snapshot (Snapshot)
+import Hydra.UserValidationRules (UserValidation)
 
 data SnapshotSigner tx = SnapshotSigner
   { signOne :: Snapshot tx -> Signature (Snapshot tx)
@@ -49,6 +50,7 @@ data InterpreterConfig tx = InterpreterConfig
       MultiSignature (Snapshot tx) ->
       ByteString ->
       Either VerificationError ()
+  , userValidation :: Maybe (UserValidation tx)
   }
 
 mkInterpreterConfig :: Ledger tx -> SnapshotSigner tx -> InterpreterConfig tx
@@ -57,6 +59,7 @@ mkInterpreterConfig Ledger{applyTransactions} signer =
     { transactionApplication = \slot utxo tx -> first snd $ applyTransactions slot utxo [tx]
     , snapshotSigner = signer
     , snapshotVerifier = verifyMultiSignatureBytes
+    , userValidation = Nothing
     }
 
 -- | A program paired with its primitive implementations for development tools.
@@ -82,7 +85,7 @@ evaluateProgram ::
   InterpreterConfig tx ->
   Program tx () ->
   (Outcome tx, trace)
-evaluateProgram observe initialTrace InterpreterConfig{transactionApplication, snapshotSigner, snapshotVerifier} (Program program) =
+evaluateProgram observe initialTrace InterpreterConfig{transactionApplication, snapshotSigner, snapshotVerifier, userValidation} (Program program) =
   program (const done) step [] [] initialTrace
  where
   done ::
@@ -121,4 +124,6 @@ evaluateProgram observe initialTrace InterpreterConfig{transactionApplication, s
       (Wait reason (reverse changes), observe trace Suspended)
     Reject err ->
       (Error err, observe trace Rejected)
+    GetUserValidation ->
+      next userValidation changes effects (observe trace UserValidationLoaded)
 {-# INLINE evaluateProgram #-}

@@ -110,6 +110,7 @@ library
     Hydra.HeadLogic.Rules.Network.ReqDec
     Hydra.HeadLogic.Rules.Network.ReqSn
     Hydra.HeadLogic.Rules.Network.ReqTx
+    Hydra.HeadLogic.Rules.Policy
     Hydra.HeadLogic.Rules.Transactions
     Hydra.HeadLogic.Snapshot.Capacity
     Hydra.HeadLogic.Snapshot.Request

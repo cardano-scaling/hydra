@@ -135,6 +135,7 @@ spec = do
                   if vkeys == [key] && signatures == aggregate [signature] && contents == bytes
                     then Right ()
                     else Left $ InvalidSignatures (key :| [])
+              , userValidation = Nothing
               }
           program :: Program SimpleTx ()
           program = do

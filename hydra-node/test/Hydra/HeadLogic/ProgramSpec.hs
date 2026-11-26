@@ -8,7 +8,7 @@ import Hydra.HeadLogic.Program (foldProgram, instruction, suspend)
 import Hydra.Node.HeadLogic.Configuration qualified as Configuration
 import Hydra.Prelude hiding (trace)
 import Hydra.Prelude qualified as Prelude
-import Test.Hydra.HeadLogic.Interpreter (testInterpreterConfig)
+import Test.Hydra.HeadLogic.Interpreter (evaluateResult, testInterpreterConfig)
 import Test.Hydra.Prelude (
   Spec,
   describe,
@@ -32,11 +32,12 @@ import Hydra.Chain.ChainState (ChainSlot)
 import Hydra.HeadLogic.Interpreter qualified as Interpreter
 import Hydra.HeadLogic.Program qualified as Program
 import Hydra.HeadLogic.Rules.Network.ReqTx qualified as ReqTx
+import Hydra.HeadLogic.Rules.Policy (checkTransactionUTxO)
 import Hydra.HeadLogic.Trace qualified as Trace
 import Hydra.HeadLogic.Workflow qualified as Workflow
 import Hydra.HeadLogicSpec (inOpenState, testSnapshot, withAccumulators, zeroChainPointTime)
 import Hydra.Ledger (Ledger (..), ValidationError (..))
-import Hydra.Ledger.Simple (SimpleTx, simpleLedger)
+import Hydra.Ledger.Simple (SimpleTx (..), simpleLedger)
 import Hydra.Network.Message (Message (..))
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.HeadLogic (
@@ -56,8 +57,10 @@ import Hydra.Node.State (Deposit (..), DepositStatus (..), NodeState (..), initi
 import Hydra.Tx.IsTx (UTxOType, txId)
 import Hydra.Tx.Party (Party)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (..), Snapshot (..))
+import Hydra.UserValidationRules (PolicyViolation (..), UserValidation (..))
 import Test.Hydra.HeadLogic.Debugger qualified as Debug
 import Test.Hydra.HeadLogic.State ()
+import Test.Hydra.Ledger (utxoValidationWith)
 import Test.Hydra.Ledger.Simple (aValidTx, utxoRef)
 import Test.Hydra.Node.Fixture (testEnvironment)
 import Test.Hydra.Node.State ()
@@ -67,7 +70,39 @@ spec :: Spec
 spec = do
   reificationSpec
   capacityPruningSpec
+  transactionUTxOPolicySpec
   describe "crem phases with program actions" $ specWith (Workflow.run . ReqTx.workflow)
+
+transactionUTxOPolicySpec :: Spec
+transactionUTxOPolicySpec = describe "transaction UTxO policy" $ do
+  let coordinated = emptyOpenState.coordinatedHeadState
+      configWithLimit :: Natural -> Interpreter.InterpreterConfig SimpleTx
+      configWithLimit limit =
+        let validation =
+              (transactionPolicyWith $ const $ Right ())
+                { utxoValidation = utxoValidationWith $ \active _ ->
+                    let count = fromIntegral $ length active
+                     in if count <= limit
+                          then Right ()
+                          else Left MaxUTxOCountExceeded{actualCount = count, maximumCount = limit}
+                }
+         in (testInterpreterConfig simpleLedger){Interpreter.userValidation = Just validation}
+
+  it "allows the transaction when no policy is configured" $
+    evaluateResult (testInterpreterConfig simpleLedger) (checkTransactionUTxO coordinated sampleTx)
+      `shouldBe` Right (Right ())
+
+  it "checks the output count after applying the transaction" $ do
+    evaluateResult (configWithLimit 1) (checkTransactionUTxO coordinated sampleTx)
+      `shouldBe` Right (Right ())
+    evaluateResult (configWithLimit 0) (checkTransactionUTxO coordinated sampleTx)
+      `shouldBe` Right (Left MaxUTxOCountExceeded{actualCount = 1, maximumCount = 0})
+
+  it "allows a transaction that brings the UTxO back within the limit" $ do
+    let overLimit = coordinated{localUTxO = utxoRef 42}
+        spending = SimpleTx 43 (utxoRef 42) mempty
+    evaluateResult (configWithLimit 0) (checkTransactionUTxO overLimit spending)
+      `shouldBe` Right (Right ())
 
 reificationSpec :: Spec
 reificationSpec =
@@ -132,6 +167,32 @@ specWith runReqTx = do
 
     it "a follower applies the transaction without requesting a snapshot" $ do
       Interpreter.runProgram (testInterpreterConfig simpleLedger) (reqTxProgram bob 1 emptyOpenState sampleTx)
+        `shouldBe` Continue [received, applied] []
+
+    it "rejects a transaction forbidden by policy while retries remain" $ do
+      let violation = MaxOutputDatumSizeExceeded{actualDatumSize = 2, maximumDatumSize = 1}
+          ledger :: Ledger SimpleTx
+          ledger = Ledger $ \_ _ _ -> Prelude.error "policy rejection reaches the ledger"
+          validation = transactionPolicyWith $ \tx ->
+            if tx == sampleTx
+              then Left violation
+              else Prelude.error "policy receives a different transaction"
+          config = (testInterpreterConfig ledger){Interpreter.userValidation = Just validation}
+      Interpreter.runProgram config (reqTxProgram bob 1 emptyOpenState sampleTx)
+        `shouldBe` Continue
+          [ TxInvalid
+              { headId = testHeadId
+              , utxo = mempty
+              , transaction = sampleTx
+              , validationError = PolicyValidationError violation
+              }
+          ]
+          []
+
+    it "applies a transaction allowed by the configured policy" $ do
+      let validation = transactionPolicyWith $ const $ Right ()
+          config = (testInterpreterConfig simpleLedger){Interpreter.userValidation = Just validation}
+      Interpreter.runProgram config (reqTxProgram bob 1 emptyOpenState sampleTx)
         `shouldBe` Continue [received, applied] []
 
     it "a leader records the request before broadcasting its transaction IDs" $ do
@@ -210,8 +271,8 @@ specWith runReqTx = do
       let program = reqTxProgram alice 1 emptyOpenState sampleTx
           ledger :: Ledger SimpleTx
           ledger = Ledger $ \_ _ _ -> Prelude.error "resumed continuation queries the ledger again"
-      case pauseAtLedger 4 $ Debug.cursor program of
-        Nothing -> failure "ReqTx does not expose its ledger query within four instructions"
+      case pauseAtLedger 5 $ Debug.cursor program of
+        Nothing -> failure "ReqTx does not expose its ledger query within five instructions"
         Just (LedgerPause slot utxo tx resume) -> do
           slot `shouldBe` 0
           utxo `shouldBe` mempty
@@ -323,6 +384,14 @@ applied = TransactionAppliedToLocalUTxO testHeadId sampleTx
 ledgerFailure :: ValidationError
 ledgerFailure = ValidationError "controlled ledger rejection"
 
+transactionPolicyWith :: (SimpleTx -> Either PolicyViolation ()) -> UserValidation SimpleTx
+transactionPolicyWith check =
+  UserValidation
+    { validateTransaction = check
+    , validateDeposit = const $ Right ()
+    , utxoValidation = utxoValidationWith $ \_ _ -> Right ()
+    }
+
 rejectingLedger :: Ledger SimpleTx
 rejectingLedger = Ledger $ \_ _ txs -> case txs of
   [tx] -> Left (tx, ledgerFailure)
@@ -385,6 +454,7 @@ pauseAtLedger fuel view
   | otherwise = case view of
       Debug.Await op resume -> case op of
         Program.ApplyTransaction slot utxo tx -> Just $ LedgerPause slot utxo tx resume
+        Program.GetUserValidation -> pauseAtLedger (fuel - 1) (resume Nothing)
         Program.Change{} -> pauseAtLedger (fuel - 1) (resume ())
         Program.TraceBoolean _ answer -> pauseAtLedger (fuel - 1) (resume answer)
         _ -> Nothing

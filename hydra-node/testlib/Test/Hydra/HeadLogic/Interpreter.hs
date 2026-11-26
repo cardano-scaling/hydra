@@ -26,3 +26,4 @@ evaluateResult config = foldProgram $ \case
   Reject err -> Left $ Error err
   Change event -> Left $ Continue [event] []
   Emit effect -> Left $ Continue [] [effect]
+  GetUserValidation -> pure $ userValidation config

@@ -13,6 +13,7 @@ module Hydra.HeadLogic.Program (
   verifySnapshot,
   suspend,
   reject,
+  getUserValidation,
   foldProgram,
 ) where
 
@@ -30,6 +31,7 @@ import Hydra.Tx.Crypto (
   VerificationKey,
  )
 import Hydra.Tx.Snapshot (Snapshot)
+import Hydra.UserValidationRules (UserValidation)
 
 -- | Church encoding of the operational free monad. Composition does not allocate
 -- an intermediate instruction tree; an interpreter can still reify one using
@@ -72,6 +74,8 @@ data Instruction tx a where
   Reject ::
     LogicError tx ->
     Instruction tx Void
+  GetUserValidation ::
+    Instruction tx (Maybe (UserValidation tx))
 
 instance Functor (Program tx) where
   fmap f (Program program) = Program $ \done step -> program (done . f) step
@@ -131,6 +135,10 @@ suspend reason = absurd <$> instruction (Suspend reason)
 reject :: LogicError tx -> Program tx a
 reject reason = absurd <$> instruction (Reject reason)
 {-# INLINE reject #-}
+
+getUserValidation :: Program tx (Maybe (UserValidation tx))
+getUserValidation = instruction GetUserValidation
+{-# INLINE getUserValidation #-}
 
 -- | Fold the actual rule into another interpretation, including reification,
 -- controlled ledger responses, or operation counting.

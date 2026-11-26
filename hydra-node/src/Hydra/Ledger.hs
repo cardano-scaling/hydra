@@ -5,8 +5,10 @@ module Hydra.Ledger where
 
 import Hydra.Prelude
 
+import Data.Aeson (object, withObject, (.:), (.:?), (.=))
 import Hydra.Chain.ChainState (ChainSlot (..))
 import Hydra.Tx.IsTx (IsTx (..))
+import Hydra.UserValidationRules (PolicyViolation)
 
 -- | An abstract interface for a 'Ledger'. Allows to define mock / simpler
 -- implementation for testing as well as limiting feature-envy from the business
@@ -29,12 +31,33 @@ data ValidationResult
   | Invalid ValidationError
   deriving stock (Eq, Show, Generic)
 
-newtype ValidationError = ValidationError {reason :: Text}
+data ValidationError
+  = ValidationError {reason :: Text}
+  | PolicyValidationError {policyViolation :: PolicyViolation}
   deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
 
 instance ToCBOR ValidationError where
   toCBOR = genericToCBOR
 
 instance FromCBOR ValidationError where
   fromCBOR = genericFromCBOR
+
+-- Keep the existing ledger-error JSON unchanged for clients and checkpoints.
+instance ToJSON ValidationError where
+  toJSON = \case
+    ValidationError reason -> object ["reason" .= reason]
+    PolicyValidationError violation ->
+      object ["tag" .= ("PolicyValidationError" :: Text), "policyViolation" .= violation]
+
+instance FromJSON ValidationError where
+  parseJSON = withObject "ValidationError" $ \o -> do
+    tag <- o .:? "tag"
+    case tag :: Maybe Text of
+      Nothing -> ValidationError <$> o .: "reason"
+      Just "PolicyValidationError" -> PolicyValidationError <$> o .: "policyViolation"
+      Just unknown -> fail $ "Unknown validation error: " <> show unknown
+
+renderValidationError :: ValidationError -> Text
+renderValidationError = \case
+  ValidationError reason -> reason
+  PolicyValidationError violation -> show violation

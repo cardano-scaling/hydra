@@ -7,7 +7,7 @@ module Test.Hydra.HeadLogic.Debugger where
 import Data.Aeson (Result (..), Value, fromJSON, object, (.=))
 import Data.ByteString qualified as BS
 import Hydra.HeadLogic.Interpreter (
-  InterpreterConfig (snapshotSigner, snapshotVerifier, transactionApplication),
+  InterpreterConfig (snapshotSigner, snapshotVerifier, transactionApplication, userValidation),
   SnapshotSigner (signOne, signingIdentity),
  )
 import Hydra.HeadLogic.Program (
@@ -91,6 +91,8 @@ prepare mode config program = consume (cursor program) mode
     TraceBoolean name answer -> do
       rest <- next answer remaining
       pure rest{lowered = instruction op >> lowered rest, steps = Step DecisionStep (name <> ": " <> show answer) (Just name) (toJSON answer) : steps rest}
+    GetUserValidation ->
+      continue (userValidation config) (Step InputStep "get user validation policy" Nothing (toJSON $ isJust (userValidation config)))
    where
     query :: (ToJSON b, FromJSON b) => StepKind -> Text -> Value -> b -> (b -> a) -> Either Text Prepared
     query kind name args actual decode = do

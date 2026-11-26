@@ -16,6 +16,7 @@ data TraceStep
   | Finished
   | Suspended
   | Rejected
+  | UserValidationLoaded
   deriving stock (Eq, Show)
 
 -- | Labels inspect constructors only; tracing never forces payloads or caches.

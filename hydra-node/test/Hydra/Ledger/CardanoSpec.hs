@@ -280,6 +280,9 @@ rejectsUnwitnessedTransaction =
           Left (_, ValidationError{reason}) ->
             property ("MissingVKeyWitnessesUTXOW" `isInfixOf` reason)
               & counterexample ("rejected for another reason: " <> unpack reason)
+          Left (_, PolicyValidationError violation) ->
+            property False
+              & counterexample ("unexpected policy rejection: " <> show violation)
           Right _ ->
             property False
               & counterexample "an unwitnessed transaction was accepted"

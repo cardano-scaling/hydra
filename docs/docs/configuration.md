@@ -28,6 +28,22 @@ A few things to keep in mind:
 - **Scalar fields**: CLI flags override YAML values. There is one known limitation: if you pass a CLI flag whose value happens to equal the compiled-in default (e.g. `--api-port 4001` when 4001 is the default), the YAML value wins silently. The node logs a warning when this happens, so watch for it on startup.
 - **List fields** (`peers`, `hydra-verification-keys`, `cardano-verification-keys`): CLI and YAML values are **unioned**, not overridden. There is no way to "clear" the YAML list from the CLI — if you need full CLI control over a list, omit it from the config file.
 
+#### User policy file
+
+Specify a policy file with `--policy`:
+
+```shell
+hydra-node --policy policies/head.yaml
+```
+
+The equivalent node configuration entry is `policy: policies/head.yaml`.
+The CLI option takes precedence over the YAML entry. Relative paths supplied
+on the command line are relative to the working directory; paths in the node
+configuration are relative to that configuration file's directory.
+
+The policy file uses YAML with settings under a top-level `head-policy` object.
+The option is unset by default, and the configured path is included in `GET /config`.
+
 #### Peer list with co-located keys
 
 The YAML format lets you list each peer's addresses and verification keys together in one block. You can include your own node in the list — the node drops any entry whose address matches its own `listen`/`advertise` address, so a single peer block can be shared across all participants.
