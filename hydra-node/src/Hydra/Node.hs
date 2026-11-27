@@ -6,7 +6,7 @@
 -- Checkout [Hydra
 -- Documentation](https://hydra.family/head-protocol/docs/dev/architecture)
 -- for some details about the overall architecture of the `Node`.
-module Hydra.Node where
+module Hydra.Node (module Hydra.Node, module Hydra.Node.Input) where
 
 import Hydra.Prelude
 
@@ -45,12 +45,12 @@ import Hydra.Node.HeadLogic (
   HeadState (..),
   Input (..),
   Outcome (..),
-  TTL,
   aggregateChainStateHistory,
   aggregateNodeState,
   aggregateState,
  )
 import Hydra.Node.HeadLogic qualified as HeadLogic
+import Hydra.Node.Input
 import Hydra.Node.InputQueue (InputQueue (..), Queued (..), createInputQueue)
 import Hydra.Node.Outbox (Outbox (..), StallBounds (..), newOutbox)
 import Hydra.Node.ParameterMismatch (ParamMismatch (..), ParameterMismatch (..))
@@ -269,14 +269,6 @@ wireNetworkInput node =
     }
  where
   DraftHydraNode{inputQueue = InputQueue{enqueue}} = node
-
--- | Create a network input with corresponding default ttl from given sender.
-mkNetworkInput :: Party -> Message tx -> Input tx
-mkNetworkInput sender msg =
-  case msg of
-    ReqTx{} -> NetworkInput defaultTxTTL $ ReceivedMessage{sender, msg}
-    ReqDec{} -> NetworkInput defaultTxTTL $ ReceivedMessage{sender, msg}
-    _ -> NetworkInput defaultTTL $ ReceivedMessage{sender, msg}
 
 -- | Connect chain, network and API to a hydrated 'DraftHydraNode' to get a fully
 -- connected 'HydraNode'.
@@ -576,16 +568,6 @@ inOpenHeadAndSynced :: NodeState tx -> Bool
 inOpenHeadAndSynced = \case
   NodeInSync{headState = Open{}} -> True
   _ -> False
-
--- | The maximum number of times to re-enqueue a network messages upon 'Wait'.
--- outcome.
-defaultTTL :: TTL
-defaultTTL = 6000
-
--- | The maximum number of times to re-enqueue 'ReqTx' and 'ReqDec' network
--- messages upon 'Wait'.
-defaultTxTTL :: TTL
-defaultTxTTL = 5
 
 -- | The time to wait between re-enqueuing a 'Wait' outcome.
 waitDelay :: DiffTime

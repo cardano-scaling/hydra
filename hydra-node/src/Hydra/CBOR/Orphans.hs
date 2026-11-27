@@ -8,7 +8,7 @@ import Hydra.Prelude
 
 import Codec.CBOR.JSON (decodeValue, encodeValue)
 import Data.Aeson qualified as Aeson
-import Network.Socket (PortNumber)
+import Hydra.Network.Types ()
 
 -- | 'Aeson.Value' is CBOR-encoded using the standard JSON-in-CBOR mapping
 -- from cborg-json. This is used to serve the pre-rendered configuration
@@ -21,9 +21,3 @@ instance ToCBOR Aeson.Value where
 
 instance FromCBOR Aeson.Value where
   fromCBOR = decodeValue False
-
-instance ToCBOR PortNumber where
-  toCBOR = toCBOR . (fromIntegral :: PortNumber -> Word16)
-
-instance FromCBOR PortNumber where
-  fromCBOR = (fromIntegral :: Word16 -> PortNumber) <$> fromCBOR

@@ -112,6 +112,21 @@ decomposes into verifying components) and `sigUnforge` (per-signature
 EUF-CMA), from which "a verifying aggregate means every party signed"
 (`ms-unforgeable`) is a derived theorem (@agda-appendix).
 
+The Haskell implementation shares its ordered aggregation, signature-count
+checks and component-verification policy in `Hydra.Tx.Crypto.MultiSignature`.
+Individual verification is supplied by `Hydra.Tx.Crypto.Signature`: Ed25519
+for the node and symbolic witnesses for the browser playground. The latter
+exercises protocol behaviour without providing the security assumptions above.
+
+Accumulator element counts and updates share the same multiset implementation
+and `Hydra.Tx.Accumulator.Core` in both runtimes. Snapshot field selection is
+shared as well; `Hydra.Tx.Snapshot.Encoding` and
+`Hydra.Tx.Accumulator.Commitment` supply the native or symbolic primitives.
+Symbolic commitments preserve contents and multiplicity without implementing
+KZG proofs.
+Both builds compile the shared Haskell modules directly, including the
+transaction interface and chain, client-message and network types.
+
 == Extended UTxO <sec:eutxo>
 The Hydra Head protocol is specified to work on the so-called Extended UTxO (EUTxO) ledgers
 like Cardano.

@@ -29,6 +29,9 @@ root-instances = [
   { class = '\.Real$' },
   { class = '\.Integral$' },
   { class = '\.IsString$' },
+  # Used by the browser's symbolic verification keys.
+  { module = "Hydra.Prelude.Core", instance = "ToJSONKey HexBytes" },
+  { module = "Hydra.Prelude.Core", instance = "FromJSONKey HexBytes" },
   # unstableMakeIsData creates all Data instances at once, some are unused and
   # so are treated as roots.
   { module = "Hydra.Contract.Commit", instance = "UnsafeFromData Commit" },

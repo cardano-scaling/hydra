@@ -5,6 +5,8 @@
 
 module Hydra.HeadLogic.Rules.Chain.Deposits where
 
+import Hydra.Prelude
+
 import Data.Map.Strict qualified as Map (
   difference,
   filter,
@@ -88,7 +90,6 @@ import Hydra.Node.State (
   DepositStatus (Active, Expired, Inactive),
   PendingDeposits,
  )
-import Hydra.Prelude
 import Hydra.Tx (IsTx)
 import Hydra.Tx.DepositPeriod (
   toNominalDiffTime,
@@ -99,16 +100,17 @@ determineNextDepositStatus :: RuleEnvironment -> PendingDeposits tx -> UTCTime -
 determineNextDepositStatus env pendingDeposits chainTime =
   (\deposit -> deposit{status = determineStatus deposit}) <$> pendingDeposits
  where
-  determineStatus Deposit{created, deadline}
+  determineStatus deposit@Deposit{deadline}
     | chainTime > deadline `minusTime` toNominalDiffTime depositPeriod = Expired
-    | chainTime > created `plusTime` toNominalDiffTime depositActivation = Active
+    | chainTime > depositActivationTime env deposit = Active
     | otherwise = Inactive
 
   minusTime time dt = addUTCTime (-dt) time
 
-  plusTime = flip addUTCTime
+  RuleEnvironment{depositPeriod} = env
 
-  RuleEnvironment{depositPeriod, depositActivation} = env
+depositActivationTime :: RuleEnvironment -> Deposit tx -> UTCTime
+depositActivationTime env deposit = addUTCTime (toNominalDiffTime env.depositActivation) deposit.created
 
 -- | Either activate or expire deposits that meet those criteria.
 updateDepositStates ::

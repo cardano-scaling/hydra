@@ -2,21 +2,18 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# OPTIONS_GHC -fno-specialize #-}
 
-module Hydra.Contract.HeadState where
+module Hydra.Contract.HeadState (module Hydra.Contract.HeadState, module Hydra.Contract.HeadState.Types) where
 
 import PlutusTx.Prelude
 
 import GHC.Generics (Generic)
+import Hydra.Contract.HeadState.Types
 import Hydra.Data.ContestationPeriod (ContestationPeriod)
 import Hydra.Data.DepositPeriod (DepositPeriod)
 import Hydra.Data.Party (Party)
 import PlutusLedgerApi.V3 (CurrencySymbol, POSIXTime, PubKeyHash, TxOutRef)
 import PlutusTx qualified
 import Text.Show (Show)
-
-type SnapshotNumber = Integer
-
-type SnapshotVersion = Integer
 
 type Hash = BuiltinByteString
 

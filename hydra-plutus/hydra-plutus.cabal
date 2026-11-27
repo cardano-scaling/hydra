@@ -60,8 +60,10 @@ library
     Hydra.Contract.Head
     Hydra.Contract.HeadError
     Hydra.Contract.HeadState
+    Hydra.Contract.HeadState.Types
     Hydra.Contract.HeadTokens
     Hydra.Contract.HeadTokensError
+    Hydra.Contract.KZGParameters
     Hydra.Contract.KZGTrustedSetup
     Hydra.Contract.MintAction
     Hydra.Contract.Util

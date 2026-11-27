@@ -3,9 +3,10 @@
 -- | Typed handles and bounded label domains for the public metrics interface.
 module Hydra.Logging.Monitoring.Metrics where
 
+import Hydra.Prelude
+
 import Data.Map.Strict qualified as Map
 import Hydra.Logging.Monitoring.Registry qualified as Registry
-import Hydra.Prelude
 import System.Metrics.Prometheus.Metric.Counter (Counter)
 import System.Metrics.Prometheus.Metric.Gauge (Gauge)
 import System.Metrics.Prometheus.Metric.Histogram (Histogram)
@@ -143,4 +144,4 @@ networkEventsValues :: [Text]
 networkEventsValues = ["reconnect", "broadcast_failure", "watch_failure", "authentication_failure", "decode_failure", "queue_storage_failure", "queue_stat_failure", "queue_full", "lease_warning"]
 
 chainOperationsValues :: [Text]
-chainOperationsValues = ["draft_deposit", "submit", "init", "increment", "recover", "decrement", "close", "contest", "fanout", "partial_fanout", "final_fanout"]
+chainOperationsValues = ["draft_deposit", "submit", "init", "increment", "recover", "decrement", "close", "contest", "fanout", "partial_fanout", "final_partial_fanout"]
