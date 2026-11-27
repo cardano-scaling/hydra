@@ -11,7 +11,7 @@ import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Alonzo.Scripts (AsIx (..))
 import Cardano.Ledger.Alonzo.Tx (ScriptIntegrity (..), hashScriptIntegrity)
 import Cardano.Ledger.Alonzo.TxWits (Redeemers (..))
-import Cardano.Ledger.Api (AlonzoEraTxWits (rdmrsTxWitsL), ConwayEra, EraTx (getMinFeeTx, mkBasicTx, witsTxL), EraTxBody (feeTxBodyL, inputsTxBodyL), PParams, TxBody, bodyTxL, coinTxOutL, datsTxWitsL, getMinCoinTxOut, hashScript, mkBasicTxBody, outputsTxBodyL, referenceInputsTxBodyL, scriptIntegrityHashTxBodyL, scriptTxWitsL, setMinCoinTxOut, pattern SpendingPurpose)
+import Cardano.Ledger.Api (AlonzoEraTxWits (rdmrsTxWitsL), ConwayEra, EraTx (getMinFeeTx, mkBasicTx, witsTxL), EraTxBody (feeTxBodyL, inputsTxBodyL), PParams, TxBody, bodyTxL, coinTxOutL, collateralInputsTxBodyL, datsTxWitsL, getMinCoinTxOut, hashScript, mkBasicTxBody, outputsTxBodyL, ppCollateralPercentageL, ppMaxCollateralInputsL, referenceInputsTxBodyL, scriptIntegrityHashTxBodyL, scriptTxWitsL, setMinCoinTxOut, pattern SpendingPurpose)
 import Cardano.Ledger.Api.PParams (getLanguageView)
 import Cardano.Ledger.Babbage.TxBody (BabbageTxOut (..))
 import Cardano.Ledger.BaseTypes qualified as Ledger
@@ -48,6 +48,7 @@ import Hydra.Cardano.Api qualified as Api
 import Hydra.Cardano.Api.Prelude (fromShelleyPaymentCredential)
 import Hydra.Cardano.Api.Pretty (renderTx)
 import Hydra.Chain.CardanoClient (QueryPoint (..))
+import Hydra.Chain.ChainState (ChainSlot (..))
 import Hydra.Chain.Direct.Wallet (
   Address,
   ChainQuery,
@@ -63,6 +64,11 @@ import Hydra.Chain.Direct.Wallet (
  )
 import Hydra.Chain.Direct.Wallet qualified as Wallet
 import Hydra.Contract.Dummy (dummyValidatorScript)
+import Hydra.Ledger (applyTransactions)
+import Hydra.Ledger.Cardano (cardanoLedger, newLedgerEnv)
+import Hydra.Tx.HeadParameters (HeadParameters (..))
+import Hydra.Tx.Init (initTx)
+import Test.Hydra.Node.Fixture (defaultGlobals)
 import Test.Hydra.Tx.Fixture qualified as Fixture
 import Test.Hydra.Tx.Gen (genKeyPair, genOneUTxOFor, genTxOut, genTxOutAdaOnly)
 import Test.QuickCheck (
@@ -105,7 +111,33 @@ spec = parallel $ do
     prop "does not set script integrity hash when no scripts are executed" prop_noScriptIntegrityHashWithoutExecution
     prop "unrelated reference scripts do not affect the script integrity hash" prop_unrelatedRefScriptDoesNotAffectIntegrityHash
 
+    it "balances a ledger-valid Init using ada-only fuel in a mixed wallet" $ do
+      wallet <- newFuelWallet mixedWalletUTxO
+      Just seedInput <- atomically $ getSeedInput wallet
+      let headParameters = Fixture.testHeadParameters{parties = [Fixture.alice]}
+          partialTx = initTx Fixture.testNetworkId fuelPParams seedInput [Fixture.deriveOnChainId Fixture.alice] headParameters
+      balancedTx <- coverFee wallet mempty partialTx >>= either (fail . show) pure
+      let signedTx = sign wallet balancedTx
+          utxo = UTxO.fromShelleyUTxO shelleyBasedEra (Ledger.UTxO mixedWalletUTxO)
+          ledger = cardanoLedger defaultGlobals (newLedgerEnv fuelPParams)
+      -- Full ledger validation includes collateral and per-asset conservation.
+      first snd (applyTransactions ledger (ChainSlot 0) utxo [signedTx]) `shouldSatisfy` isRight
+      seedInput `shouldBe` Api.fromLedgerTxIn largeAdaInput
+      Api.toLedgerTx signedTx ^. bodyTxL . collateralInputsTxBodyL `shouldBe` Set.singleton largeAdaInput
+      Api.toLedgerTx signedTx ^. bodyTxL . inputsTxBodyL `shouldBe` Set.singleton largeAdaInput
+      atomically (getUTxO wallet) `shouldReturn` mixedWalletUTxO
+
+    it "reports missing fuel when the wallet contains only token-bearing outputs" $ do
+      wallet <- newFuelWallet $ Map.restrictKeys mixedWalletUTxO (Set.singleton tokenInput)
+      coverFee wallet mempty (fromLedgerTx $ mkBasicTx mkBasicTxBody) >>= \case
+        Left ErrNoFuelUTxOFound -> pure ()
+        other -> expectationFailure $ "Expected ErrNoFuelUTxOFound, got " <> show other
+
   describe "newTinyWallet" $ do
+    it "does not select a token-bearing Init seed" $ do
+      wallet <- newFuelWallet $ Map.restrictKeys mixedWalletUTxO (Set.singleton tokenInput)
+      atomically (getSeedInput wallet) `shouldReturn` Nothing
+
     prop "initialises wallet by querying UTxO" $
       forAll genKeyPair $ \(vk, sk) -> do
         wallet <- newTinyWallet nullTracer Fixture.testNetworkId (vk, mkSecret (CardanoSigningKey sk)) (mockChainQuery vk) mockQueryEpochInfo mockQueryPParams
@@ -221,7 +253,7 @@ prop_setsMinUTxOValue :: Property
 prop_setsMinUTxOValue =
   forAllBlind (resize 0 genLedgerTx) $ \tx ->
     forAllBlind (reasonablySized $ genOutputsForInputs tx) $ \lookupUTxO ->
-      forAllBlind (reasonablySized genUTxO) $ \walletUTxO ->
+      forAllBlind (reasonablySized genFuelUTxO) $ \walletUTxO ->
         forAll genTxOutWithoutADA $ \txOutWithoutADA -> do
           let newTx = tx & bodyTxL . outputsTxBodyL <>~ StrictSeq.singleton txOutWithoutADA
           case coverFee_ Fixture.pparams Fixture.systemStart Fixture.epochInfo lookupUTxO walletUTxO newTx of
@@ -272,7 +304,7 @@ prop_balanceTransaction =
   forAllBlind (resize 0 genLedgerTx) $ \tx ->
     forAllBlind (reasonablySized $ genOutputsForInputs tx) $
       \lookupUTxO ->
-        forAllBlind (reasonablySized genUTxO) $ \walletUTxO ->
+        forAllBlind (reasonablySized genFuelUTxO) $ \walletUTxO ->
           case coverFee_ Fixture.pparams Fixture.systemStart Fixture.epochInfo lookupUTxO walletUTxO tx of
             Left err ->
               property False
@@ -397,6 +429,14 @@ genUTxO = do
     let value' = value <> Ledger.inject (Coin 20_000_000)
      in BabbageTxOut addr value' datum refScript
 
+-- | A wallet with ada-only fuel alongside arbitrary outputs, including tokens.
+genFuelUTxO :: Gen (Map TxIn TxOut)
+genFuelUTxO = do
+  utxo <- genUTxO
+  txIn <- toLedgerTxIn <$> genTxIn
+  txOut <- genTxOutAdaOnly =<< arbitrary
+  pure $ Map.insert txIn (Api.toLedgerTxOut txOut & coinTxOutL <>~ Coin 20_000_000) utxo
+
 genOutputsForInputs :: Tx TopTx LedgerEra -> Gen (Map TxIn TxOut)
 genOutputsForInputs tx = do
   let n = Set.size (view (bodyTxL . inputsTxBodyL) tx)
@@ -411,6 +451,33 @@ genLedgerTx = do
 --
 -- Helpers
 --
+
+-- A larger token-bearing output must not hide usable ada-only fuel.
+mixedWalletUTxO :: Map TxIn TxOut
+mixedWalletUTxO =
+  Map.fromList
+    [ (smallAdaInput, output $ Api.lovelaceToValue 20_000_000)
+    , (largeAdaInput, output $ Api.lovelaceToValue 40_000_000)
+    , (tokenInput, output $ Api.lovelaceToValue 100_000_000 <> fromList [(Api.AssetId Fixture.testPolicyId (Api.UnsafeAssetName "old-token"), 1)])
+    ]
+ where
+  (vk, _) = genKeyPair `generateWith` 42
+  output value = Api.toLedgerTxOut $ Api.TxOut (Api.mkVkAddress Fixture.testNetworkId vk) value Api.TxOutDatumNone Api.ReferenceScriptNone
+
+smallAdaInput, largeAdaInput, tokenInput :: TxIn
+smallAdaInput = toLedgerTxIn $ Api.TxIn "0000000000000000000000000000000000000000000000000000000000000000" (Api.TxIx 0)
+largeAdaInput = toLedgerTxIn $ Api.TxIn "0000000000000000000000000000000000000000000000000000000000000000" (Api.TxIx 1)
+tokenInput = toLedgerTxIn $ Api.TxIn "0000000000000000000000000000000000000000000000000000000000000000" (Api.TxIx 2)
+
+fuelPParams :: PParams LedgerEra
+fuelPParams = Fixture.pparams & ppCollateralPercentageL .~ 150 & ppMaxCollateralInputsL .~ 3
+
+newFuelWallet :: Map TxIn TxOut -> IO (TinyWallet IO)
+newFuelWallet walletUTxO =
+  newTinyWallet nullTracer Fixture.testNetworkId (vk, mkSecret $ CardanoSigningKey sk) query mockQueryEpochInfo (pure fuelPParams)
+ where
+  (vk, sk) = genKeyPair `generateWith` 42
+  query _ _ = pure WalletInfoOnChain{walletUTxO, systemStart = Fixture.systemStart, tip = Api.ChainPointAtGenesis}
 
 allTxIns :: [Tx TopTx LedgerEra] -> Set TxIn
 allTxIns txs =
@@ -461,7 +528,7 @@ outputBalance =
 prop_detectsMissingScript :: Property
 prop_detectsMissingScript =
   forAllBlind genScriptSpendingTx $ \(tx, scriptUTxO) ->
-    forAllBlind (reasonablySized genUTxO) $ \walletUTxO ->
+    forAllBlind (reasonablySized genFuelUTxO) $ \walletUTxO ->
       forAll arbitrary $ \(arbitraryData :: Data LedgerEra) -> do
         let
           -- Add a redeemer for the script input but DON'T add the script witness.
@@ -512,7 +579,7 @@ prop_noScriptIntegrityHashWithoutExecution :: Property
 prop_noScriptIntegrityHashWithoutExecution =
   forAllBlind (resize 0 genLedgerTx) $ \tx ->
     forAllBlind (reasonablySized $ genOutputsForInputs tx) $ \lookupUTxO ->
-      forAllBlind (reasonablySized genUTxO) $ \walletUTxO ->
+      forAllBlind (reasonablySized genFuelUTxO) $ \walletUTxO ->
         forAllBlind genRefScriptUTxO $ \(refIn, refOut) -> do
           let txWithRefInput =
                 tx
@@ -557,7 +624,7 @@ hasReferenceScript out =
 prop_unrelatedRefScriptDoesNotAffectIntegrityHash :: Property
 prop_unrelatedRefScriptDoesNotAffectIntegrityHash =
   forAllBlind genTxExecutingScript $ \(tx, lookupUTxO) ->
-    forAllBlind (reasonablySized genUTxO `suchThat` (not . any isBootstrapOut)) $ \walletUTxO ->
+    forAllBlind (reasonablySized genFuelUTxO `suchThat` (not . any isBootstrapOut)) $ \walletUTxO ->
       forAllBlind genUnrelatedRefScriptUTxO $ \(refIn, refOut) -> do
         let txWithRefInput = tx & bodyTxL . referenceInputsTxBodyL .~ Set.singleton refIn
         case coverFee_ Fixture.pparams Fixture.systemStart Fixture.epochInfo (Map.insert refIn refOut lookupUTxO) walletUTxO txWithRefInput of

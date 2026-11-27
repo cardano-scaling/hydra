@@ -50,7 +50,7 @@ import Cardano.Ledger.Core qualified as Ledger
 import Cardano.Ledger.Shelley.API (unUTxO)
 import Cardano.Ledger.Shelley.API qualified as Ledger
 import Cardano.Ledger.State (ScriptsProvided (..))
-import Cardano.Ledger.Val (invert)
+import Cardano.Ledger.Val (invert, isAdaOnly)
 import Cardano.Slotting.EpochInfo (EpochInfo)
 import Cardano.Slotting.Time (SystemStart (..))
 import Control.Concurrent.Class.MonadSTM (readTVarIO, writeTVar)
@@ -166,7 +166,7 @@ newTinyWallet tracer networkId (vk, sk) queryWalletInfo queryEpochInfo querySome
   pure
     TinyWallet
       { getUTxO
-      , getSeedInput = fmap (fromLedgerTxIn . fst) . findLargestUTxO <$> getUTxO
+      , getSeedInput = fmap (fromLedgerTxIn . fst) . findFuelUTxO <$> getUTxO
       , sign = \tx -> withSecret sk (`signTxWith` tx)
       , coverFee = \lookupUTxO partialTx -> do
           let ledgerLookupUTxO = unUTxO $ UTxO.toShelleyUTxO Api.shelleyBasedEra lookupUTxO
@@ -348,7 +348,7 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx = do
       & bodyTxL . feeTxBodyL .~ fee
  where
   findUTxOToPayFees :: Map TxIn (Ledger.TxOut era) -> Either ErrCoverFee (TxIn, Ledger.TxOut era)
-  findUTxOToPayFees utxo = case findLargestUTxO utxo of
+  findUTxOToPayFees utxo = case findFuelUTxO utxo of
     Nothing ->
       Left ErrNoFuelUTxOFound
     Just (i, o) ->
@@ -425,6 +425,12 @@ coverFee_ pparams systemStart epochInfo lookupUTxO walletUTxO partialTx = do
         newIdx <- Map.lookup txIn finalInputIndex
         pure $ SpendingPurpose (AsIx newIdx)
     adjustPurpose other = other
+
+-- | Select ada-only fuel because the fee input also serves as collateral and
+-- we do not construct a collateral return. Init uses the same selection for
+-- its seed so that balancing does not consume a separate token-bearing input.
+findFuelUTxO :: Ledger.EraTxOut era => Map TxIn (Ledger.TxOut era) -> Maybe (TxIn, Ledger.TxOut era)
+findFuelUTxO = findLargestUTxO . Map.filter (isAdaOnly . view Ledger.valueTxOutL)
 
 findLargestUTxO :: Ledger.EraTxOut era => Map TxIn (Ledger.TxOut era) -> Maybe (TxIn, Ledger.TxOut era)
 findLargestUTxO utxo =

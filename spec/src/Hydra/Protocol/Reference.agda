@@ -11,6 +11,10 @@
 -- record, supplied (mocked) from Haskell. Correspondence to the abstract `closeValid` is proved
 -- (separately, typecheck-only) in `ReferenceBridge.lagda.typ`.
 --
+-- Fee funding and collateral are outside these script checkers. The node wallet selects
+-- ada-only fee/collateral inputs and Init seeds, without a collateral return; full Cardano
+-- ledger tests cover this selection and whole-transaction value conservation separately.
+--
 -- NB on imports: this module stays SELF-CONTAINED over `Agda.Builtin.{Bool,Nat,List}`. Two reasons:
 -- (1) Prelude/OnChain/abstract-set-theory do not extract at all; (2) even stdlib modules that DO
 -- extract balloon the committed `generated/MAlonzo` tree - importing `Data.Bool.Base` just for `not`
