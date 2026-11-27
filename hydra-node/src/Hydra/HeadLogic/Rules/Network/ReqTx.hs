@@ -51,7 +51,7 @@ import Hydra.HeadLogic.State (
     seenSnapshot
   ),
   OpenState (OpenState, coordinatedHeadState, parameters),
-  SeenSnapshot (SeenSnapshot),
+  SeenSnapshot (..),
   snapshotInFlight,
  )
 import Hydra.HeadLogic.State.Coordinated qualified as Coordinated (
@@ -139,6 +139,11 @@ workflow Args{chainPointTime = ChainPointTime{currentSlot, currentChainTime}, ..
   step :: State tx from -> Transition tx ReqTxTopology (State tx) from ()
   step = \case
     DuplicateCheck
+      | txId transaction `elem` (txId <$> previous.confirmed) ->
+          continue (const Done) $ traceB "transaction is already confirmed" True
+      | SeenSnapshot{cachedSnapshot} <- seenSnapshot
+      , txId transaction `elem` (txId <$> (Cached.snapshot cachedSnapshot).confirmed) ->
+          continue (const Done) $ traceB "transaction belongs to the retained candidate" True
       | SeenSnapshot (Cached.snapshot -> snapshot) _ <- seenSnapshot
       , Just{} <- snapshot.utxoToDecommit
       , Just known <- Map.lookup (txId transaction) allTxs
@@ -146,6 +151,9 @@ workflow Args{chainPointTime = ChainPointTime{currentSlot, currentChainTime}, ..
           continue (const Done) $ traceB "transaction is retained by the candidate decommit" True
       | Map.member (txId transaction) allTxs && any ((== txId transaction) . txId) localTxs ->
           continue (const Done) $ traceB "transaction is already applied locally" True
+      | AwaitingSnapshotTransactions{transactionIds} <- seenSnapshot
+      , txId transaction `elem` transactionIds ->
+          continue (const Done) $ void $ Staging.stage (Coordinated.start openState) $ Coordinated.receiveTransaction transaction
       | otherwise -> continue OutputCheck $ do
           void $ traceB "transaction is already applied locally" False
           Staging.stage (Coordinated.start openState) $ Coordinated.receiveTransaction transaction

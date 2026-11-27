@@ -7,7 +7,7 @@ module Hydra.Node.OutboxSpec where
 import Hydra.Prelude
 import Test.Hydra.Prelude
 
-import Control.Concurrent.Class.MonadSTM (modifyTVar', newTVarIO, readTVarIO, takeTMVar)
+import Control.Concurrent.Class.MonadSTM (check, modifyTVar', newTVarIO, putTMVar, readTVarIO, takeTMVar)
 import Hydra.Network (StallReason (..))
 import Hydra.Node.Outbox (Outbox (..), StallBounds (..), newOutbox)
 import Test.Util (shouldRunInSim)
@@ -34,6 +34,25 @@ spec = do
       drainOutbox
       readTVarIO done
     performed `shouldBe` [1 .. 10 :: Int]
+
+  it "bounds retries while a batch is in flight and admits another after completion" $ do
+    (inFlight, withOrdinary, nextRetry) <- shouldRunInSim $ do
+      started <- newLabelledEmptyTMVarIO "retry-started"
+      release <- newLabelledEmptyTMVarIO "retry-release"
+      Outbox{submit, submitRetry, pendingActions, runOutbox} <- newOutbox bounds "outbox-spec"
+      submitRetry $ atomically (putTMVar started ()) >> atomically (takeTMVar release)
+      withAsyncLabelled ("outbox-spec-run", runOutbox) $ \_ -> do
+        atomically $ takeTMVar started
+        replicateM_ 100 $ submitRetry (pure ())
+        inFlight <- atomically pendingActions
+        submit (pure ())
+        withOrdinary <- atomically pendingActions
+        atomically $ putTMVar release ()
+        atomically $ pendingActions >>= check . (== 0)
+        submitRetry (pure ())
+        nextRetry <- atomically pendingActions
+        pure (inFlight, withOrdinary, nextRetry)
+    (inFlight, withOrdinary, nextRetry) `shouldBe` (1, 2, 1)
 
   it "reports no stall while nothing is pending" $ do
     stalled <- shouldRunInSim $ do

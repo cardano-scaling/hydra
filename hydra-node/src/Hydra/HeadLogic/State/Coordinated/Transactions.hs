@@ -30,6 +30,7 @@ import Data.Map.Strict qualified as Map (
   elems,
   insert,
   lookup,
+  restrictKeys,
  )
 import Data.Sequence qualified as Seq (take, (|>))
 import Data.Singletons.Base.TH (genDefunSymbols)
@@ -226,7 +227,13 @@ machine headId snapshots0 initial initialDecommit =
               local
                 { localUTxO = reserveInputs $ rebuild snapshot txs
                 , localTxs = txs
-                , allTxs = foldr (Map.delete . txId) local.allTxs snapshot.confirmed
+                , -- The candidate owns its ordinary bodies. Keep optimistic work
+                  -- and a request-carried decommit until confirmation promotes it.
+                  allTxs =
+                    Map.restrictKeys local.allTxs $
+                      fromList $
+                        (txId <$> toList txs)
+                          <> [txId tx | tx <- Map.elems local.allTxs, matchesSnapshotDecommit snapshot tx]
                 }
          in changeCommit (SetDepositSelection deposit) next
       ReconcileConfirmedSnapshot -> case reserved of
@@ -284,12 +291,19 @@ machine headId snapshots0 initial initialDecommit =
           | otherwise -> changed local{allTxs = Map.insert (txId tx) tx local.allTxs} $ TransactionReceived tx
         ApplyValidatedTransaction (ValidatedTransaction tx after) ->
           changed local{localUTxO = after, localTxs = local.localTxs Seq.|> tx} $ TransactionAppliedToLocalUTxO headId tx
+        MarkTransactionInvalid _ tx _
+          | txId tx `elem` (txId <$> toList local.localTxs)
+              || awaited tx ->
+              unchanged local
         MarkTransactionInvalid utxo tx err ->
           changed local{allTxs = Map.delete (txId tx) local.allTxs} $ TxInvalid headId utxo tx err
         RecordPending{} ->
           output owned (Just "a decommit is already pending or awaiting settlement") local reserved CommitUnchanged (keep local) []
    where
     snapshots = Snapshots.viewInitial owned
+    awaited tx = case snapshots.seen of
+      AwaitingSnapshotTransactions{transactionIds} -> txId tx `elem` transactionIds
+      _ -> False
 
     -- A decommit can depend on a retained transaction. Rebuild first, then
     -- reserve its spending inputs, even when this round did not carry it.

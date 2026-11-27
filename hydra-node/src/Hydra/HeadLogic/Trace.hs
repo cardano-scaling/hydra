@@ -23,6 +23,7 @@ changeLabel :: StateChanged tx -> Text
 changeLabel = \case
   TransactionReceived{} -> "transaction received"
   TransactionAppliedToLocalUTxO{} -> "transaction applied to local state"
+  SnapshotTransactionsRequested{} -> "snapshot transactions requested"
   SnapshotRequestDecided{} -> "snapshot request decided"
   SnapshotRequested{} -> "snapshot requested"
   PartySignedSnapshot{} -> "party signed snapshot"
@@ -69,6 +70,7 @@ effectLabel = \case
   NetworkEffect ReqSn{} -> "broadcast ReqSn"
   NetworkEffect ReqTx{} -> "broadcast ReqTx"
   NetworkEffect ReqDec{} -> "broadcast ReqDec"
+  NetworkRetransmission{} -> "retransmit snapshot messages"
   ClientEffect{} -> "client effect"
   OnChainEffect{postChainTx} -> case postChainTx of
     InitTx{} -> "post init"

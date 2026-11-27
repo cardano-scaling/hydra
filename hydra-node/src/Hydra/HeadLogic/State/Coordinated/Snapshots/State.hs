@@ -77,6 +77,12 @@ data State tx phase where
     SnapshotNumber ->
     SnapshotNumber ->
     State tx 'RequestSent
+  Awaiting ::
+    Context tx ->
+    SnapshotNumber ->
+    SnapshotNumber ->
+    [TxIdType tx] ->
+    State tx 'RequestSent
   Collecting ::
     Context tx ->
     Candidate tx ->
@@ -98,6 +104,7 @@ statePhase :: State tx phase -> SnapshotPhase
 statePhase = \case
   Idle{} -> AwaitingRequest
   Requested{} -> RequestSent
+  Awaiting{} -> RequestSent
   Collecting{} -> CollectingSignatures
 
 restore ::
@@ -113,6 +120,8 @@ restore parties Port.SnapshotState{..} =
           InitialState $ Idle context (Just number)
         RequestedSnapshot lastSeen requested ->
           InitialState $ Requested context lastSeen requested
+        AwaitingSnapshotTransactions lastSeen requested ids ->
+          InitialState $ Awaiting context lastSeen requested ids
         SeenSnapshot{cachedSnapshot, signatories} ->
           -- This trusted cache belongs to the retained snapshot. Sharing it
           -- through restoration and projection avoids encoding on every AckSn.
@@ -134,6 +143,13 @@ request state number =
     (Requested (contextOf state) (seenSnapshotNumber (view state).seen) number)
     TransactionsUnchanged
     [SnapshotRequestDecided number]
+
+awaitTransactions :: State tx from -> SnapshotNumber -> [TxIdType tx] -> Update tx 'RequestSent
+awaitTransactions state number ids =
+  Update
+    (Awaiting (contextOf state) (seenSnapshotNumber (view state).seen) number ids)
+    TransactionsUnchanged
+    [SnapshotTransactionsRequested number ids]
 
 accept ::
   IsTx tx =>
@@ -222,12 +238,14 @@ contextOf :: State tx phase -> Context tx
 contextOf = \case
   Idle context _ -> context
   Requested context _ _ -> context
+  Awaiting context _ _ _ -> context
   Collecting context _ _ -> context
 
 withContext :: Context tx -> State tx phase -> State tx phase
 withContext context = \case
   Idle _ number -> Idle context number
   Requested _ lastSeen requested -> Requested context lastSeen requested
+  Awaiting _ lastSeen requested ids -> Awaiting context lastSeen requested ids
   Collecting _ candidate signatures -> Collecting context candidate signatures
 
 view :: State tx phase -> SnapshotState tx
@@ -239,6 +257,8 @@ view state = Port.SnapshotState{..}
       maybe NoSeenSnapshot LastSeenSnapshot number
     Requested _ lastSeen requested ->
       RequestedSnapshot lastSeen requested
+    Awaiting _ lastSeen requested ids ->
+      AwaitingSnapshotTransactions lastSeen requested ids
     Collecting _ Candidate{cachedSnapshot} signatories ->
       SeenSnapshot{cachedSnapshot, signatories}
 

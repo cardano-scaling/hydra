@@ -24,7 +24,7 @@ import Data.Text.Encoding qualified as TE
 import Data.Vector qualified as V
 import Hydra.Chain.ChainState (IsChainState)
 import Hydra.HeadLogic.Input (Input (..))
-import Hydra.HeadLogic.Outcome (Effect (NetworkEffect), Outcome (Continue), StateChanged)
+import Hydra.HeadLogic.Outcome (Effect (NetworkEffect, NetworkRetransmission), Outcome (Continue), StateChanged)
 import Hydra.Ledger (Ledger)
 import Hydra.Network.Message (Message, NetworkEvent (..))
 import Hydra.Node.Environment (Environment (..))
@@ -164,9 +164,15 @@ outcomeBroadcasts pm = case ctx pm of
             outcome :: Outcome tx
             outcome = HL.update ctxEnvironment ctxLedger initialChainTime priorState input
          in case outcome of
-              Continue{effects} -> [msg | NetworkEffect{message = msg} <- effects]
+              Continue{effects} -> concatMap broadcasts effects
               _ -> []
  where
+  broadcasts :: Effect tx -> [Message tx]
+  broadcasts = \case
+    NetworkEffect message -> [message]
+    NetworkRetransmission messages -> messages
+    _ -> []
+
   draftText :: Text
   draftText = MS.fromMisoString (inputDraft pm)
 

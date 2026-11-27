@@ -152,6 +152,7 @@ nodeSummary steps t = case stepAt steps t of
           (reqN, sigs, seenPhase) = case ss of
             HS.NoSeenSnapshot -> ("-", "0", "none")
             HS.LastSeenSnapshot{HS.lastSeen} -> (show lastSeen, "0", "last seen #" <> show lastSeen)
+            HS.AwaitingSnapshotTransactions{HS.requested} -> (show requested, "0", "Awaiting transaction payloads")
             HS.RequestedSnapshot{HS.requested} -> (show requested, "0", "ReqSn sent, awaiting acks")
             HS.SeenSnapshot{HS.cachedSnapshot = (Cached.snapshot -> s), HS.signatories} ->
               (show (number s), show (Map.size signatories), "in flight #" <> show (number s))

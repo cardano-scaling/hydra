@@ -52,6 +52,7 @@ import Hydra.HeadLogic.State.Coordinated.Snapshots.State (
 import Hydra.HeadLogic.State.Coordinated.Snapshots.State qualified as State (
   accept,
   adoptSnapshot,
+  awaitTransactions,
   clear,
   confirm,
   recordSignature,
@@ -103,6 +104,9 @@ machine headId parties initial =
     ActionResult m SnapshotTopology (State tx) from (SnapshotOutput tx)
   action state command = case state of
     Idle context _ -> case command of
+      AwaitSnapshotTransactions number ids
+        | number == (getSnapshot context.confirmed).number + 1 ->
+            transition $ State.awaitTransactions state number ids
       RequestSnapshot request
         | requestMatches headId context.version (getSnapshot context.confirmed) request ->
             transition $ State.request state (requestNumber request)
@@ -110,6 +114,17 @@ machine headId parties initial =
         | nextRound state snapshot -> transition $ State.accept parties state snapshot txs snapshot.depositTxId
       _ -> common state command
     Requested _ _ requested -> case command of
+      AwaitSnapshotTransactions number ids
+        | number == requested -> transition $ State.awaitTransactions state number ids
+      AcceptSnapshot (ValidatedSnapshot snapshot) txs
+        | nextRound state snapshot
+        , snapshot.number == requested ->
+            transition $ State.accept parties state snapshot txs snapshot.depositTxId
+      _ -> common state command
+    Awaiting _ _ requested retained -> case command of
+      AwaitSnapshotTransactions number ids
+        | number == requested && ids == retained -> output state TransactionsUnchanged []
+        | number == requested -> transition $ State.awaitTransactions state number ids
       AcceptSnapshot (ValidatedSnapshot snapshot) txs
         | nextRound state snapshot
         , snapshot.number == requested ->
@@ -148,6 +163,8 @@ machine headId parties initial =
   common state = \case
     RequestSnapshot{} ->
       output state TransactionsUnchanged []
+    AwaitSnapshotTransactions{} ->
+      refuse state "payload retention requires the next round and no candidate collecting signatures"
     AcceptSnapshot{} ->
       refuse state "candidate admission requires the next round and no candidate collecting signatures"
     AdoptSnapshot evidence

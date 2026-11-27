@@ -206,6 +206,12 @@ data SeenSnapshot tx
       { lastSeen :: SnapshotNumber
       , requested :: SnapshotNumber
       }
+  | -- | Retain requested payloads while waiting for a leader's retransmission.
+    AwaitingSnapshotTransactions
+      { lastSeen :: SnapshotNumber
+      , requested :: SnapshotNumber
+      , transactionIds :: [TxIdType tx]
+      }
   | -- | ReqSn for given snapshot was received.
     SeenSnapshot
       { cachedSnapshot :: CachedSnapshot tx
@@ -232,6 +238,8 @@ instance IsTx tx => ToJSON (SeenSnapshot tx) where
         , "lastSeen" .= lastSeen
         , "requested" .= requested
         ]
+    AwaitingSnapshotTransactions{lastSeen, requested, transactionIds} ->
+      object ["tag" .= ("AwaitingSnapshotTransactions" :: Text), "lastSeen" .= lastSeen, "requested" .= requested, "transactionIds" .= transactionIds]
     SeenSnapshot{cachedSnapshot, signatories} ->
       object
         [ "tag" .= ("SeenSnapshot" :: Text)
@@ -249,6 +257,7 @@ instance IsTx tx => FromJSON (SeenSnapshot tx) where
         RequestedSnapshot
           <$> obj .: "lastSeen"
           <*> obj .: "requested"
+      "AwaitingSnapshotTransactions" -> AwaitingSnapshotTransactions <$> obj .: "lastSeen" <*> obj .: "requested" <*> obj .: "transactionIds"
       "SeenSnapshot" -> do
         snapshot <- obj .: "snapshot"
         signatories <- obj .: "signatories"
@@ -265,6 +274,8 @@ instance IsTx tx => ToCBOR (SeenSnapshot tx) where
       toCBOR ("LastSeenSnapshot" :: Text) <> toCBOR lastSeen
     RequestedSnapshot{lastSeen, requested} ->
       toCBOR ("RequestedSnapshot" :: Text) <> toCBOR lastSeen <> toCBOR requested
+    AwaitingSnapshotTransactions{lastSeen, requested, transactionIds} ->
+      toCBOR ("AwaitingSnapshotTransactions" :: Text) <> toCBOR lastSeen <> toCBOR requested <> toCBOR transactionIds
     SeenSnapshot{cachedSnapshot, signatories} ->
       toCBOR ("SeenSnapshot" :: Text) <> toCBOR (Cached.snapshot cachedSnapshot) <> toCBOR signatories
 
@@ -274,6 +285,7 @@ instance IsTx tx => FromCBOR (SeenSnapshot tx) where
       ("NoSeenSnapshot" :: Text) -> pure NoSeenSnapshot
       "LastSeenSnapshot" -> LastSeenSnapshot <$> fromCBOR
       "RequestedSnapshot" -> RequestedSnapshot <$> fromCBOR <*> fromCBOR
+      "AwaitingSnapshotTransactions" -> AwaitingSnapshotTransactions <$> fromCBOR <*> fromCBOR <*> fromCBOR
       "SeenSnapshot" -> mkSeenSnapshot <$> fromCBOR <*> fromCBOR
       tag -> fail $ show tag <> " is not a proper CBOR-encoded SeenSnapshot"
 
@@ -292,6 +304,7 @@ seenSnapshotNumber = \case
   NoSeenSnapshot -> 0
   LastSeenSnapshot{lastSeen} -> lastSeen
   RequestedSnapshot{lastSeen} -> lastSeen
+  AwaitingSnapshotTransactions{lastSeen} -> lastSeen
   SeenSnapshot{cachedSnapshot = (Cached.snapshot -> Snapshot{number})} -> number
 
 -- | Whether a snapshot is currently in-flight (requested or being signed).
@@ -300,6 +313,7 @@ snapshotInFlight = \case
   NoSeenSnapshot -> False
   LastSeenSnapshot{} -> False
   RequestedSnapshot{} -> True
+  AwaitingSnapshotTransactions{} -> True
   SeenSnapshot{} -> True
 
 -- | Whether AckSns are currently being collected for a snapshot.

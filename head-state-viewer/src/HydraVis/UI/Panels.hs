@@ -177,6 +177,7 @@ seenSnapshotRows = \case
     div_
       []
       [row "last seen #" (show lastSeen :: Text), row "in flight" "none"]
+  HS.AwaitingSnapshotTransactions{HS.requested} -> row "awaiting payloads for #" (show requested :: Text)
   HS.RequestedSnapshot{HS.lastSeen, HS.requested} ->
     div_
       []

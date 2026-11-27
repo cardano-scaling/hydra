@@ -59,6 +59,7 @@ import Hydra.Node.HeadLogic (
     SnapshotConfirmed,
     SnapshotRequestDecided,
     SnapshotRequested,
+    SnapshotTransactionsRequested,
     TransactionReceived
   ),
   WaitReason (
@@ -372,7 +373,7 @@ integrationSpec = do
                     , decommitTx = Nothing
                     , depositTxId = Nothing
                     }
-      request `shouldBe` Wait (WaitOnTxs [2]) []
+      request `shouldBe` Wait (WaitOnTxs [2]) [SnapshotTransactionsRequested 2 [2]]
       -- Re-submission supplies the lost payload and wakes the next leader.
       let retryTx =
             Interpreter.runProgram (Configuration.interpreterConfig (Scenario.environment 1) simpleLedger) $

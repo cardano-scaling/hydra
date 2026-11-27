@@ -19,6 +19,7 @@ import Hydra.HeadLogic.State.Coordinated.Snapshots.State qualified as State (
   Context (chainSlot),
   accept,
   adoptSnapshot,
+  awaitTransactions,
   confirm,
   recordSignature,
   request,
@@ -49,6 +50,8 @@ replay headId parties initial deposited event = withInitialState initial $ \stat
  where
   importEvent :: State tx phase -> Maybe (SnapshotOutput tx)
   importEvent state = case event of
+    SnapshotTransactionsRequested number ids ->
+      Just $ mkSnapshotOutput $ State.awaitTransactions state number ids
     SnapshotRequestDecided number ->
       Just $ mkSnapshotOutput $ State.request state number
     SnapshotRequested snapshot txs deposit ->
@@ -57,10 +60,12 @@ replay headId parties initial deposited event = withInitialState initial $ \stat
       Collecting{} -> Just $ mkSnapshotOutput $ State.recordSignature state number party signature
       Idle{} -> Nothing
       Requested{} -> Nothing
+      Awaiting{} -> Nothing
     SnapshotConfirmed{snapshot = Nothing, signatures} -> case state of
       Collecting{} -> Just $ mkSnapshotOutput $ State.confirm headId state signatures
       Idle{} -> Nothing
       Requested{} -> Nothing
+      Awaiting{} -> Nothing
     SnapshotConfirmed{snapshot = Just snapshot, signatures} ->
       Just $ mkSnapshotOutput $ State.adoptSnapshot headId state snapshot signatures
     TransactionAppliedToLocalUTxO{tx} ->

@@ -34,12 +34,12 @@ The node applies each state-change event to the relevant components and updates 
 
 An open Head owns snapshots, local transactions and decommit reservations, and commit selection. Ordinary transaction commands go directly to the transaction machine.
 
-Updates: [`Hydra.HeadLogic.State.Coordinated.advance`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated.hs#L166).
+Updates: [`Hydra.HeadLogic.State.Coordinated.advance`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated.hs#L167).
 
 | Machine | Topology |
 | --- | --- |
-| [`Hydra.HeadLogic.State.Coordinated.Snapshots.machine`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated/Snapshots.hs#L88) | [`Hydra.HeadLogic.State.Coordinated.Snapshots.Topology.SnapshotTopology`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated/Snapshots/Topology.hs#L28) |
-| [`Hydra.HeadLogic.State.Coordinated.Transactions.machine`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated/Transactions.hs#L130) | [`Hydra.HeadLogic.State.Coordinated.Transactions.DecommitTopology`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated/Transactions.hs#L82) |
+| [`Hydra.HeadLogic.State.Coordinated.Snapshots.machine`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated/Snapshots.hs#L89) | [`Hydra.HeadLogic.State.Coordinated.Snapshots.Topology.SnapshotTopology`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated/Snapshots/Topology.hs#L28) |
+| [`Hydra.HeadLogic.State.Coordinated.Transactions.machine`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated/Transactions.hs#L131) | [`Hydra.HeadLogic.State.Coordinated.Transactions.DecommitTopology`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated/Transactions.hs#L83) |
 | [`Hydra.HeadLogic.State.Coordinated.Commits.machine`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated/Commits.hs#L54) | [`Crem.Topology.TrivialTopology`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated/Commits.hs#L54) (in the machine signature) |
 
 ```mermaid
@@ -163,9 +163,9 @@ s2 --> s3
 
 The `ValidateRequest` stage runs `validationWorkflow` to check the request, resolve incremental work, apply transactions and check commitment capacity. The remaining stages sign and acknowledge the snapshot, prune local transactions and retain the snapshot.
 
-- Machine: [`Hydra.HeadLogic.Rules.Network.ReqSn.workflow`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Network/ReqSn.hs#L310).
-- Topology: [`Hydra.HeadLogic.Rules.Network.ReqSn.ReqSnTopology`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Network/ReqSn.hs#L285).
-- Includes: [`Hydra.HeadLogic.Rules.Network.ReqSn.validationWorkflow`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Network/ReqSn.hs#L170).
+- Machine: [`Hydra.HeadLogic.Rules.Network.ReqSn.workflow`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Network/ReqSn.hs#L316).
+- Topology: [`Hydra.HeadLogic.Rules.Network.ReqSn.ReqSnTopology`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Network/ReqSn.hs#L291).
+- Includes: [`Hydra.HeadLogic.Rules.Network.ReqSn.validationWorkflow`](../../../../hydra-node/src/Hydra/HeadLogic/Rules/Network/ReqSn.hs#L175).
 
 ```mermaid
 stateDiagram-v2
@@ -174,6 +174,7 @@ state "SignAndAcknowledge" as s1
 state "PruneLocalTransactions" as s2
 state "Finished" as s3
 s0 --> s1
+s0 --> s3
 s1 --> s2
 s2 --> s3
 
@@ -340,7 +341,7 @@ s2 --> s3
 
 Handles requesting, accepting, collecting and confirming snapshots.
 
-- Machine: [`Hydra.HeadLogic.State.Coordinated.Snapshots.machine`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated/Snapshots.hs#L88).
+- Machine: [`Hydra.HeadLogic.State.Coordinated.Snapshots.machine`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated/Snapshots.hs#L89).
 - Topology: [`Hydra.HeadLogic.State.Coordinated.Snapshots.Topology.SnapshotTopology`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated/Snapshots/Topology.hs#L28).
 
 ```mermaid
@@ -360,8 +361,8 @@ s2 --> s0 : Confirmation / adoption / administrative reset
 
 Handles transactions and updates the ledger; also manages decommits.
 
-- Machine: [`Hydra.HeadLogic.State.Coordinated.Transactions.machine`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated/Transactions.hs#L130).
-- Topology: [`Hydra.HeadLogic.State.Coordinated.Transactions.DecommitTopology`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated/Transactions.hs#L82).
+- Machine: [`Hydra.HeadLogic.State.Coordinated.Transactions.machine`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated/Transactions.hs#L131).
+- Topology: [`Hydra.HeadLogic.State.Coordinated.Transactions.DecommitTopology`](../../../../hydra-node/src/Hydra/HeadLogic/State/Coordinated/Transactions.hs#L83).
 
 ```mermaid
 stateDiagram-v2

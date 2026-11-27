@@ -8,7 +8,7 @@ import Data.Aeson (Value)
 import Data.Aeson.Lens (key, values, _Array)
 import Hydra.API.ServerOutput (ClientMessage, Greetings (..), ServerOutput, TimedServerOutput)
 import Hydra.Chain.Direct.State ()
-import Hydra.HeadLogic.State (HeadState (Finalized))
+import Hydra.HeadLogic.State (HeadState (Finalized), SeenSnapshot (AwaitingSnapshotTransactions))
 import Hydra.JSONSchema (prop_specIsComplete, prop_validateJSONSchema, validateJSON, withJsonSpecifications)
 import Hydra.Ledger.Cardano (Tx)
 import Hydra.Utils (readJsonFileThrow)
@@ -32,6 +32,11 @@ spec = parallel $ do
     let completed = Finalized (generateWith arbitrary 42) :: HeadState Tx
     withJsonSpecifications $ \dir ->
       validateJSON (dir </> "api.json") (key "components" . key "schemas" . key "HeadState") (toJSON completed)
+
+  it "represents pending payload recovery in the API state schema" $ do
+    let awaiting = AwaitingSnapshotTransactions 0 1 [generateWith arbitrary 42] :: SeenSnapshot Tx
+    withJsonSpecifications $ \dir ->
+      validateJSON (dir </> "api.json") (key "components" . key "schemas" . key "SeenSnapshot") (toJSON awaiting)
 
   -- NOTE: Kupo and maybe other downstream projects use this file as a test vector.
   it "golden SnapshotConfirmed is good" $ do

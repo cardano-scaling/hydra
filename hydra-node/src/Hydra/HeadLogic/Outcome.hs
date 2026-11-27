@@ -51,6 +51,8 @@ data Effect tx
     ClientEffect {clientMessage :: ClientMessage tx}
   | -- | Effect to be handled by a "Hydra.Network", results in a 'Hydra.Network.broadcast'.
     NetworkEffect {message :: Message tx}
+  | -- | Replay existing messages with at most one retry batch outstanding.
+    NetworkRetransmission {messages :: [Message tx]}
   | -- | Effect to be handled by a "Hydra.Chain", results in a 'Hydra.Chain.postTx'.
     OnChainEffect {postChainTx :: PostChainTx tx}
   deriving stock (Generic)
@@ -87,6 +89,10 @@ data StateChanged tx
   | TransactionAppliedToLocalUTxO
       { headId :: HeadId
       , tx :: tx
+      }
+  | SnapshotTransactionsRequested
+      { snapshotNumber :: SnapshotNumber
+      , transactionIds :: [TxIdType tx]
       }
   | SnapshotRequestDecided {snapshotNumber :: SnapshotNumber}
   | SnapshotRequested
@@ -287,6 +293,7 @@ eventHeadId = \case
   -- so it must not be used to filter against the current head state.
   IgnoredHeadInitializing{} -> Nothing
   TransactionReceived{} -> Nothing
+  SnapshotTransactionsRequested{} -> Nothing
   SnapshotRequestDecided{} -> Nothing
   SnapshotRequested{} -> Nothing
   PartySignedSnapshot{} -> Nothing

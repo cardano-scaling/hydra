@@ -17,7 +17,7 @@ module Hydra.HeadLogic.Rules.Network.ReqSn (
 ) where
 
 import Crem.Topology (Topology (Topology))
-import Data.Map.Strict qualified as Map (keysSet, lookup)
+import Data.Map.Strict qualified as Map (fromList, keysSet, lookup)
 import Data.Set ((\\))
 import Hydra.Chain.ChainState (IsChainState)
 import Hydra.HeadLogic.Cardano (
@@ -50,6 +50,7 @@ import Hydra.HeadLogic.Rules.Transactions (
   checkTransactionOutputs,
   pruneTransactions,
  )
+import Hydra.HeadLogic.Snapshot.Cached qualified as Cached
 import Hydra.HeadLogic.Snapshot.Request (
   SettlingCommit (ContinueCommit),
   isLeader,
@@ -70,10 +71,12 @@ import Hydra.HeadLogic.State (
     version
   ),
   OpenState (OpenState, coordinatedHeadState, headId, parameters),
+  SeenSnapshot (..),
   seenSnapshotNumber,
  )
 import Hydra.HeadLogic.State.Coordinated qualified as Coordinated (
   acceptSnapshot,
+  awaitSnapshotTransactions,
   retainSnapshotDecommit,
   start,
  )
@@ -82,8 +85,10 @@ import Hydra.HeadLogic.Validation (ValidatedSnapshot (..))
 import Hydra.HeadLogic.Workflow (
   Transition,
   Workflow,
+  choose,
   continue,
   finish,
+  next,
  )
 import Hydra.HeadLogic.Workflow qualified as Workflow (run, workflow)
 import Hydra.Network.Message (Message (..))
@@ -167,8 +172,8 @@ data Args tx = Args
 validatedSnapshot :: ValidatedSnapshot tx -> Snapshot tx
 validatedSnapshot (ValidatedSnapshot value) = value
 
-validationWorkflow :: forall tx. IsChainState tx => Args tx -> Workflow tx ValidationTopology (ValidatedSnapshot tx)
-validationWorkflow Args{chainPointTime = ChainPointTime{currentSlot, currentChainTime}, decommitTx = mDecommitTx, depositTxId = mDepositTxId, ..} =
+validationWorkflow :: forall tx. IsChainState tx => Program tx () -> Args tx -> Workflow tx ValidationTopology (ValidatedSnapshot tx)
+validationWorkflow onMissing Args{chainPointTime = ChainPointTime{currentSlot, currentChainTime}, decommitTx = mDecommitTx, depositTxId = mDepositTxId, ..} =
   Workflow.workflow (show . validationPhase) Request step
  where
   step :: ValidationState tx from -> Transition tx ValidationTopology (ValidationState tx) from (ValidatedSnapshot tx)
@@ -186,10 +191,10 @@ validationWorkflow Args{chainPointTime = ChainPointTime{currentSlot, currentChai
     Checked -> continue (uncurry DecommitResolved) resolveDecommit
     DecommitResolved active decommit -> continue (\commit -> DepositResolved active commit decommit) resolveDeposit
     DepositResolved active commit decommit -> continue (TransactionsResolved active commit decommit) $ do
-      let missingTxIds = toList (fromList transactionIds \\ Map.keysSet allTxs)
+      let missingTxIds = toList (fromList transactionIds \\ Map.keysSet knownTxs)
       case missingTxIds of
-        [] -> pure $ mapMaybe (`Map.lookup` allTxs) transactionIds
-        unseen -> suspend $ WaitOnTxs unseen
+        [] -> pure $ mapMaybe (`Map.lookup` knownTxs) transactionIds
+        unseen -> onMissing >> suspend (WaitOnTxs unseen)
     TransactionsResolved active commit decommit txs -> continue (\after -> TransactionsApplied after commit decommit txs) $ do
       case (mDepositTxId, commit) of
         (Just depositTxId, Just deposited)
@@ -264,6 +269,7 @@ validationWorkflow Args{chainPointTime = ChainPointTime{currentSlot, currentChai
       Left AccumulatorTooLarge{..} -> reject $ RequireFailed ReqSnUTxOSetTooLarge{..}
       Right () -> pure ()
 
+  knownTxs = allTxs <> Map.fromList [(txId tx, tx) | tx <- toList localTxs]
   previous = getSnapshot confirmedSnapshot
   confSn = case confirmedSnapshot of InitialSnapshot{} -> 0; ConfirmedSnapshot{} -> previous.number
   confVersion = previous.version
@@ -278,13 +284,13 @@ validationWorkflow Args{chainPointTime = ChainPointTime{currentSlot, currentChai
 -- | Validate a request without signing or changing live state. Only a complete
 -- successful validation can produce the value accepted by the snapshot owner.
 validate :: forall tx. IsChainState tx => Args tx -> Program tx (ValidatedSnapshot tx)
-validate = Workflow.run . validationWorkflow
+validate = Workflow.run . validationWorkflow (pure ())
 
 data Stage = ValidateRequest | SignAndAcknowledge | PruneLocalTransactions | Finished
 
 type ReqSnTopology =
   'Topology
-    '[ '( 'ValidateRequest, '[ 'SignAndAcknowledge])
+    '[ '( 'ValidateRequest, '[ 'SignAndAcknowledge, 'Finished])
      , '( 'SignAndAcknowledge, '[ 'PruneLocalTransactions])
      , '( 'PruneLocalTransactions, '[ 'Finished])
      ]
@@ -310,9 +316,23 @@ statePhase = \case
 workflow :: forall tx. IsChainState tx => Args tx -> Workflow tx ReqSnTopology ()
 workflow args@Args{..} = Workflow.workflow (show . statePhase) Validate step
  where
+  pinRequest = void $ Staging.stage (Coordinated.start openState) $ Coordinated.awaitSnapshotTransactions snapshotNumber transactionIds
+
   step :: State tx from -> Transition tx ReqSnTopology (State tx) from ()
   step = \case
-    Validate -> continue Sign $ validate args
+    Validate -> choose $ case openState.coordinatedHeadState.seenSnapshot of
+      SeenSnapshot{cachedSnapshot}
+        | let snapshot = Cached.snapshot cachedSnapshot
+        , isLeader openState.parameters sender snapshotNumber
+        , snapshot.number == snapshotNumber
+        , snapshot.version == snapshotVersion
+        , (txId <$> snapshot.confirmed) == transactionIds
+        , snapshot.depositTxId == depositTxId
+        , snapshot.utxoToDecommit == (utxoFromTx <$> decommitTx) -> do
+            signed <- signSnapshot snapshot
+            emit $ NetworkRetransmission [AckSn signed snapshotNumber]
+            pure $ next Done
+      _ -> next . Sign <$> Workflow.run (validationWorkflow pinRequest args)
     Sign checked -> continue (const $ Acknowledged checked) $ do
       signed <- signSnapshot $ validatedSnapshot checked
       emit $ NetworkEffect AckSn{..}

@@ -38,6 +38,7 @@ nodeStats queuedInputs parkedInputs ns =
           missing = case seenSnapshot of
             SeenSnapshot{signatories} -> max 0 (length parties - Map.size signatories)
             RequestedSnapshot{} -> length parties
+            AwaitingSnapshotTransactions{} -> length parties
             _ -> 0
           dc
             | snapshotVersion == coordinatedVersion && isJust (utxoToDecommit snap) = "approved"

@@ -15,5 +15,6 @@ phase = \case
     NoSeenSnapshot -> NoRequestSeen
     LastSeenSnapshot{} -> SnapshotIdle
     RequestedSnapshot{} -> RequestSent
+    AwaitingSnapshotTransactions{} -> RequestSent
     SeenSnapshot{} -> CollectingSignatures
   _ -> OutsideHead
