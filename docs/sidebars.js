@@ -2,6 +2,7 @@ module.exports = {
   userDocumentation: [
     "index",
     "protocol-overview",
+    "head-playground",
     "known-issues",
     {
       type: "html",

@@ -4,6 +4,10 @@ A Hydra head is a state channel between a fixed group of parties. Each party
 runs a node, validates L2 transactions, and signs snapshots of the agreed
 state. Multiple heads can operate independently alongside Cardano.
 
+You can [try a Hydra Head](./head-playground.mdx) on our interactive
+playground. Pick the number of operators, wallet users, and then move funds
+between Cardano L1 and Hydra L2.
+
 Hydra reuses Cardano transaction formats and script validation. Head-specific
 ledger parameters can remove L2 fees, but outputs must remain compatible with
 L1 settlement. Staking, governance, and L1 consensus are outside the head.
