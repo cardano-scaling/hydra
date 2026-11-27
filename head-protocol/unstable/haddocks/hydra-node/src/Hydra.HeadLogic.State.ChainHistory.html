@@ -17,54 +17,54 @@
 </span><span id="line-17"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Node.State.html"><span class="hs-identifier">Hydra.Node.State</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Node.State.html#NodeState"><span class="hs-identifier">NodeState</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
 </span><span id="line-18"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Prelude</span></span><span>
 </span><span id="line-19"></span><span>
-</span><span id="line-20"></span><span id="local-6989586621681032947"><span class="annot"><a href="Hydra.HeadLogic.State.ChainHistory.html#aggregateChainStateHistory"><span class="hs-identifier hs-type">aggregateChainStateHistory</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IsChainState</span></span><span> </span><span class="annot"><a href="#local-6989586621681032947"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Hydra.Chain.html#ChainStateHistory"><span class="hs-identifier hs-type">ChainStateHistory</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681032947"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#StateChanged"><span class="hs-identifier hs-type">StateChanged</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681032947"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.Chain.html#ChainStateHistory"><span class="hs-identifier hs-type">ChainStateHistory</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681032947"><span class="hs-identifier hs-type">tx</span></a></span></span><span>
+</span><span id="line-20"></span><span id="local-6989586621681033180"><span class="annot"><a href="Hydra.HeadLogic.State.ChainHistory.html#aggregateChainStateHistory"><span class="hs-identifier hs-type">aggregateChainStateHistory</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">IsChainState</span></span><span> </span><span class="annot"><a href="#local-6989586621681033180"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><a href="Hydra.Chain.html#ChainStateHistory"><span class="hs-identifier hs-type">ChainStateHistory</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681033180"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#StateChanged"><span class="hs-identifier hs-type">StateChanged</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681033180"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="Hydra.Chain.html#ChainStateHistory"><span class="hs-identifier hs-type">ChainStateHistory</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681033180"><span class="hs-identifier hs-type">tx</span></a></span></span><span>
 </span><span id="line-21"></span><span id="aggregateChainStateHistory"><span class="annot"><span class="annottext">aggregateChainStateHistory :: forall tx.
 IsChainState tx =&gt;
 ChainStateHistory tx -&gt; StateChanged tx -&gt; ChainStateHistory tx
-</span><a href="Hydra.HeadLogic.State.ChainHistory.html#aggregateChainStateHistory"><span class="hs-identifier hs-var hs-var">aggregateChainStateHistory</span></a></span></span><span> </span><span id="local-6989586621681032989"><span class="annot"><span class="annottext">ChainStateHistory tx
-</span><a href="#local-6989586621681032989"><span class="hs-identifier hs-var">history</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><a href="Hydra.HeadLogic.State.ChainHistory.html#aggregateChainStateHistory"><span class="hs-identifier hs-var hs-var">aggregateChainStateHistory</span></a></span></span><span> </span><span id="local-6989586621681033222"><span class="annot"><span class="annottext">ChainStateHistory tx
+</span><a href="#local-6989586621681033222"><span class="hs-identifier hs-var">history</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
 </span><span id="line-22"></span><span>  </span><span class="annot"><span class="annottext">StateChanged tx
 </span><a href="Hydra.HeadLogic.Outcome.html#NetworkConnected"><span class="hs-identifier hs-var">NetworkConnected</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ChainStateHistory tx
-</span><a href="#local-6989586621681032989"><span class="hs-identifier hs-var">history</span></a></span><span>
+</span><a href="#local-6989586621681033222"><span class="hs-identifier hs-var">history</span></a></span><span>
 </span><span id="line-23"></span><span>  </span><span class="annot"><span class="annottext">StateChanged tx
 </span><a href="Hydra.HeadLogic.Outcome.html#NetworkDisconnected"><span class="hs-identifier hs-var">NetworkDisconnected</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ChainStateHistory tx
-</span><a href="#local-6989586621681032989"><span class="hs-identifier hs-var">history</span></a></span><span>
+</span><a href="#local-6989586621681033222"><span class="hs-identifier hs-var">history</span></a></span><span>
 </span><span id="line-24"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#NetworkVersionMismatch"><span class="hs-identifier hs-type">NetworkVersionMismatch</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ChainStateHistory tx
-</span><a href="#local-6989586621681032989"><span class="hs-identifier hs-var">history</span></a></span><span>
+</span><a href="#local-6989586621681033222"><span class="hs-identifier hs-var">history</span></a></span><span>
 </span><span id="line-25"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#NetworkClusterIDMismatch"><span class="hs-identifier hs-type">NetworkClusterIDMismatch</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ChainStateHistory tx
-</span><a href="#local-6989586621681032989"><span class="hs-identifier hs-var">history</span></a></span><span>
+</span><a href="#local-6989586621681033222"><span class="hs-identifier hs-var">history</span></a></span><span>
 </span><span id="line-26"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#NetworkBroadcastStalled"><span class="hs-identifier hs-type">NetworkBroadcastStalled</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ChainStateHistory tx
-</span><a href="#local-6989586621681032989"><span class="hs-identifier hs-var">history</span></a></span><span>
+</span><a href="#local-6989586621681033222"><span class="hs-identifier hs-var">history</span></a></span><span>
 </span><span id="line-27"></span><span>  </span><span class="annot"><span class="annottext">StateChanged tx
 </span><a href="Hydra.HeadLogic.Outcome.html#NetworkBroadcastResumed"><span class="hs-identifier hs-var">NetworkBroadcastResumed</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ChainStateHistory tx
-</span><a href="#local-6989586621681032989"><span class="hs-identifier hs-var">history</span></a></span><span>
+</span><a href="#local-6989586621681033222"><span class="hs-identifier hs-var">history</span></a></span><span>
 </span><span id="line-28"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#PeerConnected"><span class="hs-identifier hs-type">PeerConnected</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ChainStateHistory tx
-</span><a href="#local-6989586621681032989"><span class="hs-identifier hs-var">history</span></a></span><span>
+</span><a href="#local-6989586621681033222"><span class="hs-identifier hs-var">history</span></a></span><span>
 </span><span id="line-29"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#PeerDisconnected"><span class="hs-identifier hs-type">PeerDisconnected</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ChainStateHistory tx
-</span><a href="#local-6989586621681032989"><span class="hs-identifier hs-var">history</span></a></span><span>
-</span><span id="line-30"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#HeadOpened"><span class="hs-identifier hs-type">HeadOpened</span></a></span><span class="hs-special">{</span><span id="local-6989586621681032999"><span class="annot"><span class="annottext">ChainStateType tx
+</span><a href="#local-6989586621681033222"><span class="hs-identifier hs-var">history</span></a></span><span>
+</span><span id="line-30"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#HeadOpened"><span class="hs-identifier hs-type">HeadOpened</span></a></span><span class="hs-special">{</span><span id="local-6989586621681033232"><span class="annot"><span class="annottext">ChainStateType tx
 chainState :: ChainStateType tx
 $sel:chainState:NetworkConnected :: forall tx. StateChanged tx -&gt; ChainStateType tx
-</span><a href="#local-6989586621681032999"><span class="hs-identifier hs-var hs-var">chainState</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ChainStateType tx -&gt; ChainStateHistory tx -&gt; ChainStateHistory tx
+</span><a href="#local-6989586621681033232"><span class="hs-identifier hs-var hs-var">chainState</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ChainStateType tx -&gt; ChainStateHistory tx -&gt; ChainStateHistory tx
 forall tx.
 IsChainState tx =&gt;
 ChainStateType tx -&gt; ChainStateHistory tx -&gt; ChainStateHistory tx
 </span><a href="Hydra.Chain.html#pushNewState"><span class="hs-identifier hs-var">pushNewState</span></a></span><span> </span><span class="annot"><span class="annottext">ChainStateType tx
-</span><a href="#local-6989586621681032999"><span class="hs-identifier hs-var">chainState</span></a></span><span> </span><span class="annot"><span class="annottext">ChainStateHistory tx
-</span><a href="#local-6989586621681032989"><span class="hs-identifier hs-var">history</span></a></span><span>
+</span><a href="#local-6989586621681033232"><span class="hs-identifier hs-var">chainState</span></a></span><span> </span><span class="annot"><span class="annottext">ChainStateHistory tx
+</span><a href="#local-6989586621681033222"><span class="hs-identifier hs-var">history</span></a></span><span>
 </span><span id="line-31"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#TransactionAppliedToLocalUTxO"><span class="hs-identifier hs-type">TransactionAppliedToLocalUTxO</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ChainStateHistory tx
-</span><a href="#local-6989586621681032989"><span class="hs-identifier hs-var">history</span></a></span><span>
+</span><a href="#local-6989586621681033222"><span class="hs-identifier hs-var">history</span></a></span><span>
 </span><span id="line-32"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#SnapshotRequestDecided"><span class="hs-identifier hs-type">SnapshotRequestDecided</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ChainStateHistory tx
-</span><a href="#local-6989586621681032989"><span class="hs-identifier hs-var">history</span></a></span><span>
+</span><a href="#local-6989586621681033222"><span class="hs-identifier hs-var">history</span></a></span><span>
 </span><span id="line-33"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#SnapshotRequested"><span class="hs-identifier hs-type">SnapshotRequested</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ChainStateHistory tx
-</span><a href="#local-6989586621681032989"><span class="hs-identifier hs-var">history</span></a></span><span>
+</span><a href="#local-6989586621681033222"><span class="hs-identifier hs-var">history</span></a></span><span>
 </span><span id="line-34"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#TransactionReceived"><span class="hs-identifier hs-type">TransactionReceived</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ChainStateHistory tx
-</span><a href="#local-6989586621681032989"><span class="hs-identifier hs-var">history</span></a></span><span>
+</span><a href="#local-6989586621681033222"><span class="hs-identifier hs-var">history</span></a></span><span>
 </span><span id="line-35"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#PartySignedSnapshot"><span class="hs-identifier hs-type">PartySignedSnapshot</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ChainStateHistory tx
-</span><a href="#local-6989586621681032989"><span class="hs-identifier hs-var">history</span></a></span><span>
+</span><a href="#local-6989586621681033222"><span class="hs-identifier hs-var">history</span></a></span><span>
 </span><span id="line-36"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#SnapshotConfirmed"><span class="hs-identifier hs-type">SnapshotConfirmed</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ChainStateHistory tx
-</span><a href="#local-6989586621681032989"><span class="hs-identifier hs-var">history</span></a></span><span>
-</span><span id="line-37"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#DepositRecorded"><span class="hs-identifier hs-type">DepositRecorded</span></a></span><span class="hs-special">{</span><span id="local-6989586621681033008"><span class="annot"><span class="annottext">ChainStateType tx
+</span><a href="#local-6989586621681033222"><span class="hs-identifier hs-var">history</span></a></span><span>
+</span><span id="line-37"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#DepositRecorded"><span class="hs-identifier hs-type">DepositRecorded</span></a></span><span class="hs-special">{</span><span id="local-6989586621681033241"><span class="annot"><span class="annottext">ChainStateType tx
 $sel:chainState:NetworkConnected :: forall tx. StateChanged tx -&gt; ChainStateType tx
 chainState :: ChainStateType tx
 </span><a href="Hydra.HeadLogic.Outcome.html#%24sel%3AchainState%3ANetworkConnected"><span class="hs-identifier hs-var hs-var">chainState</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ChainStateType tx -&gt; ChainStateHistory tx -&gt; ChainStateHistory tx
@@ -72,13 +72,13 @@ forall tx.
 IsChainState tx =&gt;
 ChainStateType tx -&gt; ChainStateHistory tx -&gt; ChainStateHistory tx
 </span><a href="Hydra.Chain.html#pushNewState"><span class="hs-identifier hs-var">pushNewState</span></a></span><span> </span><span class="annot"><span class="annottext">ChainStateType tx
-</span><a href="#local-6989586621681033008"><span class="hs-identifier hs-var">chainState</span></a></span><span> </span><span class="annot"><span class="annottext">ChainStateHistory tx
-</span><a href="#local-6989586621681032989"><span class="hs-identifier hs-var">history</span></a></span><span>
+</span><a href="#local-6989586621681033241"><span class="hs-identifier hs-var">chainState</span></a></span><span> </span><span class="annot"><span class="annottext">ChainStateHistory tx
+</span><a href="#local-6989586621681033222"><span class="hs-identifier hs-var">history</span></a></span><span>
 </span><span id="line-38"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#DepositActivated"><span class="hs-identifier hs-type">DepositActivated</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ChainStateHistory tx
-</span><a href="#local-6989586621681032989"><span class="hs-identifier hs-var">history</span></a></span><span>
+</span><a href="#local-6989586621681033222"><span class="hs-identifier hs-var">history</span></a></span><span>
 </span><span id="line-39"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#DepositExpired"><span class="hs-identifier hs-type">DepositExpired</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ChainStateHistory tx
-</span><a href="#local-6989586621681032989"><span class="hs-identifier hs-var">history</span></a></span><span>
-</span><span id="line-40"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#DepositRecovered"><span class="hs-identifier hs-type">DepositRecovered</span></a></span><span class="hs-special">{</span><span id="local-6989586621681033012"><span class="annot"><span class="annottext">ChainStateType tx
+</span><a href="#local-6989586621681033222"><span class="hs-identifier hs-var">history</span></a></span><span>
+</span><span id="line-40"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#DepositRecovered"><span class="hs-identifier hs-type">DepositRecovered</span></a></span><span class="hs-special">{</span><span id="local-6989586621681033245"><span class="annot"><span class="annottext">ChainStateType tx
 $sel:chainState:NetworkConnected :: forall tx. StateChanged tx -&gt; ChainStateType tx
 chainState :: ChainStateType tx
 </span><a href="Hydra.HeadLogic.Outcome.html#%24sel%3AchainState%3ANetworkConnected"><span class="hs-identifier hs-var hs-var">chainState</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ChainStateType tx -&gt; ChainStateHistory tx -&gt; ChainStateHistory tx
@@ -86,9 +86,9 @@ forall tx.
 IsChainState tx =&gt;
 ChainStateType tx -&gt; ChainStateHistory tx -&gt; ChainStateHistory tx
 </span><a href="Hydra.Chain.html#pushNewState"><span class="hs-identifier hs-var">pushNewState</span></a></span><span> </span><span class="annot"><span class="annottext">ChainStateType tx
-</span><a href="#local-6989586621681033012"><span class="hs-identifier hs-var">chainState</span></a></span><span> </span><span class="annot"><span class="annottext">ChainStateHistory tx
-</span><a href="#local-6989586621681032989"><span class="hs-identifier hs-var">history</span></a></span><span>
-</span><span id="line-41"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#CommitFinalized"><span class="hs-identifier hs-type">CommitFinalized</span></a></span><span class="hs-special">{</span><span id="local-6989586621681033014"><span class="annot"><span class="annottext">ChainStateType tx
+</span><a href="#local-6989586621681033245"><span class="hs-identifier hs-var">chainState</span></a></span><span> </span><span class="annot"><span class="annottext">ChainStateHistory tx
+</span><a href="#local-6989586621681033222"><span class="hs-identifier hs-var">history</span></a></span><span>
+</span><span id="line-41"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#CommitFinalized"><span class="hs-identifier hs-type">CommitFinalized</span></a></span><span class="hs-special">{</span><span id="local-6989586621681033247"><span class="annot"><span class="annottext">ChainStateType tx
 $sel:chainState:NetworkConnected :: forall tx. StateChanged tx -&gt; ChainStateType tx
 chainState :: ChainStateType tx
 </span><a href="Hydra.HeadLogic.Outcome.html#%24sel%3AchainState%3ANetworkConnected"><span class="hs-identifier hs-var hs-var">chainState</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ChainStateType tx -&gt; ChainStateHistory tx -&gt; ChainStateHistory tx
@@ -96,11 +96,11 @@ forall tx.
 IsChainState tx =&gt;
 ChainStateType tx -&gt; ChainStateHistory tx -&gt; ChainStateHistory tx
 </span><a href="Hydra.Chain.html#pushNewState"><span class="hs-identifier hs-var">pushNewState</span></a></span><span> </span><span class="annot"><span class="annottext">ChainStateType tx
-</span><a href="#local-6989586621681033014"><span class="hs-identifier hs-var">chainState</span></a></span><span> </span><span class="annot"><span class="annottext">ChainStateHistory tx
-</span><a href="#local-6989586621681032989"><span class="hs-identifier hs-var">history</span></a></span><span>
+</span><a href="#local-6989586621681033247"><span class="hs-identifier hs-var">chainState</span></a></span><span> </span><span class="annot"><span class="annottext">ChainStateHistory tx
+</span><a href="#local-6989586621681033222"><span class="hs-identifier hs-var">history</span></a></span><span>
 </span><span id="line-42"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#DecommitRecorded"><span class="hs-identifier hs-type">DecommitRecorded</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ChainStateHistory tx
-</span><a href="#local-6989586621681032989"><span class="hs-identifier hs-var">history</span></a></span><span>
-</span><span id="line-43"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#DecommitFinalized"><span class="hs-identifier hs-type">DecommitFinalized</span></a></span><span class="hs-special">{</span><span id="local-6989586621681033017"><span class="annot"><span class="annottext">ChainStateType tx
+</span><a href="#local-6989586621681033222"><span class="hs-identifier hs-var">history</span></a></span><span>
+</span><span id="line-43"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#DecommitFinalized"><span class="hs-identifier hs-type">DecommitFinalized</span></a></span><span class="hs-special">{</span><span id="local-6989586621681033250"><span class="annot"><span class="annottext">ChainStateType tx
 $sel:chainState:NetworkConnected :: forall tx. StateChanged tx -&gt; ChainStateType tx
 chainState :: ChainStateType tx
 </span><a href="Hydra.HeadLogic.Outcome.html#%24sel%3AchainState%3ANetworkConnected"><span class="hs-identifier hs-var hs-var">chainState</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ChainStateType tx -&gt; ChainStateHistory tx -&gt; ChainStateHistory tx
@@ -108,9 +108,9 @@ forall tx.
 IsChainState tx =&gt;
 ChainStateType tx -&gt; ChainStateHistory tx -&gt; ChainStateHistory tx
 </span><a href="Hydra.Chain.html#pushNewState"><span class="hs-identifier hs-var">pushNewState</span></a></span><span> </span><span class="annot"><span class="annottext">ChainStateType tx
-</span><a href="#local-6989586621681033017"><span class="hs-identifier hs-var">chainState</span></a></span><span> </span><span class="annot"><span class="annottext">ChainStateHistory tx
-</span><a href="#local-6989586621681032989"><span class="hs-identifier hs-var">history</span></a></span><span>
-</span><span id="line-44"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#HeadClosed"><span class="hs-identifier hs-type">HeadClosed</span></a></span><span class="hs-special">{</span><span id="local-6989586621681033019"><span class="annot"><span class="annottext">ChainStateType tx
+</span><a href="#local-6989586621681033250"><span class="hs-identifier hs-var">chainState</span></a></span><span> </span><span class="annot"><span class="annottext">ChainStateHistory tx
+</span><a href="#local-6989586621681033222"><span class="hs-identifier hs-var">history</span></a></span><span>
+</span><span id="line-44"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#HeadClosed"><span class="hs-identifier hs-type">HeadClosed</span></a></span><span class="hs-special">{</span><span id="local-6989586621681033252"><span class="annot"><span class="annottext">ChainStateType tx
 $sel:chainState:NetworkConnected :: forall tx. StateChanged tx -&gt; ChainStateType tx
 chainState :: ChainStateType tx
 </span><a href="Hydra.HeadLogic.Outcome.html#%24sel%3AchainState%3ANetworkConnected"><span class="hs-identifier hs-var hs-var">chainState</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ChainStateType tx -&gt; ChainStateHistory tx -&gt; ChainStateHistory tx
@@ -118,9 +118,9 @@ forall tx.
 IsChainState tx =&gt;
 ChainStateType tx -&gt; ChainStateHistory tx -&gt; ChainStateHistory tx
 </span><a href="Hydra.Chain.html#pushNewState"><span class="hs-identifier hs-var">pushNewState</span></a></span><span> </span><span class="annot"><span class="annottext">ChainStateType tx
-</span><a href="#local-6989586621681033019"><span class="hs-identifier hs-var">chainState</span></a></span><span> </span><span class="annot"><span class="annottext">ChainStateHistory tx
-</span><a href="#local-6989586621681032989"><span class="hs-identifier hs-var">history</span></a></span><span>
-</span><span id="line-45"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#HeadContested"><span class="hs-identifier hs-type">HeadContested</span></a></span><span class="hs-special">{</span><span id="local-6989586621681033021"><span class="annot"><span class="annottext">ChainStateType tx
+</span><a href="#local-6989586621681033252"><span class="hs-identifier hs-var">chainState</span></a></span><span> </span><span class="annot"><span class="annottext">ChainStateHistory tx
+</span><a href="#local-6989586621681033222"><span class="hs-identifier hs-var">history</span></a></span><span>
+</span><span id="line-45"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#HeadContested"><span class="hs-identifier hs-type">HeadContested</span></a></span><span class="hs-special">{</span><span id="local-6989586621681033254"><span class="annot"><span class="annottext">ChainStateType tx
 $sel:chainState:NetworkConnected :: forall tx. StateChanged tx -&gt; ChainStateType tx
 chainState :: ChainStateType tx
 </span><a href="Hydra.HeadLogic.Outcome.html#%24sel%3AchainState%3ANetworkConnected"><span class="hs-identifier hs-var hs-var">chainState</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ChainStateType tx -&gt; ChainStateHistory tx -&gt; ChainStateHistory tx
@@ -128,11 +128,11 @@ forall tx.
 IsChainState tx =&gt;
 ChainStateType tx -&gt; ChainStateHistory tx -&gt; ChainStateHistory tx
 </span><a href="Hydra.Chain.html#pushNewState"><span class="hs-identifier hs-var">pushNewState</span></a></span><span> </span><span class="annot"><span class="annottext">ChainStateType tx
-</span><a href="#local-6989586621681033021"><span class="hs-identifier hs-var">chainState</span></a></span><span> </span><span class="annot"><span class="annottext">ChainStateHistory tx
-</span><a href="#local-6989586621681032989"><span class="hs-identifier hs-var">history</span></a></span><span>
+</span><a href="#local-6989586621681033254"><span class="hs-identifier hs-var">chainState</span></a></span><span> </span><span class="annot"><span class="annottext">ChainStateHistory tx
+</span><a href="#local-6989586621681033222"><span class="hs-identifier hs-var">history</span></a></span><span>
 </span><span id="line-46"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#HeadIsReadyToFanout"><span class="hs-identifier hs-type">HeadIsReadyToFanout</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ChainStateHistory tx
-</span><a href="#local-6989586621681032989"><span class="hs-identifier hs-var">history</span></a></span><span>
-</span><span id="line-47"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#HeadFannedOut"><span class="hs-identifier hs-type">HeadFannedOut</span></a></span><span class="hs-special">{</span><span id="local-6989586621681033024"><span class="annot"><span class="annottext">ChainStateType tx
+</span><a href="#local-6989586621681033222"><span class="hs-identifier hs-var">history</span></a></span><span>
+</span><span id="line-47"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#HeadFannedOut"><span class="hs-identifier hs-type">HeadFannedOut</span></a></span><span class="hs-special">{</span><span id="local-6989586621681033257"><span class="annot"><span class="annottext">ChainStateType tx
 $sel:chainState:NetworkConnected :: forall tx. StateChanged tx -&gt; ChainStateType tx
 chainState :: ChainStateType tx
 </span><a href="Hydra.HeadLogic.Outcome.html#%24sel%3AchainState%3ANetworkConnected"><span class="hs-identifier hs-var hs-var">chainState</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ChainStateType tx -&gt; ChainStateHistory tx -&gt; ChainStateHistory tx
@@ -140,9 +140,9 @@ forall tx.
 IsChainState tx =&gt;
 ChainStateType tx -&gt; ChainStateHistory tx -&gt; ChainStateHistory tx
 </span><a href="Hydra.Chain.html#pushNewState"><span class="hs-identifier hs-var">pushNewState</span></a></span><span> </span><span class="annot"><span class="annottext">ChainStateType tx
-</span><a href="#local-6989586621681033024"><span class="hs-identifier hs-var">chainState</span></a></span><span> </span><span class="annot"><span class="annottext">ChainStateHistory tx
-</span><a href="#local-6989586621681032989"><span class="hs-identifier hs-var">history</span></a></span><span>
-</span><span id="line-48"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#HeadPartialFannedOut"><span class="hs-identifier hs-type">HeadPartialFannedOut</span></a></span><span class="hs-special">{</span><span id="local-6989586621681033026"><span class="annot"><span class="annottext">ChainStateType tx
+</span><a href="#local-6989586621681033257"><span class="hs-identifier hs-var">chainState</span></a></span><span> </span><span class="annot"><span class="annottext">ChainStateHistory tx
+</span><a href="#local-6989586621681033222"><span class="hs-identifier hs-var">history</span></a></span><span>
+</span><span id="line-48"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#HeadPartialFannedOut"><span class="hs-identifier hs-type">HeadPartialFannedOut</span></a></span><span class="hs-special">{</span><span id="local-6989586621681033259"><span class="annot"><span class="annottext">ChainStateType tx
 $sel:chainState:NetworkConnected :: forall tx. StateChanged tx -&gt; ChainStateType tx
 chainState :: ChainStateType tx
 </span><a href="Hydra.HeadLogic.Outcome.html#%24sel%3AchainState%3ANetworkConnected"><span class="hs-identifier hs-var hs-var">chainState</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ChainStateType tx -&gt; ChainStateHistory tx -&gt; ChainStateHistory tx
@@ -150,15 +150,15 @@ forall tx.
 IsChainState tx =&gt;
 ChainStateType tx -&gt; ChainStateHistory tx -&gt; ChainStateHistory tx
 </span><a href="Hydra.Chain.html#pushNewState"><span class="hs-identifier hs-var">pushNewState</span></a></span><span> </span><span class="annot"><span class="annottext">ChainStateType tx
-</span><a href="#local-6989586621681033026"><span class="hs-identifier hs-var">chainState</span></a></span><span> </span><span class="annot"><span class="annottext">ChainStateHistory tx
-</span><a href="#local-6989586621681032989"><span class="hs-identifier hs-var">history</span></a></span><span>
+</span><a href="#local-6989586621681033259"><span class="hs-identifier hs-var">chainState</span></a></span><span> </span><span class="annot"><span class="annottext">ChainStateHistory tx
+</span><a href="#local-6989586621681033222"><span class="hs-identifier hs-var">history</span></a></span><span>
 </span><span id="line-49"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#HeadFanoutInitiated"><span class="hs-identifier hs-type">HeadFanoutInitiated</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ChainStateHistory tx
-</span><a href="#local-6989586621681032989"><span class="hs-identifier hs-var">history</span></a></span><span>
+</span><a href="#local-6989586621681033222"><span class="hs-identifier hs-var">history</span></a></span><span>
 </span><span id="line-50"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#HeadPartialFanoutSelected"><span class="hs-identifier hs-type">HeadPartialFanoutSelected</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ChainStateHistory tx
-</span><a href="#local-6989586621681032989"><span class="hs-identifier hs-var">history</span></a></span><span>
+</span><a href="#local-6989586621681033222"><span class="hs-identifier hs-var">history</span></a></span><span>
 </span><span id="line-51"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#HeadFanoutReverted"><span class="hs-identifier hs-type">HeadFanoutReverted</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ChainStateHistory tx
-</span><a href="#local-6989586621681032989"><span class="hs-identifier hs-var">history</span></a></span><span>
-</span><span id="line-52"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#ChainRolledBack"><span class="hs-identifier hs-type">ChainRolledBack</span></a></span><span class="hs-special">{</span><span id="local-6989586621681033031"><span class="annot"><span class="annottext">ChainStateType tx
+</span><a href="#local-6989586621681033222"><span class="hs-identifier hs-var">history</span></a></span><span>
+</span><span id="line-52"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#ChainRolledBack"><span class="hs-identifier hs-type">ChainRolledBack</span></a></span><span class="hs-special">{</span><span id="local-6989586621681033264"><span class="annot"><span class="annottext">ChainStateType tx
 $sel:chainState:NetworkConnected :: forall tx. StateChanged tx -&gt; ChainStateType tx
 chainState :: ChainStateType tx
 </span><a href="Hydra.HeadLogic.Outcome.html#%24sel%3AchainState%3ANetworkConnected"><span class="hs-identifier hs-var hs-var">chainState</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ChainSlot -&gt; ChainStateHistory tx -&gt; ChainStateHistory tx
@@ -168,32 +168,32 @@ ChainSlot -&gt; ChainStateHistory tx -&gt; ChainStateHistory tx
 </span><a href="Hydra.Chain.html#rollbackHistory"><span class="hs-identifier hs-var">rollbackHistory</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ChainStateType tx -&gt; ChainSlot
 forall tx. IsChainState tx =&gt; ChainStateType tx -&gt; ChainSlot
 </span><span class="hs-identifier hs-var">chainStateSlot</span></span><span> </span><span class="annot"><span class="annottext">ChainStateType tx
-</span><a href="#local-6989586621681033031"><span class="hs-identifier hs-var">chainState</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">ChainStateHistory tx
-</span><a href="#local-6989586621681032989"><span class="hs-identifier hs-var">history</span></a></span><span>
-</span><span id="line-53"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#TickObserved"><span class="hs-identifier hs-type">TickObserved</span></a></span><span class="hs-special">{</span><span id="local-6989586621681033033"><span class="annot"><span class="annottext">ChainPointType tx
+</span><a href="#local-6989586621681033264"><span class="hs-identifier hs-var">chainState</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">ChainStateHistory tx
+</span><a href="#local-6989586621681033222"><span class="hs-identifier hs-var">history</span></a></span><span>
+</span><span id="line-53"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#TickObserved"><span class="hs-identifier hs-type">TickObserved</span></a></span><span class="hs-special">{</span><span id="local-6989586621681033266"><span class="annot"><span class="annottext">ChainPointType tx
 chainPoint :: ChainPointType tx
 $sel:chainPoint:NetworkConnected :: forall tx. StateChanged tx -&gt; ChainPointType tx
-</span><a href="#local-6989586621681033033"><span class="hs-identifier hs-var hs-var">chainPoint</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ChainPointType tx -&gt; ChainStateHistory tx -&gt; ChainStateHistory tx
+</span><a href="#local-6989586621681033266"><span class="hs-identifier hs-var hs-var">chainPoint</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ChainPointType tx -&gt; ChainStateHistory tx -&gt; ChainStateHistory tx
 forall tx.
 ChainPointType tx -&gt; ChainStateHistory tx -&gt; ChainStateHistory tx
 </span><a href="Hydra.Chain.html#setLastKnown"><span class="hs-identifier hs-var">setLastKnown</span></a></span><span> </span><span class="annot"><span class="annottext">ChainPointType tx
-</span><a href="#local-6989586621681033033"><span class="hs-identifier hs-var">chainPoint</span></a></span><span> </span><span class="annot"><span class="annottext">ChainStateHistory tx
-</span><a href="#local-6989586621681032989"><span class="hs-identifier hs-var">history</span></a></span><span>
+</span><a href="#local-6989586621681033266"><span class="hs-identifier hs-var">chainPoint</span></a></span><span> </span><span class="annot"><span class="annottext">ChainStateHistory tx
+</span><a href="#local-6989586621681033222"><span class="hs-identifier hs-var">history</span></a></span><span>
 </span><span id="line-54"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#CommitApproved"><span class="hs-identifier hs-type">CommitApproved</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ChainStateHistory tx
-</span><a href="#local-6989586621681032989"><span class="hs-identifier hs-var">history</span></a></span><span>
+</span><a href="#local-6989586621681033222"><span class="hs-identifier hs-var">history</span></a></span><span>
 </span><span id="line-55"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#DecommitApproved"><span class="hs-identifier hs-type">DecommitApproved</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ChainStateHistory tx
-</span><a href="#local-6989586621681032989"><span class="hs-identifier hs-var">history</span></a></span><span>
+</span><a href="#local-6989586621681033222"><span class="hs-identifier hs-var">history</span></a></span><span>
 </span><span id="line-56"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#DecommitInvalid"><span class="hs-identifier hs-type">DecommitInvalid</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ChainStateHistory tx
-</span><a href="#local-6989586621681032989"><span class="hs-identifier hs-var">history</span></a></span><span>
+</span><a href="#local-6989586621681033222"><span class="hs-identifier hs-var">history</span></a></span><span>
 </span><span id="line-57"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#IgnoredHeadInitializing"><span class="hs-identifier hs-type">IgnoredHeadInitializing</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ChainStateHistory tx
-</span><a href="#local-6989586621681032989"><span class="hs-identifier hs-var">history</span></a></span><span>
+</span><a href="#local-6989586621681033222"><span class="hs-identifier hs-var">history</span></a></span><span>
 </span><span id="line-58"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#TxInvalid"><span class="hs-identifier hs-type">TxInvalid</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ChainStateHistory tx
-</span><a href="#local-6989586621681032989"><span class="hs-identifier hs-var">history</span></a></span><span>
+</span><a href="#local-6989586621681033222"><span class="hs-identifier hs-var">history</span></a></span><span>
 </span><span id="line-59"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#LocalStateCleared"><span class="hs-identifier hs-type">LocalStateCleared</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ChainStateHistory tx
-</span><a href="#local-6989586621681032989"><span class="hs-identifier hs-var">history</span></a></span><span>
+</span><a href="#local-6989586621681033222"><span class="hs-identifier hs-var">history</span></a></span><span>
 </span><span id="line-60"></span><span>  </span><span class="hs-comment">-- FIXME: This makes chain sync starting after rollbacks past the chain state impossible</span><span>
-</span><span id="line-61"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#Checkpoint"><span class="hs-identifier hs-type">Checkpoint</span></a></span><span> </span><span id="local-6989586621681033042"><span class="annot"><span class="annottext">NodeState tx
-</span><a href="#local-6989586621681033042"><span class="hs-identifier hs-var">nodeState</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ChainStateType tx -&gt; ChainStateHistory tx
+</span><span id="line-61"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#Checkpoint"><span class="hs-identifier hs-type">Checkpoint</span></a></span><span> </span><span id="local-6989586621681033275"><span class="annot"><span class="annottext">NodeState tx
+</span><a href="#local-6989586621681033275"><span class="hs-identifier hs-var">nodeState</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ChainStateType tx -&gt; ChainStateHistory tx
 forall tx.
 IsChainState tx =&gt;
 ChainStateType tx -&gt; ChainStateHistory tx
@@ -203,9 +203,9 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">HeadState tx -&gt; ChainStateType tx
 forall tx. HeadState tx -&gt; ChainStateType tx
 </span><a href="Hydra.HeadLogic.State.html#getChainState"><span class="hs-identifier hs-var">getChainState</span></a></span><span> </span><span class="annot"><span class="annottext">NodeState tx
-</span><a href="#local-6989586621681033042"><span class="hs-identifier hs-var">nodeState</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">headState</span><span>
+</span><a href="#local-6989586621681033275"><span class="hs-identifier hs-var">nodeState</span></a></span><span class="hs-operator">.</span><span class="hs-identifier">headState</span><span>
 </span><span id="line-62"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#NodeUnsynced"><span class="hs-identifier hs-type">NodeUnsynced</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ChainStateHistory tx
-</span><a href="#local-6989586621681032989"><span class="hs-identifier hs-var">history</span></a></span><span>
+</span><a href="#local-6989586621681033222"><span class="hs-identifier hs-var">history</span></a></span><span>
 </span><span id="line-63"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#NodeSynced"><span class="hs-identifier hs-type">NodeSynced</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">ChainStateHistory tx
-</span><a href="#local-6989586621681032989"><span class="hs-identifier hs-var">history</span></a></span><span>
+</span><a href="#local-6989586621681033222"><span class="hs-identifier hs-var">history</span></a></span><span>
 </span><span id="line-64"></span></pre></body></html>

@@ -13,7 +13,7 @@ Numbers are approximate. They come from cloud VMs rather than  controlled hardwa
 
 :::
 
-_Generated at_  2026-11-25 18:28:52.47359386 UTC
+_Generated at_  2026-11-27 12:24:12.685965623 UTC
 
 
 ## Summary across cells
@@ -22,24 +22,24 @@ TPS columns are rates (transactions per second); _Wall clock (s)_ is the measure
 
 | Scenario | Txs | Wall clock (s) | End-to-end TPS (tx/s) | Sustained TPS (tx/s) | Avg conf (ms) | P95 conf (ms) |
 | -- | -- | -- | -- | -- | -- | -- |
-| Nodes=1, Constant, fire and forget | 30 | 0.0 | 1144.01 | n/a | 25.7 | 26.0 |
-| Nodes=1, Constant, wait for tx valid | 30 | 0.1 | 261.08 | 260.08 | 3.8 | 4.8 |
-| Nodes=1, Growing, fire and forget | 30 | 0.0 | 1054.88 | n/a | 27.7 | 28.3 |
-| Nodes=1, Growing, wait for tx valid | 30 | 0.1 | 223.96 | 221.40 | 4.4 | 5.2 |
-| Nodes=1, Mixed, fire and forget | 30 | 0.0 | 1452.99 | n/a | 20.1 | 20.5 |
-| Nodes=1, Mixed, wait for tx valid | 30 | 0.1 | 230.22 | 225.01 | 4.3 | 6.3 |
-| Nodes=2, Constant, fire and forget | 60 | 0.1 | 767.64 | n/a | 76.8 | 77.9 |
-| Nodes=2, Constant, wait for tx valid | 60 | 0.3 | 172.62 | 172.89 | 11.5 | 14.8 |
-| Nodes=2, Growing, fire and forget | 60 | 0.0 | 1302.34 | n/a | 44.7 | 45.9 |
-| Nodes=2, Growing, wait for tx valid | 60 | 0.5 | 122.61 | 124.95 | 16.1 | 24.5 |
-| Nodes=2, Mixed, fire and forget | 60 | 0.0 | 1312.48 | n/a | 44.4 | 45.5 |
-| Nodes=2, Mixed, wait for tx valid | 60 | 0.4 | 148.12 | 140.82 | 13.4 | 19.1 |
-| Nodes=3, Constant, fire and forget | 90 | 0.1 | 989.88 | n/a | 85.4 | 90.2 |
-| Nodes=3, Constant, wait for tx valid | 90 | 0.8 | 107.41 | 103.90 | 27.2 | 43.5 |
-| Nodes=3, Growing, fire and forget | 90 | 0.1 | 1019.68 | n/a | 85.9 | 87.1 |
-| Nodes=3, Growing, wait for tx valid | 90 | 0.8 | 108.82 | 108.13 | 27.0 | 34.0 |
-| Nodes=3, Mixed, fire and forget | 90 | 0.1 | 1103.58 | n/a | 79.9 | 81.2 |
-| Nodes=3, Mixed, wait for tx valid | 90 | 0.7 | 124.28 | 123.30 | 23.8 | 28.9 |
+| Nodes=1, Constant, fire and forget | 30 | 0.0 | 1216.30 | n/a | 24.1 | 24.5 |
+| Nodes=1, Constant, wait for tx valid | 30 | 0.1 | 204.74 | 215.82 | 4.8 | 7.4 |
+| Nodes=1, Growing, fire and forget | 30 | 0.1 | 305.06 | n/a | 97.6 | 98.1 |
+| Nodes=1, Growing, wait for tx valid | 30 | 0.3 | 88.02 | 114.83 | 11.3 | 28.5 |
+| Nodes=1, Mixed, fire and forget | 30 | 0.0 | 1039.95 | n/a | 28.2 | 28.7 |
+| Nodes=1, Mixed, wait for tx valid | 30 | 0.2 | 191.48 | 187.87 | 5.2 | 5.8 |
+| Nodes=2, Constant, fire and forget | 60 | 0.1 | 916.68 | n/a | 63.9 | 65.2 |
+| Nodes=2, Constant, wait for tx valid | 60 | 0.4 | 155.70 | 154.86 | 12.7 | 17.4 |
+| Nodes=2, Growing, fire and forget | 60 | 0.1 | 896.29 | n/a | 65.1 | 66.7 |
+| Nodes=2, Growing, wait for tx valid | 60 | 0.5 | 119.93 | 116.11 | 16.5 | 21.3 |
+| Nodes=2, Mixed, fire and forget | 60 | 0.1 | 1003.64 | n/a | 58.3 | 59.6 |
+| Nodes=2, Mixed, wait for tx valid | 60 | 0.5 | 119.35 | 115.15 | 16.6 | 20.4 |
+| Nodes=3, Constant, fire and forget | 90 | 0.1 | 777.97 | n/a | 111.9 | 115.4 |
+| Nodes=3, Constant, wait for tx valid | 90 | 0.7 | 121.44 | 123.57 | 24.3 | 31.9 |
+| Nodes=3, Growing, fire and forget | 90 | 0.1 | 724.81 | n/a | 121.6 | 122.4 |
+| Nodes=3, Growing, wait for tx valid | 90 | 1.0 | 89.21 | 88.73 | 33.0 | 45.4 |
+| Nodes=3, Mixed, fire and forget | 90 | 0.1 | 684.78 | n/a | 128.2 | 129.5 |
+| Nodes=3, Mixed, wait for tx valid | 90 | 1.1 | 83.93 | 78.57 | 35.4 | 75.3 |
 
 
 ## Nodes=1, Constant, fire and forget
@@ -50,17 +50,17 @@ TPS columns are rates (transactions per second); _Wall clock (s)_ is the measure
 | -- | -- |
 | _Number of txs_ | 30 |
 | _Load mode_ | open-loop |
-| _Avg. Confirmation Time (ms)_ | 25.7 |
-| _P99_ | 26.1ms |
-| _P95_ | 26.0ms |
-| _P50_ | 25.9ms |
-| _Tx validation time p50 (ms)_ | 8.8 |
-| _End-to-end TPS_ | 1144.01 tx/s |
+| _Avg. Confirmation Time (ms)_ | 24.1 |
+| _P99_ | 24.5ms |
+| _P95_ | 24.5ms |
+| _P50_ | 24.3ms |
+| _Tx validation time p50 (ms)_ | 8.9 |
+| _End-to-end TPS_ | 1216.30 tx/s |
 | _Backlog drain time (s)_ | 0.0 |
 | _Snapshots observed_ | 2 |
-| _Snapshots per second_ | 76.27 /s |
+| _Snapshots per second_ | 81.09 /s |
 | _Avg txs per snapshot_ | 15.0 |
-| _Peak node RSS (MB)_ | 170.4 |
+| _Peak node RSS (MB)_ | 170.5 |
 | _Number of Invalid txs_ | 0 |
 | _Refused submissions_ | 0 |
 | _Fanout outputs_        | 1 |
@@ -74,18 +74,18 @@ TPS columns are rates (transactions per second); _Wall clock (s)_ is the measure
 | -- | -- |
 | _Number of txs_ | 30 |
 | _Load mode_ | closed-loop |
-| _Avg. Confirmation Time (ms)_ | 3.8 |
-| _P99_ | 7.4ms |
-| _P95_ | 4.8ms |
-| _P50_ | 3.5ms |
-| _Tx validation time p50 (ms)_ | 1.3 |
-| _End-to-end TPS_ | 261.08 tx/s |
-| _Sustained TPS_ | 260.08 tx/s |
+| _Avg. Confirmation Time (ms)_ | 4.8 |
+| _P99_ | 11.4ms |
+| _P95_ | 7.4ms |
+| _P50_ | 4.3ms |
+| _Tx validation time p50 (ms)_ | 1.6 |
+| _End-to-end TPS_ | 204.74 tx/s |
+| _Sustained TPS_ | 215.82 tx/s |
 | _Backlog drain time (s)_ | 0.0 |
 | _Snapshots observed_ | 30 |
-| _Snapshots per second_ | 261.08 /s |
+| _Snapshots per second_ | 204.74 /s |
 | _Avg txs per snapshot_ | 1.0 |
-| _Peak node RSS (MB)_ | 171.6 |
+| _Peak node RSS (MB)_ | 170.3 |
 | _Number of Invalid txs_ | 0 |
 | _Refused submissions_ | 0 |
 | _Fanout outputs_        | 1 |
@@ -99,17 +99,17 @@ TPS columns are rates (transactions per second); _Wall clock (s)_ is the measure
 | -- | -- |
 | _Number of txs_ | 30 |
 | _Load mode_ | open-loop |
-| _Avg. Confirmation Time (ms)_ | 27.7 |
-| _P99_ | 28.3ms |
-| _P95_ | 28.3ms |
-| _P50_ | 28.1ms |
-| _Tx validation time p50 (ms)_ | 7.7 |
-| _End-to-end TPS_ | 1054.88 tx/s |
-| _Backlog drain time (s)_ | 0.0 |
+| _Avg. Confirmation Time (ms)_ | 97.6 |
+| _P99_ | 98.2ms |
+| _P95_ | 98.1ms |
+| _P50_ | 97.9ms |
+| _Tx validation time p50 (ms)_ | 82.2 |
+| _End-to-end TPS_ | 305.06 tx/s |
+| _Backlog drain time (s)_ | 0.1 |
 | _Snapshots observed_ | 2 |
-| _Snapshots per second_ | 70.33 /s |
+| _Snapshots per second_ | 20.34 /s |
 | _Avg txs per snapshot_ | 15.0 |
-| _Peak node RSS (MB)_ | 171.1 |
+| _Peak node RSS (MB)_ | 170.9 |
 | _Number of Invalid txs_ | 0 |
 | _Refused submissions_ | 0 |
 | _Fanout outputs_        | 31 |
@@ -123,18 +123,18 @@ TPS columns are rates (transactions per second); _Wall clock (s)_ is the measure
 | -- | -- |
 | _Number of txs_ | 30 |
 | _Load mode_ | closed-loop |
-| _Avg. Confirmation Time (ms)_ | 4.4 |
-| _P99_ | 6.9ms |
-| _P95_ | 5.2ms |
-| _P50_ | 4.3ms |
-| _Tx validation time p50 (ms)_ | 1.3 |
-| _End-to-end TPS_ | 223.96 tx/s |
-| _Sustained TPS_ | 221.40 tx/s |
+| _Avg. Confirmation Time (ms)_ | 11.3 |
+| _P99_ | 66.0ms |
+| _P95_ | 28.5ms |
+| _P50_ | 5.6ms |
+| _Tx validation time p50 (ms)_ | 1.6 |
+| _End-to-end TPS_ | 88.02 tx/s |
+| _Sustained TPS_ | 114.83 tx/s |
 | _Backlog drain time (s)_ | 0.0 |
 | _Snapshots observed_ | 30 |
-| _Snapshots per second_ | 223.96 /s |
+| _Snapshots per second_ | 88.02 /s |
 | _Avg txs per snapshot_ | 1.0 |
-| _Peak node RSS (MB)_ | 171.1 |
+| _Peak node RSS (MB)_ | 172.0 |
 | _Number of Invalid txs_ | 0 |
 | _Refused submissions_ | 0 |
 | _Fanout outputs_        | 31 |
@@ -148,17 +148,17 @@ Each client first grows its UTxO set (1-in to 2-out) for half of its tx budget, 
 | -- | -- |
 | _Number of txs_ | 30 |
 | _Load mode_ | open-loop |
-| _Avg. Confirmation Time (ms)_ | 20.1 |
-| _P99_ | 20.5ms |
-| _P95_ | 20.5ms |
-| _P50_ | 20.3ms |
-| _Tx validation time p50 (ms)_ | 7.9 |
-| _End-to-end TPS_ | 1452.99 tx/s |
+| _Avg. Confirmation Time (ms)_ | 28.2 |
+| _P99_ | 28.7ms |
+| _P95_ | 28.7ms |
+| _P50_ | 28.4ms |
+| _Tx validation time p50 (ms)_ | 11.5 |
+| _End-to-end TPS_ | 1039.95 tx/s |
 | _Backlog drain time (s)_ | 0.0 |
 | _Snapshots observed_ | 2 |
-| _Snapshots per second_ | 96.87 /s |
+| _Snapshots per second_ | 69.33 /s |
 | _Avg txs per snapshot_ | 15.0 |
-| _Peak node RSS (MB)_ | 170.8 |
+| _Peak node RSS (MB)_ | 170.9 |
 | _Number of Invalid txs_ | 0 |
 | _Refused submissions_ | 0 |
 | _Fanout outputs_        | 1 |
@@ -172,18 +172,18 @@ Each client first grows its UTxO set (1-in to 2-out) for half of its tx budget, 
 | -- | -- |
 | _Number of txs_ | 30 |
 | _Load mode_ | closed-loop |
-| _Avg. Confirmation Time (ms)_ | 4.3 |
-| _P99_ | 8.0ms |
-| _P95_ | 6.3ms |
-| _P50_ | 3.9ms |
-| _Tx validation time p50 (ms)_ | 1.3 |
-| _End-to-end TPS_ | 230.22 tx/s |
-| _Sustained TPS_ | 225.01 tx/s |
+| _Avg. Confirmation Time (ms)_ | 5.2 |
+| _P99_ | 8.1ms |
+| _P95_ | 5.8ms |
+| _P50_ | 5.1ms |
+| _Tx validation time p50 (ms)_ | 1.6 |
+| _End-to-end TPS_ | 191.48 tx/s |
+| _Sustained TPS_ | 187.87 tx/s |
 | _Backlog drain time (s)_ | 0.0 |
 | _Snapshots observed_ | 30 |
-| _Snapshots per second_ | 230.22 /s |
+| _Snapshots per second_ | 191.48 /s |
 | _Avg txs per snapshot_ | 1.0 |
-| _Peak node RSS (MB)_ | 173.9 |
+| _Peak node RSS (MB)_ | 170.5 |
 | _Number of Invalid txs_ | 0 |
 | _Refused submissions_ | 0 |
 | _Fanout outputs_        | 1 |
@@ -197,17 +197,17 @@ Each client first grows its UTxO set (1-in to 2-out) for half of its tx budget, 
 | -- | -- |
 | _Number of txs_ | 60 |
 | _Load mode_ | open-loop |
-| _Avg. Confirmation Time (ms)_ | 76.8 |
-| _P99_ | 78.0ms |
-| _P95_ | 77.9ms |
-| _P50_ | 77.0ms |
-| _Tx validation time p50 (ms)_ | 47.5 |
-| _End-to-end TPS_ | 767.64 tx/s |
+| _Avg. Confirmation Time (ms)_ | 63.9 |
+| _P99_ | 65.3ms |
+| _P95_ | 65.2ms |
+| _P50_ | 64.2ms |
+| _Tx validation time p50 (ms)_ | 21.3 |
+| _End-to-end TPS_ | 916.68 tx/s |
 | _Backlog drain time (s)_ | 0.1 |
 | _Snapshots observed_ | 2 |
-| _Snapshots per second_ | 25.59 /s |
+| _Snapshots per second_ | 30.56 /s |
 | _Avg txs per snapshot_ | 30.0 |
-| _Peak node RSS (MB)_ | 171.0 |
+| _Peak node RSS (MB)_ | 171.6 |
 | _Number of Invalid txs_ | 0 |
 | _Refused submissions_ | 0 |
 | _Fanout outputs_        | 2 |
@@ -221,18 +221,18 @@ Each client first grows its UTxO set (1-in to 2-out) for half of its tx budget, 
 | -- | -- |
 | _Number of txs_ | 60 |
 | _Load mode_ | closed-loop |
-| _Avg. Confirmation Time (ms)_ | 11.5 |
-| _P99_ | 16.9ms |
-| _P95_ | 14.8ms |
-| _P50_ | 11.5ms |
-| _Tx validation time p50 (ms)_ | 2.8 |
-| _End-to-end TPS_ | 172.62 tx/s |
-| _Sustained TPS_ | 172.89 tx/s |
+| _Avg. Confirmation Time (ms)_ | 12.7 |
+| _P99_ | 19.6ms |
+| _P95_ | 17.4ms |
+| _P50_ | 12.1ms |
+| _Tx validation time p50 (ms)_ | 3.3 |
+| _End-to-end TPS_ | 155.70 tx/s |
+| _Sustained TPS_ | 154.86 tx/s |
 | _Backlog drain time (s)_ | 0.0 |
 | _Snapshots observed_ | 60 |
-| _Snapshots per second_ | 172.62 /s |
+| _Snapshots per second_ | 155.70 /s |
 | _Avg txs per snapshot_ | 1.0 |
-| _Peak node RSS (MB)_ | 172.0 |
+| _Peak node RSS (MB)_ | 171.7 |
 | _Number of Invalid txs_ | 0 |
 | _Refused submissions_ | 0 |
 | _Fanout outputs_        | 2 |
@@ -246,17 +246,17 @@ Each client first grows its UTxO set (1-in to 2-out) for half of its tx budget, 
 | -- | -- |
 | _Number of txs_ | 60 |
 | _Load mode_ | open-loop |
-| _Avg. Confirmation Time (ms)_ | 44.7 |
-| _P99_ | 45.9ms |
-| _P95_ | 45.9ms |
-| _P50_ | 44.9ms |
-| _Tx validation time p50 (ms)_ | 18.4 |
-| _End-to-end TPS_ | 1302.34 tx/s |
-| _Backlog drain time (s)_ | 0.0 |
+| _Avg. Confirmation Time (ms)_ | 65.1 |
+| _P99_ | 66.8ms |
+| _P95_ | 66.7ms |
+| _P50_ | 65.4ms |
+| _Tx validation time p50 (ms)_ | 25.3 |
+| _End-to-end TPS_ | 896.29 tx/s |
+| _Backlog drain time (s)_ | 0.1 |
 | _Snapshots observed_ | 2 |
-| _Snapshots per second_ | 43.41 /s |
+| _Snapshots per second_ | 29.88 /s |
 | _Avg txs per snapshot_ | 30.0 |
-| _Peak node RSS (MB)_ | 171.5 |
+| _Peak node RSS (MB)_ | 172.1 |
 | _Number of Invalid txs_ | 0 |
 | _Refused submissions_ | 0 |
 | _Fanout outputs_        | 62 |
@@ -270,18 +270,18 @@ Each client first grows its UTxO set (1-in to 2-out) for half of its tx budget, 
 | -- | -- |
 | _Number of txs_ | 60 |
 | _Load mode_ | closed-loop |
-| _Avg. Confirmation Time (ms)_ | 16.1 |
-| _P99_ | 33.5ms |
-| _P95_ | 24.5ms |
-| _P50_ | 15.1ms |
-| _Tx validation time p50 (ms)_ | 4.5 |
-| _End-to-end TPS_ | 122.61 tx/s |
-| _Sustained TPS_ | 124.95 tx/s |
+| _Avg. Confirmation Time (ms)_ | 16.5 |
+| _P99_ | 26.1ms |
+| _P95_ | 21.3ms |
+| _P50_ | 16.1ms |
+| _Tx validation time p50 (ms)_ | 4.7 |
+| _End-to-end TPS_ | 119.93 tx/s |
+| _Sustained TPS_ | 116.11 tx/s |
 | _Backlog drain time (s)_ | 0.0 |
 | _Snapshots observed_ | 60 |
-| _Snapshots per second_ | 122.61 /s |
+| _Snapshots per second_ | 119.93 /s |
 | _Avg txs per snapshot_ | 1.0 |
-| _Peak node RSS (MB)_ | 172.2 |
+| _Peak node RSS (MB)_ | 171.7 |
 | _Number of Invalid txs_ | 0 |
 | _Refused submissions_ | 0 |
 | _Fanout outputs_        | 62 |
@@ -295,17 +295,17 @@ Each client first grows its UTxO set (1-in to 2-out) for half of its tx budget, 
 | -- | -- |
 | _Number of txs_ | 60 |
 | _Load mode_ | open-loop |
-| _Avg. Confirmation Time (ms)_ | 44.4 |
-| _P99_ | 45.6ms |
-| _P95_ | 45.5ms |
-| _P50_ | 44.6ms |
-| _Tx validation time p50 (ms)_ | 15.1 |
-| _End-to-end TPS_ | 1312.48 tx/s |
-| _Backlog drain time (s)_ | 0.0 |
+| _Avg. Confirmation Time (ms)_ | 58.3 |
+| _P99_ | 59.7ms |
+| _P95_ | 59.6ms |
+| _P50_ | 58.6ms |
+| _Tx validation time p50 (ms)_ | 27.0 |
+| _End-to-end TPS_ | 1003.64 tx/s |
+| _Backlog drain time (s)_ | 0.1 |
 | _Snapshots observed_ | 2 |
-| _Snapshots per second_ | 43.75 /s |
+| _Snapshots per second_ | 33.45 /s |
 | _Avg txs per snapshot_ | 30.0 |
-| _Peak node RSS (MB)_ | 171.0 |
+| _Peak node RSS (MB)_ | 171.8 |
 | _Number of Invalid txs_ | 0 |
 | _Refused submissions_ | 0 |
 | _Fanout outputs_        | 2 |
@@ -319,18 +319,18 @@ Each client first grows its UTxO set (1-in to 2-out) for half of its tx budget, 
 | -- | -- |
 | _Number of txs_ | 60 |
 | _Load mode_ | closed-loop |
-| _Avg. Confirmation Time (ms)_ | 13.4 |
-| _P99_ | 25.5ms |
-| _P95_ | 19.1ms |
-| _P50_ | 12.7ms |
-| _Tx validation time p50 (ms)_ | 3.7 |
-| _End-to-end TPS_ | 148.12 tx/s |
-| _Sustained TPS_ | 140.82 tx/s |
+| _Avg. Confirmation Time (ms)_ | 16.6 |
+| _P99_ | 22.3ms |
+| _P95_ | 20.4ms |
+| _P50_ | 17.0ms |
+| _Tx validation time p50 (ms)_ | 4.3 |
+| _End-to-end TPS_ | 119.35 tx/s |
+| _Sustained TPS_ | 115.15 tx/s |
 | _Backlog drain time (s)_ | 0.0 |
 | _Snapshots observed_ | 60 |
-| _Snapshots per second_ | 148.12 /s |
+| _Snapshots per second_ | 119.35 /s |
 | _Avg txs per snapshot_ | 1.0 |
-| _Peak node RSS (MB)_ | 172.1 |
+| _Peak node RSS (MB)_ | 171.1 |
 | _Number of Invalid txs_ | 0 |
 | _Refused submissions_ | 0 |
 | _Fanout outputs_        | 2 |
@@ -344,17 +344,17 @@ Each client first grows its UTxO set (1-in to 2-out) for half of its tx budget, 
 | -- | -- |
 | _Number of txs_ | 90 |
 | _Load mode_ | open-loop |
-| _Avg. Confirmation Time (ms)_ | 85.4 |
-| _P99_ | 90.3ms |
-| _P95_ | 90.2ms |
-| _P50_ | 86.1ms |
-| _Tx validation time p50 (ms)_ | 46.1 |
-| _End-to-end TPS_ | 989.88 tx/s |
+| _Avg. Confirmation Time (ms)_ | 111.9 |
+| _P99_ | 115.5ms |
+| _P95_ | 115.4ms |
+| _P50_ | 112.6ms |
+| _Tx validation time p50 (ms)_ | 38.2 |
+| _End-to-end TPS_ | 777.97 tx/s |
 | _Backlog drain time (s)_ | 0.1 |
 | _Snapshots observed_ | 2 |
-| _Snapshots per second_ | 22.00 /s |
+| _Snapshots per second_ | 17.29 /s |
 | _Avg txs per snapshot_ | 45.0 |
-| _Peak node RSS (MB)_ | 172.0 |
+| _Peak node RSS (MB)_ | 171.8 |
 | _Number of Invalid txs_ | 0 |
 | _Refused submissions_ | 0 |
 | _Fanout outputs_        | 3 |
@@ -368,18 +368,18 @@ Each client first grows its UTxO set (1-in to 2-out) for half of its tx budget, 
 | -- | -- |
 | _Number of txs_ | 90 |
 | _Load mode_ | closed-loop |
-| _Avg. Confirmation Time (ms)_ | 27.2 |
-| _P99_ | 46.3ms |
-| _P95_ | 43.5ms |
-| _P50_ | 25.7ms |
-| _Tx validation time p50 (ms)_ | 6.5 |
-| _End-to-end TPS_ | 107.41 tx/s |
-| _Sustained TPS_ | 103.90 tx/s |
+| _Avg. Confirmation Time (ms)_ | 24.3 |
+| _P99_ | 32.6ms |
+| _P95_ | 31.9ms |
+| _P50_ | 25.1ms |
+| _Tx validation time p50 (ms)_ | 6.3 |
+| _End-to-end TPS_ | 121.44 tx/s |
+| _Sustained TPS_ | 123.57 tx/s |
 | _Backlog drain time (s)_ | 0.0 |
-| _Snapshots observed_ | 62 |
-| _Snapshots per second_ | 73.99 /s |
+| _Snapshots observed_ | 61 |
+| _Snapshots per second_ | 82.31 /s |
 | _Avg txs per snapshot_ | 1.5 |
-| _Peak node RSS (MB)_ | 172.1 |
+| _Peak node RSS (MB)_ | 171.6 |
 | _Number of Invalid txs_ | 0 |
 | _Refused submissions_ | 0 |
 | _Fanout outputs_        | 3 |
@@ -393,17 +393,17 @@ Each client first grows its UTxO set (1-in to 2-out) for half of its tx budget, 
 | -- | -- |
 | _Number of txs_ | 90 |
 | _Load mode_ | open-loop |
-| _Avg. Confirmation Time (ms)_ | 85.9 |
-| _P99_ | 87.3ms |
-| _P95_ | 87.1ms |
-| _P50_ | 86.6ms |
-| _Tx validation time p50 (ms)_ | 28.2 |
-| _End-to-end TPS_ | 1019.68 tx/s |
+| _Avg. Confirmation Time (ms)_ | 121.6 |
+| _P99_ | 122.5ms |
+| _P95_ | 122.4ms |
+| _P50_ | 122.0ms |
+| _Tx validation time p50 (ms)_ | 44.7 |
+| _End-to-end TPS_ | 724.81 tx/s |
 | _Backlog drain time (s)_ | 0.1 |
 | _Snapshots observed_ | 2 |
-| _Snapshots per second_ | 22.66 /s |
+| _Snapshots per second_ | 16.11 /s |
 | _Avg txs per snapshot_ | 45.0 |
-| _Peak node RSS (MB)_ | 171.7 |
+| _Peak node RSS (MB)_ | 173.4 |
 | _Number of Invalid txs_ | 0 |
 | _Refused submissions_ | 0 |
 | _Fanout outputs_        | 93 |
@@ -417,18 +417,18 @@ Each client first grows its UTxO set (1-in to 2-out) for half of its tx budget, 
 | -- | -- |
 | _Number of txs_ | 90 |
 | _Load mode_ | closed-loop |
-| _Avg. Confirmation Time (ms)_ | 27.0 |
-| _P99_ | 36.6ms |
-| _P95_ | 34.0ms |
-| _P50_ | 27.2ms |
-| _Tx validation time p50 (ms)_ | 7.7 |
-| _End-to-end TPS_ | 108.82 tx/s |
-| _Sustained TPS_ | 108.13 tx/s |
+| _Avg. Confirmation Time (ms)_ | 33.0 |
+| _P99_ | 96.6ms |
+| _P95_ | 45.4ms |
+| _P50_ | 30.4ms |
+| _Tx validation time p50 (ms)_ | 9.2 |
+| _End-to-end TPS_ | 89.21 tx/s |
+| _Sustained TPS_ | 88.73 tx/s |
 | _Backlog drain time (s)_ | 0.0 |
 | _Snapshots observed_ | 61 |
-| _Snapshots per second_ | 73.76 /s |
+| _Snapshots per second_ | 60.47 /s |
 | _Avg txs per snapshot_ | 1.5 |
-| _Peak node RSS (MB)_ | 173.1 |
+| _Peak node RSS (MB)_ | 173.0 |
 | _Number of Invalid txs_ | 0 |
 | _Refused submissions_ | 0 |
 | _Fanout outputs_        | 93 |
@@ -442,17 +442,17 @@ Each client first grows its UTxO set (1-in to 2-out) for half of its tx budget, 
 | -- | -- |
 | _Number of txs_ | 90 |
 | _Load mode_ | open-loop |
-| _Avg. Confirmation Time (ms)_ | 79.9 |
-| _P99_ | 81.2ms |
-| _P95_ | 81.2ms |
-| _P50_ | 80.0ms |
-| _Tx validation time p50 (ms)_ | 26.7 |
-| _End-to-end TPS_ | 1103.58 tx/s |
+| _Avg. Confirmation Time (ms)_ | 128.2 |
+| _P99_ | 129.5ms |
+| _P95_ | 129.5ms |
+| _P50_ | 128.9ms |
+| _Tx validation time p50 (ms)_ | 44.4 |
+| _End-to-end TPS_ | 684.78 tx/s |
 | _Backlog drain time (s)_ | 0.1 |
 | _Snapshots observed_ | 2 |
-| _Snapshots per second_ | 24.52 /s |
+| _Snapshots per second_ | 15.22 /s |
 | _Avg txs per snapshot_ | 45.0 |
-| _Peak node RSS (MB)_ | 172.1 |
+| _Peak node RSS (MB)_ | 171.8 |
 | _Number of Invalid txs_ | 0 |
 | _Refused submissions_ | 0 |
 | _Fanout outputs_        | 3 |
@@ -466,18 +466,18 @@ Each client first grows its UTxO set (1-in to 2-out) for half of its tx budget, 
 | -- | -- |
 | _Number of txs_ | 90 |
 | _Load mode_ | closed-loop |
-| _Avg. Confirmation Time (ms)_ | 23.8 |
-| _P99_ | 33.5ms |
-| _P95_ | 28.9ms |
-| _P50_ | 23.6ms |
-| _Tx validation time p50 (ms)_ | 6.6 |
-| _End-to-end TPS_ | 124.28 tx/s |
-| _Sustained TPS_ | 123.30 tx/s |
+| _Avg. Confirmation Time (ms)_ | 35.4 |
+| _P99_ | 202.7ms |
+| _P95_ | 75.3ms |
+| _P50_ | 27.6ms |
+| _Tx validation time p50 (ms)_ | 7.9 |
+| _End-to-end TPS_ | 83.93 tx/s |
+| _Sustained TPS_ | 78.57 tx/s |
 | _Backlog drain time (s)_ | 0.0 |
 | _Snapshots observed_ | 61 |
-| _Snapshots per second_ | 84.23 /s |
+| _Snapshots per second_ | 56.89 /s |
 | _Avg txs per snapshot_ | 1.5 |
-| _Peak node RSS (MB)_ | 172.6 |
+| _Peak node RSS (MB)_ | 173.1 |
 | _Number of Invalid txs_ | 0 |
 | _Refused submissions_ | 0 |
 | _Fanout outputs_        | 3 |

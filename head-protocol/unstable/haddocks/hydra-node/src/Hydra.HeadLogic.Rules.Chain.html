@@ -83,18 +83,18 @@
 </span><span id="line-83"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Node.State.html"><span class="hs-identifier">Hydra.Node.State</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Node.State.html#PendingDeposits"><span class="hs-identifier">PendingDeposits</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Node.State.html#SyncedStatus"><span class="hs-identifier">SyncedStatus</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.Node.State.html#depositsForHeadWithoutFinalizedCommit"><span class="hs-identifier">depositsForHeadWithoutFinalizedCommit</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-84"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Prelude</span></span><span>
 </span><span id="line-85"></span><span>
-</span><span id="line-86"></span><span id="local-6989586621681047588"><span class="annot"><a href="Hydra.HeadLogic.Rules.Chain.html#handleChainInput"><span class="hs-identifier hs-type">handleChainInput</span></a></span><span> </span><span class="hs-glyph">::</span><span>
-</span><span id="line-87"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">IsChainState</span></span><span> </span><span class="annot"><a href="#local-6989586621681047588"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-86"></span><span id="local-6989586621681047821"><span class="annot"><a href="Hydra.HeadLogic.Rules.Chain.html#handleChainInput"><span class="hs-identifier hs-type">handleChainInput</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-87"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">IsChainState</span></span><span> </span><span class="annot"><a href="#local-6989586621681047821"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span>
 </span><span id="line-88"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Environment.html#RuleEnvironment"><span class="hs-identifier hs-type">RuleEnvironment</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-89"></span><span>  </span><span class="annot"><span class="hs-comment">-- | Current system time.</span></span><span>
 </span><span id="line-90"></span><span>  </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Clock.Internal.UTCTime.html#UTCTime"><span class="hs-identifier hs-type">UTCTime</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-91"></span><span>  </span><span class="annot"><a href="Hydra.Node.State.html#PendingDeposits"><span class="hs-identifier hs-type">PendingDeposits</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681047588"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-91"></span><span>  </span><span class="annot"><a href="Hydra.Node.State.html#PendingDeposits"><span class="hs-identifier hs-type">PendingDeposits</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681047821"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-92"></span><span>  </span><span class="annot"><span class="hs-comment">-- | Current HeadState to validate the command against.</span></span><span>
-</span><span id="line-93"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.html#HeadState"><span class="hs-identifier hs-type">HeadState</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681047588"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-93"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.html#HeadState"><span class="hs-identifier hs-type">HeadState</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681047821"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-94"></span><span>  </span><span class="annot"><span class="hs-comment">-- | Input to be processed.</span></span><span>
-</span><span id="line-95"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Input.html#Input"><span class="hs-identifier hs-type">Input</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681047588"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-95"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Input.html#Input"><span class="hs-identifier hs-type">Input</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681047821"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-96"></span><span>  </span><span class="annot"><a href="Hydra.Node.State.html#SyncedStatus"><span class="hs-identifier hs-type">SyncedStatus</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-97"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Program.html#Program"><span class="hs-identifier hs-type">Program</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681047588"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-97"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Program.html#Program"><span class="hs-identifier hs-type">Program</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681047821"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
 </span><span id="line-98"></span><span id="handleChainInput"><span class="annot"><span class="annottext">handleChainInput :: forall tx.
 IsChainState tx =&gt;
 RuleEnvironment
@@ -104,20 +104,20 @@ RuleEnvironment
 -&gt; Input tx
 -&gt; SyncedStatus
 -&gt; Program tx ()
-</span><a href="Hydra.HeadLogic.Rules.Chain.html#handleChainInput"><span class="hs-identifier hs-var hs-var">handleChainInput</span></a></span></span><span> </span><span id="local-6989586621681047772"><span class="annot"><span class="annottext">RuleEnvironment
-</span><a href="#local-6989586621681047772"><span class="hs-identifier hs-var">env</span></a></span></span><span> </span><span id="local-6989586621681047773"><span class="annot"><span class="annottext">UTCTime
-</span><a href="#local-6989586621681047773"><span class="hs-identifier hs-var">now</span></a></span></span><span> </span><span id="local-6989586621681047774"><span class="annot"><span class="annottext">PendingDeposits tx
-</span><a href="#local-6989586621681047774"><span class="hs-identifier hs-var">pendingDeposits</span></a></span></span><span> </span><span id="local-6989586621681047775"><span class="annot"><span class="annottext">HeadState tx
-</span><a href="#local-6989586621681047775"><span class="hs-identifier hs-var">st</span></a></span></span><span> </span><span id="local-6989586621681047776"><span class="annot"><span class="annottext">Input tx
-</span><a href="#local-6989586621681047776"><span class="hs-identifier hs-var">ev</span></a></span></span><span> </span><span id="local-6989586621681047777"><span class="annot"><span class="annottext">SyncedStatus
-</span><a href="#local-6989586621681047777"><span class="hs-identifier hs-var">syncStatus</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">HeadState tx
-</span><a href="#local-6989586621681047775"><span class="hs-identifier hs-var">st</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Input tx
-</span><a href="#local-6989586621681047776"><span class="hs-identifier hs-var">ev</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">of</span><span>
+</span><a href="Hydra.HeadLogic.Rules.Chain.html#handleChainInput"><span class="hs-identifier hs-var hs-var">handleChainInput</span></a></span></span><span> </span><span id="local-6989586621681048005"><span class="annot"><span class="annottext">RuleEnvironment
+</span><a href="#local-6989586621681048005"><span class="hs-identifier hs-var">env</span></a></span></span><span> </span><span id="local-6989586621681048006"><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621681048006"><span class="hs-identifier hs-var">now</span></a></span></span><span> </span><span id="local-6989586621681048007"><span class="annot"><span class="annottext">PendingDeposits tx
+</span><a href="#local-6989586621681048007"><span class="hs-identifier hs-var">pendingDeposits</span></a></span></span><span> </span><span id="local-6989586621681048008"><span class="annot"><span class="annottext">HeadState tx
+</span><a href="#local-6989586621681048008"><span class="hs-identifier hs-var">st</span></a></span></span><span> </span><span id="local-6989586621681048009"><span class="annot"><span class="annottext">Input tx
+</span><a href="#local-6989586621681048009"><span class="hs-identifier hs-var">ev</span></a></span></span><span> </span><span id="local-6989586621681048010"><span class="annot"><span class="annottext">SyncedStatus
+</span><a href="#local-6989586621681048010"><span class="hs-identifier hs-var">syncStatus</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">case</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">HeadState tx
+</span><a href="#local-6989586621681048008"><span class="hs-identifier hs-var">st</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Input tx
+</span><a href="#local-6989586621681048009"><span class="hs-identifier hs-var">ev</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">of</span><span>
 </span><span id="line-99"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="annottext">HeadState tx
-</span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Input.html#ChainInput"><span class="hs-identifier hs-type">ChainInput</span></a></span><span> </span><span class="annot"><a href="Hydra.Chain.html#Tick"><span class="hs-identifier hs-type">Tick</span></a></span><span class="hs-special">{</span><span id="local-6989586621681047779"><span class="annot"><span class="annottext">UTCTime
+</span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Input.html#ChainInput"><span class="hs-identifier hs-type">ChainInput</span></a></span><span> </span><span class="annot"><a href="Hydra.Chain.html#Tick"><span class="hs-identifier hs-type">Tick</span></a></span><span class="hs-special">{</span><span id="local-6989586621681048012"><span class="annot"><span class="annottext">UTCTime
 $sel:chainTime:Observation :: forall tx. ChainEvent tx -&gt; UTCTime
 chainTime :: UTCTime
-</span><a href="Hydra.Chain.html#%24sel%3AchainTime%3AObservation"><span class="hs-identifier hs-var hs-var">chainTime</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681047780"><span class="annot"><span class="annottext">ChainPointType tx
+</span><a href="Hydra.Chain.html#%24sel%3AchainTime%3AObservation"><span class="hs-identifier hs-var hs-var">chainTime</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681048013"><span class="annot"><span class="annottext">ChainPointType tx
 $sel:chainPoint:Observation :: forall tx. ChainEvent tx -&gt; ChainPointType tx
 chainPoint :: ChainPointType tx
 </span><a href="Hydra.Chain.html#%24sel%3AchainPoint%3AObservation"><span class="hs-identifier hs-var hs-var">chainPoint</span></a></span></span><span class="hs-special">}</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
@@ -140,18 +140,18 @@ RuleEnvironment
 -&gt; SyncedStatus
 -&gt; Program tx ()
 </span><a href="Hydra.HeadLogic.Rules.Chain.Tick.html#handleTick"><span class="hs-identifier hs-var">handleTick</span></a></span><span> </span><span class="annot"><span class="annottext">RuleEnvironment
-</span><a href="#local-6989586621681047772"><span class="hs-identifier hs-var">env</span></a></span><span> </span><span class="annot"><span class="annottext">UTCTime
-</span><a href="#local-6989586621681047773"><span class="hs-identifier hs-var">now</span></a></span><span> </span><span class="annot"><span class="annottext">PendingDeposits tx
-</span><a href="#local-6989586621681047774"><span class="hs-identifier hs-var">pendingDeposits</span></a></span><span> </span><span class="annot"><span class="annottext">HeadState tx
-</span><a href="#local-6989586621681047775"><span class="hs-identifier hs-var">st</span></a></span><span> </span><span class="annot"><span class="annottext">UTCTime
-</span><a href="#local-6989586621681047779"><span class="hs-identifier hs-var">chainTime</span></a></span><span> </span><span class="annot"><span class="annottext">ChainPointType tx
-</span><a href="#local-6989586621681047780"><span class="hs-identifier hs-var">chainPoint</span></a></span><span> </span><span class="annot"><span class="annottext">SyncedStatus
-</span><a href="#local-6989586621681047777"><span class="hs-identifier hs-var">syncStatus</span></a></span><span>
+</span><a href="#local-6989586621681048005"><span class="hs-identifier hs-var">env</span></a></span><span> </span><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621681048006"><span class="hs-identifier hs-var">now</span></a></span><span> </span><span class="annot"><span class="annottext">PendingDeposits tx
+</span><a href="#local-6989586621681048007"><span class="hs-identifier hs-var">pendingDeposits</span></a></span><span> </span><span class="annot"><span class="annottext">HeadState tx
+</span><a href="#local-6989586621681048008"><span class="hs-identifier hs-var">st</span></a></span><span> </span><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621681048012"><span class="hs-identifier hs-var">chainTime</span></a></span><span> </span><span class="annot"><span class="annottext">ChainPointType tx
+</span><a href="#local-6989586621681048013"><span class="hs-identifier hs-var">chainPoint</span></a></span><span> </span><span class="annot"><span class="annottext">SyncedStatus
+</span><a href="#local-6989586621681048010"><span class="hs-identifier hs-var">syncStatus</span></a></span><span>
 </span><span id="line-101"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="annottext">HeadState tx
-</span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Input.html#ChainInput"><span class="hs-identifier hs-type">ChainInput</span></a></span><span> </span><span class="annot"><a href="Hydra.Chain.html#Rollback"><span class="hs-identifier hs-type">Rollback</span></a></span><span class="hs-special">{</span><span id="local-6989586621681047781"><span class="annot"><span class="annottext">ChainStateType tx
+</span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Input.html#ChainInput"><span class="hs-identifier hs-type">ChainInput</span></a></span><span> </span><span class="annot"><a href="Hydra.Chain.html#Rollback"><span class="hs-identifier hs-type">Rollback</span></a></span><span class="hs-special">{</span><span id="local-6989586621681048014"><span class="annot"><span class="annottext">ChainStateType tx
 $sel:rolledBackChainState:Observation :: forall tx. ChainEvent tx -&gt; ChainStateType tx
 rolledBackChainState :: ChainStateType tx
-</span><a href="Hydra.Chain.html#%24sel%3ArolledBackChainState%3AObservation"><span class="hs-identifier hs-var hs-var">rolledBackChainState</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681047782"><span class="annot"><span class="annottext">UTCTime
+</span><a href="Hydra.Chain.html#%24sel%3ArolledBackChainState%3AObservation"><span class="hs-identifier hs-var hs-var">rolledBackChainState</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681048015"><span class="annot"><span class="annottext">UTCTime
 $sel:chainTime:Observation :: forall tx. ChainEvent tx -&gt; UTCTime
 chainTime :: UTCTime
 </span><a href="Hydra.Chain.html#%24sel%3AchainTime%3AObservation"><span class="hs-identifier hs-var hs-var">chainTime</span></a></span></span><span class="hs-special">}</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
@@ -174,36 +174,36 @@ RuleEnvironment
 -&gt; SyncedStatus
 -&gt; Program tx ()
 </span><a href="Hydra.HeadLogic.Rules.Chain.Rollback.html#handleRollback"><span class="hs-identifier hs-var">handleRollback</span></a></span><span> </span><span class="annot"><span class="annottext">RuleEnvironment
-</span><a href="#local-6989586621681047772"><span class="hs-identifier hs-var">env</span></a></span><span> </span><span class="annot"><span class="annottext">UTCTime
-</span><a href="#local-6989586621681047773"><span class="hs-identifier hs-var">now</span></a></span><span> </span><span class="annot"><span class="annottext">PendingDeposits tx
-</span><a href="#local-6989586621681047774"><span class="hs-identifier hs-var">pendingDeposits</span></a></span><span> </span><span class="annot"><span class="annottext">HeadState tx
-</span><a href="#local-6989586621681047775"><span class="hs-identifier hs-var">st</span></a></span><span> </span><span class="annot"><span class="annottext">ChainStateType tx
-</span><a href="#local-6989586621681047781"><span class="hs-identifier hs-var">rolledBackChainState</span></a></span><span> </span><span class="annot"><span class="annottext">UTCTime
-</span><a href="#local-6989586621681047782"><span class="hs-identifier hs-var">chainTime</span></a></span><span> </span><span class="annot"><span class="annottext">SyncedStatus
-</span><a href="#local-6989586621681047777"><span class="hs-identifier hs-var">syncStatus</span></a></span><span>
+</span><a href="#local-6989586621681048005"><span class="hs-identifier hs-var">env</span></a></span><span> </span><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621681048006"><span class="hs-identifier hs-var">now</span></a></span><span> </span><span class="annot"><span class="annottext">PendingDeposits tx
+</span><a href="#local-6989586621681048007"><span class="hs-identifier hs-var">pendingDeposits</span></a></span><span> </span><span class="annot"><span class="annottext">HeadState tx
+</span><a href="#local-6989586621681048008"><span class="hs-identifier hs-var">st</span></a></span><span> </span><span class="annot"><span class="annottext">ChainStateType tx
+</span><a href="#local-6989586621681048014"><span class="hs-identifier hs-var">rolledBackChainState</span></a></span><span> </span><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621681048015"><span class="hs-identifier hs-var">chainTime</span></a></span><span> </span><span class="annot"><span class="annottext">SyncedStatus
+</span><a href="#local-6989586621681048010"><span class="hs-identifier hs-var">syncStatus</span></a></span><span>
 </span><span id="line-103"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="annottext">HeadState tx
 </span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Input.html#ChainInput"><span class="hs-identifier hs-type">ChainInput</span></a></span><span> </span><span class="annot"><a href="Hydra.Chain.html#Observation"><span class="hs-identifier hs-type">Observation</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:observedTx:Observation :: forall tx. ChainEvent tx -&gt; OnChainTx tx
-</span><a href="Hydra.Chain.html#%24sel%3AobservedTx%3AObservation"><span class="hs-identifier hs-var">observedTx</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Hydra.Chain.html#OnInitTx"><span class="hs-identifier hs-type">OnInitTx</span></a></span><span class="hs-special">{</span><span id="local-6989586621681047783"><span class="annot"><span class="annottext">HeadId
+</span><a href="Hydra.Chain.html#%24sel%3AobservedTx%3AObservation"><span class="hs-identifier hs-var">observedTx</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Hydra.Chain.html#OnInitTx"><span class="hs-identifier hs-type">OnInitTx</span></a></span><span class="hs-special">{</span><span id="local-6989586621681048016"><span class="annot"><span class="annottext">HeadId
 $sel:headId:OnInitTx :: forall tx. OnChainTx tx -&gt; HeadId
 headId :: HeadId
-</span><a href="Hydra.Chain.html#%24sel%3AheadId%3AOnInitTx"><span class="hs-identifier hs-var hs-var">headId</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681047784"><span class="annot"><span class="annottext">HeadSeed
+</span><a href="Hydra.Chain.html#%24sel%3AheadId%3AOnInitTx"><span class="hs-identifier hs-var hs-var">headId</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681048017"><span class="annot"><span class="annottext">HeadSeed
 $sel:headSeed:OnInitTx :: forall tx. OnChainTx tx -&gt; HeadSeed
 headSeed :: HeadSeed
-</span><a href="Hydra.Chain.html#%24sel%3AheadSeed%3AOnInitTx"><span class="hs-identifier hs-var hs-var">headSeed</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681047785"><span class="annot"><span class="annottext">HeadParameters
+</span><a href="Hydra.Chain.html#%24sel%3AheadSeed%3AOnInitTx"><span class="hs-identifier hs-var hs-var">headSeed</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681048018"><span class="annot"><span class="annottext">HeadParameters
 $sel:headParameters:OnInitTx :: forall tx. OnChainTx tx -&gt; HeadParameters
 headParameters :: HeadParameters
-</span><a href="Hydra.Chain.html#%24sel%3AheadParameters%3AOnInitTx"><span class="hs-identifier hs-var hs-var">headParameters</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681047786"><span class="annot"><span class="annottext">[OnChainId]
+</span><a href="Hydra.Chain.html#%24sel%3AheadParameters%3AOnInitTx"><span class="hs-identifier hs-var hs-var">headParameters</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681048019"><span class="annot"><span class="annottext">[OnChainId]
 $sel:participants:OnInitTx :: forall tx. OnChainTx tx -&gt; [OnChainId]
 participants :: [OnChainId]
-</span><a href="Hydra.Chain.html#%24sel%3Aparticipants%3AOnInitTx"><span class="hs-identifier hs-var hs-var">participants</span></a></span></span><span class="hs-special">}</span><span class="hs-special">,</span><span> </span><span id="local-6989586621681047787"><span class="annot"><span class="annottext">ChainStateType tx
+</span><a href="Hydra.Chain.html#%24sel%3Aparticipants%3AOnInitTx"><span class="hs-identifier hs-var hs-var">participants</span></a></span></span><span class="hs-special">}</span><span class="hs-special">,</span><span> </span><span id="local-6989586621681048020"><span class="annot"><span class="annottext">ChainStateType tx
 $sel:newChainState:Observation :: forall tx. ChainEvent tx -&gt; ChainStateType tx
 newChainState :: ChainStateType tx
 </span><a href="Hydra.Chain.html#%24sel%3AnewChainState%3AObservation"><span class="hs-identifier hs-var hs-var">newChainState</span></a></span></span><span class="hs-special">}</span><span class="hs-special">)</span><span>
 </span><span id="line-104"></span><span>    </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">HeadState tx -&gt; HeadId -&gt; Bool
 forall tx. HeadState tx -&gt; HeadId -&gt; Bool
 </span><a href="Hydra.HeadLogic.State.html#canOpenHead"><span class="hs-identifier hs-var">canOpenHead</span></a></span><span> </span><span class="annot"><span class="annottext">HeadState tx
-</span><a href="#local-6989586621681047775"><span class="hs-identifier hs-var">st</span></a></span><span> </span><span class="annot"><span class="annottext">HeadId
-</span><a href="#local-6989586621681047783"><span class="hs-identifier hs-var">headId</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><a href="#local-6989586621681048008"><span class="hs-identifier hs-var">st</span></a></span><span> </span><span class="annot"><span class="annottext">HeadId
+</span><a href="#local-6989586621681048016"><span class="hs-identifier hs-var">headId</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-105"></span><span>        </span><span class="annot"><span class="annottext">RuleEnvironment
 -&gt; ChainStateType tx
 -&gt; HeadId
@@ -220,39 +220,39 @@ RuleEnvironment
 -&gt; [OnChainId]
 -&gt; Program tx ()
 </span><a href="Hydra.HeadLogic.Rules.Chain.Lifecycle.html#onIdleChainInitTx"><span class="hs-identifier hs-var">onIdleChainInitTx</span></a></span><span> </span><span class="annot"><span class="annottext">RuleEnvironment
-</span><a href="#local-6989586621681047772"><span class="hs-identifier hs-var">env</span></a></span><span> </span><span class="annot"><span class="annottext">ChainStateType tx
-</span><a href="#local-6989586621681047787"><span class="hs-identifier hs-var">newChainState</span></a></span><span> </span><span class="annot"><span class="annottext">HeadId
-</span><a href="#local-6989586621681047783"><span class="hs-identifier hs-var">headId</span></a></span><span> </span><span class="annot"><span class="annottext">HeadSeed
-</span><a href="#local-6989586621681047784"><span class="hs-identifier hs-var">headSeed</span></a></span><span> </span><span class="annot"><span class="annottext">HeadParameters
-</span><a href="#local-6989586621681047785"><span class="hs-identifier hs-var">headParameters</span></a></span><span> </span><span class="annot"><span class="annottext">[OnChainId]
-</span><a href="#local-6989586621681047786"><span class="hs-identifier hs-var">participants</span></a></span><span>
+</span><a href="#local-6989586621681048005"><span class="hs-identifier hs-var">env</span></a></span><span> </span><span class="annot"><span class="annottext">ChainStateType tx
+</span><a href="#local-6989586621681048020"><span class="hs-identifier hs-var">newChainState</span></a></span><span> </span><span class="annot"><span class="annottext">HeadId
+</span><a href="#local-6989586621681048016"><span class="hs-identifier hs-var">headId</span></a></span><span> </span><span class="annot"><span class="annottext">HeadSeed
+</span><a href="#local-6989586621681048017"><span class="hs-identifier hs-var">headSeed</span></a></span><span> </span><span class="annot"><span class="annottext">HeadParameters
+</span><a href="#local-6989586621681048018"><span class="hs-identifier hs-var">headParameters</span></a></span><span> </span><span class="annot"><span class="annottext">[OnChainId]
+</span><a href="#local-6989586621681048019"><span class="hs-identifier hs-var">participants</span></a></span><span>
 </span><span id="line-106"></span><span>  </span><span class="hs-comment">-- Open</span><span>
-</span><span id="line-107"></span><span>  </span><span class="hs-special">(</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.html#Open"><span class="hs-identifier hs-type">Open</span></a></span><span> </span><span id="local-6989586621681047789"><span class="annot"><span class="annottext">openState :: OpenState tx
-</span><a href="#local-6989586621681047789"><span class="hs-identifier hs-var">openState</span></a></span></span><span class="hs-glyph">@</span><span class="annot"><a href="Hydra.HeadLogic.State.html#OpenState"><span class="hs-identifier hs-type">OpenState</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:headId:OpenState :: forall tx. OpenState tx -&gt; HeadId
-</span><a href="Hydra.HeadLogic.State.html#%24sel%3AheadId%3AOpenState"><span class="hs-identifier hs-var">headId</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="local-6989586621681047790"><span class="annot"><span class="annottext">HeadId
-</span><a href="#local-6989586621681047790"><span class="hs-identifier hs-var">ourHeadId</span></a></span></span><span class="hs-special">}</span><span>
+</span><span id="line-107"></span><span>  </span><span class="hs-special">(</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.html#Open"><span class="hs-identifier hs-type">Open</span></a></span><span> </span><span id="local-6989586621681048022"><span class="annot"><span class="annottext">openState :: OpenState tx
+</span><a href="#local-6989586621681048022"><span class="hs-identifier hs-var">openState</span></a></span></span><span class="hs-glyph">@</span><span class="annot"><a href="Hydra.HeadLogic.State.html#OpenState"><span class="hs-identifier hs-type">OpenState</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:headId:OpenState :: forall tx. OpenState tx -&gt; HeadId
+</span><a href="Hydra.HeadLogic.State.html#%24sel%3AheadId%3AOpenState"><span class="hs-identifier hs-var">headId</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="local-6989586621681048023"><span class="annot"><span class="annottext">HeadId
+</span><a href="#local-6989586621681048023"><span class="hs-identifier hs-var">ourHeadId</span></a></span></span><span class="hs-special">}</span><span>
 </span><span id="line-108"></span><span>    </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Input.html#ChainInput"><span class="hs-identifier hs-type">ChainInput</span></a></span><span> </span><span class="annot"><a href="Hydra.Chain.html#Observation"><span class="hs-identifier hs-type">Observation</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:observedTx:Observation :: forall tx. ChainEvent tx -&gt; OnChainTx tx
-</span><a href="Hydra.Chain.html#%24sel%3AobservedTx%3AObservation"><span class="hs-identifier hs-var">observedTx</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Hydra.Chain.html#OnCloseTx"><span class="hs-identifier hs-type">OnCloseTx</span></a></span><span class="hs-special">{</span><span id="local-6989586621681047791"><span class="annot"><span class="annottext">HeadId
+</span><a href="Hydra.Chain.html#%24sel%3AobservedTx%3AObservation"><span class="hs-identifier hs-var">observedTx</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Hydra.Chain.html#OnCloseTx"><span class="hs-identifier hs-type">OnCloseTx</span></a></span><span class="hs-special">{</span><span id="local-6989586621681048024"><span class="annot"><span class="annottext">HeadId
 $sel:headId:OnInitTx :: forall tx. OnChainTx tx -&gt; HeadId
 headId :: HeadId
 </span><a href="Hydra.Chain.html#%24sel%3AheadId%3AOnInitTx"><span class="hs-identifier hs-var hs-var">headId</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:snapshotNumber:OnInitTx :: forall tx. OnChainTx tx -&gt; SnapshotNumber
-</span><a href="Hydra.Chain.html#%24sel%3AsnapshotNumber%3AOnInitTx"><span class="hs-identifier hs-var">snapshotNumber</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="local-6989586621681047792"><span class="annot"><span class="annottext">SnapshotNumber
-</span><a href="#local-6989586621681047792"><span class="hs-identifier hs-var">closedSnapshotNumber</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681047793"><span class="annot"><span class="annottext">UTCTime
+</span><a href="Hydra.Chain.html#%24sel%3AsnapshotNumber%3AOnInitTx"><span class="hs-identifier hs-var">snapshotNumber</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="local-6989586621681048025"><span class="annot"><span class="annottext">SnapshotNumber
+</span><a href="#local-6989586621681048025"><span class="hs-identifier hs-var">closedSnapshotNumber</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681048026"><span class="annot"><span class="annottext">UTCTime
 $sel:contestationDeadline:OnInitTx :: forall tx. OnChainTx tx -&gt; UTCTime
 contestationDeadline :: UTCTime
-</span><a href="Hydra.Chain.html#%24sel%3AcontestationDeadline%3AOnInitTx"><span class="hs-identifier hs-var hs-var">contestationDeadline</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681047794"><span class="annot"><span class="annottext">MultiSignature (Snapshot tx)
+</span><a href="Hydra.Chain.html#%24sel%3AcontestationDeadline%3AOnInitTx"><span class="hs-identifier hs-var hs-var">contestationDeadline</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681048027"><span class="annot"><span class="annottext">MultiSignature (Snapshot tx)
 $sel:signatures:OnInitTx :: forall tx. OnChainTx tx -&gt; MultiSignature (Snapshot tx)
 signatures :: MultiSignature (Snapshot tx)
-</span><a href="Hydra.Chain.html#%24sel%3Asignatures%3AOnInitTx"><span class="hs-identifier hs-var hs-var">signatures</span></a></span></span><span class="hs-special">}</span><span class="hs-special">,</span><span> </span><span id="local-6989586621681047795"><span class="annot"><span class="annottext">ChainStateType tx
+</span><a href="Hydra.Chain.html#%24sel%3Asignatures%3AOnInitTx"><span class="hs-identifier hs-var hs-var">signatures</span></a></span></span><span class="hs-special">}</span><span class="hs-special">,</span><span> </span><span id="local-6989586621681048028"><span class="annot"><span class="annottext">ChainStateType tx
 $sel:newChainState:Observation :: forall tx. ChainEvent tx -&gt; ChainStateType tx
 newChainState :: ChainStateType tx
 </span><a href="Hydra.Chain.html#%24sel%3AnewChainState%3AObservation"><span class="hs-identifier hs-var hs-var">newChainState</span></a></span></span><span class="hs-special">}</span><span>
 </span><span id="line-109"></span><span>    </span><span class="hs-special">)</span><span>
 </span><span id="line-110"></span><span>      </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">HeadId
-</span><a href="#local-6989586621681047790"><span class="hs-identifier hs-var">ourHeadId</span></a></span><span> </span><span class="annot"><span class="annottext">HeadId -&gt; HeadId -&gt; Bool
+</span><a href="#local-6989586621681048023"><span class="hs-identifier hs-var">ourHeadId</span></a></span><span> </span><span class="annot"><span class="annottext">HeadId -&gt; HeadId -&gt; Bool
 forall a. Eq a =&gt; a -&gt; a -&gt; Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3D%3D"><span class="hs-operator hs-var">==</span></a></span><span> </span><span class="annot"><span class="annottext">HeadId
-</span><a href="#local-6989586621681047791"><span class="hs-identifier hs-var">headId</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><a href="#local-6989586621681048024"><span class="hs-identifier hs-var">headId</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-111"></span><span>          </span><span class="annot"><span class="annottext">OpenState tx
 -&gt; ChainStateType tx
 -&gt; SnapshotNumber
@@ -268,11 +268,11 @@ OpenState tx
 -&gt; MultiSignature (Snapshot tx)
 -&gt; Program tx ()
 </span><a href="Hydra.HeadLogic.Rules.Chain.Lifecycle.html#onOpenChainCloseTx"><span class="hs-identifier hs-var">onOpenChainCloseTx</span></a></span><span> </span><span class="annot"><span class="annottext">OpenState tx
-</span><a href="#local-6989586621681047789"><span class="hs-identifier hs-var">openState</span></a></span><span> </span><span class="annot"><span class="annottext">ChainStateType tx
-</span><a href="#local-6989586621681047795"><span class="hs-identifier hs-var">newChainState</span></a></span><span> </span><span class="annot"><span class="annottext">SnapshotNumber
-</span><a href="#local-6989586621681047792"><span class="hs-identifier hs-var">closedSnapshotNumber</span></a></span><span> </span><span class="annot"><span class="annottext">UTCTime
-</span><a href="#local-6989586621681047793"><span class="hs-identifier hs-var">contestationDeadline</span></a></span><span> </span><span class="annot"><span class="annottext">MultiSignature (Snapshot tx)
-</span><a href="#local-6989586621681047794"><span class="hs-identifier hs-var">signatures</span></a></span><span>
+</span><a href="#local-6989586621681048022"><span class="hs-identifier hs-var">openState</span></a></span><span> </span><span class="annot"><span class="annottext">ChainStateType tx
+</span><a href="#local-6989586621681048028"><span class="hs-identifier hs-var">newChainState</span></a></span><span> </span><span class="annot"><span class="annottext">SnapshotNumber
+</span><a href="#local-6989586621681048025"><span class="hs-identifier hs-var">closedSnapshotNumber</span></a></span><span> </span><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621681048026"><span class="hs-identifier hs-var">contestationDeadline</span></a></span><span> </span><span class="annot"><span class="annottext">MultiSignature (Snapshot tx)
+</span><a href="#local-6989586621681048027"><span class="hs-identifier hs-var">signatures</span></a></span><span>
 </span><span id="line-112"></span><span>      </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#otherwise"><span class="hs-identifier hs-var">otherwise</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-113"></span><span>          </span><span class="annot"><span class="annottext">LogicError tx -&gt; Program tx ()
@@ -280,37 +280,37 @@ forall tx a. LogicError tx -&gt; Program tx a
 </span><a href="Hydra.HeadLogic.Program.html#reject"><span class="hs-identifier hs-var">reject</span></a></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Error.html#NotOurHead"><span class="hs-identifier hs-type">NotOurHead</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">HeadId
 ourHeadId :: HeadId
 $sel:ourHeadId:UnhandledInput :: HeadId
-</span><a href="#local-6989586621681047790"><span class="hs-identifier hs-var hs-var">ourHeadId</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:otherHeadId:UnhandledInput :: HeadId
+</span><a href="#local-6989586621681048023"><span class="hs-identifier hs-var hs-var">ourHeadId</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:otherHeadId:UnhandledInput :: HeadId
 </span><a href="Hydra.HeadLogic.Error.html#%24sel%3AotherHeadId%3AUnhandledInput"><span class="hs-identifier hs-var">otherHeadId</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HeadId
-</span><a href="#local-6989586621681047791"><span class="hs-identifier hs-var">headId</span></a></span><span class="hs-special">}</span><span>
-</span><span id="line-114"></span><span>  </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.State.html#Open"><span class="hs-identifier hs-type">Open</span></a></span><span> </span><span id="local-6989586621681047799"><span class="annot"><span class="annottext">openState :: OpenState tx
-</span><a href="#local-6989586621681047799"><span class="hs-identifier hs-var">openState</span></a></span></span><span class="hs-glyph">@</span><span class="annot"><a href="Hydra.HeadLogic.State.html#OpenState"><span class="hs-identifier hs-type">OpenState</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:headId:OpenState :: forall tx. OpenState tx -&gt; HeadId
-</span><a href="Hydra.HeadLogic.State.html#%24sel%3AheadId%3AOpenState"><span class="hs-identifier hs-var">headId</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="local-6989586621681047800"><span class="annot"><span class="annottext">HeadId
-</span><a href="#local-6989586621681047800"><span class="hs-identifier hs-var">ourHeadId</span></a></span></span><span class="hs-special">}</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Input.html#ChainInput"><span class="hs-identifier hs-type">ChainInput</span></a></span><span> </span><span class="annot"><a href="Hydra.Chain.html#Observation"><span class="hs-identifier hs-type">Observation</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:observedTx:Observation :: forall tx. ChainEvent tx -&gt; OnChainTx tx
-</span><a href="Hydra.Chain.html#%24sel%3AobservedTx%3AObservation"><span class="hs-identifier hs-var">observedTx</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Hydra.Chain.html#OnIncrementTx"><span class="hs-identifier hs-type">OnIncrementTx</span></a></span><span class="hs-special">{</span><span id="local-6989586621681047801"><span class="annot"><span class="annottext">HeadId
+</span><a href="#local-6989586621681048024"><span class="hs-identifier hs-var">headId</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-114"></span><span>  </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.State.html#Open"><span class="hs-identifier hs-type">Open</span></a></span><span> </span><span id="local-6989586621681048032"><span class="annot"><span class="annottext">openState :: OpenState tx
+</span><a href="#local-6989586621681048032"><span class="hs-identifier hs-var">openState</span></a></span></span><span class="hs-glyph">@</span><span class="annot"><a href="Hydra.HeadLogic.State.html#OpenState"><span class="hs-identifier hs-type">OpenState</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:headId:OpenState :: forall tx. OpenState tx -&gt; HeadId
+</span><a href="Hydra.HeadLogic.State.html#%24sel%3AheadId%3AOpenState"><span class="hs-identifier hs-var">headId</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="local-6989586621681048033"><span class="annot"><span class="annottext">HeadId
+</span><a href="#local-6989586621681048033"><span class="hs-identifier hs-var">ourHeadId</span></a></span></span><span class="hs-special">}</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Input.html#ChainInput"><span class="hs-identifier hs-type">ChainInput</span></a></span><span> </span><span class="annot"><a href="Hydra.Chain.html#Observation"><span class="hs-identifier hs-type">Observation</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:observedTx:Observation :: forall tx. ChainEvent tx -&gt; OnChainTx tx
+</span><a href="Hydra.Chain.html#%24sel%3AobservedTx%3AObservation"><span class="hs-identifier hs-var">observedTx</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Hydra.Chain.html#OnIncrementTx"><span class="hs-identifier hs-type">OnIncrementTx</span></a></span><span class="hs-special">{</span><span id="local-6989586621681048034"><span class="annot"><span class="annottext">HeadId
 $sel:headId:OnInitTx :: forall tx. OnChainTx tx -&gt; HeadId
 headId :: HeadId
-</span><a href="Hydra.Chain.html#%24sel%3AheadId%3AOnInitTx"><span class="hs-identifier hs-var hs-var">headId</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681047802"><span class="annot"><span class="annottext">SnapshotVersion
+</span><a href="Hydra.Chain.html#%24sel%3AheadId%3AOnInitTx"><span class="hs-identifier hs-var hs-var">headId</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681048035"><span class="annot"><span class="annottext">SnapshotVersion
 $sel:newVersion:OnInitTx :: forall tx. OnChainTx tx -&gt; SnapshotVersion
 newVersion :: SnapshotVersion
-</span><a href="Hydra.Chain.html#%24sel%3AnewVersion%3AOnInitTx"><span class="hs-identifier hs-var hs-var">newVersion</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681047803"><span class="annot"><span class="annottext">TxIdType tx
+</span><a href="Hydra.Chain.html#%24sel%3AnewVersion%3AOnInitTx"><span class="hs-identifier hs-var hs-var">newVersion</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681048036"><span class="annot"><span class="annottext">TxIdType tx
 $sel:depositTxId:OnInitTx :: forall tx. OnChainTx tx -&gt; TxIdType tx
 depositTxId :: TxIdType tx
-</span><a href="Hydra.Chain.html#%24sel%3AdepositTxId%3AOnInitTx"><span class="hs-identifier hs-var hs-var">depositTxId</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681047804"><span class="annot"><span class="annottext">SnapshotNumber
+</span><a href="Hydra.Chain.html#%24sel%3AdepositTxId%3AOnInitTx"><span class="hs-identifier hs-var hs-var">depositTxId</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681048037"><span class="annot"><span class="annottext">SnapshotNumber
 $sel:snapshotNumber:OnInitTx :: forall tx. OnChainTx tx -&gt; SnapshotNumber
 snapshotNumber :: SnapshotNumber
-</span><a href="Hydra.Chain.html#%24sel%3AsnapshotNumber%3AOnInitTx"><span class="hs-identifier hs-var hs-var">snapshotNumber</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681047805"><span class="annot"><span class="annottext">MultiSignature (Snapshot tx)
+</span><a href="Hydra.Chain.html#%24sel%3AsnapshotNumber%3AOnInitTx"><span class="hs-identifier hs-var hs-var">snapshotNumber</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681048038"><span class="annot"><span class="annottext">MultiSignature (Snapshot tx)
 $sel:signatures:OnInitTx :: forall tx. OnChainTx tx -&gt; MultiSignature (Snapshot tx)
 signatures :: MultiSignature (Snapshot tx)
-</span><a href="Hydra.Chain.html#%24sel%3Asignatures%3AOnInitTx"><span class="hs-identifier hs-var hs-var">signatures</span></a></span></span><span class="hs-special">}</span><span class="hs-special">,</span><span> </span><span id="local-6989586621681047806"><span class="annot"><span class="annottext">ChainStateType tx
+</span><a href="Hydra.Chain.html#%24sel%3Asignatures%3AOnInitTx"><span class="hs-identifier hs-var hs-var">signatures</span></a></span></span><span class="hs-special">}</span><span class="hs-special">,</span><span> </span><span id="local-6989586621681048039"><span class="annot"><span class="annottext">ChainStateType tx
 $sel:newChainState:Observation :: forall tx. ChainEvent tx -&gt; ChainStateType tx
 newChainState :: ChainStateType tx
 </span><a href="Hydra.Chain.html#%24sel%3AnewChainState%3AObservation"><span class="hs-identifier hs-var hs-var">newChainState</span></a></span></span><span class="hs-special">}</span><span class="hs-special">)</span><span>
 </span><span id="line-115"></span><span>    </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">HeadId
-</span><a href="#local-6989586621681047800"><span class="hs-identifier hs-var">ourHeadId</span></a></span><span> </span><span class="annot"><span class="annottext">HeadId -&gt; HeadId -&gt; Bool
+</span><a href="#local-6989586621681048033"><span class="hs-identifier hs-var">ourHeadId</span></a></span><span> </span><span class="annot"><span class="annottext">HeadId -&gt; HeadId -&gt; Bool
 forall a. Eq a =&gt; a -&gt; a -&gt; Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3D%3D"><span class="hs-operator hs-var">==</span></a></span><span> </span><span class="annot"><span class="annottext">HeadId
-</span><a href="#local-6989586621681047801"><span class="hs-identifier hs-var">headId</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><a href="#local-6989586621681048034"><span class="hs-identifier hs-var">headId</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-116"></span><span>        </span><span class="annot"><span class="annottext">Workflow tx SettlementTopology () -&gt; Program tx ()
 forall {vertex} tx (topology :: Topology vertex) result.
 Workflow tx topology result -&gt; Program tx result
@@ -329,12 +329,12 @@ forall tx.
 IsTx tx =&gt;
 OpenState tx -&gt; PendingDeposits tx -&gt; PendingDeposits tx
 </span><a href="Hydra.Node.State.html#depositsForHeadWithoutFinalizedCommit"><span class="hs-identifier hs-var">depositsForHeadWithoutFinalizedCommit</span></a></span><span> </span><span class="annot"><span class="annottext">OpenState tx
-</span><a href="#local-6989586621681047799"><span class="hs-identifier hs-var">openState</span></a></span><span> </span><span class="annot"><span class="annottext">PendingDeposits tx
-</span><a href="#local-6989586621681047774"><span class="hs-identifier hs-var">pendingDeposits</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:settlement:Args :: Settlement tx
+</span><a href="#local-6989586621681048032"><span class="hs-identifier hs-var">openState</span></a></span><span> </span><span class="annot"><span class="annottext">PendingDeposits tx
+</span><a href="#local-6989586621681048007"><span class="hs-identifier hs-var">pendingDeposits</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:settlement:Args :: Settlement tx
 </span><a href="Hydra.HeadLogic.Rules.Chain.Settlement.html#%24sel%3Asettlement%3AArgs"><span class="hs-identifier hs-var">settlement</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">TxIdType tx -&gt; Settlement tx
 forall tx. TxIdType tx -&gt; Settlement tx
 </span><a href="Hydra.HeadLogic.Rules.Chain.Settlement.html#Increment"><span class="hs-identifier hs-var">Increment</span></a></span><span> </span><span class="annot"><span class="annottext">TxIdType tx
-</span><a href="#local-6989586621681047803"><span class="hs-identifier hs-var">depositTxId</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ChainStateType tx
+</span><a href="#local-6989586621681048036"><span class="hs-identifier hs-var">depositTxId</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ChainStateType tx
 SnapshotNumber
 SnapshotVersion
 MultiSignature (Snapshot tx)
@@ -352,7 +352,7 @@ $sel:newChainState:Args :: ChainStateType tx
 $sel:newVersion:Args :: SnapshotVersion
 $sel:snapshotNumber:Args :: SnapshotNumber
 $sel:signatures:Args :: MultiSignature (Snapshot tx)
-</span><a href="#local-6989586621681047772"><span class="hs-glyph hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">..</span></a></span><span class="hs-special">}</span><span>
+</span><a href="#local-6989586621681048005"><span class="hs-glyph hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">..</span></a></span><span class="hs-special">}</span><span>
 </span><span id="line-119"></span><span>    </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#otherwise"><span class="hs-identifier hs-var">otherwise</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-120"></span><span>        </span><span class="annot"><span class="annottext">LogicError tx -&gt; Program tx ()
@@ -362,35 +362,35 @@ $sel:ourHeadId:UnhandledInput :: HeadId
 ourHeadId :: HeadId
 </span><a href="Hydra.HeadLogic.Error.html#%24sel%3AourHeadId%3AUnhandledInput"><span class="hs-identifier hs-var hs-var">ourHeadId</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:otherHeadId:UnhandledInput :: HeadId
 </span><a href="Hydra.HeadLogic.Error.html#%24sel%3AotherHeadId%3AUnhandledInput"><span class="hs-identifier hs-var">otherHeadId</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HeadId
-</span><a href="#local-6989586621681047801"><span class="hs-identifier hs-var">headId</span></a></span><span class="hs-special">}</span><span>
-</span><span id="line-121"></span><span>  </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.State.html#Open"><span class="hs-identifier hs-type">Open</span></a></span><span> </span><span id="local-6989586621681047817"><span class="annot"><span class="annottext">openState :: OpenState tx
-</span><a href="#local-6989586621681047817"><span class="hs-identifier hs-var">openState</span></a></span></span><span class="hs-glyph">@</span><span class="annot"><a href="Hydra.HeadLogic.State.html#OpenState"><span class="hs-identifier hs-type">OpenState</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:headId:OpenState :: forall tx. OpenState tx -&gt; HeadId
-</span><a href="Hydra.HeadLogic.State.html#%24sel%3AheadId%3AOpenState"><span class="hs-identifier hs-var">headId</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="local-6989586621681047818"><span class="annot"><span class="annottext">HeadId
-</span><a href="#local-6989586621681047818"><span class="hs-identifier hs-var">ourHeadId</span></a></span></span><span class="hs-special">}</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Input.html#ChainInput"><span class="hs-identifier hs-type">ChainInput</span></a></span><span> </span><span class="annot"><a href="Hydra.Chain.html#Observation"><span class="hs-identifier hs-type">Observation</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:observedTx:Observation :: forall tx. ChainEvent tx -&gt; OnChainTx tx
-</span><a href="Hydra.Chain.html#%24sel%3AobservedTx%3AObservation"><span class="hs-identifier hs-var">observedTx</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Hydra.Chain.html#OnDecrementTx"><span class="hs-identifier hs-type">OnDecrementTx</span></a></span><span class="hs-special">{</span><span id="local-6989586621681047819"><span class="annot"><span class="annottext">HeadId
+</span><a href="#local-6989586621681048034"><span class="hs-identifier hs-var">headId</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-121"></span><span>  </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.State.html#Open"><span class="hs-identifier hs-type">Open</span></a></span><span> </span><span id="local-6989586621681048050"><span class="annot"><span class="annottext">openState :: OpenState tx
+</span><a href="#local-6989586621681048050"><span class="hs-identifier hs-var">openState</span></a></span></span><span class="hs-glyph">@</span><span class="annot"><a href="Hydra.HeadLogic.State.html#OpenState"><span class="hs-identifier hs-type">OpenState</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:headId:OpenState :: forall tx. OpenState tx -&gt; HeadId
+</span><a href="Hydra.HeadLogic.State.html#%24sel%3AheadId%3AOpenState"><span class="hs-identifier hs-var">headId</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="local-6989586621681048051"><span class="annot"><span class="annottext">HeadId
+</span><a href="#local-6989586621681048051"><span class="hs-identifier hs-var">ourHeadId</span></a></span></span><span class="hs-special">}</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Input.html#ChainInput"><span class="hs-identifier hs-type">ChainInput</span></a></span><span> </span><span class="annot"><a href="Hydra.Chain.html#Observation"><span class="hs-identifier hs-type">Observation</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:observedTx:Observation :: forall tx. ChainEvent tx -&gt; OnChainTx tx
+</span><a href="Hydra.Chain.html#%24sel%3AobservedTx%3AObservation"><span class="hs-identifier hs-var">observedTx</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Hydra.Chain.html#OnDecrementTx"><span class="hs-identifier hs-type">OnDecrementTx</span></a></span><span class="hs-special">{</span><span id="local-6989586621681048052"><span class="annot"><span class="annottext">HeadId
 $sel:headId:OnInitTx :: forall tx. OnChainTx tx -&gt; HeadId
 headId :: HeadId
-</span><a href="Hydra.Chain.html#%24sel%3AheadId%3AOnInitTx"><span class="hs-identifier hs-var hs-var">headId</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681047820"><span class="annot"><span class="annottext">SnapshotVersion
+</span><a href="Hydra.Chain.html#%24sel%3AheadId%3AOnInitTx"><span class="hs-identifier hs-var hs-var">headId</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681048053"><span class="annot"><span class="annottext">SnapshotVersion
 $sel:newVersion:OnInitTx :: forall tx. OnChainTx tx -&gt; SnapshotVersion
 newVersion :: SnapshotVersion
-</span><a href="Hydra.Chain.html#%24sel%3AnewVersion%3AOnInitTx"><span class="hs-identifier hs-var hs-var">newVersion</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681047821"><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="Hydra.Chain.html#%24sel%3AnewVersion%3AOnInitTx"><span class="hs-identifier hs-var hs-var">newVersion</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681048054"><span class="annot"><span class="annottext">UTxOType tx
 $sel:distributedUTxO:OnInitTx :: forall tx. OnChainTx tx -&gt; UTxOType tx
 distributedUTxO :: UTxOType tx
-</span><a href="Hydra.Chain.html#%24sel%3AdistributedUTxO%3AOnInitTx"><span class="hs-identifier hs-var hs-var">distributedUTxO</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681047822"><span class="annot"><span class="annottext">SnapshotNumber
+</span><a href="Hydra.Chain.html#%24sel%3AdistributedUTxO%3AOnInitTx"><span class="hs-identifier hs-var hs-var">distributedUTxO</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681048055"><span class="annot"><span class="annottext">SnapshotNumber
 $sel:snapshotNumber:OnInitTx :: forall tx. OnChainTx tx -&gt; SnapshotNumber
 snapshotNumber :: SnapshotNumber
-</span><a href="Hydra.Chain.html#%24sel%3AsnapshotNumber%3AOnInitTx"><span class="hs-identifier hs-var hs-var">snapshotNumber</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681047823"><span class="annot"><span class="annottext">MultiSignature (Snapshot tx)
+</span><a href="Hydra.Chain.html#%24sel%3AsnapshotNumber%3AOnInitTx"><span class="hs-identifier hs-var hs-var">snapshotNumber</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681048056"><span class="annot"><span class="annottext">MultiSignature (Snapshot tx)
 $sel:signatures:OnInitTx :: forall tx. OnChainTx tx -&gt; MultiSignature (Snapshot tx)
 signatures :: MultiSignature (Snapshot tx)
-</span><a href="Hydra.Chain.html#%24sel%3Asignatures%3AOnInitTx"><span class="hs-identifier hs-var hs-var">signatures</span></a></span></span><span class="hs-special">}</span><span class="hs-special">,</span><span> </span><span id="local-6989586621681047824"><span class="annot"><span class="annottext">ChainStateType tx
+</span><a href="Hydra.Chain.html#%24sel%3Asignatures%3AOnInitTx"><span class="hs-identifier hs-var hs-var">signatures</span></a></span></span><span class="hs-special">}</span><span class="hs-special">,</span><span> </span><span id="local-6989586621681048057"><span class="annot"><span class="annottext">ChainStateType tx
 $sel:newChainState:Observation :: forall tx. ChainEvent tx -&gt; ChainStateType tx
 newChainState :: ChainStateType tx
 </span><a href="Hydra.Chain.html#%24sel%3AnewChainState%3AObservation"><span class="hs-identifier hs-var hs-var">newChainState</span></a></span></span><span class="hs-special">}</span><span class="hs-special">)</span><span>
 </span><span id="line-122"></span><span>    </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">HeadId
-</span><a href="#local-6989586621681047818"><span class="hs-identifier hs-var">ourHeadId</span></a></span><span> </span><span class="annot"><span class="annottext">HeadId -&gt; HeadId -&gt; Bool
+</span><a href="#local-6989586621681048051"><span class="hs-identifier hs-var">ourHeadId</span></a></span><span> </span><span class="annot"><span class="annottext">HeadId -&gt; HeadId -&gt; Bool
 forall a. Eq a =&gt; a -&gt; a -&gt; Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3D%3D"><span class="hs-operator hs-var">==</span></a></span><span> </span><span class="annot"><span class="annottext">HeadId
-</span><a href="#local-6989586621681047819"><span class="hs-identifier hs-var">headId</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><a href="#local-6989586621681048052"><span class="hs-identifier hs-var">headId</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-123"></span><span>        </span><span class="annot"><span class="annottext">Workflow tx SettlementTopology () -&gt; Program tx ()
 forall {vertex} tx (topology :: Topology vertex) result.
 Workflow tx topology result -&gt; Program tx result
@@ -409,12 +409,12 @@ forall tx.
 IsTx tx =&gt;
 OpenState tx -&gt; PendingDeposits tx -&gt; PendingDeposits tx
 </span><a href="Hydra.Node.State.html#depositsForHeadWithoutFinalizedCommit"><span class="hs-identifier hs-var">depositsForHeadWithoutFinalizedCommit</span></a></span><span> </span><span class="annot"><span class="annottext">OpenState tx
-</span><a href="#local-6989586621681047817"><span class="hs-identifier hs-var">openState</span></a></span><span> </span><span class="annot"><span class="annottext">PendingDeposits tx
-</span><a href="#local-6989586621681047774"><span class="hs-identifier hs-var">pendingDeposits</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:settlement:Args :: Settlement tx
+</span><a href="#local-6989586621681048050"><span class="hs-identifier hs-var">openState</span></a></span><span> </span><span class="annot"><span class="annottext">PendingDeposits tx
+</span><a href="#local-6989586621681048007"><span class="hs-identifier hs-var">pendingDeposits</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:settlement:Args :: Settlement tx
 </span><a href="Hydra.HeadLogic.Rules.Chain.Settlement.html#%24sel%3Asettlement%3AArgs"><span class="hs-identifier hs-var">settlement</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UTxOType tx -&gt; Settlement tx
 forall tx. UTxOType tx -&gt; Settlement tx
 </span><a href="Hydra.HeadLogic.Rules.Chain.Settlement.html#Decrement"><span class="hs-identifier hs-var">Decrement</span></a></span><span> </span><span class="annot"><span class="annottext">UTxOType tx
-</span><a href="#local-6989586621681047821"><span class="hs-identifier hs-var">distributedUTxO</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ChainStateType tx
+</span><a href="#local-6989586621681048054"><span class="hs-identifier hs-var">distributedUTxO</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ChainStateType tx
 SnapshotNumber
 SnapshotVersion
 MultiSignature (Snapshot tx)
@@ -432,7 +432,7 @@ newVersion :: SnapshotVersion
 snapshotNumber :: SnapshotNumber
 signatures :: MultiSignature (Snapshot tx)
 newChainState :: ChainStateType tx
-</span><a href="#local-6989586621681047772"><span class="hs-glyph hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">..</span></a></span><span class="hs-special">}</span><span>
+</span><a href="#local-6989586621681048005"><span class="hs-glyph hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">..</span></a></span><span class="hs-special">}</span><span>
 </span><span id="line-126"></span><span>    </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#otherwise"><span class="hs-identifier hs-var">otherwise</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-127"></span><span>        </span><span class="annot"><span class="annottext">LogicError tx -&gt; Program tx ()
@@ -442,38 +442,38 @@ $sel:ourHeadId:UnhandledInput :: HeadId
 ourHeadId :: HeadId
 </span><a href="Hydra.HeadLogic.Error.html#%24sel%3AourHeadId%3AUnhandledInput"><span class="hs-identifier hs-var hs-var">ourHeadId</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:otherHeadId:UnhandledInput :: HeadId
 </span><a href="Hydra.HeadLogic.Error.html#%24sel%3AotherHeadId%3AUnhandledInput"><span class="hs-identifier hs-var">otherHeadId</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HeadId
-</span><a href="#local-6989586621681047819"><span class="hs-identifier hs-var">headId</span></a></span><span class="hs-special">}</span><span>
+</span><a href="#local-6989586621681048052"><span class="hs-identifier hs-var">headId</span></a></span><span class="hs-special">}</span><span>
 </span><span id="line-128"></span><span>  </span><span class="hs-comment">-- Closed</span><span>
 </span><span id="line-129"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="annottext">HeadState tx
 </span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Input.html#ChainInput"><span class="hs-identifier hs-type">ChainInput</span></a></span><span> </span><span class="annot"><a href="Hydra.Chain.html#Observation"><span class="hs-identifier hs-type">Observation</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:observedTx:Observation :: forall tx. ChainEvent tx -&gt; OnChainTx tx
-</span><a href="Hydra.Chain.html#%24sel%3AobservedTx%3AObservation"><span class="hs-identifier hs-var">observedTx</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Hydra.Chain.html#OnContestTx"><span class="hs-identifier hs-type">OnContestTx</span></a></span><span class="hs-special">{</span><span id="local-6989586621681047825"><span class="annot"><span class="annottext">HeadId
+</span><a href="Hydra.Chain.html#%24sel%3AobservedTx%3AObservation"><span class="hs-identifier hs-var">observedTx</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Hydra.Chain.html#OnContestTx"><span class="hs-identifier hs-type">OnContestTx</span></a></span><span class="hs-special">{</span><span id="local-6989586621681048058"><span class="annot"><span class="annottext">HeadId
 $sel:headId:OnInitTx :: forall tx. OnChainTx tx -&gt; HeadId
 headId :: HeadId
-</span><a href="Hydra.Chain.html#%24sel%3AheadId%3AOnInitTx"><span class="hs-identifier hs-var hs-var">headId</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681047826"><span class="annot"><span class="annottext">SnapshotNumber
+</span><a href="Hydra.Chain.html#%24sel%3AheadId%3AOnInitTx"><span class="hs-identifier hs-var hs-var">headId</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681048059"><span class="annot"><span class="annottext">SnapshotNumber
 $sel:snapshotNumber:OnInitTx :: forall tx. OnChainTx tx -&gt; SnapshotNumber
 snapshotNumber :: SnapshotNumber
-</span><a href="Hydra.Chain.html#%24sel%3AsnapshotNumber%3AOnInitTx"><span class="hs-identifier hs-var hs-var">snapshotNumber</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681047827"><span class="annot"><span class="annottext">UTCTime
+</span><a href="Hydra.Chain.html#%24sel%3AsnapshotNumber%3AOnInitTx"><span class="hs-identifier hs-var hs-var">snapshotNumber</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681048060"><span class="annot"><span class="annottext">UTCTime
 $sel:contestationDeadline:OnInitTx :: forall tx. OnChainTx tx -&gt; UTCTime
 contestationDeadline :: UTCTime
-</span><a href="Hydra.Chain.html#%24sel%3AcontestationDeadline%3AOnInitTx"><span class="hs-identifier hs-var hs-var">contestationDeadline</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681047828"><span class="annot"><span class="annottext">MultiSignature (Snapshot tx)
+</span><a href="Hydra.Chain.html#%24sel%3AcontestationDeadline%3AOnInitTx"><span class="hs-identifier hs-var hs-var">contestationDeadline</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681048061"><span class="annot"><span class="annottext">MultiSignature (Snapshot tx)
 $sel:signatures:OnInitTx :: forall tx. OnChainTx tx -&gt; MultiSignature (Snapshot tx)
 signatures :: MultiSignature (Snapshot tx)
-</span><a href="Hydra.Chain.html#%24sel%3Asignatures%3AOnInitTx"><span class="hs-identifier hs-var hs-var">signatures</span></a></span></span><span class="hs-special">}</span><span class="hs-special">,</span><span> </span><span id="local-6989586621681047829"><span class="annot"><span class="annottext">ChainStateType tx
+</span><a href="Hydra.Chain.html#%24sel%3Asignatures%3AOnInitTx"><span class="hs-identifier hs-var hs-var">signatures</span></a></span></span><span class="hs-special">}</span><span class="hs-special">,</span><span> </span><span id="local-6989586621681048062"><span class="annot"><span class="annottext">ChainStateType tx
 $sel:newChainState:Observation :: forall tx. ChainEvent tx -&gt; ChainStateType tx
 newChainState :: ChainStateType tx
 </span><a href="Hydra.Chain.html#%24sel%3AnewChainState%3AObservation"><span class="hs-identifier hs-var hs-var">newChainState</span></a></span></span><span class="hs-special">}</span><span class="hs-special">)</span><span>
-</span><span id="line-130"></span><span>    </span><span class="hs-glyph">|</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span id="local-6989586621681047830"><span class="annot"><span class="annottext">closedState :: ClosedState tx
-</span><a href="#local-6989586621681047830"><span class="hs-identifier hs-var">closedState</span></a></span></span><span class="hs-glyph">@</span><span class="annot"><a href="Hydra.HeadLogic.State.html#ClosedState"><span class="hs-identifier hs-type">ClosedState</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:headId:ClosedState :: forall tx. ClosedState tx -&gt; HeadId
-</span><a href="Hydra.HeadLogic.State.html#%24sel%3AheadId%3AClosedState"><span class="hs-identifier hs-var">headId</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="local-6989586621681047831"><span class="annot"><span class="annottext">HeadId
-</span><a href="#local-6989586621681047831"><span class="hs-identifier hs-var">ourHeadId</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">HeadState tx -&gt; Maybe (ClosedState tx)
+</span><span id="line-130"></span><span>    </span><span class="hs-glyph">|</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span id="local-6989586621681048063"><span class="annot"><span class="annottext">closedState :: ClosedState tx
+</span><a href="#local-6989586621681048063"><span class="hs-identifier hs-var">closedState</span></a></span></span><span class="hs-glyph">@</span><span class="annot"><a href="Hydra.HeadLogic.State.html#ClosedState"><span class="hs-identifier hs-type">ClosedState</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:headId:ClosedState :: forall tx. ClosedState tx -&gt; HeadId
+</span><a href="Hydra.HeadLogic.State.html#%24sel%3AheadId%3AClosedState"><span class="hs-identifier hs-var">headId</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="local-6989586621681048064"><span class="annot"><span class="annottext">HeadId
+</span><a href="#local-6989586621681048064"><span class="hs-identifier hs-var">ourHeadId</span></a></span></span><span class="hs-special">}</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">HeadState tx -&gt; Maybe (ClosedState tx)
 forall tx. HeadState tx -&gt; Maybe (ClosedState tx)
 </span><a href="Hydra.HeadLogic.State.Fanout.html#getClosedState"><span class="hs-identifier hs-var">getClosedState</span></a></span><span> </span><span class="annot"><span class="annottext">HeadState tx
-</span><a href="#local-6989586621681047775"><span class="hs-identifier hs-var">st</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><a href="#local-6989586621681048008"><span class="hs-identifier hs-var">st</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-131"></span><span>        </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">HeadId
-</span><a href="#local-6989586621681047831"><span class="hs-identifier hs-var">ourHeadId</span></a></span><span> </span><span class="annot"><span class="annottext">HeadId -&gt; HeadId -&gt; Bool
+</span><a href="#local-6989586621681048064"><span class="hs-identifier hs-var">ourHeadId</span></a></span><span> </span><span class="annot"><span class="annottext">HeadId -&gt; HeadId -&gt; Bool
 forall a. Eq a =&gt; a -&gt; a -&gt; Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3D%3D"><span class="hs-operator hs-var">==</span></a></span><span> </span><span class="annot"><span class="annottext">HeadId
-</span><a href="#local-6989586621681047825"><span class="hs-identifier hs-var">headId</span></a></span><span>
+</span><a href="#local-6989586621681048058"><span class="hs-identifier hs-var">headId</span></a></span><span>
 </span><span id="line-132"></span><span>          </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">ClosedState tx
 -&gt; ChainStateType tx
 -&gt; SnapshotNumber
@@ -489,11 +489,11 @@ ClosedState tx
 -&gt; MultiSignature (Snapshot tx)
 -&gt; Program tx ()
 </span><a href="Hydra.HeadLogic.Rules.Chain.Lifecycle.html#onClosedChainContestTx"><span class="hs-identifier hs-var">onClosedChainContestTx</span></a></span><span> </span><span class="annot"><span class="annottext">ClosedState tx
-</span><a href="#local-6989586621681047830"><span class="hs-identifier hs-var">closedState</span></a></span><span> </span><span class="annot"><span class="annottext">ChainStateType tx
-</span><a href="#local-6989586621681047829"><span class="hs-identifier hs-var">newChainState</span></a></span><span> </span><span class="annot"><span class="annottext">SnapshotNumber
-</span><a href="#local-6989586621681047826"><span class="hs-identifier hs-var">snapshotNumber</span></a></span><span> </span><span class="annot"><span class="annottext">UTCTime
-</span><a href="#local-6989586621681047827"><span class="hs-identifier hs-var">contestationDeadline</span></a></span><span> </span><span class="annot"><span class="annottext">MultiSignature (Snapshot tx)
-</span><a href="#local-6989586621681047828"><span class="hs-identifier hs-var">signatures</span></a></span><span>
+</span><a href="#local-6989586621681048063"><span class="hs-identifier hs-var">closedState</span></a></span><span> </span><span class="annot"><span class="annottext">ChainStateType tx
+</span><a href="#local-6989586621681048062"><span class="hs-identifier hs-var">newChainState</span></a></span><span> </span><span class="annot"><span class="annottext">SnapshotNumber
+</span><a href="#local-6989586621681048059"><span class="hs-identifier hs-var">snapshotNumber</span></a></span><span> </span><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621681048060"><span class="hs-identifier hs-var">contestationDeadline</span></a></span><span> </span><span class="annot"><span class="annottext">MultiSignature (Snapshot tx)
+</span><a href="#local-6989586621681048061"><span class="hs-identifier hs-var">signatures</span></a></span><span>
 </span><span id="line-133"></span><span>          </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">LogicError tx -&gt; Program tx ()
 forall tx a. LogicError tx -&gt; Program tx a
 </span><a href="Hydra.HeadLogic.Program.html#reject"><span class="hs-identifier hs-var">reject</span></a></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Error.html#NotOurHead"><span class="hs-identifier hs-type">NotOurHead</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">HeadId
@@ -501,33 +501,33 @@ $sel:ourHeadId:UnhandledInput :: HeadId
 ourHeadId :: HeadId
 </span><a href="Hydra.HeadLogic.Error.html#%24sel%3AourHeadId%3AUnhandledInput"><span class="hs-identifier hs-var hs-var">ourHeadId</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:otherHeadId:UnhandledInput :: HeadId
 </span><a href="Hydra.HeadLogic.Error.html#%24sel%3AotherHeadId%3AUnhandledInput"><span class="hs-identifier hs-var">otherHeadId</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HeadId
-</span><a href="#local-6989586621681047825"><span class="hs-identifier hs-var">headId</span></a></span><span class="hs-special">}</span><span>
-</span><span id="line-134"></span><span>  </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.State.html#Closed"><span class="hs-identifier hs-type">Closed</span></a></span><span> </span><span id="local-6989586621681047833"><span class="annot"><span class="annottext">closedState :: ClosedState tx
-</span><a href="#local-6989586621681047833"><span class="hs-identifier hs-var">closedState</span></a></span></span><span class="hs-glyph">@</span><span class="annot"><a href="Hydra.HeadLogic.State.html#ClosedState"><span class="hs-identifier hs-type">ClosedState</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:headId:ClosedState :: forall tx. ClosedState tx -&gt; HeadId
-</span><a href="Hydra.HeadLogic.State.html#%24sel%3AheadId%3AClosedState"><span class="hs-identifier hs-var">headId</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="local-6989586621681047834"><span class="annot"><span class="annottext">HeadId
-</span><a href="#local-6989586621681047834"><span class="hs-identifier hs-var">ourHeadId</span></a></span></span><span class="hs-special">}</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Input.html#ChainInput"><span class="hs-identifier hs-type">ChainInput</span></a></span><span> </span><span class="annot"><a href="Hydra.Chain.html#Observation"><span class="hs-identifier hs-type">Observation</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:observedTx:Observation :: forall tx. ChainEvent tx -&gt; OnChainTx tx
-</span><a href="Hydra.Chain.html#%24sel%3AobservedTx%3AObservation"><span class="hs-identifier hs-var">observedTx</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Hydra.Chain.html#OnFanoutTx"><span class="hs-identifier hs-type">OnFanoutTx</span></a></span><span class="hs-special">{</span><span id="local-6989586621681047835"><span class="annot"><span class="annottext">HeadId
+</span><a href="#local-6989586621681048058"><span class="hs-identifier hs-var">headId</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-134"></span><span>  </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.State.html#Closed"><span class="hs-identifier hs-type">Closed</span></a></span><span> </span><span id="local-6989586621681048066"><span class="annot"><span class="annottext">closedState :: ClosedState tx
+</span><a href="#local-6989586621681048066"><span class="hs-identifier hs-var">closedState</span></a></span></span><span class="hs-glyph">@</span><span class="annot"><a href="Hydra.HeadLogic.State.html#ClosedState"><span class="hs-identifier hs-type">ClosedState</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:headId:ClosedState :: forall tx. ClosedState tx -&gt; HeadId
+</span><a href="Hydra.HeadLogic.State.html#%24sel%3AheadId%3AClosedState"><span class="hs-identifier hs-var">headId</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="local-6989586621681048067"><span class="annot"><span class="annottext">HeadId
+</span><a href="#local-6989586621681048067"><span class="hs-identifier hs-var">ourHeadId</span></a></span></span><span class="hs-special">}</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Input.html#ChainInput"><span class="hs-identifier hs-type">ChainInput</span></a></span><span> </span><span class="annot"><a href="Hydra.Chain.html#Observation"><span class="hs-identifier hs-type">Observation</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:observedTx:Observation :: forall tx. ChainEvent tx -&gt; OnChainTx tx
+</span><a href="Hydra.Chain.html#%24sel%3AobservedTx%3AObservation"><span class="hs-identifier hs-var">observedTx</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Hydra.Chain.html#OnFanoutTx"><span class="hs-identifier hs-type">OnFanoutTx</span></a></span><span class="hs-special">{</span><span id="local-6989586621681048068"><span class="annot"><span class="annottext">HeadId
 $sel:headId:OnInitTx :: forall tx. OnChainTx tx -&gt; HeadId
 headId :: HeadId
-</span><a href="Hydra.Chain.html#%24sel%3AheadId%3AOnInitTx"><span class="hs-identifier hs-var hs-var">headId</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681047836"><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="Hydra.Chain.html#%24sel%3AheadId%3AOnInitTx"><span class="hs-identifier hs-var hs-var">headId</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681048069"><span class="annot"><span class="annottext">UTxOType tx
 $sel:fanoutUTxO:OnInitTx :: forall tx. OnChainTx tx -&gt; UTxOType tx
 fanoutUTxO :: UTxOType tx
-</span><a href="Hydra.Chain.html#%24sel%3AfanoutUTxO%3AOnInitTx"><span class="hs-identifier hs-var hs-var">fanoutUTxO</span></a></span></span><span class="hs-special">}</span><span class="hs-special">,</span><span> </span><span id="local-6989586621681047837"><span class="annot"><span class="annottext">ChainStateType tx
+</span><a href="Hydra.Chain.html#%24sel%3AfanoutUTxO%3AOnInitTx"><span class="hs-identifier hs-var hs-var">fanoutUTxO</span></a></span></span><span class="hs-special">}</span><span class="hs-special">,</span><span> </span><span id="local-6989586621681048070"><span class="annot"><span class="annottext">ChainStateType tx
 $sel:newChainState:Observation :: forall tx. ChainEvent tx -&gt; ChainStateType tx
 newChainState :: ChainStateType tx
 </span><a href="Hydra.Chain.html#%24sel%3AnewChainState%3AObservation"><span class="hs-identifier hs-var hs-var">newChainState</span></a></span></span><span class="hs-special">}</span><span class="hs-special">)</span><span>
 </span><span id="line-135"></span><span>    </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">HeadId
-</span><a href="#local-6989586621681047834"><span class="hs-identifier hs-var">ourHeadId</span></a></span><span> </span><span class="annot"><span class="annottext">HeadId -&gt; HeadId -&gt; Bool
+</span><a href="#local-6989586621681048067"><span class="hs-identifier hs-var">ourHeadId</span></a></span><span> </span><span class="annot"><span class="annottext">HeadId -&gt; HeadId -&gt; Bool
 forall a. Eq a =&gt; a -&gt; a -&gt; Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3D%3D"><span class="hs-operator hs-var">==</span></a></span><span> </span><span class="annot"><span class="annottext">HeadId
-</span><a href="#local-6989586621681047835"><span class="hs-identifier hs-var">headId</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><a href="#local-6989586621681048068"><span class="hs-identifier hs-var">headId</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-136"></span><span>        </span><span class="annot"><span class="annottext">ClosedState tx -&gt; ChainStateType tx -&gt; UTxOType tx -&gt; Program tx ()
 forall tx.
 ClosedState tx -&gt; ChainStateType tx -&gt; UTxOType tx -&gt; Program tx ()
 </span><a href="Hydra.HeadLogic.Rules.Chain.Fanout.html#onClosedChainFanoutTx"><span class="hs-identifier hs-var">onClosedChainFanoutTx</span></a></span><span> </span><span class="annot"><span class="annottext">ClosedState tx
-</span><a href="#local-6989586621681047833"><span class="hs-identifier hs-var">closedState</span></a></span><span> </span><span class="annot"><span class="annottext">ChainStateType tx
-</span><a href="#local-6989586621681047837"><span class="hs-identifier hs-var">newChainState</span></a></span><span> </span><span class="annot"><span class="annottext">UTxOType tx
-</span><a href="#local-6989586621681047836"><span class="hs-identifier hs-var">fanoutUTxO</span></a></span><span>
+</span><a href="#local-6989586621681048066"><span class="hs-identifier hs-var">closedState</span></a></span><span> </span><span class="annot"><span class="annottext">ChainStateType tx
+</span><a href="#local-6989586621681048070"><span class="hs-identifier hs-var">newChainState</span></a></span><span> </span><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621681048069"><span class="hs-identifier hs-var">fanoutUTxO</span></a></span><span>
 </span><span id="line-137"></span><span>    </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#otherwise"><span class="hs-identifier hs-var">otherwise</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-138"></span><span>        </span><span class="annot"><span class="annottext">LogicError tx -&gt; Program tx ()
@@ -537,34 +537,34 @@ $sel:ourHeadId:UnhandledInput :: HeadId
 ourHeadId :: HeadId
 </span><a href="Hydra.HeadLogic.Error.html#%24sel%3AourHeadId%3AUnhandledInput"><span class="hs-identifier hs-var hs-var">ourHeadId</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:otherHeadId:UnhandledInput :: HeadId
 </span><a href="Hydra.HeadLogic.Error.html#%24sel%3AotherHeadId%3AUnhandledInput"><span class="hs-identifier hs-var">otherHeadId</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HeadId
-</span><a href="#local-6989586621681047835"><span class="hs-identifier hs-var">headId</span></a></span><span class="hs-special">}</span><span>
-</span><span id="line-139"></span><span>  </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.State.html#Closed"><span class="hs-identifier hs-type">Closed</span></a></span><span> </span><span id="local-6989586621681047838"><span class="annot"><span class="annottext">closedState :: ClosedState tx
-</span><a href="#local-6989586621681047838"><span class="hs-identifier hs-var">closedState</span></a></span></span><span class="hs-glyph">@</span><span class="annot"><a href="Hydra.HeadLogic.State.html#ClosedState"><span class="hs-identifier hs-type">ClosedState</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:headId:ClosedState :: forall tx. ClosedState tx -&gt; HeadId
-</span><a href="Hydra.HeadLogic.State.html#%24sel%3AheadId%3AClosedState"><span class="hs-identifier hs-var">headId</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="local-6989586621681047839"><span class="annot"><span class="annottext">HeadId
-</span><a href="#local-6989586621681047839"><span class="hs-identifier hs-var">ourHeadId</span></a></span></span><span class="hs-special">}</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Input.html#ChainInput"><span class="hs-identifier hs-type">ChainInput</span></a></span><span> </span><span class="annot"><a href="Hydra.Chain.html#Observation"><span class="hs-identifier hs-type">Observation</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:observedTx:Observation :: forall tx. ChainEvent tx -&gt; OnChainTx tx
-</span><a href="Hydra.Chain.html#%24sel%3AobservedTx%3AObservation"><span class="hs-identifier hs-var">observedTx</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Hydra.Chain.html#OnPartialFanoutTx"><span class="hs-identifier hs-type">OnPartialFanoutTx</span></a></span><span class="hs-special">{</span><span id="local-6989586621681047840"><span class="annot"><span class="annottext">HeadId
+</span><a href="#local-6989586621681048068"><span class="hs-identifier hs-var">headId</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-139"></span><span>  </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.State.html#Closed"><span class="hs-identifier hs-type">Closed</span></a></span><span> </span><span id="local-6989586621681048071"><span class="annot"><span class="annottext">closedState :: ClosedState tx
+</span><a href="#local-6989586621681048071"><span class="hs-identifier hs-var">closedState</span></a></span></span><span class="hs-glyph">@</span><span class="annot"><a href="Hydra.HeadLogic.State.html#ClosedState"><span class="hs-identifier hs-type">ClosedState</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:headId:ClosedState :: forall tx. ClosedState tx -&gt; HeadId
+</span><a href="Hydra.HeadLogic.State.html#%24sel%3AheadId%3AClosedState"><span class="hs-identifier hs-var">headId</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="local-6989586621681048072"><span class="annot"><span class="annottext">HeadId
+</span><a href="#local-6989586621681048072"><span class="hs-identifier hs-var">ourHeadId</span></a></span></span><span class="hs-special">}</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Input.html#ChainInput"><span class="hs-identifier hs-type">ChainInput</span></a></span><span> </span><span class="annot"><a href="Hydra.Chain.html#Observation"><span class="hs-identifier hs-type">Observation</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:observedTx:Observation :: forall tx. ChainEvent tx -&gt; OnChainTx tx
+</span><a href="Hydra.Chain.html#%24sel%3AobservedTx%3AObservation"><span class="hs-identifier hs-var">observedTx</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Hydra.Chain.html#OnPartialFanoutTx"><span class="hs-identifier hs-type">OnPartialFanoutTx</span></a></span><span class="hs-special">{</span><span id="local-6989586621681048073"><span class="annot"><span class="annottext">HeadId
 $sel:headId:OnInitTx :: forall tx. OnChainTx tx -&gt; HeadId
 headId :: HeadId
-</span><a href="Hydra.Chain.html#%24sel%3AheadId%3AOnInitTx"><span class="hs-identifier hs-var hs-var">headId</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681047841"><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="Hydra.Chain.html#%24sel%3AheadId%3AOnInitTx"><span class="hs-identifier hs-var hs-var">headId</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681048074"><span class="annot"><span class="annottext">UTxOType tx
 $sel:distributedOutputs:OnInitTx :: forall tx. OnChainTx tx -&gt; UTxOType tx
 distributedOutputs :: UTxOType tx
-</span><a href="Hydra.Chain.html#%24sel%3AdistributedOutputs%3AOnInitTx"><span class="hs-identifier hs-var hs-var">distributedOutputs</span></a></span></span><span class="hs-special">}</span><span class="hs-special">,</span><span> </span><span id="local-6989586621681047842"><span class="annot"><span class="annottext">ChainStateType tx
+</span><a href="Hydra.Chain.html#%24sel%3AdistributedOutputs%3AOnInitTx"><span class="hs-identifier hs-var hs-var">distributedOutputs</span></a></span></span><span class="hs-special">}</span><span class="hs-special">,</span><span> </span><span id="local-6989586621681048075"><span class="annot"><span class="annottext">ChainStateType tx
 $sel:newChainState:Observation :: forall tx. ChainEvent tx -&gt; ChainStateType tx
 newChainState :: ChainStateType tx
 </span><a href="Hydra.Chain.html#%24sel%3AnewChainState%3AObservation"><span class="hs-identifier hs-var hs-var">newChainState</span></a></span></span><span class="hs-special">}</span><span class="hs-special">)</span><span>
 </span><span id="line-140"></span><span>    </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">HeadId
-</span><a href="#local-6989586621681047839"><span class="hs-identifier hs-var">ourHeadId</span></a></span><span> </span><span class="annot"><span class="annottext">HeadId -&gt; HeadId -&gt; Bool
+</span><a href="#local-6989586621681048072"><span class="hs-identifier hs-var">ourHeadId</span></a></span><span> </span><span class="annot"><span class="annottext">HeadId -&gt; HeadId -&gt; Bool
 forall a. Eq a =&gt; a -&gt; a -&gt; Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3D%3D"><span class="hs-operator hs-var">==</span></a></span><span> </span><span class="annot"><span class="annottext">HeadId
-</span><a href="#local-6989586621681047840"><span class="hs-identifier hs-var">headId</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><a href="#local-6989586621681048073"><span class="hs-identifier hs-var">headId</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-141"></span><span>        </span><span class="annot"><span class="annottext">ClosedState tx -&gt; ChainStateType tx -&gt; UTxOType tx -&gt; Program tx ()
 forall tx.
 IsTx tx =&gt;
 ClosedState tx -&gt; ChainStateType tx -&gt; UTxOType tx -&gt; Program tx ()
 </span><a href="Hydra.HeadLogic.Rules.Chain.Fanout.html#onClosedChainPartialFanoutTx"><span class="hs-identifier hs-var">onClosedChainPartialFanoutTx</span></a></span><span> </span><span class="annot"><span class="annottext">ClosedState tx
-</span><a href="#local-6989586621681047838"><span class="hs-identifier hs-var">closedState</span></a></span><span> </span><span class="annot"><span class="annottext">ChainStateType tx
-</span><a href="#local-6989586621681047842"><span class="hs-identifier hs-var">newChainState</span></a></span><span> </span><span class="annot"><span class="annottext">UTxOType tx
-</span><a href="#local-6989586621681047841"><span class="hs-identifier hs-var">distributedOutputs</span></a></span><span>
+</span><a href="#local-6989586621681048071"><span class="hs-identifier hs-var">closedState</span></a></span><span> </span><span class="annot"><span class="annottext">ChainStateType tx
+</span><a href="#local-6989586621681048075"><span class="hs-identifier hs-var">newChainState</span></a></span><span> </span><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621681048074"><span class="hs-identifier hs-var">distributedOutputs</span></a></span><span>
 </span><span id="line-142"></span><span>    </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#otherwise"><span class="hs-identifier hs-var">otherwise</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-143"></span><span>        </span><span class="annot"><span class="annottext">LogicError tx -&gt; Program tx ()
@@ -574,26 +574,26 @@ $sel:ourHeadId:UnhandledInput :: HeadId
 ourHeadId :: HeadId
 </span><a href="Hydra.HeadLogic.Error.html#%24sel%3AourHeadId%3AUnhandledInput"><span class="hs-identifier hs-var hs-var">ourHeadId</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:otherHeadId:UnhandledInput :: HeadId
 </span><a href="Hydra.HeadLogic.Error.html#%24sel%3AotherHeadId%3AUnhandledInput"><span class="hs-identifier hs-var">otherHeadId</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HeadId
-</span><a href="#local-6989586621681047840"><span class="hs-identifier hs-var">headId</span></a></span><span class="hs-special">}</span><span>
-</span><span id="line-144"></span><span>  </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.State.html#FanoutProgress"><span class="hs-identifier hs-type">FanoutProgress</span></a></span><span> </span><span id="local-6989586621681047844"><span class="annot"><span class="annottext">partialFanoutState :: PartialFanoutState tx
-</span><a href="#local-6989586621681047844"><span class="hs-identifier hs-var">partialFanoutState</span></a></span></span><span class="hs-glyph">@</span><span class="annot"><a href="Hydra.HeadLogic.State.html#PartialFanoutState"><span class="hs-identifier hs-type">PartialFanoutState</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:headId:PartialFanoutState :: forall tx. PartialFanoutState tx -&gt; HeadId
-</span><a href="Hydra.HeadLogic.State.html#%24sel%3AheadId%3APartialFanoutState"><span class="hs-identifier hs-var">headId</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="local-6989586621681047845"><span class="annot"><span class="annottext">HeadId
-</span><a href="#local-6989586621681047845"><span class="hs-identifier hs-var">ourHeadId</span></a></span></span><span class="hs-special">}</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Input.html#ChainInput"><span class="hs-identifier hs-type">ChainInput</span></a></span><span> </span><span class="annot"><a href="Hydra.Chain.html#Observation"><span class="hs-identifier hs-type">Observation</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:observedTx:Observation :: forall tx. ChainEvent tx -&gt; OnChainTx tx
-</span><a href="Hydra.Chain.html#%24sel%3AobservedTx%3AObservation"><span class="hs-identifier hs-var">observedTx</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Hydra.Chain.html#OnPartialFanoutTx"><span class="hs-identifier hs-type">OnPartialFanoutTx</span></a></span><span class="hs-special">{</span><span id="local-6989586621681047846"><span class="annot"><span class="annottext">HeadId
+</span><a href="#local-6989586621681048073"><span class="hs-identifier hs-var">headId</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-144"></span><span>  </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.State.html#FanoutProgress"><span class="hs-identifier hs-type">FanoutProgress</span></a></span><span> </span><span id="local-6989586621681048077"><span class="annot"><span class="annottext">partialFanoutState :: PartialFanoutState tx
+</span><a href="#local-6989586621681048077"><span class="hs-identifier hs-var">partialFanoutState</span></a></span></span><span class="hs-glyph">@</span><span class="annot"><a href="Hydra.HeadLogic.State.html#PartialFanoutState"><span class="hs-identifier hs-type">PartialFanoutState</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:headId:PartialFanoutState :: forall tx. PartialFanoutState tx -&gt; HeadId
+</span><a href="Hydra.HeadLogic.State.html#%24sel%3AheadId%3APartialFanoutState"><span class="hs-identifier hs-var">headId</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="local-6989586621681048078"><span class="annot"><span class="annottext">HeadId
+</span><a href="#local-6989586621681048078"><span class="hs-identifier hs-var">ourHeadId</span></a></span></span><span class="hs-special">}</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Input.html#ChainInput"><span class="hs-identifier hs-type">ChainInput</span></a></span><span> </span><span class="annot"><a href="Hydra.Chain.html#Observation"><span class="hs-identifier hs-type">Observation</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:observedTx:Observation :: forall tx. ChainEvent tx -&gt; OnChainTx tx
+</span><a href="Hydra.Chain.html#%24sel%3AobservedTx%3AObservation"><span class="hs-identifier hs-var">observedTx</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Hydra.Chain.html#OnPartialFanoutTx"><span class="hs-identifier hs-type">OnPartialFanoutTx</span></a></span><span class="hs-special">{</span><span id="local-6989586621681048079"><span class="annot"><span class="annottext">HeadId
 $sel:headId:OnInitTx :: forall tx. OnChainTx tx -&gt; HeadId
 headId :: HeadId
-</span><a href="Hydra.Chain.html#%24sel%3AheadId%3AOnInitTx"><span class="hs-identifier hs-var hs-var">headId</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681047847"><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="Hydra.Chain.html#%24sel%3AheadId%3AOnInitTx"><span class="hs-identifier hs-var hs-var">headId</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681048080"><span class="annot"><span class="annottext">UTxOType tx
 $sel:distributedOutputs:OnInitTx :: forall tx. OnChainTx tx -&gt; UTxOType tx
 distributedOutputs :: UTxOType tx
-</span><a href="Hydra.Chain.html#%24sel%3AdistributedOutputs%3AOnInitTx"><span class="hs-identifier hs-var hs-var">distributedOutputs</span></a></span></span><span class="hs-special">}</span><span class="hs-special">,</span><span> </span><span id="local-6989586621681047848"><span class="annot"><span class="annottext">ChainStateType tx
+</span><a href="Hydra.Chain.html#%24sel%3AdistributedOutputs%3AOnInitTx"><span class="hs-identifier hs-var hs-var">distributedOutputs</span></a></span></span><span class="hs-special">}</span><span class="hs-special">,</span><span> </span><span id="local-6989586621681048081"><span class="annot"><span class="annottext">ChainStateType tx
 $sel:newChainState:Observation :: forall tx. ChainEvent tx -&gt; ChainStateType tx
 newChainState :: ChainStateType tx
 </span><a href="Hydra.Chain.html#%24sel%3AnewChainState%3AObservation"><span class="hs-identifier hs-var hs-var">newChainState</span></a></span></span><span class="hs-special">}</span><span class="hs-special">)</span><span>
 </span><span id="line-145"></span><span>    </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">HeadId
-</span><a href="#local-6989586621681047845"><span class="hs-identifier hs-var">ourHeadId</span></a></span><span> </span><span class="annot"><span class="annottext">HeadId -&gt; HeadId -&gt; Bool
+</span><a href="#local-6989586621681048078"><span class="hs-identifier hs-var">ourHeadId</span></a></span><span> </span><span class="annot"><span class="annottext">HeadId -&gt; HeadId -&gt; Bool
 forall a. Eq a =&gt; a -&gt; a -&gt; Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3D%3D"><span class="hs-operator hs-var">==</span></a></span><span> </span><span class="annot"><span class="annottext">HeadId
-</span><a href="#local-6989586621681047846"><span class="hs-identifier hs-var">headId</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><a href="#local-6989586621681048079"><span class="hs-identifier hs-var">headId</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-146"></span><span>        </span><span class="annot"><span class="annottext">PartialFanoutState tx
 -&gt; ChainStateType tx -&gt; UTxOType tx -&gt; Program tx ()
 forall tx.
@@ -601,9 +601,9 @@ IsTx tx =&gt;
 PartialFanoutState tx
 -&gt; ChainStateType tx -&gt; UTxOType tx -&gt; Program tx ()
 </span><a href="Hydra.HeadLogic.Rules.Chain.Fanout.html#onPartialFanoutChainPartialFanoutTx"><span class="hs-identifier hs-var">onPartialFanoutChainPartialFanoutTx</span></a></span><span> </span><span class="annot"><span class="annottext">PartialFanoutState tx
-</span><a href="#local-6989586621681047844"><span class="hs-identifier hs-var">partialFanoutState</span></a></span><span> </span><span class="annot"><span class="annottext">ChainStateType tx
-</span><a href="#local-6989586621681047848"><span class="hs-identifier hs-var">newChainState</span></a></span><span> </span><span class="annot"><span class="annottext">UTxOType tx
-</span><a href="#local-6989586621681047847"><span class="hs-identifier hs-var">distributedOutputs</span></a></span><span>
+</span><a href="#local-6989586621681048077"><span class="hs-identifier hs-var">partialFanoutState</span></a></span><span> </span><span class="annot"><span class="annottext">ChainStateType tx
+</span><a href="#local-6989586621681048081"><span class="hs-identifier hs-var">newChainState</span></a></span><span> </span><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621681048080"><span class="hs-identifier hs-var">distributedOutputs</span></a></span><span>
 </span><span id="line-147"></span><span>    </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#otherwise"><span class="hs-identifier hs-var">otherwise</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-148"></span><span>        </span><span class="annot"><span class="annottext">LogicError tx -&gt; Program tx ()
@@ -613,26 +613,26 @@ $sel:ourHeadId:UnhandledInput :: HeadId
 ourHeadId :: HeadId
 </span><a href="Hydra.HeadLogic.Error.html#%24sel%3AourHeadId%3AUnhandledInput"><span class="hs-identifier hs-var hs-var">ourHeadId</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:otherHeadId:UnhandledInput :: HeadId
 </span><a href="Hydra.HeadLogic.Error.html#%24sel%3AotherHeadId%3AUnhandledInput"><span class="hs-identifier hs-var">otherHeadId</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HeadId
-</span><a href="#local-6989586621681047846"><span class="hs-identifier hs-var">headId</span></a></span><span class="hs-special">}</span><span>
-</span><span id="line-149"></span><span>  </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.State.html#FanoutProgress"><span class="hs-identifier hs-type">FanoutProgress</span></a></span><span> </span><span id="local-6989586621681047849"><span class="annot"><span class="annottext">partialFanoutState :: PartialFanoutState tx
-</span><a href="#local-6989586621681047849"><span class="hs-identifier hs-var">partialFanoutState</span></a></span></span><span class="hs-glyph">@</span><span class="annot"><a href="Hydra.HeadLogic.State.html#PartialFanoutState"><span class="hs-identifier hs-type">PartialFanoutState</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:headId:PartialFanoutState :: forall tx. PartialFanoutState tx -&gt; HeadId
-</span><a href="Hydra.HeadLogic.State.html#%24sel%3AheadId%3APartialFanoutState"><span class="hs-identifier hs-var">headId</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="local-6989586621681047850"><span class="annot"><span class="annottext">HeadId
-</span><a href="#local-6989586621681047850"><span class="hs-identifier hs-var">ourHeadId</span></a></span></span><span class="hs-special">}</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Input.html#ChainInput"><span class="hs-identifier hs-type">ChainInput</span></a></span><span> </span><span class="annot"><a href="Hydra.Chain.html#Observation"><span class="hs-identifier hs-type">Observation</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:observedTx:Observation :: forall tx. ChainEvent tx -&gt; OnChainTx tx
-</span><a href="Hydra.Chain.html#%24sel%3AobservedTx%3AObservation"><span class="hs-identifier hs-var">observedTx</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Hydra.Chain.html#OnFanoutTx"><span class="hs-identifier hs-type">OnFanoutTx</span></a></span><span class="hs-special">{</span><span id="local-6989586621681047851"><span class="annot"><span class="annottext">HeadId
+</span><a href="#local-6989586621681048079"><span class="hs-identifier hs-var">headId</span></a></span><span class="hs-special">}</span><span>
+</span><span id="line-149"></span><span>  </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.State.html#FanoutProgress"><span class="hs-identifier hs-type">FanoutProgress</span></a></span><span> </span><span id="local-6989586621681048082"><span class="annot"><span class="annottext">partialFanoutState :: PartialFanoutState tx
+</span><a href="#local-6989586621681048082"><span class="hs-identifier hs-var">partialFanoutState</span></a></span></span><span class="hs-glyph">@</span><span class="annot"><a href="Hydra.HeadLogic.State.html#PartialFanoutState"><span class="hs-identifier hs-type">PartialFanoutState</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:headId:PartialFanoutState :: forall tx. PartialFanoutState tx -&gt; HeadId
+</span><a href="Hydra.HeadLogic.State.html#%24sel%3AheadId%3APartialFanoutState"><span class="hs-identifier hs-var">headId</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="local-6989586621681048083"><span class="annot"><span class="annottext">HeadId
+</span><a href="#local-6989586621681048083"><span class="hs-identifier hs-var">ourHeadId</span></a></span></span><span class="hs-special">}</span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Input.html#ChainInput"><span class="hs-identifier hs-type">ChainInput</span></a></span><span> </span><span class="annot"><a href="Hydra.Chain.html#Observation"><span class="hs-identifier hs-type">Observation</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:observedTx:Observation :: forall tx. ChainEvent tx -&gt; OnChainTx tx
+</span><a href="Hydra.Chain.html#%24sel%3AobservedTx%3AObservation"><span class="hs-identifier hs-var">observedTx</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Hydra.Chain.html#OnFanoutTx"><span class="hs-identifier hs-type">OnFanoutTx</span></a></span><span class="hs-special">{</span><span id="local-6989586621681048084"><span class="annot"><span class="annottext">HeadId
 $sel:headId:OnInitTx :: forall tx. OnChainTx tx -&gt; HeadId
 headId :: HeadId
-</span><a href="Hydra.Chain.html#%24sel%3AheadId%3AOnInitTx"><span class="hs-identifier hs-var hs-var">headId</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681047852"><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="Hydra.Chain.html#%24sel%3AheadId%3AOnInitTx"><span class="hs-identifier hs-var hs-var">headId</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681048085"><span class="annot"><span class="annottext">UTxOType tx
 $sel:fanoutUTxO:OnInitTx :: forall tx. OnChainTx tx -&gt; UTxOType tx
 fanoutUTxO :: UTxOType tx
-</span><a href="Hydra.Chain.html#%24sel%3AfanoutUTxO%3AOnInitTx"><span class="hs-identifier hs-var hs-var">fanoutUTxO</span></a></span></span><span class="hs-special">}</span><span class="hs-special">,</span><span> </span><span id="local-6989586621681047853"><span class="annot"><span class="annottext">ChainStateType tx
+</span><a href="Hydra.Chain.html#%24sel%3AfanoutUTxO%3AOnInitTx"><span class="hs-identifier hs-var hs-var">fanoutUTxO</span></a></span></span><span class="hs-special">}</span><span class="hs-special">,</span><span> </span><span id="local-6989586621681048086"><span class="annot"><span class="annottext">ChainStateType tx
 $sel:newChainState:Observation :: forall tx. ChainEvent tx -&gt; ChainStateType tx
 newChainState :: ChainStateType tx
 </span><a href="Hydra.Chain.html#%24sel%3AnewChainState%3AObservation"><span class="hs-identifier hs-var hs-var">newChainState</span></a></span></span><span class="hs-special">}</span><span class="hs-special">)</span><span>
 </span><span id="line-150"></span><span>    </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">HeadId
-</span><a href="#local-6989586621681047850"><span class="hs-identifier hs-var">ourHeadId</span></a></span><span> </span><span class="annot"><span class="annottext">HeadId -&gt; HeadId -&gt; Bool
+</span><a href="#local-6989586621681048083"><span class="hs-identifier hs-var">ourHeadId</span></a></span><span> </span><span class="annot"><span class="annottext">HeadId -&gt; HeadId -&gt; Bool
 forall a. Eq a =&gt; a -&gt; a -&gt; Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3D%3D"><span class="hs-operator hs-var">==</span></a></span><span> </span><span class="annot"><span class="annottext">HeadId
-</span><a href="#local-6989586621681047851"><span class="hs-identifier hs-var">headId</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><a href="#local-6989586621681048084"><span class="hs-identifier hs-var">headId</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-151"></span><span>        </span><span class="annot"><span class="annottext">PartialFanoutState tx
 -&gt; ChainStateType tx -&gt; UTxOType tx -&gt; Program tx ()
 forall tx.
@@ -640,9 +640,9 @@ IsTx tx =&gt;
 PartialFanoutState tx
 -&gt; ChainStateType tx -&gt; UTxOType tx -&gt; Program tx ()
 </span><a href="Hydra.HeadLogic.Rules.Chain.Fanout.html#onPartialFanoutChainFanoutTx"><span class="hs-identifier hs-var">onPartialFanoutChainFanoutTx</span></a></span><span> </span><span class="annot"><span class="annottext">PartialFanoutState tx
-</span><a href="#local-6989586621681047849"><span class="hs-identifier hs-var">partialFanoutState</span></a></span><span> </span><span class="annot"><span class="annottext">ChainStateType tx
-</span><a href="#local-6989586621681047853"><span class="hs-identifier hs-var">newChainState</span></a></span><span> </span><span class="annot"><span class="annottext">UTxOType tx
-</span><a href="#local-6989586621681047852"><span class="hs-identifier hs-var">fanoutUTxO</span></a></span><span>
+</span><a href="#local-6989586621681048082"><span class="hs-identifier hs-var">partialFanoutState</span></a></span><span> </span><span class="annot"><span class="annottext">ChainStateType tx
+</span><a href="#local-6989586621681048086"><span class="hs-identifier hs-var">newChainState</span></a></span><span> </span><span class="annot"><span class="annottext">UTxOType tx
+</span><a href="#local-6989586621681048085"><span class="hs-identifier hs-var">fanoutUTxO</span></a></span><span>
 </span><span id="line-152"></span><span>    </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#otherwise"><span class="hs-identifier hs-var">otherwise</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-153"></span><span>        </span><span class="annot"><span class="annottext">LogicError tx -&gt; Program tx ()
@@ -652,7 +652,7 @@ $sel:ourHeadId:UnhandledInput :: HeadId
 ourHeadId :: HeadId
 </span><a href="Hydra.HeadLogic.Error.html#%24sel%3AourHeadId%3AUnhandledInput"><span class="hs-identifier hs-var hs-var">ourHeadId</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:otherHeadId:UnhandledInput :: HeadId
 </span><a href="Hydra.HeadLogic.Error.html#%24sel%3AotherHeadId%3AUnhandledInput"><span class="hs-identifier hs-var">otherHeadId</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HeadId
-</span><a href="#local-6989586621681047851"><span class="hs-identifier hs-var">headId</span></a></span><span class="hs-special">}</span><span>
+</span><a href="#local-6989586621681048084"><span class="hs-identifier hs-var">headId</span></a></span><span class="hs-special">}</span><span>
 </span><span id="line-154"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="annottext">HeadState tx
 </span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Input.html#ChainInput"><span class="hs-identifier hs-type">ChainInput</span></a></span><span> </span><span class="annot"><a href="Hydra.Chain.html#Observation"><span class="hs-identifier hs-type">Observation</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:observedTx:Observation :: forall tx. ChainEvent tx -&gt; OnChainTx tx
 </span><a href="Hydra.Chain.html#%24sel%3AobservedTx%3AObservation"><span class="hs-identifier hs-var">observedTx</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Hydra.Chain.html#OnDepositTx"><span class="hs-identifier hs-type">OnDepositTx</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span class="hs-special">}</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
@@ -661,9 +661,9 @@ forall tx.
 IsChainState tx =&gt;
 PendingDeposits tx -&gt; HeadState tx -&gt; Input tx -&gt; Program tx ()
 </span><a href="Hydra.HeadLogic.Rules.Chain.Deposits.html#handleDepositObservation"><span class="hs-identifier hs-var">handleDepositObservation</span></a></span><span> </span><span class="annot"><span class="annottext">PendingDeposits tx
-</span><a href="#local-6989586621681047774"><span class="hs-identifier hs-var">pendingDeposits</span></a></span><span> </span><span class="annot"><span class="annottext">HeadState tx
-</span><a href="#local-6989586621681047775"><span class="hs-identifier hs-var">st</span></a></span><span> </span><span class="annot"><span class="annottext">Input tx
-</span><a href="#local-6989586621681047776"><span class="hs-identifier hs-var">ev</span></a></span><span>
+</span><a href="#local-6989586621681048007"><span class="hs-identifier hs-var">pendingDeposits</span></a></span><span> </span><span class="annot"><span class="annottext">HeadState tx
+</span><a href="#local-6989586621681048008"><span class="hs-identifier hs-var">st</span></a></span><span> </span><span class="annot"><span class="annottext">Input tx
+</span><a href="#local-6989586621681048009"><span class="hs-identifier hs-var">ev</span></a></span><span>
 </span><span id="line-156"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="annottext">HeadState tx
 </span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Input.html#ChainInput"><span class="hs-identifier hs-type">ChainInput</span></a></span><span> </span><span class="annot"><a href="Hydra.Chain.html#Observation"><span class="hs-identifier hs-type">Observation</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:observedTx:Observation :: forall tx. ChainEvent tx -&gt; OnChainTx tx
 </span><a href="Hydra.Chain.html#%24sel%3AobservedTx%3AObservation"><span class="hs-identifier hs-var">observedTx</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Hydra.Chain.html#OnRecoverTx"><span class="hs-identifier hs-type">OnRecoverTx</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span class="hs-special">}</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
@@ -672,9 +672,9 @@ forall tx.
 IsChainState tx =&gt;
 PendingDeposits tx -&gt; HeadState tx -&gt; Input tx -&gt; Program tx ()
 </span><a href="Hydra.HeadLogic.Rules.Chain.Deposits.html#handleDepositObservation"><span class="hs-identifier hs-var">handleDepositObservation</span></a></span><span> </span><span class="annot"><span class="annottext">PendingDeposits tx
-</span><a href="#local-6989586621681047774"><span class="hs-identifier hs-var">pendingDeposits</span></a></span><span> </span><span class="annot"><span class="annottext">HeadState tx
-</span><a href="#local-6989586621681047775"><span class="hs-identifier hs-var">st</span></a></span><span> </span><span class="annot"><span class="annottext">Input tx
-</span><a href="#local-6989586621681047776"><span class="hs-identifier hs-var">ev</span></a></span><span>
+</span><a href="#local-6989586621681048007"><span class="hs-identifier hs-var">pendingDeposits</span></a></span><span> </span><span class="annot"><span class="annottext">HeadState tx
+</span><a href="#local-6989586621681048008"><span class="hs-identifier hs-var">st</span></a></span><span> </span><span class="annot"><span class="annottext">Input tx
+</span><a href="#local-6989586621681048009"><span class="hs-identifier hs-var">ev</span></a></span><span>
 </span><span id="line-158"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="annottext">HeadState tx
 </span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Input.html#ChainInput"><span class="hs-identifier hs-type">ChainInput</span></a></span><span> </span><span class="annot"><a href="Hydra.Chain.html#PostTxError"><span class="hs-identifier hs-type">PostTxError</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:postTxError:Observation :: forall tx. ChainEvent tx -&gt; PostTxError tx
 </span><a href="Hydra.Chain.html#%24sel%3ApostTxError%3AObservation"><span class="hs-identifier hs-var">postTxError</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">PostTxError tx
@@ -686,11 +686,11 @@ PendingDeposits tx -&gt; HeadState tx -&gt; Input tx -&gt; Program tx ()
 forall a. a -&gt; Program tx a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
-</span><span id="line-163"></span><span>  </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.State.html#FanoutProgress"><span class="hs-identifier hs-type">FanoutProgress</span></a></span><span> </span><span id="local-6989586621681047854"><span class="annot"><span class="annottext">PartialFanoutState tx
-</span><a href="#local-6989586621681047854"><span class="hs-identifier hs-var">pfs</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Input.html#ChainInput"><span class="hs-identifier hs-type">ChainInput</span></a></span><span> </span><span class="annot"><a href="Hydra.Chain.html#PostTxError"><span class="hs-identifier hs-type">PostTxError</span></a></span><span class="hs-special">{</span><span id="local-6989586621681047855"><span class="annot"><span class="annottext">PostChainTx tx
+</span><span id="line-163"></span><span>  </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.State.html#FanoutProgress"><span class="hs-identifier hs-type">FanoutProgress</span></a></span><span> </span><span id="local-6989586621681048087"><span class="annot"><span class="annottext">PartialFanoutState tx
+</span><a href="#local-6989586621681048087"><span class="hs-identifier hs-var">pfs</span></a></span></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Input.html#ChainInput"><span class="hs-identifier hs-type">ChainInput</span></a></span><span> </span><span class="annot"><a href="Hydra.Chain.html#PostTxError"><span class="hs-identifier hs-type">PostTxError</span></a></span><span class="hs-special">{</span><span id="local-6989586621681048088"><span class="annot"><span class="annottext">PostChainTx tx
 $sel:postChainTx:Observation :: forall tx. ChainEvent tx -&gt; PostChainTx tx
 postChainTx :: PostChainTx tx
-</span><a href="Hydra.Chain.html#%24sel%3ApostChainTx%3AObservation"><span class="hs-identifier hs-var hs-var">postChainTx</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681047856"><span class="annot"><span class="annottext">PostTxError tx
+</span><a href="Hydra.Chain.html#%24sel%3ApostChainTx%3AObservation"><span class="hs-identifier hs-var hs-var">postChainTx</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681048089"><span class="annot"><span class="annottext">PostTxError tx
 $sel:postTxError:Observation :: forall tx. ChainEvent tx -&gt; PostTxError tx
 postTxError :: PostTxError tx
 </span><a href="Hydra.Chain.html#%24sel%3ApostTxError%3AObservation"><span class="hs-identifier hs-var hs-var">postTxError</span></a></span></span><span class="hs-special">}</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
@@ -701,14 +701,14 @@ IsTx tx =&gt;
 PartialFanoutState tx
 -&gt; PostChainTx tx -&gt; PostTxError tx -&gt; Program tx ()
 </span><a href="Hydra.HeadLogic.Rules.Chain.Fanout.html#onFanoutPostTxError"><span class="hs-identifier hs-var">onFanoutPostTxError</span></a></span><span> </span><span class="annot"><span class="annottext">PartialFanoutState tx
-</span><a href="#local-6989586621681047854"><span class="hs-identifier hs-var">pfs</span></a></span><span> </span><span class="annot"><span class="annottext">PostChainTx tx
-</span><a href="#local-6989586621681047855"><span class="hs-identifier hs-var">postChainTx</span></a></span><span> </span><span class="annot"><span class="annottext">PostTxError tx
-</span><a href="#local-6989586621681047856"><span class="hs-identifier hs-var">postTxError</span></a></span><span>
+</span><a href="#local-6989586621681048087"><span class="hs-identifier hs-var">pfs</span></a></span><span> </span><span class="annot"><span class="annottext">PostChainTx tx
+</span><a href="#local-6989586621681048088"><span class="hs-identifier hs-var">postChainTx</span></a></span><span> </span><span class="annot"><span class="annottext">PostTxError tx
+</span><a href="#local-6989586621681048089"><span class="hs-identifier hs-var">postTxError</span></a></span><span>
 </span><span id="line-165"></span><span>  </span><span class="hs-special">(</span><span class="annot"><span class="annottext">HeadState tx
-</span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Input.html#ChainInput"><span class="hs-identifier hs-type">ChainInput</span></a></span><span> </span><span class="annot"><a href="Hydra.Chain.html#PostTxError"><span class="hs-identifier hs-type">PostTxError</span></a></span><span class="hs-special">{</span><span id="local-6989586621681047857"><span class="annot"><span class="annottext">PostChainTx tx
+</span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Input.html#ChainInput"><span class="hs-identifier hs-type">ChainInput</span></a></span><span> </span><span class="annot"><a href="Hydra.Chain.html#PostTxError"><span class="hs-identifier hs-type">PostTxError</span></a></span><span class="hs-special">{</span><span id="local-6989586621681048090"><span class="annot"><span class="annottext">PostChainTx tx
 $sel:postChainTx:Observation :: forall tx. ChainEvent tx -&gt; PostChainTx tx
 postChainTx :: PostChainTx tx
-</span><a href="Hydra.Chain.html#%24sel%3ApostChainTx%3AObservation"><span class="hs-identifier hs-var hs-var">postChainTx</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681047858"><span class="annot"><span class="annottext">PostTxError tx
+</span><a href="Hydra.Chain.html#%24sel%3ApostChainTx%3AObservation"><span class="hs-identifier hs-var hs-var">postChainTx</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681048091"><span class="annot"><span class="annottext">PostTxError tx
 $sel:postTxError:Observation :: forall tx. ChainEvent tx -&gt; PostTxError tx
 postTxError :: PostTxError tx
 </span><a href="Hydra.Chain.html#%24sel%3ApostTxError%3AObservation"><span class="hs-identifier hs-var hs-var">postTxError</span></a></span></span><span class="hs-special">}</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
@@ -740,6 +740,6 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="annot"><span class="annottext">Input tx -&gt; HeadState tx -&gt; LogicError tx
 forall tx. Input tx -&gt; HeadState tx -&gt; LogicError tx
 </span><a href="Hydra.HeadLogic.Error.html#UnhandledInput"><span class="hs-identifier hs-var">UnhandledInput</span></a></span><span> </span><span class="annot"><span class="annottext">Input tx
-</span><a href="#local-6989586621681047776"><span class="hs-identifier hs-var">ev</span></a></span><span> </span><span class="annot"><span class="annottext">HeadState tx
-</span><a href="#local-6989586621681047775"><span class="hs-identifier hs-var">st</span></a></span><span>
+</span><a href="#local-6989586621681048009"><span class="hs-identifier hs-var">ev</span></a></span><span> </span><span class="annot"><span class="annottext">HeadState tx
+</span><a href="#local-6989586621681048008"><span class="hs-identifier hs-var">st</span></a></span><span>
 </span><span id="line-169"></span></pre></body></html>

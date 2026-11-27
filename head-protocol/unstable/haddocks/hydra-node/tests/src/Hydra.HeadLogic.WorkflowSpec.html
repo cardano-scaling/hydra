@@ -28,7 +28,7 @@
 </span><span id="line-28"></span><span>     </span><span class="hs-special">,</span><span> </span><span class="hs-special">'</span><span class="hs-special">(</span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Hydra.HeadLogic.WorkflowSpec.html#Applying"><span class="hs-identifier hs-type">Applying</span></a></span><span class="hs-special">,</span><span> </span><span class="hs-special">'</span><span class="hs-special">[</span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Hydra.HeadLogic.WorkflowSpec.html#Completed"><span class="hs-identifier hs-type">Completed</span></a></span><span class="hs-special">]</span><span class="hs-special">)</span><span>
 </span><span id="line-29"></span><span>     </span><span class="hs-special">]</span><span>
 </span><span id="line-30"></span><span>
-</span><span id="line-31"></span><span class="hs-keyword">data</span><span> </span><span id="State"><span class="annot"><a href="Hydra.HeadLogic.WorkflowSpec.html#State"><span class="hs-identifier hs-var">State</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679957942"><span class="annot"><a href="#local-6989586621679957942"><span class="hs-identifier hs-type">phase</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.WorkflowSpec.html#Phase"><span class="hs-identifier hs-type">Phase</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
+</span><span id="line-31"></span><span class="hs-keyword">data</span><span> </span><span id="State"><span class="annot"><a href="Hydra.HeadLogic.WorkflowSpec.html#State"><span class="hs-identifier hs-var">State</span></a></span></span><span> </span><span class="hs-special">(</span><span id="local-6989586621679958916"><span class="annot"><a href="#local-6989586621679958916"><span class="hs-identifier hs-type">phase</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.WorkflowSpec.html#Phase"><span class="hs-identifier hs-type">Phase</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">where</span><span>
 </span><span id="line-32"></span><span>  </span><span id="Decide"><span class="annot"><a href="Hydra.HeadLogic.WorkflowSpec.html#Decide"><span class="hs-identifier hs-var">Decide</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.WorkflowSpec.html#State"><span class="hs-identifier hs-type">State</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Hydra.HeadLogic.WorkflowSpec.html#Deciding"><span class="hs-identifier hs-type">Deciding</span></a></span><span>
 </span><span id="line-33"></span><span>  </span><span id="Apply"><span class="annot"><a href="Hydra.HeadLogic.WorkflowSpec.html#Apply"><span class="hs-identifier hs-var">Apply</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.WorkflowSpec.html#State"><span class="hs-identifier hs-type">State</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Hydra.HeadLogic.WorkflowSpec.html#Applying"><span class="hs-identifier hs-type">Applying</span></a></span><span>
 </span><span id="line-34"></span><span>  </span><span id="Complete"><span class="annot"><a href="Hydra.HeadLogic.WorkflowSpec.html#Complete"><span class="hs-identifier hs-var">Complete</span></a></span></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.WorkflowSpec.html#State"><span class="hs-identifier hs-type">State</span></a></span><span> </span><span class="hs-special">'</span><span class="annot"><a href="Hydra.HeadLogic.WorkflowSpec.html#Completed"><span class="hs-identifier hs-type">Completed</span></a></span><span>
@@ -50,9 +50,9 @@ String -&gt; a -&gt; SpecWith (Arg a)
 -&gt; Expectation -&gt; SpecWith (Arg Expectation)
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-39"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span class="annot"><a href="#local-6989586621679957946"><span class="hs-identifier hs-type">ledger</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ledger</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SimpleTx</span></span><span>
-</span><span id="line-40"></span><span>        </span><span id="local-6989586621679957946"><span class="annot"><span class="annottext">ledger :: Ledger SimpleTx
-</span><a href="#local-6989586621679957946"><span class="hs-identifier hs-var hs-var">ledger</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(ChainSlot
+</span><span id="line-39"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span class="annot"><a href="#local-6989586621679958920"><span class="hs-identifier hs-type">ledger</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ledger</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SimpleTx</span></span><span>
+</span><span id="line-40"></span><span>        </span><span id="local-6989586621679958920"><span class="annot"><span class="annottext">ledger :: Ledger SimpleTx
+</span><a href="#local-6989586621679958920"><span class="hs-identifier hs-var hs-var">ledger</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(ChainSlot
  -&gt; UTxOType SimpleTx
  -&gt; [SimpleTx]
  -&gt; Either (SimpleTx, ValidationError) (UTxOType SimpleTx))
@@ -75,21 +75,21 @@ forall tx.
 -&gt; Ledger SimpleTx
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="annot"><span class="annottext">ChainSlot
-</span><span class="hs-identifier">_</span></span><span> </span><span id="local-6989586621679957948"><span class="annot"><span class="annottext">UTxOType SimpleTx
-</span><a href="#local-6989586621679957948"><span class="hs-identifier hs-var">utxo</span></a></span></span><span> </span><span class="annot"><span class="annottext">[SimpleTx]
+</span><span class="hs-identifier">_</span></span><span> </span><span id="local-6989586621679958922"><span class="annot"><span class="annottext">UTxOType SimpleTx
+</span><a href="#local-6989586621679958922"><span class="hs-identifier hs-var">utxo</span></a></span></span><span> </span><span class="annot"><span class="annottext">[SimpleTx]
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut
 -&gt; Either (SimpleTx, ValidationError) (Set SimpleTxOut)
 forall a b. b -&gt; Either a b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Right"><span class="hs-identifier hs-var">Right</span></a></span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut
 UTxOType SimpleTx
-</span><a href="#local-6989586621679957948"><span class="hs-identifier hs-var">utxo</span></a></span><span>
+</span><a href="#local-6989586621679958922"><span class="hs-identifier hs-var">utxo</span></a></span><span>
 </span><span id="line-41"></span><span>    </span><span class="annot"><span class="annottext">InterpreterConfig SimpleTx
 -&gt; Program SimpleTx () -&gt; Outcome SimpleTx
 forall tx. InterpreterConfig tx -&gt; Program tx () -&gt; Outcome tx
 </span><span class="hs-identifier hs-var">runProgram</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Ledger SimpleTx -&gt; InterpreterConfig SimpleTx
 forall tx. IsTx tx =&gt; Ledger tx -&gt; InterpreterConfig tx
 </span><span class="hs-identifier hs-var">testInterpreterConfig</span></span><span> </span><span class="annot"><span class="annottext">Ledger SimpleTx
-</span><a href="#local-6989586621679957946"><span class="hs-identifier hs-var">ledger</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Workflow SimpleTx TopologyOf () -&gt; Program SimpleTx ()
+</span><a href="#local-6989586621679958920"><span class="hs-identifier hs-var">ledger</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Workflow SimpleTx TopologyOf () -&gt; Program SimpleTx ()
 forall {vertex} tx (topology :: Topology vertex) result.
 Workflow tx topology result -&gt; Program tx result
 </span><span class="hs-identifier hs-var">Workflow.run</span></span><span> </span><span class="annot"><span class="annottext">(Workflow SimpleTx TopologyOf () -&gt; Program SimpleTx ())
@@ -114,9 +114,9 @@ String -&gt; a -&gt; SpecWith (Arg a)
 -&gt; Expectation -&gt; SpecWith (Arg Expectation)
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-43"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span class="annot"><a href="#local-6989586621679957952"><span class="hs-identifier hs-type">ledger</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ledger</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SimpleTx</span></span><span>
-</span><span id="line-44"></span><span>        </span><span id="local-6989586621679957952"><span class="annot"><span class="annottext">ledger :: Ledger SimpleTx
-</span><a href="#local-6989586621679957952"><span class="hs-identifier hs-var hs-var">ledger</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(ChainSlot
+</span><span id="line-43"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span class="annot"><a href="#local-6989586621679958926"><span class="hs-identifier hs-type">ledger</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ledger</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SimpleTx</span></span><span>
+</span><span id="line-44"></span><span>        </span><span id="local-6989586621679958926"><span class="annot"><span class="annottext">ledger :: Ledger SimpleTx
+</span><a href="#local-6989586621679958926"><span class="hs-identifier hs-var hs-var">ledger</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(ChainSlot
  -&gt; UTxOType SimpleTx
  -&gt; [SimpleTx]
  -&gt; Either (SimpleTx, ValidationError) (UTxOType SimpleTx))
@@ -145,9 +145,9 @@ forall a b. (a -&gt; b) -&gt; a -&gt; b
 forall a t. (HasCallStack, IsText t) =&gt; t -&gt; a
 </span><span class="hs-identifier hs-var">error</span></span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;completed workflow queries the ledger&quot;</span></span><span>
-</span><span id="line-45"></span><span>        </span><span class="annot"><a href="#local-6989586621679957954"><span class="hs-identifier hs-type">completed</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Workflow.Workflow</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SimpleTx</span></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.WorkflowSpec.html#TopologyOf"><span class="hs-identifier hs-type">TopologyOf</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SimpleTx</span></span><span>
-</span><span id="line-46"></span><span>        </span><span id="local-6989586621679957954"><span class="annot"><span class="annottext">completed :: Workflow SimpleTx TopologyOf SimpleTx
-</span><a href="#local-6989586621679957954"><span class="hs-identifier hs-var hs-var">completed</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(forall (phase :: Phase). State phase -&gt; Text)
+</span><span id="line-45"></span><span>        </span><span class="annot"><a href="#local-6989586621679958928"><span class="hs-identifier hs-type">completed</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Workflow.Workflow</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SimpleTx</span></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.WorkflowSpec.html#TopologyOf"><span class="hs-identifier hs-type">TopologyOf</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SimpleTx</span></span><span>
+</span><span id="line-46"></span><span>        </span><span id="local-6989586621679958928"><span class="annot"><span class="annottext">completed :: Workflow SimpleTx TopologyOf SimpleTx
+</span><a href="#local-6989586621679958928"><span class="hs-identifier hs-var hs-var">completed</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(forall (phase :: Phase). State phase -&gt; Text)
 -&gt; State 'Completed
 -&gt; (forall (from :: Phase).
     State from -&gt; Transition SimpleTx TopologyOf State from SimpleTx)
@@ -170,12 +170,12 @@ forall {vertex} (state :: vertex -&gt; *) (phase :: vertex) result tx
 state phase -&gt; result -&gt; Transition tx topology state phase result
 </span><span class="hs-operator hs-var">`Workflow.finish`</span></span><span> </span><span class="annot"><span class="annottext">SimpleTx
 </span><a href="Hydra.HeadLogic.WorkflowSpec.html#transaction"><span class="hs-identifier hs-var">transaction</span></a></span><span class="hs-special">)</span><span>
-</span><span id="line-47"></span><span>        </span><span id="local-6989586621679957961"><span class="annot"><span class="annottext">program :: Program SimpleTx ()
-</span><a href="#local-6989586621679957961"><span class="hs-identifier hs-var hs-var">program</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Workflow SimpleTx TopologyOf SimpleTx -&gt; Program SimpleTx SimpleTx
+</span><span id="line-47"></span><span>        </span><span id="local-6989586621679958935"><span class="annot"><span class="annottext">program :: Program SimpleTx ()
+</span><a href="#local-6989586621679958935"><span class="hs-identifier hs-var hs-var">program</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Workflow SimpleTx TopologyOf SimpleTx -&gt; Program SimpleTx SimpleTx
 forall {vertex} tx (topology :: Topology vertex) result.
 Workflow tx topology result -&gt; Program tx result
 </span><span class="hs-identifier hs-var">Workflow.run</span></span><span> </span><span class="annot"><span class="annottext">Workflow SimpleTx TopologyOf SimpleTx
-</span><a href="#local-6989586621679957954"><span class="hs-identifier hs-var">completed</span></a></span><span> </span><span class="annot"><span class="annottext">Program SimpleTx SimpleTx
+</span><a href="#local-6989586621679958928"><span class="hs-identifier hs-var">completed</span></a></span><span> </span><span class="annot"><span class="annottext">Program SimpleTx SimpleTx
 -&gt; (SimpleTx -&gt; Program SimpleTx ()) -&gt; Program SimpleTx ()
 forall a b.
 Program SimpleTx a
@@ -197,8 +197,8 @@ forall tx. InterpreterConfig tx -&gt; Program tx () -&gt; Outcome tx
 </span><span class="hs-identifier hs-var">runProgram</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Ledger SimpleTx -&gt; InterpreterConfig SimpleTx
 forall tx. IsTx tx =&gt; Ledger tx -&gt; InterpreterConfig tx
 </span><span class="hs-identifier hs-var">testInterpreterConfig</span></span><span> </span><span class="annot"><span class="annottext">Ledger SimpleTx
-</span><a href="#local-6989586621679957952"><span class="hs-identifier hs-var">ledger</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Program SimpleTx ()
-</span><a href="#local-6989586621679957961"><span class="hs-identifier hs-var">program</span></a></span><span> </span><span class="annot"><span class="annottext">Outcome SimpleTx -&gt; Outcome SimpleTx -&gt; Expectation
+</span><a href="#local-6989586621679958926"><span class="hs-identifier hs-var">ledger</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">Program SimpleTx ()
+</span><a href="#local-6989586621679958935"><span class="hs-identifier hs-var">program</span></a></span><span> </span><span class="annot"><span class="annottext">Outcome SimpleTx -&gt; Outcome SimpleTx -&gt; Expectation
 forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; Expectation
 </span><span class="hs-operator hs-var">`shouldBe`</span></span><span> </span><span class="annot"><span class="annottext">[StateChanged SimpleTx] -&gt; [Effect SimpleTx] -&gt; Outcome SimpleTx
 forall tx. [StateChanged tx] -&gt; [Effect tx] -&gt; Outcome tx
@@ -215,9 +215,9 @@ String -&gt; a -&gt; SpecWith (Arg a)
 -&gt; Expectation -&gt; SpecWith (Arg Expectation)
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-50"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span class="annot"><a href="#local-6989586621679957963"><span class="hs-identifier hs-type">ledger</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ledger</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SimpleTx</span></span><span>
-</span><span id="line-51"></span><span>        </span><span id="local-6989586621679957963"><span class="annot"><span class="annottext">ledger :: Ledger SimpleTx
-</span><a href="#local-6989586621679957963"><span class="hs-identifier hs-var hs-var">ledger</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(ChainSlot
+</span><span id="line-50"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span class="annot"><a href="#local-6989586621679958937"><span class="hs-identifier hs-type">ledger</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ledger</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SimpleTx</span></span><span>
+</span><span id="line-51"></span><span>        </span><span id="local-6989586621679958937"><span class="annot"><span class="annottext">ledger :: Ledger SimpleTx
+</span><a href="#local-6989586621679958937"><span class="hs-identifier hs-var hs-var">ledger</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(ChainSlot
  -&gt; UTxOType SimpleTx
  -&gt; [SimpleTx]
  -&gt; Either (SimpleTx, ValidationError) (UTxOType SimpleTx))
@@ -252,7 +252,7 @@ forall tx. InterpreterConfig tx -&gt; Program tx () -&gt; Outcome tx
 </span><span class="hs-identifier hs-var">runProgram</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Ledger SimpleTx -&gt; InterpreterConfig SimpleTx
 forall tx. IsTx tx =&gt; Ledger tx -&gt; InterpreterConfig tx
 </span><span class="hs-identifier hs-var">testInterpreterConfig</span></span><span> </span><span class="annot"><span class="annottext">Ledger SimpleTx
-</span><a href="#local-6989586621679957963"><span class="hs-identifier hs-var">ledger</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Workflow SimpleTx TopologyOf () -&gt; Program SimpleTx ()
+</span><a href="#local-6989586621679958937"><span class="hs-identifier hs-var">ledger</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Workflow SimpleTx TopologyOf () -&gt; Program SimpleTx ()
 forall {vertex} tx (topology :: Topology vertex) result.
 Workflow tx topology result -&gt; Program tx result
 </span><span class="hs-identifier hs-var">Workflow.run</span></span><span> </span><span class="annot"><span class="annottext">(Workflow SimpleTx TopologyOf () -&gt; Program SimpleTx ())
@@ -277,9 +277,9 @@ String -&gt; a -&gt; SpecWith (Arg a)
 -&gt; Expectation -&gt; SpecWith (Arg Expectation)
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-54"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span class="annot"><a href="#local-6989586621679957964"><span class="hs-identifier hs-type">ledger</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ledger</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SimpleTx</span></span><span>
-</span><span id="line-55"></span><span>        </span><span id="local-6989586621679957964"><span class="annot"><span class="annottext">ledger :: Ledger SimpleTx
-</span><a href="#local-6989586621679957964"><span class="hs-identifier hs-var hs-var">ledger</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(ChainSlot
+</span><span id="line-54"></span><span>    </span><span class="hs-keyword">let</span><span> </span><span class="annot"><a href="#local-6989586621679958938"><span class="hs-identifier hs-type">ledger</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ledger</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SimpleTx</span></span><span>
+</span><span id="line-55"></span><span>        </span><span id="local-6989586621679958938"><span class="annot"><span class="annottext">ledger :: Ledger SimpleTx
+</span><a href="#local-6989586621679958938"><span class="hs-identifier hs-var hs-var">ledger</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(ChainSlot
  -&gt; UTxOType SimpleTx
  -&gt; [SimpleTx]
  -&gt; Either (SimpleTx, ValidationError) (UTxOType SimpleTx))
@@ -317,7 +317,7 @@ forall tx. InterpreterConfig tx -&gt; Program tx () -&gt; Outcome tx
 </span><span class="hs-identifier hs-var">runProgram</span></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Ledger SimpleTx -&gt; InterpreterConfig SimpleTx
 forall tx. IsTx tx =&gt; Ledger tx -&gt; InterpreterConfig tx
 </span><span class="hs-identifier hs-var">testInterpreterConfig</span></span><span> </span><span class="annot"><span class="annottext">Ledger SimpleTx
-</span><a href="#local-6989586621679957964"><span class="hs-identifier hs-var">ledger</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Workflow SimpleTx TopologyOf () -&gt; Program SimpleTx ()
+</span><a href="#local-6989586621679958938"><span class="hs-identifier hs-var">ledger</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Workflow SimpleTx TopologyOf () -&gt; Program SimpleTx ()
 forall {vertex} tx (topology :: Topology vertex) result.
 Workflow tx topology result -&gt; Program tx result
 </span><span class="hs-identifier hs-var">Workflow.run</span></span><span> </span><span class="annot"><span class="annottext">(Workflow SimpleTx TopologyOf () -&gt; Program SimpleTx ())
@@ -347,22 +347,22 @@ forall (t :: * -&gt; *) (m :: * -&gt; *) a b.
 (Foldable t, Monad m) =&gt;
 t a -&gt; (a -&gt; m b) -&gt; m ()
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Foldable.html#forM_"><span class="hs-identifier hs-var">forM_</span></a></span><span> </span><span class="hs-special">[</span><span class="hs-special">(</span><span class="annot"><span class="annottext">Bool
-</span><a href="#local-6989586621679957967"><span class="hs-identifier hs-var">eligible</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Bool
-</span><a href="#local-6989586621679957968"><span class="hs-identifier hs-var">valid</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">|</span><span> </span><span id="local-6989586621679957967"><span class="annot"><span class="annottext">Bool
-</span><a href="#local-6989586621679957967"><span class="hs-identifier hs-var">eligible</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679958941"><span class="hs-identifier hs-var">eligible</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679958942"><span class="hs-identifier hs-var">valid</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">|</span><span> </span><span id="local-6989586621679958941"><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679958941"><span class="hs-identifier hs-var">eligible</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#False"><span class="hs-identifier hs-var">False</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Bool
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#True"><span class="hs-identifier hs-var">True</span></a></span><span class="hs-special">]</span><span class="hs-special">,</span><span> </span><span id="local-6989586621679957968"><span class="annot"><span class="annottext">Bool
-</span><a href="#local-6989586621679957968"><span class="hs-identifier hs-var">valid</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Bool
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#True"><span class="hs-identifier hs-var">True</span></a></span><span class="hs-special">]</span><span class="hs-special">,</span><span> </span><span id="local-6989586621679958942"><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679958942"><span class="hs-identifier hs-var">valid</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="hs-special">[</span><span class="annot"><span class="annottext">Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#False"><span class="hs-identifier hs-var">False</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#True"><span class="hs-identifier hs-var">True</span></a></span><span class="hs-special">]</span><span class="hs-special">]</span><span> </span><span class="annot"><span class="annottext">(((Bool, Bool) -&gt; Expectation) -&gt; Expectation)
 -&gt; ((Bool, Bool) -&gt; Expectation) -&gt; Expectation
 forall a b. (a -&gt; b) -&gt; a -&gt; b
-</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="hs-special">(</span><span id="local-6989586621679957969"><span class="annot"><span class="annottext">Bool
-</span><a href="#local-6989586621679957969"><span class="hs-identifier hs-var">eligible</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679957970"><span class="annot"><span class="annottext">Bool
-</span><a href="#local-6989586621679957970"><span class="hs-identifier hs-var">valid</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-59"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span class="annot"><a href="#local-6989586621679957971"><span class="hs-identifier hs-type">ledger</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ledger</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SimpleTx</span></span><span>
-</span><span id="line-60"></span><span>          </span><span id="local-6989586621679957971"><span class="annot"><span class="annottext">ledger :: Ledger SimpleTx
-</span><a href="#local-6989586621679957971"><span class="hs-identifier hs-var hs-var">ledger</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(ChainSlot
+</span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="hs-special">(</span><span id="local-6989586621679958943"><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679958943"><span class="hs-identifier hs-var">eligible</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679958944"><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679958944"><span class="hs-identifier hs-var">valid</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-59"></span><span>      </span><span class="hs-keyword">let</span><span> </span><span class="annot"><a href="#local-6989586621679958945"><span class="hs-identifier hs-type">ledger</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Ledger</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SimpleTx</span></span><span>
+</span><span id="line-60"></span><span>          </span><span id="local-6989586621679958945"><span class="annot"><span class="annottext">ledger :: Ledger SimpleTx
+</span><a href="#local-6989586621679958945"><span class="hs-identifier hs-var hs-var">ledger</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(ChainSlot
  -&gt; UTxOType SimpleTx
  -&gt; [SimpleTx]
  -&gt; Either (SimpleTx, ValidationError) (UTxOType SimpleTx))
@@ -385,41 +385,41 @@ forall tx.
 -&gt; Ledger SimpleTx
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-glyph">\</span><span class="annot"><span class="annottext">ChainSlot
-</span><span class="hs-identifier">_</span></span><span> </span><span id="local-6989586621679957972"><span class="annot"><span class="annottext">UTxOType SimpleTx
-</span><a href="#local-6989586621679957972"><span class="hs-identifier hs-var">utxo</span></a></span></span><span> </span><span class="annot"><span class="annottext">[SimpleTx]
+</span><span class="hs-identifier">_</span></span><span> </span><span id="local-6989586621679958946"><span class="annot"><span class="annottext">UTxOType SimpleTx
+</span><a href="#local-6989586621679958946"><span class="hs-identifier hs-var">utxo</span></a></span></span><span> </span><span class="annot"><span class="annottext">[SimpleTx]
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-61"></span><span>            </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Bool
-</span><a href="#local-6989586621679957970"><span class="hs-identifier hs-var">valid</span></a></span><span> </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut
+</span><a href="#local-6989586621679958944"><span class="hs-identifier hs-var">valid</span></a></span><span> </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut
 -&gt; Either (SimpleTx, ValidationError) (Set SimpleTxOut)
 forall a b. b -&gt; Either a b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Right"><span class="hs-identifier hs-var">Right</span></a></span><span> </span><span class="annot"><span class="annottext">Set SimpleTxOut
 UTxOType SimpleTx
-</span><a href="#local-6989586621679957972"><span class="hs-identifier hs-var">utxo</span></a></span><span> </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">(SimpleTx, ValidationError)
+</span><a href="#local-6989586621679958946"><span class="hs-identifier hs-var">utxo</span></a></span><span> </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">(SimpleTx, ValidationError)
 -&gt; Either (SimpleTx, ValidationError) (Set SimpleTxOut)
 forall a b. a -&gt; Either a b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Either.html#Left"><span class="hs-identifier hs-var">Left</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SimpleTx
 </span><a href="Hydra.HeadLogic.WorkflowSpec.html#transaction"><span class="hs-identifier hs-var">transaction</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">Text -&gt; ValidationError
 </span><span class="hs-identifier hs-var">ValidationError</span></span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;controlled rejection&quot;</span></span><span class="hs-special">)</span><span>
-</span><span id="line-62"></span><span>          </span><span id="local-6989586621679957974"><span class="annot"><span class="annottext">config :: InterpreterConfig SimpleTx
-</span><a href="#local-6989586621679957974"><span class="hs-identifier hs-var hs-var">config</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Ledger SimpleTx -&gt; InterpreterConfig SimpleTx
+</span><span id="line-62"></span><span>          </span><span id="local-6989586621679958948"><span class="annot"><span class="annottext">config :: InterpreterConfig SimpleTx
+</span><a href="#local-6989586621679958948"><span class="hs-identifier hs-var hs-var">config</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Ledger SimpleTx -&gt; InterpreterConfig SimpleTx
 forall tx. IsTx tx =&gt; Ledger tx -&gt; InterpreterConfig tx
 </span><span class="hs-identifier hs-var">testInterpreterConfig</span></span><span> </span><span class="annot"><span class="annottext">Ledger SimpleTx
-</span><a href="#local-6989586621679957971"><span class="hs-identifier hs-var">ledger</span></a></span><span>
-</span><span id="line-63"></span><span>          </span><span id="local-6989586621679957975"><span class="annot"><span class="annottext">workflow :: Workflow SimpleTx TopologyOf ()
-</span><a href="#local-6989586621679957975"><span class="hs-identifier hs-var hs-var">workflow</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Workflow SimpleTx TopologyOf ()
+</span><a href="#local-6989586621679958945"><span class="hs-identifier hs-var">ledger</span></a></span><span>
+</span><span id="line-63"></span><span>          </span><span id="local-6989586621679958949"><span class="annot"><span class="annottext">workflow :: Workflow SimpleTx TopologyOf ()
+</span><a href="#local-6989586621679958949"><span class="hs-identifier hs-var hs-var">workflow</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">Bool -&gt; Workflow SimpleTx TopologyOf ()
 </span><a href="Hydra.HeadLogic.WorkflowSpec.html#example"><span class="hs-identifier hs-var">example</span></a></span><span> </span><span class="annot"><span class="annottext">Bool
-</span><a href="#local-6989586621679957969"><span class="hs-identifier hs-var">eligible</span></a></span><span>
+</span><a href="#local-6989586621679958943"><span class="hs-identifier hs-var">eligible</span></a></span><span>
 </span><span id="line-64"></span><span>      </span><span class="annot"><span class="annottext">InterpreterConfig SimpleTx
 -&gt; Program SimpleTx () -&gt; (Outcome SimpleTx, [TraceStep])
 forall tx.
 InterpreterConfig tx -&gt; Program tx () -&gt; (Outcome tx, [TraceStep])
 </span><span class="hs-identifier hs-var">traceProgram</span></span><span> </span><span class="annot"><span class="annottext">InterpreterConfig SimpleTx
-</span><a href="#local-6989586621679957974"><span class="hs-identifier hs-var">config</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Workflow SimpleTx TopologyOf () -&gt; Program SimpleTx ()
+</span><a href="#local-6989586621679958948"><span class="hs-identifier hs-var">config</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Workflow SimpleTx TopologyOf () -&gt; Program SimpleTx ()
 forall {vertex} tx (topology :: Topology vertex) result.
 Workflow tx topology result -&gt; Program tx result
 </span><span class="hs-identifier hs-var">Workflow.run</span></span><span> </span><span class="annot"><span class="annottext">Workflow SimpleTx TopologyOf ()
-</span><a href="#local-6989586621679957975"><span class="hs-identifier hs-var">workflow</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679958949"><span class="hs-identifier hs-var">workflow</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-65"></span><span>        </span><span class="annot"><span class="annottext">(Outcome SimpleTx, [TraceStep])
 -&gt; (Outcome SimpleTx, [TraceStep]) -&gt; Expectation
 forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; Expectation
@@ -428,21 +428,21 @@ forall a. (HasCallStack, Show a, Eq a) =&gt; a -&gt; a -&gt; Expectation
 forall tx.
 InterpreterConfig tx -&gt; Program tx () -&gt; (Outcome tx, [TraceStep])
 </span><span class="hs-identifier hs-var">traceProgram</span></span><span> </span><span class="annot"><span class="annottext">InterpreterConfig SimpleTx
-</span><a href="#local-6989586621679957974"><span class="hs-identifier hs-var">config</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Workflow SimpleTx TopologyOf () -&gt; Program SimpleTx ()
+</span><a href="#local-6989586621679958948"><span class="hs-identifier hs-var">config</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Workflow SimpleTx TopologyOf () -&gt; Program SimpleTx ()
 forall {vertex} tx (topology :: Topology vertex) result.
 Workflow tx topology result -&gt; Program tx result
 </span><a href="Hydra.HeadLogic.WorkflowSpec.html#runThroughCrem"><span class="hs-identifier hs-var">runThroughCrem</span></a></span><span> </span><span class="annot"><span class="annottext">Workflow SimpleTx TopologyOf ()
-</span><a href="#local-6989586621679957975"><span class="hs-identifier hs-var">workflow</span></a></span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679958949"><span class="hs-identifier hs-var">workflow</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-66"></span><span>
 </span><span id="line-67"></span><span class="hs-comment">-- Keep the general runner as an independent oracle for the direct driver.</span><span>
-</span><span id="line-68"></span><span id="local-6989586621679957977"><span id="local-6989586621679957978"><span id="local-6989586621679957979"><span class="annot"><a href="Hydra.HeadLogic.WorkflowSpec.html#runThroughCrem"><span class="hs-identifier hs-type">runThroughCrem</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Workflow.Workflow</span></span><span> </span><span class="annot"><a href="#local-6989586621679957977"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679957978"><span class="hs-identifier hs-type">topology</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679957979"><span class="hs-identifier hs-type">result</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Program</span></span><span> </span><span class="annot"><a href="#local-6989586621679957977"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679957979"><span class="hs-identifier hs-type">result</span></a></span></span></span></span><span>
+</span><span id="line-68"></span><span id="local-6989586621679958951"><span id="local-6989586621679958952"><span id="local-6989586621679958953"><span class="annot"><a href="Hydra.HeadLogic.WorkflowSpec.html#runThroughCrem"><span class="hs-identifier hs-type">runThroughCrem</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Workflow.Workflow</span></span><span> </span><span class="annot"><a href="#local-6989586621679958951"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679958952"><span class="hs-identifier hs-type">topology</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679958953"><span class="hs-identifier hs-type">result</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Program</span></span><span> </span><span class="annot"><a href="#local-6989586621679958951"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679958953"><span class="hs-identifier hs-type">result</span></a></span></span></span></span><span>
 </span><span id="line-69"></span><span id="runThroughCrem"><span class="annot"><span class="annottext">runThroughCrem :: forall {vertex} tx (topology :: Topology vertex) result.
 Workflow tx topology result -&gt; Program tx result
 </span><a href="Hydra.HeadLogic.WorkflowSpec.html#runThroughCrem"><span class="hs-identifier hs-var hs-var">runThroughCrem</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">StateMachineT (Program tx) () (Maybe result) -&gt; Program tx result
 forall (m :: * -&gt; *) result.
 Monad m =&gt;
 StateMachineT m () (Maybe result) -&gt; m result
-</span><a href="#local-6989586621679957981"><span class="hs-identifier hs-var">drive</span></a></span><span> </span><span class="annot"><span class="annottext">(StateMachineT (Program tx) () (Maybe result) -&gt; Program tx result)
+</span><a href="#local-6989586621679958955"><span class="hs-identifier hs-var">drive</span></a></span><span> </span><span class="annot"><span class="annottext">(StateMachineT (Program tx) () (Maybe result) -&gt; Program tx result)
 -&gt; (Workflow tx topology result
     -&gt; StateMachineT (Program tx) () (Maybe result))
 -&gt; Workflow tx topology result
@@ -456,38 +456,38 @@ BaseMachineT m topology input output
 -&gt; StateMachineT m input output
 </span><span class="hs-identifier hs-var">Crem.Executable</span></span><span>
 </span><span id="line-70"></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-71"></span><span>  </span><span id="local-6989586621679957766"><span id="local-6989586621679957767"><span class="annot"><a href="#local-6989586621679957981"><span class="hs-identifier hs-type">drive</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#Monad"><span class="hs-identifier hs-type">Monad</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679957766"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Crem.StateMachineT</span></span><span> </span><span class="annot"><a href="#local-6989586621679957766"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679957767"><span class="hs-identifier hs-type">result</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679957766"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679957767"><span class="hs-identifier hs-type">result</span></a></span></span></span><span>
-</span><span id="line-72"></span><span>  </span><span id="local-6989586621679957981"><span class="annot"><span class="annottext">drive :: forall (m :: * -&gt; *) result.
+</span><span id="line-71"></span><span>  </span><span id="local-6989586621679958740"><span id="local-6989586621679958741"><span class="annot"><a href="#local-6989586621679958955"><span class="hs-identifier hs-type">drive</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#Monad"><span class="hs-identifier hs-type">Monad</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679958740"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Crem.StateMachineT</span></span><span> </span><span class="annot"><a href="#local-6989586621679958740"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span> </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679958741"><span class="hs-identifier hs-type">result</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><a href="#local-6989586621679958740"><span class="hs-identifier hs-type">m</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679958741"><span class="hs-identifier hs-type">result</span></a></span></span></span><span>
+</span><span id="line-72"></span><span>  </span><span id="local-6989586621679958955"><span class="annot"><span class="annottext">drive :: forall (m :: * -&gt; *) result.
 Monad m =&gt;
 StateMachineT m () (Maybe result) -&gt; m result
-</span><a href="#local-6989586621679957981"><span class="hs-identifier hs-var hs-var">drive</span></a></span></span><span> </span><span id="local-6989586621679957990"><span class="annot"><span class="annottext">StateMachineT m () (Maybe result)
-</span><a href="#local-6989586621679957990"><span class="hs-identifier hs-var">machine</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-73"></span><span>    </span><span class="hs-special">(</span><span id="local-6989586621679957991"><span class="annot"><span class="annottext">Maybe result
-</span><a href="#local-6989586621679957991"><span class="hs-identifier hs-var">result</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679957992"><span class="annot"><span class="annottext">StateMachineT m () (Maybe result)
-</span><a href="#local-6989586621679957992"><span class="hs-identifier hs-var">remaining</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">StateMachineT m () (Maybe result)
+</span><a href="#local-6989586621679958955"><span class="hs-identifier hs-var hs-var">drive</span></a></span></span><span> </span><span id="local-6989586621679958964"><span class="annot"><span class="annottext">StateMachineT m () (Maybe result)
+</span><a href="#local-6989586621679958964"><span class="hs-identifier hs-var">machine</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><span id="line-73"></span><span>    </span><span class="hs-special">(</span><span id="local-6989586621679958965"><span class="annot"><span class="annottext">Maybe result
+</span><a href="#local-6989586621679958965"><span class="hs-identifier hs-var">result</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621679958966"><span class="annot"><span class="annottext">StateMachineT m () (Maybe result)
+</span><a href="#local-6989586621679958966"><span class="hs-identifier hs-var">remaining</span></a></span></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">StateMachineT m () (Maybe result)
 -&gt; () -&gt; m (Maybe result, StateMachineT m () (Maybe result))
 forall (m :: * -&gt; *) a b.
 Monad m =&gt;
 StateMachineT m a b -&gt; a -&gt; m (b, StateMachineT m a b)
 </span><span class="hs-identifier hs-var">Crem.run</span></span><span> </span><span class="annot"><span class="annottext">StateMachineT m () (Maybe result)
-</span><a href="#local-6989586621679957990"><span class="hs-identifier hs-var">machine</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
+</span><a href="#local-6989586621679958964"><span class="hs-identifier hs-var">machine</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
 </span><span id="line-74"></span><span>    </span><span class="annot"><span class="annottext">m result -&gt; (result -&gt; m result) -&gt; Maybe result -&gt; m result
 forall b a. b -&gt; (a -&gt; b) -&gt; Maybe a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/Data.Maybe.html#maybe"><span class="hs-identifier hs-var">maybe</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">StateMachineT m () (Maybe result) -&gt; m result
 forall (m :: * -&gt; *) result.
 Monad m =&gt;
 StateMachineT m () (Maybe result) -&gt; m result
-</span><a href="#local-6989586621679957981"><span class="hs-identifier hs-var">drive</span></a></span><span> </span><span class="annot"><span class="annottext">StateMachineT m () (Maybe result)
-</span><a href="#local-6989586621679957992"><span class="hs-identifier hs-var">remaining</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">result -&gt; m result
+</span><a href="#local-6989586621679958955"><span class="hs-identifier hs-var">drive</span></a></span><span> </span><span class="annot"><span class="annottext">StateMachineT m () (Maybe result)
+</span><a href="#local-6989586621679958966"><span class="hs-identifier hs-var">remaining</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">result -&gt; m result
 forall a. a -&gt; m a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe result
-</span><a href="#local-6989586621679957991"><span class="hs-identifier hs-var">result</span></a></span><span>
+</span><a href="#local-6989586621679958965"><span class="hs-identifier hs-var">result</span></a></span><span>
 </span><span id="line-75"></span><span>
 </span><span id="line-76"></span><span class="annot"><a href="Hydra.HeadLogic.WorkflowSpec.html#example"><span class="hs-identifier hs-type">example</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Types.html#Bool"><span class="hs-identifier hs-type">Bool</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Workflow.Workflow</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SimpleTx</span></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.WorkflowSpec.html#TopologyOf"><span class="hs-identifier hs-type">TopologyOf</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
 </span><span id="line-77"></span><span id="example"><span class="annot"><span class="annottext">example :: Bool -&gt; Workflow SimpleTx TopologyOf ()
-</span><a href="Hydra.HeadLogic.WorkflowSpec.html#example"><span class="hs-identifier hs-var hs-var">example</span></a></span></span><span> </span><span id="local-6989586621679957995"><span class="annot"><span class="annottext">Bool
-</span><a href="#local-6989586621679957995"><span class="hs-identifier hs-var">eligible</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(forall (phase :: Phase). State phase -&gt; Text)
+</span><a href="Hydra.HeadLogic.WorkflowSpec.html#example"><span class="hs-identifier hs-var hs-var">example</span></a></span></span><span> </span><span id="local-6989586621679958969"><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679958969"><span class="hs-identifier hs-var">eligible</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(forall (phase :: Phase). State phase -&gt; Text)
 -&gt; State 'Deciding
 -&gt; (forall (from :: Phase).
     State from -&gt; Transition SimpleTx TopologyOf State from ())
@@ -501,15 +501,15 @@ forall {k} (state :: k -&gt; *) (initial :: k) tx
 -&gt; Workflow tx topology result
 </span><span class="hs-identifier hs-var">Workflow.workflow</span></span><span> </span><span class="annot"><span class="annottext">State phase -&gt; Text
 forall (phase :: Phase). State phase -&gt; Text
-</span><a href="#local-6989586621679957996"><span class="hs-identifier hs-var">describePhase</span></a></span><span> </span><span class="annot"><span class="annottext">State 'Deciding
+</span><a href="#local-6989586621679958970"><span class="hs-identifier hs-var">describePhase</span></a></span><span> </span><span class="annot"><span class="annottext">State 'Deciding
 </span><a href="Hydra.HeadLogic.WorkflowSpec.html#Decide"><span class="hs-identifier hs-var">Decide</span></a></span><span> </span><span class="annot"><span class="annottext">State from -&gt; Transition SimpleTx TopologyOf State from ()
 forall (from :: Phase).
 State from -&gt; Transition SimpleTx TopologyOf State from ()
-</span><a href="#local-6989586621679957997"><span class="hs-identifier hs-var">step</span></a></span><span>
+</span><a href="#local-6989586621679958971"><span class="hs-identifier hs-var">step</span></a></span><span>
 </span><span id="line-78"></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-79"></span><span>  </span><span id="local-6989586621679957998"><span class="annot"><a href="#local-6989586621679957996"><span class="hs-identifier hs-type">describePhase</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.WorkflowSpec.html#State"><span class="hs-identifier hs-type">State</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679957998"><span class="hs-identifier hs-type">phase</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span></span><span>
-</span><span id="line-80"></span><span>  </span><span id="local-6989586621679957996"><span class="annot"><span class="annottext">describePhase :: forall (phase :: Phase). State phase -&gt; Text
-</span><a href="#local-6989586621679957996"><span class="hs-identifier hs-var hs-var">describePhase</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><span id="line-79"></span><span>  </span><span id="local-6989586621679958972"><span class="annot"><a href="#local-6989586621679958970"><span class="hs-identifier hs-type">describePhase</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.WorkflowSpec.html#State"><span class="hs-identifier hs-type">State</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679958972"><span class="hs-identifier hs-type">phase</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Text</span></span></span><span>
+</span><span id="line-80"></span><span>  </span><span id="local-6989586621679958970"><span class="annot"><span class="annottext">describePhase :: forall (phase :: Phase). State phase -&gt; Text
+</span><a href="#local-6989586621679958970"><span class="hs-identifier hs-var hs-var">describePhase</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
 </span><span id="line-81"></span><span>    </span><span class="annot"><span class="annottext">State phase
 </span><a href="Hydra.HeadLogic.WorkflowSpec.html#Decide"><span class="hs-identifier hs-var">Decide</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;deciding&quot;</span></span><span>
@@ -520,10 +520,10 @@ State from -&gt; Transition SimpleTx TopologyOf State from ()
 </span><a href="Hydra.HeadLogic.WorkflowSpec.html#Complete"><span class="hs-identifier hs-var">Complete</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;completed&quot;</span></span><span>
 </span><span id="line-84"></span><span>
-</span><span id="line-85"></span><span>  </span><span id="local-6989586621679958005"><span class="annot"><a href="#local-6989586621679957997"><span class="hs-identifier hs-type">step</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.WorkflowSpec.html#State"><span class="hs-identifier hs-type">State</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679958005"><span class="hs-identifier hs-type">phase</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Workflow.Transition</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SimpleTx</span></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.WorkflowSpec.html#TopologyOf"><span class="hs-identifier hs-type">TopologyOf</span></a></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.WorkflowSpec.html#State"><span class="hs-identifier hs-type">State</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679958005"><span class="hs-identifier hs-type">phase</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
-</span><span id="line-86"></span><span>  </span><span id="local-6989586621679957997"><span class="annot"><span class="annottext">step :: forall (from :: Phase).
+</span><span id="line-85"></span><span>  </span><span id="local-6989586621679958979"><span class="annot"><a href="#local-6989586621679958971"><span class="hs-identifier hs-type">step</span></a></span><span> </span><span class="hs-glyph">::</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.WorkflowSpec.html#State"><span class="hs-identifier hs-type">State</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679958979"><span class="hs-identifier hs-type">phase</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="hs-identifier hs-type">Workflow.Transition</span></span><span> </span><span class="annot"><span class="hs-identifier hs-type">SimpleTx</span></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.WorkflowSpec.html#TopologyOf"><span class="hs-identifier hs-type">TopologyOf</span></a></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.WorkflowSpec.html#State"><span class="hs-identifier hs-type">State</span></a></span><span> </span><span class="annot"><a href="#local-6989586621679958979"><span class="hs-identifier hs-type">phase</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-86"></span><span>  </span><span id="local-6989586621679958971"><span class="annot"><span class="annottext">step :: forall (from :: Phase).
 State from -&gt; Transition SimpleTx TopologyOf State from ()
-</span><a href="#local-6989586621679957997"><span class="hs-identifier hs-var hs-var">step</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
+</span><a href="#local-6989586621679958971"><span class="hs-identifier hs-var hs-var">step</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-glyph">\</span><span class="hs-glyph">case</span><span>
 </span><span id="line-87"></span><span>    </span><span class="annot"><span class="annottext">State phase
 </span><a href="Hydra.HeadLogic.WorkflowSpec.html#Decide"><span class="hs-identifier hs-var">Decide</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">Program SimpleTx (Destination TopologyOf State phase ())
 -&gt; Transition SimpleTx TopologyOf State phase ()
@@ -537,14 +537,14 @@ Program tx (Destination topology state from result)
 -&gt; Transition SimpleTx TopologyOf State phase ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-88"></span><span>      </span><span id="local-6989586621679958016"><span class="annot"><span class="annottext">Bool
-</span><a href="#local-6989586621679958016"><span class="hs-identifier hs-var">proceed</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Bool -&gt; Program SimpleTx Bool
+</span><span id="line-88"></span><span>      </span><span id="local-6989586621679958990"><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621679958990"><span class="hs-identifier hs-var">proceed</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">Text -&gt; Bool -&gt; Program SimpleTx Bool
 forall tx. Text -&gt; Bool -&gt; Program tx Bool
 </span><span class="hs-identifier hs-var">traceB</span></span><span> </span><span class="annot"><span class="annottext">Text
 </span><span class="hs-string">&quot;eligible&quot;</span></span><span> </span><span class="annot"><span class="annottext">Bool
-</span><a href="#local-6989586621679957995"><span class="hs-identifier hs-var">eligible</span></a></span><span>
+</span><a href="#local-6989586621679958969"><span class="hs-identifier hs-var">eligible</span></a></span><span>
 </span><span id="line-89"></span><span>      </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Bool
-</span><a href="#local-6989586621679958016"><span class="hs-identifier hs-var">proceed</span></a></span><span>
+</span><a href="#local-6989586621679958990"><span class="hs-identifier hs-var">proceed</span></a></span><span>
 </span><span id="line-90"></span><span>        </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">Destination TopologyOf State phase ()
 -&gt; Program SimpleTx (Destination TopologyOf State phase ())
 forall a. a -&gt; Program SimpleTx a
@@ -591,8 +591,8 @@ forall a b. a -&gt; b -&gt; a
 -&gt; Transition SimpleTx TopologyOf State phase ()
 forall a b. (a -&gt; b) -&gt; a -&gt; b
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#%24"><span class="hs-operator hs-var">$</span></a></span><span> </span><span class="hs-keyword">do</span><span>
-</span><span id="line-93"></span><span>      </span><span id="local-6989586621679958032"><span class="annot"><span class="annottext">Either ValidationError (Set SimpleTxOut)
-</span><a href="#local-6989586621679958032"><span class="hs-identifier hs-var">result</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">ChainSlot
+</span><span id="line-93"></span><span>      </span><span id="local-6989586621679959006"><span class="annot"><span class="annottext">Either ValidationError (Set SimpleTxOut)
+</span><a href="#local-6989586621679959006"><span class="hs-identifier hs-var">result</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">ChainSlot
 -&gt; UTxOType SimpleTx
 -&gt; SimpleTx
 -&gt; Program SimpleTx (Either ValidationError (UTxOType SimpleTx))
@@ -642,7 +642,7 @@ forall tx. tx -&gt; StateChanged tx
 </span><span class="hs-identifier hs-var">TransactionReceived</span></span><span> </span><span class="annot"><span class="annottext">SimpleTx
 </span><a href="Hydra.HeadLogic.WorkflowSpec.html#transaction"><span class="hs-identifier hs-var">transaction</span></a></span><span class="hs-special">)</span><span>
 </span><span id="line-97"></span><span>        </span><span class="annot"><span class="annottext">Either ValidationError (Set SimpleTxOut)
-</span><a href="#local-6989586621679958032"><span class="hs-identifier hs-var">result</span></a></span><span>
+</span><a href="#local-6989586621679959006"><span class="hs-identifier hs-var">result</span></a></span><span>
 </span><span id="line-98"></span><span>    </span><span class="annot"><span class="annottext">State phase
 </span><a href="Hydra.HeadLogic.WorkflowSpec.html#Complete"><span class="hs-identifier hs-var">Complete</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">State phase -&gt; () -&gt; Transition SimpleTx TopologyOf State phase ()
 forall {vertex} (state :: vertex -&gt; *) (phase :: vertex) result tx

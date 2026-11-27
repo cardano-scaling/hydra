@@ -240,8 +240,18 @@ prop_picksLargestUTxOToPayTheFees :: Property
 --   The generator is geared towards certain use-cases,
 genTxsSpending :: Map TxIn TxOut -> Gen [Tx TopTx LedgerEra]
 genUTxO :: Gen (Map TxIn TxOut)
+
+-- | A wallet with ada-only fuel alongside arbitrary outputs, including
+--   tokens.
+genFuelUTxO :: Gen (Map TxIn TxOut)
 genOutputsForInputs :: Tx TopTx LedgerEra -> Gen (Map TxIn TxOut)
 genLedgerTx :: Gen (Tx TopTx LedgerEra)
+mixedWalletUTxO :: Map TxIn TxOut
+smallAdaInput :: TxIn
+largeAdaInput :: TxIn
+tokenInput :: TxIn
+fuelPParams :: PParams LedgerEra
+newFuelWallet :: Map TxIn TxOut -> IO (TinyWallet IO)
 allTxIns :: [Tx TopTx LedgerEra] -> Set TxIn
 allTxOuts :: [Tx TopTx LedgerEra] -> [TxOut]
 isOurs :: Map TxIn TxOut -> Address -> Bool

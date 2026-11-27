@@ -52,17 +52,17 @@
 </span><span id="line-52"></span><span>  </span><span class="annot"><span class="hs-identifier">getSnapshot</span></span><span class="hs-special">,</span><span>
 </span><span id="line-53"></span><span> </span><span class="hs-special">)</span><span>
 </span><span id="line-54"></span><span>
-</span><span id="line-55"></span><span id="local-6989586621681047405"><span class="annot"><a href="Hydra.HeadLogic.Rules.Chain.Rollback.html#maybeRepostIncrementTx"><span class="hs-identifier hs-type">maybeRepostIncrementTx</span></a></span><span> </span><span class="hs-glyph">::</span><span>
-</span><span id="line-56"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">IsTx</span></span><span> </span><span class="annot"><a href="#local-6989586621681047405"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-55"></span><span id="local-6989586621681047638"><span class="annot"><a href="Hydra.HeadLogic.Rules.Chain.Rollback.html#maybeRepostIncrementTx"><span class="hs-identifier hs-type">maybeRepostIncrementTx</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-56"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">IsTx</span></span><span> </span><span class="annot"><a href="#local-6989586621681047638"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span>
 </span><span id="line-57"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">HeadSeed</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-58"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">HeadId</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-59"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">HeadParameters</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-60"></span><span>  </span><span class="annot"><a href="Hydra.Node.State.html#PendingDeposits"><span class="hs-identifier hs-type">PendingDeposits</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681047405"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-61"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">ConfirmedSnapshot</span></span><span> </span><span class="annot"><a href="#local-6989586621681047405"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-62"></span><span>  </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.State.html#FinalizedSnapshot"><span class="hs-identifier hs-type">FinalizedSnapshot</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681047405"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-60"></span><span>  </span><span class="annot"><a href="Hydra.Node.State.html#PendingDeposits"><span class="hs-identifier hs-type">PendingDeposits</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681047638"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-61"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">ConfirmedSnapshot</span></span><span> </span><span class="annot"><a href="#local-6989586621681047638"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-62"></span><span>  </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.State.html#FinalizedSnapshot"><span class="hs-identifier hs-type">FinalizedSnapshot</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681047638"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-63"></span><span>  </span><span class="annot"><span class="hs-comment">-- | Slot rolled back to</span></span><span>
 </span><span id="line-64"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">ChainSlot</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-65"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Program.html#Program"><span class="hs-identifier hs-type">Program</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681047405"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-65"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Program.html#Program"><span class="hs-identifier hs-type">Program</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681047638"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
 </span><span id="line-66"></span><span id="maybeRepostIncrementTx"><span class="annot"><span class="annottext">maybeRepostIncrementTx :: forall tx.
 IsTx tx =&gt;
 HeadSeed
@@ -73,81 +73,81 @@ HeadSeed
 -&gt; Maybe (FinalizedSnapshot tx)
 -&gt; ChainSlot
 -&gt; Program tx ()
-</span><a href="Hydra.HeadLogic.Rules.Chain.Rollback.html#maybeRepostIncrementTx"><span class="hs-identifier hs-var hs-var">maybeRepostIncrementTx</span></a></span></span><span> </span><span id="local-6989586621681047499"><span class="annot"><span class="annottext">HeadSeed
-</span><a href="#local-6989586621681047499"><span class="hs-identifier hs-var">headSeed</span></a></span></span><span> </span><span id="local-6989586621681047500"><span class="annot"><span class="annottext">HeadId
-</span><a href="#local-6989586621681047500"><span class="hs-identifier hs-var">headId</span></a></span></span><span> </span><span id="local-6989586621681047501"><span class="annot"><span class="annottext">HeadParameters
-</span><a href="#local-6989586621681047501"><span class="hs-identifier hs-var">parameters</span></a></span></span><span> </span><span id="local-6989586621681047502"><span class="annot"><span class="annottext">PendingDeposits tx
-</span><a href="#local-6989586621681047502"><span class="hs-identifier hs-var">pendingDeposits</span></a></span></span><span> </span><span id="local-6989586621681047503"><span class="annot"><span class="annottext">ConfirmedSnapshot tx
-</span><a href="#local-6989586621681047503"><span class="hs-identifier hs-var">confirmedSnapshot</span></a></span></span><span> </span><span id="local-6989586621681047504"><span class="annot"><span class="annottext">Maybe (FinalizedSnapshot tx)
-</span><a href="#local-6989586621681047504"><span class="hs-identifier hs-var">finalizedCommit</span></a></span></span><span> </span><span id="local-6989586621681047505"><span class="annot"><span class="annottext">ChainSlot
-</span><a href="#local-6989586621681047505"><span class="hs-identifier hs-var">rolledBackSlot</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="Hydra.HeadLogic.Rules.Chain.Rollback.html#maybeRepostIncrementTx"><span class="hs-identifier hs-var hs-var">maybeRepostIncrementTx</span></a></span></span><span> </span><span id="local-6989586621681047732"><span class="annot"><span class="annottext">HeadSeed
+</span><a href="#local-6989586621681047732"><span class="hs-identifier hs-var">headSeed</span></a></span></span><span> </span><span id="local-6989586621681047733"><span class="annot"><span class="annottext">HeadId
+</span><a href="#local-6989586621681047733"><span class="hs-identifier hs-var">headId</span></a></span></span><span> </span><span id="local-6989586621681047734"><span class="annot"><span class="annottext">HeadParameters
+</span><a href="#local-6989586621681047734"><span class="hs-identifier hs-var">parameters</span></a></span></span><span> </span><span id="local-6989586621681047735"><span class="annot"><span class="annottext">PendingDeposits tx
+</span><a href="#local-6989586621681047735"><span class="hs-identifier hs-var">pendingDeposits</span></a></span></span><span> </span><span id="local-6989586621681047736"><span class="annot"><span class="annottext">ConfirmedSnapshot tx
+</span><a href="#local-6989586621681047736"><span class="hs-identifier hs-var">confirmedSnapshot</span></a></span></span><span> </span><span id="local-6989586621681047737"><span class="annot"><span class="annottext">Maybe (FinalizedSnapshot tx)
+</span><a href="#local-6989586621681047737"><span class="hs-identifier hs-var">finalizedCommit</span></a></span></span><span> </span><span id="local-6989586621681047738"><span class="annot"><span class="annottext">ChainSlot
+</span><a href="#local-6989586621681047738"><span class="hs-identifier hs-var">rolledBackSlot</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-67"></span><span>  </span><span class="hs-comment">-- NOTE: the deposit comes from the confirmed snapshot itself, not from</span><span>
 </span><span id="line-68"></span><span>  </span><span class="hs-comment">-- 'currentDepositTxId'. Only the deposit bound into the signed snapshot can be</span><span>
 </span><span id="line-69"></span><span>  </span><span class="hs-comment">-- claimed on-chain, and 'DepositActivated' can set 'currentDepositTxId' to an</span><span>
 </span><span id="line-70"></span><span>  </span><span class="hs-comment">-- unrelated deposit after that snapshot was confirmed.</span><span>
 </span><span id="line-71"></span><span>  </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">ConfirmedSnapshot tx
-</span><a href="#local-6989586621681047503"><span class="hs-identifier hs-var">confirmedSnapshot</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><a href="#local-6989586621681047736"><span class="hs-identifier hs-var">confirmedSnapshot</span></a></span><span> </span><span class="hs-keyword">of</span><span>
 </span><span id="line-72"></span><span>    </span><span class="annot"><span class="hs-identifier hs-type">ConfirmedSnapshot</span></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:snapshot:InitialSnapshot :: forall tx. ConfirmedSnapshot tx -&gt; Snapshot tx
-</span><span class="hs-identifier hs-var">snapshot</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="local-6989586621681047508"><span class="annot"><span class="annottext">snapshot :: Snapshot tx
-</span><a href="#local-6989586621681047508"><span class="hs-identifier hs-var">snapshot</span></a></span></span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">Snapshot</span></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:utxoToCommit:Snapshot :: forall tx. Snapshot tx -&gt; Maybe (UTxOType tx)
+</span><span class="hs-identifier hs-var">snapshot</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="local-6989586621681047741"><span class="annot"><span class="annottext">snapshot :: Snapshot tx
+</span><a href="#local-6989586621681047741"><span class="hs-identifier hs-var">snapshot</span></a></span></span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">Snapshot</span></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:utxoToCommit:Snapshot :: forall tx. Snapshot tx -&gt; Maybe (UTxOType tx)
 </span><span class="hs-identifier hs-var">utxoToCommit</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span class="annot"><span class="annottext">UTxOType tx
 </span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:depositTxId:Snapshot :: forall tx. Snapshot tx -&gt; Maybe (TxIdType tx)
-</span><span class="hs-identifier hs-var">depositTxId</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span id="local-6989586621681047512"><span class="annot"><span class="annottext">TxIdType tx
-</span><a href="#local-6989586621681047512"><span class="hs-identifier hs-var">depositTxId</span></a></span></span><span class="hs-special">}</span><span class="hs-special">,</span><span> </span><span id="local-6989586621681047513"><span class="annot"><span class="annottext">MultiSignature (Snapshot tx)
+</span><span class="hs-identifier hs-var">depositTxId</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span id="local-6989586621681047745"><span class="annot"><span class="annottext">TxIdType tx
+</span><a href="#local-6989586621681047745"><span class="hs-identifier hs-var">depositTxId</span></a></span></span><span class="hs-special">}</span><span class="hs-special">,</span><span> </span><span id="local-6989586621681047746"><span class="annot"><span class="annottext">MultiSignature (Snapshot tx)
 signatures :: MultiSignature (Snapshot tx)
 $sel:signatures:InitialSnapshot :: forall tx. ConfirmedSnapshot tx -&gt; MultiSignature (Snapshot tx)
-</span><a href="#local-6989586621681047513"><span class="hs-identifier hs-var hs-var">signatures</span></a></span></span><span class="hs-special">}</span><span>
+</span><a href="#local-6989586621681047746"><span class="hs-identifier hs-var hs-var">signatures</span></a></span></span><span class="hs-special">}</span><span>
 </span><span id="line-73"></span><span>      </span><span class="hs-glyph">|</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Deposit.html#Deposit"><span class="hs-identifier hs-type">Deposit</span></a></span><span class="hs-special">{</span><span class="hs-special">}</span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="annot"><span class="annottext">TxIdType tx -&gt; PendingDeposits tx -&gt; Maybe (Deposit tx)
 forall k a. Ord k =&gt; k -&gt; Map k a -&gt; Maybe a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/containers-0.6.7/src/Data.Map.Internal.html#lookup"><span class="hs-identifier hs-var">Map.lookup</span></a></span><span> </span><span class="annot"><span class="annottext">TxIdType tx
-</span><a href="#local-6989586621681047512"><span class="hs-identifier hs-var">depositTxId</span></a></span><span> </span><span class="annot"><span class="annottext">PendingDeposits tx
-</span><a href="#local-6989586621681047502"><span class="hs-identifier hs-var">pendingDeposits</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><a href="#local-6989586621681047745"><span class="hs-identifier hs-var">depositTxId</span></a></span><span> </span><span class="annot"><span class="annottext">PendingDeposits tx
+</span><a href="#local-6989586621681047735"><span class="hs-identifier hs-var">pendingDeposits</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-74"></span><span>          </span><span class="annot"><span class="annottext">ConfirmedSnapshot tx -&gt; TxIdType tx -&gt; Program tx ()
-</span><a href="#local-6989586621681047516"><span class="hs-identifier hs-var">repost</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ConfirmedSnapshot</span></span><span class="hs-special">{</span><span class="annot"><span class="annottext">Snapshot tx
+</span><a href="#local-6989586621681047749"><span class="hs-identifier hs-var">repost</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ConfirmedSnapshot</span></span><span class="hs-special">{</span><span class="annot"><span class="annottext">Snapshot tx
 $sel:snapshot:InitialSnapshot :: Snapshot tx
 snapshot :: Snapshot tx
 </span><span class="hs-identifier hs-var hs-var">snapshot</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">MultiSignature (Snapshot tx)
 signatures :: MultiSignature (Snapshot tx)
 $sel:signatures:InitialSnapshot :: MultiSignature (Snapshot tx)
-</span><a href="#local-6989586621681047513"><span class="hs-identifier hs-var hs-var">signatures</span></a></span><span class="hs-special">}</span><span> </span><span class="annot"><span class="annottext">TxIdType tx
-</span><a href="#local-6989586621681047512"><span class="hs-identifier hs-var">depositTxId</span></a></span><span>
+</span><a href="#local-6989586621681047746"><span class="hs-identifier hs-var hs-var">signatures</span></a></span><span class="hs-special">}</span><span> </span><span class="annot"><span class="annottext">TxIdType tx
+</span><a href="#local-6989586621681047745"><span class="hs-identifier hs-var">depositTxId</span></a></span><span>
 </span><span id="line-75"></span><span>    </span><span class="annot"><span class="annottext">ConfirmedSnapshot tx
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-76"></span><span>      </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Maybe (FinalizedSnapshot tx)
-</span><a href="#local-6989586621681047504"><span class="hs-identifier hs-var">finalizedCommit</span></a></span><span> </span><span class="hs-keyword">of</span><span>
-</span><span id="line-77"></span><span>        </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.html#FinalizedSnapshot"><span class="hs-identifier hs-type">FinalizedSnapshot</span></a></span><span class="hs-special">{</span><span id="local-6989586621681047518"><span class="annot"><span class="annottext">ConfirmedSnapshot tx
+</span><a href="#local-6989586621681047737"><span class="hs-identifier hs-var">finalizedCommit</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-77"></span><span>        </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.html#FinalizedSnapshot"><span class="hs-identifier hs-type">FinalizedSnapshot</span></a></span><span class="hs-special">{</span><span id="local-6989586621681047751"><span class="annot"><span class="annottext">ConfirmedSnapshot tx
 snapshot :: ConfirmedSnapshot tx
 $sel:snapshot:FinalizedSnapshot :: forall tx. FinalizedSnapshot tx -&gt; ConfirmedSnapshot tx
-</span><a href="#local-6989586621681047518"><span class="hs-identifier hs-var hs-var">snapshot</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681047520"><span class="annot"><span class="annottext">ChainSlot
+</span><a href="#local-6989586621681047751"><span class="hs-identifier hs-var hs-var">snapshot</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681047753"><span class="annot"><span class="annottext">ChainSlot
 observedAtSlot :: ChainSlot
 $sel:observedAtSlot:FinalizedSnapshot :: forall tx. FinalizedSnapshot tx -&gt; ChainSlot
-</span><a href="#local-6989586621681047520"><span class="hs-identifier hs-var hs-var">observedAtSlot</span></a></span></span><span class="hs-special">}</span><span>
+</span><a href="#local-6989586621681047753"><span class="hs-identifier hs-var hs-var">observedAtSlot</span></a></span></span><span class="hs-special">}</span><span>
 </span><span id="line-78"></span><span>          </span><span class="hs-comment">-- Strictly (&lt;): the rollback point is the last common block, so</span><span>
 </span><span id="line-79"></span><span>          </span><span class="hs-comment">-- rolling back TO the increment's slot means it is still on chain.</span><span>
 </span><span id="line-80"></span><span>          </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">ChainSlot
-</span><a href="#local-6989586621681047505"><span class="hs-identifier hs-var">rolledBackSlot</span></a></span><span> </span><span class="annot"><span class="annottext">ChainSlot -&gt; ChainSlot -&gt; Bool
+</span><a href="#local-6989586621681047738"><span class="hs-identifier hs-var">rolledBackSlot</span></a></span><span> </span><span class="annot"><span class="annottext">ChainSlot -&gt; ChainSlot -&gt; Bool
 forall a. Ord a =&gt; a -&gt; a -&gt; Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3C"><span class="hs-operator hs-var">&lt;</span></a></span><span> </span><span class="annot"><span class="annottext">ChainSlot
-</span><a href="#local-6989586621681047520"><span class="hs-identifier hs-var">observedAtSlot</span></a></span><span>
-</span><span id="line-81"></span><span>          </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span id="local-6989586621681047523"><span class="annot"><span class="annottext">TxIdType tx
-</span><a href="#local-6989586621681047523"><span class="hs-identifier hs-var">depositTxId</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ConfirmedSnapshot tx -&gt; Snapshot tx
+</span><a href="#local-6989586621681047753"><span class="hs-identifier hs-var">observedAtSlot</span></a></span><span>
+</span><span id="line-81"></span><span>          </span><span class="hs-special">,</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span id="local-6989586621681047756"><span class="annot"><span class="annottext">TxIdType tx
+</span><a href="#local-6989586621681047756"><span class="hs-identifier hs-var">depositTxId</span></a></span></span><span> </span><span class="hs-glyph">&lt;-</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ConfirmedSnapshot tx -&gt; Snapshot tx
 forall tx. IsTx tx =&gt; ConfirmedSnapshot tx -&gt; Snapshot tx
 </span><span class="hs-identifier hs-var">getSnapshot</span></span><span> </span><span class="annot"><span class="annottext">ConfirmedSnapshot tx
-</span><a href="#local-6989586621681047518"><span class="hs-identifier hs-var">snapshot</span></a></span><span class="hs-special">)</span><span class="hs-operator">.</span><span class="hs-identifier">depositTxId</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><a href="#local-6989586621681047751"><span class="hs-identifier hs-var">snapshot</span></a></span><span class="hs-special">)</span><span class="hs-operator">.</span><span class="hs-identifier">depositTxId</span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-82"></span><span>              </span><span class="annot"><span class="annottext">ConfirmedSnapshot tx -&gt; TxIdType tx -&gt; Program tx ()
-</span><a href="#local-6989586621681047516"><span class="hs-identifier hs-var">repost</span></a></span><span> </span><span class="annot"><span class="annottext">ConfirmedSnapshot tx
-</span><a href="#local-6989586621681047518"><span class="hs-identifier hs-var">snapshot</span></a></span><span> </span><span class="annot"><span class="annottext">TxIdType tx
-</span><a href="#local-6989586621681047523"><span class="hs-identifier hs-var">depositTxId</span></a></span><span>
+</span><a href="#local-6989586621681047749"><span class="hs-identifier hs-var">repost</span></a></span><span> </span><span class="annot"><span class="annottext">ConfirmedSnapshot tx
+</span><a href="#local-6989586621681047751"><span class="hs-identifier hs-var">snapshot</span></a></span><span> </span><span class="annot"><span class="annottext">TxIdType tx
+</span><a href="#local-6989586621681047756"><span class="hs-identifier hs-var">depositTxId</span></a></span><span>
 </span><span id="line-83"></span><span>        </span><span class="annot"><span class="annottext">Maybe (FinalizedSnapshot tx)
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">() -&gt; Program tx ()
 forall a. a -&gt; Program tx a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
 </span><span id="line-84"></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-85"></span><span>  </span><span id="local-6989586621681047516"><span class="annot"><span class="annottext">repost :: ConfirmedSnapshot tx -&gt; TxIdType tx -&gt; Program tx ()
-</span><a href="#local-6989586621681047516"><span class="hs-identifier hs-var hs-var">repost</span></a></span></span><span> </span><span id="local-6989586621681047524"><span class="annot"><span class="annottext">ConfirmedSnapshot tx
-</span><a href="#local-6989586621681047524"><span class="hs-identifier hs-var">incrementingSnapshot</span></a></span></span><span> </span><span id="local-6989586621681047525"><span class="annot"><span class="annottext">TxIdType tx
-</span><a href="#local-6989586621681047525"><span class="hs-identifier hs-var">depositTxId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-85"></span><span>  </span><span id="local-6989586621681047749"><span class="annot"><span class="annottext">repost :: ConfirmedSnapshot tx -&gt; TxIdType tx -&gt; Program tx ()
+</span><a href="#local-6989586621681047749"><span class="hs-identifier hs-var hs-var">repost</span></a></span></span><span> </span><span id="local-6989586621681047757"><span class="annot"><span class="annottext">ConfirmedSnapshot tx
+</span><a href="#local-6989586621681047757"><span class="hs-identifier hs-var">incrementingSnapshot</span></a></span></span><span> </span><span id="local-6989586621681047758"><span class="annot"><span class="annottext">TxIdType tx
+</span><a href="#local-6989586621681047758"><span class="hs-identifier hs-var">depositTxId</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-86"></span><span>    </span><span class="annot"><span class="annottext">Effect tx -&gt; Program tx ()
 forall tx. Effect tx -&gt; Program tx ()
 </span><a href="Hydra.HeadLogic.Program.html#emit"><span class="hs-identifier hs-var">emit</span></a></span><span>
@@ -158,22 +158,22 @@ forall tx. Effect tx -&gt; Program tx ()
 </span><span id="line-90"></span><span>              </span><span class="hs-special">{</span><span> </span><span class="annot"><span class="annottext">HeadSeed
 headSeed :: HeadSeed
 $sel:headSeed:InitTx :: HeadSeed
-</span><a href="#local-6989586621681047499"><span class="hs-identifier hs-var hs-var">headSeed</span></a></span><span>
+</span><a href="#local-6989586621681047732"><span class="hs-identifier hs-var hs-var">headSeed</span></a></span><span>
 </span><span id="line-91"></span><span>              </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">HeadId
 headId :: HeadId
 $sel:headId:InitTx :: HeadId
-</span><a href="#local-6989586621681047500"><span class="hs-identifier hs-var hs-var">headId</span></a></span><span>
+</span><a href="#local-6989586621681047733"><span class="hs-identifier hs-var hs-var">headId</span></a></span><span>
 </span><span id="line-92"></span><span>              </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:headParameters:InitTx :: HeadParameters
 </span><a href="Hydra.Chain.html#%24sel%3AheadParameters%3AInitTx"><span class="hs-identifier hs-var">headParameters</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HeadParameters
-</span><a href="#local-6989586621681047501"><span class="hs-identifier hs-var">parameters</span></a></span><span>
+</span><a href="#local-6989586621681047734"><span class="hs-identifier hs-var">parameters</span></a></span><span>
 </span><span id="line-93"></span><span>              </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ConfirmedSnapshot tx
 incrementingSnapshot :: ConfirmedSnapshot tx
 $sel:incrementingSnapshot:InitTx :: ConfirmedSnapshot tx
-</span><a href="#local-6989586621681047524"><span class="hs-identifier hs-var hs-var">incrementingSnapshot</span></a></span><span>
+</span><a href="#local-6989586621681047757"><span class="hs-identifier hs-var hs-var">incrementingSnapshot</span></a></span><span>
 </span><span id="line-94"></span><span>              </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">TxIdType tx
 depositTxId :: TxIdType tx
 $sel:depositTxId:InitTx :: TxIdType tx
-</span><a href="#local-6989586621681047525"><span class="hs-identifier hs-var hs-var">depositTxId</span></a></span><span>
+</span><a href="#local-6989586621681047758"><span class="hs-identifier hs-var hs-var">depositTxId</span></a></span><span>
 </span><span id="line-95"></span><span>              </span><span class="hs-special">}</span><span>
 </span><span id="line-96"></span><span>        </span><span class="hs-special">}</span><span>
 </span><span id="line-97"></span><span>
@@ -185,16 +185,16 @@ $sel:depositTxId:InitTx :: TxIdType tx
 </span><span id="line-103"></span><span class="hs-comment">-- 'decommitTx' and 'confirmedSnapshot' may have advanced past the decrementing</span><span>
 </span><span id="line-104"></span><span class="hs-comment">-- snapshot), fall back to the retained 'finalizedDecommit' &#8212; but only when the</span><span>
 </span><span id="line-105"></span><span class="hs-comment">-- rollback reaches strictly before its observation slot. See #2741.</span><span>
-</span><span id="line-106"></span><span id="local-6989586621681047439"><span class="annot"><a href="Hydra.HeadLogic.Rules.Chain.Rollback.html#maybeRepostDecrementTx"><span class="hs-identifier hs-type">maybeRepostDecrementTx</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-106"></span><span id="local-6989586621681047672"><span class="annot"><a href="Hydra.HeadLogic.Rules.Chain.Rollback.html#maybeRepostDecrementTx"><span class="hs-identifier hs-type">maybeRepostDecrementTx</span></a></span><span> </span><span class="hs-glyph">::</span><span>
 </span><span id="line-107"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">HeadSeed</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-108"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">HeadId</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-109"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">HeadParameters</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-110"></span><span>  </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681047439"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-111"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">ConfirmedSnapshot</span></span><span> </span><span class="annot"><a href="#local-6989586621681047439"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-112"></span><span>  </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.State.html#FinalizedSnapshot"><span class="hs-identifier hs-type">FinalizedSnapshot</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681047439"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-110"></span><span>  </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681047672"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-111"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">ConfirmedSnapshot</span></span><span> </span><span class="annot"><a href="#local-6989586621681047672"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-112"></span><span>  </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Maybe"><span class="hs-identifier hs-type">Maybe</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.HeadLogic.State.html#FinalizedSnapshot"><span class="hs-identifier hs-type">FinalizedSnapshot</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681047672"><span class="hs-identifier hs-type">tx</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-113"></span><span>  </span><span class="annot"><span class="hs-comment">-- | Slot rolled back to</span></span><span>
 </span><span id="line-114"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">ChainSlot</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-115"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Program.html#Program"><span class="hs-identifier hs-type">Program</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681047439"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-115"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Program.html#Program"><span class="hs-identifier hs-type">Program</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681047672"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
 </span><span id="line-116"></span><span id="maybeRepostDecrementTx"><span class="annot"><span class="annottext">maybeRepostDecrementTx :: forall tx.
 HeadSeed
 -&gt; HeadId
@@ -204,28 +204,28 @@ HeadSeed
 -&gt; Maybe (FinalizedSnapshot tx)
 -&gt; ChainSlot
 -&gt; Program tx ()
-</span><a href="Hydra.HeadLogic.Rules.Chain.Rollback.html#maybeRepostDecrementTx"><span class="hs-identifier hs-var hs-var">maybeRepostDecrementTx</span></a></span></span><span> </span><span id="local-6989586621681047539"><span class="annot"><span class="annottext">HeadSeed
-</span><a href="#local-6989586621681047539"><span class="hs-identifier hs-var">headSeed</span></a></span></span><span> </span><span id="local-6989586621681047540"><span class="annot"><span class="annottext">HeadId
-</span><a href="#local-6989586621681047540"><span class="hs-identifier hs-var">headId</span></a></span></span><span> </span><span id="local-6989586621681047541"><span class="annot"><span class="annottext">HeadParameters
-</span><a href="#local-6989586621681047541"><span class="hs-identifier hs-var">parameters</span></a></span></span><span> </span><span id="local-6989586621681047542"><span class="annot"><span class="annottext">Maybe tx
-</span><a href="#local-6989586621681047542"><span class="hs-identifier hs-var">mDecommitTx</span></a></span></span><span> </span><span id="local-6989586621681047543"><span class="annot"><span class="annottext">ConfirmedSnapshot tx
-</span><a href="#local-6989586621681047543"><span class="hs-identifier hs-var">confirmedSnapshot</span></a></span></span><span> </span><span id="local-6989586621681047544"><span class="annot"><span class="annottext">Maybe (FinalizedSnapshot tx)
-</span><a href="#local-6989586621681047544"><span class="hs-identifier hs-var">finalizedDecommit</span></a></span></span><span> </span><span id="local-6989586621681047545"><span class="annot"><span class="annottext">ChainSlot
-</span><a href="#local-6989586621681047545"><span class="hs-identifier hs-var">rolledBackSlot</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="Hydra.HeadLogic.Rules.Chain.Rollback.html#maybeRepostDecrementTx"><span class="hs-identifier hs-var hs-var">maybeRepostDecrementTx</span></a></span></span><span> </span><span id="local-6989586621681047772"><span class="annot"><span class="annottext">HeadSeed
+</span><a href="#local-6989586621681047772"><span class="hs-identifier hs-var">headSeed</span></a></span></span><span> </span><span id="local-6989586621681047773"><span class="annot"><span class="annottext">HeadId
+</span><a href="#local-6989586621681047773"><span class="hs-identifier hs-var">headId</span></a></span></span><span> </span><span id="local-6989586621681047774"><span class="annot"><span class="annottext">HeadParameters
+</span><a href="#local-6989586621681047774"><span class="hs-identifier hs-var">parameters</span></a></span></span><span> </span><span id="local-6989586621681047775"><span class="annot"><span class="annottext">Maybe tx
+</span><a href="#local-6989586621681047775"><span class="hs-identifier hs-var">mDecommitTx</span></a></span></span><span> </span><span id="local-6989586621681047776"><span class="annot"><span class="annottext">ConfirmedSnapshot tx
+</span><a href="#local-6989586621681047776"><span class="hs-identifier hs-var">confirmedSnapshot</span></a></span></span><span> </span><span id="local-6989586621681047777"><span class="annot"><span class="annottext">Maybe (FinalizedSnapshot tx)
+</span><a href="#local-6989586621681047777"><span class="hs-identifier hs-var">finalizedDecommit</span></a></span></span><span> </span><span id="local-6989586621681047778"><span class="annot"><span class="annottext">ChainSlot
+</span><a href="#local-6989586621681047778"><span class="hs-identifier hs-var">rolledBackSlot</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-117"></span><span>  </span><span class="hs-keyword">case</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">Maybe tx
-</span><a href="#local-6989586621681047542"><span class="hs-identifier hs-var">mDecommitTx</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ConfirmedSnapshot tx
-</span><a href="#local-6989586621681047543"><span class="hs-identifier hs-var">confirmedSnapshot</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">of</span><span>
+</span><a href="#local-6989586621681047775"><span class="hs-identifier hs-var">mDecommitTx</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ConfirmedSnapshot tx
+</span><a href="#local-6989586621681047776"><span class="hs-identifier hs-var">confirmedSnapshot</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">of</span><span>
 </span><span id="line-118"></span><span>    </span><span class="hs-special">(</span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span class="annot"><span class="annottext">tx
 </span><span class="hs-identifier">_</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="hs-identifier hs-type">ConfirmedSnapshot</span></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:snapshot:InitialSnapshot :: forall tx. ConfirmedSnapshot tx -&gt; Snapshot tx
-</span><span class="hs-identifier hs-var">snapshot</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="local-6989586621681047546"><span class="annot"><span class="annottext">snapshot :: Snapshot tx
-</span><a href="#local-6989586621681047546"><span class="hs-identifier hs-var">snapshot</span></a></span></span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">Snapshot</span></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:utxoToDecommit:Snapshot :: forall tx. Snapshot tx -&gt; Maybe (UTxOType tx)
+</span><span class="hs-identifier hs-var">snapshot</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span id="local-6989586621681047779"><span class="annot"><span class="annottext">snapshot :: Snapshot tx
+</span><a href="#local-6989586621681047779"><span class="hs-identifier hs-var">snapshot</span></a></span></span><span class="hs-glyph">@</span><span class="annot"><span class="hs-identifier hs-type">Snapshot</span></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:utxoToDecommit:Snapshot :: forall tx. Snapshot tx -&gt; Maybe (UTxOType tx)
 </span><span class="hs-identifier hs-var">utxoToDecommit</span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span class="annot"><span class="annottext">UTxOType tx
-</span><span class="hs-identifier">_</span></span><span class="hs-special">}</span><span class="hs-special">,</span><span> </span><span id="local-6989586621681047548"><span class="annot"><span class="annottext">MultiSignature (Snapshot tx)
+</span><span class="hs-identifier">_</span></span><span class="hs-special">}</span><span class="hs-special">,</span><span> </span><span id="local-6989586621681047781"><span class="annot"><span class="annottext">MultiSignature (Snapshot tx)
 $sel:signatures:InitialSnapshot :: forall tx. ConfirmedSnapshot tx -&gt; MultiSignature (Snapshot tx)
 signatures :: MultiSignature (Snapshot tx)
 </span><span class="hs-identifier hs-var hs-var">signatures</span></span></span><span class="hs-special">}</span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-119"></span><span>      </span><span class="annot"><span class="annottext">ConfirmedSnapshot tx -&gt; Program tx ()
-</span><a href="#local-6989586621681047549"><span class="hs-identifier hs-var">repost</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ConfirmedSnapshot</span></span><span class="hs-special">{</span><span class="annot"><span class="annottext">Snapshot tx
+</span><a href="#local-6989586621681047782"><span class="hs-identifier hs-var">repost</span></a></span><span> </span><span class="annot"><span class="hs-identifier hs-type">ConfirmedSnapshot</span></span><span class="hs-special">{</span><span class="annot"><span class="annottext">Snapshot tx
 $sel:snapshot:InitialSnapshot :: Snapshot tx
 snapshot :: Snapshot tx
 </span><span class="hs-identifier hs-var hs-var">snapshot</span></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">MultiSignature (Snapshot tx)
@@ -235,31 +235,31 @@ signatures :: MultiSignature (Snapshot tx)
 </span><span id="line-120"></span><span>    </span><span class="annot"><span class="annottext">(Maybe tx, ConfirmedSnapshot tx)
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-121"></span><span>      </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">Maybe (FinalizedSnapshot tx)
-</span><a href="#local-6989586621681047544"><span class="hs-identifier hs-var">finalizedDecommit</span></a></span><span> </span><span class="hs-keyword">of</span><span>
-</span><span id="line-122"></span><span>        </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.html#FinalizedSnapshot"><span class="hs-identifier hs-type">FinalizedSnapshot</span></a></span><span class="hs-special">{</span><span id="local-6989586621681047550"><span class="annot"><span class="annottext">ConfirmedSnapshot tx
+</span><a href="#local-6989586621681047777"><span class="hs-identifier hs-var">finalizedDecommit</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><span id="line-122"></span><span>        </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Maybe.html#Just"><span class="hs-identifier hs-type">Just</span></a></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.html#FinalizedSnapshot"><span class="hs-identifier hs-type">FinalizedSnapshot</span></a></span><span class="hs-special">{</span><span id="local-6989586621681047783"><span class="annot"><span class="annottext">ConfirmedSnapshot tx
 $sel:snapshot:FinalizedSnapshot :: forall tx. FinalizedSnapshot tx -&gt; ConfirmedSnapshot tx
 snapshot :: ConfirmedSnapshot tx
-</span><a href="Hydra.HeadLogic.State.html#%24sel%3Asnapshot%3AFinalizedSnapshot"><span class="hs-identifier hs-var hs-var">snapshot</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681047551"><span class="annot"><span class="annottext">ChainSlot
+</span><a href="Hydra.HeadLogic.State.html#%24sel%3Asnapshot%3AFinalizedSnapshot"><span class="hs-identifier hs-var hs-var">snapshot</span></a></span></span><span class="hs-special">,</span><span> </span><span id="local-6989586621681047784"><span class="annot"><span class="annottext">ChainSlot
 $sel:observedAtSlot:FinalizedSnapshot :: forall tx. FinalizedSnapshot tx -&gt; ChainSlot
 observedAtSlot :: ChainSlot
 </span><a href="Hydra.HeadLogic.State.html#%24sel%3AobservedAtSlot%3AFinalizedSnapshot"><span class="hs-identifier hs-var hs-var">observedAtSlot</span></a></span></span><span class="hs-special">}</span><span>
 </span><span id="line-123"></span><span>          </span><span class="hs-glyph">|</span><span> </span><span class="annot"><span class="annottext">ChainSlot
-</span><a href="#local-6989586621681047545"><span class="hs-identifier hs-var">rolledBackSlot</span></a></span><span> </span><span class="annot"><span class="annottext">ChainSlot -&gt; ChainSlot -&gt; Bool
+</span><a href="#local-6989586621681047778"><span class="hs-identifier hs-var">rolledBackSlot</span></a></span><span> </span><span class="annot"><span class="annottext">ChainSlot -&gt; ChainSlot -&gt; Bool
 forall a. Ord a =&gt; a -&gt; a -&gt; Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3C"><span class="hs-operator hs-var">&lt;</span></a></span><span> </span><span class="annot"><span class="annottext">ChainSlot
-</span><a href="#local-6989586621681047551"><span class="hs-identifier hs-var">observedAtSlot</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><a href="#local-6989586621681047784"><span class="hs-identifier hs-var">observedAtSlot</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-124"></span><span>              </span><span class="annot"><span class="annottext">ConfirmedSnapshot tx -&gt; Program tx ()
-</span><a href="#local-6989586621681047549"><span class="hs-identifier hs-var">repost</span></a></span><span> </span><span class="annot"><span class="annottext">ConfirmedSnapshot tx
-</span><a href="#local-6989586621681047550"><span class="hs-identifier hs-var">snapshot</span></a></span><span>
+</span><a href="#local-6989586621681047782"><span class="hs-identifier hs-var">repost</span></a></span><span> </span><span class="annot"><span class="annottext">ConfirmedSnapshot tx
+</span><a href="#local-6989586621681047783"><span class="hs-identifier hs-var">snapshot</span></a></span><span>
 </span><span id="line-125"></span><span>        </span><span class="annot"><span class="annottext">Maybe (FinalizedSnapshot tx)
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">() -&gt; Program tx ()
 forall a. a -&gt; Program tx a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
 </span><span id="line-126"></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-127"></span><span>  </span><span id="local-6989586621681047549"><span class="annot"><span class="annottext">repost :: ConfirmedSnapshot tx -&gt; Program tx ()
-</span><a href="#local-6989586621681047549"><span class="hs-identifier hs-var hs-var">repost</span></a></span></span><span> </span><span id="local-6989586621681047552"><span class="annot"><span class="annottext">ConfirmedSnapshot tx
-</span><a href="#local-6989586621681047552"><span class="hs-identifier hs-var">decrementingSnapshot</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><span id="line-127"></span><span>  </span><span id="local-6989586621681047782"><span class="annot"><span class="annottext">repost :: ConfirmedSnapshot tx -&gt; Program tx ()
+</span><a href="#local-6989586621681047782"><span class="hs-identifier hs-var hs-var">repost</span></a></span></span><span> </span><span id="local-6989586621681047785"><span class="annot"><span class="annottext">ConfirmedSnapshot tx
+</span><a href="#local-6989586621681047785"><span class="hs-identifier hs-var">decrementingSnapshot</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-128"></span><span>    </span><span class="annot"><span class="annottext">Effect tx -&gt; Program tx ()
 forall tx. Effect tx -&gt; Program tx ()
 </span><a href="Hydra.HeadLogic.Program.html#emit"><span class="hs-identifier hs-var">emit</span></a></span><span>
@@ -277,26 +277,26 @@ headId :: HeadId
 </span><a href="Hydra.Chain.html#%24sel%3AheadId%3AInitTx"><span class="hs-identifier hs-var hs-var">headId</span></a></span><span>
 </span><span id="line-134"></span><span>              </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">$sel:headParameters:InitTx :: HeadParameters
 </span><a href="Hydra.Chain.html#%24sel%3AheadParameters%3AInitTx"><span class="hs-identifier hs-var">headParameters</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">HeadParameters
-</span><a href="#local-6989586621681047541"><span class="hs-identifier hs-var">parameters</span></a></span><span>
+</span><a href="#local-6989586621681047774"><span class="hs-identifier hs-var">parameters</span></a></span><span>
 </span><span id="line-135"></span><span>              </span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">ConfirmedSnapshot tx
 decrementingSnapshot :: ConfirmedSnapshot tx
 $sel:decrementingSnapshot:InitTx :: ConfirmedSnapshot tx
-</span><a href="#local-6989586621681047552"><span class="hs-identifier hs-var hs-var">decrementingSnapshot</span></a></span><span>
+</span><a href="#local-6989586621681047785"><span class="hs-identifier hs-var hs-var">decrementingSnapshot</span></a></span><span>
 </span><span id="line-136"></span><span>              </span><span class="hs-special">}</span><span>
 </span><span id="line-137"></span><span>        </span><span class="hs-special">}</span><span>
 </span><span id="line-138"></span><span>
 </span><span id="line-139"></span><span class="hs-comment">-- | Chain rollback preserves L2 state and reposts work selected from the retained</span><span>
 </span><span id="line-140"></span><span class="hs-comment">-- state. It does not reconstruct fanout progress on a divergent chain.</span><span>
-</span><span id="line-141"></span><span id="local-6989586621681047441"><span class="annot"><a href="Hydra.HeadLogic.Rules.Chain.Rollback.html#handleRollback"><span class="hs-identifier hs-type">handleRollback</span></a></span><span> </span><span class="hs-glyph">::</span><span>
-</span><span id="line-142"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">IsChainState</span></span><span> </span><span class="annot"><a href="#local-6989586621681047441"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-141"></span><span id="local-6989586621681047674"><span class="annot"><a href="Hydra.HeadLogic.Rules.Chain.Rollback.html#handleRollback"><span class="hs-identifier hs-type">handleRollback</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-142"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">IsChainState</span></span><span> </span><span class="annot"><a href="#local-6989586621681047674"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span>
 </span><span id="line-143"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Environment.html#RuleEnvironment"><span class="hs-identifier hs-type">RuleEnvironment</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-144"></span><span>  </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Clock.Internal.UTCTime.html#UTCTime"><span class="hs-identifier hs-type">UTCTime</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-145"></span><span>  </span><span class="annot"><a href="Hydra.Node.State.html#PendingDeposits"><span class="hs-identifier hs-type">PendingDeposits</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681047441"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-146"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.html#HeadState"><span class="hs-identifier hs-type">HeadState</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681047441"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-147"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">ChainStateType</span></span><span> </span><span class="annot"><a href="#local-6989586621681047441"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-145"></span><span>  </span><span class="annot"><a href="Hydra.Node.State.html#PendingDeposits"><span class="hs-identifier hs-type">PendingDeposits</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681047674"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-146"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.State.html#HeadState"><span class="hs-identifier hs-type">HeadState</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681047674"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-147"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">ChainStateType</span></span><span> </span><span class="annot"><a href="#local-6989586621681047674"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-148"></span><span>  </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Clock.Internal.UTCTime.html#UTCTime"><span class="hs-identifier hs-type">UTCTime</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-149"></span><span>  </span><span class="annot"><a href="Hydra.Node.State.html#SyncedStatus"><span class="hs-identifier hs-type">SyncedStatus</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-150"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Program.html#Program"><span class="hs-identifier hs-type">Program</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681047441"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-150"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Program.html#Program"><span class="hs-identifier hs-type">Program</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681047674"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
 </span><span id="line-151"></span><span id="handleRollback"><span class="annot"><span class="annottext">handleRollback :: forall tx.
 IsChainState tx =&gt;
 RuleEnvironment
@@ -307,19 +307,19 @@ RuleEnvironment
 -&gt; UTCTime
 -&gt; SyncedStatus
 -&gt; Program tx ()
-</span><a href="Hydra.HeadLogic.Rules.Chain.Rollback.html#handleRollback"><span class="hs-identifier hs-var hs-var">handleRollback</span></a></span></span><span> </span><span id="local-6989586621681047569"><span class="annot"><span class="annottext">RuleEnvironment
-</span><a href="#local-6989586621681047569"><span class="hs-identifier hs-var">env</span></a></span></span><span> </span><span id="local-6989586621681047570"><span class="annot"><span class="annottext">UTCTime
-</span><a href="#local-6989586621681047570"><span class="hs-identifier hs-var">now</span></a></span></span><span> </span><span id="local-6989586621681047571"><span class="annot"><span class="annottext">PendingDeposits tx
-</span><a href="#local-6989586621681047571"><span class="hs-identifier hs-var">pendingDeposits</span></a></span></span><span> </span><span id="local-6989586621681047572"><span class="annot"><span class="annottext">HeadState tx
-</span><a href="#local-6989586621681047572"><span class="hs-identifier hs-var">st</span></a></span></span><span> </span><span id="local-6989586621681047573"><span class="annot"><span class="annottext">ChainStateType tx
-</span><a href="#local-6989586621681047573"><span class="hs-identifier hs-var">rolledBackChainState</span></a></span></span><span> </span><span id="local-6989586621681047574"><span class="annot"><span class="annottext">UTCTime
-</span><a href="#local-6989586621681047574"><span class="hs-identifier hs-var">chainTime</span></a></span></span><span> </span><span id="local-6989586621681047575"><span class="annot"><span class="annottext">SyncedStatus
-</span><a href="#local-6989586621681047575"><span class="hs-identifier hs-var">syncStatus</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
+</span><a href="Hydra.HeadLogic.Rules.Chain.Rollback.html#handleRollback"><span class="hs-identifier hs-var hs-var">handleRollback</span></a></span></span><span> </span><span id="local-6989586621681047802"><span class="annot"><span class="annottext">RuleEnvironment
+</span><a href="#local-6989586621681047802"><span class="hs-identifier hs-var">env</span></a></span></span><span> </span><span id="local-6989586621681047803"><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621681047803"><span class="hs-identifier hs-var">now</span></a></span></span><span> </span><span id="local-6989586621681047804"><span class="annot"><span class="annottext">PendingDeposits tx
+</span><a href="#local-6989586621681047804"><span class="hs-identifier hs-var">pendingDeposits</span></a></span></span><span> </span><span id="local-6989586621681047805"><span class="annot"><span class="annottext">HeadState tx
+</span><a href="#local-6989586621681047805"><span class="hs-identifier hs-var">st</span></a></span></span><span> </span><span id="local-6989586621681047806"><span class="annot"><span class="annottext">ChainStateType tx
+</span><a href="#local-6989586621681047806"><span class="hs-identifier hs-var">rolledBackChainState</span></a></span></span><span> </span><span id="local-6989586621681047807"><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621681047807"><span class="hs-identifier hs-var">chainTime</span></a></span></span><span> </span><span id="local-6989586621681047808"><span class="annot"><span class="annottext">SyncedStatus
+</span><a href="#local-6989586621681047808"><span class="hs-identifier hs-var">syncStatus</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">do</span><span>
 </span><span id="line-152"></span><span>  </span><span class="annot"><span class="annottext">StateChanged tx -&gt; Program tx ()
 forall tx. StateChanged tx -&gt; Program tx ()
 </span><a href="Hydra.HeadLogic.Program.html#change"><span class="hs-identifier hs-var">change</span></a></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#ChainRolledBack"><span class="hs-identifier hs-type">ChainRolledBack</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:chainState:NetworkConnected :: ChainStateType tx
 </span><a href="Hydra.HeadLogic.Outcome.html#%24sel%3AchainState%3ANetworkConnected"><span class="hs-identifier hs-var">chainState</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ChainStateType tx
-</span><a href="#local-6989586621681047573"><span class="hs-identifier hs-var">rolledBackChainState</span></a></span><span class="hs-special">}</span><span>
+</span><a href="#local-6989586621681047806"><span class="hs-identifier hs-var">rolledBackChainState</span></a></span><span class="hs-special">}</span><span>
 </span><span id="line-153"></span><span>  </span><span class="annot"><span class="annottext">RuleEnvironment
 -&gt; UTCTime
 -&gt; ChainPointType tx
@@ -335,19 +335,19 @@ RuleEnvironment
 -&gt; SyncedStatus
 -&gt; Program tx ()
 </span><a href="Hydra.HeadLogic.Rules.Chain.Synchronisation.html#handleOutOfSync"><span class="hs-identifier hs-var">handleOutOfSync</span></a></span><span> </span><span class="annot"><span class="annottext">RuleEnvironment
-</span><a href="#local-6989586621681047569"><span class="hs-identifier hs-var">env</span></a></span><span> </span><span class="annot"><span class="annottext">UTCTime
-</span><a href="#local-6989586621681047570"><span class="hs-identifier hs-var">now</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ChainStateType tx -&gt; ChainPointType tx
+</span><a href="#local-6989586621681047802"><span class="hs-identifier hs-var">env</span></a></span><span> </span><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621681047803"><span class="hs-identifier hs-var">now</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">ChainStateType tx -&gt; ChainPointType tx
 forall tx.
 IsChainState tx =&gt;
 ChainStateType tx -&gt; ChainPointType tx
 </span><span class="hs-identifier hs-var">chainStatePoint</span></span><span> </span><span class="annot"><span class="annottext">ChainStateType tx
-</span><a href="#local-6989586621681047573"><span class="hs-identifier hs-var">rolledBackChainState</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">UTCTime
-</span><a href="#local-6989586621681047574"><span class="hs-identifier hs-var">chainTime</span></a></span><span> </span><span class="annot"><span class="annottext">SyncedStatus
-</span><a href="#local-6989586621681047575"><span class="hs-identifier hs-var">syncStatus</span></a></span><span>
+</span><a href="#local-6989586621681047806"><span class="hs-identifier hs-var">rolledBackChainState</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621681047807"><span class="hs-identifier hs-var">chainTime</span></a></span><span> </span><span class="annot"><span class="annottext">SyncedStatus
+</span><a href="#local-6989586621681047808"><span class="hs-identifier hs-var">syncStatus</span></a></span><span>
 </span><span id="line-154"></span><span>  </span><span class="hs-keyword">case</span><span> </span><span class="annot"><span class="annottext">HeadState tx
-</span><a href="#local-6989586621681047572"><span class="hs-identifier hs-var">st</span></a></span><span> </span><span class="hs-keyword">of</span><span>
+</span><a href="#local-6989586621681047805"><span class="hs-identifier hs-var">st</span></a></span><span> </span><span class="hs-keyword">of</span><span>
 </span><span id="line-155"></span><span>    </span><span class="annot"><a href="Hydra.HeadLogic.State.html#Open"><span class="hs-identifier hs-type">Open</span></a></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.html#OpenState"><span class="hs-identifier hs-type">OpenState</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">$sel:coordinatedHeadState:OpenState :: forall tx. OpenState tx -&gt; CoordinatedHeadState tx
-</span><a href="Hydra.HeadLogic.State.html#%24sel%3AcoordinatedHeadState%3AOpenState"><span class="hs-identifier hs-var">coordinatedHeadState</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.html#CoordinatedHeadState"><span class="hs-identifier hs-type">CoordinatedHeadState</span></a></span><span class="hs-special">{</span><span id="local-6989586621681047579"><span id="local-6989586621681047580"><span id="local-6989586621681047581"><span id="local-6989586621681047582"><span class="annot"><span class="annottext">Maybe tx
+</span><a href="Hydra.HeadLogic.State.html#%24sel%3AcoordinatedHeadState%3AOpenState"><span class="hs-identifier hs-var">coordinatedHeadState</span></a></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><a href="Hydra.HeadLogic.State.html#CoordinatedHeadState"><span class="hs-identifier hs-type">CoordinatedHeadState</span></a></span><span class="hs-special">{</span><span id="local-6989586621681047812"><span id="local-6989586621681047813"><span id="local-6989586621681047814"><span id="local-6989586621681047815"><span class="annot"><span class="annottext">Maybe tx
 Maybe (FinalizedSnapshot tx)
 ConfirmedSnapshot tx
 $sel:confirmedSnapshot:CoordinatedHeadState :: forall tx. CoordinatedHeadState tx -&gt; ConfirmedSnapshot tx
@@ -358,7 +358,7 @@ confirmedSnapshot :: ConfirmedSnapshot tx
 decommitTx :: Maybe tx
 finalizedCommit :: Maybe (FinalizedSnapshot tx)
 finalizedDecommit :: Maybe (FinalizedSnapshot tx)
-</span><a href="Hydra.HeadLogic.State.html#%24sel%3AconfirmedSnapshot%3ACoordinatedHeadState"><span class="hs-glyph hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">..</span></a></span></span></span></span></span><span class="hs-special">}</span><span class="hs-special">,</span><span> </span><span id="local-6989586621681047583"><span id="local-6989586621681047584"><span id="local-6989586621681047585"><span class="annot"><span class="annottext">HeadId
+</span><a href="Hydra.HeadLogic.State.html#%24sel%3AconfirmedSnapshot%3ACoordinatedHeadState"><span class="hs-glyph hs-var hs-var hs-var hs-var hs-var hs-var hs-var hs-var">..</span></a></span></span></span></span></span><span class="hs-special">}</span><span class="hs-special">,</span><span> </span><span id="local-6989586621681047816"><span id="local-6989586621681047817"><span id="local-6989586621681047818"><span class="annot"><span class="annottext">HeadId
 HeadSeed
 HeadParameters
 $sel:headId:OpenState :: forall tx. OpenState tx -&gt; HeadId
@@ -387,16 +387,16 @@ HeadSeed
 -&gt; ChainSlot
 -&gt; Program tx ()
 </span><a href="Hydra.HeadLogic.Rules.Chain.Rollback.html#maybeRepostIncrementTx"><span class="hs-identifier hs-var">maybeRepostIncrementTx</span></a></span><span> </span><span class="annot"><span class="annottext">HeadSeed
-</span><a href="#local-6989586621681047585"><span class="hs-identifier hs-var">headSeed</span></a></span><span> </span><span class="annot"><span class="annottext">HeadId
-</span><a href="#local-6989586621681047584"><span class="hs-identifier hs-var">headId</span></a></span><span> </span><span class="annot"><span class="annottext">HeadParameters
-</span><a href="#local-6989586621681047583"><span class="hs-identifier hs-var">parameters</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">HeadId -&gt; PendingDeposits tx -&gt; PendingDeposits tx
+</span><a href="#local-6989586621681047818"><span class="hs-identifier hs-var">headSeed</span></a></span><span> </span><span class="annot"><span class="annottext">HeadId
+</span><a href="#local-6989586621681047817"><span class="hs-identifier hs-var">headId</span></a></span><span> </span><span class="annot"><span class="annottext">HeadParameters
+</span><a href="#local-6989586621681047816"><span class="hs-identifier hs-var">parameters</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">HeadId -&gt; PendingDeposits tx -&gt; PendingDeposits tx
 forall tx. HeadId -&gt; PendingDeposits tx -&gt; PendingDeposits tx
 </span><a href="Hydra.Node.State.html#depositsForHead"><span class="hs-identifier hs-var">depositsForHead</span></a></span><span> </span><span class="annot"><span class="annottext">HeadId
-</span><a href="#local-6989586621681047584"><span class="hs-identifier hs-var">headId</span></a></span><span> </span><span class="annot"><span class="annottext">PendingDeposits tx
-</span><a href="#local-6989586621681047571"><span class="hs-identifier hs-var">pendingDeposits</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">ConfirmedSnapshot tx
-</span><a href="#local-6989586621681047579"><span class="hs-identifier hs-var">confirmedSnapshot</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (FinalizedSnapshot tx)
-</span><a href="#local-6989586621681047581"><span class="hs-identifier hs-var">finalizedCommit</span></a></span><span> </span><span class="annot"><span class="annottext">ChainSlot
-</span><a href="#local-6989586621681047586"><span class="hs-identifier hs-var">slot</span></a></span><span>
+</span><a href="#local-6989586621681047817"><span class="hs-identifier hs-var">headId</span></a></span><span> </span><span class="annot"><span class="annottext">PendingDeposits tx
+</span><a href="#local-6989586621681047804"><span class="hs-identifier hs-var">pendingDeposits</span></a></span><span class="hs-special">)</span><span> </span><span class="annot"><span class="annottext">ConfirmedSnapshot tx
+</span><a href="#local-6989586621681047812"><span class="hs-identifier hs-var">confirmedSnapshot</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (FinalizedSnapshot tx)
+</span><a href="#local-6989586621681047814"><span class="hs-identifier hs-var">finalizedCommit</span></a></span><span> </span><span class="annot"><span class="annottext">ChainSlot
+</span><a href="#local-6989586621681047819"><span class="hs-identifier hs-var">slot</span></a></span><span>
 </span><span id="line-157"></span><span>      </span><span class="annot"><span class="annottext">HeadSeed
 -&gt; HeadId
 -&gt; HeadParameters
@@ -415,27 +415,27 @@ HeadSeed
 -&gt; ChainSlot
 -&gt; Program tx ()
 </span><a href="Hydra.HeadLogic.Rules.Chain.Rollback.html#maybeRepostDecrementTx"><span class="hs-identifier hs-var">maybeRepostDecrementTx</span></a></span><span> </span><span class="annot"><span class="annottext">HeadSeed
-</span><a href="#local-6989586621681047585"><span class="hs-identifier hs-var">headSeed</span></a></span><span> </span><span class="annot"><span class="annottext">HeadId
-</span><a href="#local-6989586621681047584"><span class="hs-identifier hs-var">headId</span></a></span><span> </span><span class="annot"><span class="annottext">HeadParameters
-</span><a href="#local-6989586621681047583"><span class="hs-identifier hs-var">parameters</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe tx
-</span><a href="#local-6989586621681047580"><span class="hs-identifier hs-var">decommitTx</span></a></span><span> </span><span class="annot"><span class="annottext">ConfirmedSnapshot tx
-</span><a href="#local-6989586621681047579"><span class="hs-identifier hs-var">confirmedSnapshot</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (FinalizedSnapshot tx)
-</span><a href="#local-6989586621681047582"><span class="hs-identifier hs-var">finalizedDecommit</span></a></span><span> </span><span class="annot"><span class="annottext">ChainSlot
-</span><a href="#local-6989586621681047586"><span class="hs-identifier hs-var">slot</span></a></span><span>
-</span><span id="line-158"></span><span>    </span><span class="annot"><a href="Hydra.HeadLogic.State.html#FanoutProgress"><span class="hs-identifier hs-type">FanoutProgress</span></a></span><span> </span><span id="local-6989586621681047587"><span class="annot"><span class="annottext">PartialFanoutState tx
-</span><a href="#local-6989586621681047587"><span class="hs-identifier hs-var">fanout</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">PartialFanoutState tx -&gt; Program tx ()
+</span><a href="#local-6989586621681047818"><span class="hs-identifier hs-var">headSeed</span></a></span><span> </span><span class="annot"><span class="annottext">HeadId
+</span><a href="#local-6989586621681047817"><span class="hs-identifier hs-var">headId</span></a></span><span> </span><span class="annot"><span class="annottext">HeadParameters
+</span><a href="#local-6989586621681047816"><span class="hs-identifier hs-var">parameters</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe tx
+</span><a href="#local-6989586621681047813"><span class="hs-identifier hs-var">decommitTx</span></a></span><span> </span><span class="annot"><span class="annottext">ConfirmedSnapshot tx
+</span><a href="#local-6989586621681047812"><span class="hs-identifier hs-var">confirmedSnapshot</span></a></span><span> </span><span class="annot"><span class="annottext">Maybe (FinalizedSnapshot tx)
+</span><a href="#local-6989586621681047815"><span class="hs-identifier hs-var">finalizedDecommit</span></a></span><span> </span><span class="annot"><span class="annottext">ChainSlot
+</span><a href="#local-6989586621681047819"><span class="hs-identifier hs-var">slot</span></a></span><span>
+</span><span id="line-158"></span><span>    </span><span class="annot"><a href="Hydra.HeadLogic.State.html#FanoutProgress"><span class="hs-identifier hs-type">FanoutProgress</span></a></span><span> </span><span id="local-6989586621681047820"><span class="annot"><span class="annottext">PartialFanoutState tx
+</span><a href="#local-6989586621681047820"><span class="hs-identifier hs-var">fanout</span></a></span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">PartialFanoutState tx -&gt; Program tx ()
 forall tx. IsTx tx =&gt; PartialFanoutState tx -&gt; Program tx ()
 </span><a href="Hydra.HeadLogic.Rules.Fanout.html#repostFanoutStep"><span class="hs-identifier hs-var">repostFanoutStep</span></a></span><span> </span><span class="annot"><span class="annottext">PartialFanoutState tx
-</span><a href="#local-6989586621681047587"><span class="hs-identifier hs-var">fanout</span></a></span><span>
+</span><a href="#local-6989586621681047820"><span class="hs-identifier hs-var">fanout</span></a></span><span>
 </span><span id="line-159"></span><span>    </span><span class="annot"><span class="annottext">HeadState tx
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">() -&gt; Program tx ()
 forall a. a -&gt; Program tx a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
 </span><span id="line-160"></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-161"></span><span>  </span><span id="local-6989586621681047586"><span class="annot"><span class="annottext">slot :: ChainSlot
-</span><a href="#local-6989586621681047586"><span class="hs-identifier hs-var hs-var">slot</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ChainStateType tx -&gt; ChainSlot
+</span><span id="line-161"></span><span>  </span><span id="local-6989586621681047819"><span class="annot"><span class="annottext">slot :: ChainSlot
+</span><a href="#local-6989586621681047819"><span class="hs-identifier hs-var hs-var">slot</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ChainStateType tx -&gt; ChainSlot
 forall tx. IsChainState tx =&gt; ChainStateType tx -&gt; ChainSlot
 </span><span class="hs-identifier hs-var">chainStateSlot</span></span><span> </span><span class="annot"><span class="annottext">ChainStateType tx
-</span><a href="#local-6989586621681047573"><span class="hs-identifier hs-var">rolledBackChainState</span></a></span><span>
+</span><a href="#local-6989586621681047806"><span class="hs-identifier hs-var">rolledBackChainState</span></a></span><span>
 </span><span id="line-162"></span></pre></body></html>

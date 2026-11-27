@@ -2049,6 +2049,12 @@ ChangeError :: Coin -> Coin -> ChangeError
 --   
 --   XXX: All call sites of this function use cardano-api types
 coverFee_ :: forall era. (EraPlutusContext era, EraCertState era, AlonzoEraTx era, ScriptsNeeded era ~ AlonzoScriptsNeeded era, AlonzoEraUTxO era) => PParams era -> SystemStart -> EpochInfo (Either Text) -> Map TxIn (TxOut era) -> Map TxIn (TxOut era) -> Tx TopTx era -> Either ErrCoverFee (Tx TopTx era)
+
+-- | Select ada-only fuel because the fee input also serves as collateral
+--   and we do not construct a collateral return. Init uses the same
+--   selection for its seed so that balancing does not consume a separate
+--   token-bearing input.
+findFuelUTxO :: EraTxOut era => Map TxIn (TxOut era) -> Maybe (TxIn, TxOut era)
 findLargestUTxO :: EraTxOut era => Map TxIn (TxOut era) -> Maybe (TxIn, TxOut era)
 
 -- | Estimate cost of script executions on the transaction. This is only an

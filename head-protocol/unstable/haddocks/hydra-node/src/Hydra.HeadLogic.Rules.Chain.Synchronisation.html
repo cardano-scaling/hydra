@@ -13,19 +13,19 @@
 </span><span id="line-13"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><a href="Hydra.Node.UnsyncedPeriod.html"><span class="hs-identifier">Hydra.Node.UnsyncedPeriod</span></a></span><span> </span><span class="hs-special">(</span><span class="annot"><a href="Hydra.Node.UnsyncedPeriod.html#UnsyncedPeriod"><span class="hs-identifier">UnsyncedPeriod</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-glyph">..</span><span class="hs-special">)</span><span class="hs-special">)</span><span>
 </span><span id="line-14"></span><span class="hs-keyword">import</span><span> </span><span class="annot"><span class="hs-identifier">Hydra.Prelude</span></span><span>
 </span><span id="line-15"></span><span>
-</span><span id="line-16"></span><span id="local-6989586621681047254"><span class="annot"><a href="Hydra.HeadLogic.Rules.Chain.Synchronisation.html#handleOutOfSync"><span class="hs-identifier hs-type">handleOutOfSync</span></a></span><span> </span><span class="hs-glyph">::</span><span>
-</span><span id="line-17"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">IsChainState</span></span><span> </span><span class="annot"><a href="#local-6989586621681047254"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span>
+</span><span id="line-16"></span><span id="local-6989586621681047487"><span class="annot"><a href="Hydra.HeadLogic.Rules.Chain.Synchronisation.html#handleOutOfSync"><span class="hs-identifier hs-type">handleOutOfSync</span></a></span><span> </span><span class="hs-glyph">::</span><span>
+</span><span id="line-17"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">IsChainState</span></span><span> </span><span class="annot"><a href="#local-6989586621681047487"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">=&gt;</span><span>
 </span><span id="line-18"></span><span>  </span><span class="annot"><span class="hs-comment">-- | Environment context to get the unsynced period</span></span><span>
 </span><span id="line-19"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Environment.html#RuleEnvironment"><span class="hs-identifier hs-type">RuleEnvironment</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-20"></span><span>  </span><span class="annot"><span class="hs-comment">-- | Current system time</span></span><span>
 </span><span id="line-21"></span><span>  </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Clock.Internal.UTCTime.html#UTCTime"><span class="hs-identifier hs-type">UTCTime</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-22"></span><span>  </span><span class="annot"><span class="hs-comment">-- | Latest Chain point observed</span></span><span>
-</span><span id="line-23"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">ChainPointType</span></span><span> </span><span class="annot"><a href="#local-6989586621681047254"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
+</span><span id="line-23"></span><span>  </span><span class="annot"><span class="hs-identifier hs-type">ChainPointType</span></span><span> </span><span class="annot"><a href="#local-6989586621681047487"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-24"></span><span>  </span><span class="annot"><span class="hs-comment">-- | Latest Chain point time representation observed</span></span><span>
 </span><span id="line-25"></span><span>  </span><span class="annot"><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Clock.Internal.UTCTime.html#UTCTime"><span class="hs-identifier hs-type">UTCTime</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
 </span><span id="line-26"></span><span>  </span><span class="annot"><span class="hs-comment">-- | Current sync status</span></span><span>
 </span><span id="line-27"></span><span>  </span><span class="annot"><a href="Hydra.Node.State.html#SyncedStatus"><span class="hs-identifier hs-type">SyncedStatus</span></a></span><span> </span><span class="hs-glyph">-&gt;</span><span>
-</span><span id="line-28"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Program.html#Program"><span class="hs-identifier hs-type">Program</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681047254"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
+</span><span id="line-28"></span><span>  </span><span class="annot"><a href="Hydra.HeadLogic.Program.html#Program"><span class="hs-identifier hs-type">Program</span></a></span><span> </span><span class="annot"><a href="#local-6989586621681047487"><span class="hs-identifier hs-type">tx</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span></span><span>
 </span><span id="line-29"></span><span id="handleOutOfSync"><span class="annot"><span class="annottext">handleOutOfSync :: forall tx.
 IsChainState tx =&gt;
 RuleEnvironment
@@ -34,20 +34,20 @@ RuleEnvironment
 -&gt; UTCTime
 -&gt; SyncedStatus
 -&gt; Program tx ()
-</span><a href="Hydra.HeadLogic.Rules.Chain.Synchronisation.html#handleOutOfSync"><span class="hs-identifier hs-var hs-var">handleOutOfSync</span></a></span></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Environment.html#RuleEnvironment"><span class="hs-identifier hs-type">RuleEnvironment</span></a></span><span class="hs-special">{</span><span id="local-6989586621681047285"><span class="annot"><span class="annottext">UnsyncedPeriod
+</span><a href="Hydra.HeadLogic.Rules.Chain.Synchronisation.html#handleOutOfSync"><span class="hs-identifier hs-var hs-var">handleOutOfSync</span></a></span></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Rules.Environment.html#RuleEnvironment"><span class="hs-identifier hs-type">RuleEnvironment</span></a></span><span class="hs-special">{</span><span id="local-6989586621681047518"><span class="annot"><span class="annottext">UnsyncedPeriod
 $sel:unsyncedPeriod:RuleEnvironment :: RuleEnvironment -&gt; UnsyncedPeriod
 unsyncedPeriod :: UnsyncedPeriod
-</span><a href="Hydra.HeadLogic.Rules.Environment.html#%24sel%3AunsyncedPeriod%3ARuleEnvironment"><span class="hs-identifier hs-var hs-var">unsyncedPeriod</span></a></span></span><span class="hs-special">}</span><span> </span><span id="local-6989586621681047286"><span class="annot"><span class="annottext">UTCTime
-</span><a href="#local-6989586621681047286"><span class="hs-identifier hs-var">now</span></a></span></span><span> </span><span id="local-6989586621681047287"><span class="annot"><span class="annottext">ChainPointType tx
-</span><a href="#local-6989586621681047287"><span class="hs-identifier hs-var">chainPoint</span></a></span></span><span> </span><span id="local-6989586621681047288"><span class="annot"><span class="annottext">UTCTime
-</span><a href="#local-6989586621681047288"><span class="hs-identifier hs-var">chainTime</span></a></span></span><span> </span><span id="local-6989586621681047289"><span class="annot"><span class="annottext">SyncedStatus
-</span><a href="#local-6989586621681047289"><span class="hs-identifier hs-var">syncStatus</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
+</span><a href="Hydra.HeadLogic.Rules.Environment.html#%24sel%3AunsyncedPeriod%3ARuleEnvironment"><span class="hs-identifier hs-var hs-var">unsyncedPeriod</span></a></span></span><span class="hs-special">}</span><span> </span><span id="local-6989586621681047519"><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621681047519"><span class="hs-identifier hs-var">now</span></a></span></span><span> </span><span id="local-6989586621681047520"><span class="annot"><span class="annottext">ChainPointType tx
+</span><a href="#local-6989586621681047520"><span class="hs-identifier hs-var">chainPoint</span></a></span></span><span> </span><span id="local-6989586621681047521"><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621681047521"><span class="hs-identifier hs-var">chainTime</span></a></span></span><span> </span><span id="local-6989586621681047522"><span class="annot"><span class="annottext">SyncedStatus
+</span><a href="#local-6989586621681047522"><span class="hs-identifier hs-var">syncStatus</span></a></span></span><span> </span><span class="hs-glyph">=</span><span>
 </span><span id="line-30"></span><span>  </span><span class="hs-comment">-- Emit only on an actual sync-status transition, rather than on every tick, so</span><span>
 </span><span id="line-31"></span><span>  </span><span class="hs-comment">-- clients are not flooded (see issue #2749). The continuous drift value is</span><span>
 </span><span id="line-32"></span><span>  </span><span class="hs-comment">-- exposed as a metric ('hydra_chain_drift_seconds') instead.</span><span>
 </span><span id="line-33"></span><span>  </span><span class="hs-keyword">case</span><span> </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SyncedStatus
-</span><a href="#local-6989586621681047289"><span class="hs-identifier hs-var">syncStatus</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">SyncedStatus
-</span><a href="#local-6989586621681047290"><span class="hs-identifier hs-var">newSyncStatus</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">of</span><span>
+</span><a href="#local-6989586621681047522"><span class="hs-identifier hs-var">syncStatus</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">SyncedStatus
+</span><a href="#local-6989586621681047523"><span class="hs-identifier hs-var">newSyncStatus</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-keyword">of</span><span>
 </span><span id="line-34"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SyncedStatus
 </span><a href="Hydra.Node.State.html#InSync"><span class="hs-identifier hs-var">InSync</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">SyncedStatus
 </span><a href="Hydra.Node.State.html#CatchingUp"><span class="hs-identifier hs-var">CatchingUp</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">StateChanged tx -&gt; Program tx ()
@@ -55,13 +55,13 @@ forall tx. StateChanged tx -&gt; Program tx ()
 </span><a href="Hydra.HeadLogic.Program.html#change"><span class="hs-identifier hs-var">change</span></a></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#NodeUnsynced"><span class="hs-identifier hs-type">NodeUnsynced</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">ChainSlot
 chainSlot :: ChainSlot
 $sel:chainSlot:NetworkConnected :: ChainSlot
-</span><a href="#local-6989586621681047294"><span class="hs-identifier hs-var hs-var">chainSlot</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621681047527"><span class="hs-identifier hs-var hs-var">chainSlot</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">UTCTime
 chainTime :: UTCTime
 $sel:chainTime:NetworkConnected :: UTCTime
-</span><a href="#local-6989586621681047288"><span class="hs-identifier hs-var hs-var">chainTime</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">NominalDiffTime
+</span><a href="#local-6989586621681047521"><span class="hs-identifier hs-var hs-var">chainTime</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">NominalDiffTime
 drift :: NominalDiffTime
 $sel:drift:NetworkConnected :: NominalDiffTime
-</span><a href="#local-6989586621681047297"><span class="hs-identifier hs-var hs-var">drift</span></a></span><span class="hs-special">}</span><span>
+</span><a href="#local-6989586621681047530"><span class="hs-identifier hs-var hs-var">drift</span></a></span><span class="hs-special">}</span><span>
 </span><span id="line-35"></span><span>    </span><span class="hs-special">(</span><span class="annot"><span class="annottext">SyncedStatus
 </span><a href="Hydra.Node.State.html#CatchingUp"><span class="hs-identifier hs-var">CatchingUp</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">SyncedStatus
 </span><a href="Hydra.Node.State.html#InSync"><span class="hs-identifier hs-var">InSync</span></a></span><span class="hs-special">)</span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">StateChanged tx -&gt; Program tx ()
@@ -69,56 +69,56 @@ forall tx. StateChanged tx -&gt; Program tx ()
 </span><a href="Hydra.HeadLogic.Program.html#change"><span class="hs-identifier hs-var">change</span></a></span><span> </span><span class="annot"><a href="Hydra.HeadLogic.Outcome.html#NodeSynced"><span class="hs-identifier hs-type">NodeSynced</span></a></span><span class="hs-special">{</span><span class="annot"><span class="annottext">ChainSlot
 chainSlot :: ChainSlot
 $sel:chainSlot:NetworkConnected :: ChainSlot
-</span><a href="#local-6989586621681047294"><span class="hs-identifier hs-var hs-var">chainSlot</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621681047527"><span class="hs-identifier hs-var hs-var">chainSlot</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">UTCTime
 chainTime :: UTCTime
 $sel:chainTime:NetworkConnected :: UTCTime
-</span><a href="#local-6989586621681047288"><span class="hs-identifier hs-var hs-var">chainTime</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">NominalDiffTime
+</span><a href="#local-6989586621681047521"><span class="hs-identifier hs-var hs-var">chainTime</span></a></span><span class="hs-special">,</span><span> </span><span class="annot"><span class="annottext">NominalDiffTime
 drift :: NominalDiffTime
 $sel:drift:NetworkConnected :: NominalDiffTime
-</span><a href="#local-6989586621681047297"><span class="hs-identifier hs-var hs-var">drift</span></a></span><span class="hs-special">}</span><span>
+</span><a href="#local-6989586621681047530"><span class="hs-identifier hs-var hs-var">drift</span></a></span><span class="hs-special">}</span><span>
 </span><span id="line-36"></span><span>    </span><span class="annot"><span class="annottext">(SyncedStatus, SyncedStatus)
 </span><span class="hs-identifier">_</span></span><span> </span><span class="hs-glyph">-&gt;</span><span> </span><span class="annot"><span class="annottext">() -&gt; Program tx ()
 forall a. a -&gt; Program tx a
 forall (f :: * -&gt; *) a. Applicative f =&gt; a -&gt; f a
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#pure"><span class="hs-identifier hs-var">pure</span></a></span><span> </span><span class="hs-special">(</span><span class="hs-special">)</span><span>
 </span><span id="line-37"></span><span> </span><span class="hs-keyword">where</span><span>
-</span><span id="line-38"></span><span>  </span><span id="local-6989586621681047300"><span class="annot"><span class="annottext">plus :: UTCTime -&gt; NominalDiffTime -&gt; UTCTime
-</span><a href="#local-6989586621681047300"><span class="hs-identifier hs-var hs-var">plus</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(NominalDiffTime -&gt; UTCTime -&gt; UTCTime)
+</span><span id="line-38"></span><span>  </span><span id="local-6989586621681047533"><span class="annot"><span class="annottext">plus :: UTCTime -&gt; NominalDiffTime -&gt; UTCTime
+</span><a href="#local-6989586621681047533"><span class="hs-identifier hs-var hs-var">plus</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">(NominalDiffTime -&gt; UTCTime -&gt; UTCTime)
 -&gt; UTCTime -&gt; NominalDiffTime -&gt; UTCTime
 forall a b c. (a -&gt; b -&gt; c) -&gt; b -&gt; a -&gt; c
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/base-4.18.3.0/src/GHC.Base.html#flip"><span class="hs-identifier hs-var">flip</span></a></span><span> </span><span class="annot"><span class="annottext">NominalDiffTime -&gt; UTCTime -&gt; UTCTime
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Clock.Internal.UTCDiff.html#addUTCTime"><span class="hs-identifier hs-var">addUTCTime</span></a></span><span>
-</span><span id="line-39"></span><span>  </span><span id="local-6989586621681047294"><span class="annot"><span class="annottext">chainSlot :: ChainSlot
-</span><a href="#local-6989586621681047294"><span class="hs-identifier hs-var hs-var">chainSlot</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ChainPointType tx -&gt; ChainSlot
+</span><span id="line-39"></span><span>  </span><span id="local-6989586621681047527"><span class="annot"><span class="annottext">chainSlot :: ChainSlot
+</span><a href="#local-6989586621681047527"><span class="hs-identifier hs-var hs-var">chainSlot</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">ChainPointType tx -&gt; ChainSlot
 forall tx. IsChainState tx =&gt; ChainPointType tx -&gt; ChainSlot
 </span><span class="hs-identifier hs-var">chainPointSlot</span></span><span> </span><span class="annot"><span class="annottext">ChainPointType tx
-</span><a href="#local-6989586621681047287"><span class="hs-identifier hs-var">chainPoint</span></a></span><span>
+</span><a href="#local-6989586621681047520"><span class="hs-identifier hs-var">chainPoint</span></a></span><span>
 </span><span id="line-40"></span><span>
-</span><span id="line-41"></span><span>  </span><span id="local-6989586621681047304"><span class="annot"><span class="annottext">threshold :: NominalDiffTime
-</span><a href="#local-6989586621681047304"><span class="hs-identifier hs-var hs-var">threshold</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UnsyncedPeriod -&gt; NominalDiffTime
+</span><span id="line-41"></span><span>  </span><span id="local-6989586621681047537"><span class="annot"><span class="annottext">threshold :: NominalDiffTime
+</span><a href="#local-6989586621681047537"><span class="hs-identifier hs-var hs-var">threshold</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UnsyncedPeriod -&gt; NominalDiffTime
 </span><a href="Hydra.Node.UnsyncedPeriod.html#%24sel%3AunsyncedPeriodToNominalDiffTime%3AUnsyncedPeriod"><span class="hs-identifier hs-var">unsyncedPeriodToNominalDiffTime</span></a></span><span> </span><span class="annot"><span class="annottext">UnsyncedPeriod
-</span><a href="#local-6989586621681047285"><span class="hs-identifier hs-var">unsyncedPeriod</span></a></span><span>
-</span><span id="line-42"></span><span>  </span><span id="local-6989586621681047297"><span class="annot"><span class="annottext">drift :: NominalDiffTime
-</span><a href="#local-6989586621681047297"><span class="hs-identifier hs-var hs-var">drift</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UTCTime
-</span><a href="#local-6989586621681047286"><span class="hs-identifier hs-var">now</span></a></span><span> </span><span class="annot"><span class="annottext">UTCTime -&gt; UTCTime -&gt; NominalDiffTime
+</span><a href="#local-6989586621681047518"><span class="hs-identifier hs-var">unsyncedPeriod</span></a></span><span>
+</span><span id="line-42"></span><span>  </span><span id="local-6989586621681047530"><span class="annot"><span class="annottext">drift :: NominalDiffTime
+</span><a href="#local-6989586621681047530"><span class="hs-identifier hs-var hs-var">drift</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621681047519"><span class="hs-identifier hs-var">now</span></a></span><span> </span><span class="annot"><span class="annottext">UTCTime -&gt; UTCTime -&gt; NominalDiffTime
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/time-1.12.2/src/Data.Time.Clock.Internal.UTCDiff.html#diffUTCTime"><span class="hs-operator hs-var">`diffUTCTime`</span></a></span><span> </span><span class="annot"><span class="annottext">UTCTime
-</span><a href="#local-6989586621681047288"><span class="hs-identifier hs-var">chainTime</span></a></span><span>
+</span><a href="#local-6989586621681047521"><span class="hs-identifier hs-var">chainTime</span></a></span><span>
 </span><span id="line-43"></span><span>
 </span><span id="line-44"></span><span>  </span><span class="hs-comment">-- We consider the node out of sync when:</span><span>
 </span><span id="line-45"></span><span>  </span><span class="hs-comment">-- the last observed chainTime plus the delta allowed by the unsyncedPeriod (threshold)</span><span>
 </span><span id="line-46"></span><span>  </span><span class="hs-comment">-- falls behind the current system time (now).</span><span>
 </span><span id="line-47"></span><span>  </span><span class="hs-comment">-- NOTE: this is the same as drift &gt; threshold</span><span>
-</span><span id="line-48"></span><span>  </span><span id="local-6989586621681047307"><span class="annot"><span class="annottext">nodeOutOfSync :: Bool
-</span><a href="#local-6989586621681047307"><span class="hs-identifier hs-var hs-var">nodeOutOfSync</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UTCTime
-</span><a href="#local-6989586621681047288"><span class="hs-identifier hs-var">chainTime</span></a></span><span> </span><span class="annot"><span class="annottext">UTCTime -&gt; NominalDiffTime -&gt; UTCTime
-</span><a href="#local-6989586621681047300"><span class="hs-operator hs-var">`plus`</span></a></span><span> </span><span class="annot"><span class="annottext">NominalDiffTime
-</span><a href="#local-6989586621681047304"><span class="hs-identifier hs-var">threshold</span></a></span><span> </span><span class="annot"><span class="annottext">UTCTime -&gt; UTCTime -&gt; Bool
+</span><span id="line-48"></span><span>  </span><span id="local-6989586621681047540"><span class="annot"><span class="annottext">nodeOutOfSync :: Bool
+</span><a href="#local-6989586621681047540"><span class="hs-identifier hs-var hs-var">nodeOutOfSync</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="annot"><span class="annottext">UTCTime
+</span><a href="#local-6989586621681047521"><span class="hs-identifier hs-var">chainTime</span></a></span><span> </span><span class="annot"><span class="annottext">UTCTime -&gt; NominalDiffTime -&gt; UTCTime
+</span><a href="#local-6989586621681047533"><span class="hs-operator hs-var">`plus`</span></a></span><span> </span><span class="annot"><span class="annottext">NominalDiffTime
+</span><a href="#local-6989586621681047537"><span class="hs-identifier hs-var">threshold</span></a></span><span> </span><span class="annot"><span class="annottext">UTCTime -&gt; UTCTime -&gt; Bool
 forall a. Ord a =&gt; a -&gt; a -&gt; Bool
 </span><a href="file:///nix/store/pdlvkcn31k7dw3q5bcndp7f9d2z5l0h3-ghc-9.6.7-doc/share/doc/ghc-9.6.7/html/libraries/ghc-prim-0.10.0/src/GHC.Classes.html#%3C"><span class="hs-operator hs-var">&lt;</span></a></span><span> </span><span class="annot"><span class="annottext">UTCTime
-</span><a href="#local-6989586621681047286"><span class="hs-identifier hs-var">now</span></a></span><span>
-</span><span id="line-49"></span><span>  </span><span id="local-6989586621681047290"><span class="annot"><span class="annottext">newSyncStatus :: SyncedStatus
-</span><a href="#local-6989586621681047290"><span class="hs-identifier hs-var hs-var">newSyncStatus</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Bool
-</span><a href="#local-6989586621681047307"><span class="hs-identifier hs-var">nodeOutOfSync</span></a></span><span> </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">SyncedStatus
+</span><a href="#local-6989586621681047519"><span class="hs-identifier hs-var">now</span></a></span><span>
+</span><span id="line-49"></span><span>  </span><span id="local-6989586621681047523"><span class="annot"><span class="annottext">newSyncStatus :: SyncedStatus
+</span><a href="#local-6989586621681047523"><span class="hs-identifier hs-var hs-var">newSyncStatus</span></a></span></span><span> </span><span class="hs-glyph">=</span><span> </span><span class="hs-keyword">if</span><span> </span><span class="annot"><span class="annottext">Bool
+</span><a href="#local-6989586621681047540"><span class="hs-identifier hs-var">nodeOutOfSync</span></a></span><span> </span><span class="hs-keyword">then</span><span> </span><span class="annot"><span class="annottext">SyncedStatus
 </span><a href="Hydra.Node.State.html#CatchingUp"><span class="hs-identifier hs-var">CatchingUp</span></a></span><span> </span><span class="hs-keyword">else</span><span> </span><span class="annot"><span class="annottext">SyncedStatus
 </span><a href="Hydra.Node.State.html#InSync"><span class="hs-identifier hs-var">InSync</span></a></span><span>
 </span><span id="line-50"></span></pre></body></html>
