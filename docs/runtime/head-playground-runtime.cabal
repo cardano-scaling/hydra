@@ -1,0 +1,216 @@
+cabal-version: 3.0
+name:          head-playground-runtime
+version:       0.1.0.0
+synopsis:
+  Hydra Head protocol playground using the production Crem workflows
+
+license:       Apache-2.0
+build-type:    Simple
+
+common project-config
+  default-language:   GHC2021
+  default-extensions:
+    DataKinds
+    DefaultSignatures
+    DeriveAnyClass
+    DerivingStrategies
+    DuplicateRecordFields
+    GADTs
+    LambdaCase
+    MultiWayIf
+    NoImplicitPrelude
+    OverloadedStrings
+    PatternSynonyms
+    TypeFamilies
+    ViewPatterns
+
+  ghc-options:        -Wall -Wcompat -O1
+
+library accumulator
+  hs-source-dirs:   upstream/lib portable/accumulator
+  exposed-modules:  Accumulator
+  other-modules:
+    Cardano.Crypto.Hash.Blake2b
+    Cardano.Crypto.Hash.Class
+
+  build-depends:
+    , base
+    , bytestring
+    , containers
+
+  default-language: GHC2021
+
+library tx
+  import:          project-config
+  hs-source-dirs:
+    portable/tx ../../hydra-prelude/src ../../hydra-tx/src
+    ../../hydra-plutus/src
+
+  exposed-modules:
+    Cardano.Binary
+    Cardano.Crypto.Util
+    Hydra.Cardano.Api
+    Hydra.Chain.ChainState
+    Hydra.Contract.HeadState
+    Hydra.Contract.HeadState.Types
+    Hydra.Contract.KZGParameters
+    Hydra.Contract.KZGTrustedSetup
+    Hydra.Prelude
+    Hydra.Prelude.Core
+    Hydra.Tx
+    Hydra.Tx.Accumulator
+    Hydra.Tx.Accumulator.Commitment
+    Hydra.Tx.Accumulator.Core
+    Hydra.Tx.ContestationPeriod
+    Hydra.Tx.ContestationPeriod.Types
+    Hydra.Tx.Crypto
+    Hydra.Tx.Crypto.MultiSignature
+    Hydra.Tx.Crypto.Signature
+    Hydra.Tx.DepositPeriod
+    Hydra.Tx.DepositPeriod.Types
+    Hydra.Tx.HeadId
+    Hydra.Tx.HeadId.Types
+    Hydra.Tx.HeadParameters
+    Hydra.Tx.IsTx
+    Hydra.Tx.IsTx.Core
+    Hydra.Tx.OnChainId
+    Hydra.Tx.OnChainId.Types
+    Hydra.Tx.Party
+    Hydra.Tx.Party.Types
+    Hydra.Tx.Snapshot
+    Hydra.Tx.Snapshot.Encoding
+    Network.Socket
+
+  build-depends:
+    , aeson
+    , base                                 >=4.18 && <4.21
+    , base16-bytestring
+    , bytestring
+    , cborg
+    , containers
+    , head-playground-runtime:accumulator
+    , relude
+    , serialise
+    , text
+    , time
+    , transformers
+
+library node
+  import:             project-config
+  hs-source-dirs:     portable/node ../../hydra-node/src
+  default-extensions: StrictData
+  exposed-modules:
+    Hydra.API.ClientInput
+    Hydra.API.ClientMessage
+    Hydra.API.ServerOutput
+    Hydra.Chain
+    Hydra.Chain.Types
+    Hydra.HeadLogic.Cardano
+    Hydra.HeadLogic.Deposit
+    Hydra.HeadLogic.Error
+    Hydra.HeadLogic.Fanout.Outputs
+    Hydra.HeadLogic.Fanout.Plan
+    Hydra.HeadLogic.Fanout.Selection
+    Hydra.HeadLogic.Input
+    Hydra.HeadLogic.Interpreter
+    Hydra.HeadLogic.Limits
+    Hydra.HeadLogic.Outcome
+    Hydra.HeadLogic.Program
+    Hydra.HeadLogic.Retry
+    Hydra.HeadLogic.Rules.Chain
+    Hydra.HeadLogic.Rules.Chain.Deposits
+    Hydra.HeadLogic.Rules.Chain.Fanout
+    Hydra.HeadLogic.Rules.Chain.Lifecycle
+    Hydra.HeadLogic.Rules.Chain.Rollback
+    Hydra.HeadLogic.Rules.Chain.Settlement
+    Hydra.HeadLogic.Rules.Chain.Synchronisation
+    Hydra.HeadLogic.Rules.Chain.Tick
+    Hydra.HeadLogic.Rules.Client
+    Hydra.HeadLogic.Rules.Client.Decommit
+    Hydra.HeadLogic.Rules.Client.Fanout
+    Hydra.HeadLogic.Rules.Client.Recover
+    Hydra.HeadLogic.Rules.Client.SideLoad
+    Hydra.HeadLogic.Rules.Coordinated
+    Hydra.HeadLogic.Rules.Decommit
+    Hydra.HeadLogic.Rules.Environment
+    Hydra.HeadLogic.Rules.Fanout
+    Hydra.HeadLogic.Rules.Input
+    Hydra.HeadLogic.Rules.Network
+    Hydra.HeadLogic.Rules.Network.AckSn
+    Hydra.HeadLogic.Rules.Network.ReqDec
+    Hydra.HeadLogic.Rules.Network.ReqSn
+    Hydra.HeadLogic.Rules.Network.ReqTx
+    Hydra.HeadLogic.Rules.Transactions
+    Hydra.HeadLogic.Snapshot.Cached
+    Hydra.HeadLogic.Snapshot.Candidate
+    Hydra.HeadLogic.Snapshot.Capacity
+    Hydra.HeadLogic.Snapshot.Request
+    Hydra.HeadLogic.Snapshot.Settlement
+    Hydra.HeadLogic.Snapshot.Verification
+    Hydra.HeadLogic.State
+    Hydra.HeadLogic.State.ChainHistory
+    Hydra.HeadLogic.State.Coordinated
+    Hydra.HeadLogic.State.Coordinated.Commits
+    Hydra.HeadLogic.State.Coordinated.Replay
+    Hydra.HeadLogic.State.Coordinated.Snapshots
+    Hydra.HeadLogic.State.Coordinated.Snapshots.State
+    Hydra.HeadLogic.State.Coordinated.Snapshots.Topology
+    Hydra.HeadLogic.State.Coordinated.Transactions
+    Hydra.HeadLogic.State.Deposits
+    Hydra.HeadLogic.State.Fanout
+    Hydra.HeadLogic.State.Head
+    Hydra.HeadLogic.State.Node
+    Hydra.HeadLogic.State.Types
+    Hydra.HeadLogic.Trace
+    Hydra.HeadLogic.Transaction.Outputs
+    Hydra.HeadLogic.Validation
+    Hydra.HeadLogic.Workflow
+    Hydra.Ledger
+    Hydra.Ledger.Simple
+    Hydra.Network
+    Hydra.Network.Message
+    Hydra.Network.Types
+    Hydra.Node.Input
+    Hydra.Node.State
+    Hydra.Node.UnsyncedPeriod
+
+  build-depends:
+    , aeson
+    , base
+    , bytestring
+    , cborg
+    , containers
+    , crem                        ==0.1.1.0
+    , head-playground-runtime:tx
+    , serialise
+    , singletons
+    , singletons-base
+    , template-haskell
+    , text
+    , time
+    , transformers
+
+executable head-playground-runtime
+  import:         project-config
+  main-is:        Main.hs
+  hs-source-dirs: src
+  other-modules:
+    Playground.Engine
+    Playground.Runtime
+    Playground.View
+    Playground.Witnesses
+
+  build-depends:
+    , aeson
+    , base
+    , bytestring
+    , containers
+    , crem
+    , head-playground-runtime:node
+    , head-playground-runtime:tx
+    , text
+    , time
+
+  if arch(javascript)
+    default-extensions: JavaScriptFFI
+    ghc-options:        -ddisable-js-c-sources

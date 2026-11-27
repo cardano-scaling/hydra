@@ -1,0 +1,66 @@
+---
+title: Crem browser runtime
+hide_table_of_contents: true
+description: How the Head playground runs Hydra's production Crem workflows and state machines in a browser worker.
+---
+
+The public [Head playground](../head-playground.mdx) runs the production
+`Rules.Input.workflow`, `Interpreter.traceProgram` and `State.Node.applyEvents`
+in a Web Worker. Each operator owns a separate `NodeState SimpleTx`. Opening,
+transactions, snapshot proposals and signatures, deposits, increments and
+decrements all go through those workflows and state machines.
+
+The React view sends actions to Haskell and displays its returned projection.
+It has no protocol transition table. Rewind and forward replay action prefixes
+from the initial node states through the same machines. Expand **See what the
+nodes know** to inspect each node’s state, input, events, effects and decisions.
+
+GHC’s JavaScript backend compiles the core sources during the docs runtime
+build. `docs/runtime/head-playground-runtime.cabal` points directly at the
+production source directories. Protocol interfaces live in shared modules,
+separate from Cardano and network integration. Internal libraries preserve the
+source packages' language settings, including strict node fields and lazy
+accumulator caches. No Haskell is generated or extracted from text.
+The portable platform uses symbolic identity-bound signatures and
+content commitments. The snapshot signing fields, capacity checks, ledger
+validation and accumulator delta arithmetic remain shared source. CBOR
+persistence and real network wire encoding are intentionally unavailable.
+
+Native and browser builds share `Hydra.Tx.Crypto.MultiSignature`, including
+signature ordering, count checks and verification errors. Only key generation,
+individual signing and individual verification use different primitives:
+Ed25519 in the node and symbolic signer/content witnesses in the playground.
+Allowed L2 drop targets come from evaluating the workflow. Deposit activation
+times and pending withdrawal status use production helpers as well.
+
+Accumulator bookkeeping uses the original `haskell-accumulator` source from
+the same pinned version as the node. `Hydra.Tx.Accumulator.Core` supplies the
+shared UTxO updates and commitment cache; the browser replaces only hashes and
+commitments with content witnesses. Party and Head identifier types, hex
+codecs and Host parsing are also shared. Snapshot field selection stays in
+`Hydra.Tx.Snapshot`, with encoding primitives supplied by `Snapshot.Encoding`.
+The browser encodes each field as a JSON array so adjacent fields cannot become
+ambiguous. The unchanged SimpleTx ledger uses CBOR internally for integer IDs;
+the playground does not add persistence or network wire encoding.
+
+The remaining portable modules have these responsibilities:
+
+| Modules | Purpose |
+| --- | --- |
+| `Crypto.Signature`, `Accumulator.Commitment`, `Snapshot.Encoding`, `Cardano.Crypto.Hash.*` | Symbolic keys, signatures, hashes and content witnesses. |
+| `Hydra.Cardano.Api`, `Network.Socket`, `Cardano.Crypto.Util` | Types and interfaces required by the shared code. |
+| `Cardano.Binary` | Compatibility declarations that fail if unused persistence or wire encoding is invoked. |
+| Other modules | Re-export shared types and helpers. |
+
+The shell simulates wallets, ordered broadcast delivery (including the sender),
+chain time and L1 observations. A deposit confirmation and its activation tick
+are separate steps. Each operator’s `AckSn` is delivered separately. When several
+nodes post the same settlement, one L1 transaction wins. These are explicit
+simulation choices; Cardano transaction construction and validators do not run.
+
+The native conformance check compiles the same
+shell against the real `hydra-node` and `hydra-tx` libraries, including native
+cryptographic primitives, then compares complete executions with the browser
+artifact. Only identity encodings, signatures and commitment hashes are
+normalized. UTxOs, versions, snapshot numbers, events, effects and decision
+answers are compared directly. Build and test commands are in `docs/README.md`.

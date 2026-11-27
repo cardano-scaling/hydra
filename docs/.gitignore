@@ -9,6 +9,7 @@
 .cache-loader
 /static/docs-metadata.json
 /static/hydra-spec.pdf
+/static/head-playground-runtime/compiled/
 
 # Generated fresh on every docs build from the current code (see nix/hydra/docs.nix
 # preBuild and the `docs` just recipe). Never committed.
@@ -31,3 +32,4 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .log/
+/runtime/upstream/

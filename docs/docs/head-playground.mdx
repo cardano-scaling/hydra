@@ -1,0 +1,36 @@
+---
+title: Try a Hydra Head
+hide_table_of_contents: true
+displayed_sidebar: null
+pagination_prev: null
+pagination_next: null
+custom_edit_url: null
+description: Choose operators and wallet users, open a Head, and move practice funds between Cardano and Hydra.
+---
+
+import HeadPlayground from '@site/src/components/HeadPlayground';
+import {Details} from '@docusaurus/theme-common/Details';
+
+Open a Head and move funds, one step at a time. Everyone starts with
+20 practice ADA. No wallet needed.
+
+<HeadPlayground />
+
+<Details summary="About this demo">
+
+Drag from L1 into the same person's L2 row to deposit, or back to L1 to withdraw.
+Drag between people on L2 to pay, or use **Send a payment**. Reserved funds stay
+unavailable until their request completes. Use Back and Forward to replay steps.
+
+Operators run nodes and sign snapshots. Wallet users connect through an operator
+and keep their keys. L2 funds are backed by funds locked on L1.
+
+The demo runs Hydra's Crem logic with SimpleTx. Each chip represents an output;
+its owner and 10 ADA value are illustrations. L1, time, and signatures are
+simulated. No real funds or keys are used.
+
+Read the [protocol overview](./protocol-overview.md), try the
+[real deposit flow](./how-to/incremental-commit.md), or explore
+[how the browser runtime works](./dev/head-playground-runtime.mdx).
+
+</Details>

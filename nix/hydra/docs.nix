@@ -1,5 +1,14 @@
-{ self, ... }: {
+{ self, inputs, ... }: {
   perSystem = { self', pkgs, lib, ... }: {
+    checks.head-playground = pkgs.runCommand "head-playground-check"
+      {
+        nativeBuildInputs = [ pkgs.nodejs ];
+        HYDRA_PLAYGROUND_BUNDLE = "${self'.packages.head-playground-runtime}/bin/head-playground-runtime.jsexe/all.js";
+      } ''
+      node --test ${self}/docs/scripts/head-playground.test.mjs
+      touch "$out"
+    '';
+
     checks.head-logic-diagrams = pkgs.runCommand "head-logic-diagrams-check"
       {
         nativeBuildInputs = [ pkgs.diffutils ];
@@ -14,6 +23,11 @@
     '';
 
     packages = rec {
+      head-playground-runtime = import ../../docs/runtime {
+        inherit inputs;
+        inherit (pkgs.stdenv.hostPlatform) system;
+      };
+
       docs =
         let
           gitWrapper = pkgs.writeShellScriptBin "git" ''
@@ -38,6 +52,8 @@
           # outputs, but they must be present for the docusaurus build.
           preBuild = ''
             mkdir -p static
+            mkdir -p static/head-playground-runtime/compiled
+            cp ${head-playground-runtime}/bin/head-playground-runtime.jsexe/all.js static/head-playground-runtime/compiled/
             cp ${self'.packages.spec}/hydra-spec.pdf static/
             cp -rL ${self'.packages.haddocks} static/haddocks
             chmod -R u+w static/haddocks
