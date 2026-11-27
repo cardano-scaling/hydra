@@ -281,6 +281,8 @@ The unsynced period should generally be shorter than the contestation period to 
 
 If not provided, the unsynced period defaults to half the contestation period, maintaining the safety property that an in-sync node always has sufficient time to react to on-chain events.
 
+With Blockfrost, the chain follower waits for a block to have at least one successor and polls at the network's average block interval once caught up. Block production gaps, polling and indexing delays contribute to the reported drift. A `60s` contestation period gives a default unsynced period of only `30s`, so even a node following the latest eligible block can reject `Init` with `RejectedInputBecauseUnsynced`. Use a longer contestation period for public testnets. Increasing only `--unsynced-period` reduces the time available to react during a contestation.
+
 :::info
 This option only applies when connected to a Cardano chain. In [offline mode](#offline-mode), there is no real chain to sync with, so the node is always considered in sync.
 :::
@@ -302,6 +304,8 @@ For a deposit to be considered by the `hydra-node` the deadline must be further 
 ### Deposit activation
 
 The deposit activation (DA) controls **only** how long a deposit must mature before it transitions from `Inactive` to `Active` and can be incremented into the head. It is independent from the deposit period and defaults to `3600s`.
+
+For short tests, set `--deposit-activation 60s` explicitly on every participant. Reducing `--contestation-period` or `--deposit-period` does not shorten the default one-hour activation delay. A recorded deposit remains inactive until it matures; `DepositActivated` signals that it becomes eligible for inclusion.
 
 ```
 hydra-node --deposit-activation 1800s
@@ -387,7 +391,9 @@ Many protocol parameters are irrelevant in the Hydra context (eg, there is no tr
 
 ### Fuel vs funds
 
-Transactions driving the head lifecycle (`Init`, `Close`, etc) must be submitted to layer 1 and hence incur costs. Any UTXO owned by the `--cardano-signing-key` provided to the `hydra-node` can be used to pay fees or serve as collateral for these transactions. We refer to this as **fuel**.
+Transactions driving the head lifecycle (`Init`, `Close`, etc) must be submitted to layer 1 and hence incur costs. The node uses the largest ada-only UTXO owned by its `--cardano-signing-key` to pay fees and serve as collateral. It also selects the `Init` seed from ada-only UTXOs. We refer to these outputs as **fuel**. Token-bearing outputs remain in the wallet but are not selected as fuel, because the node does not construct a collateral return.
+
+Keep at least one ada-only UTXO with enough ada for the transaction and its change output. Without one, `Init` reports `NoSeedInput` and fee balancing reports `NoFuelUTXOFound`. `publish-scripts` spends the wallet's UTXOs and consolidates change, including any tokens. If you use the same wallet for publishing and running the node, send a separate ada-only output to it afterwards or use an ada-only wallet for publishing.
 
 Consequently, sending some ada to the address of this 'internal wallet' is required. To get the address for the Cardano keys as generated above, one can use, for example, the `cardano-cli`:
 

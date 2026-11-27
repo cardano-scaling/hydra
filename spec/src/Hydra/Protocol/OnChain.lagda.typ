@@ -471,6 +471,13 @@ shown — the appendix is reserved for the machine-checked theorem statements
 (@sec:onchain-theorems, @sec:offchain-theorems, @sec:security-theorems), and the
 trust base is inventoried in prose in @sec:assumption-inventory.
 
+Fee funding and collateral selection are implementation obligations outside these
+validity bundles. The node wallet selects an ada-only output for fees and
+collateral, and an ada-only seed for Init; it does not construct a collateral
+return. Token-bearing wallet outputs are excluded from that selection. Cardano
+ledger validation, including collateral and whole-transaction value conservation,
+is tested separately from the protocol's script conditions.
+
 == Init transaction <sec:init-tx>
 
 The $mtxInit$ transaction creates a head instance and establishes the initial

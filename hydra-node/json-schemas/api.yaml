@@ -2899,8 +2899,9 @@ components:
               $ref: "api.yaml#/components/schemas/Transaction"
         - title: NoFuelUTXOFound
           description: |
-            Raised if the internal wallet could not find a fuel output. See user
-            manual how to fuel up the internal wallet.
+            Raised if the internal wallet could not find an ada-only fuel output.
+            Token-bearing outputs cannot serve as fuel. Send an ada-only output
+            to the internal wallet's address and retry.
           type: object
           additionalProperties: false
           required:
@@ -2933,9 +2934,10 @@ components:
           - tag
           description: >-
             Initialising a new Head failed because the DirectChain component was unable to find
-            a "seed" UTxO to consume. This can happen if no UTxO has been assigned to the internal wallet's address
-            for this purpose, or if the component is still catching up with the chain.
-            This error is usually transient and clients should retry to post the transaction.
+            an ada-only "seed" UTxO to consume. This can happen if the internal wallet is empty,
+            contains only token-bearing outputs, or is still catching up with the chain.
+            Send an ada-only output to the internal wallet's address if needed, wait for it to
+            be observed, and retry.
           properties:
             tag:
               type: string
