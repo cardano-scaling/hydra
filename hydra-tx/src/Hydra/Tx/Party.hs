@@ -1,53 +1,14 @@
--- | Types and functions revolving around a Hydra 'Party'. That is, a
--- participant in a Hydra Head, which signs transactions or snapshots in the
--- Hydra protocol.
-module Hydra.Tx.Party where
+module Hydra.Tx.Party (
+  module Hydra.Tx.Party,
+  module Hydra.Tx.Party.Types,
+) where
 
-import Hydra.Prelude
-
-import Data.Aeson (FromJSONKeyFunction (FromJSONKeyTextParser), ToJSONKey (..))
-import Data.Aeson.Types (FromJSONKey (..), toJSONKeyText)
 import Data.Secret (Secret)
-import Hydra.Cardano.Api (
-  AsType (AsVerificationKey),
-  SerialiseAsRawBytes (..),
-  SigningKey,
-  VerificationKey,
-  deserialiseFromRawBytesHex,
-  serialiseToRawBytesHexText,
-  verificationKeyHash,
- )
+import Hydra.Cardano.Api (AsType (AsVerificationKey), SerialiseAsRawBytes (..), SigningKey)
 import Hydra.Data.Party qualified as OnChain
+import Hydra.Prelude
 import Hydra.Tx.Crypto (AsType (AsHydraKey), HydraKey, getVerificationKey)
-
--- | Identifies a party in a Hydra head by it's 'VerificationKey'.
-newtype Party = Party {vkey :: VerificationKey HydraKey}
-  deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)
-
-instance ToJSONKey Party where
-  toJSONKey = toJSONKeyText (serialiseToRawBytesHexText . vkey)
-
-instance FromJSONKey Party where
-  fromJSONKey = FromJSONKeyTextParser partyFromHexText
-   where
-    partyFromHexText :: MonadFail m => Text -> m Party
-    partyFromHexText t =
-      case deserialiseFromRawBytesHex (encodeUtf8 t) of
-        Left err -> fail $ "failed to decode Party: " <> show err
-        Right vkey -> pure $ Party{vkey}
-
--- REVIEW: Do we really want to define Ord or also use unordered-containers
--- based on Hashable?
-instance Ord Party where
-  Party{vkey = a} <= Party{vkey = b} =
-    verificationKeyHash a <= verificationKeyHash b
-
-instance FromCBOR Party where
-  fromCBOR = genericFromCBOR
-
-instance ToCBOR Party where
-  toCBOR = genericToCBOR
+import Hydra.Tx.Party.Types
 
 -- | Get the 'Party' from a 'Secret'-wrapped Hydra 'SigningKey'.
 -- Uses the polymorphic 'getVerificationKey' from 'Hydra.Tx.Crypto',

@@ -18,6 +18,7 @@ library
   c-sources:          cbits/revision.c
   exposed-modules:
     Hydra.Prelude
+    Hydra.Prelude.Core
     Hydra.Version
 
   build-depends:

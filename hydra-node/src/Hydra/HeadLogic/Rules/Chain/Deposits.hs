@@ -99,16 +99,17 @@ determineNextDepositStatus :: RuleEnvironment -> PendingDeposits tx -> UTCTime -
 determineNextDepositStatus env pendingDeposits chainTime =
   (\deposit -> deposit{status = determineStatus deposit}) <$> pendingDeposits
  where
-  determineStatus Deposit{created, deadline}
+  determineStatus deposit@Deposit{deadline}
     | chainTime > deadline `minusTime` toNominalDiffTime depositPeriod = Expired
-    | chainTime > created `plusTime` toNominalDiffTime depositActivation = Active
+    | chainTime > depositActivationTime env deposit = Active
     | otherwise = Inactive
 
   minusTime time dt = addUTCTime (-dt) time
 
-  plusTime = flip addUTCTime
+  RuleEnvironment{depositPeriod} = env
 
-  RuleEnvironment{depositPeriod, depositActivation} = env
+depositActivationTime :: RuleEnvironment -> Deposit tx -> UTCTime
+depositActivationTime env deposit = addUTCTime (toNominalDiffTime env.depositActivation) deposit.created
 
 -- | Either activate or expire deposits that meet those criteria.
 updateDepositStates ::

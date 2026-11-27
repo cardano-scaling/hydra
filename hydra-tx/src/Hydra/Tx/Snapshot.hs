@@ -6,18 +6,15 @@ module Hydra.Tx.Snapshot where
 import Hydra.Prelude
 
 import Cardano.Crypto.Util (SignableRepresentation (..))
-import Codec.Serialise (serialise)
 import Data.Aeson (Value (String), object, withObject, (.:), (.:?), (.=))
 import Data.ByteString.Base16 qualified as Base16
 import Data.ByteString.Lazy qualified as LBS
-import Hydra.Cardano.Api (SerialiseAsRawBytes (..))
 import Hydra.Contract.HeadState qualified as Onchain
 import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Crypto (MultiSignature)
-import Hydra.Tx.HeadId (HeadId)
+import Hydra.Tx.HeadId (HeadId, headIdBytes)
 import Hydra.Tx.IsTx (IsTx (..), combinedUTxO)
-import PlutusLedgerApi.V3 (fromBuiltin, toBuiltin, toData)
-import PlutusTx.Builtins (sha2_256)
+import Hydra.Tx.Snapshot.Encoding qualified as Encoding
 
 -- * SnapshotNumber and SnapshotVersion
 
@@ -136,13 +133,13 @@ deriving stock instance IsTx tx => Show (Snapshot tx)
 instance IsTx tx => SignableRepresentation (Snapshot tx) where
   getSignableRepresentation snapshot@Snapshot{headId, version, number, accumulator, appliedAccumulator} =
     LBS.toStrict $
-      serialise (toData . toBuiltin $ serialiseToRawBytes headId)
-        <> serialise (toData . toBuiltin $ toInteger version)
-        <> serialise (toData . toBuiltin $ toInteger number)
-        <> serialise (toData $ toBuiltin accumulatorBytes)
-        <> serialise (toData $ toBuiltin appliedAccumulatorBytes)
-        <> serialise (toData $ toBuiltin (decommitOutputsHash snapshot))
-        <> serialise (toData $ toBuiltin (commitOutputsHash snapshot))
+      Encoding.encodeBytes (headIdBytes headId)
+        <> Encoding.encodeNumber (toInteger version)
+        <> Encoding.encodeNumber (toInteger number)
+        <> Encoding.encodeBytes accumulatorBytes
+        <> Encoding.encodeBytes appliedAccumulatorBytes
+        <> Encoding.encodeBytes (decommitOutputsHash snapshot)
+        <> Encoding.encodeBytes (commitOutputsHash snapshot)
    where
     accumulatorBytes = Accumulator.getAccumulatorHash accumulator
     appliedAccumulatorBytes = Accumulator.getAccumulatorHash appliedAccumulator
@@ -161,7 +158,7 @@ instance IsTx tx => SignableRepresentation (Snapshot tx) where
 -- verification.
 commitOutputsHash :: forall tx. IsTx tx => Snapshot tx -> ByteString
 commitOutputsHash Snapshot{utxoToCommit, depositTxId} =
-  fromBuiltin . sha2_256 . toBuiltin $
+  Encoding.hashBytes $
     hashUTxO @tx (fromMaybe mempty utxoToCommit)
       <> foldMap (txIdBytes @tx) depositTxId
 

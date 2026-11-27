@@ -51,6 +51,7 @@ library
   exposed-modules:
     Hydra.API.APIServerLog
     Hydra.API.ClientInput
+    Hydra.API.ClientMessage
     Hydra.API.HTTPServer
     Hydra.API.Projection
     Hydra.API.Server
@@ -72,6 +73,7 @@ library
     Hydra.Chain.Direct.Wallet
     Hydra.Chain.Offline
     Hydra.Chain.ScriptRegistry
+    Hydra.Chain.Types
     Hydra.Config
     Hydra.HeadLogic
     Hydra.HeadLogic.Cardano
@@ -142,6 +144,7 @@ library
     Hydra.Network.Etcd
     Hydra.Network.EtcdBinary
     Hydra.Network.Message
+    Hydra.Network.Types
     Hydra.NetworkVersions
     Hydra.Node
     Hydra.Node.ApiTransactionTimeout
@@ -149,6 +152,7 @@ library
     Hydra.Node.Environment
     Hydra.Node.HeadLogic
     Hydra.Node.HeadLogic.Configuration
+    Hydra.Node.Input
     Hydra.Node.InputQueue
     Hydra.Node.Network
     Hydra.Node.Outbox

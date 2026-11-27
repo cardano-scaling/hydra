@@ -10,24 +10,23 @@
 -- Incoming and outgoing messages are modelled as 'Message' data type.
 module Hydra.Network (
   module Hydra.Network,
+  module Hydra.Network.Types,
   IP,
   PortNumber,
 ) where
 
 import Hydra.Prelude hiding (show)
 
-import Data.Aeson (FromJSONKeyFunction (FromJSONKeyTextParser), ToJSONKey (..), withText)
-import Data.Aeson.Types (FromJSONKey (..), toJSONKeyText)
+import Data.Aeson (withText)
 import Data.IP (IP, IPv4, IPv6)
 import Data.Secret (Secret)
-import Data.Text (pack, unpack)
-import Data.Text qualified as T
+import Data.Text (unpack)
 import Hydra.CBOR.Orphans ()
 import Hydra.Cardano.Api (Key (SigningKey))
+import Hydra.Network.Types
 import Hydra.Tx (Party)
 import Hydra.Tx.Crypto (HydraKey)
 import Network.Socket (PortNumber)
-import Text.Read (Read (readsPrec))
 import Text.Show (Show (show))
 
 -- * Hydra network interface
@@ -107,153 +106,3 @@ instance ToJSON IPv6 where
 instance FromJSON IPv6 where
   parseJSON = withText "IPv6" $ \txt ->
     maybe (fail $ "failed to read as IPv6 " <> show txt) pure $ readMaybe (unpack txt)
-
--- ** PortNumber (Orphans)
-
-readPort :: MonadFail m => String -> m PortNumber
-readPort s =
-  case readMaybe s of
-    Nothing -> fail "cannot read port"
-    Just n
-      | n >= minPort && n <= maxPort -> pure $ fromInteger n
-      | otherwise ->
-          fail $
-            "readPort: "
-              <> show n
-              <> " not within valid port range: ("
-              <> show minPort
-              <> ", "
-              <> show maxPort
-              <> ")"
- where
-  maxPort = fromIntegral (maxBound :: Word16)
-  minPort = fromIntegral (minBound :: Word16)
-
-instance ToJSON PortNumber where
-  toJSON = toJSON . toInteger
-
-instance FromJSON PortNumber where
-  parseJSON = fmap fromInteger . parseJSON
-
--- ** NodeId
-
-newtype NodeId = NodeId {nodeId :: Text}
-  deriving stock (Generic)
-  deriving newtype (Eq, Show, IsString, Read, Ord, ToJSON, FromJSON)
-
-instance ToCBOR NodeId where
-  toCBOR = genericToCBOR
-
-instance FromCBOR NodeId where
-  fromCBOR = genericFromCBOR
-
--- ** Host
-
--- REVIEW(SN): This is also used in hydra-tui
-data Host = Host
-  { hostname :: Text
-  , port :: PortNumber
-  }
-  deriving stock (Ord, Generic, Eq)
-  deriving anyclass (ToJSON, FromJSON)
-
-instance ToCBOR Host where
-  toCBOR = genericToCBOR
-
-instance FromCBOR Host where
-  fromCBOR = genericFromCBOR
-
-instance Show Host where
-  show = showHost
-
-instance Read Host where
-  readsPrec _ s = case readHost s of
-    Just h -> [(h, "")]
-    Nothing -> []
-
-instance ToJSONKey Host where
-  toJSONKey = toJSONKeyText (T.pack . show)
-
-instance FromJSONKey Host where
-  fromJSONKey = FromJSONKeyTextParser (readHost . T.unpack)
-
-showHost :: Host -> String
-showHost Host{hostname, port} =
-  unpack hostname <> ":" <> show port
-
-readHost :: MonadFail m => String -> m Host
-readHost s =
-  case break (== ':') (reverse s) of
-    (p, ':' : h) -> Host (pack (reverse h)) <$> readPort (reverse p)
-    _ -> fail $ "readHost: missing : in " <> s
-
--- ** Connectivity & versions
-
-data Connectivity
-  = -- | Individual peer appeared alive on network.
-    PeerConnected {peer :: Host}
-  | -- | Individual peer disappeared from network (has not been seen active in a while).
-    PeerDisconnected {peer :: Host}
-  | -- | Connected to Hydra network.
-    NetworkConnected
-  | -- | Disconnected from Hydra network.
-    NetworkDisconnected
-  | VersionMismatch
-      { ourVersion :: ProtocolVersion
-      , theirVersion :: Maybe ProtocolVersion
-      }
-  | ClusterIDMismatch
-      { clusterPeers :: Text
-      }
-  | -- | Outbound messages have backed up and are not being handed to the
-    -- cluster. They go out once they can, but are held in memory until then,
-    -- so stopping the node while stalled discards whatever it had not handed
-    -- over (traced as 'Hydra.Node.DiscardedBroadcasts'). See 'StallReason'
-    -- for which of the two conditions this is: they are not the same, and
-    -- only one of them means the network is unreachable.
-    BroadcastStalled {pendingBroadcasts :: Natural, stallReason :: StallReason}
-  | -- | The outbound queue started draining again.
-    BroadcastResumed
-  deriving stock (Generic, Eq, Show)
-  deriving anyclass (ToJSON, FromJSON)
-
-instance ToCBOR Connectivity where
-  toCBOR = genericToCBOR
-
-instance FromCBOR Connectivity where
-  fromCBOR = genericFromCBOR
-
--- | Why the node's outbound broadcast hand-off is reporting itself stalled.
---
--- The two conditions are not interchangeable, and conflating them misreports
--- a healthy network: 'NoProgress' means nothing is getting through at all,
--- while 'BacklogFull' also fires on a producer outrunning a consumer that is
--- still delivering, just not fast enough. Anything telling a client or an
--- operator about a stall should say which one it saw rather than blaming
--- reachability.
-data StallReason
-  = -- | Nothing has completed for longer than the allowed period, so the
-    -- network cannot currently be reached.
-    NoProgress
-  | -- | The hand-off holds more than it would drain within the allowed period
-    -- at its recent rate, or its maximum. A fast client can cause this
-    -- against a network that is still delivering.
-    BacklogFull
-  deriving stock (Generic, Eq, Show)
-  deriving anyclass (ToJSON, FromJSON)
-
-instance ToCBOR StallReason where
-  toCBOR = genericToCBOR
-
-instance FromCBOR StallReason where
-  fromCBOR = genericFromCBOR
-
-newtype ProtocolVersion = ProtocolVersion Natural
-  deriving stock (Eq, Show, Generic, Ord)
-  deriving anyclass (ToJSON, FromJSON)
-
-instance ToCBOR ProtocolVersion where
-  toCBOR = genericToCBOR
-
-instance FromCBOR ProtocolVersion where
-  fromCBOR = genericFromCBOR

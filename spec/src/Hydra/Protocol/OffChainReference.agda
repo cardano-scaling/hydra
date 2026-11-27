@@ -753,6 +753,11 @@ decommitAdmissionRef pending authorised = not (pending || authorised)
 
 -- Verification context uses ordered party identities, not sets. These are
 -- abstract identities; cryptographic verification remains an external premise.
+-- Hydra.Tx.Crypto.MultiSignature owns count/order checks for both runtimes;
+-- Hydra.Tx.Crypto.Signature supplies individual verification.
+-- Snapshot fields and accumulator updates are shared; Encoding and Commitment
+-- supply the runtime primitives.
+-- Both builds compile the shared protocol and interface modules directly.
 sameParties : List Nat → List Nat → Bool
 sameParties [] [] = true
 sameParties (x ∷ xs) (y ∷ ys) = (x == y) && sameParties xs ys
