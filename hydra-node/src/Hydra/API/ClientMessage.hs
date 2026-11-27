@@ -40,8 +40,7 @@ instance IsTx tx => ToCBOR (DecommitInvalidReason tx) where
 instance IsTx tx => FromCBOR (DecommitInvalidReason tx) where
   fromCBOR = genericFromCBOR
 
--- | Individual messages as produced by the 'Hydra.HeadLogic' in
--- the 'ClientEffect'.
+-- | Client notifications emitted by the head logic.
 data ClientMessage tx
   = CommandFailed {clientInput :: ClientInput tx, state :: HeadState tx}
   | PostTxOnChainFailed {postChainTx :: PostChainTx tx, postTxError :: PostTxError tx}
@@ -80,8 +79,7 @@ instance IsChainState tx => ToCBOR (ClientMessage tx) where
 instance IsChainState tx => FromCBOR (ClientMessage tx) where
   fromCBOR = fromCBOR >>= decodeClientMessageBody
 
--- | Decode a 'ClientMessage' given its already-decoded constructor tag (used
--- for tag-based dispatch in 'ApiMessage').
+-- | Decode a 'ClientMessage' after its constructor tag has been read.
 decodeClientMessageBody :: IsChainState tx => Text -> Decoder s (ClientMessage tx)
 decodeClientMessageBody = \case
   "CommandFailed" -> CommandFailed <$> fromCBOR <*> fromCBOR

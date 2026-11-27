@@ -1,12 +1,13 @@
 module Hydra.Tx.Accumulator.Commitment where
 
+import Hydra.Prelude
+
 import Accumulator (Accumulator)
 import Bindings (getPolyCommitOverG1)
 import Cardano.Crypto.EllipticCurve.BLS12_381.Internal (Point1, Point2, blsCompress)
 import Cardano.Crypto.Hash (Blake2b_256)
 import Cardano.Crypto.Hash.Class (HashAlgorithm (digest))
 import Hydra.Contract.KZGTrustedSetup qualified as KZG
-import Hydra.Prelude
 
 commit :: Int -> Accumulator -> Either Text ByteString
 commit pointCount acc = bimap toText blsCompress $ getPolyCommitOverG1 [] acc (crsG1Points pointCount)

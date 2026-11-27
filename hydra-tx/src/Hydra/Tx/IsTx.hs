@@ -1,6 +1,3 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE TypeFamilyDependencies #-}
--- NOTE: For serialiseTxLedgerCddl
 {-# OPTIONS_GHC -Wno-deprecations #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
@@ -8,10 +5,7 @@ module Hydra.Tx.IsTx (
   module Hydra.Tx.IsTx.Core,
 ) where
 
-import Hydra.Cardano.Api (CtxUTxO, IsShelleyBasedEra, LedgerEra, Tx, TxId, TxOut, UTxO, Value, deserialiseFromCBOR, fromLedgerTx, getTxBody, getTxId, ledgerEraVersion, parseUTxOFromJSON, proxyToAsType, serialiseToCBOR, serialiseToRawBytes, serialiseToTextEnvelope, shelleyBasedEra, toPlutusTxOut, pattern UTxO)
-import Hydra.Cardano.Api qualified as Cardano
 import Hydra.Prelude
-import Hydra.Tx.IsTx.Core
 
 import Cardano.Api.UTxO qualified as UTxO
 import Cardano.Ledger.Binary (decCBOR, decodeFullAnnotator)
@@ -26,9 +20,12 @@ import Data.Map.Strict qualified as Map
 import Data.Set qualified as Set
 import Data.Text.Lazy.Builder (toLazyText)
 import Formatting.Buildable (build)
+import Hydra.Cardano.Api (CtxUTxO, IsShelleyBasedEra, LedgerEra, Tx, TxId, TxOut, UTxO, Value, deserialiseFromCBOR, fromLedgerTx, getTxBody, getTxId, ledgerEraVersion, parseUTxOFromJSON, proxyToAsType, serialiseToCBOR, serialiseToRawBytes, serialiseToTextEnvelope, shelleyBasedEra, toPlutusTxOut, pattern UTxO)
+import Hydra.Cardano.Api qualified as Cardano
 import Hydra.Cardano.Api.Tx qualified as Api
 import Hydra.Cardano.Api.UTxO qualified as Api
 import Hydra.Contract.Util qualified as Util
+import Hydra.Tx.IsTx.Core
 import PlutusLedgerApi.V3 (fromBuiltin)
 
 -- * Cardano Tx
@@ -70,7 +67,7 @@ instance FromJSON Tx where
           -- NOTE: Check txId equivalence only if present.
           (o .:? "txId") >>= \case
             Just txid'
-              | txid' /= Hydra.Tx.IsTx.Core.txId tx -> fail "txId not matching"
+              | txid' /= txId tx -> fail "txId not matching"
             _ -> pure tx
 
 -- XXX: Double CBOR encoding?

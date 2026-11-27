@@ -1,8 +1,9 @@
 module Hydra.Tx.Crypto.MultiSignature where
 
+import Hydra.Prelude
+
 import Cardano.Crypto.Util (SignableRepresentation, getSignableRepresentation)
 import Data.Map.Strict qualified as Map
-import Hydra.Prelude
 import Hydra.Tx.Crypto.Signature (HydraKey, Signature, VerificationKey, verifyBytes)
 
 newtype MultiSignature (a :: Type) = HydraMultiSignature {multiSignature :: [Signature a]}

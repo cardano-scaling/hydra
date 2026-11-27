@@ -8,13 +8,6 @@
 
 module Hydra.Tx.Crypto.Signature (
   -- * Cardano Key interface
-
-  --
-
-  -- | NOTE: We re-export 'Key' but deliberately *omit* its
-  -- 'getVerificationKey' method. The polymorphic 'getVerificationKey'
-  -- exported below (via 'HasVerificationKey') subsumes it and additionally
-  -- accepts 'Secret'-wrapped signing keys.
   Key (deterministicSigningKey, deterministicSigningKeySeedSize, verificationKeyHash),
 
   -- * Hydra specifics
@@ -86,8 +79,7 @@ import Text.Show (Show (..))
 
 -- * Hydra keys
 
--- | Hydra keys (keyrole) which can be used to 'sign' and 'verify' messages, as
--- well as 'aggregate' multi-signatures.
+-- | Key role for signing and verifying Hydra messages.
 data HydraKey
 
 instance HasTypeProxy HydraKey where

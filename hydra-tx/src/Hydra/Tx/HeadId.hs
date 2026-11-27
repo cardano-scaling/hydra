@@ -6,9 +6,10 @@ module Hydra.Tx.HeadId (
   AsType (AsHeadId, AsHeadSeed),
 ) where
 
+import Hydra.Prelude
+
 import Data.Aeson qualified as Aeson
 import Hydra.Cardano.Api (HasTypeProxy (..), PolicyId, SerialiseAsRawBytes (..), TxIn, fromPlutusCurrencySymbol)
-import Hydra.Prelude
 import Hydra.Tx.HeadId.Types
 import PlutusLedgerApi.V3 (CurrencySymbol (..), toBuiltin)
 

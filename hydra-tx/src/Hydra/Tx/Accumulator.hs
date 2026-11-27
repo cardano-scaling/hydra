@@ -28,12 +28,13 @@ module Hydra.Tx.Accumulator (
   createCRSG2Datum,
 ) where
 
+import Hydra.Prelude
+
 import Accumulator (Element)
 import Bindings (getPolyCommitOverG1)
 import Cardano.Api (BabbageEraOnwards (..), TxOutDatum (TxOutDatumInline))
 import Cardano.Crypto.EllipticCurve.BLS12_381.Internal (Point1, blsCompress)
 import Hydra.Cardano.Api qualified as HApi
-import Hydra.Prelude
 import Hydra.Tx.Accumulator.Commitment (crsG1Points, crsG2Points)
 import Hydra.Tx.Accumulator.Core
 import Hydra.Tx.IsTx (IsTx (..))

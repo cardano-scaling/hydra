@@ -3,6 +3,7 @@
 module Hydra.Tx.OnChainId.Types where
 
 import Hydra.Prelude
+
 import Hydra.Prelude.Core (HexBytes (..))
 
 -- | Identifier for a Hydra Head participant on-chain.

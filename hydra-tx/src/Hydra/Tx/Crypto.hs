@@ -8,9 +8,10 @@ module Hydra.Tx.Crypto (
   observedSignatures,
 ) where
 
+import Hydra.Prelude
+
 import Cardano.Crypto.DSIGN (rawDeserialiseSigDSIGN, rawSerialiseSigDSIGN)
 import Hydra.Contract.HeadState qualified as OnChain
-import Hydra.Prelude
 import Hydra.Tx.Crypto.MultiSignature
 import Hydra.Tx.Crypto.Signature
 import PlutusLedgerApi.V3 qualified as Plutus

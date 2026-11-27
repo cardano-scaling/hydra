@@ -1,12 +1,18 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 
-module Hydra.Tx.Accumulator.Core where
+module Hydra.Tx.Accumulator.Core (
+  module Hydra.Tx.Accumulator.Core,
+  maxAccumulatorSize,
+  deployedFanoutBatchSize,
+  defaultItems,
+) where
+
+import Hydra.Prelude hiding (show)
 
 import Accumulator (Accumulator)
 import Accumulator qualified
 import Data.Map.Strict qualified as Map
-import Hydra.Contract.KZGTrustedSetup qualified as KZG
-import Hydra.Prelude hiding (show)
+import Hydra.Contract.KZGParameters (defaultItems, deployedFanoutBatchSize, maxAccumulatorSize)
 import Hydra.Tx.Accumulator.Commitment qualified as Commitment
 import Hydra.Tx.IsTx (IsTx (..), combinedUTxO, restrictedTo)
 import Text.Show (Show (..))
@@ -42,25 +48,7 @@ mkHydraAccumulator acc = HydraAccumulator acc cachedCommitment cachedHash
 build :: [ByteString] -> HydraAccumulator
 build = mkHydraAccumulator . Accumulator.buildAccumulator
 
--- | Build an accumulator from a UTxO by serializing each individual TxOut.
---
--- This is the CORRECT way to build an accumulator for partial fanout proofs.
--- Each TxOut becomes a separate element in the accumulator, allowing you to later
--- prove that a subset of TxOuts was part of the original set.
---
--- The serialization matches how `hashTxOuts` works on-chain:
--- Each element = Builtins.serialiseData (toBuiltinData plutusTxOut)
---
--- Example usage:
--- > -- Build accumulator from the full UTxO set
--- > let fullAcc = buildFromUTxO @Tx utxo
--- >
--- > -- Later, prove a subset exists
--- > let crs = crsG1Points (requiredCRSPointCount fullAcc)
--- > result <- createMembershipProofFromUTxO @Tx subsetUTxO fullAcc crs
---
--- This approach allows proving that 2 out of 5 UTxOs are part of the original set,
--- which is essential for partial fanout functionality.
+-- | Build an accumulator with one 'utxoToElement' entry per output.
 buildFromUTxO ::
   forall tx.
   IsTx tx =>
@@ -217,31 +205,19 @@ getAccumulatorHash = _cachedHash
 accumulatorSize :: HydraAccumulator -> Int
 accumulatorSize = sum . map snd . Map.elems . unHydraAccumulator
 
--- | Maximum accumulator size, re-exported from 'KZGTrustedSetup' for convenience.
-maxAccumulatorSize :: Int
-maxAccumulatorSize = KZG.maxAccumulatorSize
-
 -- | An accumulator over more elements than the embedded G1 CRS can commit to.
 data AccumulatorTooLarge = AccumulatorTooLarge {utxoCount :: Int, maxAllowed :: Int}
   deriving stock (Eq, Show)
 
--- | Largest subset a single fanout transaction can distribute, re-exported from
--- 'KZGTrustedSetup' for convenience.
-deployedFanoutBatchSize :: Int
-deployedFanoutBatchSize = KZG.deployedFanoutBatchSize
-
 computeG1CommitmentBytes :: Accumulator -> ByteString
 computeG1CommitmentBytes acc
-  | n > KZG.maxAccumulatorSize =
-      error . toText $ "getAccumulatorCommitment: accumulator has " <> show n <> " elements, exceeding the G1 CRS limit of " <> show KZG.maxAccumulatorSize
+  | n > maxAccumulatorSize =
+      error . toText $ "getAccumulatorCommitment: accumulator has " <> show n <> " elements, exceeding the G1 CRS limit of " <> show maxAccumulatorSize
   | otherwise =
       either (\e -> error $ "computeG1CommitmentBytes: " <> e) id $
         Commitment.commit (n + 1) acc
  where
   n = sum (snd <$> Map.elems acc)
-
-defaultItems :: Int
-defaultItems = KZG.defaultItems
 
 requiredCRSPointCount :: HydraAccumulator -> Int
 requiredCRSPointCount acc = accumulatorSize acc + 1

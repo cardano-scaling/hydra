@@ -1,4 +1,3 @@
-{-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 -- | Asynchronous messaging interface to the Hydra Network, e.g to other Hydra nodes.

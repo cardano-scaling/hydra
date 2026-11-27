@@ -12,7 +12,7 @@ import Network.Socket (PortNumber)
 import Text.Read (Read (readsPrec))
 import Text.Show (Show (show))
 
--- ** PortNumber (Orphans)
+-- * Port numbers
 
 readPort :: MonadFail m => String -> m PortNumber
 readPort s =
@@ -39,7 +39,13 @@ instance ToJSON PortNumber where
 instance FromJSON PortNumber where
   parseJSON = fmap fromInteger . parseJSON
 
--- ** NodeId
+instance ToCBOR PortNumber where
+  toCBOR = toCBOR . (fromIntegral :: PortNumber -> Word16)
+
+instance FromCBOR PortNumber where
+  fromCBOR = (fromIntegral :: Word16 -> PortNumber) <$> fromCBOR
+
+-- * Node identifiers
 
 newtype NodeId = NodeId {nodeId :: Text}
   deriving stock (Generic)
@@ -51,9 +57,8 @@ instance ToCBOR NodeId where
 instance FromCBOR NodeId where
   fromCBOR = genericFromCBOR
 
--- ** Host
+-- * Hosts
 
--- REVIEW(SN): This is also used in hydra-tui
 data Host = Host
   { hostname :: Text
   , port :: PortNumber
@@ -91,7 +96,7 @@ readHost s =
     (p, ':' : h) -> Host (pack (reverse h)) <$> readPort (reverse p)
     _ -> fail $ "readHost: missing : in " <> s
 
--- ** Connectivity & versions
+-- * Connectivity and versions
 
 data Connectivity
   = -- | Individual peer appeared alive on network.
@@ -161,9 +166,3 @@ instance ToCBOR ProtocolVersion where
 
 instance FromCBOR ProtocolVersion where
   fromCBOR = genericFromCBOR
-
-instance ToCBOR PortNumber where
-  toCBOR = toCBOR . (fromIntegral :: PortNumber -> Word16)
-
-instance FromCBOR PortNumber where
-  fromCBOR = (fromIntegral :: Word16 -> PortNumber) <$> fromCBOR

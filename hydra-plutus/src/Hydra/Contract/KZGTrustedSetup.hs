@@ -62,7 +62,6 @@ module Hydra.Contract.KZGTrustedSetup (
   canonicalG2Points,
 ) where
 
-import Hydra.Contract.KZGParameters
 import Hydra.Prelude hiding (filter, foldMap, isJust, map, (<$>), (==))
 
 import Cardano.Crypto.EllipticCurve.BLS12_381.Internal (Point1, Point2, blsCompress, blsUncompress)
@@ -73,6 +72,7 @@ import Data.Aeson.Types (Parser, parseEither, withObject, (.:))
 import Data.ByteString.Base16 qualified as Base16
 import Data.FileEmbed (embedFile, makeRelativeToProject)
 import Data.Text qualified as T
+import Hydra.Contract.KZGParameters
 import PlutusTx.Builtins (BuiltinBLS12_381_G1_Element, BuiltinBLS12_381_G2_Element, bls12_381_G1_uncompress, bls12_381_G2_uncompress, toBuiltin)
 
 -- | Errors that can occur when loading the embedded KZG trusted setup.

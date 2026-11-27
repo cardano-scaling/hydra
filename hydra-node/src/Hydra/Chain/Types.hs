@@ -161,7 +161,7 @@ instance IsTx tx => ToCBOR (OnChainTx tx) where
 instance IsTx tx => FromCBOR (OnChainTx tx) where
   fromCBOR = genericFromCBOR
 
--- | Exceptions thrown by 'postTx'.
+-- | Errors from constructing or submitting a chain transaction.
 data PostTxError tx
   = NoSeedInput
   | InvalidSeed {headSeed :: HeadSeed}

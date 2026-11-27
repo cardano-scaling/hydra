@@ -5,8 +5,9 @@ module Hydra.Tx.OnChainId (
   AsType (AsOnChainId),
 ) where
 
-import Hydra.Cardano.Api (HasTypeProxy (..), SerialiseAsRawBytes (..))
 import Hydra.Prelude
+
+import Hydra.Cardano.Api (HasTypeProxy (..), SerialiseAsRawBytes (..))
 import Hydra.Tx.OnChainId.Types
 
 instance SerialiseAsRawBytes OnChainId where

@@ -3,6 +3,7 @@
 module Hydra.Tx.HeadId.Types where
 
 import Hydra.Prelude
+
 import Hydra.Prelude.Core (HexBytes (..))
 
 -- * HeadId
@@ -17,6 +18,9 @@ instance ToCBOR HeadId where
 
 instance FromCBOR HeadId where
   fromCBOR = genericFromCBOR
+
+headIdBytes :: HeadId -> ByteString
+headIdBytes (UnsafeHeadId bytes) = bytes
 
 -- * HeadSeed
 
@@ -38,6 +42,3 @@ instance FromCBOR HeadSeed where
 
 instance IsString HeadSeed where
   fromString = UnsafeHeadSeed . fromString
-
-headIdBytes :: HeadId -> ByteString
-headIdBytes (UnsafeHeadId bytes) = bytes

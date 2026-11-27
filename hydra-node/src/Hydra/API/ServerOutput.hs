@@ -8,6 +8,8 @@ module Hydra.API.ServerOutput (
   ApiEncoding (..),
 ) where
 
+import Hydra.Prelude hiding (seq)
+
 import Cardano.Binary (Decoder)
 import Control.Lens ((.~))
 import Data.Aeson (Value (..), defaultOptions, encode, genericParseJSON, genericToJSON, omitNothingFields, tagSingleConstructors, withObject, (.:))
@@ -23,7 +25,6 @@ import Hydra.Ledger (ValidationError)
 import Hydra.Network (Host, ProtocolVersion, StallReason)
 import Hydra.Node.Environment (Environment (..))
 import Hydra.Node.State (NodeState, SyncedStatus)
-import Hydra.Prelude hiding (seq)
 import Hydra.Tx (HeadId, Party, Snapshot, SnapshotNumber, getSnapshot)
 import Hydra.Tx qualified as Tx
 import Hydra.Tx.ContestationPeriod (ContestationPeriod)

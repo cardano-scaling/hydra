@@ -3,10 +3,11 @@ module Hydra.Tx.Party (
   module Hydra.Tx.Party.Types,
 ) where
 
+import Hydra.Prelude
+
 import Data.Secret (Secret)
 import Hydra.Cardano.Api (AsType (AsVerificationKey), SerialiseAsRawBytes (..), SigningKey)
 import Hydra.Data.Party qualified as OnChain
-import Hydra.Prelude
 import Hydra.Tx.Crypto (AsType (AsHydraKey), HydraKey, getVerificationKey)
 import Hydra.Tx.Party.Types
 
@@ -23,7 +24,7 @@ partyToChain :: Party -> OnChain.Party
 partyToChain Party{vkey} =
   OnChain.partyFromVerificationKeyBytes $ serialiseToRawBytes vkey
 
--- | Retrieve the "high-level" 'Party from the "low-level" on-chain
+-- | Retrieve the "high-level" 'Party' from the "low-level" on-chain
 -- representation. This can fail because of the lower type-safety used on-chain
 -- and a non-guaranteed verification key length. See 'Hydra.Data.Party.Party'
 -- for an explanation why this is a distinct type.

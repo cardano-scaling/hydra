@@ -6,11 +6,11 @@ import Text.Show (Show (..))
 
 -- | A non-negative duration used as the deposit validity window.
 -- Nodes within the same Head must configure identical values. Use
--- 'fromNominalDiffTime' to create values of unknown sign.
+-- 'Hydra.Tx.DepositPeriod.fromNominalDiffTime' to validate configured durations.
 --
 -- NOTE: Zero is allowed, unlike 'Hydra.Tx.ContestationPeriod': it means "no
 -- margin", degenerate but workable, and it is what a sub-second period
--- truncates to. Sub-millisecond precision is not, see 'fromNominalDiffTime'.
+-- truncates to. Sub-millisecond precision is not allowed by the smart constructor.
 -- NOTE: 'FromJSON' is deliberately newtype-derived and therefore total, for the
 -- same reason as 'Hydra.Tx.ContestationPeriod': it also decodes the persisted
 -- event log. A configured period is validated at the configuration boundary

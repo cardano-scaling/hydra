@@ -3,9 +3,10 @@
 -- | Typed handles and bounded label domains for the public metrics interface.
 module Hydra.Logging.Monitoring.Metrics where
 
+import Hydra.Prelude
+
 import Data.Map.Strict qualified as Map
 import Hydra.Logging.Monitoring.Registry qualified as Registry
-import Hydra.Prelude
 import System.Metrics.Prometheus.Metric.Counter (Counter)
 import System.Metrics.Prometheus.Metric.Gauge (Gauge)
 import System.Metrics.Prometheus.Metric.Histogram (Histogram)

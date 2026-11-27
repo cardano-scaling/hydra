@@ -22,15 +22,15 @@ instance FromJSONKey HexBytes where
 -- | Encode some bytes to hex-encoded text.
 --
 -- >>> encodeBase16 "ab"
--- "4142"
+-- "6162"
 encodeBase16 :: ByteString -> Text
 encodeBase16 =
   decodeUtf8 . Base16.encode
 
 -- | Decode some hex-encoded text string to raw bytes.
 --
--- >>> decodeBase16 "dflkgjdjgdh"
--- Left "Not base 16"
+-- >>> decodeBase16 "zz" :: Maybe ByteString
+-- Nothing
 decodeBase16 :: MonadFail f => Text -> f ByteString
 decodeBase16 =
   either fail pure . Base16.decode . encodeUtf8

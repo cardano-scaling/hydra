@@ -3,8 +3,9 @@
 
 module Hydra.Tx.IsTx.Core where
 
-import Data.Aeson (FromJSONKey, ToJSONKey)
 import Hydra.Prelude
+
+import Data.Aeson (FromJSONKey, ToJSONKey)
 
 -- | Types of transactions that can be used by the Head protocol. The associated
 -- types and methods of this type class represent the whole interface of what

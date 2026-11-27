@@ -1,8 +1,9 @@
 module Hydra.Tx.Snapshot.Encoding where
 
+import Hydra.Prelude
+
 import Codec.Serialise (serialise)
 import Data.ByteString.Lazy qualified as LBS
-import Hydra.Prelude
 import PlutusLedgerApi.V3 (fromBuiltin, toBuiltin, toData)
 import PlutusTx.Builtins (sha2_256)
 

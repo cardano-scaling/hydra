@@ -9,7 +9,7 @@ import Cardano.Crypto.Util (SignableRepresentation (..))
 import Data.Aeson (Value (String), object, withObject, (.:), (.:?), (.=))
 import Data.ByteString.Base16 qualified as Base16
 import Data.ByteString.Lazy qualified as LBS
-import Hydra.Contract.HeadState qualified as Onchain
+import Hydra.Contract.HeadState.Types qualified as Onchain
 import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Crypto (MultiSignature)
 import Hydra.Tx.HeadId (HeadId, headIdBytes)

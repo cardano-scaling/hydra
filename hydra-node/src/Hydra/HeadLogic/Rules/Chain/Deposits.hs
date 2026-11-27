@@ -5,6 +5,8 @@
 
 module Hydra.HeadLogic.Rules.Chain.Deposits where
 
+import Hydra.Prelude
+
 import Data.Map.Strict qualified as Map (
   difference,
   filter,
@@ -88,7 +90,6 @@ import Hydra.Node.State (
   DepositStatus (Active, Expired, Inactive),
   PendingDeposits,
  )
-import Hydra.Prelude
 import Hydra.Tx (IsTx)
 import Hydra.Tx.DepositPeriod (
   toNominalDiffTime,
