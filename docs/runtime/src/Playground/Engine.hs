@@ -3,6 +3,8 @@
 
 module Playground.Engine where
 
+import Hydra.Prelude hiding (encodeUtf8, state)
+
 import Data.Aeson (Value, object, withObject, (.!=), (.:), (.:?), (.=))
 import Data.Foldable (minimum)
 import Data.List (isPrefixOf)
@@ -31,7 +33,6 @@ import Hydra.Network.Message qualified as Network
 import Hydra.Node.Input (mkNetworkInput)
 import Hydra.Node.State qualified as Node
 import Hydra.Node.UnsyncedPeriod (defaultUnsyncedPeriodFor)
-import Hydra.Prelude hiding (encodeUtf8, state)
 import Hydra.Tx.Crypto qualified as Crypto
 import Hydra.Tx.DepositPeriod qualified as Period
 import Hydra.Tx.HeadId (HeadId (..), HeadSeed (..))

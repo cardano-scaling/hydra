@@ -52,6 +52,11 @@ The remaining portable modules have these responsibilities:
 | `Cardano.Binary` | Compatibility declarations that fail if unused persistence or wire encoding is invoked. |
 | Other modules | Re-export shared types and helpers. |
 
+The small re-export modules preserve the imports used by production sources.
+Their native counterparts also provide Cardano conversions, networking or
+cryptography that the browser does not need. Snapshot number types and KZG
+parameters are imported directly from their shared modules.
+
 The shell simulates wallets, ordered broadcast delivery (including the sender),
 chain time and L1 observations. A deposit confirmation and its activation tick
 are separate steps. Each operator’s `AckSn` is delivered separately. When several

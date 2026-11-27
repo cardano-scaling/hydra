@@ -1,10 +1,11 @@
 module Playground.Witnesses (checks) where
 
+import Hydra.Prelude
+
 import Data.Aeson (Value, object, (.=))
 import Data.Set qualified as Set
 import Hydra.HeadLogic.Interpreter (SnapshotSigner (..))
 import Hydra.Ledger.Simple (SimpleTx, SimpleTxOut (..))
-import Hydra.Prelude
 import Hydra.Tx.Accumulator qualified as Accumulator
 import Hydra.Tx.Crypto (aggregate, verifyMultiSignature)
 import Hydra.Tx.Snapshot (ConfirmedSnapshot (InitialSnapshot), Snapshot (..), getSnapshot)

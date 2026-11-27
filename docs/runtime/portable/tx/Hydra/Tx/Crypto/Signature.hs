@@ -13,9 +13,10 @@ module Hydra.Tx.Crypto.Signature (
   verifyBytes,
 ) where
 
+import Hydra.Prelude
+
 import Cardano.Crypto.Util
 import Data.Aeson (FromJSONKey, ToJSONKey)
-import Hydra.Prelude
 import Hydra.Prelude.Core (HexBytes (..))
 
 data HydraKey

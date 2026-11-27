@@ -152,6 +152,8 @@ there is no Haskell source generation or text extraction step.
 The remaining portable modules contain symbolic keys, hashes, commitments and
 snapshot encoding; platform type stand-ins; module re-exports; and explicit
 failures for unsupported CBOR persistence and network encoding.
+The small re-export modules keep existing Hydra imports without pulling in
+their native Cardano, networking or cryptographic implementations.
 
 The shell simulates L1 observations and an ordered broadcast network. Deposits
 are external wallet submissions; confirmation and activation are separate.

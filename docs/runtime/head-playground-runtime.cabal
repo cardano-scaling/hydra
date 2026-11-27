@@ -51,10 +51,8 @@ library tx
     Cardano.Crypto.Util
     Hydra.Cardano.Api
     Hydra.Chain.ChainState
-    Hydra.Contract.HeadState
     Hydra.Contract.HeadState.Types
     Hydra.Contract.KZGParameters
-    Hydra.Contract.KZGTrustedSetup
     Hydra.Prelude
     Hydra.Prelude.Core
     Hydra.Tx

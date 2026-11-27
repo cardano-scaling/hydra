@@ -3,6 +3,8 @@
 
 module Playground.View (render) where
 
+import Hydra.Prelude hiding (local, state)
+
 import Data.Aeson (Value (..), object, (.=))
 import Data.Aeson.Key qualified as Key
 import Data.Aeson.KeyMap qualified as KeyMap
@@ -20,7 +22,6 @@ import Hydra.HeadLogic.State.Node qualified as Machine
 import Hydra.HeadLogic.Trace qualified as Trace
 import Hydra.Ledger.Simple
 import Hydra.Network.Message qualified as Network
-import Hydra.Prelude hiding (local, state)
 import Hydra.Tx.Party (Party (..))
 import Hydra.Tx.Snapshot qualified as Snapshot
 import Playground.Engine
