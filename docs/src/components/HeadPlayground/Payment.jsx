@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { CHIP_VALUE, person, targets } from "./model.mjs";
+import { fundsValue, person, targets } from "./model.mjs";
 import styles from "./styles.module.css";
 
 export default function Payment({ state, disabled, onPay }) {
@@ -93,7 +93,7 @@ export default function Payment({ state, disabled, onPay }) {
             {!funds.length && <option value={0}>0 ADA</option>}
             {funds.map((_, i) => (
               <option key={i} value={i + 1}>
-                {(i + 1) * CHIP_VALUE} ADA
+                {fundsValue(funds.slice(0, i + 1))}
               </option>
             ))}
           </select>

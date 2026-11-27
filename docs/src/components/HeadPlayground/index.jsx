@@ -4,7 +4,8 @@ import Board from "./Board";
 import Participants from "./Participants";
 import Inspector from "./Inspector";
 import Payment from "./Payment";
-import { CHIP_VALUE, person, targets } from "./model.mjs";
+import Swap from "./Swap";
+import { formatValue, fundsValue, person, targets } from "./model.mjs";
 import useProtocol from "./useProtocol";
 import styles from "./styles.module.css";
 
@@ -34,6 +35,8 @@ export default function HeadPlayground() {
     );
   const setup = state.phase === "setup";
   const disabled = waiting || Boolean(error);
+  const beforeOpen = setup || state.phase === "opening";
+  const fundsDisabled = disabled || state.phase !== "open";
   const action = state.action;
   const value = state.totals;
   const selectedFund = state.funds.find((f) => f.id === selected);
@@ -44,6 +47,7 @@ export default function HeadPlayground() {
     setShowHistory(false);
   };
   const moveFunds = (fundId, target) => {
+    if (fundsDisabled) return;
     act({
       type: "move",
       fund: fundId,
@@ -136,6 +140,10 @@ export default function HeadPlayground() {
               ? "Ready to begin"
               : state.phase === "opening"
               ? "Opening on L1"
+              : ["closed", "fanout"].includes(state.phase)
+              ? "Closed · funds locked"
+              : state.phase === "finalized"
+              ? "Finalized"
               : "Ready"}
           </span>
           <h3>{action.title}</h3>
@@ -144,94 +152,169 @@ export default function HeadPlayground() {
             <p>{action.detail}</p>
           </details>
         </div>
-        {action.button && (
-          <button
-            type="button"
-            className={styles.primary}
-            disabled={disabled}
-            onClick={() => {
-              act({ type: setup ? "open" : "step" });
-              setSelected(null);
-            }}
-          >
-            {action.button}
-          </button>
-        )}
-      </div>
-
-      <div className={styles.ledgerHeaders}>
-        <div>
-          <h3>Cardano · L1</h3>
-          <strong>{value.wallets} ADA in wallets</strong>
-          <span>
-            {value.backing} ADA backing the Head
-            {value.deposits > 0 ? ` · ${value.deposits} ADA in deposits` : ""}
-          </span>
-        </div>
-        <div>
-          <h3>Hydra · L2</h3>
-          <strong>{value.spendable} ADA confirmed & available</strong>
-          {value.pending > 0 && <span>{value.pending} ADA pending</span>}
-        </div>
-      </div>
-      <BrowserOnly fallback={<p>Loading the funds board…</p>}>
-        {() => (
-          <Board
-            key={boardKey}
-            state={state}
-            disabled={disabled}
-            selected={selected}
-            onSelect={selectFunds}
-            onMove={moveFunds}
-            reducedMotion={reducedMotion}
-          />
-        )}
-      </BrowserOnly>
-      {!waiting &&
-        !error &&
-        selectedFund &&
-        targets(state, selected).length > 0 && (
-          <div
-            className={styles.moveOptions}
-            ref={moveOptions}
-            role="group"
-            aria-label="Move selected funds"
-          >
-            <strong>
-              {person(state, selectedFund.owner).name}’s {CHIP_VALUE} ADA
-            </strong>
-            {targets(state, selected).map((target) => (
-              <button
-                key={`${target.layer}-${target.owner}`}
-                type="button"
-                onClick={() => moveFunds(selected, target)}
-              >
-                {target.label}
-              </button>
-            ))}
-            <button type="button" onClick={() => setSelected(null)}>
-              Cancel
+        <div className={styles.actionButtons}>
+          {action.button && (
+            <button
+              type="button"
+              className={styles.primary}
+              disabled={disabled}
+              onClick={() => {
+                act({ type: setup ? "open" : "step" });
+                setSelected(null);
+              }}
+            >
+              {action.button}
             </button>
-          </div>
-        )}
-      <p className={styles.hint}>
-        {state.pending
-          ? "Finish the current step to move more funds."
-          : setup
-          ? "Open the Head to move funds."
-          : "Drag or select funds to deposit, pay, or withdraw."}
-      </p>
+          )}
+          {state.phase === "open" && (
+            <button
+              type="button"
+              disabled={disabled || !state.canClose}
+              onClick={() => {
+                act({ type: "close" });
+                setSelected(null);
+              }}
+            >
+              Close the Head
+            </button>
+          )}
+          {["closed", "fanout"].includes(state.phase) && (
+            <button
+              type="button"
+              className={styles.primary}
+              disabled={disabled || !state.canFanout}
+              onClick={() => act({ type: "fanout" })}
+            >
+              Fan out to L1
+            </button>
+          )}
+        </div>
+      </div>
 
-      {value.backing > 0 && (
-        <Payment
-          state={state}
-          disabled={disabled}
-          onPay={(funds, owner) => {
-            act({ type: "pay", funds, owner });
-            setSelected(null);
-          }}
-        />
-      )}
+      <section
+        className={styles.fundsArea}
+        aria-label="Funds"
+        aria-disabled={state.phase !== "open"}
+        data-unavailable={beforeOpen}
+      >
+        {beforeOpen && (
+          <p className={styles.lockNotice}>Open the Head to use these funds.</p>
+        )}
+        <div
+          className={styles.fundsContent}
+          inert={beforeOpen ? "" : undefined}
+        >
+          <div className={styles.ledgerHeaders}>
+            <div>
+              <h3>Cardano · L1</h3>
+              <strong>
+                {formatValue(value.wallets, value.tokens.wallets)} in wallets
+              </strong>
+              <span>
+                {formatValue(value.backing, value.tokens.backing)} backing the
+                Head
+                {value.deposits > 0 || value.tokens.deposits > 0
+                  ? ` · ${formatValue(
+                      value.deposits,
+                      value.tokens.deposits
+                    )} in deposits`
+                  : ""}
+              </span>
+            </div>
+            <div>
+              <h3>Hydra · L2</h3>
+              <strong>
+                {formatValue(value.spendable, value.tokens.spendable)} confirmed
+                & available
+              </strong>
+              {(value.pending > 0 || value.tokens.pending > 0) && (
+                <span>
+                  {formatValue(value.pending, value.tokens.pending)} pending
+                </span>
+              )}
+              {(value.closed > 0 || value.tokens.closed > 0) && (
+                <span>
+                  {formatValue(value.closed, value.tokens.closed)} locked until
+                  fanout
+                </span>
+              )}
+            </div>
+          </div>
+          <BrowserOnly fallback={<p>Loading the funds board…</p>}>
+            {() => (
+              <Board
+                key={boardKey}
+                state={state}
+                disabled={fundsDisabled}
+                selected={fundsDisabled ? null : selected}
+                onSelect={selectFunds}
+                onMove={moveFunds}
+                reducedMotion={reducedMotion}
+              />
+            )}
+          </BrowserOnly>
+          {!fundsDisabled &&
+            selectedFund &&
+            targets(state, selected).length > 0 && (
+              <div
+                className={styles.moveOptions}
+                ref={moveOptions}
+                role="group"
+                aria-label="Move selected funds"
+              >
+                <strong>
+                  {person(state, selectedFund.owner).name}’s{" "}
+                  {fundsValue([selectedFund])}
+                </strong>
+                {targets(state, selected).map((target) => (
+                  <button
+                    key={`${target.layer}-${target.owner}`}
+                    type="button"
+                    onClick={() => moveFunds(selected, target)}
+                  >
+                    {target.label}
+                  </button>
+                ))}
+                <button type="button" onClick={() => setSelected(null)}>
+                  Cancel
+                </button>
+              </div>
+            )}
+          {!beforeOpen && (
+            <p className={styles.hint}>
+              {state.pending
+                ? "Finish the current step to move more funds."
+                : ["closed", "fanout"].includes(state.phase)
+                ? "Funds stay locked until fanout confirms on L1."
+                : state.phase === "finalized"
+                ? "Rewind to inspect a step, or start over."
+                : "Drag or select funds to deposit, pay, or withdraw."}
+            </p>
+          )}
+
+          {state.phase === "open" &&
+            (value.backing > 0 || value.tokens.backing > 0) && (
+              <>
+                <Payment
+                  state={state}
+                  disabled={disabled}
+                  onPay={(funds, owner) => {
+                    act({ type: "pay", funds, owner });
+                    setSelected(null);
+                  }}
+                />
+                <Swap
+                  state={state}
+                  disabled={disabled}
+                  onSwap={(fund, owner) => {
+                    act({ type: "swap", fund, owner });
+                    setSelected(null);
+                  }}
+                />
+              </>
+            )}
+        </div>
+      </section>
 
       <section className={styles.messages} aria-label="Who sends what">
         <div className={styles.messageHeading}>

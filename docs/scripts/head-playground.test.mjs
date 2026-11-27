@@ -4,6 +4,7 @@ import { loadPlayground } from "./compiled-playground.mjs";
 import {
   exercisePlayground,
   exercisePayments,
+  exerciseTokenLifecycle,
   rejectionRequests,
 } from "./playground-scenarios.mjs";
 
@@ -36,6 +37,10 @@ test("production Crem workflows open, deposit, pay and withdraw for every operat
 
 test("payments spend several outputs through NewTx and replay reservations", () => {
   exercisePayments(evaluate);
+});
+
+test("native tokens deposit, exchange atomically and return through close and fanout", () => {
+  exerciseTokenLifecycle(evaluate);
 });
 
 test("real protocol guards reject or defer invalid client requests", () => {

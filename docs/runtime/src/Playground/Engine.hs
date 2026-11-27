@@ -16,6 +16,7 @@ import Hydra.API.ClientInput qualified as Client
 import Hydra.Chain qualified as Chain
 import Hydra.Chain.ChainState (ChainSlot)
 import Hydra.HeadLogic.Cardano (cardanoSnapshotLimits)
+import Hydra.HeadLogic.Fanout.Selection (computeFullFanoutUTxO)
 import Hydra.HeadLogic.Input (Input (..))
 import Hydra.HeadLogic.Interpreter qualified as Interpreter
 import Hydra.HeadLogic.Outcome qualified as Logic
@@ -25,6 +26,7 @@ import Hydra.HeadLogic.Rules.Environment (RuleEnvironment (..))
 import Hydra.HeadLogic.Rules.Input qualified as Input
 import Hydra.HeadLogic.Snapshot.Settlement (settledUTxO)
 import Hydra.HeadLogic.State qualified as Head
+import Hydra.HeadLogic.State.Fanout (getClosedState)
 import Hydra.HeadLogic.State.Node qualified as Machine
 import Hydra.HeadLogic.Trace qualified as Trace
 import Hydra.HeadLogic.Workflow qualified as Workflow
@@ -33,9 +35,12 @@ import Hydra.Network.Message qualified as Network
 import Hydra.Node.Input (mkNetworkInput)
 import Hydra.Node.State qualified as Node
 import Hydra.Node.UnsyncedPeriod (defaultUnsyncedPeriodFor)
+import Hydra.Tx.ContestationPeriod qualified as Contestation
 import Hydra.Tx.Crypto qualified as Crypto
 import Hydra.Tx.DepositPeriod qualified as Period
 import Hydra.Tx.HeadId (HeadId (..), HeadSeed (..))
+import Hydra.Tx.HeadParameters (HeadParameters (..))
+import Hydra.Tx.IsTx (combinedUTxO)
 import Hydra.Tx.OnChainId (OnChainId (..))
 import Hydra.Tx.Party (Party (..))
 import Hydra.Tx.Snapshot qualified as Snapshot
@@ -48,9 +53,12 @@ instance FromJSON Setup where
 
 data Action
   = Open
+  | Close
+  | Fanout
   | Step
   | Move {fund :: Text, owner :: Text, layer :: Text}
   | Pay {funds :: [Text], owner :: Text}
+  | Swap {fund :: Text, owner :: Text}
   | Submit {recipientNode :: Int, clientCommand :: Client.ClientInput SimpleTx}
   deriving stock (Eq, Show)
 
@@ -58,9 +66,12 @@ instance FromJSON Action where
   parseJSON = withObject "action" $ \o ->
     o .: "type" >>= \case
       ("open" :: Text) -> pure Open
+      "close" -> pure Close
+      "fanout" -> pure Fanout
       "step" -> pure Step
       "move" -> Move <$> o .: "fund" <*> o .: "owner" <*> o .: "layer"
       "pay" -> Pay <$> o .: "funds" <*> o .: "owner"
+      "swap" -> Swap <$> o .: "fund" <*> o .: "owner"
       "client" -> Submit <$> o .: "node" <*> o .: "input"
       _ -> fail "Unknown playground action"
 
@@ -72,7 +83,7 @@ instance FromJSON Request where
 data Person = Person {personId :: Text, name :: Text, operator :: Int, runsNode :: Bool}
   deriving stock (Eq, Show)
 
-data Chip = Chip {chipId :: Text, ownerId :: Text}
+data Chip = Chip {chipId :: Text, ownerId :: Text, ada :: Int, tokens :: Int}
   deriving stock (Eq, Show)
 
 data Delivery
@@ -152,7 +163,12 @@ initial Setup{..}
   people =
     [Person ("operator-" <> show i) n i True | (i, n) <- zip [0 ..] $ take operators ["Alice", "Bob", "Carol", "Devon"]]
       <> [Person ("user-" <> show i) n op False | (i, (n, op)) <- zip [0 :: Int ..] $ zip (take users ["Erin", "Finn", "Grace", "Hugo"]) routes]
-  entries = [(SimpleTxOut $ fromIntegral $ i * 2 + j + 1, Chip ("coin-" <> show (i * 2 + j)) p.personId) | (i, p) <- zip [0 :: Int ..] people, j <- [0, 1]]
+  entries =
+    [ (SimpleTxOut $ fromIntegral $ i * 2 + j + 1, Chip ("coin-" <> show (i * 2 + j)) p.personId (10 * (i + 1) + j) (if i == 0 && j == 0 then 1 else 0))
+    | (i, p) <- zip [0 :: Int ..] people
+    , j <- [0, 1]
+    ]
+      <> [(SimpleTxOut $ fromIntegral $ length people * 2 + 1, Chip "token-only" "operator-0" 0 1)]
   world =
     World
       { people
@@ -208,6 +224,7 @@ deliver i input w = foldl' (acceptEffect i) notified effects
   notifyClient world Logic.SnapshotConfirmed{} = say (nodeName w i) "Connected wallets" "All operators’ signatures match. This node confirms the snapshot." "SnapshotConfirmed" world
   notifyClient world Logic.TxInvalid{} = say (nodeName w i) "Connected wallet" "The transaction failed SimpleTx validation; funds are unchanged." "TxInvalid" world
   notifyClient world Logic.DecommitInvalid{} = say (nodeName w i) "Connected wallet" "The protocol declined this withdrawal. See the exact reason below." "DecommitInvalid" world
+  notifyClient world Logic.HeadIsReadyToFanout{} = say (nodeName w i) "Connected wallets" "The contestation period has ended. Funds can now return to L1." "ReadyToFanout" world
   notifyClient world _ = world
 
 acceptEffect :: Int -> World -> Logic.Effect SimpleTx -> World
@@ -246,6 +263,8 @@ postName =
     Chain.InitTx{} -> "Init"
     Chain.IncrementTx{} -> "Increment"
     Chain.DecrementTx{} -> "Decrement"
+    Chain.CloseTx{} -> "Close"
+    Chain.FanoutTx{} -> "Fanout"
     other -> Chain.postChainTxName other
 
 openState :: Node.NodeState SimpleTx -> Maybe (Head.OpenState SimpleTx)
@@ -256,6 +275,28 @@ confirmedFunds n = maybe mempty (\o -> settledUTxO o.coordinatedHeadState.versio
 
 localFunds :: Node.NodeState SimpleTx -> Set SimpleTxOut
 localFunds n = maybe mempty (.coordinatedHeadState.localUTxO) $ openState n
+
+closedFunds :: Node.NodeState SimpleTx -> Set SimpleTxOut
+closedFunds n = case n.headState of
+  Head.Closed closed -> computeFullFanoutUTxO closed
+  Head.FanoutProgress progress -> progress.remainingOutputs
+  _ -> mempty
+
+canPost :: World -> Client.ClientInput SimpleTx -> Bool
+canPost w command
+  | busy w = False
+  | otherwise = case fst $ evaluateInput w 0 (ClientInput command) of
+      Logic.Continue{effects} -> any (\case Logic.OnChainEffect{} -> True; _ -> False) effects
+      _ -> False
+
+canFanout :: World -> Bool
+canFanout w = maybe False (.readyToFanoutSent) (getClosedState (nodeAt w 0).headState) && canPost w Client.Fanout
+
+fanoutTime :: World -> Maybe UTCTime
+fanoutTime w = do
+  closed <- getClosedState (nodeAt w 0).headState
+  guard $ not closed.readyToFanoutSent
+  pure $ addUTCTime 1 closed.contestationDeadline
 
 activationTime :: World -> Maybe UTCTime
 activationTime w =
@@ -271,21 +312,37 @@ busy w = not (null w.queue) || isJust (activationTime w)
 
 runAction :: World -> Action -> Either Text World
 runAction w Open
-  | busy w = Left "Finish the pending delivery first."
-  | all (isNothing . openState) w.nodes =
+  | canPost w Client.Init =
       Right $
         deliver 0 (ClientInput Client.Init) $
           say "Alice’s client" (nodeName w 0) "Ask to open a Head with the configured operators." "Init" w
-  | otherwise = Left "This Head is already open."
+  | otherwise = Left "This Head cannot open now."
+runAction w Close
+  | canPost w Client.Close = Right $ deliver 0 (ClientInput Client.Close) $ say "Alice’s client" (nodeName w 0) "Close the Head using its latest confirmed snapshot." "Close" w
+  | otherwise = Left "Finish the current request before closing an open Head."
+runAction w Fanout
+  | canFanout w = Right $ deliver 0 (ClientInput Client.Fanout) $ say "Alice’s client" (nodeName w 0) "Return the closed Head’s funds to their owners on L1." "Fanout" w
+  | otherwise = Left "Wait for the closed Head’s contestation period to end."
 runAction w Step = case w.queue of
   delivery : rest -> deliverNext delivery w{queue = rest}
-  [] -> case activationTime w of
-    Just next -> Right $ tick next $ say "Cardano L1 clock" "All operators" "Advance simulated chain time past the deposit activation delay." "Tick" w
-    Nothing -> Left "There is no pending delivery."
+  []
+    | Just next <- activationTime w -> Right $ tick next $ say "Cardano L1 clock" "All operators" "Advance simulated chain time past the deposit activation delay." "Tick" w
+    | Just next <- fanoutTime w -> Right $ tick next $ say "Cardano L1 clock" "All operators" "Advance simulated chain time past the contestation deadline." "Tick" w
+    | otherwise -> Left "There is no pending delivery."
 runAction w Submit{recipientNode, clientCommand}
   | recipientNode `elem` operatorIndices w = Right $ deliver recipientNode (ClientInput clientCommand) w
   | otherwise = Left "Unknown operator."
 runAction w Pay{funds, owner} = transfer w funds owner "l2"
+runAction w Swap{fund, owner} = do
+  readyToMove w
+  (output, chip, onL1) <- requireChip w fund
+  unless (not onL1 && chip.tokens > 0 && owner /= chip.ownerId) $ Left "Choose an L2 token and another wallet."
+  seller <- requirePerson w chip.ownerId
+  buyer <- requirePerson w owner
+  let payment = take 2 [(out, coin) | (out, coin, False) <- availableFunds w, coin.ownerId == owner, coin.tokens == 0]
+  unless (length payment == 2) $ Left "The buyer needs two available ADA outputs in the Head."
+  let (tx, prepared) = prepareTransaction w $ (output, chip{ownerId = owner}) : [(out, coin{ownerId = seller.personId}) | (out, coin) <- payment]
+  pure $ deliver seller.operator (ClientInput $ Client.NewTx tx) $ say (seller.name <> " & " <> buyer.name <> "’s wallets") (nodeName w seller.operator) "Both wallets agree to exchange the token output for the buyer’s two ADA outputs in one L2 transaction." "NewTx" prepared
 runAction w Move{..} = do
   readyToMove w
   (output, chip, onL1) <- requireChip w fund
@@ -316,6 +373,12 @@ transaction w inputs =
   SimpleTx w.nextId (Set.fromList inputs) $
     Set.fromList [SimpleTxOut $ w.nextId + 10000 + i | i <- [0 .. fromIntegral (length inputs) - 1]]
 
+prepareTransaction :: World -> [(SimpleTxOut, Chip)] -> (SimpleTx, World)
+prepareTransaction w outputs =
+  (tx, w{nextId = w.nextId + fromIntegral (length outputs), chips = Map.fromList (zip (toList tx.txOutputs) (snd <$> outputs)) <> w.chips})
+ where
+  tx = transaction w $ fst <$> outputs
+
 transfer :: World -> [Text] -> Text -> Text -> Either Text World
 transfer w funds owner layer = do
   readyToMove w
@@ -326,9 +389,7 @@ transfer w funds owner layer = do
   source <- requirePerson w firstChip.ownerId
   unless (all (\(_, chip, onL1) -> not onL1 && chip.ownerId == source.personId) inputs) $ Left "Choose available L2 funds from one wallet."
   unless ((layer == "l1" && owner == source.personId) || (layer == "l2" && owner /= source.personId)) $ Left "Choose another L2 owner or the same owner’s L1 wallet."
-  let tx = transaction w [out | (out, _, _) <- inputs]
-      produced = zip (toList tx.txOutputs) [Chip chip.chipId owner | (_, chip, _) <- inputs]
-      prepared = w{nextId = w.nextId + fromIntegral (length inputs), chips = Map.fromList produced <> w.chips}
+  let (tx, prepared) = prepareTransaction w [(out, chip{ownerId = owner}) | (out, chip, _) <- inputs]
       (request, name, detail) =
         if layer == "l1"
           then (Client.Decommit tx, "Decommit", "Request a withdrawal to this wallet on L1.")
@@ -336,10 +397,15 @@ transfer w funds owner layer = do
   pure $ deliver source.operator (ClientInput request) $ say (source.name <> "’s wallet") (nodeName w source.operator) detail name prepared
 
 availableChip :: World -> Text -> Maybe (SimpleTxOut, Chip, Bool)
-availableChip w requestedId =
-  find (\(_, chip, _) -> chip.chipId == requestedId) $
-    [(out, chip, True) | out <- toList w.wallets, Just chip <- [Map.lookup out w.chips]]
-      <> [(out, chip, False) | out <- toList agreed, Just chip <- [Map.lookup out w.chips]]
+availableChip w requestedId = find (\(_, chip, _) -> chip.chipId == requestedId) $ availableFunds w
+
+adaValue :: World -> Set SimpleTxOut -> Int
+adaValue w outputs = sum [chip.ada | out <- toList outputs, Just chip <- [Map.lookup out w.chips]]
+
+availableFunds :: World -> [(SimpleTxOut, Chip, Bool)]
+availableFunds w =
+  [(out, chip, True) | out <- toList w.wallets, Just chip <- [Map.lookup out w.chips]]
+    <> [(out, chip, False) | out <- toList agreed, Just chip <- [Map.lookup out w.chips]]
  where
   available n = confirmedFunds n `Set.intersection` localFunds n
   agreed = foldl' Set.intersection (available $ nodeAt w 0) $ available <$> w.nodes
@@ -364,14 +430,22 @@ deliverNext delivery w = case delivery of
       let snapshot = Snapshot.getSnapshot confirmed
       pure $
         observe (Chain.OnIncrementTx hid (snapshot.version + 1) depositTxId snapshot.number (Snapshot.confirmedSignatures confirmed)) $
-          w{l1Deposits = Map.delete depositTxId w.l1Deposits, backing = w.backing + Set.size deposited}
+          w{l1Deposits = Map.delete depositTxId w.l1Deposits, backing = w.backing + adaValue w deposited}
     Chain.DecrementTx{headId = hid, decrementingSnapshot = confirmed} -> do
       let snapshot = Snapshot.getSnapshot confirmed
       distributed <- maybe (Left "The posted snapshot has no withdrawal outputs.") Right snapshot.utxoToDecommit
       pure $
         observe (Chain.OnDecrementTx hid (snapshot.version + 1) distributed snapshot.number (Snapshot.confirmedSignatures confirmed)) $
-          w{wallets = w.wallets <> distributed, backing = w.backing - Set.size distributed}
-    _ -> Left "This walkthrough does not expose closing or recovery."
+          w{wallets = w.wallets <> distributed, backing = w.backing - adaValue w distributed}
+    Chain.CloseTx{headId = hid, headParameters, closingSnapshot = confirmed} ->
+      Right $ observe (Chain.OnCloseTx hid (Snapshot.getSnapshot confirmed).number deadline (Snapshot.confirmedSignatures confirmed)) w
+     where
+      deadline = addUTCTime (Contestation.toNominalDiffTime headParameters.contestationPeriod) w.now
+    Chain.FanoutTx{utxo, utxoToCommit, utxoToDecommit, contestationDeadline} -> do
+      unless (w.now > contestationDeadline) $ Left "L1 fanout must wait until after the contestation deadline."
+      let distributed = combinedUTxO utxo utxoToCommit utxoToDecommit
+      pure $ observe (Chain.OnFanoutTx headId distributed) w{wallets = w.wallets <> distributed, backing = w.backing - adaValue w distributed}
+    _ -> Left "This L1 transaction is not exposed in the walkthrough."
 
 observe :: Chain.OnChainTx SimpleTx -> World -> World
 observe observation w = foldl' (\world i -> deliver i input world) announced $ operatorIndices w
@@ -382,6 +456,8 @@ observe observation w = foldl' (\world i -> deliver i input world) announced $ o
     Chain.OnDepositTx{} -> ("OnDepositTx", "The deposit is now locked on L1. Operators record it as inactive.")
     Chain.OnIncrementTx{} -> ("OnIncrementTx", "The increment is confirmed. Operators apply the new Head version and make the deposit available on L2.")
     Chain.OnDecrementTx{} -> ("OnDecrementTx", "The decrement is confirmed. Withdrawal outputs are now in the L1 wallet.")
+    Chain.OnCloseTx{} -> ("OnCloseTx", "The Head is closed. Funds stay locked during the contestation period, when operators can challenge an outdated snapshot.")
+    Chain.OnFanoutTx{} -> ("OnFanoutTx", "Fanout is confirmed. The Head’s ADA and native tokens are now in their owners’ L1 wallets.")
     _ -> ("Observation", "Observe an L1 transaction.")
   announced = say "Cardano L1" "All operators" detail name w{slot = w.slot + 1}
 

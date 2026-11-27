@@ -12,7 +12,10 @@ export default function Inspector({ state }) {
       {state.nodes.map((node, i) => (
         <details key={node.name}>
           <summary>
-            {node.name} · snapshot {node.snapshot} · Head version {node.version}
+            {node.name}
+            {node.snapshot == null
+              ? ` · ${node.state.headState.tag}`
+              : ` · snapshot ${node.snapshot} · Head version ${node.version}`}
           </summary>
           <p>
             Local outputs: {node.local.join(", ") || "none"}. Confirmed and

@@ -8,6 +8,7 @@ import { loadPlayground } from "./compiled-playground.mjs";
 import {
   exercisePlayground,
   exercisePayments,
+  exerciseTokenLifecycle,
   rejectionRequests,
 } from "./playground-scenarios.mjs";
 
@@ -75,6 +76,7 @@ try {
   const requests = [
     ...exercisePlayground(runtime.evaluate),
     ...exercisePayments(runtime.evaluate),
+    ...exerciseTokenLifecycle(runtime.evaluate),
     ...rejectionRequests(),
     { diagnostic: "witnesses" },
   ];

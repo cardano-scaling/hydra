@@ -112,6 +112,9 @@
   border: 1px solid var(--line);
   border-radius: 6px;
 }
+.people .signingStatus {
+  margin: 0.5rem 0 0;
+}
 .operator[data-active="true"] {
   background: var(--soft);
 }
@@ -181,11 +184,32 @@
   background: var(--soft);
   border-color: var(--line);
 }
+.action .actionButtons {
+  display: flex;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
 .ledgerHeaders {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 24px;
   margin: 1rem 0 0.6rem;
+}
+.fundsArea[data-unavailable="true"] {
+  cursor: not-allowed;
+}
+.fundsArea[data-unavailable="true"] .fundsContent {
+  opacity: 0.4;
+  pointer-events: none;
+  user-select: none;
+}
+.lockNotice {
+  padding: 0.65rem 0.8rem;
+  background: var(--soft);
+  border: 1px dashed var(--line);
+  border-radius: 7px;
 }
 .ledgerHeaders > div {
   display: flex;
@@ -233,6 +257,10 @@
   fill: var(--active);
   stroke-dasharray: none;
 }
+.account[data-role="operator"] {
+  stroke: var(--ifm-color-primary);
+  stroke-width: 2;
+}
 .fund {
   cursor: grab;
   touch-action: none;
@@ -261,6 +289,11 @@
 }
 .amount {
   font: 700 16px Arial, sans-serif;
+  fill: var(--ink);
+  pointer-events: none;
+}
+.tokenAmount {
+  font: 600 12px Arial, sans-serif;
   fill: var(--ink);
   pointer-events: none;
 }

@@ -11,23 +11,39 @@ description: Choose operators and wallet users, open a Head, and move practice f
 import HeadPlayground from '@site/src/components/HeadPlayground';
 import {Details} from '@docusaurus/theme-common/Details';
 
-Open a Head and move funds, one step at a time. Everyone starts with
-20 practice ADA. No wallet needed.
+This interactive playgroun let's you open a head, transfer funds between
+operators (and other Head participants) via drag-and-drop. You can see how the
+protocol steps through it's phases while you go.
 
 <HeadPlayground />
 
 <Details summary="About this demo">
 
-Drag from L1 into the same person's L2 row to deposit, or back to L1 to withdraw.
-Drag between people on L2 to pay, or use **Send a payment**. Reserved funds stay
-unavailable until their request completes. Use Back and Forward to replay steps.
+How to use this interface:
+
+- Open the Head to unlock the funds area.
+- Drag from L1 into the same person's L2 row to deposit, or back to L1 to withdraw.
+- Drag between people on L2 to pay, or use **Send a payment**.
+- Reserved funds stay unavailable until their request completes.
+- Use Back and Forward to replay steps.
+
+Each ADA output starts with a different amount: 10, 11, 20, 21, and so on.
+Alice also has two DEMO token outputs: one with 10 ADA and one with just the token.
+Deposit either token output and another person’s two ADA outputs, then use
+**Swap token for ADA**. Choose the
+token and buyer to see the amounts exchanged in one L2 transaction.
+
+**Close the Head** submits the latest confirmed snapshot to L1. Advance past the
+simulated contestation period, then **Fan out to L1** to return everyone’s funds.
 
 Operators run nodes and sign snapshots. Wallet users connect through an operator
-and keep their keys. L2 funds are backed by funds locked on L1.
+and keep their keys. Blue borders identify operators on L2. ★ marks the displayed
+snapshot’s leader; ✓ marks each signature as it reaches the operators.
 
-The demo runs Hydra's Crem logic with SimpleTx. Each chip represents an output;
-its owner and 10 ADA value are illustrations. L1, time, and signatures are
-simulated. No real funds or keys are used.
+The demo runs Hydra's real head logic with a simple transaction format. Each
+chip represents a UTxO; owners and asset values are illustrations around its
+identity. L1, time and wallet approvals are simulated. No real funds or keys
+are used.
 
 Read the [protocol overview](./protocol-overview.md), try the
 [real deposit flow](./how-to/incremental-commit.md), or explore

@@ -31,11 +31,36 @@ try {
     page.getByRole("navigation", { name: "Docs sidebar" })
   ).toHaveCount(0);
   await expect(app.getByLabel("Number of operators")).toBeVisible();
+  const fundsArea = app.getByRole("region", { name: "Funds", exact: true });
+  await expect(fundsArea).toHaveAttribute("aria-disabled", "true");
+  await expect(fundsArea.locator("[inert]")).toHaveCSS("opacity", "0.4");
+  await expect(
+    fundsArea.locator('[role="button"][aria-disabled="false"]')
+  ).toHaveCount(0);
+  await expect(fundsArea.locator('[role="button"][tabindex="0"]')).toHaveCount(
+    0
+  );
+  await expect(fundsArea.locator('[data-enabled="true"]')).toHaveCount(0);
+  const lockedFund = fundsArea.locator('[data-fund="coin-0"]');
+  assert.equal(
+    await lockedFund.getByRole("button").evaluate((element) => {
+      element.focus();
+      return document.activeElement === element;
+    }),
+    false,
+    "the funds area cannot receive keyboard focus before opening"
+  );
+  const lockedBounds = await lockedFund.boundingBox();
+  await page.mouse.click(lockedBounds.x + 20, lockedBounds.y + 20);
+  await expect(
+    app.getByRole("group", { name: "Move selected funds" })
+  ).toHaveCount(0);
   await page.screenshot({ path: `${output}/page-desktop.png`, fullPage: true });
   await app.getByLabel("Number of operators").selectOption("3");
   await app.getByLabel("Erin’s connection").selectOption("operator-2");
   await app.getByRole("button", { name: "Open the Head", exact: true }).click();
   await expect(app.getByLabel("Number of operators")).toBeDisabled();
+  await expect(fundsArea).toHaveAttribute("data-unavailable", "true");
   await expect(app.getByLabel("Number of operators")).toHaveCSS(
     "cursor",
     "not-allowed"
@@ -46,11 +71,36 @@ try {
   await expect(
     app.getByLabel("Head operators").locator('[data-active="true"]')
   ).toHaveCount(3);
+  await expect(fundsArea).toHaveAttribute("aria-disabled", "false");
+  await expect(fundsArea.locator("[inert]")).toHaveCount(0);
+  const operatorBadges = app.getByLabel("Head operators");
+  await expect(operatorBadges.locator('[data-leader="true"]')).toHaveCount(1);
+  await expect(
+    operatorBadges.locator('[data-operator="operator-0"]')
+  ).toContainText("★");
+  await expect(operatorBadges.locator('[data-signed="true"]')).toHaveCount(0);
   const source = app.locator('[data-owner="user-0"][data-place="l1"]').first();
   const fundId = await source.getAttribute("data-fund");
   const fund = app.locator(`[data-fund="${fundId}"]`);
   const account = (layer, owner) =>
     app.locator(`[data-account="${layer}-${owner}"]`);
+  await expect(account("l2", "operator-0")).toHaveCSS("stroke-width", "2px");
+  await expect(account("l1", "operator-0")).toHaveCSS("stroke-width", "1px");
+  await expect(account("l2", "user-0")).toHaveCSS("stroke-width", "1px");
+  await expect(async () => {
+    const colors = await account("l2", "operator-0").evaluate((element) => {
+      const sample = document.createElement("span");
+      sample.style.color = "var(--ifm-color-primary)";
+      document.body.append(sample);
+      const colors = [
+        getComputedStyle(element).stroke,
+        getComputedStyle(sample).color,
+      ];
+      sample.remove();
+      return colors;
+    });
+    assert.equal(colors[0], colors[1]);
+  }).toPass();
   const drag = async (token, destination) => {
     await expect(app).toHaveAttribute("aria-busy", "false");
     await expect(async () => {
@@ -102,20 +152,36 @@ try {
   await app
     .getByRole("button", { name: "Let the deposit activate", exact: true })
     .click();
-  const signSnapshot = async () => {
+  const signSnapshot = async (names = ["Alice", "Bob", "Carol"], leader) => {
+    await expect(operatorBadges.locator('[data-signed="true"]')).toHaveCount(0);
+    if (leader)
+      await expect(
+        operatorBadges.locator('[data-leader="true"]')
+      ).toContainText(leader);
     await app
       .getByRole("button", { name: "Check the snapshot proposal", exact: true })
       .click();
-    for (const name of ["Alice", "Bob", "Carol"]) {
+    for (const [index, name] of names.entries()) {
       await app
         .getByRole("button", {
           name: `Deliver ${name}’s signature`,
           exact: true,
         })
         .click();
+      await expect(operatorBadges.locator('[data-signed="true"]')).toHaveCount(
+        index + 1
+      );
+      await expect(
+        operatorBadges.locator('[data-signed="true"]').filter({ hasText: name })
+      ).toContainText("✓");
     }
   };
-  await signSnapshot();
+  await signSnapshot(undefined, "Alice");
+  await app.getByRole("button", { name: "Back", exact: true }).click();
+  await expect(operatorBadges.locator('[data-signed="true"]')).toHaveCount(2);
+  await app.getByRole("button", { name: "Forward", exact: true }).click();
+  await expect(operatorBadges.locator('[data-signed="true"]')).toHaveCount(3);
+  await app.screenshot({ path: `${output}/signatures-desktop.png` });
   await expect(
     app.getByText("0 ADA confirmed & available", { exact: true })
   ).toBeVisible();
@@ -135,10 +201,10 @@ try {
   await app
     .getByRole("button", { name: "Send transaction to operators", exact: true })
     .click();
-  await signSnapshot();
+  await signSnapshot(undefined, "Bob");
   await expect(fund).toHaveAttribute("data-owner", "user-1");
   await expect(
-    app.getByText("10 ADA backing the Head", { exact: true })
+    app.getByText("40 ADA backing the Head", { exact: true })
   ).toBeVisible();
   await drag(fund, account("l1", "user-1"));
   await app
@@ -147,12 +213,12 @@ try {
       exact: true,
     })
     .click();
-  await signSnapshot();
+  await signSnapshot(undefined, "Carol");
   await expect(fund).toHaveAttribute("data-place", "withdrawal");
   await app.getByRole("button", { name: "Confirm withdrawal on L1" }).click();
   await expect(fund).toHaveAttribute("data-place", "l1");
   await expect(
-    app.getByText("100 ADA in wallets", { exact: true })
+    app.getByText("305 ADA + 2 DEMO in wallets", { exact: true })
   ).toBeVisible();
 
   await app.getByRole("button", { name: "Back", exact: true }).click();
@@ -296,11 +362,141 @@ try {
     app.locator('[data-owner="operator-0"][data-place="l2"]')
   ).toHaveCount(2);
   await expect(
-    app.getByText("20 ADA confirmed & available", { exact: true })
+    app.getByText("41 ADA confirmed & available", { exact: true })
   ).toBeVisible();
   await expect(app.locator('[data-reserved="true"]')).toHaveCount(0);
   await app.getByRole("button", { name: "Start over", exact: true }).click();
   await expect(app.getByLabel("Number of operators")).toBeEnabled();
+  await page.setViewportSize({ width: 1440, height: 1100 });
+  await page.evaluate(() =>
+    document.documentElement.setAttribute("data-theme", "light")
+  );
+  await app.getByLabel("Number of operators").selectOption("2");
+  await app.getByLabel("Erin’s connection").selectOption("operator-1");
+  await app.getByRole("button", { name: "Open the Head", exact: true }).click();
+  await app
+    .getByRole("button", { name: "Confirm opening on L1", exact: true })
+    .click();
+  const nativeToken = app.locator('[data-fund="coin-0"]');
+  const tokenOnly = app.locator('[data-fund="token-only"]');
+  await expect(nativeToken).toHaveAttribute("data-place", "l1");
+  await expect(nativeToken.getByRole("button")).toHaveAccessibleName(
+    /10 ADA \+ 1 DEMO on L1/
+  );
+  await expect(tokenOnly.getByRole("button")).toHaveAccessibleName(
+    "Alice: 1 DEMO on L1"
+  );
+  for (const id of ["token-only", "coin-0", "coin-4", "coin-5"]) {
+    const output = app.locator(`[data-fund="${id}"]`);
+    await expect(output).toHaveAttribute("data-enabled", "true");
+    await output.getByRole("button").focus();
+    await page.keyboard.press("Enter");
+    await app
+      .getByRole("button", { name: "Put into the Head", exact: true })
+      .click();
+    await expect(
+      app.getByRole("button", { name: "Close the Head", exact: true })
+    ).toBeDisabled();
+    await app
+      .getByRole("button", { name: "Confirm deposit on L1", exact: true })
+      .click();
+    if (id === "token-only")
+      await expect(app.getByText(/1 DEMO in deposits$/)).toBeVisible();
+    await app
+      .getByRole("button", { name: "Let the deposit activate", exact: true })
+      .click();
+    await signSnapshot(["Alice", "Bob"]);
+    await app
+      .getByRole("button", { name: "Confirm increment on L1", exact: true })
+      .click();
+    if (id === "token-only") {
+      await expect(
+        app.getByText("1 DEMO confirmed & available", { exact: true })
+      ).toBeVisible();
+      await expect(payment).toBeVisible();
+    }
+  }
+  const swap = app.getByRole("form", { name: "Swap token for ADA" });
+  await swap.getByLabel("Token output").selectOption("coin-0");
+  await swap.getByLabel("Token buyer").selectOption("user-0");
+  await expect(swap).toContainText("Receives 61 ADA from");
+  await expect(
+    swap.getByRole("button", { name: "Agree & swap" })
+  ).toBeEnabled();
+  await app.screenshot({ path: `${output}/token-swap-desktop.png` });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.evaluate(() =>
+    document.documentElement.setAttribute("data-theme", "dark")
+  );
+  await app.screenshot({ path: `${output}/token-swap-mobile-dark.png` });
+  assert.ok(
+    await app.evaluate(
+      (element) => element.scrollWidth <= element.clientWidth + 1
+    )
+  );
+  await swap.getByRole("button", { name: "Agree & swap" }).click();
+  await expect(app.locator('[data-reserved="true"]')).toHaveCount(3);
+  await app
+    .getByRole("button", { name: "Send transaction to operators", exact: true })
+    .click();
+  await signSnapshot(["Alice", "Bob"]);
+  await expect(nativeToken).toHaveAttribute("data-owner", "user-0");
+  await expect(nativeToken).toHaveAttribute("data-place", "l2");
+  await expect(
+    app.getByText("71 ADA + 2 DEMO backing the Head", { exact: true })
+  ).toBeVisible();
+  await tokenOnly.getByRole("button").focus();
+  await page.keyboard.press("Enter");
+  await app.getByRole("button", { name: "Pay Erin", exact: true }).click();
+  await app
+    .getByRole("button", { name: "Send transaction to operators", exact: true })
+    .click();
+  await signSnapshot(["Alice", "Bob"]);
+  await expect(tokenOnly).toHaveAttribute("data-owner", "user-0");
+  await expect(tokenOnly.getByRole("button")).toHaveAccessibleName(
+    "Erin: 1 DEMO on L2"
+  );
+  await app
+    .getByRole("button", { name: "Close the Head", exact: true })
+    .click();
+  await expect(nativeToken).toHaveAttribute("data-place", "l2");
+  await app
+    .getByRole("button", { name: "Confirm close on L1", exact: true })
+    .click();
+  await expect(nativeToken).toHaveAttribute("data-place", "closed");
+  await expect(nativeToken.getByText("locked", { exact: true })).toBeVisible();
+  const fanout = app.getByRole("button", {
+    name: "Fan out to L1",
+    exact: true,
+  });
+  await expect(fanout).toBeDisabled();
+  await expect(
+    app.getByText("71 ADA + 2 DEMO locked until fanout", { exact: true })
+  ).toBeVisible();
+  await app.screenshot({ path: `${output}/closed-mobile-dark.png` });
+  await app
+    .getByRole("button", { name: "Wait contestation period", exact: true })
+    .click();
+  await expect(fanout).toBeEnabled();
+  await fanout.click();
+  await expect(nativeToken).toHaveAttribute("data-place", "closed");
+  await app
+    .getByRole("button", { name: "Confirm fanout on L1", exact: true })
+    .click();
+  await expect(
+    app.getByRole("heading", { name: "All funds are back on L1", exact: true })
+  ).toBeVisible();
+  await expect(nativeToken).toHaveAttribute("data-place", "l1");
+  await expect(nativeToken).toHaveAttribute("data-owner", "user-0");
+  await expect(
+    app.getByText("123 ADA + 2 DEMO in wallets", { exact: true })
+  ).toBeVisible();
+  await expect(tokenOnly).toHaveAttribute("data-place", "l1");
+  await expect(tokenOnly).toHaveAttribute("data-owner", "user-0");
+  await app.getByRole("button", { name: "Back", exact: true }).click();
+  await expect(nativeToken).toHaveAttribute("data-place", "closed");
+  await app.getByRole("button", { name: "Forward", exact: true }).click();
+  await expect(nativeToken).toHaveAttribute("data-place", "l1");
   await page.setViewportSize({ width: 1440, height: 1100 });
   await page.goto(new URL("./protocol-overview", url).href);
   const sidebar = page.getByRole("navigation", { name: "Docs sidebar" });
@@ -313,7 +509,7 @@ try {
   ).toHaveCount(0);
   assert.deepEqual(errors, [], "browser exceptions");
   console.log(
-    `Opening, mouse/touch dragging, deposits, payments, withdrawals, keyboard actions, rewind/replay, protocol inspection, reset and mobile layout passed. Screenshots: ${output}`
+    `Opening, dragging, deposits, payments, token swaps, withdrawals, close/fanout, keyboard actions, replay, protocol inspection and mobile layout passed. Screenshots: ${output}`
   );
 } finally {
   await browser.close();

@@ -8,6 +8,7 @@ import Hydra.Prelude hiding (local, state)
 import Data.Aeson (Value (..), object, (.=))
 import Data.Aeson.Key qualified as Key
 import Data.Aeson.KeyMap qualified as KeyMap
+import Data.Foldable (maximum)
 import Data.List (nubBy)
 import Data.Map.Strict qualified as Map
 import Data.Set qualified as Set
@@ -16,12 +17,14 @@ import Hydra.Chain qualified as Chain
 import Hydra.HeadLogic.Input (Input (ClientInput))
 import Hydra.HeadLogic.Outcome qualified as Logic
 import Hydra.HeadLogic.Snapshot.Cached qualified as Cached
+import Hydra.HeadLogic.Snapshot.Request (isLeader)
 import Hydra.HeadLogic.Snapshot.Settlement (settlingDecommit)
 import Hydra.HeadLogic.State qualified as Head
 import Hydra.HeadLogic.State.Node qualified as Machine
 import Hydra.HeadLogic.Trace qualified as Trace
 import Hydra.Ledger.Simple
 import Hydra.Network.Message qualified as Network
+import Hydra.Node.State qualified as Node
 import Hydra.Tx.Party (Party (..))
 import Hydra.Tx.Snapshot qualified as Snapshot
 import Playground.Engine
@@ -32,17 +35,30 @@ render includeAudit w =
     [ "status" .= ("ok" :: Text)
     , "phase" .= phase
     , "pending" .= if busy w then Just (object ["kind" .= ("delivery" :: Text)]) else Nothing
+    , "canClose" .= canPost w Client.Close
+    , "canFanout" .= canFanout w
     , "people" .= map personView w.people
     , "funds" .= map (fundView w) visible
     , "snapshot" .= maybe 0 (Snapshot.number . Snapshot.getSnapshot . (.coordinatedHeadState.confirmedSnapshot)) (openState $ nodeAt w 0)
+    , "signing" .= signingView w
     , "messages" .= w.messages
     , "totals"
         .= object
-          [ "wallets" .= (10 * Set.size w.wallets)
-          , "deposits" .= (10 * sum (map Set.size $ Map.elems w.l1Deposits))
-          , "backing" .= (10 * w.backing)
-          , "spendable" .= (10 * length [() | (_, _, place) <- visible, place == "l2"])
-          , "pending" .= (10 * length [() | (_, _, place) <- visible, place `elem` ["payment", "withdrawal"]])
+          [ "wallets" .= adaValue w w.wallets
+          , "deposits" .= adaValue w (fold w.l1Deposits)
+          , "backing" .= w.backing
+          , "spendable" .= amount (.ada) ["l2"]
+          , "pending" .= amount (.ada) ["payment", "withdrawal"]
+          , "closed" .= amount (.ada) ["closed"]
+          , "tokens"
+              .= object
+                [ "wallets" .= amount (.tokens) ["l1"]
+                , "deposits" .= amount (.tokens) ["deposit"]
+                , "backing" .= amount (.tokens) ["l2", "payment", "withdrawal", "closed"]
+                , "spendable" .= amount (.tokens) ["l2"]
+                , "pending" .= amount (.tokens) ["payment", "withdrawal"]
+                , "closed" .= amount (.tokens) ["closed"]
+                ]
           ]
     , "action" .= guidance w
     , "targets" .= object [Key.fromText chip.chipId .= destinations w chip.chipId | (_, chip, _) <- visible]
@@ -52,20 +68,57 @@ render includeAudit w =
     ]
  where
   phase :: Text
-  phase
-    | all (isJust . openState) w.nodes = "open"
-    | busy w = "opening"
-    | otherwise = "setup"
+  phase = case (nodeAt w 0).headState of
+    Head.Open{} -> "open"
+    Head.Closed{} -> "closed"
+    Head.FanoutProgress{} -> "fanout"
+    Head.Finalized{} -> "finalized"
+    Head.Idle{} -> if busy w then "opening" else "setup"
   visible = visibleFunds w
+  amount field places = sum [field chip | (_, chip, place) <- visible, place `elem` places]
 
 personView :: Person -> Value
 personView Person{..} =
   object
     ["id" .= personId, "name" .= name, "role" .= (if runsNode then "operator" else "user" :: Text), "node" .= ("operator-" <> show operator :: Text)]
 
+signingView :: World -> Maybe Value
+signingView w = do
+  open <- openState $ nodeAt w 0
+  let coordinated = mapMaybe (fmap (.coordinatedHeadState) . openState) w.nodes
+      pending =
+        viaNonEmpty maximum $
+          [snapshotNumber | Broadcast _ Network.ReqSn{snapshotNumber} <- w.queue]
+            <> mapMaybe (candidateNumber . (.seenSnapshot)) coordinated
+      confirmed = (Snapshot.getSnapshot open.coordinatedHeadState.confirmedSnapshot).number
+      number = fromMaybe (max 1 confirmed) pending
+      status :: Text
+      status
+        | isJust pending = "collecting"
+        | confirmed == 0 = "next"
+        | otherwise = "confirmed"
+      received party c = case c.seenSnapshot of
+        Head.SeenSnapshot{cachedSnapshot, signatories}
+          | (Cached.snapshot cachedSnapshot).number == number -> Map.member party signatories
+        _ -> number == (Snapshot.getSnapshot c.confirmedSnapshot).number
+      operators = filter (.runsNode) w.people
+  pure $
+    object
+      [ "number" .= number
+      , "status" .= status
+      , "leader" .= (personId <$> find (\p -> isLeader open.parameters (partyFor p.operator) number) operators)
+      , "signers" .= [p.personId | p <- operators, all (received $ partyFor p.operator) coordinated]
+      ]
+
+candidateNumber :: Head.SeenSnapshot SimpleTx -> Maybe Snapshot.SnapshotNumber
+candidateNumber = \case
+  Head.SeenSnapshot{cachedSnapshot} -> Just (Cached.snapshot cachedSnapshot).number
+  Head.RequestedSnapshot{requested} -> Just requested
+  _ -> Nothing
+
 fundView :: World -> (SimpleTxOut, Chip, Text) -> Value
 fundView w (output, Chip{..}, place) =
-  object ["id" .= chipId, "owner" .= ownerId, "place" .= place, "output" .= output, "reservation" .= reservation]
+  object ["id" .= chipId, "owner" .= ownerId, "ada" .= ada, "tokens" .= tokens, "place" .= place, "output" .= output, "reservation" .= reservation]
  where
   reservation = viaNonEmpty head $ mapMaybe reserved w.queue
   reserved = \case
@@ -79,6 +132,7 @@ visibleFunds w =
   nubBy (\(_, a, _) (_, b, _) -> a.chipId == b.chipId) $
     tagged "l1" w.wallets
       <> tagged "deposit" (fold w.l1Deposits)
+      <> tagged "closed" (foldMap closedFunds w.nodes)
       <> tagged "withdrawal" withdrawing
       <> tagged "payment" (local `Set.difference` confirmed)
       <> tagged "l2" (local `Set.intersection` confirmed)
@@ -122,10 +176,15 @@ guidance w = case w.queue of
     Network.AckSn{snapshotNumber} -> prompt ("Collect signatures for snapshot " <> show snapshotNumber) "This delivers one operator’s signature to every node. Confirmation requires a matching signature from every operator." $ Just $ "Deliver " <> operatorName i <> "’s signature"
   Posted Chain.IncrementTx{} : _ -> prompt "Approved; the deposit is still on L1" "The operators have submitted the approved increment. One transaction can claim this deposit; every node observes the result." $ Just "Confirm increment on L1"
   Posted Chain.DecrementTx{} : _ -> prompt "Approved; the withdrawal is still locked" "The operators have submitted the approved decrement. L1 confirmation releases the withdrawal outputs to the owner’s wallet." $ Just "Confirm withdrawal on L1"
+  Posted Chain.CloseTx{} : _ -> prompt "Closing the Head" "One operator submits the latest confirmed snapshot to L1. Funds stay locked until the contestation period ends and fanout confirms." $ Just "Confirm close on L1"
+  Posted Chain.FanoutTx{} : _ -> prompt "Returning funds to L1" "Confirm the fanout transaction to release the closed snapshot’s ADA and native tokens to their owners." $ Just "Confirm fanout on L1"
   RetryDelivery{} : _ -> prompt "A node is waiting" "The actual protocol deferred a message. Deliver its retry to recheck the condition; inspect the decision below." $ Just "Retry the waiting message"
   Posted{} : _ -> prompt "An L1 transaction is pending" "Inspect the pending transaction below." Nothing
   []
     | isJust (activationTime w) -> prompt "The deposit is locked, but not active yet" "Advance simulated chain time past the configured activation delay. The protocol then decides whether to propose a snapshot." $ Just "Let the deposit activate"
+    | isJust (fanoutTime w) -> prompt "The Head is closed" "Funds stay locked during the contestation period. Advance simulated chain time past its deadline; operators can challenge an outdated snapshot during this period." $ Just "Wait contestation period"
+    | canFanout w -> prompt "Ready to return funds" "The protocol has announced ReadyToFanout. Fanout returns the closed snapshot’s funds to L1." Nothing
+    | Head.Finalized{} <- (nodeAt w 0).headState -> prompt "All funds are back on L1" "The Head is finalized. Rewind to inspect a step, or start over to try another flow." Nothing
     | all (isJust . openState) w.nodes -> prompt "The Head is open" "Drag funds into the Head to deposit, or back to L1 to withdraw. Use Send a payment below to move L2 funds between people." Nothing
     | otherwise -> prompt "Choose who runs this Head" "Operators agree on the group before opening. Other wallet users connect through a node and keep their keys." $ Just "Open the Head"
  where
@@ -141,22 +200,22 @@ nodeView w i =
     , "local" .= localFunds n
     , "confirmed" .= confirmedFunds n
     ]
-      <> case openState n of
-        Nothing -> ["snapshot" .= (0 :: Int), "version" .= (0 :: Int), "signers" .= ([] :: [Text])]
-        Just o ->
+      <> case n.headState of
+        Head.Closed c -> snapshotView c.confirmedSnapshot c.version
+        Head.FanoutProgress p -> snapshotView p.confirmedSnapshot p.version
+        Head.Open o ->
           let c = o.coordinatedHeadState
            in [ "snapshot" .= (Snapshot.getSnapshot c.confirmedSnapshot).number
               , "version" .= c.version
               , "signers" .= case c.seenSnapshot of
                   Head.SeenSnapshot{signatories} -> [nodeName w j | j <- operatorIndices w, Map.member (partyFor j) signatories]
                   _ -> []
-              , "candidate" .= case c.seenSnapshot of
-                  Head.SeenSnapshot{cachedSnapshot} -> Just (Cached.snapshot cachedSnapshot).number
-                  Head.RequestedSnapshot{requested} -> Just requested
-                  _ -> Nothing
+              , "candidate" .= candidateNumber c.seenSnapshot
               ]
+        _ -> ["snapshot" .= Null, "version" .= Null, "signers" .= ([] :: [Text])]
  where
   n = nodeAt w i
+  snapshotView confirmed version = ["snapshot" .= (Snapshot.getSnapshot confirmed).number, "version" .= version, "signers" .= ([] :: [Text])]
 
 executionView :: World -> Execution -> Value
 executionView w Execution{..} =

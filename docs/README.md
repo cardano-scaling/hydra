@@ -158,10 +158,10 @@ their native Cardano, networking or cryptographic implementations.
 The shell simulates L1 observations and an ordered broadcast network. Deposits
 are external wallet submissions; confirmation and activation are separate.
 Each AckSn is delivered separately, including to its sender. Operators can post
-the same settlement; one confirmed L1 transaction wins. Wallet ownership and
-10 ADA labels are presentation metadata around SimpleTx output identities.
-The public controls intentionally finish one request at a time. Closing,
-recovery, Cardano validators, transaction construction and CBOR persistence are
+the same settlement; one confirmed L1 transaction wins. Wallet ownership,
+ADA amounts and the sample DEMO native token are presentation metadata around
+SimpleTx output identities. The public controls finish one request at a time.
+Recovery, Cardano validators, transaction construction and CBOR persistence are
 outside this walkthrough.
 
 The view asks the workflow which L2 moves are accepted and uses the production
@@ -172,11 +172,15 @@ simulated inputs, not additional protocol validation.
 The payment form and L2 dragging share the Haskell transaction builder. The
 form can spend several outputs in one `NewTx`. Reservation labels come from
 queued deposit, payment and withdrawal requests and follow the replay history.
+The token swap spends both wallets’ outputs in one `NewTx`. Closing, the
+contestation deadline notification and fanout use the production workflows;
+the shared fanout-output helper determines which closed funds remain visible.
 
 Run `yarn test:head-playground` after building the runtime. It exercises the
 compiled JavaScript, including all operator counts, wallet routing, repeated
 cycles, payments with multiple inputs, reservations, individual signature
-delivery, settlement boundaries, invalid requests and value conservation.
+delivery, token swaps, close and fanout, settlement boundaries, invalid requests
+and ADA/token conservation.
 `just check` runs this check using the Nix-built bundle.
 
 For conformance against the native implementation, run from the repository root

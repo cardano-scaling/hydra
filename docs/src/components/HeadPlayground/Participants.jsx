@@ -1,5 +1,5 @@
 import React from "react";
-import { operators } from "./model.mjs";
+import { operators, operatorStatus } from "./model.mjs";
 import styles from "./styles.module.css";
 
 export default function Participants({ state, config, waiting, onChange }) {
@@ -57,16 +57,36 @@ export default function Participants({ state, config, waiting, onChange }) {
         <div>
           <p>Operators run nodes and sign snapshots.</p>
           <div className={styles.operators} aria-label="Head operators">
-            {ops.map((op) => (
-              <div
-                key={op.id}
-                className={styles.operator}
-                data-active={state.phase === "open"}
-              >
-                {op.name}
-              </div>
-            ))}
+            {ops.map((op) => {
+              const status = operatorStatus(state, op.id);
+              return (
+                <div
+                  key={op.id}
+                  className={styles.operator}
+                  data-active={state.phase === "open"}
+                  data-operator={op.id}
+                  data-leader={status.leader}
+                  data-signed={status.signed}
+                  aria-label={`${op.name} · ${status.label}`}
+                  title={status.label}
+                >
+                  {op.name}
+                  <span aria-hidden="true">{status.marks}</span>
+                </div>
+              );
+            })}
           </div>
+          {state.signing && (
+            <p className={styles.signingStatus} aria-live="polite">
+              {state.signing.status === "next"
+                ? `Next snapshot ${state.signing.number}`
+                : `Snapshot ${state.signing.number} · ${
+                    state.signing.signers.length
+                  }/${ops.length} signatures received${
+                    state.signing.status === "confirmed" ? " · confirmed" : ""
+                  }`}
+            </p>
+          )}
         </div>
         <div>
           <p>Wallet users connect through a node.</p>
