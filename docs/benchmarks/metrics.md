@@ -311,7 +311,7 @@ alert checks each operation separately; it measures progress for that operation,
 not the age of individual concurrent API requests.
 
 Fanout operation failures are available by summing
-`hydra_chain_operation_failures_total{operation=~"fanout|partial_fanout|final_fanout"}`
+`hydra_chain_operation_failures_total{operation=~"fanout|partial_fanout|final_partial_fanout"}`
 without the `operation` label.
 
 Keep no-traffic windows empty instead of presenting them as zero latency. The

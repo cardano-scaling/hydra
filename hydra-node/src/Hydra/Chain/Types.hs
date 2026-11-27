@@ -346,4 +346,4 @@ postChainTxName = \case
   ContestTx{} -> "contest"
   FanoutTx{} -> "fanout"
   PartialFanoutTx{} -> "partial_fanout"
-  FinalPartialFanoutTx{} -> "final_fanout"
+  FinalPartialFanoutTx{} -> "final_partial_fanout"

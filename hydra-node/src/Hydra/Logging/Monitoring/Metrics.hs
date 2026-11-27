@@ -143,4 +143,4 @@ networkEventsValues :: [Text]
 networkEventsValues = ["reconnect", "broadcast_failure", "watch_failure", "authentication_failure", "decode_failure", "queue_storage_failure", "queue_stat_failure", "queue_full", "lease_warning"]
 
 chainOperationsValues :: [Text]
-chainOperationsValues = ["draft_deposit", "submit", "init", "increment", "recover", "decrement", "close", "contest", "fanout", "partial_fanout", "final_fanout"]
+chainOperationsValues = ["draft_deposit", "submit", "init", "increment", "recover", "decrement", "close", "contest", "fanout", "partial_fanout", "final_partial_fanout"]
