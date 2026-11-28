@@ -11,7 +11,7 @@ import Hydra.Tx.Contract.Init (healthyInitTx)
 import Hydra.Tx.Init (NotAnInitReason (..), observeInitTx)
 import Hydra.Tx.Observe (HeadObservation (..), observeHeadTxWithReason)
 import PlutusLedgerApi.V1.Time (DiffMilliSeconds (..))
-import Test.Hspec (Spec, describe, it, shouldBe, shouldThrow)
+import Test.Hspec (Spec, anyErrorCall, describe, it, shouldBe, shouldThrow)
 import Test.Hspec.QuickCheck (prop)
 import Test.Hydra.Tx.Fixture (testNetworkId)
 import Test.Hydra.Tx.Gen ()
@@ -28,6 +28,22 @@ spec = do
     prop "fails for <= 0" $ \np -> do
       evaluate (fromInteger @ContestationPeriod $ getNonPositive np)
         `shouldThrow` \(SomeException _) -> True
+
+  describe "Num operations" $ do
+    it "allows subtraction when the result is positive" $
+      (2 - 1 :: ContestationPeriod) `shouldBe` 1
+
+    it "rejects subtraction when the result is non-positive" $
+      evaluate (1 - 2 :: ContestationPeriod)
+        `shouldThrow` anyErrorCall
+
+    it "rejects subtraction when the result is zero" $
+      evaluate (1 - 1 :: ContestationPeriod)
+        `shouldThrow` anyErrorCall
+
+    it "rejects negation" $
+      evaluate (negate (1 :: ContestationPeriod))
+        `shouldThrow` anyErrorCall
 
   describe "toEnum" $ do
     prop "works for > 0" $

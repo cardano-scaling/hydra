@@ -941,7 +941,7 @@ newFanoutTx actor utxo pendingCommit pendingDecommit = do
   fanoutUTxO = realWorldModelUTxO utxo
   fanoutCommit = if null pendingCommit then Nothing else Just $ realWorldModelUTxO pendingCommit
   fanoutDecommit = if null pendingDecommit then Nothing else Just $ realWorldModelUTxO pendingDecommit
-  deadline = SlotNo $ fromIntegral Fixture.cperiod * fromIntegral (length allActors)
+  deadline = SlotNo $ floor (CP.toNominalDiffTime Fixture.cperiod) * fromIntegral (length allActors)
 
 -- | Cardano payment keys for 'alice', 'bob', and 'carol'.
 alicePVk, bobPVk, carolPVk :: VerificationKey PaymentKey

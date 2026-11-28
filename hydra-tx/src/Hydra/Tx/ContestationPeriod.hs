@@ -17,7 +17,7 @@ import Text.Show (Show (..))
 -- 'Hydra.Config.parseCardanoChainConfig'.
 newtype ContestationPeriod = UnsafeContestationPeriod Natural
   deriving stock (Eq, Ord, Generic)
-  deriving newtype (Real, Integral, ToJSON, FromJSON)
+  deriving newtype (Real, ToJSON, FromJSON)
 
 instance ToCBOR ContestationPeriod where
   toCBOR = genericToCBOR
@@ -41,9 +41,17 @@ instance Num ContestationPeriod where
     | otherwise = error $ "ContestationPeriod.fromInteger: " <> toText (show i) <> " is not > 0"
 
   (+) (UnsafeContestationPeriod a) (UnsafeContestationPeriod b) = UnsafeContestationPeriod (a + b)
-  (-) (UnsafeContestationPeriod a) (UnsafeContestationPeriod b) = UnsafeContestationPeriod (a - b)
+  (-) (UnsafeContestationPeriod a) (UnsafeContestationPeriod b)
+    | a > b = UnsafeContestationPeriod (a - b)
+    | otherwise =
+        error $
+          "ContestationPeriod subtraction must remain positive; "
+            <> "use fromNominalDiffTime to validate the result"
   (*) (UnsafeContestationPeriod a) (UnsafeContestationPeriod b) = UnsafeContestationPeriod (a * b)
-  negate (UnsafeContestationPeriod a) = UnsafeContestationPeriod (negate a)
+  negate _ =
+    error $
+      "ContestationPeriod cannot be negated; "
+        <> "use fromNominalDiffTime to validate the result"
   abs (UnsafeContestationPeriod a) = UnsafeContestationPeriod (abs a)
   signum (UnsafeContestationPeriod a) = UnsafeContestationPeriod (signum a)
 
