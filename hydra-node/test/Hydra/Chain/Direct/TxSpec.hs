@@ -44,13 +44,14 @@ import Control.Lens ((.~), (^.))
 import Data.Map.Strict qualified as Map
 import Data.Maybe.Strict (StrictMaybe (..))
 import Data.Set qualified as Set
+import Data.Text qualified as Text
 import Hydra.Cardano.Api.Pretty (renderTxWithUTxO)
 import Hydra.Chain.Direct.State (HasKnownUTxO (getKnownUTxO))
 import Hydra.Contract.Dummy (dummyRewardingScript, dummyValidatorScript)
 import Hydra.Ledger.Cardano.Builder (addTxInsSpending, unsafeBuildTransaction)
 import Hydra.Ledger.Cardano.Time (slotNoToUTCTime)
 import Hydra.Tx.BlueprintTx (CommitBlueprintTx (..))
-import Hydra.Tx.Deposit (depositTx)
+import Hydra.Tx.Deposit (depositTx, mkDepositOutput)
 import Hydra.Tx.HeadId (mkHeadId)
 import Hydra.Tx.Observe (HeadObservation (..), observeHeadTx)
 import Test.Cardano.Ledger.Shelley.Arbitrary (genMetadata')
@@ -298,9 +299,10 @@ spec =
       prop "genBlueprintTx generates interesting txs" prop_interestingBlueprintTx
 
       prop "creates valid txs from blueprint" prop_validDepositTx
+      prop "rejects a deposit output that exceeds available ada" prop_rejectsUnderfundedDepositOutput
 
--- | Transactions produced by 'depositTx' provided with arbitrary, valid
--- blueprint txs, are valid.
+-- | Transactions produced by 'depositTx' from arbitrary valid blueprint txs
+-- are valid whenever the requested change can be funded.
 prop_validDepositTx :: Property
 prop_validDepositTx = do
   -- These are not under test here and known good values
@@ -309,51 +311,89 @@ prop_validDepositTx = do
   forAllBlind genBlueprintTxWithUTxO $ \(lookupUTxO, blueprintTx) ->
     forAllShow arbitrary showChangeAddress $ \mayChangeAddress ->
       counterexample ("Blueprint tx: " <> renderTxWithUTxO lookupUTxO blueprintTx) $ do
-        let createdTx =
-              depositTx
-                testNetworkId
-                Fixture.pparams
-                (mkHeadId Fixture.testPolicyId)
-                CommitBlueprintTx{lookupUTxO, blueprintTx}
-                depositSlot
-                depositDeadline
-                mayChangeAddress
-        counterexample ("\n\n\nDeposit tx: " <> renderTxWithUTxO lookupUTxO createdTx) $ do
-          let blueprintBody = toLedgerTx blueprintTx ^. bodyTxL
-          let depositTxBody = toLedgerTx createdTx ^. bodyTxL
-          let spendableUTxO = lookupUTxO
-          conjoin
-            [ propTransactionEvaluates (blueprintTx, lookupUTxO)
-                & counterexample "Blueprint transaction failed to evaluate"
-            , propTransactionEvaluates (createdTx, spendableUTxO)
-                & counterexample "Deposit transaction failed to evaluate"
-            , conjoin
-                [ getAuxMetadata blueprintTx `propIsSubmapOf` getAuxMetadata createdTx
-                    & counterexample "Blueprint metadata incomplete"
-                , propHasValidAuxData blueprintTx
-                    & counterexample "Blueprint tx has invalid aux data"
-                , propHasValidAuxData createdTx
-                    & counterexample "Deposit tx has invalid aux data"
+        case
+          depositTx
+            testNetworkId
+            Fixture.pparams
+            (mkHeadId Fixture.testPolicyId)
+            CommitBlueprintTx{lookupUTxO, blueprintTx}
+            depositSlot
+            depositDeadline
+            mayChangeAddress
+         of
+          Left failureReason ->
+            property (isJust mayChangeAddress && "negative change value" `Text.isInfixOf` failureReason)
+              & counterexample ("Unexpected deposit construction failure: " <> toString failureReason)
+          Right createdTx ->
+            counterexample ("\n\n\nDeposit tx: " <> renderTxWithUTxO lookupUTxO createdTx) $ do
+              let blueprintBody = toLedgerTx blueprintTx ^. bodyTxL
+              let depositTxBody = toLedgerTx createdTx ^. bodyTxL
+              let spendableUTxO = lookupUTxO
+              conjoin
+                [ propTransactionEvaluates (blueprintTx, lookupUTxO)
+                    & counterexample "Blueprint transaction failed to evaluate"
+                , propTransactionEvaluates (createdTx, spendableUTxO)
+                    & counterexample "Deposit transaction failed to evaluate"
+                , conjoin
+                    [ getAuxMetadata blueprintTx `propIsSubmapOf` getAuxMetadata createdTx
+                        & counterexample "Blueprint metadata incomplete"
+                    , propHasValidAuxData blueprintTx
+                        & counterexample "Blueprint tx has invalid aux data"
+                    , propHasValidAuxData createdTx
+                        & counterexample "Deposit tx has invalid aux data"
+                    ]
+                , depositTxBody ^. vldtTxBodyL === ValidityInterval{invalidBefore = SNothing, invalidHereafter = SJust depositSlot}
+                    & counterexample "Validity range overridden by blueprint"
+                , (blueprintBody ^. inputsTxBodyL) `propIsSubsetOf` (depositTxBody ^. inputsTxBodyL)
+                    & counterexample "Blueprint inputs missing"
+                , redeemerCount blueprintTx === redeemerCount createdTx
+                    & counterexample "Blueprint redeemers missing"
+                , property
+                    ((`all` (blueprintBody ^. outputsTxBodyL)) (`notElem` (depositTxBody ^. outputsTxBodyL)))
+                    & counterexample "Blueprint outputs not discarded"
+                , (blueprintBody ^. Cardano.Ledger.Api.reqSignerHashesTxBodyL) `propIsSubsetOf` (depositTxBody ^. Cardano.Ledger.Api.reqSignerHashesTxBodyL)
+                    & counterexample "Blueprint required signatures missing"
+                , (blueprintBody ^. Cardano.Ledger.Api.referenceInputsTxBodyL) `propIsSubsetOf` (depositTxBody ^. Cardano.Ledger.Api.referenceInputsTxBodyL)
+                    & counterexample "Blueprint reference inputs missing"
                 ]
-            , depositTxBody ^. vldtTxBodyL === ValidityInterval{invalidBefore = SNothing, invalidHereafter = SJust depositSlot}
-                & counterexample "Validity range overridden by blueprint"
-            , (blueprintBody ^. inputsTxBodyL) `propIsSubsetOf` (depositTxBody ^. inputsTxBodyL)
-                & counterexample "Blueprint inputs missing"
-            , redeemerCount blueprintTx === redeemerCount createdTx
-                & counterexample "Blueprint redeemers missing"
-            , property
-                ((`all` (blueprintBody ^. outputsTxBodyL)) (`notElem` (depositTxBody ^. outputsTxBodyL)))
-                & counterexample "Blueprint outputs not discarded"
-            , (blueprintBody ^. Cardano.Ledger.Api.reqSignerHashesTxBodyL) `propIsSubsetOf` (depositTxBody ^. Cardano.Ledger.Api.reqSignerHashesTxBodyL)
-                & counterexample "Blueprint required signatures missing"
-            , (blueprintBody ^. Cardano.Ledger.Api.referenceInputsTxBodyL) `propIsSubsetOf` (depositTxBody ^. Cardano.Ledger.Api.referenceInputsTxBodyL)
-                & counterexample "Blueprint reference inputs missing"
-            ]
  where
   redeemerCount tx = length $ toLedgerTx tx ^. witsTxL . rdmrsTxWitsL & unRedeemers
 
   showChangeAddress Nothing = "No change address"
   showChangeAddress (Just a) = "Change address: " <> toString (serialiseAddress a)
+
+prop_rejectsUnderfundedDepositOutput :: Property
+prop_rejectsUnderfundedDepositOutput =
+  forAll (genUTxOAdaOnlyOfSize 1) $ \utxo ->
+    let inputUTxO = UTxO.map (modifyTxOutValue (const $ lovelaceToValue $ Coin 2_000_000)) utxo
+        depositOutput = mkDepositOutput testNetworkId headId inputUTxO depositDeadline
+        minimumDepositAda = calculateMinimumUTxO shelleyBasedEra Fixture.pparams (fromCtxUTxOTxOut depositOutput)
+        blueprintOutputAda = max (minimumDepositAda + Coin 10_000) (Coin 2_000_001)
+        blueprintOutputs = UTxO.map (modifyTxOutValue (const $ lovelaceToValue blueprintOutputAda)) inputUTxO
+        changeAddress = txOutAddress $ snd $ head $ UTxO.toList inputUTxO
+        blueprintTx =
+          unsafeBuildTransaction $
+            defaultTxBodyContent
+              & addTxInsSpending (toList $ UTxO.inputSet inputUTxO)
+              & addTxOuts (fromCtxUTxOTxOut <$> UTxO.txOutputs blueprintOutputs)
+     in case
+          depositTx
+            testNetworkId
+            Fixture.pparams
+            headId
+            CommitBlueprintTx{lookupUTxO = inputUTxO, blueprintTx}
+            0
+            depositDeadline
+            (Just changeAddress)
+        of
+          Left failureReason ->
+            property ("negative change value" `Text.isInfixOf` failureReason)
+              & counterexample ("Unexpected deposit failure: " <> toString failureReason)
+          Right tx ->
+            counterexample ("Expected underfunded deposit to fail, but built: " <> renderTxWithUTxO inputUTxO tx) False
+ where
+  depositDeadline = slotNoToUTCTime Fixture.systemStart Fixture.slotLength 100
+  headId = mkHeadId Fixture.testPolicyId
 
 -- | Check auxiliary data of a transaction against 'pparams' and whether the aux
 -- data hash is consistent.
